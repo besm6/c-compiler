@@ -87,12 +87,7 @@ void free_expression(Expr *expr)
         break;
     case EXPR_CALL:
         free_expression(expr->u.call.func);
-        Expr *arg = expr->u.call.args;
-        while (arg) {
-            Expr *next = arg->next;
-            free_expression(arg);
-            arg = next;
-        }
+        free_expression(expr->u.call.args);
         break;
     case EXPR_CAST:
         free_type(expr->u.cast.type);

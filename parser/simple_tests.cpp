@@ -91,17 +91,12 @@ TEST_F(ParserTest, ParseBinaryExpression)
 // Test function call: f(x, y)
 TEST_F(ParserTest, ParseFunctionCall)
 {
-    FILE *f          = CreateTempFile("f(x, y);");
-    Program *program = parse(f);
+    init_scanner(CreateTempFile("f(x, y);"));
+    next_token();
+    Expr *expr = parse_expression();
+    ASSERT_NE(expr, nullptr);
+    print_expression(stdout, expr, 0);
 
-    ASSERT_NE(nullptr, program);
-    ASSERT_NE(nullptr, program->decls);
-    EXPECT_EQ(EXTERNAL_DECL_DECLARATION, program->decls->kind);
-    Declaration *decl = program->decls->u.declaration;
-    EXPECT_EQ(DECL_VAR, decl->kind);
-    InitDeclarator *id = decl->u.var.declarators;
-    EXPECT_NE(nullptr, id);
-    Expr *expr = id->init->u.expr;
     EXPECT_EQ(EXPR_CALL, expr->kind);
     EXPECT_EQ(EXPR_VAR, expr->u.call.func->kind);
     EXPECT_STREQ("f", expr->u.call.func->u.var);
@@ -113,6 +108,8 @@ TEST_F(ParserTest, ParseFunctionCall)
     EXPECT_EQ(EXPR_VAR, args->next->kind);
     EXPECT_STREQ("y", args->next->u.var);
     EXPECT_EQ(nullptr, args->next->next);
+
+    free_expression(expr);
 }
 
 #if 0
