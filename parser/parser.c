@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "ast.h"
-#include "c-scanner.h"
+#include "scanner.h"
 
 /* Global lexer state */
 static int current_token;
@@ -128,9 +128,10 @@ StorageClass *new_storage_class(StorageClassKind kind)
 
 TypeSpec *new_type_spec(TypeSpecKind kind)
 {
-    TypeSpec *ts = malloc(sizeof(TypeSpec));
-    ts->kind     = kind;
-    ts->next     = NULL;
+    TypeSpec *ts   = malloc(sizeof(TypeSpec));
+    ts->kind       = kind;
+    ts->qualifiers = NULL;
+    ts->next       = NULL;
     return ts;
 }
 
@@ -162,6 +163,7 @@ Declarator *new_declarator(DeclaratorKind kind)
 {
     Declarator *d = malloc(sizeof(Declarator));
     d->kind       = kind;
+    d->next       = NULL;
     if (kind == DECLARATOR_NAMED) {
         d->u.named.name     = NULL;
         d->u.named.pointers = NULL;
@@ -213,7 +215,7 @@ Designator *new_designator(DesignatorKind kind)
     return d;
 }
 
-Expr *new_expr(ExprKind kind)
+Expr *new_expression(ExprKind kind)
 {
     Expr *e = malloc(sizeof(Expr));
     e->kind = kind;
@@ -366,7 +368,6 @@ TypeQualifier *parse_type_qualifier_list();
 ParamList *parse_parameter_type_list();
 Param *parse_parameter_list();
 Param *parse_parameter_declaration();
-Ident parse_identifier_list();
 Type *parse_type_name();
 Declarator *parse_abstract_declarator();
 Declarator *parse_direct_abstract_declarator();
@@ -395,7 +396,7 @@ Expr *parse_primary_expression()
     Expr *expr = NULL;
     switch (current_token) {
     case TOKEN_IDENTIFIER:
-        expr        = new_expr(EXPR_VAR);
+        expr        = new_expression(EXPR_VAR);
         expr->u.var = strdup(current_lexeme);
         next_token();
         break;
@@ -424,7 +425,7 @@ Expr *parse_primary_expression()
 
 Expr *parse_constant()
 {
-    Expr *expr      = new_expr(EXPR_LITERAL);
+    Expr *expr      = new_expression(EXPR_LITERAL);
     expr->u.literal = new_literal(current_token == TOKEN_I_CONSTANT   ? LITERAL_INT
                                   : current_token == TOKEN_F_CONSTANT ? LITERAL_FLOAT
                                                                       : LITERAL_ENUM);
@@ -445,7 +446,7 @@ Expr *parse_constant()
 
 Expr *parse_string()
 {
-    Expr *expr                    = new_expr(EXPR_LITERAL);
+    Expr *expr                    = new_expression(EXPR_LITERAL);
     expr->u.literal               = new_literal(LITERAL_STRING);
     expr->u.literal->u.string_val = strdup(current_lexeme);
     next_token();
@@ -460,7 +461,7 @@ Expr *parse_generic_selection()
     expect_token(TOKEN_COMMA);
     GenericAssoc *associations = parse_generic_assoc_list();
     expect_token(TOKEN_RPAREN);
-    Expr *expr                       = new_expr(EXPR_GENERIC);
+    Expr *expr                       = new_expression(EXPR_GENERIC);
     expr->u.generic.controlling_expr = controlling_expr;
     expr->u.generic.associations     = associations;
     return expr;
@@ -504,7 +505,7 @@ Expr *parse_postfix_expression()
             next_token();
             Expr *index = parse_expression();
             expect_token(TOKEN_RBRACKET);
-            Expr *new_expr              = new_expr(EXPR_BINARY_OP);
+            Expr *new_expr              = new_expression(EXPR_BINARY_OP);
             new_expr->u.binary_op.op    = new_binary_op(BINARY_ADD);
             new_expr->u.binary_op.left  = expr;
             new_expr->u.binary_op.right = index;
@@ -516,14 +517,14 @@ Expr *parse_postfix_expression()
                 args = parse_argument_expression_list();
             }
             expect_token(TOKEN_RPAREN);
-            Expr *new_expr        = new_expr(EXPR_CALL);
+            Expr *new_expr        = new_expression(EXPR_CALL);
             new_expr->u.call.func = expr;
             new_expr->u.call.args = args;
             expr                  = new_expr;
         } else if (current_token == TOKEN_DOT) {
             next_token();
             expect_token(TOKEN_IDENTIFIER);
-            Expr *new_expr                 = new_expr(EXPR_FIELD_ACCESS);
+            Expr *new_expr                 = new_expression(EXPR_FIELD_ACCESS);
             new_expr->u.field_access.expr  = expr;
             new_expr->u.field_access.field = strdup(current_lexeme);
             next_token();
@@ -531,19 +532,19 @@ Expr *parse_postfix_expression()
         } else if (current_token == TOKEN_PTR_OP) {
             next_token();
             expect_token(TOKEN_IDENTIFIER);
-            Expr *new_expr               = new_expr(EXPR_PTR_ACCESS);
+            Expr *new_expr               = new_expression(EXPR_PTR_ACCESS);
             new_expr->u.ptr_access.expr  = expr;
             new_expr->u.ptr_access.field = strdup(current_lexeme);
             next_token();
             expr = new_expr;
         } else if (current_token == TOKEN_INC_OP) {
             next_token();
-            Expr *new_expr       = new_expr(EXPR_POST_INC);
+            Expr *new_expr       = new_expression(EXPR_POST_INC);
             new_expr->u.post_inc = expr;
             expr                 = new_expr;
         } else if (current_token == TOKEN_DEC_OP) {
             next_token();
-            Expr *new_expr       = new_expr(EXPR_POST_DEC);
+            Expr *new_expr       = new_expression(EXPR_POST_DEC);
             new_expr->u.post_dec = expr;
             expr                 = new_expr;
         } else {
@@ -568,14 +569,14 @@ Expr *parse_unary_expression()
     if (current_token == TOKEN_INC_OP) {
         next_token();
         Expr *expr                = parse_unary_expression();
-        Expr *new_expr            = new_expr(EXPR_UNARY_OP);
+        Expr *new_expr            = new_expression(EXPR_UNARY_OP);
         new_expr->u.unary_op.op   = new_unary_op(UNARY_PRE_INC);
         new_expr->u.unary_op.expr = expr;
         return new_expr;
     } else if (current_token == TOKEN_DEC_OP) {
         next_token();
         Expr *expr                = parse_unary_expression();
-        Expr *new_expr            = new_expr(EXPR_UNARY_OP);
+        Expr *new_expr            = new_expression(EXPR_UNARY_OP);
         new_expr->u.unary_op.op   = new_unary_op(UNARY_PRE_DEC);
         new_expr->u.unary_op.expr = expr;
         return new_expr;
@@ -584,7 +585,7 @@ Expr *parse_unary_expression()
                current_token == TOKEN_TILDE || current_token == TOKEN_NOT) {
         UnaryOp *op               = parse_unary_operator();
         Expr *expr                = parse_cast_expression();
-        Expr *new_expr            = new_expr(EXPR_UNARY_OP);
+        Expr *new_expr            = new_expression(EXPR_UNARY_OP);
         new_expr->u.unary_op.op   = op;
         new_expr->u.unary_op.expr = expr;
         return new_expr;
@@ -595,12 +596,12 @@ Expr *parse_unary_expression()
             expect_token(TOKEN_LPAREN);
             Type *type = parse_type_name();
             expect_token(TOKEN_RPAREN);
-            Expr *new_expr          = new_expr(EXPR_SIZEOF_TYPE);
+            Expr *new_expr          = new_expression(EXPR_SIZEOF_TYPE);
             new_expr->u.sizeof_type = type;
             return new_expr;
         } else {
             Expr *expr              = parse_unary_expression();
-            Expr *new_expr          = new_expr(EXPR_SIZEOF_EXPR);
+            Expr *new_expr          = new_expression(EXPR_SIZEOF_EXPR);
             new_expr->u.sizeof_expr = expr;
             return new_expr;
         }
@@ -609,8 +610,8 @@ Expr *parse_unary_expression()
         expect_token(TOKEN_LPAREN);
         Type *type = parse_type_name();
         expect_token(TOKEN_RPAREN);
-        Expr *new_expr      = new_expr(EXPR_ALIGNOF);
-        new_expr->u.alignof = type;
+        Expr *new_expr       = new_expression(EXPR_ALIGNOF);
+        new_expr->u.align_of = type;
         return new_expr;
     } else {
         return parse_postfix_expression();
@@ -636,7 +637,7 @@ Expr *parse_cast_expression()
         Type *type = parse_type_name();
         expect_token(TOKEN_RPAREN);
         Expr *expr            = parse_cast_expression();
-        Expr *new_expr        = new_expr(EXPR_CAST);
+        Expr *new_expr        = new_expression(EXPR_CAST);
         new_expr->u.cast.type = type;
         new_expr->u.cast.expr = expr;
         return new_expr;
@@ -654,7 +655,7 @@ Expr *parse_multiplicative_expression()
                                                               : BINARY_MOD;
         next_token();
         Expr *right                 = parse_cast_expression();
-        Expr *new_expr              = new_expr(EXPR_BINARY_OP);
+        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(op_kind);
         new_expr->u.binary_op.left  = expr;
         new_expr->u.binary_op.right = right;
@@ -670,7 +671,7 @@ Expr *parse_additive_expression()
         BinaryOpKind op_kind = current_token == TOKEN_PLUS ? BINARY_ADD : BINARY_SUB;
         next_token();
         Expr *right                 = parse_multiplicative_expression();
-        Expr *new_expr              = new_expr(EXPR_BINARY_OP);
+        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(op_kind);
         new_expr->u.binary_op.left  = expr;
         new_expr->u.binary_op.right = right;
@@ -687,7 +688,7 @@ Expr *parse_shift_expression()
             current_token == TOKEN_LEFT_OP ? BINARY_LEFT_SHIFT : BINARY_RIGHT_SHIFT;
         next_token();
         Expr *right                 = parse_additive_expression();
-        Expr *new_expr              = new_expr(EXPR_BINARY_OP);
+        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(op_kind);
         new_expr->u.binary_op.left  = expr;
         new_expr->u.binary_op.right = right;
@@ -707,7 +708,7 @@ Expr *parse_relational_expression()
                                                               : BINARY_GE;
         next_token();
         Expr *right                 = parse_shift_expression();
-        Expr *new_expr              = new_expr(EXPR_BINARY_OP);
+        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(op_kind);
         new_expr->u.binary_op.left  = expr;
         new_expr->u.binary_op.right = right;
@@ -723,7 +724,7 @@ Expr *parse_equality_expression()
         BinaryOpKind op_kind = current_token == TOKEN_EQ_OP ? BINARY_EQ : BINARY_NE;
         next_token();
         Expr *right                 = parse_relational_expression();
-        Expr *new_expr              = new_expr(EXPR_BINARY_OP);
+        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(op_kind);
         new_expr->u.binary_op.left  = expr;
         new_expr->u.binary_op.right = right;
@@ -738,7 +739,7 @@ Expr *parse_and_expression()
     while (current_token == TOKEN_AMPERSAND) {
         next_token();
         Expr *right                 = parse_equality_expression();
-        Expr *new_expr              = new_expr(EXPR_BINARY_OP);
+        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(BINARY_BIT_AND);
         new_expr->u.binary_op.left  = expr;
         new_expr->u.binary_op.right = right;
@@ -753,7 +754,7 @@ Expr *parse_exclusive_or_expression()
     while (current_token == TOKEN_CARET) {
         next_token();
         Expr *right                 = parse_and_expression();
-        Expr *new_expr              = new_expr(EXPR_BINARY_OP);
+        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(BINARY_BIT_XOR);
         new_expr->u.binary_op.left  = expr;
         new_expr->u.binary_op.right = right;
@@ -768,7 +769,7 @@ Expr *parse_inclusive_or_expression()
     while (current_token == TOKEN_PIPE) {
         next_token();
         Expr *right                 = parse_exclusive_or_expression();
-        Expr *new_expr              = new_expr(EXPR_BINARY_OP);
+        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(BINARY_BIT_OR);
         new_expr->u.binary_op.left  = expr;
         new_expr->u.binary_op.right = right;
@@ -783,7 +784,7 @@ Expr *parse_logical_and_expression()
     while (current_token == TOKEN_AND_OP) {
         next_token();
         Expr *right                 = parse_inclusive_or_expression();
-        Expr *new_expr              = new_expr(EXPR_BINARY_OP);
+        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(BINARY_LOG_AND);
         new_expr->u.binary_op.left  = expr;
         new_expr->u.binary_op.right = right;
@@ -798,7 +799,7 @@ Expr *parse_logical_or_expression()
     while (current_token == TOKEN_OR_OP) {
         next_token();
         Expr *right                 = parse_logical_and_expression();
-        Expr *new_expr              = new_expr(EXPR_BINARY_OP);
+        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(BINARY_LOG_OR);
         new_expr->u.binary_op.left  = expr;
         new_expr->u.binary_op.right = right;
@@ -815,7 +816,7 @@ Expr *parse_conditional_expression()
         Expr *then_expr = parse_expression();
         expect_token(TOKEN_COLON);
         Expr *else_expr            = parse_conditional_expression();
-        Expr *new_expr             = new_expr(EXPR_COND);
+        Expr *new_expr             = new_expression(EXPR_COND);
         new_expr->u.cond.condition = expr;
         new_expr->u.cond.then_expr = then_expr;
         new_expr->u.cond.else_expr = else_expr;
@@ -835,7 +836,7 @@ Expr *parse_assignment_expression()
         current_token == TOKEN_OR_ASSIGN) {
         AssignOp *op              = parse_assignment_operator();
         Expr *value               = parse_assignment_expression();
-        Expr *new_expr            = new_expr(EXPR_ASSIGN);
+        Expr *new_expr            = new_expression(EXPR_ASSIGN);
         new_expr->u.assign.target = expr;
         new_expr->u.assign.op     = op;
         new_expr->u.assign.value  = value;
@@ -1019,19 +1020,21 @@ TypeSpec *parse_type_specifier()
         ts->u.basic = new_type(TYPE_IMAGINARY);
         next_token();
     } else if (current_token == TOKEN_ATOMIC) {
-        ts           = new_type_spec(TYPE_SPEC_ATOMIC);
-        ts->u.atomic = parse_atomic_type_specifier();
+        ts                = new_type_spec(TYPE_SPEC_ATOMIC);
+        ts->u.atomic.type = parse_atomic_type_specifier();
     } else if (current_token == TOKEN_STRUCT || current_token == TOKEN_UNION) {
         Type *type = parse_struct_or_union_specifier();
         ts         = new_type_spec(type->kind == TYPE_STRUCT ? TYPE_SPEC_STRUCT : TYPE_SPEC_UNION);
-        ts->u.struct_spec = type->u.struct_t;
+        ts->u.struct_spec.name   = type->u.struct_t.name;
+        ts->u.struct_spec.fields = type->u.struct_t.fields;
     } else if (current_token == TOKEN_ENUM) {
-        Type *type      = parse_enum_specifier();
-        ts              = new_type_spec(TYPE_SPEC_ENUM);
-        ts->u.enum_spec = type->u.enum_t;
+        Type *type                  = parse_enum_specifier();
+        ts                          = new_type_spec(TYPE_SPEC_ENUM);
+        ts->u.enum_spec.name        = type->u.enum_t.name;
+        ts->u.enum_spec.enumerators = type->u.enum_t.enumerators;
     } else if (current_token == TOKEN_TYPEDEF_NAME) {
-        ts                 = new_type_spec(TYPE_SPEC_TYPEDEF_NAME);
-        ts->u.typedef_name = strdup(current_lexeme);
+        ts                      = new_type_spec(TYPE_SPEC_TYPEDEF_NAME);
+        ts->u.typedef_name.name = strdup(current_lexeme);
         next_token();
     } else {
         parse_error("Expected type specifier");
@@ -1106,7 +1109,7 @@ TypeSpec *parse_specifier_qualifier_list()
             current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME ||
             current_token == TOKEN_ATOMIC) {
             TypeSpec *ts = parse_type_specifier();
-            append_list(&spec->type_specs, ts);
+            append_list(&spec, ts);
         } else if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
                    current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
             TypeQualifier *q = parse_type_qualifier();
@@ -1366,18 +1369,6 @@ Param *parse_parameter_declaration()
     return new_param(NULL, spec->type_specs ? spec->type_specs->u.basic : NULL);
 }
 
-Ident parse_identifier_list()
-{
-    expect_token(TOKEN_IDENTIFIER);
-    Ident id = strdup(current_lexeme);
-    next_token();
-    if (current_token == TOKEN_COMMA) {
-        next_token();
-        id->next = parse_identifier_list();
-    }
-    return id;
-}
-
 Type *parse_type_name()
 {
     TypeSpec *spec = parse_specifier_qualifier_list();
@@ -1538,8 +1529,8 @@ Declaration *parse_static_assert_declaration()
     expect_token(TOKEN_RPAREN);
     expect_token(TOKEN_SEMICOLON);
     Declaration *decl               = new_declaration(DECL_STATIC_ASSERT);
-    decl->u.static_assert.condition = condition;
-    decl->u.static_assert.message   = message;
+    decl->u.static_assrt.condition = condition;
+    decl->u.static_assrt.message   = message;
     return decl;
 }
 

@@ -1,8 +1,13 @@
 #ifndef AST_H
 #define AST_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdio.h>
 
 /* Forward declarations for recursive types */
 typedef struct Type Type;
@@ -166,7 +171,7 @@ struct Declaration {
         struct {
             Expr *condition;
             char *message;
-        } static_assert;
+        } static_assrt;
     } u;
     Declaration *next; /* linked list for declaration_list */
 };
@@ -220,7 +225,8 @@ struct TypeSpec {
             Type *type;
         } atomic;
     } u;
-    TypeSpec *next; /* linked list */
+    TypeQualifier *qualifiers; /* attributes */
+    TypeSpec *next;            /* linked list */
 };
 
 typedef enum { FUNC_SPEC_INLINE, FUNC_SPEC_NORETURN } FunctionSpecKind;
@@ -261,6 +267,7 @@ struct Declarator {
             DeclaratorSuffix *suffixes;
         } abstract;
     } u;
+    Declarator *next; /* linked list */
 };
 
 struct Pointer {
@@ -382,7 +389,7 @@ struct Expr {
         Expr *post_dec;
         Expr *sizeof_expr;
         Type *sizeof_type;
-        Type * alignof;
+        Type * align_of;
         struct {
             Expr *controlling_expr;
             GenericAssoc *associations;
@@ -577,5 +584,11 @@ struct ExternalDecl {
     } u;
     ExternalDecl *next; /* linked list */
 };
+
+Program *parse(FILE *input);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* AST_H */

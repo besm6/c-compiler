@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "ast.h"
-#include "c-scanner.h"
+#include "scanner.h"
 
 // Mock lexer
 class MockScanner
@@ -779,7 +779,7 @@ TEST_F(ParserTest, ParseAlignof)
     Stmt *stmt = GetStatement(program);
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_ALIGNOF, stmt->u.expr->kind);
-    EXPECT_EQ(TYPE_INT, stmt->u.expr->u.alignof->kind);
+    EXPECT_EQ(TYPE_INT, stmt->u.expr->u.align_of->kind);
 }
 
 // Test binary operator: x * y

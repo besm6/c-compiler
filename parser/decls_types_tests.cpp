@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "ast.h"
-#include "c-scanner.h"
+#include "scanner.h"
 
 // Mock lexer
 class MockScanner
@@ -204,10 +204,10 @@ TEST_F(ParserTest, ParseStaticAssertDeclaration)
     EXPECT_EQ(EXTERNAL_DECL_DECLARATION, ext->kind);
     Declaration *decl = ext->u.declaration;
     EXPECT_EQ(DECL_STATIC_ASSERT, decl->kind);
-    EXPECT_EQ(EXPR_LITERAL, decl->u.static_assert.condition->kind);
-    EXPECT_EQ(LITERAL_INT, decl->u.static_assert.condition->u.literal->kind);
-    EXPECT_EQ(1, decl->u.static_assert.condition->u.literal->u.int_val);
-    EXPECT_STREQ("msg", decl->u.static_assert.message);
+    EXPECT_EQ(EXPR_LITERAL, decl->u.static_assrt.condition->kind);
+    EXPECT_EQ(LITERAL_INT, decl->u.static_assrt.condition->u.literal->kind);
+    EXPECT_EQ(1, decl->u.static_assrt.condition->u.literal->u.int_val);
+    EXPECT_STREQ("msg", decl->u.static_assrt.message);
 }
 
 // Test function definition: int f() {}

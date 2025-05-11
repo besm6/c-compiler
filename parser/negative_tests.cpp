@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "ast.h"
-#include "c-scanner.h"
+#include "scanner.h"
 
 // Mock lexer
 class MockScanner

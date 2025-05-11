@@ -105,6 +105,8 @@ enum {
     TOKEN_CARET,            // ^
     TOKEN_PIPE,             // |
     TOKEN_QUESTION,         // ?
+    TOKEN_TYPEDEF_NAME,
+    TOKEN_ENUMERATION_CONSTANT,
 };
 
 void init_scanner(FILE *input);
