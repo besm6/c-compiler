@@ -7,6 +7,7 @@ static void free_expr(Expr *expr);
 static void free_stmt(Stmt *stmt);
 static void free_declaration(Declaration *decl);
 static void free_external_decl(ExternalDecl *ext);
+static void free_initializer(Initializer *init);
 
 // Free Type
 static void free_type(Type *type)
@@ -31,6 +32,31 @@ static void free_literal(Literal *lit)
         free(lit->u.string_val);
     }
     free(lit);
+}
+
+// Free Designator
+static void free_designator(Designator *designator)
+{
+    while (designator) {
+        Designator *next = designator->next;
+        if (designator->kind == DESIGNATOR_ARRAY) {
+            free_expr(designator->u.expr);
+        }
+        free(designator);
+        designator = next;
+    }
+}
+
+// Free InitItem
+static void free_init_item(InitItem *init_item)
+{
+    while (init_item) {
+        InitItem *next = init_item->next;
+        free_designator(init_item->designators);
+        free_initializer(init_item->init);
+        free(init_item);
+        init_item = next;
+    }
 }
 
 // Free Expr
@@ -73,15 +99,8 @@ static void free_expr(Expr *expr)
         free_expr(expr->u.cast.expr);
         break;
     case EXPR_COMPOUND:
-        Initializer *init = expr->u.compound;
-        while (init) {
-            Initializer *next = init->next;
-            if (init->kind == INITIALIZER_SINGLE) {
-                free_expr(init->u.expr);
-            }
-            free(init);
-            init = next;
-        }
+        free_type(expr->u.compound_literal.type);
+        free_init_item(expr->u.compound_literal.init);
         break;
     case EXPR_SIZEOF_EXPR:
         free_expr(expr->u.sizeof_expr);
@@ -90,18 +109,37 @@ static void free_expr(Expr *expr)
         free_type(expr->u.sizeof_type);
         break;
     case EXPR_ALIGNOF:
-        free_type(expr->u.alignof);
+        free_type(expr->u.align_of);
         break;
     case EXPR_GENERIC:
-        free_expr(expr->u.generic.control);
-        GenericAssoc *assoc = expr->u.generic.assocs;
+        free_expr(expr->u.generic.controlling_expr);
+        GenericAssoc *assoc = expr->u.generic.associations;
         while (assoc) {
             GenericAssoc *next = assoc->next;
-            free_type(assoc->type);
-            free_expr(assoc->expr);
+            if (assoc->kind == GENERIC_ASSOC_TYPE) {
+                free_type(assoc->u.type_assoc.type);
+                free_expr(assoc->u.type_assoc.expr);
+            } else {
+                free_expr(assoc->u.default_assoc);
+            }
             free(assoc);
             assoc = next;
         }
+        break;
+    case EXPR_ASSIGN:
+        free_expr(expr->u.assign.target);
+        free_expr(expr->u.assign.value);
+        break;
+    case EXPR_COND:
+        free_expr(expr->u.cond.condition);
+        free_expr(expr->u.cond.then_expr);
+        free_expr(expr->u.cond.else_expr);
+        break;
+    case EXPR_FIELD_ACCESS:
+        free_expr(expr->u.field_access.expr);
+        break;
+    case EXPR_PTR_ACCESS:
+        free_expr(expr->u.ptr_access.expr);
         break;
     }
     Expr *next = expr->next;
@@ -117,9 +155,9 @@ static void free_declarator(Declarator *decl)
     if (decl->kind == DECLARATOR_NAMED) {
         if (decl->u.named.name)
             free(decl->u.named.name);
-        DeclSuffix *suffix = decl->u.named.suffixes;
+        DeclaratorSuffix *suffix = decl->u.named.suffixes;
         while (suffix) {
-            DeclSuffix *next = suffix->next;
+            DeclaratorSuffix *next = suffix->next;
             if (suffix->kind == SUFFIX_ARRAY) {
                 free_expr(suffix->u.array.size);
             } else if (suffix->kind == SUFFIX_FUNCTION) {
@@ -151,6 +189,8 @@ static void free_initializer(Initializer *init)
         return;
     if (init->kind == INITIALIZER_SINGLE) {
         free_expr(init->u.expr);
+    } else {
+        free_init_item(init->u.items);
     }
     free(init);
 }
@@ -171,9 +211,9 @@ static void free_decl_spec(DeclSpec *spec)
         case TYPE_SPEC_UNION:
             if (spec->type_specs->u.struct_spec.name)
                 free(spec->type_specs->u.struct_spec.name);
-            StructField *field = spec->type_specs->u.struct_spec.fields;
+            Field *field = spec->type_specs->u.struct_spec.fields;
             while (field) {
-                StructField *next = field->next;
+                Field *next = field->next;
                 if (!field->is_anonymous) {
                     if (field->u.named.name)
                         free(field->u.named.name);
@@ -197,12 +237,11 @@ static void free_decl_spec(DeclSpec *spec)
             }
             break;
         case TYPE_SPEC_TYPEDEF_NAME:
-            if (spec->type_specs->u.typedef_name)
-                free(spec->type_specs->u.typedef_name);
+            if (spec->type_specs->u.typedef_name.name)
+                free(spec->type_specs->u.typedef_name.name);
             break;
         case TYPE_SPEC_ATOMIC:
-            free_type(spec->type_specs->u.atomic->u.atomic.base);
-            free(spec->type_specs->u.atomic);
+            free_type(spec->type_specs->u.atomic.type);
             break;
         }
         free(spec->type_specs);
@@ -249,9 +288,9 @@ static void free_declaration(Declaration *decl)
         free_init_declarator(decl->u.var.declarators);
         break;
     case DECL_STATIC_ASSERT:
-        free_expr(decl->u.static_assert.condition);
-        if (decl->u.static_assert.message)
-            free(decl->u.static_assert.message);
+        free_expr(decl->u.static_assrt.condition);
+        if (decl->u.static_assrt.message)
+            free(decl->u.static_assrt.message);
         break;
     case DECL_EMPTY:
         free_decl_spec(decl->u.var.specifiers);
@@ -321,7 +360,7 @@ static void free_stmt(Stmt *stmt)
     case STMT_DEFAULT:
         free_stmt(stmt->u.default_stmt);
         break;
-    case STMT_COMPOUND:
+    case STMT_COMPOUND: {
         DeclOrStmt *item = stmt->u.compound;
         while (item) {
             DeclOrStmt *next = item->next;
@@ -334,6 +373,7 @@ static void free_stmt(Stmt *stmt)
             item = next;
         }
         break;
+    }
     }
     free(stmt);
 }
