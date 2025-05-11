@@ -72,23 +72,20 @@ TEST_F(ParserTest, ParseIntegerConstant)
 // Test binary expression: x + y
 TEST_F(ParserTest, ParseBinaryExpression)
 {
-    FILE *f          = CreateTempFile("x + y;");
-    Program *program = parse(f);
+    init_scanner(CreateTempFile("x + y;"));
+    next_token();
+    Expr *expr = parse_expression();
+    ASSERT_NE(expr, nullptr);
+    print_expression(stdout, expr, 0);
 
-    ASSERT_NE(nullptr, program);
-    ASSERT_NE(nullptr, program->decls);
-    EXPECT_EQ(EXTERNAL_DECL_DECLARATION, program->decls->kind);
-    Declaration *decl = program->decls->u.declaration;
-    EXPECT_EQ(DECL_VAR, decl->kind);
-    InitDeclarator *id = decl->u.var.declarators;
-    EXPECT_NE(nullptr, id);
-    Expr *expr = id->init->u.expr;
     EXPECT_EQ(EXPR_BINARY_OP, expr->kind);
     EXPECT_EQ(BINARY_ADD, expr->u.binary_op.op->kind);
     EXPECT_EQ(EXPR_VAR, expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, expr->u.binary_op.right->kind);
     EXPECT_STREQ("y", expr->u.binary_op.right->u.var);
+
+    free_expression(expr);
 }
 
 // Test function call: f(x, y)
