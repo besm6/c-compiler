@@ -60,7 +60,7 @@ static const char *unary_op_kind_str[] = {
 
 // Forward declarations
 void print_expression(FILE *fd, Expr *expr, int indent);
-static void print_stmt(FILE *fd, Stmt *stmt, int indent);
+void print_statement(FILE *fd, Stmt *stmt, int indent);
 static void print_declaration(FILE *fd, Declaration *decl, int indent);
 static void print_external_decl(FILE *fd, ExternalDecl *ext, int indent);
 
@@ -510,7 +510,7 @@ static void print_declaration(FILE *fd, Declaration *decl, int indent)
 }
 
 // Print Stmt
-static void print_stmt(FILE *fd, Stmt *stmt, int indent)
+void print_statement(FILE *fd, Stmt *stmt, int indent)
 {
     if (!stmt) {
         print_indent(fd, indent);
@@ -529,11 +529,11 @@ static void print_stmt(FILE *fd, Stmt *stmt, int indent)
         print_expression(fd, stmt->u.if_stmt.condition, indent + 4);
         print_indent(fd, indent + 2);
         fprintf(fd, "Then:\n");
-        print_stmt(fd, stmt->u.if_stmt.then_stmt, indent + 4);
+        print_statement(fd, stmt->u.if_stmt.then_stmt, indent + 4);
         if (stmt->u.if_stmt.else_stmt) {
             print_indent(fd, indent + 2);
             fprintf(fd, "Else:\n");
-            print_stmt(fd, stmt->u.if_stmt.else_stmt, indent + 4);
+            print_statement(fd, stmt->u.if_stmt.else_stmt, indent + 4);
         }
         break;
     case STMT_SWITCH:
@@ -542,7 +542,7 @@ static void print_stmt(FILE *fd, Stmt *stmt, int indent)
         print_expression(fd, stmt->u.switch_stmt.expr, indent + 4);
         print_indent(fd, indent + 2);
         fprintf(fd, "Body:\n");
-        print_stmt(fd, stmt->u.switch_stmt.body, indent + 4);
+        print_statement(fd, stmt->u.switch_stmt.body, indent + 4);
         break;
     case STMT_WHILE:
         print_indent(fd, indent + 2);
@@ -550,12 +550,12 @@ static void print_stmt(FILE *fd, Stmt *stmt, int indent)
         print_expression(fd, stmt->u.while_stmt.condition, indent + 4);
         print_indent(fd, indent + 2);
         fprintf(fd, "Body:\n");
-        print_stmt(fd, stmt->u.while_stmt.body, indent + 4);
+        print_statement(fd, stmt->u.while_stmt.body, indent + 4);
         break;
     case STMT_DO_WHILE:
         print_indent(fd, indent + 2);
         fprintf(fd, "Body:\n");
-        print_stmt(fd, stmt->u.do_while.body, indent + 4);
+        print_statement(fd, stmt->u.do_while.body, indent + 4);
         print_indent(fd, indent + 2);
         fprintf(fd, "Condition:\n");
         print_expression(fd, stmt->u.do_while.condition, indent + 4);
@@ -576,7 +576,7 @@ static void print_stmt(FILE *fd, Stmt *stmt, int indent)
         print_expression(fd, stmt->u.for_stmt.update, indent + 4);
         print_indent(fd, indent + 2);
         fprintf(fd, "Body:\n");
-        print_stmt(fd, stmt->u.for_stmt.body, indent + 4);
+        print_statement(fd, stmt->u.for_stmt.body, indent + 4);
         break;
     case STMT_GOTO:
         print_indent(fd, indent + 2);
@@ -598,18 +598,18 @@ static void print_stmt(FILE *fd, Stmt *stmt, int indent)
     case STMT_LABELED:
         print_indent(fd, indent + 2);
         fprintf(fd, "Label: \"%s\"\n", stmt->u.labeled.label);
-        print_stmt(fd, stmt->u.labeled.stmt, indent + 2);
+        print_statement(fd, stmt->u.labeled.stmt, indent + 2);
         break;
     case STMT_CASE:
         print_indent(fd, indent + 2);
         fprintf(fd, "Case:\n");
         print_expression(fd, stmt->u.case_stmt.expr, indent + 4);
-        print_stmt(fd, stmt->u.case_stmt.stmt, indent + 4);
+        print_statement(fd, stmt->u.case_stmt.stmt, indent + 4);
         break;
     case STMT_DEFAULT:
         print_indent(fd, indent + 2);
         fprintf(fd, "Default:\n");
-        print_stmt(fd, stmt->u.default_stmt, indent + 4);
+        print_statement(fd, stmt->u.default_stmt, indent + 4);
         break;
     case STMT_COMPOUND:
         print_indent(fd, indent + 2);
@@ -620,7 +620,7 @@ static void print_stmt(FILE *fd, Stmt *stmt, int indent)
             if (item->kind == DECL_OR_STMT_DECL) {
                 print_declaration(fd, item->u.decl, indent + 6);
             } else {
-                print_stmt(fd, item->u.stmt, indent + 6);
+                print_statement(fd, item->u.stmt, indent + 6);
             }
         }
         break;
@@ -642,7 +642,7 @@ static void print_external_decl(FILE *fd, ExternalDecl *ext, int indent)
         fprintf(fd, "Function\n");
         print_decl_spec(fd, ext->u.function.specifiers, indent + 2);
         print_declarator(fd, ext->u.function.declarator, indent + 2);
-        print_stmt(fd, ext->u.function.body, indent + 2);
+        print_statement(fd, ext->u.function.body, indent + 2);
         break;
     case EXTERNAL_DECL_DECLARATION:
         fprintf(fd, "Declaration\n");

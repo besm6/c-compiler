@@ -4,7 +4,7 @@
 
 // Forward declarations
 void free_expression(Expr *expr);
-static void free_stmt(Stmt *stmt);
+void free_statement(Stmt *stmt);
 static void free_declaration(Declaration *decl);
 static void free_external_decl(ExternalDecl *ext);
 static void free_initializer(Initializer *init);
@@ -295,7 +295,7 @@ static void free_declaration(Declaration *decl)
 }
 
 // Free Stmt
-static void free_stmt(Stmt *stmt)
+void free_statement(Stmt *stmt)
 {
     if (!stmt)
         return;
@@ -305,19 +305,19 @@ static void free_stmt(Stmt *stmt)
         break;
     case STMT_IF:
         free_expression(stmt->u.if_stmt.condition);
-        free_stmt(stmt->u.if_stmt.then_stmt);
-        free_stmt(stmt->u.if_stmt.else_stmt);
+        free_statement(stmt->u.if_stmt.then_stmt);
+        free_statement(stmt->u.if_stmt.else_stmt);
         break;
     case STMT_SWITCH:
         free_expression(stmt->u.switch_stmt.expr);
-        free_stmt(stmt->u.switch_stmt.body);
+        free_statement(stmt->u.switch_stmt.body);
         break;
     case STMT_WHILE:
         free_expression(stmt->u.while_stmt.condition);
-        free_stmt(stmt->u.while_stmt.body);
+        free_statement(stmt->u.while_stmt.body);
         break;
     case STMT_DO_WHILE:
-        free_stmt(stmt->u.do_while.body);
+        free_statement(stmt->u.do_while.body);
         free_expression(stmt->u.do_while.condition);
         break;
     case STMT_FOR:
@@ -331,7 +331,7 @@ static void free_stmt(Stmt *stmt)
         }
         free_expression(stmt->u.for_stmt.condition);
         free_expression(stmt->u.for_stmt.update);
-        free_stmt(stmt->u.for_stmt.body);
+        free_statement(stmt->u.for_stmt.body);
         break;
     case STMT_GOTO:
         if (stmt->u.goto_label)
@@ -346,14 +346,14 @@ static void free_stmt(Stmt *stmt)
     case STMT_LABELED:
         if (stmt->u.labeled.label)
             free(stmt->u.labeled.label);
-        free_stmt(stmt->u.labeled.stmt);
+        free_statement(stmt->u.labeled.stmt);
         break;
     case STMT_CASE:
         free_expression(stmt->u.case_stmt.expr);
-        free_stmt(stmt->u.case_stmt.stmt);
+        free_statement(stmt->u.case_stmt.stmt);
         break;
     case STMT_DEFAULT:
-        free_stmt(stmt->u.default_stmt);
+        free_statement(stmt->u.default_stmt);
         break;
     case STMT_COMPOUND: {
         DeclOrStmt *item = stmt->u.compound;
@@ -362,7 +362,7 @@ static void free_stmt(Stmt *stmt)
             if (item->kind == DECL_OR_STMT_DECL) {
                 free_declaration(item->u.decl);
             } else {
-                free_stmt(item->u.stmt);
+                free_statement(item->u.stmt);
             }
             free(item);
             item = next;
@@ -382,7 +382,7 @@ static void free_external_decl(ExternalDecl *ext)
     case EXTERNAL_DECL_FUNCTION:
         free_decl_spec(ext->u.function.specifiers);
         free_declarator(ext->u.function.declarator);
-        free_stmt(ext->u.function.body);
+        free_statement(ext->u.function.body);
         break;
     case EXTERNAL_DECL_DECLARATION:
         free_declaration(ext->u.declaration);

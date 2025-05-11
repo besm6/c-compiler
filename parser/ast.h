@@ -594,12 +594,15 @@ void next_token(void);
 Declarator *parse_declarator(void);
 Expr *parse_primary_expression(void);
 Expr *parse_expression(void);
+Stmt *parse_statement(void);
 
 void print_declarator(FILE *fd, Declarator *decl, int indent);
 void print_expression(FILE *fd, Expr *expr, int indent);
+void print_statement(FILE *fd, Stmt *stmt, int indent);
 
 void free_declarator(Declarator *decl);
 void free_expression(Expr *expr);
+void free_statement(Stmt *stmt);
 #endif
 
 #ifdef __cplusplus

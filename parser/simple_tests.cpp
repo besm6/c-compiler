@@ -112,24 +112,15 @@ TEST_F(ParserTest, ParseFunctionCall)
     free_expression(expr);
 }
 
-#if 0
 // Test if statement: if (x) return y;
 TEST_F(ParserTest, ParseIfStatement)
 {
-    FILE *f          = CreateTempFile("if (x) return y;");
-    Program *program = parse(f);
+    init_scanner(CreateTempFile("if (x) return y;"));
+    next_token();
+    Stmt *stmt = parse_statement();
+    ASSERT_NE(stmt, nullptr);
+    print_statement(stdout, stmt, 0);
 
-    ASSERT_NE(nullptr, program);
-    ASSERT_NE(nullptr, program->decls);
-    EXPECT_EQ(EXTERNAL_DECL_DECLARATION, program->decls->kind);
-
-    Declaration *decl = program->decls->u.declaration;
-    EXPECT_EQ(DECL_VAR, decl->kind);
-
-    InitDeclarator *id = decl->u.var.declarators;
-    EXPECT_NE(nullptr, id);
-
-    Stmt *stmt = id->init->u.expr->u.call.func; // TODO
     EXPECT_EQ(STMT_IF, stmt->kind);
     EXPECT_EQ(EXPR_VAR, stmt->u.if_stmt.condition->kind);
     EXPECT_STREQ("x", stmt->u.if_stmt.condition->u.var);
@@ -137,8 +128,9 @@ TEST_F(ParserTest, ParseIfStatement)
     EXPECT_EQ(EXPR_VAR, stmt->u.if_stmt.then_stmt->u.expr->kind);
     EXPECT_STREQ("y", stmt->u.if_stmt.then_stmt->u.expr->u.var);
     EXPECT_EQ(nullptr, stmt->u.if_stmt.else_stmt);
+
+    free_statement(stmt);
 }
-#endif
 
 // Test variable declaration: int x = 42;
 TEST_F(ParserTest, ParseVariableDeclaration)
