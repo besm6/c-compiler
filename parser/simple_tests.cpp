@@ -38,18 +38,20 @@ protected:
 // Test primary expression: identifier
 TEST_F(ParserTest, ParseIdentifier)
 {
-    Program *program = parse(CreateTempFile("x"));
-    print_ast(stdout, program);
-    free_ast(program);
+    init_scanner(CreateTempFile("x"));
+    next_token();
 
-    ASSERT_NE(nullptr, program);
-    ASSERT_NE(nullptr, program->decls);
-    EXPECT_EQ(EXTERNAL_DECL_DECLARATION, program->decls->kind);
-    Declaration *decl = program->decls->u.declaration;
-    EXPECT_EQ(DECL_VAR, decl->kind);
-    InitDeclarator *id = decl->u.var.declarators;
-    EXPECT_NE(nullptr, id);
-    EXPECT_STREQ("x", id->declarator->u.named.name);
+    Declarator *decl = parse_declarator();
+    ASSERT_NE(decl, nullptr);
+    print_declarator(stdout, decl, 0);
+
+    EXPECT_EQ(decl->kind, DECLARATOR_NAMED);
+    ASSERT_EQ(decl->next, nullptr);
+    ASSERT_STREQ(decl->u.named.name, "x");
+    ASSERT_EQ(decl->u.named.pointers, nullptr);
+    ASSERT_EQ(decl->u.named.suffixes, nullptr);
+
+    free_declarator(decl);
 }
 
 // Test primary expression: integer constant

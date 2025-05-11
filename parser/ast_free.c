@@ -148,7 +148,7 @@ static void free_expr(Expr *expr)
 }
 
 // Free Declarator
-static void free_declarator(Declarator *decl)
+void free_declarator(Declarator *decl)
 {
     if (!decl)
         return;

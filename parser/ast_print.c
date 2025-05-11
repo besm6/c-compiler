@@ -263,7 +263,7 @@ static void print_expr(FILE *fd, Expr *expr, int indent)
 }
 
 // Print Declarator
-static void print_declarator(FILE *fd, Declarator *decl, int indent)
+void print_declarator(FILE *fd, Declarator *decl, int indent)
 {
     if (!decl) {
         print_indent(fd, indent);

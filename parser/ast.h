@@ -589,6 +589,15 @@ Program *parse(FILE *input);
 void print_ast(FILE *fd, Program *program);
 void free_ast(Program* program);
 
+#ifdef GTEST_API_
+void next_token(void);
+Declarator *parse_declarator(void);
+
+void print_declarator(FILE *fd, Declarator *decl, int indent);
+
+void free_declarator(Declarator *decl);
+#endif
+
 #ifdef __cplusplus
 }
 #endif

@@ -10,6 +10,7 @@ static FILE *input_file;
 static char yytext[1024]; // Buffer for current lexeme
 static int yyleng = 0;    // Length of current lexeme
 static int next_char;     // Lookahead character
+static int debug = 1;     // Set manually to enable debug output
 
 // Function prototypes
 static void consume_char(void);
@@ -36,12 +37,11 @@ void init_scanner(FILE *input)
 // Main lexer function
 int yylex(void)
 {
+again:
     if (next_char == EOF) {
         return TOKEN_EOF; // End of input
     }
-
     skip_whitespace();
-
     if (next_char == EOF) {
         return TOKEN_EOF;
     }
@@ -54,12 +54,12 @@ int yylex(void)
         consume_char();
         if (next_char == '*') {
             skip_comment();
-            return yylex(); // Recurse after skipping comment
+            goto again; // Recurse after skipping comment
         } else if (next_char == '/') {
             while (next_char != '\n' && next_char != EOF) {
                 consume_char();
             }
-            return yylex(); // Recurse after skipping line comment
+            goto again; // Recurse after skipping line comment
         } else {
             unget_char();
             next_char = '/';
@@ -67,18 +67,23 @@ int yylex(void)
     }
 
     // Scan tokens
+    int token;
     if (isalpha(next_char) || next_char == '_') {
-        return scan_identifier();
+        token = scan_identifier();
     } else if (isdigit(next_char)) {
         // TODO: in scan_number() when next_char == '0' && (next_char == 'x' || next_char == 'X')
-        return scan_number();
+        token = scan_number();
     } else if (next_char == '"') {
-        return scan_string();
+        token = scan_string();
     } else if (next_char == '\'') {
-        return scan_char();
+        token = scan_char();
     } else {
-        return scan_operator();
+        token = scan_operator();
     }
+    if (debug) {
+        printf("--- token %d '%s'\n", token, yytext);
+    }
+    return token;
 }
 
 // Consume a character and add to yytext
