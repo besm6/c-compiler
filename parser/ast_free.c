@@ -3,7 +3,7 @@
 #include "ast.h"
 
 // Forward declarations
-static void free_expr(Expr *expr);
+void free_expression(Expr *expr);
 static void free_stmt(Stmt *stmt);
 static void free_declaration(Declaration *decl);
 static void free_external_decl(ExternalDecl *ext);
@@ -40,7 +40,7 @@ static void free_designator(Designator *designator)
     while (designator) {
         Designator *next = designator->next;
         if (designator->kind == DESIGNATOR_ARRAY) {
-            free_expr(designator->u.expr);
+            free_expression(designator->u.expr);
         }
         free(designator);
         designator = next;
@@ -60,7 +60,7 @@ static void free_init_item(InitItem *init_item)
 }
 
 // Free Expr
-static void free_expr(Expr *expr)
+void free_expression(Expr *expr)
 {
     if (!expr)
         return;
@@ -74,36 +74,36 @@ static void free_expr(Expr *expr)
         break;
     case EXPR_BINARY_OP:
         free(expr->u.binary_op.op);
-        free_expr(expr->u.binary_op.left);
-        free_expr(expr->u.binary_op.right);
+        free_expression(expr->u.binary_op.left);
+        free_expression(expr->u.binary_op.right);
         break;
     case EXPR_UNARY_OP:
         free(expr->u.unary_op.op);
-        free_expr(expr->u.unary_op.expr);
+        free_expression(expr->u.unary_op.expr);
         break;
     case EXPR_POST_INC:
     case EXPR_POST_DEC:
-        free_expr(expr->u.post_inc);
+        free_expression(expr->u.post_inc);
         break;
     case EXPR_CALL:
-        free_expr(expr->u.call.func);
+        free_expression(expr->u.call.func);
         Expr *arg = expr->u.call.args;
         while (arg) {
             Expr *next = arg->next;
-            free_expr(arg);
+            free_expression(arg);
             arg = next;
         }
         break;
     case EXPR_CAST:
         free_type(expr->u.cast.type);
-        free_expr(expr->u.cast.expr);
+        free_expression(expr->u.cast.expr);
         break;
     case EXPR_COMPOUND:
         free_type(expr->u.compound_literal.type);
         free_init_item(expr->u.compound_literal.init);
         break;
     case EXPR_SIZEOF_EXPR:
-        free_expr(expr->u.sizeof_expr);
+        free_expression(expr->u.sizeof_expr);
         break;
     case EXPR_SIZEOF_TYPE:
         free_type(expr->u.sizeof_type);
@@ -112,39 +112,39 @@ static void free_expr(Expr *expr)
         free_type(expr->u.align_of);
         break;
     case EXPR_GENERIC:
-        free_expr(expr->u.generic.controlling_expr);
+        free_expression(expr->u.generic.controlling_expr);
         GenericAssoc *assoc = expr->u.generic.associations;
         while (assoc) {
             GenericAssoc *next = assoc->next;
             if (assoc->kind == GENERIC_ASSOC_TYPE) {
                 free_type(assoc->u.type_assoc.type);
-                free_expr(assoc->u.type_assoc.expr);
+                free_expression(assoc->u.type_assoc.expr);
             } else {
-                free_expr(assoc->u.default_assoc);
+                free_expression(assoc->u.default_assoc);
             }
             free(assoc);
             assoc = next;
         }
         break;
     case EXPR_ASSIGN:
-        free_expr(expr->u.assign.target);
-        free_expr(expr->u.assign.value);
+        free_expression(expr->u.assign.target);
+        free_expression(expr->u.assign.value);
         break;
     case EXPR_COND:
-        free_expr(expr->u.cond.condition);
-        free_expr(expr->u.cond.then_expr);
-        free_expr(expr->u.cond.else_expr);
+        free_expression(expr->u.cond.condition);
+        free_expression(expr->u.cond.then_expr);
+        free_expression(expr->u.cond.else_expr);
         break;
     case EXPR_FIELD_ACCESS:
-        free_expr(expr->u.field_access.expr);
+        free_expression(expr->u.field_access.expr);
         break;
     case EXPR_PTR_ACCESS:
-        free_expr(expr->u.ptr_access.expr);
+        free_expression(expr->u.ptr_access.expr);
         break;
     }
     Expr *next = expr->next;
     free(expr);
-    free_expr(next);
+    free_expression(next);
 }
 
 // Free Declarator
@@ -159,7 +159,7 @@ void free_declarator(Declarator *decl)
         while (suffix) {
             DeclaratorSuffix *next = suffix->next;
             if (suffix->kind == SUFFIX_ARRAY) {
-                free_expr(suffix->u.array.size);
+                free_expression(suffix->u.array.size);
             } else if (suffix->kind == SUFFIX_FUNCTION) {
                 ParamList *params = suffix->u.function.params;
                 if (!params->is_empty) {
@@ -188,7 +188,7 @@ static void free_initializer(Initializer *init)
     if (!init)
         return;
     if (init->kind == INITIALIZER_SINGLE) {
-        free_expr(init->u.expr);
+        free_expression(init->u.expr);
     } else {
         free_init_item(init->u.items);
     }
@@ -231,7 +231,7 @@ static void free_decl_spec(DeclSpec *spec)
                 Enumerator *next = e->next;
                 if (e->name)
                     free(e->name);
-                free_expr(e->value);
+                free_expression(e->value);
                 free(e);
                 e = next;
             }
@@ -258,7 +258,7 @@ static void free_decl_spec(DeclSpec *spec)
         if (spec->align_spec->kind == ALIGN_SPEC_TYPE) {
             free_type(spec->align_spec->u.type);
         } else {
-            free_expr(spec->align_spec->u.expr);
+            free_expression(spec->align_spec->u.expr);
         }
         free(spec->align_spec);
     }
@@ -288,7 +288,7 @@ static void free_declaration(Declaration *decl)
         free_init_declarator(decl->u.var.declarators);
         break;
     case DECL_STATIC_ASSERT:
-        free_expr(decl->u.static_assrt.condition);
+        free_expression(decl->u.static_assrt.condition);
         if (decl->u.static_assrt.message)
             free(decl->u.static_assrt.message);
         break;
@@ -306,36 +306,36 @@ static void free_stmt(Stmt *stmt)
         return;
     switch (stmt->kind) {
     case STMT_EXPR:
-        free_expr(stmt->u.expr);
+        free_expression(stmt->u.expr);
         break;
     case STMT_IF:
-        free_expr(stmt->u.if_stmt.condition);
+        free_expression(stmt->u.if_stmt.condition);
         free_stmt(stmt->u.if_stmt.then_stmt);
         free_stmt(stmt->u.if_stmt.else_stmt);
         break;
     case STMT_SWITCH:
-        free_expr(stmt->u.switch_stmt.expr);
+        free_expression(stmt->u.switch_stmt.expr);
         free_stmt(stmt->u.switch_stmt.body);
         break;
     case STMT_WHILE:
-        free_expr(stmt->u.while_stmt.condition);
+        free_expression(stmt->u.while_stmt.condition);
         free_stmt(stmt->u.while_stmt.body);
         break;
     case STMT_DO_WHILE:
         free_stmt(stmt->u.do_while.body);
-        free_expr(stmt->u.do_while.condition);
+        free_expression(stmt->u.do_while.condition);
         break;
     case STMT_FOR:
         if (stmt->u.for_stmt.init) {
             if (stmt->u.for_stmt.init->kind == FOR_INIT_EXPR) {
-                free_expr(stmt->u.for_stmt.init->u.expr);
+                free_expression(stmt->u.for_stmt.init->u.expr);
             } else {
                 free_declaration(stmt->u.for_stmt.init->u.decl);
             }
             free(stmt->u.for_stmt.init);
         }
-        free_expr(stmt->u.for_stmt.condition);
-        free_expr(stmt->u.for_stmt.update);
+        free_expression(stmt->u.for_stmt.condition);
+        free_expression(stmt->u.for_stmt.update);
         free_stmt(stmt->u.for_stmt.body);
         break;
     case STMT_GOTO:
@@ -346,7 +346,7 @@ static void free_stmt(Stmt *stmt)
     case STMT_BREAK:
         break;
     case STMT_RETURN:
-        free_expr(stmt->u.expr);
+        free_expression(stmt->u.expr);
         break;
     case STMT_LABELED:
         if (stmt->u.labeled.label)
@@ -354,7 +354,7 @@ static void free_stmt(Stmt *stmt)
         free_stmt(stmt->u.labeled.stmt);
         break;
     case STMT_CASE:
-        free_expr(stmt->u.case_stmt.expr);
+        free_expression(stmt->u.case_stmt.expr);
         free_stmt(stmt->u.case_stmt.stmt);
         break;
     case STMT_DEFAULT:

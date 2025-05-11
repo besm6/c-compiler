@@ -59,7 +59,7 @@ static const char *unary_op_kind_str[] = {
 };
 
 // Forward declarations
-static void print_expr(FILE *fd, Expr *expr, int indent);
+void print_expression(FILE *fd, Expr *expr, int indent);
 static void print_stmt(FILE *fd, Stmt *stmt, int indent);
 static void print_declaration(FILE *fd, Declaration *decl, int indent);
 static void print_external_decl(FILE *fd, ExternalDecl *ext, int indent);
@@ -138,7 +138,7 @@ static void print_initializer(FILE *fd, Initializer *init, int indent)
     }
     fprintf(fd, "Initializer:\n");
     if (init->kind == INITIALIZER_SINGLE) {
-        print_expr(fd, init->u.expr, indent + 2);
+        print_expression(fd, init->u.expr, indent + 2);
     } else {
         print_indent(fd, indent + 2);
         fprintf(fd, "List: (not implemented)\n");
@@ -156,14 +156,14 @@ static void print_generic_assoc(FILE *fd, GenericAssoc *assoc, int indent)
     fprintf(fd, "Assoc:\n");
     if (assoc->kind == GENERIC_ASSOC_TYPE) {
         print_type(fd, assoc->u.type_assoc.type, indent + 2);
-        print_expr(fd, assoc->u.type_assoc.expr, indent + 2);
+        print_expression(fd, assoc->u.type_assoc.expr, indent + 2);
     } else {
-        print_expr(fd, assoc->u.default_assoc, indent + 2);
+        print_expression(fd, assoc->u.default_assoc, indent + 2);
     }
 }
 
 // Print Expr
-static void print_expr(FILE *fd, Expr *expr, int indent)
+void print_expression(FILE *fd, Expr *expr, int indent)
 {
     if (!expr) {
         print_indent(fd, indent);
@@ -183,29 +183,29 @@ static void print_expr(FILE *fd, Expr *expr, int indent)
     case EXPR_BINARY_OP:
         print_indent(fd, indent + 2);
         fprintf(fd, "Operator: %s\n", binary_op_kind_str[expr->u.binary_op.op->kind]);
-        print_expr(fd, expr->u.binary_op.left, indent + 2);
-        print_expr(fd, expr->u.binary_op.right, indent + 2);
+        print_expression(fd, expr->u.binary_op.left, indent + 2);
+        print_expression(fd, expr->u.binary_op.right, indent + 2);
         break;
     case EXPR_UNARY_OP:
         print_indent(fd, indent + 2);
         fprintf(fd, "Operator: %s\n", unary_op_kind_str[expr->u.unary_op.op->kind]);
-        print_expr(fd, expr->u.unary_op.expr, indent + 2);
+        print_expression(fd, expr->u.unary_op.expr, indent + 2);
         break;
     case EXPR_POST_INC:
     case EXPR_POST_DEC:
-        print_expr(fd, expr->u.post_inc, indent + 2);
+        print_expression(fd, expr->u.post_inc, indent + 2);
         break;
     case EXPR_CALL:
-        print_expr(fd, expr->u.call.func, indent + 2);
+        print_expression(fd, expr->u.call.func, indent + 2);
         print_indent(fd, indent + 2);
         fprintf(fd, "Arguments:\n");
         for (Expr *arg = expr->u.call.args; arg; arg = arg->next) {
-            print_expr(fd, arg, indent + 4);
+            print_expression(fd, arg, indent + 4);
         }
         break;
     case EXPR_CAST:
         print_type(fd, expr->u.cast.type, indent + 2);
-        print_expr(fd, expr->u.cast.expr, indent + 2);
+        print_expression(fd, expr->u.cast.expr, indent + 2);
         break;
     case EXPR_COMPOUND:
         print_indent(fd, indent + 2);
@@ -215,7 +215,7 @@ static void print_expr(FILE *fd, Expr *expr, int indent)
         }
         break;
     case EXPR_SIZEOF_EXPR:
-        print_expr(fd, expr->u.sizeof_expr, indent + 2);
+        print_expression(fd, expr->u.sizeof_expr, indent + 2);
         break;
     case EXPR_SIZEOF_TYPE:
         print_type(fd, expr->u.sizeof_type, indent + 2);
@@ -224,7 +224,7 @@ static void print_expr(FILE *fd, Expr *expr, int indent)
         print_type(fd, expr->u.align_of, indent + 2);
         break;
     case EXPR_GENERIC:
-        print_expr(fd, expr->u.generic.controlling_expr, indent + 2);
+        print_expression(fd, expr->u.generic.controlling_expr, indent + 2);
         print_indent(fd, indent + 2);
         fprintf(fd, "Associations:\n");
         for (GenericAssoc *assoc = expr->u.generic.associations; assoc; assoc = assoc->next) {
@@ -234,31 +234,31 @@ static void print_expr(FILE *fd, Expr *expr, int indent)
     case EXPR_ASSIGN:
         print_indent(fd, indent + 2);
         fprintf(fd, "Assign: %s\n", assign_op_kind_str[expr->u.assign.op->kind]);
-        print_expr(fd, expr->u.assign.target, indent + 2);
-        print_expr(fd, expr->u.assign.value, indent + 2);
+        print_expression(fd, expr->u.assign.target, indent + 2);
+        print_expression(fd, expr->u.assign.value, indent + 2);
         break;
     case EXPR_COND:
         print_indent(fd, indent + 2);
         fprintf(fd, "Cond:\n");
-        print_expr(fd, expr->u.cond.condition, indent + 2);
-        print_expr(fd, expr->u.cond.then_expr, indent + 2);
-        print_expr(fd, expr->u.cond.else_expr, indent + 2);
+        print_expression(fd, expr->u.cond.condition, indent + 2);
+        print_expression(fd, expr->u.cond.then_expr, indent + 2);
+        print_expression(fd, expr->u.cond.else_expr, indent + 2);
         break;
     case EXPR_FIELD_ACCESS:
         print_indent(fd, indent + 2);
         fprintf(fd, "Field: .%s\n", expr->u.field_access.field);
-        print_expr(fd, expr->u.field_access.expr, indent + 2);
+        print_expression(fd, expr->u.field_access.expr, indent + 2);
         break;
     case EXPR_PTR_ACCESS:
         print_indent(fd, indent + 2);
         fprintf(fd, "Field: ->%s\n", expr->u.ptr_access.field);
-        print_expr(fd, expr->u.ptr_access.expr, indent + 2);
+        print_expression(fd, expr->u.ptr_access.expr, indent + 2);
         break;
     }
     if (expr->next) {
         print_indent(fd, indent);
         fprintf(fd, "Next Expr:\n");
-        print_expr(fd, expr->next, indent + 2);
+        print_expression(fd, expr->next, indent + 2);
     }
 }
 
@@ -282,7 +282,7 @@ void print_declarator(FILE *fd, Declarator *decl, int indent)
             case SUFFIX_ARRAY:
                 fprintf(fd, "Array\n");
                 if (suffix->u.array.size) {
-                    print_expr(fd, suffix->u.array.size, indent + 4);
+                    print_expression(fd, suffix->u.array.size, indent + 4);
                 }
                 break;
             case SUFFIX_FUNCTION:
@@ -396,7 +396,7 @@ static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
                 print_indent(fd, indent + 4);
                 fprintf(fd, "Enumerator: \"%s\"\n", e->name);
                 if (e->value) {
-                    print_expr(fd, e->value, indent + 6);
+                    print_expression(fd, e->value, indent + 6);
                 }
             }
             break;
@@ -452,7 +452,7 @@ static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
             print_type(fd, spec->align_spec->u.type, indent + 4);
         } else {
             fprintf(fd, "expr\n");
-            print_expr(fd, spec->align_spec->u.expr, indent + 4);
+            print_expression(fd, spec->align_spec->u.expr, indent + 4);
         }
     }
 }
@@ -498,7 +498,7 @@ static void print_declaration(FILE *fd, Declaration *decl, int indent)
         fprintf(fd, "StaticAssert\n");
         print_indent(fd, indent + 2);
         fprintf(fd, "Condition:\n");
-        print_expr(fd, decl->u.static_assrt.condition, indent + 4);
+        print_expression(fd, decl->u.static_assrt.condition, indent + 4);
         print_indent(fd, indent + 2);
         fprintf(fd, "Message: \"%s\"\n", decl->u.static_assrt.message);
         break;
@@ -521,12 +521,12 @@ static void print_stmt(FILE *fd, Stmt *stmt, int indent)
     fprintf(fd, "Stmt (%s):\n", stmt_kind_str[stmt->kind]);
     switch (stmt->kind) {
     case STMT_EXPR:
-        print_expr(fd, stmt->u.expr, indent + 2);
+        print_expression(fd, stmt->u.expr, indent + 2);
         break;
     case STMT_IF:
         print_indent(fd, indent + 2);
         fprintf(fd, "Condition:\n");
-        print_expr(fd, stmt->u.if_stmt.condition, indent + 4);
+        print_expression(fd, stmt->u.if_stmt.condition, indent + 4);
         print_indent(fd, indent + 2);
         fprintf(fd, "Then:\n");
         print_stmt(fd, stmt->u.if_stmt.then_stmt, indent + 4);
@@ -539,7 +539,7 @@ static void print_stmt(FILE *fd, Stmt *stmt, int indent)
     case STMT_SWITCH:
         print_indent(fd, indent + 2);
         fprintf(fd, "Expression:\n");
-        print_expr(fd, stmt->u.switch_stmt.expr, indent + 4);
+        print_expression(fd, stmt->u.switch_stmt.expr, indent + 4);
         print_indent(fd, indent + 2);
         fprintf(fd, "Body:\n");
         print_stmt(fd, stmt->u.switch_stmt.body, indent + 4);
@@ -547,7 +547,7 @@ static void print_stmt(FILE *fd, Stmt *stmt, int indent)
     case STMT_WHILE:
         print_indent(fd, indent + 2);
         fprintf(fd, "Condition:\n");
-        print_expr(fd, stmt->u.while_stmt.condition, indent + 4);
+        print_expression(fd, stmt->u.while_stmt.condition, indent + 4);
         print_indent(fd, indent + 2);
         fprintf(fd, "Body:\n");
         print_stmt(fd, stmt->u.while_stmt.body, indent + 4);
@@ -558,22 +558,22 @@ static void print_stmt(FILE *fd, Stmt *stmt, int indent)
         print_stmt(fd, stmt->u.do_while.body, indent + 4);
         print_indent(fd, indent + 2);
         fprintf(fd, "Condition:\n");
-        print_expr(fd, stmt->u.do_while.condition, indent + 4);
+        print_expression(fd, stmt->u.do_while.condition, indent + 4);
         break;
     case STMT_FOR:
         print_indent(fd, indent + 2);
         fprintf(fd, "Init:\n");
         if (stmt->u.for_stmt.init->kind == FOR_INIT_EXPR) {
-            print_expr(fd, stmt->u.for_stmt.init->u.expr, indent + 4);
+            print_expression(fd, stmt->u.for_stmt.init->u.expr, indent + 4);
         } else {
             print_declaration(fd, stmt->u.for_stmt.init->u.decl, indent + 4);
         }
         print_indent(fd, indent + 2);
         fprintf(fd, "Condition:\n");
-        print_expr(fd, stmt->u.for_stmt.condition, indent + 4);
+        print_expression(fd, stmt->u.for_stmt.condition, indent + 4);
         print_indent(fd, indent + 2);
         fprintf(fd, "Update:\n");
-        print_expr(fd, stmt->u.for_stmt.update, indent + 4);
+        print_expression(fd, stmt->u.for_stmt.update, indent + 4);
         print_indent(fd, indent + 2);
         fprintf(fd, "Body:\n");
         print_stmt(fd, stmt->u.for_stmt.body, indent + 4);
@@ -593,7 +593,7 @@ static void print_stmt(FILE *fd, Stmt *stmt, int indent)
     case STMT_RETURN:
         print_indent(fd, indent + 2);
         fprintf(fd, "Return:\n");
-        print_expr(fd, stmt->u.expr, indent + 4);
+        print_expression(fd, stmt->u.expr, indent + 4);
         break;
     case STMT_LABELED:
         print_indent(fd, indent + 2);
@@ -603,7 +603,7 @@ static void print_stmt(FILE *fd, Stmt *stmt, int indent)
     case STMT_CASE:
         print_indent(fd, indent + 2);
         fprintf(fd, "Case:\n");
-        print_expr(fd, stmt->u.case_stmt.expr, indent + 4);
+        print_expression(fd, stmt->u.case_stmt.expr, indent + 4);
         print_stmt(fd, stmt->u.case_stmt.stmt, indent + 4);
         break;
     case STMT_DEFAULT:

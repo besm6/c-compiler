@@ -40,7 +40,6 @@ TEST_F(ParserTest, ParseIdentifier)
 {
     init_scanner(CreateTempFile("x"));
     next_token();
-
     Declarator *decl = parse_declarator();
     ASSERT_NE(decl, nullptr);
     print_declarator(stdout, decl, 0);
@@ -57,20 +56,17 @@ TEST_F(ParserTest, ParseIdentifier)
 // Test primary expression: integer constant
 TEST_F(ParserTest, ParseIntegerConstant)
 {
-    FILE *f          = CreateTempFile("42;");
-    Program *program = parse(f);
+    init_scanner(CreateTempFile("42;"));
+    next_token();
+    Expr *expr = parse_primary_expression();
+    ASSERT_NE(expr, nullptr);
+    print_expression(stdout, expr, 0);
 
-    ASSERT_NE(nullptr, program);
-    ASSERT_NE(nullptr, program->decls);
-    EXPECT_EQ(EXTERNAL_DECL_DECLARATION, program->decls->kind);
-    Declaration *decl = program->decls->u.declaration;
-    EXPECT_EQ(DECL_VAR, decl->kind);
-    InitDeclarator *id = decl->u.var.declarators;
-    EXPECT_NE(nullptr, id);
-    Expr *expr = id->init->u.expr;
     EXPECT_EQ(EXPR_LITERAL, expr->kind);
     EXPECT_EQ(LITERAL_INT, expr->u.literal->kind);
     EXPECT_EQ(42, expr->u.literal->u.int_val);
+
+    free_expression(expr);
 }
 
 // Test binary expression: x + y

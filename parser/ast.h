@@ -592,10 +592,13 @@ void free_ast(Program* program);
 #ifdef GTEST_API_
 void next_token(void);
 Declarator *parse_declarator(void);
+Expr *parse_primary_expression(void);
 
 void print_declarator(FILE *fd, Declarator *decl, int indent);
+void print_expression(FILE *fd, Expr *expr, int indent);
 
 void free_declarator(Declarator *decl);
+void free_expression(Expr *expr);
 #endif
 
 #ifdef __cplusplus
