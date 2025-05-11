@@ -10,38 +10,37 @@
 
 // Test fixture
 class ParserTest : public ::testing::Test {
+    const std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    FILE *input_file;
+
 protected:
     void SetUp() override
     {
+        auto filename = test_name + ".c";
+        input_file = fopen(filename.c_str(), "w+");
+        ASSERT_NE(nullptr, input_file);
     }
 
     void TearDown() override
     {
-    }
-
-    // Helper to set token sequence
-    void SetTokenSequence(const std::vector<std::pair<int, std::string>> &tokens)
-    {
+        fclose(input_file);
     }
 
     // Helper to create a temporary file with content
     FILE *CreateTempFile(const char *content)
     {
-        FILE *f = tmpfile();
-        fwrite(content, 1, strlen(content), f);
-        rewind(f);
-        return f;
+        fwrite(content, 1, strlen(content), input_file);
+        rewind(input_file);
+        return input_file;
     }
 };
 
 // Test primary expression: identifier
 TEST_F(ParserTest, ParseIdentifier)
 {
-    SetTokenSequence({ { TOKEN_IDENTIFIER, "x" }, { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("x");
-    Program *program = parse(f);
-    fclose(f);
+    Program *program = parse(CreateTempFile("x"));
+    print_ast(stdout, program);
+    free_ast(program);
 
     ASSERT_NE(nullptr, program);
     ASSERT_NE(nullptr, program->decls);
@@ -56,11 +55,8 @@ TEST_F(ParserTest, ParseIdentifier)
 // Test primary expression: integer constant
 TEST_F(ParserTest, ParseIntegerConstant)
 {
-    SetTokenSequence({ { TOKEN_I_CONSTANT, "42" }, { TOKEN_SEMICOLON, ";" }, { TOKEN_EOF, "" } });
-
     FILE *f          = CreateTempFile("42;");
     Program *program = parse(f);
-    fclose(f);
 
     ASSERT_NE(nullptr, program);
     ASSERT_NE(nullptr, program->decls);
@@ -78,15 +74,8 @@ TEST_F(ParserTest, ParseIntegerConstant)
 // Test binary expression: x + y
 TEST_F(ParserTest, ParseBinaryExpression)
 {
-    SetTokenSequence({ { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_PLUS, "+" },
-                       { TOKEN_IDENTIFIER, "y" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
     FILE *f          = CreateTempFile("x + y;");
     Program *program = parse(f);
-    fclose(f);
 
     ASSERT_NE(nullptr, program);
     ASSERT_NE(nullptr, program->decls);
@@ -107,18 +96,8 @@ TEST_F(ParserTest, ParseBinaryExpression)
 // Test function call: f(x, y)
 TEST_F(ParserTest, ParseFunctionCall)
 {
-    SetTokenSequence({ { TOKEN_IDENTIFIER, "f" },
-                       { TOKEN_LPAREN, "(" },
-                       { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_COMMA, "," },
-                       { TOKEN_IDENTIFIER, "y" },
-                       { TOKEN_RPAREN, ")" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
     FILE *f          = CreateTempFile("f(x, y);");
     Program *program = parse(f);
-    fclose(f);
 
     ASSERT_NE(nullptr, program);
     ASSERT_NE(nullptr, program->decls);
@@ -145,18 +124,8 @@ TEST_F(ParserTest, ParseFunctionCall)
 // Test if statement: if (x) return y;
 TEST_F(ParserTest, ParseIfStatement)
 {
-    SetTokenSequence({ { TOKEN_IF, "if" },
-                       { TOKEN_LPAREN, "(" },
-                       { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_RPAREN, ")" },
-                       { TOKEN_RETURN, "return" },
-                       { TOKEN_IDENTIFIER, "y" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
     FILE *f          = CreateTempFile("if (x) return y;");
     Program *program = parse(f);
-    fclose(f);
 
     ASSERT_NE(nullptr, program);
     ASSERT_NE(nullptr, program->decls);
@@ -182,16 +151,8 @@ TEST_F(ParserTest, ParseIfStatement)
 // Test variable declaration: int x = 42;
 TEST_F(ParserTest, ParseVariableDeclaration)
 {
-    SetTokenSequence({ { TOKEN_INT, "int" },
-                       { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_ASSIGN, "=" },
-                       { TOKEN_I_CONSTANT, "42" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
     FILE *f          = CreateTempFile("int x = 42;");
     Program *program = parse(f);
-    fclose(f);
 
     ASSERT_NE(nullptr, program);
     ASSERT_NE(nullptr, program->decls);
@@ -215,20 +176,8 @@ TEST_F(ParserTest, ParseVariableDeclaration)
 // Test function definition: int main() { return 0; }
 TEST_F(ParserTest, ParseFunctionDefinition)
 {
-    SetTokenSequence({ { TOKEN_INT, "int" },
-                       { TOKEN_IDENTIFIER, "main" },
-                       { TOKEN_LPAREN, "(" },
-                       { TOKEN_RPAREN, ")" },
-                       { TOKEN_LBRACE, "{" },
-                       { TOKEN_RETURN, "return" },
-                       { TOKEN_I_CONSTANT, "0" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_RBRACE, "}" },
-                       { TOKEN_EOF, "" } });
-
     FILE *f          = CreateTempFile("int main() { return 0; }");
     Program *program = parse(f);
-    fclose(f);
 
     ASSERT_NE(nullptr, program);
     ASSERT_NE(nullptr, program->decls);
@@ -258,20 +207,8 @@ TEST_F(ParserTest, ParseFunctionDefinition)
 // Test translation unit: int x; void f() {}
 TEST_F(ParserTest, ParseTranslationUnit)
 {
-    SetTokenSequence({ { TOKEN_INT, "int" },
-                       { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_VOID, "void" },
-                       { TOKEN_IDENTIFIER, "f" },
-                       { TOKEN_LPAREN, "(" },
-                       { TOKEN_RPAREN, ")" },
-                       { TOKEN_LBRACE, "{" },
-                       { TOKEN_RBRACE, "}" },
-                       { TOKEN_EOF, "" } });
-
     FILE *f          = CreateTempFile("int x; void f() {}");
     Program *program = parse(f);
-    fclose(f);
 
     ASSERT_NE(nullptr, program);
     ASSERT_NE(nullptr, program->decls);

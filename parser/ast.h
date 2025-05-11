@@ -330,7 +330,7 @@ typedef enum {
     EXPR_COND,
     EXPR_CAST,
     EXPR_CALL,
-    EXPR_COMPOUND_LITERAL,
+    EXPR_COMPOUND,
     EXPR_FIELD_ACCESS,
     EXPR_PTR_ACCESS,
     EXPR_POST_INC,
@@ -586,6 +586,8 @@ struct ExternalDecl {
 };
 
 Program *parse(FILE *input);
+void print_ast(FILE *fd, Program *program);
+void free_ast(Program* program);
 
 #ifdef __cplusplus
 }

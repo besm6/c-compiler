@@ -34,7 +34,7 @@ static const char *stmt_kind_str[] = { [STMT_EXPR] = "Expression",  [STMT_IF] = 
 static const char *type_kind_str[] = {
     [TYPE_VOID] = "void",     [TYPE_CHAR] = "char",        [TYPE_SHORT] = "short",
     [TYPE_INT] = "int",       [TYPE_LONG] = "long",        [TYPE_FLOAT] = "float",
-    [TYPE_DOUBLE] = "double", [TYPE_SIGNED] = "signed",    [TYPE_UNSIGNED] = "unsigned",
+    [TYPE_DOUBLE] = "double",
     [TYPE_BOOL] = "_Bool",    [TYPE_COMPLEX] = "_Complex", [TYPE_IMAGINARY] = "_Imaginary",
     [TYPE_ATOMIC] = "_Atomic"
 };
@@ -51,7 +51,6 @@ static const char *binary_op_kind_str[] = {
 static const char *unary_op_kind_str[] = {
     [UNARY_ADDRESS] = "&",   [UNARY_DEREF] = "*",    [UNARY_PLUS] = "+",     [UNARY_NEG] = "-",
     [UNARY_BIT_NOT] = "~",   [UNARY_LOG_NOT] = "!",  [UNARY_PRE_INC] = "++", [UNARY_PRE_DEC] = "--",
-    [UNARY_POST_INC] = "++", [UNARY_POST_DEC] = "--"
 };
 
 // Forward declarations
@@ -117,6 +116,9 @@ static void print_literal(FILE *fd, Literal *lit, int indent)
         break;
     case LITERAL_CHAR:
         fprintf(fd, "char '%c'\n", lit->u.char_val);
+        break;
+    case LITERAL_ENUM:
+        fprintf(fd, "enum %s\n", lit->u.enum_const);
         break;
     }
 }

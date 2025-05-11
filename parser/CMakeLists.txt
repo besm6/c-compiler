@@ -27,6 +27,8 @@ add_executable(c-parser-tests
 #   decls_types_tests.cpp
 #   negative_tests.cpp
     ../scanner/scanner.c
+    ast_print.c
+    ast_free.c
 )
 target_include_directories(c-parser-tests BEFORE PUBLIC
     ../scanner
