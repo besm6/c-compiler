@@ -394,7 +394,7 @@ static void free_external_decl(ExternalDecl *ext)
 }
 
 // Main free function
-void free_ast(Program *program)
+void free_program(Program *program)
 {
     if (!program)
         return;

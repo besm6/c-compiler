@@ -135,18 +135,20 @@ TEST_F(ParserTest, ParseIfStatement)
 // Test variable declaration: int x = 42;
 TEST_F(ParserTest, ParseVariableDeclaration)
 {
-    FILE *f          = CreateTempFile("int x = 42;");
-    Program *program = parse(f);
-
+    Program *program = parse(CreateTempFile("int x = 42;"));
     ASSERT_NE(nullptr, program);
+    print_program(stdout, program);
+
     ASSERT_NE(nullptr, program->decls);
     EXPECT_EQ(EXTERNAL_DECL_DECLARATION, program->decls->kind);
+
     Declaration *decl = program->decls->u.declaration;
     EXPECT_EQ(DECL_VAR, decl->kind);
     EXPECT_NE(nullptr, decl->u.var.specifiers);
     EXPECT_NE(nullptr, decl->u.var.specifiers->type_specs);
     EXPECT_EQ(TYPE_SPEC_BASIC, decl->u.var.specifiers->type_specs->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->type_specs->u.basic->kind);
+
     InitDeclarator *id = decl->u.var.declarators;
     EXPECT_NE(nullptr, id);
     EXPECT_STREQ("x", id->declarator->u.named.name);
@@ -155,28 +157,33 @@ TEST_F(ParserTest, ParseVariableDeclaration)
     EXPECT_EQ(EXPR_LITERAL, id->init->u.expr->kind);
     EXPECT_EQ(LITERAL_INT, id->init->u.expr->u.literal->kind);
     EXPECT_EQ(42, id->init->u.expr->u.literal->u.int_val);
+
+    free_program(program);
 }
 
 // Test function definition: int main() { return 0; }
 TEST_F(ParserTest, ParseFunctionDefinition)
 {
-    FILE *f          = CreateTempFile("int main() { return 0; }");
-    Program *program = parse(f);
-
+    Program *program = parse(CreateTempFile("int main() { return 0; }"));
     ASSERT_NE(nullptr, program);
+    print_program(stdout, program);
+
     ASSERT_NE(nullptr, program->decls);
     EXPECT_EQ(EXTERNAL_DECL_FUNCTION, program->decls->kind);
+
     DeclSpec *spec = program->decls->u.function.specifiers;
     EXPECT_NE(nullptr, spec);
     EXPECT_NE(nullptr, spec->type_specs);
     EXPECT_EQ(TYPE_SPEC_BASIC, spec->type_specs->kind);
     EXPECT_EQ(TYPE_INT, spec->type_specs->u.basic->kind);
+
     Declarator *decl = program->decls->u.function.declarator;
     EXPECT_NE(nullptr, decl);
     EXPECT_STREQ("main", decl->u.named.name);
     EXPECT_NE(nullptr, decl->u.named.suffixes);
     EXPECT_EQ(SUFFIX_FUNCTION, decl->u.named.suffixes->kind);
     EXPECT_TRUE(decl->u.named.suffixes->u.function.params->is_empty);
+
     Stmt *body = program->decls->u.function.body;
     EXPECT_NE(nullptr, body);
     EXPECT_EQ(STMT_COMPOUND, body->kind);
@@ -186,17 +193,20 @@ TEST_F(ParserTest, ParseFunctionDefinition)
     EXPECT_EQ(EXPR_LITERAL, body->u.compound->u.stmt->u.expr->kind);
     EXPECT_EQ(LITERAL_INT, body->u.compound->u.stmt->u.expr->u.literal->kind);
     EXPECT_EQ(0, body->u.compound->u.stmt->u.expr->u.literal->u.int_val);
+
+    free_program(program);
 }
 
 // Test translation unit: int x; void f() {}
 TEST_F(ParserTest, ParseTranslationUnit)
 {
-    FILE *f          = CreateTempFile("int x; void f() {}");
-    Program *program = parse(f);
-
+    Program *program = parse(CreateTempFile("int x; void f() {}"));
     ASSERT_NE(nullptr, program);
+    print_program(stdout, program);
+
     ASSERT_NE(nullptr, program->decls);
     EXPECT_EQ(EXTERNAL_DECL_DECLARATION, program->decls->kind);
+
     Declaration *decl = program->decls->u.declaration;
     EXPECT_EQ(DECL_VAR, decl->kind);
     EXPECT_NE(nullptr, decl->u.var.specifiers);
@@ -206,13 +216,17 @@ TEST_F(ParserTest, ParseTranslationUnit)
 
     ASSERT_NE(nullptr, program->decls->next);
     EXPECT_EQ(EXTERNAL_DECL_FUNCTION, program->decls->next->kind);
+
     DeclSpec *spec = program->decls->next->u.function.specifiers;
     EXPECT_EQ(TYPE_SPEC_BASIC, spec->type_specs->kind);
     EXPECT_EQ(TYPE_VOID, spec->type_specs->u.basic->kind);
+
     Declarator *func = program->decls->next->u.function.declarator;
     EXPECT_STREQ("f", func->u.named.name);
     EXPECT_EQ(SUFFIX_FUNCTION, func->u.named.suffixes->kind);
     EXPECT_TRUE(func->u.named.suffixes->u.function.params->is_empty);
     EXPECT_EQ(STMT_COMPOUND, program->decls->next->u.function.body->kind);
     EXPECT_EQ(nullptr, program->decls->next->u.function.body->u.compound);
+
+    free_program(program);
 }

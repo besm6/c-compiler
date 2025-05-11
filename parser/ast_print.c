@@ -657,7 +657,7 @@ static void print_external_decl(FILE *fd, ExternalDecl *ext, int indent)
 }
 
 // Main print function
-void print_ast(FILE *fd, Program *program)
+void print_program(FILE *fd, Program *program)
 {
     if (!program) {
         fprintf(fd, "Program: null\n");
