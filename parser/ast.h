@@ -375,7 +375,7 @@ struct Expr {
         } call;
         struct {
             Type *type;
-            Initializer *init;
+            InitItem *init;
         } compound_literal;
         struct {
             Expr *expr;

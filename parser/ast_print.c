@@ -31,13 +31,12 @@ static const char *stmt_kind_str[] = { [STMT_EXPR] = "Expression",  [STMT_IF] = 
                                        [STMT_LABELED] = "Labeled",  [STMT_CASE] = "Case",
                                        [STMT_DEFAULT] = "Default",  [STMT_COMPOUND] = "Compound" };
 
-static const char *type_kind_str[] = {
-    [TYPE_VOID] = "void",     [TYPE_CHAR] = "char",        [TYPE_SHORT] = "short",
-    [TYPE_INT] = "int",       [TYPE_LONG] = "long",        [TYPE_FLOAT] = "float",
-    [TYPE_DOUBLE] = "double",
-    [TYPE_BOOL] = "_Bool",    [TYPE_COMPLEX] = "_Complex", [TYPE_IMAGINARY] = "_Imaginary",
-    [TYPE_ATOMIC] = "_Atomic"
-};
+static const char *type_kind_str[] = { [TYPE_VOID] = "void",        [TYPE_CHAR] = "char",
+                                       [TYPE_SHORT] = "short",      [TYPE_INT] = "int",
+                                       [TYPE_LONG] = "long",        [TYPE_FLOAT] = "float",
+                                       [TYPE_DOUBLE] = "double",    [TYPE_BOOL] = "_Bool",
+                                       [TYPE_COMPLEX] = "_Complex", [TYPE_IMAGINARY] = "_Imaginary",
+                                       [TYPE_ATOMIC] = "_Atomic" };
 
 static const char *binary_op_kind_str[] = {
     [BINARY_MUL] = "*",          [BINARY_DIV] = "/",      [BINARY_MOD] = "%",
@@ -48,9 +47,15 @@ static const char *binary_op_kind_str[] = {
     [BINARY_BIT_OR] = "|",       [BINARY_LOG_AND] = "&&", [BINARY_LOG_OR] = "||"
 };
 
+static const char *assign_op_kind_str[] = {
+    [ASSIGN_SIMPLE] = "=", [ASSIGN_MUL] = "*=", [ASSIGN_DIV] = "/=",   [ASSIGN_MOD] = "%=",
+    [ASSIGN_ADD] = "+=",   [ASSIGN_SUB] = "-=", [ASSIGN_LEFT] = "<<=", [ASSIGN_RIGHT] = ">>=",
+    [ASSIGN_AND] = "&=",   [ASSIGN_XOR] = "^=", [ASSIGN_OR] = "|=",
+};
+
 static const char *unary_op_kind_str[] = {
-    [UNARY_ADDRESS] = "&",   [UNARY_DEREF] = "*",    [UNARY_PLUS] = "+",     [UNARY_NEG] = "-",
-    [UNARY_BIT_NOT] = "~",   [UNARY_LOG_NOT] = "!",  [UNARY_PRE_INC] = "++", [UNARY_PRE_DEC] = "--",
+    [UNARY_ADDRESS] = "&", [UNARY_DEREF] = "*",   [UNARY_PLUS] = "+",     [UNARY_NEG] = "-",
+    [UNARY_BIT_NOT] = "~", [UNARY_LOG_NOT] = "!", [UNARY_PRE_INC] = "++", [UNARY_PRE_DEC] = "--",
 };
 
 // Forward declarations
@@ -123,6 +128,40 @@ static void print_literal(FILE *fd, Literal *lit, int indent)
     }
 }
 
+// Print Initializer
+static void print_initializer(FILE *fd, Initializer *init, int indent)
+{
+    print_indent(fd, indent);
+    if (!init) {
+        fprintf(fd, "Initializer: null\n");
+        return;
+    }
+    fprintf(fd, "Initializer:\n");
+    if (init->kind == INITIALIZER_SINGLE) {
+        print_expr(fd, init->u.expr, indent + 2);
+    } else {
+        print_indent(fd, indent + 2);
+        fprintf(fd, "List: (not implemented)\n");
+    }
+}
+
+// Print GenericAssoc
+static void print_generic_assoc(FILE *fd, GenericAssoc *assoc, int indent)
+{
+    print_indent(fd, indent);
+    if (!assoc) {
+        fprintf(fd, "Assoc: null\n");
+        return;
+    }
+    fprintf(fd, "Assoc:\n");
+    if (assoc->kind == GENERIC_ASSOC_TYPE) {
+        print_type(fd, assoc->u.type_assoc.type, indent + 2);
+        print_expr(fd, assoc->u.type_assoc.expr, indent + 2);
+    } else {
+        print_expr(fd, assoc->u.default_assoc, indent + 2);
+    }
+}
+
 // Print Expr
 static void print_expr(FILE *fd, Expr *expr, int indent)
 {
@@ -171,15 +210,8 @@ static void print_expr(FILE *fd, Expr *expr, int indent)
     case EXPR_COMPOUND:
         print_indent(fd, indent + 2);
         fprintf(fd, "Elements:\n");
-        for (Initializer *init = expr->u.compound; init; init = init->next) {
-            print_indent(fd, indent + 4);
-            fprintf(fd, "Initializer:\n");
-            if (init->kind == INITIALIZER_SINGLE) {
-                print_expr(fd, init->u.expr, indent + 6);
-            } else {
-                print_indent(fd, indent + 6);
-                fprintf(fd, "List: (not implemented)\n");
-            }
+        for (InitItem *init = expr->u.compound_literal.init; init; init = init->next) {
+            print_initializer(fd, init->init, indent + 4);
         }
         break;
     case EXPR_SIZEOF_EXPR:
@@ -189,18 +221,38 @@ static void print_expr(FILE *fd, Expr *expr, int indent)
         print_type(fd, expr->u.sizeof_type, indent + 2);
         break;
     case EXPR_ALIGNOF:
-        print_type(fd, expr->u.alignof, indent + 2);
+        print_type(fd, expr->u.align_of, indent + 2);
         break;
     case EXPR_GENERIC:
-        print_expr(fd, expr->u.generic.control, indent + 2);
+        print_expr(fd, expr->u.generic.controlling_expr, indent + 2);
         print_indent(fd, indent + 2);
         fprintf(fd, "Associations:\n");
-        for (GenericAssoc *assoc = expr->u.generic.assocs; assoc; assoc = assoc->next) {
-            print_indent(fd, indent + 4);
-            fprintf(fd, "Assoc:\n");
-            print_type(fd, assoc->type, indent + 6);
-            print_expr(fd, assoc->expr, indent + 6);
+        for (GenericAssoc *assoc = expr->u.generic.associations; assoc; assoc = assoc->next) {
+            print_generic_assoc(fd, assoc, indent + 4);
         }
+        break;
+    case EXPR_ASSIGN:
+        print_indent(fd, indent + 2);
+        fprintf(fd, "Assign: %s\n", assign_op_kind_str[expr->u.assign.op->kind]);
+        print_expr(fd, expr->u.assign.target, indent + 2);
+        print_expr(fd, expr->u.assign.value, indent + 2);
+        break;
+    case EXPR_COND:
+        print_indent(fd, indent + 2);
+        fprintf(fd, "Cond:\n");
+        print_expr(fd, expr->u.cond.condition, indent + 2);
+        print_expr(fd, expr->u.cond.then_expr, indent + 2);
+        print_expr(fd, expr->u.cond.else_expr, indent + 2);
+        break;
+    case EXPR_FIELD_ACCESS:
+        print_indent(fd, indent + 2);
+        fprintf(fd, "Field: .%s\n", expr->u.field_access.field);
+        print_expr(fd, expr->u.field_access.expr, indent + 2);
+        break;
+    case EXPR_PTR_ACCESS:
+        print_indent(fd, indent + 2);
+        fprintf(fd, "Field: ->%s\n", expr->u.ptr_access.field);
+        print_expr(fd, expr->u.ptr_access.expr, indent + 2);
         break;
     }
     if (expr->next) {
@@ -223,7 +275,7 @@ static void print_declarator(FILE *fd, Declarator *decl, int indent)
     if (decl->kind == DECLARATOR_NAMED) {
         print_indent(fd, indent + 2);
         fprintf(fd, "Name: \"%s\"\n", decl->u.named.name);
-        for (DeclSuffix *suffix = decl->u.named.suffixes; suffix; suffix = suffix->next) {
+        for (DeclaratorSuffix *suffix = decl->u.named.suffixes; suffix; suffix = suffix->next) {
             print_indent(fd, indent + 2);
             fprintf(fd, "Suffix: ");
             switch (suffix->kind) {
@@ -256,24 +308,6 @@ static void print_declarator(FILE *fd, Declarator *decl, int indent)
     } else {
         print_indent(fd, indent + 2);
         fprintf(fd, "Abstract\n");
-    }
-}
-
-// Print Initializer
-static void print_initializer(FILE *fd, Initializer *init, int indent)
-{
-    if (!init) {
-        print_indent(fd, indent);
-        fprintf(fd, "Initializer: null\n");
-        return;
-    }
-    print_indent(fd, indent);
-    fprintf(fd, "Initializer:\n");
-    if (init->kind == INITIALIZER_SINGLE) {
-        print_expr(fd, init->u.expr, indent + 2);
-    } else {
-        print_indent(fd, indent + 2);
-        fprintf(fd, "List: (not implemented)\n");
     }
 }
 
@@ -317,21 +351,13 @@ static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
         switch (spec->type_specs->kind) {
         case TYPE_SPEC_BASIC:
             fprintf(fd, "%s\n", type_kind_str[spec->type_specs->u.basic->kind]);
-            if (spec->type_specs->u.basic->kind == TYPE_SIGNED ||
-                spec->type_specs->u.basic->kind == TYPE_UNSIGNED) {
-                print_indent(fd, indent + 4);
-                fprintf(fd, "Signedness: %s\n",
-                        spec->type_specs->u.basic->u.char_t.signedness == SIGNED_SIGNED
-                            ? "signed"
-                            : "unsigned");
-            }
             break;
         case TYPE_SPEC_STRUCT:
             fprintf(fd, "struct %s\n",
                     spec->type_specs->u.struct_spec.name ? spec->type_specs->u.struct_spec.name
                                                          : "(anonymous)");
-            for (StructField *field = spec->type_specs->u.struct_spec.fields; field;
-                 field              = field->next) {
+            for (Field *field = spec->type_specs->u.struct_spec.fields; field;
+                 field        = field->next) {
                 print_indent(fd, indent + 4);
                 fprintf(fd, "Field:\n");
                 if (field->is_anonymous) {
@@ -348,8 +374,8 @@ static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
             fprintf(fd, "union %s\n",
                     spec->type_specs->u.struct_spec.name ? spec->type_specs->u.struct_spec.name
                                                          : "(anonymous)");
-            for (StructField *field = spec->type_specs->u.struct_spec.fields; field;
-                 field              = field->next) {
+            for (Field *field = spec->type_specs->u.struct_spec.fields; field;
+                 field        = field->next) {
                 print_indent(fd, indent + 4);
                 fprintf(fd, "Field:\n");
                 if (field->is_anonymous) {
@@ -375,11 +401,11 @@ static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
             }
             break;
         case TYPE_SPEC_TYPEDEF_NAME:
-            fprintf(fd, "typedef %s\n", spec->type_specs->u.typedef_name);
+            fprintf(fd, "typedef %s\n", spec->type_specs->u.typedef_name.name);
             break;
         case TYPE_SPEC_ATOMIC:
             fprintf(fd, "_Atomic\n");
-            print_type(fd, spec->type_specs->u.atomic->u.atomic.base, indent + 4);
+            print_type(fd, spec->type_specs->u.atomic.type, indent + 4);
             break;
         }
     }
@@ -472,9 +498,9 @@ static void print_declaration(FILE *fd, Declaration *decl, int indent)
         fprintf(fd, "StaticAssert\n");
         print_indent(fd, indent + 2);
         fprintf(fd, "Condition:\n");
-        print_expr(fd, decl->u.static_assert.condition, indent + 4);
+        print_expr(fd, decl->u.static_assrt.condition, indent + 4);
         print_indent(fd, indent + 2);
-        fprintf(fd, "Message: \"%s\"\n", decl->u.static_assert.message);
+        fprintf(fd, "Message: \"%s\"\n", decl->u.static_assrt.message);
         break;
     case DECL_EMPTY:
         fprintf(fd, "Empty\n");

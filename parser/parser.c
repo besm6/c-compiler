@@ -499,6 +499,33 @@ GenericAssoc *parse_generic_association()
 
 Expr *parse_postfix_expression()
 {
+#if 0
+    // TODO: Try compound literal:
+    // '(' type_name ')' '{' initializer_list '}' |
+    // '(' type_name ')' '{' initializer_list ',' '}'
+    if (current_token == TOKEN_LPAREN) {
+        save_scanner_position();
+        next_token();
+        if (/* current_token is type name? */) {
+            Type *type = parse_type_name();
+            expect_token(TOKEN_RPAREN);
+            expect_token(TOKEN_LBRACE);
+
+            InitItem *items = parse_initializer_list();
+            if (current_token == TOKEN_COMMA)
+                next_token();
+            expect_token(TOKEN_RBRACE);
+
+            Expr *expr       = new_expression(EXPR_COMPOUND);
+            expr->u.compound.type = type;
+            expr->u.compound.init = init;
+            return expr;
+        }
+        // Rewind if not a type name.
+        restore_scanner_position();
+        current_token = TOKEN_LPAREN;
+    }
+#endif
     Expr *expr = parse_primary_expression();
     while (1) {
         if (current_token == TOKEN_LBRACKET) {
