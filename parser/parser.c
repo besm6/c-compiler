@@ -7,6 +7,7 @@
 
 /* Global lexer state */
 static int current_token;
+static int peek_token;
 static char *current_lexeme;
 
 // Set manually to enable debug output
@@ -23,8 +24,22 @@ void parse_error(const char *message)
 /* Token handling */
 void advance_token()
 {
+    if (peek_token > 0) {
+        current_token = peek_token;
+        peek_token    = 0;
+        return;
+    }
     current_token  = yylex();
     current_lexeme = get_yytext();
+}
+
+int next_token()
+{
+    if (peek_token == 0) {
+        peek_token  = yylex();
+        // TODO: we may lose current_lexeme here, as yytext is updated.
+    }
+    return peek_token;
 }
 
 void expect_token(int expected)
@@ -35,6 +50,21 @@ void expect_token(int expected)
         parse_error(msg);
     }
     advance_token();
+}
+
+// Is this token a start of a type name?
+bool is_type_name(int token)
+{
+    return token == TOKEN_VOID || token == TOKEN_CHAR ||
+           token == TOKEN_SHORT || token == TOKEN_INT ||
+           token == TOKEN_LONG || token == TOKEN_FLOAT ||
+           token == TOKEN_DOUBLE || token == TOKEN_SIGNED ||
+           token == TOKEN_UNSIGNED || token == TOKEN_BOOL ||
+           token == TOKEN_COMPLEX || token == TOKEN_IMAGINARY ||
+           token == TOKEN_STRUCT || token == TOKEN_UNION ||
+           token == TOKEN_ENUM || token == TOKEN_TYPEDEF_NAME ||
+           token == TOKEN_CONST || token == TOKEN_RESTRICT ||
+           token == TOKEN_VOLATILE || token == TOKEN_ATOMIC;
 }
 
 /* Helper functions for AST construction */
@@ -648,8 +678,7 @@ Expr *parse_unary_expression()
         return new_expr;
     } else if (current_token == TOKEN_SIZEOF) {
         advance_token();
-        if (current_token == TOKEN_LPAREN &&
-            /* Peek for type_name */ 0) { // Simplified: assume expr
+        if (current_token == TOKEN_LPAREN && is_type_name(next_token())) {
             expect_token(TOKEN_LPAREN);
             Type *type = parse_type_name();
             expect_token(TOKEN_RPAREN);
