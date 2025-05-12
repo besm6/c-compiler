@@ -590,7 +590,7 @@ void print_program(FILE *fd, Program *program);
 void free_program(Program* program);
 
 #ifdef GTEST_API_
-void next_token(void);
+void advance_token(void);
 Declarator *parse_declarator(void);
 Expr *parse_primary_expression(void);
 Expr *parse_expression(void);

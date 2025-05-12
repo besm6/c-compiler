@@ -21,7 +21,7 @@ void parse_error(const char *message)
 }
 
 /* Token handling */
-void next_token()
+void advance_token()
 {
     current_token  = yylex();
     current_lexeme = get_yytext();
@@ -34,7 +34,7 @@ void expect_token(int expected)
         snprintf(msg, sizeof(msg), "Expected token %d, got %d", expected, current_token);
         parse_error(msg);
     }
-    next_token();
+    advance_token();
 }
 
 /* Helper functions for AST construction */
@@ -404,7 +404,7 @@ Expr *parse_primary_expression()
     case TOKEN_IDENTIFIER:
         expr        = new_expression(EXPR_VAR);
         expr->u.var = strdup(current_lexeme);
-        next_token();
+        advance_token();
         break;
     case TOKEN_I_CONSTANT:
     case TOKEN_F_CONSTANT:
@@ -416,7 +416,7 @@ Expr *parse_primary_expression()
         expr = parse_string();
         break;
     case TOKEN_LPAREN:
-        next_token();
+        advance_token();
         expr = parse_expression();
         expect_token(TOKEN_RPAREN);
         break;
@@ -449,7 +449,7 @@ Expr *parse_constant()
         expr->u.literal->u.enum_const = strdup(current_lexeme);
         break;
     }
-    next_token();
+    advance_token();
     return expr;
 }
 
@@ -461,7 +461,7 @@ Expr *parse_string()
     Expr *expr                    = new_expression(EXPR_LITERAL);
     expr->u.literal               = new_literal(LITERAL_STRING);
     expr->u.literal->u.string_val = strdup(current_lexeme);
-    next_token();
+    advance_token();
     return expr;
 }
 
@@ -489,7 +489,7 @@ GenericAssoc *parse_generic_assoc_list()
     }
     GenericAssoc *assoc = parse_generic_association();
     if (current_token == TOKEN_COMMA) {
-        next_token();
+        advance_token();
         assoc->next = parse_generic_assoc_list();
     }
     return assoc;
@@ -502,7 +502,7 @@ GenericAssoc *parse_generic_association()
     }
     GenericAssoc *assoc;
     if (current_token == TOKEN_DEFAULT) {
-        next_token();
+        advance_token();
         expect_token(TOKEN_COLON);
         Expr *expr             = parse_assignment_expression();
         assoc                  = new_generic_assoc(GENERIC_ASSOC_DEFAULT);
@@ -529,7 +529,7 @@ Expr *parse_postfix_expression()
     // '(' type_name ')' '{' initializer_list ',' '}'
     if (current_token == TOKEN_LPAREN) {
         save_scanner_position();
-        next_token();
+        advance_token();
         if (/* current_token is type name? */) {
             Type *type = parse_type_name();
             expect_token(TOKEN_RPAREN);
@@ -537,7 +537,7 @@ Expr *parse_postfix_expression()
 
             InitItem *items = parse_initializer_list();
             if (current_token == TOKEN_COMMA)
-                next_token();
+                advance_token();
             expect_token(TOKEN_RBRACE);
 
             Expr *expr       = new_expression(EXPR_COMPOUND);
@@ -553,7 +553,7 @@ Expr *parse_postfix_expression()
     Expr *expr = parse_primary_expression();
     while (1) {
         if (current_token == TOKEN_LBRACKET) {
-            next_token();
+            advance_token();
             Expr *index = parse_expression();
             expect_token(TOKEN_RBRACKET);
             Expr *new_expr              = new_expression(EXPR_BINARY_OP);
@@ -562,7 +562,7 @@ Expr *parse_postfix_expression()
             new_expr->u.binary_op.right = index;
             expr                        = new_expr;
         } else if (current_token == TOKEN_LPAREN) {
-            next_token();
+            advance_token();
             Expr *args = NULL;
             if (current_token != TOKEN_RPAREN) {
                 args = parse_argument_expression_list();
@@ -573,28 +573,28 @@ Expr *parse_postfix_expression()
             new_expr->u.call.args = args;
             expr                  = new_expr;
         } else if (current_token == TOKEN_DOT) {
-            next_token();
+            advance_token();
             expect_token(TOKEN_IDENTIFIER);
             Expr *new_expr                 = new_expression(EXPR_FIELD_ACCESS);
             new_expr->u.field_access.expr  = expr;
             new_expr->u.field_access.field = strdup(current_lexeme);
-            next_token();
+            advance_token();
             expr = new_expr;
         } else if (current_token == TOKEN_PTR_OP) {
-            next_token();
+            advance_token();
             expect_token(TOKEN_IDENTIFIER);
             Expr *new_expr               = new_expression(EXPR_PTR_ACCESS);
             new_expr->u.ptr_access.expr  = expr;
             new_expr->u.ptr_access.field = strdup(current_lexeme);
-            next_token();
+            advance_token();
             expr = new_expr;
         } else if (current_token == TOKEN_INC_OP) {
-            next_token();
+            advance_token();
             Expr *new_expr       = new_expression(EXPR_POST_INC);
             new_expr->u.post_inc = expr;
             expr                 = new_expr;
         } else if (current_token == TOKEN_DEC_OP) {
-            next_token();
+            advance_token();
             Expr *new_expr       = new_expression(EXPR_POST_DEC);
             new_expr->u.post_dec = expr;
             expr                 = new_expr;
@@ -612,7 +612,7 @@ Expr *parse_argument_expression_list()
     }
     Expr *expr = parse_assignment_expression();
     if (current_token == TOKEN_COMMA) {
-        next_token();
+        advance_token();
         expr->next = parse_argument_expression_list();
     }
     return expr;
@@ -624,14 +624,14 @@ Expr *parse_unary_expression()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_INC_OP) {
-        next_token();
+        advance_token();
         Expr *expr                = parse_unary_expression();
         Expr *new_expr            = new_expression(EXPR_UNARY_OP);
         new_expr->u.unary_op.op   = new_unary_op(UNARY_PRE_INC);
         new_expr->u.unary_op.expr = expr;
         return new_expr;
     } else if (current_token == TOKEN_DEC_OP) {
-        next_token();
+        advance_token();
         Expr *expr                = parse_unary_expression();
         Expr *new_expr            = new_expression(EXPR_UNARY_OP);
         new_expr->u.unary_op.op   = new_unary_op(UNARY_PRE_DEC);
@@ -647,7 +647,7 @@ Expr *parse_unary_expression()
         new_expr->u.unary_op.expr = expr;
         return new_expr;
     } else if (current_token == TOKEN_SIZEOF) {
-        next_token();
+        advance_token();
         if (current_token == TOKEN_LPAREN &&
             /* Peek for type_name */ 0) { // Simplified: assume expr
             expect_token(TOKEN_LPAREN);
@@ -663,7 +663,7 @@ Expr *parse_unary_expression()
             return new_expr;
         }
     } else if (current_token == TOKEN_ALIGNOF) {
-        next_token();
+        advance_token();
         expect_token(TOKEN_LPAREN);
         Type *type = parse_type_name();
         expect_token(TOKEN_RPAREN);
@@ -686,7 +686,7 @@ UnaryOp *parse_unary_operator()
                                : current_token == TOKEN_MINUS   ? UNARY_NEG
                                : current_token == TOKEN_TILDE   ? UNARY_BIT_NOT
                                                                 : UNARY_LOG_NOT);
-    next_token();
+    advance_token();
     return op;
 }
 
@@ -696,7 +696,7 @@ Expr *parse_cast_expression()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_LPAREN) {
-        next_token();
+        advance_token();
         Type *type = parse_type_name();
         expect_token(TOKEN_RPAREN);
         Expr *expr            = parse_cast_expression();
@@ -719,7 +719,7 @@ Expr *parse_multiplicative_expression()
         BinaryOpKind op_kind = current_token == TOKEN_STAR    ? BINARY_MUL
                                : current_token == TOKEN_SLASH ? BINARY_DIV
                                                               : BINARY_MOD;
-        next_token();
+        advance_token();
         Expr *right                 = parse_cast_expression();
         Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(op_kind);
@@ -738,7 +738,7 @@ Expr *parse_additive_expression()
     Expr *expr = parse_multiplicative_expression();
     while (current_token == TOKEN_PLUS || current_token == TOKEN_MINUS) {
         BinaryOpKind op_kind = current_token == TOKEN_PLUS ? BINARY_ADD : BINARY_SUB;
-        next_token();
+        advance_token();
         Expr *right                 = parse_multiplicative_expression();
         Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(op_kind);
@@ -758,7 +758,7 @@ Expr *parse_shift_expression()
     while (current_token == TOKEN_LEFT_OP || current_token == TOKEN_RIGHT_OP) {
         BinaryOpKind op_kind =
             current_token == TOKEN_LEFT_OP ? BINARY_LEFT_SHIFT : BINARY_RIGHT_SHIFT;
-        next_token();
+        advance_token();
         Expr *right                 = parse_additive_expression();
         Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(op_kind);
@@ -781,7 +781,7 @@ Expr *parse_relational_expression()
                                : current_token == TOKEN_GT    ? BINARY_GT
                                : current_token == TOKEN_LE_OP ? BINARY_LE
                                                               : BINARY_GE;
-        next_token();
+        advance_token();
         Expr *right                 = parse_shift_expression();
         Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(op_kind);
@@ -800,7 +800,7 @@ Expr *parse_equality_expression()
     Expr *expr = parse_relational_expression();
     while (current_token == TOKEN_EQ_OP || current_token == TOKEN_NE_OP) {
         BinaryOpKind op_kind = current_token == TOKEN_EQ_OP ? BINARY_EQ : BINARY_NE;
-        next_token();
+        advance_token();
         Expr *right                 = parse_relational_expression();
         Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(op_kind);
@@ -818,7 +818,7 @@ Expr *parse_and_expression()
     }
     Expr *expr = parse_equality_expression();
     while (current_token == TOKEN_AMPERSAND) {
-        next_token();
+        advance_token();
         Expr *right                 = parse_equality_expression();
         Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(BINARY_BIT_AND);
@@ -836,7 +836,7 @@ Expr *parse_exclusive_or_expression()
     }
     Expr *expr = parse_and_expression();
     while (current_token == TOKEN_CARET) {
-        next_token();
+        advance_token();
         Expr *right                 = parse_and_expression();
         Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(BINARY_BIT_XOR);
@@ -854,7 +854,7 @@ Expr *parse_inclusive_or_expression()
     }
     Expr *expr = parse_exclusive_or_expression();
     while (current_token == TOKEN_PIPE) {
-        next_token();
+        advance_token();
         Expr *right                 = parse_exclusive_or_expression();
         Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(BINARY_BIT_OR);
@@ -872,7 +872,7 @@ Expr *parse_logical_and_expression()
     }
     Expr *expr = parse_inclusive_or_expression();
     while (current_token == TOKEN_AND_OP) {
-        next_token();
+        advance_token();
         Expr *right                 = parse_inclusive_or_expression();
         Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(BINARY_LOG_AND);
@@ -890,7 +890,7 @@ Expr *parse_logical_or_expression()
     }
     Expr *expr = parse_logical_and_expression();
     while (current_token == TOKEN_OR_OP) {
-        next_token();
+        advance_token();
         Expr *right                 = parse_logical_and_expression();
         Expr *new_expr              = new_expression(EXPR_BINARY_OP);
         new_expr->u.binary_op.op    = new_binary_op(BINARY_LOG_OR);
@@ -908,7 +908,7 @@ Expr *parse_conditional_expression()
     }
     Expr *expr = parse_logical_or_expression();
     if (current_token == TOKEN_QUESTION) {
-        next_token();
+        advance_token();
         Expr *then_expr = parse_expression();
         expect_token(TOKEN_COLON);
         Expr *else_expr            = parse_conditional_expression();
@@ -960,7 +960,7 @@ AssignOp *parse_assignment_operator()
                                  : current_token == TOKEN_AND_ASSIGN   ? ASSIGN_AND
                                  : current_token == TOKEN_XOR_ASSIGN   ? ASSIGN_XOR
                                                                        : ASSIGN_OR);
-    next_token();
+    advance_token();
     return op;
 }
 
@@ -971,7 +971,7 @@ Expr *parse_expression()
     }
     Expr *expr = parse_assignment_expression();
     while (current_token == TOKEN_COMMA) {
-        next_token();
+        advance_token();
         Expr *next = parse_assignment_expression();
         expr->next = next;
     }
@@ -996,7 +996,7 @@ Declaration *parse_declaration()
     }
     DeclSpec *specifiers = parse_declaration_specifiers();
     if (current_token == TOKEN_SEMICOLON) {
-        next_token();
+        advance_token();
         Declaration *decl      = new_declaration(DECL_EMPTY);
         decl->u.var.specifiers = specifiers;
         return decl;
@@ -1054,7 +1054,7 @@ InitDeclarator *parse_init_declarator_list()
     }
     InitDeclarator *decl = parse_init_declarator();
     if (current_token == TOKEN_COMMA) {
-        next_token();
+        advance_token();
         decl->next = parse_init_declarator_list();
     }
     return decl;
@@ -1068,7 +1068,7 @@ InitDeclarator *parse_init_declarator()
     Declarator *declarator = parse_declarator();
     Initializer *init      = NULL;
     if (current_token == TOKEN_ASSIGN) {
-        next_token();
+        advance_token();
         init = parse_initializer();
     }
     return new_init_declarator(declarator, init);
@@ -1085,7 +1085,7 @@ StorageClass *parse_storage_class_specifier()
                             : current_token == TOKEN_THREAD_LOCAL ? STORAGE_CLASS_THREAD_LOCAL
                             : current_token == TOKEN_AUTO         ? STORAGE_CLASS_AUTO
                                                                   : STORAGE_CLASS_REGISTER;
-    next_token();
+    advance_token();
     return new_storage_class(kind);
 }
 
@@ -1098,53 +1098,53 @@ TypeSpec *parse_type_specifier()
     if (current_token == TOKEN_VOID) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic = new_type(TYPE_VOID);
-        next_token();
+        advance_token();
     } else if (current_token == TOKEN_CHAR) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic = new_type(TYPE_CHAR);
-        next_token();
+        advance_token();
     } else if (current_token == TOKEN_SHORT) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic = new_type(TYPE_SHORT);
-        next_token();
+        advance_token();
     } else if (current_token == TOKEN_INT) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic = new_type(TYPE_INT);
-        next_token();
+        advance_token();
     } else if (current_token == TOKEN_LONG) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic = new_type(TYPE_LONG);
-        next_token();
+        advance_token();
     } else if (current_token == TOKEN_FLOAT) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic = new_type(TYPE_FLOAT);
-        next_token();
+        advance_token();
     } else if (current_token == TOKEN_DOUBLE) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic = new_type(TYPE_DOUBLE);
-        next_token();
+        advance_token();
     } else if (current_token == TOKEN_SIGNED) {
         ts                               = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic                      = new_type(TYPE_INT);
         ts->u.basic->u.char_t.signedness = SIGNED_SIGNED;
-        next_token();
+        advance_token();
     } else if (current_token == TOKEN_UNSIGNED) {
         ts                               = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic                      = new_type(TYPE_INT);
         ts->u.basic->u.char_t.signedness = SIGNED_UNSIGNED;
-        next_token();
+        advance_token();
     } else if (current_token == TOKEN_BOOL) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic = new_type(TYPE_BOOL);
-        next_token();
+        advance_token();
     } else if (current_token == TOKEN_COMPLEX) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic = new_type(TYPE_COMPLEX);
-        next_token();
+        advance_token();
     } else if (current_token == TOKEN_IMAGINARY) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic = new_type(TYPE_IMAGINARY);
-        next_token();
+        advance_token();
     } else if (current_token == TOKEN_ATOMIC) {
         ts                = new_type_spec(TYPE_SPEC_ATOMIC);
         ts->u.atomic.type = parse_atomic_type_specifier();
@@ -1161,7 +1161,7 @@ TypeSpec *parse_type_specifier()
     } else if (current_token == TOKEN_TYPEDEF_NAME) {
         ts                      = new_type_spec(TYPE_SPEC_TYPEDEF_NAME);
         ts->u.typedef_name.name = strdup(current_lexeme);
-        next_token();
+        advance_token();
     } else {
         parse_error("Expected type specifier");
     }
@@ -1177,10 +1177,10 @@ Type *parse_struct_or_union_specifier()
     Type *type = new_type(su == TOKEN_STRUCT ? TYPE_STRUCT : TYPE_UNION);
     if (current_token == TOKEN_IDENTIFIER) {
         type->u.struct_t.name = strdup(current_lexeme);
-        next_token();
+        advance_token();
     }
     if (current_token == TOKEN_LBRACE) {
-        next_token();
+        advance_token();
         type->u.struct_t.fields = parse_struct_declaration_list();
         expect_token(TOKEN_RBRACE);
     }
@@ -1194,7 +1194,7 @@ int parse_struct_or_union()
     }
     if (current_token == TOKEN_STRUCT || current_token == TOKEN_UNION) {
         int su = current_token;
-        next_token();
+        advance_token();
         return su;
     }
     parse_error("Expected struct or union");
@@ -1224,7 +1224,7 @@ Field *parse_struct_declaration()
     }
     TypeSpec *spec = parse_specifier_qualifier_list();
     if (current_token == TOKEN_SEMICOLON) {
-        next_token();
+        advance_token();
         return new_field(NULL, spec->u.basic, NULL, true);
     }
     Declarator *decls = parse_struct_declarator_list();
@@ -1269,7 +1269,7 @@ Declarator *parse_struct_declarator_list()
     }
     Declarator *decl = parse_struct_declarator();
     if (current_token == TOKEN_COMMA) {
-        next_token();
+        advance_token();
         decl->next = parse_struct_declarator_list();
     }
     return decl;
@@ -1281,13 +1281,13 @@ Declarator *parse_struct_declarator()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_COLON) {
-        next_token();
+        advance_token();
         Expr *bitfield = parse_constant_expression();
         return new_declarator(DECLARATOR_NAMED); /* Placeholder */
     }
     Declarator *decl = parse_declarator();
     if (current_token == TOKEN_COLON) {
-        next_token();
+        advance_token();
         Expr *bitfield = parse_constant_expression();
         /* Update decl with bitfield */
     }
@@ -1303,13 +1303,13 @@ Type *parse_enum_specifier()
     Type *type = new_type(TYPE_ENUM);
     if (current_token == TOKEN_IDENTIFIER) {
         type->u.enum_t.name = strdup(current_lexeme);
-        next_token();
+        advance_token();
     }
     if (current_token == TOKEN_LBRACE) {
-        next_token();
+        advance_token();
         type->u.enum_t.enumerators = parse_enumerator_list();
         if (current_token == TOKEN_COMMA)
-            next_token();
+            advance_token();
         expect_token(TOKEN_RBRACE);
     }
     return type;
@@ -1322,7 +1322,7 @@ Enumerator *parse_enumerator_list()
     }
     Enumerator *enumr = parse_enumerator();
     if (current_token == TOKEN_COMMA && current_token != TOKEN_RBRACE) {
-        next_token();
+        advance_token();
         enumr->next = parse_enumerator_list();
     }
     return enumr;
@@ -1335,10 +1335,10 @@ Enumerator *parse_enumerator()
     }
     expect_token(TOKEN_IDENTIFIER);
     Ident name = strdup(current_lexeme);
-    next_token();
+    advance_token();
     Expr *value = NULL;
     if (current_token == TOKEN_ASSIGN) {
-        next_token();
+        advance_token();
         value = parse_constant_expression();
     }
     return new_enumerator(name, value);
@@ -1367,7 +1367,7 @@ TypeQualifier *parse_type_qualifier()
                              : current_token == TOKEN_RESTRICT ? TYPE_QUALIFIER_RESTRICT
                              : current_token == TOKEN_VOLATILE ? TYPE_QUALIFIER_VOLATILE
                                                                : TYPE_QUALIFIER_ATOMIC;
-    next_token();
+    advance_token();
     return new_type_qualifier(kind);
 }
 
@@ -1377,7 +1377,7 @@ FunctionSpec *parse_function_specifier()
         printf("--- %s()\n", __func__);
     }
     FunctionSpecKind kind = current_token == TOKEN_INLINE ? FUNC_SPEC_INLINE : FUNC_SPEC_NORETURN;
-    next_token();
+    advance_token();
     return new_function_spec(kind);
 }
 
@@ -1429,9 +1429,9 @@ Declarator *parse_direct_declarator()
     if (current_token == TOKEN_IDENTIFIER) {
         decl               = new_declarator(DECLARATOR_NAMED);
         decl->u.named.name = strdup(current_lexeme);
-        next_token();
+        advance_token();
     } else if (current_token == TOKEN_LPAREN) {
-        next_token();
+        advance_token();
         decl = parse_declarator();
         expect_token(TOKEN_RPAREN);
     } else {
@@ -1439,10 +1439,10 @@ Declarator *parse_direct_declarator()
     }
     while (1) {
         if (current_token == TOKEN_LBRACKET) {
-            next_token();
+            advance_token();
             DeclaratorSuffix *suffix = new_declarator_suffix(SUFFIX_ARRAY);
             if (current_token == TOKEN_STATIC) {
-                next_token();
+                advance_token();
                 suffix->u.array.is_static = true;
             }
             TypeQualifier *qualifiers = NULL;
@@ -1455,14 +1455,14 @@ Declarator *parse_direct_declarator()
                 size = parse_assignment_expression();
             }
             if (current_token == TOKEN_STAR) {
-                next_token();
+                advance_token();
             }
             expect_token(TOKEN_RBRACKET);
             suffix->u.array.qualifiers = qualifiers;
             suffix->u.array.size       = size;
             append_list(&decl->u.named.suffixes, suffix);
         } else if (current_token == TOKEN_LPAREN) {
-            next_token();
+            advance_token();
             DeclaratorSuffix *suffix = new_declarator_suffix(SUFFIX_FUNCTION);
             ParamList *params        = NULL;
             if (current_token != TOKEN_RPAREN) {
@@ -1520,7 +1520,7 @@ ParamList *parse_parameter_type_list()
     ParamList *pl = new_param_list(false, false);
     pl->u.params  = parse_parameter_list();
     if (current_token == TOKEN_COMMA && current_token == TOKEN_ELLIPSIS) {
-        next_token();
+        advance_token();
         expect_token(TOKEN_ELLIPSIS);
         Param *variadic = new_param(NULL, NULL);
         append_list(&pl->u.params, variadic);
@@ -1535,7 +1535,7 @@ Param *parse_parameter_list()
     }
     Param *param = parse_parameter_declaration();
     if (current_token == TOKEN_COMMA && current_token != TOKEN_ELLIPSIS) {
-        next_token();
+        advance_token();
         param->next = parse_parameter_list();
     }
     return param;
@@ -1597,17 +1597,17 @@ Declarator *parse_direct_abstract_declarator()
     }
     Declarator *decl = new_declarator(DECLARATOR_ABSTRACT);
     if (current_token == TOKEN_LPAREN) {
-        next_token();
+        advance_token();
         if (current_token != TOKEN_RPAREN) {
             Declarator *inner = parse_abstract_declarator();
             append_list(&decl->u.abstract.suffixes, inner->u.abstract.suffixes);
         }
         expect_token(TOKEN_RPAREN);
     } else if (current_token == TOKEN_LBRACKET) {
-        next_token();
+        advance_token();
         DeclaratorSuffix *suffix = new_declarator_suffix(SUFFIX_ARRAY);
         if (current_token == TOKEN_STATIC) {
-            next_token();
+            advance_token();
             suffix->u.array.is_static = true;
         }
         TypeQualifier *qualifiers = NULL;
@@ -1620,14 +1620,14 @@ Declarator *parse_direct_abstract_declarator()
             size = parse_assignment_expression();
         }
         if (current_token == TOKEN_STAR) {
-            next_token();
+            advance_token();
         }
         expect_token(TOKEN_RBRACKET);
         suffix->u.array.qualifiers = qualifiers;
         suffix->u.array.size       = size;
         append_list(&decl->u.abstract.suffixes, suffix);
     } else if (current_token == TOKEN_LPAREN) {
-        next_token();
+        advance_token();
         ParamList *params = NULL;
         if (current_token != TOKEN_RPAREN) {
             params = parse_parameter_type_list();
@@ -1652,10 +1652,10 @@ Initializer *parse_initializer()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_LBRACE) {
-        next_token();
+        advance_token();
         InitItem *items = parse_initializer_list();
         if (current_token == TOKEN_COMMA)
-            next_token();
+            advance_token();
         expect_token(TOKEN_RBRACE);
         Initializer *init = new_initializer(INITIALIZER_COMPOUND);
         init->u.items     = items;
@@ -1678,7 +1678,7 @@ InitItem *parse_initializer_list()
     Initializer *init = parse_initializer();
     InitItem *item    = new_init_item(designation, init);
     if (current_token == TOKEN_COMMA && current_token != TOKEN_RBRACE) {
-        next_token();
+        advance_token();
         item->next = parse_initializer_list();
     }
     return item;
@@ -1712,18 +1712,18 @@ Designator *parse_designator()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_LBRACKET) {
-        next_token();
+        advance_token();
         Expr *expr = parse_constant_expression();
         expect_token(TOKEN_RBRACKET);
         Designator *d = new_designator(DESIGNATOR_ARRAY);
         d->u.expr     = expr;
         return d;
     } else if (current_token == TOKEN_DOT) {
-        next_token();
+        advance_token();
         expect_token(TOKEN_IDENTIFIER);
         Designator *d = new_designator(DESIGNATOR_FIELD);
         d->u.name     = strdup(current_lexeme);
-        next_token();
+        advance_token();
         return d;
     }
     parse_error("Expected designator");
@@ -1741,7 +1741,7 @@ Declaration *parse_static_assert_declaration()
     expect_token(TOKEN_COMMA);
     expect_token(TOKEN_STRING_LITERAL);
     char *message = strdup(current_lexeme);
-    next_token();
+    advance_token();
     expect_token(TOKEN_RPAREN);
     expect_token(TOKEN_SEMICOLON);
     Declaration *decl               = new_declaration(DECL_STATIC_ASSERT);
@@ -1781,7 +1781,7 @@ Stmt *parse_labeled_statement()
     }
     if (current_token == TOKEN_IDENTIFIER) {
         Ident label = strdup(current_lexeme);
-        next_token();
+        advance_token();
         expect_token(TOKEN_COLON);
         Stmt *stmt               = parse_statement();
         Stmt *labeled            = new_stmt(STMT_LABELED);
@@ -1789,7 +1789,7 @@ Stmt *parse_labeled_statement()
         labeled->u.labeled.stmt  = stmt;
         return labeled;
     } else if (current_token == TOKEN_CASE) {
-        next_token();
+        advance_token();
         Expr *expr = parse_constant_expression();
         expect_token(TOKEN_COLON);
         Stmt *stmt                  = parse_statement();
@@ -1798,7 +1798,7 @@ Stmt *parse_labeled_statement()
         case_stmt->u.case_stmt.stmt = stmt;
         return case_stmt;
     } else if (current_token == TOKEN_DEFAULT) {
-        next_token();
+        advance_token();
         expect_token(TOKEN_COLON);
         Stmt *stmt                   = parse_statement();
         Stmt *default_stmt           = new_stmt(STMT_DEFAULT);
@@ -1889,14 +1889,14 @@ Stmt *parse_selection_statement()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_IF) {
-        next_token();
+        advance_token();
         expect_token(TOKEN_LPAREN);
         Expr *condition = parse_expression();
         expect_token(TOKEN_RPAREN);
         Stmt *then_stmt = parse_statement();
         Stmt *else_stmt = NULL;
         if (current_token == TOKEN_ELSE) {
-            next_token();
+            advance_token();
             else_stmt = parse_statement();
         }
         Stmt *stmt                = new_stmt(STMT_IF);
@@ -1905,7 +1905,7 @@ Stmt *parse_selection_statement()
         stmt->u.if_stmt.else_stmt = else_stmt;
         return stmt;
     } else if (current_token == TOKEN_SWITCH) {
-        next_token();
+        advance_token();
         expect_token(TOKEN_LPAREN);
         Expr *expr = parse_expression();
         expect_token(TOKEN_RPAREN);
@@ -1925,7 +1925,7 @@ Stmt *parse_iteration_statement()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_WHILE) {
-        next_token();
+        advance_token();
         expect_token(TOKEN_LPAREN);
         Expr *condition = parse_expression();
         expect_token(TOKEN_RPAREN);
@@ -1935,7 +1935,7 @@ Stmt *parse_iteration_statement()
         stmt->u.while_stmt.body      = body;
         return stmt;
     } else if (current_token == TOKEN_DO) {
-        next_token();
+        advance_token();
         Stmt *body = parse_statement();
         expect_token(TOKEN_WHILE);
         expect_token(TOKEN_LPAREN);
@@ -1947,7 +1947,7 @@ Stmt *parse_iteration_statement()
         stmt->u.do_while.condition = condition;
         return stmt;
     } else if (current_token == TOKEN_FOR) {
-        next_token();
+        advance_token();
         expect_token(TOKEN_LPAREN);
         ForInit *init   = NULL;
         Expr *condition = NULL;
@@ -1999,24 +1999,24 @@ Stmt *parse_jump_statement()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_GOTO) {
-        next_token();
+        advance_token();
         expect_token(TOKEN_IDENTIFIER);
         Ident label = strdup(current_lexeme);
-        next_token();
+        advance_token();
         expect_token(TOKEN_SEMICOLON);
         Stmt *stmt         = new_stmt(STMT_GOTO);
         stmt->u.goto_label = label;
         return stmt;
     } else if (current_token == TOKEN_CONTINUE) {
-        next_token();
+        advance_token();
         expect_token(TOKEN_SEMICOLON);
         return new_stmt(STMT_CONTINUE);
     } else if (current_token == TOKEN_BREAK) {
-        next_token();
+        advance_token();
         expect_token(TOKEN_SEMICOLON);
         return new_stmt(STMT_BREAK);
     } else if (current_token == TOKEN_RETURN) {
-        next_token();
+        advance_token();
         Expr *expr = NULL;
         if (current_token != TOKEN_SEMICOLON) {
             expr = parse_expression();
@@ -2102,7 +2102,7 @@ Program *parse(FILE *input)
         printf("--- %s()\n", __func__);
     }
     init_scanner(input);
-    next_token();
+    advance_token();
     Program *program = parse_translation_unit();
     if (current_token != TOKEN_EOF) {
         parse_error("Expected end of file");

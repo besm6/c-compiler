@@ -39,7 +39,7 @@ protected:
 TEST_F(ParserTest, ParseIdentifier)
 {
     init_scanner(CreateTempFile("x"));
-    next_token();
+    advance_token();
     Declarator *decl = parse_declarator();
     ASSERT_NE(decl, nullptr);
     print_declarator(stdout, decl, 0);
@@ -57,7 +57,7 @@ TEST_F(ParserTest, ParseIdentifier)
 TEST_F(ParserTest, ParseIntegerConstant)
 {
     init_scanner(CreateTempFile("42;"));
-    next_token();
+    advance_token();
     Expr *expr = parse_primary_expression();
     ASSERT_NE(expr, nullptr);
     print_expression(stdout, expr, 0);
@@ -73,7 +73,7 @@ TEST_F(ParserTest, ParseIntegerConstant)
 TEST_F(ParserTest, ParseBinaryExpression)
 {
     init_scanner(CreateTempFile("x + y;"));
-    next_token();
+    advance_token();
     Expr *expr = parse_expression();
     ASSERT_NE(expr, nullptr);
     print_expression(stdout, expr, 0);
@@ -92,7 +92,7 @@ TEST_F(ParserTest, ParseBinaryExpression)
 TEST_F(ParserTest, ParseFunctionCall)
 {
     init_scanner(CreateTempFile("f(x, y);"));
-    next_token();
+    advance_token();
     Expr *expr = parse_expression();
     ASSERT_NE(expr, nullptr);
     print_expression(stdout, expr, 0);
@@ -116,7 +116,7 @@ TEST_F(ParserTest, ParseFunctionCall)
 TEST_F(ParserTest, ParseIfStatement)
 {
     init_scanner(CreateTempFile("if (x) return y;"));
-    next_token();
+    advance_token();
     Stmt *stmt = parse_statement();
     ASSERT_NE(stmt, nullptr);
     print_statement(stdout, stmt, 0);
