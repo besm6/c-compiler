@@ -345,21 +345,29 @@ Program *new_program()
 }
 
 /* Append to linked list */
-void append_list(void *head_ptr, void *node)
+void append_list(void *head_ptr, void *node_ptr)
 {
-    if (!node)
+    typedef struct List List;
+    struct List {
+        List *next; /* linked list */
+    };
+
+    if (!node_ptr)
         return;
 
-    void **head = (void **)head_ptr;
+    List **head = (List **) head_ptr;
+    List *node = (List *) node_ptr;
     if (*head == NULL) {
         *head = node;
     } else {
-        void *current = *head;
-        while (*(void **)((char *)current + sizeof(void *) - sizeof(void *))) {
-            current = *(void **)((char *)current + sizeof(void *) - sizeof(void *));
+        // Find tail.
+        List *current = *head;
+        while (current->next) {
+            current = current->next;
         }
-        *(void **)((char *)current + sizeof(void *) - sizeof(void *)) = node;
+        current->next = node;
     }
+    node->next = NULL;
 }
 
 /* Parser functions */
