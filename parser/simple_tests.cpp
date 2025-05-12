@@ -1,39 +1,4 @@
-#include <gtest/gtest.h>
-
-#include <cstdio>
-#include <cstring>
-#include <string>
-#include <vector>
-
-#include "ast.h"
-#include "scanner.h"
-
-// Test fixture
-class ParserTest : public ::testing::Test {
-    const std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
-    FILE *input_file;
-
-protected:
-    void SetUp() override
-    {
-        auto filename = test_name + ".c";
-        input_file = fopen(filename.c_str(), "w+");
-        ASSERT_NE(nullptr, input_file);
-    }
-
-    void TearDown() override
-    {
-        fclose(input_file);
-    }
-
-    // Helper to create a temporary file with content
-    FILE *CreateTempFile(const char *content)
-    {
-        fwrite(content, 1, strlen(content), input_file);
-        rewind(input_file);
-        return input_file;
-    }
-};
+#include "fixture.h"
 
 // Test primary expression: identifier
 TEST_F(ParserTest, ParseIdentifier)
@@ -135,7 +100,7 @@ TEST_F(ParserTest, ParseIfStatement)
 // Test variable declaration: int x = 42;
 TEST_F(ParserTest, ParseVariableDeclaration)
 {
-    Program *program = parse(CreateTempFile("int x = 42;"));
+    program = parse(CreateTempFile("int x = 42;"));
     ASSERT_NE(nullptr, program);
     print_program(stdout, program);
 
@@ -157,14 +122,12 @@ TEST_F(ParserTest, ParseVariableDeclaration)
     EXPECT_EQ(EXPR_LITERAL, id->init->u.expr->kind);
     EXPECT_EQ(LITERAL_INT, id->init->u.expr->u.literal->kind);
     EXPECT_EQ(42, id->init->u.expr->u.literal->u.int_val);
-
-    free_program(program);
 }
 
 // Test function definition: int main() { return 0; }
 TEST_F(ParserTest, ParseFunctionDefinition)
 {
-    Program *program = parse(CreateTempFile("int main() { return 0; }"));
+    program = parse(CreateTempFile("int main() { return 0; }"));
     ASSERT_NE(nullptr, program);
     print_program(stdout, program);
 
@@ -193,14 +156,12 @@ TEST_F(ParserTest, ParseFunctionDefinition)
     EXPECT_EQ(EXPR_LITERAL, body->u.compound->u.stmt->u.expr->kind);
     EXPECT_EQ(LITERAL_INT, body->u.compound->u.stmt->u.expr->u.literal->kind);
     EXPECT_EQ(0, body->u.compound->u.stmt->u.expr->u.literal->u.int_val);
-
-    free_program(program);
 }
 
 // Test translation unit: int x; void f() {}
 TEST_F(ParserTest, ParseTranslationUnit)
 {
-    Program *program = parse(CreateTempFile("int x; void f() {}"));
+    program = parse(CreateTempFile("int x; void f() {}"));
     ASSERT_NE(nullptr, program);
     print_program(stdout, program);
 
@@ -227,6 +188,4 @@ TEST_F(ParserTest, ParseTranslationUnit)
     EXPECT_TRUE(func->u.named.suffixes->u.function.params->is_empty);
     EXPECT_EQ(STMT_COMPOUND, program->decls->next->u.function.body->kind);
     EXPECT_EQ(nullptr, program->decls->next->u.function.body->u.compound);
-
-    free_program(program);
 }
