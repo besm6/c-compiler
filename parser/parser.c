@@ -444,7 +444,6 @@ Stmt *parse_iteration_statement();
 Stmt *parse_jump_statement();
 Program *parse_translation_unit();
 ExternalDecl *parse_external_declaration();
-Declaration *parse_function_definition();
 Declaration *parse_declaration_list();
 
 Expr *parse_primary_expression()
@@ -1082,8 +1081,6 @@ DeclSpec *parse_declaration_specifiers()
                    current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME ||
                    current_token == TOKEN_ATOMIC) {
             TypeSpec *ts = parse_type_specifier();
-printf("--- append type specifier:\n");
-print_type_spec(stdout, ts, 0);
             append_list(&ds->type_specs, ts);
         } else if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
                    current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
@@ -2102,39 +2099,54 @@ ExternalDecl *parse_external_declaration()
     if (debug) {
         printf("--- %s()\n", __func__);
     }
+    if (current_token == TOKEN_STATIC_ASSERT) {
+
+        // Static assert.
+        ExternalDecl *ed  = new_external_decl(EXTERNAL_DECL_DECLARATION);
+        ed->u.declaration = parse_static_assert_declaration();
+        return ed;
+    }
     DeclSpec *spec = parse_declaration_specifiers();
-    if (current_token == TOKEN_SEMICOLON || current_token == TOKEN_STATIC_ASSERT ||
-        (current_token == TOKEN_IDENTIFIER && next_token() == TOKEN_ASSIGN)) {
-        Declaration *decl = parse_declaration();
+    if (current_token == TOKEN_SEMICOLON) {
+
+        // Empty declaration.
+        advance_token();
+        Declaration *decl      = new_declaration(DECL_EMPTY);
+        decl->u.var.specifiers = spec;
+
         ExternalDecl *ed  = new_external_decl(EXTERNAL_DECL_DECLARATION);
         ed->u.declaration = decl;
         return ed;
     }
-    Declaration *func         = parse_function_definition();
-    ExternalDecl *ed          = new_external_decl(EXTERNAL_DECL_FUNCTION);
-    ed->u.function.specifiers = spec;
-    ed->u.function.declarator = func->u.var.declarators->declarator;
-    ed->u.function.decls      = NULL; /* Simplified */
-    ed->u.function.body       = NULL; /* Simplified */
-    return ed;
-}
+    if (current_token == TOKEN_IDENTIFIER && (next_token() == TOKEN_SEMICOLON ||
+        next_token() == TOKEN_COMMA || next_token() == TOKEN_ASSIGN)) {
 
-Declaration *parse_function_definition()
-{
-    if (debug) {
-        printf("--- %s()\n", __func__);
+        // Declaration of variables.
+        InitDeclarator *declarators = parse_init_declarator_list();
+        expect_token(TOKEN_SEMICOLON);
+        Declaration *decl       = new_declaration(DECL_VAR);
+        decl->u.var.specifiers  = spec;
+        decl->u.var.declarators = declarators;
+
+        ExternalDecl *ed  = new_external_decl(EXTERNAL_DECL_DECLARATION);
+        ed->u.declaration = decl;
+        return ed;
     }
-    DeclSpec *spec     = parse_declaration_specifiers();
+
+    // Function definition.
     Declarator *decl   = parse_declarator();
     Declaration *decls = NULL;
     if (current_token != TOKEN_LBRACE) {
         decls = parse_declaration_list();
     }
-    Stmt *body              = parse_compound_statement();
-    Declaration *func       = new_declaration(DECL_VAR); /* Placeholder */
-    func->u.var.specifiers  = spec;
-    func->u.var.declarators = new_init_declarator(decl, NULL);
-    return func;
+    Stmt *body = parse_compound_statement();
+
+    ExternalDecl *ed          = new_external_decl(EXTERNAL_DECL_FUNCTION);
+    ed->u.function.specifiers = spec;
+    ed->u.function.declarator = decl;
+    ed->u.function.decls      = decls;
+    ed->u.function.body       = body;
+    return ed;
 }
 
 Declaration *parse_declaration_list()
