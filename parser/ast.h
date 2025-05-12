@@ -117,11 +117,12 @@ typedef enum {
 } TypeQualifierKind;
 
 struct TypeQualifier {
-    TypeQualifierKind kind;
     TypeQualifier *next; /* linked list */
+    TypeQualifierKind kind;
 };
 
 struct Field {
+    Field *next; /* linked list */
     bool is_anonymous;
     union {
         struct {
@@ -133,13 +134,12 @@ struct Field {
             Type *type;
         } anonymous;
     } u;
-    Field *next; /* linked list */
 };
 
 struct Enumerator {
+    Enumerator *next; /* linked list */
     Ident name;
     Expr *value;      /* optional */
-    Enumerator *next; /* linked list */
 };
 
 /* Parameter List */
@@ -153,15 +153,16 @@ struct ParamList {
 };
 
 struct Param {
+    Param *next; /* linked list */
     Ident name; /* optional */
     Type *type;
-    Param *next; /* linked list */
 };
 
 /* Declarations */
 typedef enum { DECL_VAR, DECL_STATIC_ASSERT, DECL_EMPTY } DeclarationKind;
 
 struct Declaration {
+    Declaration *next; /* linked list for declaration_list */
     DeclarationKind kind;
     union {
         struct {
@@ -173,7 +174,6 @@ struct Declaration {
             char *message;
         } static_assrt;
     } u;
-    Declaration *next; /* linked list for declaration_list */
 };
 
 struct DeclSpec {
@@ -207,6 +207,7 @@ typedef enum {
 } TypeSpecKind;
 
 struct TypeSpec {
+    TypeSpec *next;            /* linked list */
     TypeSpecKind kind;
     union {
         Type *basic;
@@ -226,14 +227,13 @@ struct TypeSpec {
         } atomic;
     } u;
     TypeQualifier *qualifiers; /* attributes */
-    TypeSpec *next;            /* linked list */
 };
 
 typedef enum { FUNC_SPEC_INLINE, FUNC_SPEC_NORETURN } FunctionSpecKind;
 
 struct FunctionSpec {
-    FunctionSpecKind kind;
     FunctionSpec *next; /* linked list */
+    FunctionSpecKind kind;
 };
 
 typedef enum { ALIGN_SPEC_TYPE, ALIGN_SPEC_EXPR } AlignmentSpecKind;
@@ -247,14 +247,15 @@ struct AlignmentSpec {
 };
 
 struct InitDeclarator {
+    InitDeclarator *next; /* linked list */
     Declarator *declarator;
     Initializer *init;    /* optional */
-    InitDeclarator *next; /* linked list */
 };
 
 typedef enum { DECLARATOR_NAMED, DECLARATOR_ABSTRACT } DeclaratorKind;
 
 struct Declarator {
+    Declarator *next; /* linked list */
     DeclaratorKind kind;
     union {
         struct {
@@ -267,17 +268,17 @@ struct Declarator {
             DeclaratorSuffix *suffixes;
         } abstract;
     } u;
-    Declarator *next; /* linked list */
 };
 
 struct Pointer {
-    TypeQualifier *qualifiers;
     Pointer *next; /* linked list */
+    TypeQualifier *qualifiers;
 };
 
 typedef enum { SUFFIX_ARRAY, SUFFIX_FUNCTION } DeclaratorSuffixKind;
 
 struct DeclaratorSuffix {
+    DeclaratorSuffix *next; /* linked list */
     DeclaratorSuffixKind kind;
     union {
         struct {
@@ -290,7 +291,6 @@ struct DeclaratorSuffix {
             bool variadic;
         } function;
     } u;
-    DeclaratorSuffix *next; /* linked list */
 };
 
 typedef enum { INITIALIZER_SINGLE, INITIALIZER_COMPOUND } InitializerKind;
@@ -304,20 +304,20 @@ struct Initializer {
 };
 
 struct InitItem {
+    InitItem *next; /* linked list */
     Designator *designators;
     Initializer *init;
-    InitItem *next; /* linked list */
 };
 
 typedef enum { DESIGNATOR_ARRAY, DESIGNATOR_FIELD } DesignatorKind;
 
 struct Designator {
+    Designator *next; /* linked list */
     DesignatorKind kind;
     union {
         Expr *expr; /* array index */
         Ident name; /* field name */
     } u;
-    Designator *next; /* linked list */
 };
 
 /* Expressions */
@@ -342,6 +342,7 @@ typedef enum {
 } ExprKind;
 
 struct Expr {
+    Expr *next; /* linked list for argument lists */
     ExprKind kind;
     union {
         Literal *literal;
@@ -396,7 +397,6 @@ struct Expr {
         } generic;
     } u;
     Type *type; /* attributes */
-    Expr *next; /* linked list for argument lists */
 };
 
 typedef enum { LITERAL_INT, LITERAL_FLOAT, LITERAL_CHAR, LITERAL_STRING, LITERAL_ENUM } LiteralKind;
@@ -473,6 +473,7 @@ struct AssignOp {
 typedef enum { GENERIC_ASSOC_TYPE, GENERIC_ASSOC_DEFAULT } GenericAssocKind;
 
 struct GenericAssoc {
+    GenericAssoc *next; /* linked list */
     GenericAssocKind kind;
     union {
         struct {
@@ -481,7 +482,6 @@ struct GenericAssoc {
         } type_assoc;
         Expr *default_assoc;
     } u;
-    GenericAssoc *next; /* linked list */
 };
 
 /* Statements */
@@ -546,12 +546,12 @@ struct Stmt {
 typedef enum { DECL_OR_STMT_DECL, DECL_OR_STMT_STMT } DeclOrStmtKind;
 
 struct DeclOrStmt {
+    DeclOrStmt *next; /* linked list */
     DeclOrStmtKind kind;
     union {
         Declaration *decl;
         Stmt *stmt;
     } u;
-    DeclOrStmt *next; /* linked list */
 };
 
 typedef enum { FOR_INIT_EXPR, FOR_INIT_DECL } ForInitKind;
@@ -572,6 +572,7 @@ struct Program {
 typedef enum { EXTERNAL_DECL_FUNCTION, EXTERNAL_DECL_DECLARATION } ExternalDeclKind;
 
 struct ExternalDecl {
+    ExternalDecl *next; /* linked list */
     ExternalDeclKind kind;
     union {
         struct {
@@ -582,7 +583,6 @@ struct ExternalDecl {
         } function;
         Declaration *declaration;
     } u;
-    ExternalDecl *next; /* linked list */
 };
 
 Program *parse(FILE *input);

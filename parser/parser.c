@@ -349,6 +349,7 @@ void append_list(void *head_ptr, void *node)
 {
     if (!node)
         return;
+
     void **head = (void **)head_ptr;
     if (*head == NULL) {
         *head = node;
