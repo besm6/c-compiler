@@ -39,4 +39,24 @@ protected:
         rewind(input_file);
         return input_file;
     }
+
+    // Helper to get function body from program
+    DeclOrStmt *GetFunctionBody(const char *content)
+    {
+        program = parse(CreateTempFile(content));
+        EXPECT_NE(nullptr, program);
+        print_program(stdout, program);
+
+        // Find function.
+        ExternalDecl *decl = program->decls;
+        EXPECT_NE(nullptr, decl);
+        while (decl->kind != EXTERNAL_DECL_FUNCTION) {
+            decl = decl->next;
+            EXPECT_NE(nullptr, decl);
+        }
+        EXPECT_NE(nullptr, decl->u.function.body);
+        EXPECT_EQ(STMT_COMPOUND, decl->u.function.body->kind);
+
+        return decl->u.function.body->u.compound;
+    }
 };
