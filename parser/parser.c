@@ -1350,7 +1350,7 @@ Enumerator *parse_enumerator_list()
         printf("--- %s()\n", __func__);
     }
     Enumerator *enumr = parse_enumerator();
-    if (current_token == TOKEN_COMMA && current_token != TOKEN_RBRACE) {
+    if (current_token == TOKEN_COMMA && next_token() != TOKEN_RBRACE) {
         advance_token();
         enumr->next = parse_enumerator_list();
     }
@@ -1548,7 +1548,7 @@ ParamList *parse_parameter_type_list()
     }
     ParamList *pl = new_param_list(false, false);
     pl->u.params  = parse_parameter_list();
-    if (current_token == TOKEN_COMMA && current_token == TOKEN_ELLIPSIS) {
+    if (current_token == TOKEN_COMMA && next_token() == TOKEN_ELLIPSIS) {
         advance_token();
         expect_token(TOKEN_ELLIPSIS);
         Param *variadic = new_param(NULL, NULL);
@@ -1563,7 +1563,7 @@ Param *parse_parameter_list()
         printf("--- %s()\n", __func__);
     }
     Param *param = parse_parameter_declaration();
-    if (current_token == TOKEN_COMMA && current_token != TOKEN_ELLIPSIS) {
+    if (current_token == TOKEN_COMMA && next_token() != TOKEN_ELLIPSIS) {
         advance_token();
         param->next = parse_parameter_list();
     }
@@ -1706,7 +1706,7 @@ InitItem *parse_initializer_list()
     }
     Initializer *init = parse_initializer();
     InitItem *item    = new_init_item(designation, init);
-    if (current_token == TOKEN_COMMA && current_token != TOKEN_RBRACE) {
+    if (current_token == TOKEN_COMMA && next_token() != TOKEN_RBRACE) {
         advance_token();
         item->next = parse_initializer_list();
     }
@@ -1784,7 +1784,7 @@ Stmt *parse_statement()
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    if (current_token == TOKEN_IDENTIFIER && /* Peek for ':' */ 0) {
+    if (current_token == TOKEN_IDENTIFIER && next_token() == TOKEN_COLON) {
         return parse_labeled_statement();
     } else if (current_token == TOKEN_CASE || current_token == TOKEN_DEFAULT) {
         return parse_labeled_statement();
@@ -2079,7 +2079,7 @@ ExternalDecl *parse_external_declaration()
     }
     DeclSpec *spec = parse_declaration_specifiers();
     if (current_token == TOKEN_SEMICOLON || current_token == TOKEN_STATIC_ASSERT ||
-        (current_token == TOKEN_IDENTIFIER && current_token == TOKEN_ASSIGN)) {
+        (current_token == TOKEN_IDENTIFIER && next_token() == TOKEN_ASSIGN)) {
         Declaration *decl = parse_declaration();
         ExternalDecl *ed  = new_external_decl(EXTERNAL_DECL_DECLARATION);
         ed->u.declaration = decl;
