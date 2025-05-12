@@ -9,6 +9,7 @@
 static int current_token;
 static int peek_token;
 static char *current_lexeme;
+static char lexeme_buffer[1024]; // Buffer for current lexeme
 
 // Set manually to enable debug output
 static int debug = 1;
@@ -27,17 +28,30 @@ void advance_token()
     if (peek_token > 0) {
         current_token = peek_token;
         peek_token    = 0;
-        return;
+    } else {
+        current_token = yylex();
     }
-    current_token  = yylex();
     current_lexeme = get_yytext();
 }
 
+// Does this token have something valuable in yytext?
+bool has_yytext(int token)
+{
+    return token == TOKEN_IDENTIFIER || token == TOKEN_I_CONSTANT ||
+           token == TOKEN_F_CONSTANT || token == TOKEN_ENUMERATION_CONSTANT ||
+           token == TOKEN_STRING_LITERAL || token == TOKEN_TYPEDEF_NAME;
+}
+
+// Peek next token, without advancing the parser.
 int next_token()
 {
     if (peek_token == 0) {
-        peek_token  = yylex();
-        // TODO: we may lose current_lexeme here, as yytext is updated.
+        if (has_yytext(current_token)) {
+            // Make a copy of current lexeme.
+            strcpy(lexeme_buffer, current_lexeme);
+            current_lexeme = lexeme_buffer;
+        }
+        peek_token = yylex();
     }
     return peek_token;
 }
