@@ -311,6 +311,71 @@ void print_declarator(FILE *fd, Declarator *decl, int indent)
     }
 }
 
+// Print TypeSpec
+void print_type_spec(FILE *fd, TypeSpec *spec, int indent)
+{
+    switch (spec->kind) {
+    case TYPE_SPEC_BASIC:
+        fprintf(fd, "%s\n", type_kind_str[spec->u.basic->kind]);
+        break;
+    case TYPE_SPEC_STRUCT:
+        fprintf(fd, "struct %s\n",
+                spec->u.struct_spec.name ? spec->u.struct_spec.name
+                                                     : "(anonymous)");
+        for (Field *field = spec->u.struct_spec.fields; field;
+             field        = field->next) {
+            print_indent(fd, indent + 4);
+            fprintf(fd, "Field:\n");
+            if (field->is_anonymous) {
+                print_indent(fd, indent + 6);
+                fprintf(fd, "Anonymous\n");
+            } else {
+                print_indent(fd, indent + 6);
+                fprintf(fd, "Name: \"%s\"\n", field->u.named.name);
+                print_type(fd, field->u.named.type, indent + 6);
+            }
+        }
+        break;
+    case TYPE_SPEC_UNION:
+        fprintf(fd, "union %s\n",
+                spec->u.struct_spec.name ? spec->u.struct_spec.name
+                                                     : "(anonymous)");
+        for (Field *field = spec->u.struct_spec.fields; field;
+             field        = field->next) {
+            print_indent(fd, indent + 4);
+            fprintf(fd, "Field:\n");
+            if (field->is_anonymous) {
+                print_indent(fd, indent + 6);
+                fprintf(fd, "Anonymous\n");
+            } else {
+                print_indent(fd, indent + 6);
+                fprintf(fd, "Name: \"%s\"\n", field->u.named.name);
+                print_type(fd, field->u.named.type, indent + 6);
+            }
+        }
+        break;
+    case TYPE_SPEC_ENUM:
+        fprintf(fd, "enum %s\n",
+                spec->u.enum_spec.name ? spec->u.enum_spec.name
+                                                   : "(anonymous)");
+        for (Enumerator *e = spec->u.enum_spec.enumerators; e; e = e->next) {
+            print_indent(fd, indent + 4);
+            fprintf(fd, "Enumerator: \"%s\"\n", e->name);
+            if (e->value) {
+                print_expression(fd, e->value, indent + 6);
+            }
+        }
+        break;
+    case TYPE_SPEC_TYPEDEF_NAME:
+        fprintf(fd, "typedef %s\n", spec->u.typedef_name.name);
+        break;
+    case TYPE_SPEC_ATOMIC:
+        fprintf(fd, "_Atomic\n");
+        print_type(fd, spec->u.atomic.type, indent + 4);
+        break;
+    }
+}
+
 // Print DeclSpec
 static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
 {
@@ -348,66 +413,7 @@ static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
     if (spec->type_specs) {
         print_indent(fd, indent + 2);
         fprintf(fd, "TypeSpec: ");
-        switch (spec->type_specs->kind) {
-        case TYPE_SPEC_BASIC:
-            fprintf(fd, "%s\n", type_kind_str[spec->type_specs->u.basic->kind]);
-            break;
-        case TYPE_SPEC_STRUCT:
-            fprintf(fd, "struct %s\n",
-                    spec->type_specs->u.struct_spec.name ? spec->type_specs->u.struct_spec.name
-                                                         : "(anonymous)");
-            for (Field *field = spec->type_specs->u.struct_spec.fields; field;
-                 field        = field->next) {
-                print_indent(fd, indent + 4);
-                fprintf(fd, "Field:\n");
-                if (field->is_anonymous) {
-                    print_indent(fd, indent + 6);
-                    fprintf(fd, "Anonymous\n");
-                } else {
-                    print_indent(fd, indent + 6);
-                    fprintf(fd, "Name: \"%s\"\n", field->u.named.name);
-                    print_type(fd, field->u.named.type, indent + 6);
-                }
-            }
-            break;
-        case TYPE_SPEC_UNION:
-            fprintf(fd, "union %s\n",
-                    spec->type_specs->u.struct_spec.name ? spec->type_specs->u.struct_spec.name
-                                                         : "(anonymous)");
-            for (Field *field = spec->type_specs->u.struct_spec.fields; field;
-                 field        = field->next) {
-                print_indent(fd, indent + 4);
-                fprintf(fd, "Field:\n");
-                if (field->is_anonymous) {
-                    print_indent(fd, indent + 6);
-                    fprintf(fd, "Anonymous\n");
-                } else {
-                    print_indent(fd, indent + 6);
-                    fprintf(fd, "Name: \"%s\"\n", field->u.named.name);
-                    print_type(fd, field->u.named.type, indent + 6);
-                }
-            }
-            break;
-        case TYPE_SPEC_ENUM:
-            fprintf(fd, "enum %s\n",
-                    spec->type_specs->u.enum_spec.name ? spec->type_specs->u.enum_spec.name
-                                                       : "(anonymous)");
-            for (Enumerator *e = spec->type_specs->u.enum_spec.enumerators; e; e = e->next) {
-                print_indent(fd, indent + 4);
-                fprintf(fd, "Enumerator: \"%s\"\n", e->name);
-                if (e->value) {
-                    print_expression(fd, e->value, indent + 6);
-                }
-            }
-            break;
-        case TYPE_SPEC_TYPEDEF_NAME:
-            fprintf(fd, "typedef %s\n", spec->type_specs->u.typedef_name.name);
-            break;
-        case TYPE_SPEC_ATOMIC:
-            fprintf(fd, "_Atomic\n");
-            print_type(fd, spec->type_specs->u.atomic.type, indent + 4);
-            break;
-        }
+        print_type_spec(fd, spec->type_specs, indent + 4);
     }
     if (spec->qualifiers) {
         print_indent(fd, indent + 2);

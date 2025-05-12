@@ -586,8 +586,10 @@ struct ExternalDecl {
 };
 
 Program *parse(FILE *input);
-void print_program(FILE *fd, Program *program);
 void free_program(Program* program);
+
+void print_program(FILE *fd, Program *program);
+void print_type_spec(FILE *fd, TypeSpec *spec, int indent);
 
 #ifdef GTEST_API_
 void advance_token(void);

@@ -1082,6 +1082,8 @@ DeclSpec *parse_declaration_specifiers()
                    current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME ||
                    current_token == TOKEN_ATOMIC) {
             TypeSpec *ts = parse_type_specifier();
+printf("--- append type specifier:\n");
+print_type_spec(stdout, ts, 0);
             append_list(&ds->type_specs, ts);
         } else if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
                    current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
