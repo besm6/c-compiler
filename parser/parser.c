@@ -703,6 +703,7 @@ Expr *parse_unary_expression()
         if (current_token == TOKEN_LPAREN && is_type_name(next_token())) {
             expect_token(TOKEN_LPAREN);
             Type *type = parse_type_name();
+//printf("--- type: "); print_type(stdout, type, 0);
             expect_token(TOKEN_RPAREN);
             Expr *new_expr          = new_expression(EXPR_SIZEOF_TYPE);
             new_expr->u.sizeof_type = type;
@@ -1616,7 +1617,8 @@ Type *parse_type_name()
     TypeSpec *spec = parse_specifier_qualifier_list();
     if (current_token == TOKEN_STAR || current_token == TOKEN_LPAREN ||
         current_token == TOKEN_LBRACKET) {
-        parse_abstract_declarator();
+        Declarator *decl = parse_abstract_declarator();
+        //TODO
     }
     return spec->u.basic;
 }

@@ -589,7 +589,16 @@ Program *parse(FILE *input);
 void free_program(Program* program);
 
 void print_program(FILE *fd, Program *program);
+void print_declarator(FILE *fd, Declarator *decl, int indent);
+void print_expression(FILE *fd, Expr *expr, int indent);
+void print_statement(FILE *fd, Stmt *stmt, int indent);
 void print_type_spec(FILE *fd, TypeSpec *spec, int indent);
+void print_type(FILE *fd, Type *type, int indent);
+
+void free_declarator(Declarator *decl);
+void free_expression(Expr *expr);
+void free_statement(Stmt *stmt);
+void free_type(Type *type);
 
 #ifdef GTEST_API_
 void advance_token(void);
@@ -597,14 +606,7 @@ Declarator *parse_declarator(void);
 Expr *parse_primary_expression(void);
 Expr *parse_expression(void);
 Stmt *parse_statement(void);
-
-void print_declarator(FILE *fd, Declarator *decl, int indent);
-void print_expression(FILE *fd, Expr *expr, int indent);
-void print_statement(FILE *fd, Stmt *stmt, int indent);
-
-void free_declarator(Declarator *decl);
-void free_expression(Expr *expr);
-void free_statement(Stmt *stmt);
+Type *parse_type_name(void);
 #endif
 
 #ifdef __cplusplus

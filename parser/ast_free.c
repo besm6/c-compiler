@@ -10,7 +10,7 @@ static void free_external_decl(ExternalDecl *ext);
 static void free_initializer(Initializer *init);
 
 // Free Type
-static void free_type(Type *type)
+void free_type(Type *type)
 {
     if (!type)
         return;

@@ -65,7 +65,7 @@ static void print_declaration(FILE *fd, Declaration *decl, int indent);
 static void print_external_decl(FILE *fd, ExternalDecl *ext, int indent);
 
 // Print Type
-static void print_type(FILE *fd, Type *type, int indent)
+void print_type(FILE *fd, Type *type, int indent)
 {
     if (!type) {
         print_indent(fd, indent);
