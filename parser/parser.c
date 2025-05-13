@@ -1609,6 +1609,10 @@ Param *parse_parameter_declaration()
     return new_param(NULL, spec->type_specs ? spec->type_specs->u.basic : NULL);
 }
 
+//
+// type_name : specifier_qualifier_list abstract_declarator
+//           | specifier_qualifier_list
+//           ;
 Type *parse_type_name()
 {
     if (debug) {
