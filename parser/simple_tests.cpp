@@ -1,7 +1,7 @@
 #include "fixture.h"
 
 // Test primary expression: identifier
-TEST_F(ParserTest, ParseIdentifier)
+TEST_F(ParserTest, ScanIdentifier)
 {
     init_scanner(CreateTempFile("x"));
     advance_token();
@@ -19,7 +19,7 @@ TEST_F(ParserTest, ParseIdentifier)
 }
 
 // Test primary expression: integer constant
-TEST_F(ParserTest, ParseIntegerConstant)
+TEST_F(ParserTest, ScanIntegerConstant)
 {
     init_scanner(CreateTempFile("42;"));
     advance_token();
@@ -35,7 +35,7 @@ TEST_F(ParserTest, ParseIntegerConstant)
 }
 
 // Test binary expression: x + y
-TEST_F(ParserTest, ParseBinaryExpression)
+TEST_F(ParserTest, ScanBinaryExpression)
 {
     init_scanner(CreateTempFile("x + y;"));
     advance_token();
@@ -54,7 +54,7 @@ TEST_F(ParserTest, ParseBinaryExpression)
 }
 
 // Test function call: f(x, y)
-TEST_F(ParserTest, ParseFunctionCall)
+TEST_F(ParserTest, ScanFunctionCall)
 {
     init_scanner(CreateTempFile("f(x, y);"));
     advance_token();
@@ -78,7 +78,7 @@ TEST_F(ParserTest, ParseFunctionCall)
 }
 
 // Test if statement: if (x) return y;
-TEST_F(ParserTest, ParseIfStatement)
+TEST_F(ParserTest, ScanIfStatement)
 {
     init_scanner(CreateTempFile("if (x) return y;"));
     advance_token();

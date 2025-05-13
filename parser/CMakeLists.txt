@@ -24,7 +24,7 @@ add_executable(c-parser-tests
     parser.c
     simple_tests.cpp
     statements_tests.cpp
-#   ops_tests.cpp
+    ops_tests.cpp
 #   decls_types_tests.cpp
 #   negative_tests.cpp
     ../scanner/scanner.c
