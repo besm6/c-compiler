@@ -2051,9 +2051,8 @@ Stmt *parse_jump_statement()
     }
     if (current_token == TOKEN_GOTO) {
         advance_token();
-        expect_token(TOKEN_IDENTIFIER);
         Ident label = strdup(current_lexeme);
-        advance_token();
+        expect_token(TOKEN_IDENTIFIER);
         expect_token(TOKEN_SEMICOLON);
         Stmt *stmt         = new_stmt(STMT_GOTO);
         stmt->u.goto_label = label;
