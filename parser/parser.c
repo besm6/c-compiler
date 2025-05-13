@@ -626,19 +626,19 @@ Expr *parse_postfix_expression()
             expr                  = new_expr;
         } else if (current_token == TOKEN_DOT) {
             advance_token();
+            Ident field = strdup(current_lexeme);
             expect_token(TOKEN_IDENTIFIER);
             Expr *new_expr                 = new_expression(EXPR_FIELD_ACCESS);
             new_expr->u.field_access.expr  = expr;
-            new_expr->u.field_access.field = strdup(current_lexeme);
-            advance_token();
+            new_expr->u.field_access.field = field;
             expr = new_expr;
         } else if (current_token == TOKEN_PTR_OP) {
             advance_token();
+            Ident field = strdup(current_lexeme);
             expect_token(TOKEN_IDENTIFIER);
             Expr *new_expr               = new_expression(EXPR_PTR_ACCESS);
             new_expr->u.ptr_access.expr  = expr;
-            new_expr->u.ptr_access.field = strdup(current_lexeme);
-            advance_token();
+            new_expr->u.ptr_access.field = field;
             expr = new_expr;
         } else if (current_token == TOKEN_INC_OP) {
             advance_token();
@@ -1384,9 +1384,8 @@ Enumerator *parse_enumerator()
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    expect_token(TOKEN_IDENTIFIER);
     Ident name = strdup(current_lexeme);
-    advance_token();
+    expect_token(TOKEN_IDENTIFIER);
     Expr *value = NULL;
     if (current_token == TOKEN_ASSIGN) {
         advance_token();
@@ -1771,10 +1770,10 @@ Designator *parse_designator()
         return d;
     } else if (current_token == TOKEN_DOT) {
         advance_token();
+        Ident name = strdup(current_lexeme);
         expect_token(TOKEN_IDENTIFIER);
         Designator *d = new_designator(DESIGNATOR_FIELD);
-        d->u.name     = strdup(current_lexeme);
-        advance_token();
+        d->u.name     = name;
         return d;
     }
     parse_error("Expected designator");
