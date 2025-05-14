@@ -1191,11 +1191,16 @@ Type *fuse_type_specifiers(TypeSpec *specs)
             }
             typedef_spec = s;
         } else if (s->kind == TYPE_SPEC_ATOMIC) {
-            if (is_atomic) {
-                fprintf(stderr, "Error: multiple _Atomic specifiers\n");
+            if (base_kind != -1 || signedness != -1 || struct_spec || union_spec || enum_spec || typedef_spec || s->next) {
+                fprintf(stderr, "Error: _Atomic() cannot combine with other types\n");
                 return NULL;
             }
-            is_atomic = true;
+            Type *result = s->u.atomic.type;
+            s->u.atomic.type = NULL;
+
+            /* Apply _Atomic as a qualifier */
+            append_list(&result->qualifiers, new_type_qualifier(TYPE_QUALIFIER_ATOMIC));
+            return result;
         } else {
             fprintf(stderr, "Error: Unknown TypeSpec kind\n");
             return NULL;
@@ -1268,12 +1273,6 @@ Type *fuse_type_specifiers(TypeSpec *specs)
             }
         }
     }
-
-    /* Apply _Atomic as a qualifier if present */
-    if (is_atomic) {
-        append_list(&result->qualifiers, new_type_qualifier(TYPE_QUALIFIER_ATOMIC));
-    }
-
     return result;
 }
 
@@ -1319,7 +1318,7 @@ DeclSpec *parse_declaration_specifiers()
                    current_token == TOKEN_COMPLEX || current_token == TOKEN_IMAGINARY ||
                    current_token == TOKEN_STRUCT || current_token == TOKEN_UNION ||
                    current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME ||
-                   current_token == TOKEN_ATOMIC) {
+                   (current_token == TOKEN_ATOMIC && next_token() == TOKEN_LPAREN)) {
             TypeSpec *ts = parse_type_specifier();
             append_list(&ds->type_specs, ts);
         } else if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
@@ -1436,7 +1435,7 @@ TypeSpec *parse_type_specifier()
         ts          = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic = new_type(TYPE_IMAGINARY);
         advance_token();
-    } else if (current_token == TOKEN_ATOMIC) {
+    } else if (current_token == TOKEN_ATOMIC && next_token() == TOKEN_LPAREN) {
         ts                = new_type_spec(TYPE_SPEC_ATOMIC);
         ts->u.atomic.type = parse_atomic_type_specifier();
     } else if (current_token == TOKEN_STRUCT || current_token == TOKEN_UNION) {
@@ -1596,7 +1595,8 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
 
     while (1) {
         if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
-            current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
+            current_token == TOKEN_VOLATILE ||
+            (current_token == TOKEN_ATOMIC && next_token() != TOKEN_LPAREN)) {
             /* Parse type_qualifier */
             TypeQualifierKind q_kind;
             switch (current_token) {
@@ -1625,7 +1625,7 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                    current_token == TOKEN_COMPLEX || current_token == TOKEN_IMAGINARY ||
                    current_token == TOKEN_STRUCT || current_token == TOKEN_UNION ||
                    current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME ||
-                   current_token == TOKEN_ATOMIC) {
+                   (current_token == TOKEN_ATOMIC && next_token() == TOKEN_LPAREN)) {
             /* Parse type_specifier */
             TypeSpec *ts = NULL;
             if (current_token == TOKEN_VOID) {
@@ -2017,7 +2017,8 @@ Declarator *parse_direct_declarator()
             }
             TypeQualifier *qualifiers = NULL;
             if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
-                current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
+                current_token == TOKEN_VOLATILE ||
+                (current_token == TOKEN_ATOMIC && next_token() != TOKEN_LPAREN)) {
                 qualifiers = parse_type_qualifier_list();
             }
             Expr *size = NULL;
@@ -2074,7 +2075,8 @@ TypeQualifier *parse_type_qualifier_list()
     }
     TypeQualifier *qualifiers = NULL, **qualifiers_tail = &qualifiers;
     while (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
-           current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
+           current_token == TOKEN_VOLATILE ||
+           (current_token == TOKEN_ATOMIC && next_token() != TOKEN_LPAREN)) {
         TypeQualifier *q = new_type_qualifier(TYPE_QUALIFIER_CONST); /* Default */
         switch (current_token) {
         case TOKEN_CONST:
@@ -2318,6 +2320,7 @@ Type *parse_type_name()
         fatal_error("Incorrect type");
         return NULL;
     }
+    append_list(&qualifiers, base_type->qualifiers);
     base_type->qualifiers = qualifiers;
 
     /* Parse optional abstract_declarator */

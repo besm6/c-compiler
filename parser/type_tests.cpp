@@ -293,7 +293,6 @@ TEST_F(ParserTest, TypeConstVolatileUnsignedChar)
     free_type(type);
 }
 
-//TODO:
 //
 // 4. Struct, Union, Enum, and Typedef Types
 // Testing complex type specifiers.
@@ -307,6 +306,89 @@ TEST_F(ParserTest, TypeConstVolatileUnsignedChar)
 // 35. _Atomic enum E
 //
 
+TEST_F(ParserTest, TypeStruct)
+{
+    Type *type = TestType("struct S");
+
+    EXPECT_EQ(type->kind, TYPE_STRUCT);
+    EXPECT_STREQ(type->u.struct_t.name, "S");
+    EXPECT_EQ(type->u.struct_t.fields, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeUnion)
+{
+    Type *type = TestType("union U");
+
+    EXPECT_EQ(type->kind, TYPE_UNION);
+    EXPECT_STREQ(type->u.struct_t.name, "U");
+    EXPECT_EQ(type->u.struct_t.fields, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeEnum)
+{
+    Type *type = TestType("enum E");
+
+    EXPECT_EQ(type->kind, TYPE_ENUM);
+    EXPECT_STREQ(type->u.enum_t.name, "E");
+    EXPECT_EQ(type->u.enum_t.enumerators, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, DISABLED_TypeTypedef)
+{
+    //TODO: Add typedef MyType to the symbol table.
+    Type *type = TestType("MyType");
+
+    EXPECT_EQ(type->kind, TYPE_TYPEDEF_NAME);
+    EXPECT_STREQ(type->u.enum_t.name, "MyType");
+    EXPECT_EQ(type->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeConstStruct)
+{
+    Type *type = TestType("const struct S");
+
+    EXPECT_EQ(type->kind, TYPE_STRUCT);
+    EXPECT_STREQ(type->u.struct_t.name, "S");
+    EXPECT_EQ(type->u.struct_t.fields, nullptr);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->qualifiers->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeVolatileUnion)
+{
+    Type *type = TestType("volatile union U");
+
+    EXPECT_EQ(type->kind, TYPE_UNION);
+    EXPECT_STREQ(type->u.struct_t.name, "U");
+    EXPECT_EQ(type->u.struct_t.fields, nullptr);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_VOLATILE);
+    EXPECT_EQ(type->qualifiers->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeAtomicEnum)
+{
+    Type *type = TestType("_Atomic enum E");
+
+    EXPECT_EQ(type->kind, TYPE_ENUM);
+    EXPECT_STREQ(type->u.enum_t.name, "E");
+    EXPECT_EQ(type->u.enum_t.enumerators, nullptr);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_ATOMIC);
+    EXPECT_EQ(type->qualifiers->next, nullptr);
+    free_type(type);
+}
+
 //
 // 5. Atomic Type Specifier
 // Testing "_Atomic" with a type name.
@@ -316,6 +398,32 @@ TEST_F(ParserTest, TypeConstVolatileUnsignedChar)
 // 38. _Atomic(const char)
 //
 
+TEST_F(ParserTest, TypeAtomicInt)
+{
+    Type *type = TestType("_Atomic(int)");
+
+    EXPECT_EQ(type->kind, TYPE_INT);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_ATOMIC);
+    EXPECT_EQ(type->qualifiers->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeAtomicStruct)
+{
+    Type *type = TestType("_Atomic(struct S)");
+
+    EXPECT_EQ(type->kind, TYPE_STRUCT);
+    EXPECT_STREQ(type->u.struct_t.name, "S");
+    EXPECT_EQ(type->u.struct_t.fields, nullptr);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_ATOMIC);
+    EXPECT_EQ(type->qualifiers->next, nullptr);
+    free_type(type);
+}
+
+//TODO:
 //
 // 6. Pointer Types
 // Testing "type_name : specifier_qualifier_list abstract_declarator"

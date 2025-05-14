@@ -170,6 +170,7 @@ void print_type_qualifiers(FILE *fd, TypeQualifier *qualifiers, int indent)
             break;
         }
     }
+    fprintf(fd, "\n");
 }
 
 // Print Type
@@ -626,27 +627,7 @@ static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
         print_type_spec(fd, spec->type_specs, indent + 4);
     }
     if (spec->qualifiers) {
-        print_indent(fd, indent + 2);
-        fprintf(fd, "Qualifiers: ");
-        TypeQualifier *qual = spec->qualifiers;
-        while (qual) {
-            switch (qual->kind) {
-            case TYPE_QUALIFIER_CONST:
-                fprintf(fd, "const ");
-                break;
-            case TYPE_QUALIFIER_RESTRICT:
-                fprintf(fd, "restrict ");
-                break;
-            case TYPE_QUALIFIER_VOLATILE:
-                fprintf(fd, "volatile ");
-                break;
-            case TYPE_QUALIFIER_ATOMIC:
-                fprintf(fd, "_Atomic ");
-                break;
-            }
-            qual = qual->next;
-        }
-        fprintf(fd, "\n");
+        print_type_qualifiers(fd, spec->qualifiers, indent + 2);
     }
     if (spec->func_specs) {
         print_indent(fd, indent + 2);
