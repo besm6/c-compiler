@@ -167,3 +167,22 @@ TEST_F(ParserTest, TypeInt)
 // 82. unsigned int (*(*)[5])
 // 83. const struct S (*(int))
 //
+
+//
+// Nested types
+//
+// Variant 1: Nested Struct with Simple Field
+// struct Outer { int x; struct Inner { int y; } inner; }
+//
+// Variant 2: Struct with Pointer to Itself
+// struct Node { int data; struct Node *next; }
+//
+// Variant 3: Function Pointer with Struct Parameter
+// void (*)(struct Pair { int x; int y; })
+//
+// Variant 4: Nested Struct with Array Field
+// struct Container { struct Item { int value; } items[10]; }
+//
+// Variant 5: Union with Nested Struct and Anonymous Struct
+// union Variant { struct { int a; int b; }; struct Named { float x; } named; }
+//

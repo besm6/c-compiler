@@ -407,7 +407,7 @@ Type *parse_struct_or_union_specifier();
 int parse_struct_or_union();
 Field *parse_struct_declaration_list();
 Field *parse_struct_declaration();
-TypeSpec *parse_specifier_qualifier_list();
+TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers);
 Declarator *parse_struct_declarator_list();
 Declarator *parse_struct_declarator();
 Type *parse_enum_specifier();
@@ -425,8 +425,7 @@ ParamList *parse_parameter_type_list();
 Param *parse_parameter_list();
 Param *parse_parameter_declaration();
 Type *parse_type_name();
-Declarator *parse_abstract_declarator();
-Declarator *parse_direct_abstract_declarator();
+DeclaratorSuffix *parse_direct_abstract_declarator();
 Initializer *parse_initializer();
 InitItem *parse_initializer_list();
 Designator *parse_designation();
@@ -1274,7 +1273,9 @@ Field *parse_struct_declaration()
         parse_static_assert_declaration(); /* Ignore for now */
         return NULL;
     }
-    TypeSpec *spec = parse_specifier_qualifier_list();
+    TypeQualifier *qualifiers = NULL;
+    TypeSpec *spec = parse_specifier_qualifier_list(&qualifiers);
+    //TODO: qualifiers
     if (current_token == TOKEN_SEMICOLON) {
         advance_token();
         return new_field(NULL, spec->u.basic, NULL, true);
@@ -1284,34 +1285,248 @@ Field *parse_struct_declaration()
     return new_field(decls->u.named.name, spec->u.basic, NULL, false);
 }
 
-TypeSpec *parse_specifier_qualifier_list()
+TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
 {
-    if (debug) {
-        printf("--- %s()\n", __func__);
-    }
-    TypeSpec *spec = new_type_spec(TYPE_SPEC_BASIC);
-    spec->u.basic  = new_type(TYPE_VOID); /* Placeholder */
+    TypeSpec *type_specs = NULL;
+    *qualifiers          = NULL;
+
     while (1) {
-        if (current_token == TOKEN_VOID || current_token == TOKEN_CHAR ||
-            current_token == TOKEN_SHORT || current_token == TOKEN_INT ||
-            current_token == TOKEN_LONG || current_token == TOKEN_FLOAT ||
-            current_token == TOKEN_DOUBLE || current_token == TOKEN_SIGNED ||
-            current_token == TOKEN_UNSIGNED || current_token == TOKEN_BOOL ||
-            current_token == TOKEN_COMPLEX || current_token == TOKEN_IMAGINARY ||
-            current_token == TOKEN_STRUCT || current_token == TOKEN_UNION ||
-            current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME ||
-            current_token == TOKEN_ATOMIC) {
-            TypeSpec *ts = parse_type_specifier();
-            append_list(&spec, ts);
-        } else if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
-                   current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
-            TypeQualifier *q = parse_type_qualifier();
-            append_list(&spec->qualifiers, q);
+        if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
+            current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
+            /* Parse type_qualifier */
+            TypeQualifierKind q_kind;
+            switch (current_token) {
+            case TOKEN_CONST:
+                q_kind = TYPE_QUALIFIER_CONST;
+                break;
+            case TOKEN_RESTRICT:
+                q_kind = TYPE_QUALIFIER_RESTRICT;
+                break;
+            case TOKEN_VOLATILE:
+                q_kind = TYPE_QUALIFIER_VOLATILE;
+                break;
+            case TOKEN_ATOMIC:
+                q_kind = TYPE_QUALIFIER_ATOMIC;
+                break;
+            default:
+                return NULL; /* Unreachable */
+            }
+            append_list(qualifiers, new_type_qualifier(q_kind));
+            advance_token();
+        } else if (current_token == TOKEN_VOID || current_token == TOKEN_CHAR ||
+                   current_token == TOKEN_SHORT || current_token == TOKEN_INT ||
+                   current_token == TOKEN_LONG || current_token == TOKEN_FLOAT ||
+                   current_token == TOKEN_DOUBLE || current_token == TOKEN_SIGNED ||
+                   current_token == TOKEN_UNSIGNED || current_token == TOKEN_BOOL ||
+                   current_token == TOKEN_COMPLEX || current_token == TOKEN_IMAGINARY ||
+                   current_token == TOKEN_STRUCT || current_token == TOKEN_UNION ||
+                   current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME ||
+                   current_token == TOKEN_ATOMIC) {
+            /* Parse type_specifier */
+            TypeSpec *ts = NULL;
+            if (current_token == TOKEN_VOID) {
+                ts          = new_type_spec(TYPE_SPEC_BASIC);
+                ts->u.basic = new_type(TYPE_VOID);
+                advance_token();
+            } else if (current_token == TOKEN_CHAR) {
+                ts                               = new_type_spec(TYPE_SPEC_BASIC);
+                ts->u.basic                      = new_type(TYPE_CHAR);
+                ts->u.basic->u.char_t.signedness = SIGNED_SIGNED;
+                advance_token();
+            } else if (current_token == TOKEN_SHORT) {
+                ts                               = new_type_spec(TYPE_SPEC_BASIC);
+                ts->u.basic                      = new_type(TYPE_SHORT);
+                ts->u.basic->u.char_t.signedness = SIGNED_SIGNED;
+                advance_token();
+            } else if (current_token == TOKEN_INT) {
+                ts                               = new_type_spec(TYPE_SPEC_BASIC);
+                ts->u.basic                      = new_type(TYPE_INT);
+                ts->u.basic->u.char_t.signedness = SIGNED_SIGNED;
+                advance_token();
+            } else if (current_token == TOKEN_LONG) {
+                ts                               = new_type_spec(TYPE_SPEC_BASIC);
+                ts->u.basic                      = new_type(TYPE_LONG);
+                ts->u.basic->u.char_t.signedness = SIGNED_SIGNED;
+                advance_token();
+            } else if (current_token == TOKEN_FLOAT) {
+                ts          = new_type_spec(TYPE_SPEC_BASIC);
+                ts->u.basic = new_type(TYPE_FLOAT);
+                advance_token();
+            } else if (current_token == TOKEN_DOUBLE) {
+                ts          = new_type_spec(TYPE_SPEC_BASIC);
+                ts->u.basic = new_type(TYPE_DOUBLE);
+                advance_token();
+            } else if (current_token == TOKEN_SIGNED) {
+                ts                               = new_type_spec(TYPE_SPEC_BASIC);
+                ts->u.basic                      = new_type(TYPE_INT); /* Default to int */
+                ts->u.basic->u.char_t.signedness = SIGNED_SIGNED;
+                advance_token();
+            } else if (current_token == TOKEN_UNSIGNED) {
+                ts                               = new_type_spec(TYPE_SPEC_BASIC);
+                ts->u.basic                      = new_type(TYPE_INT); /* Default to int */
+                ts->u.basic->u.char_t.signedness = SIGNED_UNSIGNED;
+                advance_token();
+            } else if (current_token == TOKEN_BOOL) {
+                ts          = new_type_spec(TYPE_SPEC_BASIC);
+                ts->u.basic = new_type(TYPE_BOOL);
+                advance_token();
+            } else if (current_token == TOKEN_COMPLEX) {
+                ts                          = new_type_spec(TYPE_SPEC_BASIC);
+                ts->u.basic                 = new_type(TYPE_COMPLEX);
+                ts->u.basic->u.complex.base = new_type(TYPE_DOUBLE); /* Default */
+                advance_token();
+            } else if (current_token == TOKEN_IMAGINARY) {
+                ts                          = new_type_spec(TYPE_SPEC_BASIC);
+                ts->u.basic                 = new_type(TYPE_IMAGINARY);
+                ts->u.basic->u.complex.base = new_type(TYPE_DOUBLE); /* Default */
+                advance_token();
+            } else if (current_token == TOKEN_TYPEDEF_NAME) {
+                ts                      = new_type_spec(TYPE_SPEC_TYPEDEF_NAME);
+                ts->u.typedef_name.name = strdup(current_lexeme);
+                advance_token();
+            } else if (current_token == TOKEN_ATOMIC) {
+                advance_token();
+                if (current_token != TOKEN_LPAREN)
+                    return NULL; /* Expected '(' */
+                advance_token();
+                Type *base = parse_type_name();
+                if (!base)
+                    return NULL;
+                if (current_token != TOKEN_RPAREN)
+                    return NULL; /* Expected ')' */
+                advance_token();
+                ts                = new_type_spec(TYPE_SPEC_ATOMIC);
+                ts->u.atomic.type = base;
+            } else if (current_token == TOKEN_STRUCT || current_token == TOKEN_UNION) {
+                bool is_struct = (current_token == TOKEN_STRUCT);
+                advance_token();
+                ts = new_type_spec(is_struct ? TYPE_SPEC_STRUCT : TYPE_SPEC_UNION);
+                if (current_token == TOKEN_IDENTIFIER) {
+                    ts->u.struct_spec.name = strdup(current_lexeme);
+                    advance_token();
+                } else {
+                    ts->u.struct_spec.name = NULL;
+                }
+                if (current_token == TOKEN_LBRACE) {
+                    advance_token();
+                    /* Parse struct_declaration_list */
+                    Field *fields = NULL, **fields_tail = &fields;
+                    while (current_token != TOKEN_RBRACE) {
+                        if (current_token == TOKEN_STATIC_ASSERT) {
+                            /* Skip static_assert_declaration */
+                            advance_token();
+                            if (current_token != TOKEN_LPAREN)
+                                return NULL;
+                            advance_token();
+                            Expr *cond = parse_constant_expression(); // TODO: check
+                            if (!cond || current_token != TOKEN_COMMA)
+                                return NULL;
+                            advance_token();
+                            if (current_token != TOKEN_STRING_LITERAL)
+                                return NULL;
+                            advance_token();
+                            if (current_token != TOKEN_RPAREN || next_token() != TOKEN_SEMICOLON)
+                                return NULL;
+                            advance_token();
+                            advance_token();
+                        } else {
+                            TypeQualifier *field_quals = NULL;
+                            TypeSpec *field_specs = parse_specifier_qualifier_list(&field_quals);
+                            if (!field_specs)
+                                return NULL;
+                            if (current_token == TOKEN_SEMICOLON) {
+                                /* Anonymous struct/union */
+                                Field *field            = (Field *)malloc(sizeof(Field));
+                                field->is_anonymous     = true;
+                                field->u.anonymous.type = parse_type_name(); /* Recursive call */
+                                if (!field->u.anonymous.type)
+                                    return NULL;
+                                field->next  = NULL;
+                                *fields_tail = field;
+                                fields_tail  = &field->next;
+                                advance_token();
+                            } else {
+                                /* struct_declarator_list */
+                                do {
+                                    Field *field            = (Field *)malloc(sizeof(Field));
+                                    field->is_anonymous     = false;
+                                    field->u.named.name     = (current_token == TOKEN_IDENTIFIER)
+                                                                  ? strdup(current_lexeme)
+                                                                  : NULL;
+                                    field->u.named.bitfield = NULL;
+                                    field->u.named.type = parse_type_name(); /* Recursive call */
+                                    if (!field->u.named.type)
+                                        return NULL;
+                                    field->next = NULL;
+                                    if (field->u.named.name)
+                                        advance_token();
+                                    if (current_token == TOKEN_COLON) {
+                                        advance_token();
+                                        field->u.named.bitfield = parse_constant_expression(); // TODO: check
+                                        if (!field->u.named.bitfield)
+                                            return NULL;
+                                    }
+                                    *fields_tail = field;
+                                    fields_tail  = &field->next;
+                                    if (current_token == TOKEN_COMMA)
+                                        advance_token();
+                                    else
+                                        break;
+                                } while (current_token != TOKEN_SEMICOLON);
+                                if (current_token != TOKEN_SEMICOLON)
+                                    return NULL;
+                                advance_token();
+                            }
+                        }
+                    }
+                    ts->u.struct_spec.fields = fields;
+                    advance_token(); /* Consume '}' */
+                }
+            } else if (current_token == TOKEN_ENUM) {
+                advance_token();
+                ts = new_type_spec(TYPE_SPEC_ENUM);
+                if (current_token == TOKEN_IDENTIFIER) {
+                    ts->u.enum_spec.name = strdup(current_lexeme);
+                    advance_token();
+                } else {
+                    ts->u.enum_spec.name = NULL;
+                }
+                if (current_token == TOKEN_LBRACE) {
+                    advance_token();
+                    Enumerator *enums = NULL, **enums_tail = &enums;
+                    do {
+                        if (current_token != TOKEN_IDENTIFIER)
+                            return NULL;
+                        Enumerator *e = (Enumerator *)malloc(sizeof(Enumerator));
+                        e->name       = strdup(current_lexeme);
+                        e->value      = NULL;
+                        e->next       = NULL;
+                        advance_token();
+                        if (current_token == TOKEN_ASSIGN) {
+                            advance_token();
+                            e->value = parse_constant_expression(); // TODO: check
+                            if (!e->value)
+                                return NULL;
+                        }
+                        *enums_tail = e;
+                        enums_tail  = &e->next;
+                        if (current_token == TOKEN_COMMA)
+                            advance_token();
+                        else
+                            break;
+                    } while (current_token != TOKEN_RBRACE);
+                    if (current_token != TOKEN_RBRACE)
+                        return NULL;
+                    advance_token();
+                    ts->u.enum_spec.enumerators = enums;
+                }
+            }
+            append_list(&type_specs, ts);
         } else {
-            break;
+            break; /* End of specifier_qualifier_list */
         }
     }
-    return spec;
+    return type_specs;
 }
 
 Declarator *parse_struct_declarator_list()
@@ -1592,6 +1807,56 @@ Param *parse_parameter_list()
     return param;
 }
 
+DeclaratorSuffix *parse_direct_abstract_declarator()
+{
+    DeclaratorSuffix *suffixes = NULL, **suffixes_tail = &suffixes;
+    while (1) {
+        if (current_token == TOKEN_LBRACKET) {
+            advance_token();
+            DeclaratorSuffix *s   = new_declarator_suffix(SUFFIX_ARRAY);
+            s->u.array.is_static  = false;
+            s->u.array.qualifiers = NULL;
+            s->u.array.size       = NULL;
+            if (current_token == TOKEN_STATIC) {
+                s->u.array.is_static = true;
+                advance_token();
+            }
+            s->u.array.qualifiers = parse_type_qualifier_list();
+            if (current_token != TOKEN_RBRACKET && current_token != TOKEN_STATIC) {
+                s->u.array.size = parse_assignment_expression(); // TODO: check
+                if (!s->u.array.size)
+                    return NULL;
+            }
+            if (current_token != TOKEN_RBRACKET)
+                return NULL;
+            advance_token();
+            *suffixes_tail = s;
+            suffixes_tail  = &s->next;
+        } else if (current_token == TOKEN_LPAREN) {
+            advance_token();
+            DeclaratorSuffix *s    = new_declarator_suffix(SUFFIX_FUNCTION);
+            s->u.function.variadic = false;
+            s->u.function.params   = parse_parameter_type_list();
+            if (!s->u.function.params)
+                return NULL;
+            if (current_token != TOKEN_RPAREN)
+                return NULL;
+            advance_token();
+            if (s->u.function.params->is_empty) {
+                s->u.function.variadic = false;
+            } else if (next_token() == TOKEN_ELLIPSIS) {
+                s->u.function.variadic = true;
+                advance_token();
+            }
+            *suffixes_tail = s;
+            suffixes_tail  = &s->next;
+        } else {
+            break;
+        }
+    }
+    return suffixes;
+}
+
 Param *parse_parameter_declaration()
 {
     if (debug) {
@@ -1603,7 +1868,9 @@ Param *parse_parameter_declaration()
         Declarator *decl = parse_declarator();
         return new_param(decl->u.named.name, spec->type_specs ? spec->type_specs->u.basic : NULL);
     } else if (current_token == TOKEN_LBRACKET) {
-        Declarator *decl = parse_abstract_declarator();
+        //TODO: Declarator *decl = parse_abstract_declarator();
+        //TODO: *pointers = parse_pointer();
+        //TODO: *suffixes = parse_direct_abstract_declarator();
         return new_param(NULL, spec->type_specs ? spec->type_specs->u.basic : NULL);
     }
     return new_param(NULL, spec->type_specs ? spec->type_specs->u.basic : NULL);
@@ -1618,88 +1885,73 @@ Type *parse_type_name()
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    TypeSpec *spec = parse_specifier_qualifier_list();
+    TypeQualifier *qualifiers = NULL;
+    TypeSpec *type_specs      = parse_specifier_qualifier_list(&qualifiers);
+    if (!type_specs)
+        return NULL;
+
+    /* Construct base Type from type_specs (simplified to first basic type) */
+    Type *base_type = NULL;
+    TypeSpec *ts    = type_specs;
+    if (ts->kind == TYPE_SPEC_BASIC) {
+        base_type = ts->u.basic;
+    } else if (ts->kind == TYPE_SPEC_STRUCT || ts->kind == TYPE_SPEC_UNION) {
+        base_type = new_type(ts->kind == TYPE_SPEC_STRUCT ? TYPE_STRUCT : TYPE_UNION);
+        base_type->u.struct_t.name   = ts->u.struct_spec.name;
+        base_type->u.struct_t.fields = ts->u.struct_spec.fields;
+    } else if (ts->kind == TYPE_SPEC_ENUM) {
+        base_type                       = new_type(TYPE_ENUM);
+        base_type->u.enum_t.name        = ts->u.enum_spec.name;
+        base_type->u.enum_t.enumerators = ts->u.enum_spec.enumerators;
+    } else if (ts->kind == TYPE_SPEC_TYPEDEF_NAME) {
+        base_type                      = new_type(TYPE_TYPEDEF_NAME);
+        base_type->u.typedef_name.name = ts->u.typedef_name.name;
+    } else if (ts->kind == TYPE_SPEC_ATOMIC) {
+        base_type                = new_type(TYPE_ATOMIC);
+        base_type->u.atomic.base = ts->u.atomic.type;
+    }
+
+    if (!base_type) {
+        parse_error("Incorrect type");
+        return NULL;
+    }
+    base_type->qualifiers = qualifiers;
+
+    /* Parse optional abstract_declarator */
+    Pointer *pointers          = NULL;
+    DeclaratorSuffix *suffixes = NULL;
     if (current_token == TOKEN_STAR || current_token == TOKEN_LPAREN ||
         current_token == TOKEN_LBRACKET) {
-        Declarator *decl = parse_abstract_declarator();
-        //TODO
+        // Parse abstract_declarator
+        pointers = parse_pointer();
+        suffixes = parse_direct_abstract_declarator();
     }
-    return spec->u.basic;
-}
 
-Declarator *parse_abstract_declarator()
-{
-    if (debug) {
-        printf("--- %s()\n", __func__);
+    /* Apply pointers and suffixes to construct the final type */
+    Type *current_type = base_type;
+    for (Pointer *p = pointers; p; p = p->next) {
+        Type *ptr_type                 = new_type(TYPE_POINTER);
+        ptr_type->u.pointer.target     = current_type;
+        ptr_type->u.pointer.qualifiers = p->qualifiers;
+        current_type                   = ptr_type;
     }
-    Declarator *decl = new_declarator(DECLARATOR_ABSTRACT);
-    if (current_token == TOKEN_STAR) {
-        Pointer *pointers = parse_pointer();
-        append_list(&decl->u.abstract.pointers, pointers);
-        if (current_token == TOKEN_LPAREN || current_token == TOKEN_LBRACKET) {
-            Declarator *direct = parse_direct_abstract_declarator();
-            append_list(&decl->u.abstract.suffixes, direct->u.abstract.suffixes);
+    for (DeclaratorSuffix *s = suffixes; s; s = s->next) {
+        if (s->kind == SUFFIX_ARRAY) {
+            Type *array_type               = new_type(TYPE_ARRAY);
+            array_type->u.array.element    = current_type;
+            array_type->u.array.size       = s->u.array.size;
+            array_type->u.array.qualifiers = s->u.array.qualifiers;
+            current_type                   = array_type;
+        } else if (s->kind == SUFFIX_FUNCTION) {
+            Type *func_type                  = new_type(TYPE_FUNCTION);
+            func_type->u.function.returnType = current_type;
+            func_type->u.function.params     = s->u.function.params;
+            func_type->u.function.variadic   = s->u.function.variadic;
+            current_type                     = func_type;
         }
-    } else {
-        decl = parse_direct_abstract_declarator();
     }
-    return decl;
-}
 
-Declarator *parse_direct_abstract_declarator()
-{
-    if (debug) {
-        printf("--- %s()\n", __func__);
-    }
-    Declarator *decl = new_declarator(DECLARATOR_ABSTRACT);
-    if (current_token == TOKEN_LPAREN) {
-        advance_token();
-        if (current_token != TOKEN_RPAREN) {
-            Declarator *inner = parse_abstract_declarator();
-            append_list(&decl->u.abstract.suffixes, inner->u.abstract.suffixes);
-        }
-        expect_token(TOKEN_RPAREN);
-    } else if (current_token == TOKEN_LBRACKET) {
-        advance_token();
-        DeclaratorSuffix *suffix = new_declarator_suffix(SUFFIX_ARRAY);
-        if (current_token == TOKEN_STATIC) {
-            advance_token();
-            suffix->u.array.is_static = true;
-        }
-        TypeQualifier *qualifiers = NULL;
-        if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
-            current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
-            qualifiers = parse_type_qualifier_list();
-        }
-        Expr *size = NULL;
-        if (current_token != TOKEN_RBRACKET && current_token != TOKEN_STAR) {
-            size = parse_assignment_expression();
-        }
-        if (current_token == TOKEN_STAR) {
-            advance_token();
-        }
-        expect_token(TOKEN_RBRACKET);
-        suffix->u.array.qualifiers = qualifiers;
-        suffix->u.array.size       = size;
-        append_list(&decl->u.abstract.suffixes, suffix);
-    } else if (current_token == TOKEN_LPAREN) {
-        advance_token();
-        ParamList *params = NULL;
-        if (current_token != TOKEN_RPAREN) {
-            params = parse_parameter_type_list();
-        } else {
-            params = new_param_list(true, false);
-        }
-        expect_token(TOKEN_RPAREN);
-        DeclaratorSuffix *suffix  = new_declarator_suffix(SUFFIX_FUNCTION);
-        suffix->u.function.params = params;
-        append_list(&decl->u.abstract.suffixes, suffix);
-    }
-    if (current_token == TOKEN_LBRACKET || current_token == TOKEN_LPAREN) {
-        Declarator *next = parse_direct_abstract_declarator();
-        append_list(&decl->u.abstract.suffixes, next->u.abstract.suffixes);
-    }
-    return decl;
+    return current_type;
 }
 
 Initializer *parse_initializer()
