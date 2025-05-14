@@ -15,7 +15,7 @@ static char lexeme_buffer[1024]; // Buffer for current lexeme
 static int debug = 1;
 
 /* Error handling */
-void parse_error(const char *message)
+void fatal_error(const char *message)
 {
     fprintf(stderr, "Parse error: %s (token: %d, lexeme: %s)\n", message, current_token,
             current_lexeme ? current_lexeme : "");
@@ -59,9 +59,9 @@ int next_token()
 void expect_token(int expected)
 {
     if (current_token != expected) {
-        char msg[100];
-        snprintf(msg, sizeof(msg), "Expected token %d, got %d", expected, current_token);
-        parse_error(msg);
+        fprintf(stderr, "Parse error: Expected token %d, got %d (lexeme: %s)\n",
+                        expected, current_token, current_lexeme ? current_lexeme : "");
+        exit(1);
     }
     advance_token();
 }
@@ -475,7 +475,7 @@ Expr *parse_primary_expression()
         expr = parse_generic_selection();
         break;
     default:
-        parse_error("Expected primary expression");
+        fatal_error("Expected primary expression");
     }
     return expr;
 }
@@ -1214,7 +1214,7 @@ TypeSpec *parse_type_specifier()
         ts->u.typedef_name.name = strdup(current_lexeme);
         advance_token();
     } else {
-        parse_error("Expected type specifier");
+        fatal_error("Expected type specifier");
     }
     return ts;
 }
@@ -1248,7 +1248,7 @@ int parse_struct_or_union()
         advance_token();
         return su;
     }
-    parse_error("Expected struct or union");
+    fatal_error("Expected struct or union");
     return 0;
 }
 
@@ -1701,7 +1701,7 @@ Declarator *parse_direct_declarator()
         decl = parse_declarator();
         expect_token(TOKEN_RPAREN);
     } else {
-        parse_error("Expected identifier or '('");
+        fatal_error("Expected identifier or '('");
     }
     while (1) {
         if (current_token == TOKEN_LBRACKET) {
@@ -1768,16 +1768,38 @@ TypeQualifier *parse_type_qualifier_list()
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    TypeQualifier *qual = parse_type_qualifier();
-    if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
-        current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
-        qual->next = parse_type_qualifier_list();
+    TypeQualifier *qualifiers = NULL, **qualifiers_tail = &qualifiers;
+    while (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
+           current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
+        TypeQualifier *q = new_type_qualifier(TYPE_QUALIFIER_CONST); /* Default */
+        switch (current_token) {
+        case TOKEN_CONST:
+            q->kind = TYPE_QUALIFIER_CONST;
+            break;
+        case TOKEN_RESTRICT:
+            q->kind = TYPE_QUALIFIER_RESTRICT;
+            break;
+        case TOKEN_VOLATILE:
+            q->kind = TYPE_QUALIFIER_VOLATILE;
+            break;
+        case TOKEN_ATOMIC:
+            q->kind = TYPE_QUALIFIER_ATOMIC;
+            break;
+        default:
+            return NULL; /* Unreachable */
+        }
+        advance_token();
+        *qualifiers_tail = q;
+        qualifiers_tail  = &q->next;
     }
-    return qual;
+    return qualifiers;
 }
 
 ParamList *parse_parameter_type_list()
 {
+    if (debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (current_token == TOKEN_RPAREN) {
         ParamList *pl     = (ParamList *)malloc(sizeof(ParamList));
         pl->is_empty      = true;
@@ -1936,7 +1958,7 @@ Type *parse_type_name()
     }
 
     if (!base_type) {
-        parse_error("Incorrect type");
+        fatal_error("Incorrect type");
         return NULL;
     }
     base_type->qualifiers = qualifiers;
@@ -2058,7 +2080,7 @@ Designator *parse_designator()
         d->u.name     = name;
         return d;
     }
-    parse_error("Expected designator");
+    fatal_error("Expected designator");
     return NULL;
 }
 
@@ -2137,7 +2159,7 @@ Stmt *parse_labeled_statement()
         default_stmt->u.default_stmt = stmt;
         return default_stmt;
     }
-    parse_error("Expected labeled statement");
+    fatal_error("Expected labeled statement");
     return NULL;
 }
 
@@ -2247,7 +2269,7 @@ Stmt *parse_selection_statement()
         stmt->u.switch_stmt.body = body;
         return stmt;
     }
-    parse_error("Expected if or switch");
+    fatal_error("Expected if or switch");
     return NULL;
 }
 
@@ -2321,7 +2343,7 @@ Stmt *parse_iteration_statement()
         stmt->u.for_stmt.body      = body;
         return stmt;
     }
-    parse_error("Expected while, do, or for");
+    fatal_error("Expected while, do, or for");
     return NULL;
 }
 
@@ -2357,7 +2379,7 @@ Stmt *parse_jump_statement()
         stmt->u.expr = expr;
         return stmt;
     }
-    parse_error("Expected jump statement");
+    fatal_error("Expected jump statement");
     return NULL;
 }
 
@@ -2451,7 +2473,7 @@ Program *parse(FILE *input)
     advance_token();
     Program *program = parse_translation_unit();
     if (current_token != TOKEN_EOF) {
-        parse_error("Expected end of file");
+        fatal_error("Expected end of file");
     }
     return program;
 }
