@@ -152,6 +152,36 @@ TEST_F(ParserTest, TypeImaginary)
 // 20. unsigned long long
 //
 
+TEST_F(ParserTest, TypeUnsignedInt)
+{
+    Type *type = TestType("unsigned int");
+
+    EXPECT_EQ(type->kind, TYPE_INT);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_UNSIGNED);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeSignedChar)
+{
+    Type *type = TestType("signed char");
+
+    EXPECT_EQ(type->kind, TYPE_CHAR);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeLongInt)
+{
+    Type *type = TestType("long int");
+
+    EXPECT_EQ(type->kind, TYPE_LONG);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    free_type(type);
+}
+
 //
 // 3. Qualified Types
 // Adding type qualifiers to basic and modified types.

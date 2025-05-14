@@ -31,12 +31,28 @@ static const char *stmt_kind_str[] = { [STMT_EXPR] = "Expression",  [STMT_IF] = 
                                        [STMT_LABELED] = "Labeled",  [STMT_CASE] = "Case",
                                        [STMT_DEFAULT] = "Default",  [STMT_COMPOUND] = "Compound" };
 
-static const char *type_kind_str[] = { [TYPE_VOID] = "void",        [TYPE_CHAR] = "char",
-                                       [TYPE_SHORT] = "short",      [TYPE_INT] = "int",
-                                       [TYPE_LONG] = "long",        [TYPE_FLOAT] = "float",
-                                       [TYPE_DOUBLE] = "double",    [TYPE_BOOL] = "_Bool",
-                                       [TYPE_COMPLEX] = "_Complex", [TYPE_IMAGINARY] = "_Imaginary",
-                                       [TYPE_ATOMIC] = "_Atomic" };
+const char *type_kind_str[] = {
+    [TYPE_VOID] = "void",
+    [TYPE_BOOL] = "_Bool",
+    [TYPE_CHAR] = "char",
+    [TYPE_SHORT] = "short",
+    [TYPE_INT] = "int",
+    [TYPE_LONG] = "long",
+    [TYPE_SIGNED] = "signed",
+    [TYPE_UNSIGNED] = "unsigned",
+    [TYPE_FLOAT] = "float",
+    [TYPE_DOUBLE] = "double",
+    [TYPE_COMPLEX] = "_Complex",
+    [TYPE_IMAGINARY] = "_Imaginary",
+    [TYPE_POINTER] = "ptr",
+    [TYPE_ARRAY] = "array",
+    [TYPE_FUNCTION] = "func",
+    [TYPE_STRUCT] = "struct",
+    [TYPE_UNION] = "union",
+    [TYPE_ENUM] = "enum",
+    [TYPE_TYPEDEF_NAME] = "typedef",
+    [TYPE_ATOMIC] = "_Atomic",
+};
 
 static const char *binary_op_kind_str[] = {
     [BINARY_MUL] = "*",          [BINARY_DIV] = "/",      [BINARY_MOD] = "%",

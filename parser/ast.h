@@ -52,6 +52,8 @@ typedef enum {
     TYPE_SHORT,
     TYPE_INT,
     TYPE_LONG,
+    TYPE_SIGNED,
+    TYPE_UNSIGNED,
     TYPE_FLOAT,
     TYPE_DOUBLE,
     TYPE_COMPLEX,
@@ -592,6 +594,7 @@ void print_expression(FILE *fd, Expr *expr, int indent);
 void print_statement(FILE *fd, Stmt *stmt, int indent);
 void print_type_spec(FILE *fd, TypeSpec *spec, int indent);
 void print_type(FILE *fd, Type *type, int indent);
+extern const char *type_kind_str[];
 
 void free_declarator(Declarator *decl);
 void free_expression(Expr *expr);

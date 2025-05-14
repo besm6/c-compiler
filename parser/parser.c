@@ -1023,6 +1023,250 @@ Expr *parse_constant_expression()
     return parse_conditional_expression();
 }
 
+//
+// Fuse TypeSpec list into a single Type
+//
+Type *fuse_type_specifiers(TypeSpec *specs)
+{
+    if (!specs) {
+        fprintf(stderr, "Error: Empty type specifier list\n");
+        return NULL;
+    }
+
+    /* State for tracking type specifiers */
+    TypeKind base_kind     = -1;            /* Unset */
+    Signedness signedness  = SIGNED_SIGNED; /* Default */
+    int long_count         = 0;             /* For long, long long */
+    bool is_complex        = false;
+    bool is_imaginary      = false;
+    bool is_atomic         = false;
+    TypeSpec *struct_spec  = NULL;
+    TypeSpec *union_spec   = NULL;
+    TypeSpec *enum_spec    = NULL;
+    TypeSpec *typedef_spec = NULL;
+    int specifier_count    = 0;
+
+    /* Collect specifiers */
+    for (TypeSpec *s = specs; s; s = s->next) {
+        specifier_count++;
+        if (s->kind == TYPE_SPEC_BASIC) {
+            switch (s->u.basic->kind) {
+            case TYPE_VOID:
+                if (base_kind != -1) {
+                    fprintf(stderr, "Error: void cannot combine with other types\n");
+                    return NULL;
+                }
+                base_kind = TYPE_VOID;
+                break;
+            case TYPE_BOOL:
+                if (base_kind != -1) {
+                    fprintf(stderr, "Error: _Bool cannot combine with other types\n");
+                    return NULL;
+                }
+                base_kind = TYPE_BOOL;
+                break;
+            case TYPE_CHAR:
+                if (base_kind != -1 && base_kind != TYPE_SIGNED && base_kind != TYPE_UNSIGNED) {
+                    fprintf(stderr, "Error: char cannot combine with %s\n", type_kind_str[base_kind]);
+                    return NULL;
+                }
+                base_kind = TYPE_CHAR;
+                break;
+            case TYPE_SHORT:
+                if (base_kind != -1 && base_kind != TYPE_INT && base_kind != TYPE_SIGNED &&
+                    base_kind != TYPE_UNSIGNED) {
+                    fprintf(stderr, "Error: short cannot combine with %s\n", type_kind_str[base_kind]);
+                    return NULL;
+                }
+                base_kind = TYPE_SHORT;
+                break;
+            case TYPE_INT:
+                if (base_kind != -1 && base_kind != TYPE_SHORT && base_kind != TYPE_LONG &&
+                    base_kind != TYPE_SIGNED && base_kind != TYPE_UNSIGNED) {
+                    fprintf(stderr, "Error: int cannot combine with %s\n", type_kind_str[base_kind]);
+                    return NULL;
+                }
+                base_kind = TYPE_INT;
+                break;
+            case TYPE_LONG:
+                if (base_kind != -1 && base_kind != TYPE_INT && base_kind != TYPE_LONG &&
+                    base_kind != TYPE_DOUBLE && base_kind != TYPE_SIGNED &&
+                    base_kind != TYPE_UNSIGNED) {
+                    fprintf(stderr, "Error: long cannot combine with %s\n", type_kind_str[base_kind]);
+                    return NULL;
+                }
+                long_count++;
+                if (base_kind == TYPE_DOUBLE) {
+                    base_kind = TYPE_DOUBLE; /* long double */
+                } else {
+                    base_kind = TYPE_LONG;
+                }
+                break;
+            case TYPE_FLOAT:
+                if (base_kind != -1 && base_kind != TYPE_COMPLEX && base_kind != TYPE_IMAGINARY) {
+                    fprintf(stderr, "Error: float cannot combine with %s\n", type_kind_str[base_kind]);
+                    return NULL;
+                }
+                base_kind = TYPE_FLOAT;
+                break;
+            case TYPE_DOUBLE:
+                if (base_kind != -1 && base_kind != TYPE_LONG && base_kind != TYPE_COMPLEX &&
+                    base_kind != TYPE_IMAGINARY) {
+                    fprintf(stderr, "Error: double cannot combine with %s\n", type_kind_str[base_kind]);
+                    return NULL;
+                }
+                base_kind = TYPE_DOUBLE;
+                break;
+            case TYPE_SIGNED:
+                if (base_kind != -1 && base_kind != TYPE_CHAR && base_kind != TYPE_SHORT &&
+                    base_kind != TYPE_INT && base_kind != TYPE_LONG) {
+                    fprintf(stderr, "Error: signed cannot combine with %s\n", type_kind_str[base_kind]);
+                    return NULL;
+                }
+                signedness = SIGNED_SIGNED;
+                if (base_kind == -1)
+                    base_kind = TYPE_INT; /* Default for signed */
+                break;
+            case TYPE_UNSIGNED:
+                if (base_kind != -1 && base_kind != TYPE_CHAR && base_kind != TYPE_SHORT &&
+                    base_kind != TYPE_INT && base_kind != TYPE_LONG) {
+                    fprintf(stderr, "Error: unsigned cannot combine with %s\n", type_kind_str[base_kind]);
+                    return NULL;
+                }
+                signedness = SIGNED_UNSIGNED;
+                if (base_kind == -1)
+                    base_kind = TYPE_INT; /* Default for unsigned */
+                break;
+            case TYPE_COMPLEX:
+                if (base_kind != -1 && base_kind != TYPE_FLOAT && base_kind != TYPE_DOUBLE) {
+                    fprintf(stderr, "Error: _Complex cannot combine with %s\n", type_kind_str[base_kind]);
+                    return NULL;
+                }
+                is_complex = true;
+                if (base_kind == -1)
+                    base_kind = TYPE_DOUBLE; /* Default for _Complex */
+                break;
+            case TYPE_IMAGINARY:
+                if (base_kind != -1 && base_kind != TYPE_FLOAT && base_kind != TYPE_DOUBLE) {
+                    fprintf(stderr, "Error: _Imaginary cannot combine with %s\n", type_kind_str[base_kind]);
+                    return NULL;
+                }
+                is_imaginary = true;
+                if (base_kind == -1)
+                    base_kind = TYPE_DOUBLE; /* Default for _Imaginary */
+                break;
+            default:
+                fprintf(stderr, "Error: Unknown basic type specifier\n");
+                return NULL;
+            }
+        } else if (s->kind == TYPE_SPEC_STRUCT) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
+                fprintf(stderr, "Error: struct cannot combine with other distinct types\n");
+                return NULL;
+            }
+            struct_spec = s;
+        } else if (s->kind == TYPE_SPEC_UNION) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
+                fprintf(stderr, "Error: union cannot combine with other distinct types\n");
+                return NULL;
+            }
+            union_spec = s;
+        } else if (s->kind == TYPE_SPEC_ENUM) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
+                fprintf(stderr, "Error: enum cannot combine with other distinct types\n");
+                return NULL;
+            }
+            enum_spec = s;
+        } else if (s->kind == TYPE_SPEC_TYPEDEF_NAME) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
+                fprintf(stderr, "Error: typedef name cannot combine with other distinct types\n");
+                return NULL;
+            }
+            typedef_spec = s;
+        } else if (s->kind == TYPE_SPEC_ATOMIC) {
+            if (is_atomic) {
+                fprintf(stderr, "Error: multiple _Atomic specifiers\n");
+                return NULL;
+            }
+            is_atomic = true;
+        } else {
+            fprintf(stderr, "Error: Unknown TypeSpec kind\n");
+            return NULL;
+        }
+    }
+
+    /* Validate and construct Type */
+    Type *result = NULL;
+
+    if (struct_spec) {
+        result                    = new_type(TYPE_STRUCT);
+        result->u.struct_t.name   = struct_spec->u.struct_spec.name;
+        result->u.struct_t.fields = struct_spec->u.struct_spec.fields;
+    } else if (union_spec) {
+        result                    = new_type(TYPE_UNION);
+        result->u.struct_t.name   = union_spec->u.struct_spec.name;
+        result->u.struct_t.fields = union_spec->u.struct_spec.fields;
+    } else if (enum_spec) {
+        result                       = new_type(TYPE_ENUM);
+        result->u.enum_t.name        = enum_spec->u.enum_spec.name;
+        result->u.enum_t.enumerators = enum_spec->u.enum_spec.enumerators;
+    } else if (typedef_spec) {
+        result                      = new_type(TYPE_TYPEDEF_NAME);
+        result->u.typedef_name.name = typedef_spec->u.typedef_name.name;
+    } else if (base_kind != -1) {
+        /* Handle basic types */
+        if (is_complex && is_imaginary) {
+            fprintf(stderr, "Error: _Complex and _Imaginary cannot combine\n");
+            return NULL;
+        }
+        if (long_count > 2 ||
+            (long_count == 2 && base_kind != TYPE_LONG && base_kind != TYPE_INT)) {
+            fprintf(stderr, "Error: Invalid use of multiple long specifiers\n");
+            return NULL;
+        }
+        if ((is_complex || is_imaginary) && (base_kind != TYPE_FLOAT && base_kind != TYPE_DOUBLE)) {
+            fprintf(stderr, "Error: _Complex/_Imaginary require float or double\n");
+            return NULL;
+        }
+        if ((signedness != SIGNED_SIGNED || long_count > 0) &&
+            (base_kind == TYPE_FLOAT || base_kind == TYPE_DOUBLE)) {
+            fprintf(stderr, "Error: signed/unsigned/long cannot combine with float/double\n");
+            return NULL;
+        }
+        if (base_kind == TYPE_VOID || base_kind == TYPE_BOOL) {
+            if (long_count > 0 || signedness != SIGNED_SIGNED || is_complex || is_imaginary) {
+                fprintf(stderr, "Error: void/_Bool cannot combine with modifiers\n");
+                return NULL;
+            }
+        }
+
+        /* Create Type based on base_kind */
+        if (is_complex) {
+            result                 = new_type(TYPE_COMPLEX);
+            result->u.complex.base = new_type(base_kind);
+        } else if (is_imaginary) {
+            result                 = new_type(TYPE_IMAGINARY);
+            result->u.complex.base = new_type(base_kind);
+        } else {
+            result = new_type(base_kind);
+            if (base_kind == TYPE_CHAR || base_kind == TYPE_SHORT || base_kind == TYPE_INT ||
+                base_kind == TYPE_LONG) {
+                result->u.integer.signedness = signedness;
+            }
+        }
+    } else {
+        fprintf(stderr, "Error: No valid type specifier provided\n");
+        return NULL;
+    }
+
+    /* Apply _Atomic as a qualifier if present */
+    if (is_atomic) {
+        append_list(&result->qualifiers, new_type_qualifier(TYPE_QUALIFIER_ATOMIC));
+    }
+
+    return result;
+}
+
 Declaration *parse_declaration()
 {
     if (debug) {
@@ -1162,12 +1406,12 @@ TypeSpec *parse_type_specifier()
         advance_token();
     } else if (current_token == TOKEN_SIGNED) {
         ts                               = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic                      = new_type(TYPE_INT);
+        ts->u.basic                      = new_type(TYPE_SIGNED);
         ts->u.basic->u.integer.signedness = SIGNED_SIGNED;
         advance_token();
     } else if (current_token == TOKEN_UNSIGNED) {
         ts                               = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic                      = new_type(TYPE_INT);
+        ts->u.basic                      = new_type(TYPE_UNSIGNED);
         ts->u.basic->u.integer.signedness = SIGNED_UNSIGNED;
         advance_token();
     } else if (current_token == TOKEN_BOOL) {
@@ -1270,7 +1514,7 @@ Field *parse_struct_declaration()
     if (current_token == TOKEN_SEMICOLON) {
         Field *field            = new_field();
         field->is_anonymous     = true;
-        field->u.anonymous.type = parse_type_name();
+        field->u.anonymous.type = parse_type_name(); // Wrong! use type_specs
         if (!field->u.anonymous.type) {
             free(field);
             return NULL;
@@ -1288,7 +1532,7 @@ Field *parse_struct_declaration()
         field->u.named.bitfield = NULL;
 
         /* Parse field type */
-        field->u.named.type = parse_type_name();
+        field->u.named.type = parse_type_name(); // Wrong! use type_specs
         if (!field->u.named.type) {
             free(field);
             return NULL;
@@ -1408,12 +1652,12 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                 advance_token();
             } else if (current_token == TOKEN_SIGNED) {
                 ts                               = new_type_spec(TYPE_SPEC_BASIC);
-                ts->u.basic                      = new_type(TYPE_INT); /* Default to int */
+                ts->u.basic                      = new_type(TYPE_SIGNED); // Later fused to int
                 ts->u.basic->u.integer.signedness = SIGNED_SIGNED;
                 advance_token();
             } else if (current_token == TOKEN_UNSIGNED) {
                 ts                               = new_type_spec(TYPE_SPEC_BASIC);
-                ts->u.basic                      = new_type(TYPE_INT); /* Default to int */
+                ts->u.basic                      = new_type(TYPE_UNSIGNED); // Later fused to int
                 ts->u.basic->u.integer.signedness = SIGNED_UNSIGNED;
                 advance_token();
             } else if (current_token == TOKEN_BOOL) {
@@ -1992,35 +2236,8 @@ Param *parse_parameter_declaration()
             suffixes = parse_direct_abstract_declarator();
         }
 
-        /* Construct base type from type_specs (simplified to first type) */
-        Type *base_type = NULL;
-        TypeSpec *ts    = type_specs;
-        if (ts->kind == TYPE_SPEC_BASIC) {
-            base_type = ts->u.basic;
-        } else if (ts->kind == TYPE_SPEC_STRUCT || ts->kind == TYPE_SPEC_UNION) {
-            base_type                  = (Type *)malloc(sizeof(Type));
-            base_type->kind            = (ts->kind == TYPE_SPEC_STRUCT ? TYPE_STRUCT : TYPE_UNION);
-            base_type->u.struct_t.name = ts->u.struct_spec.name;
-            base_type->u.struct_t.fields = ts->u.struct_spec.fields;
-            base_type->qualifiers        = qualifiers;
-        } else if (ts->kind == TYPE_SPEC_ENUM) {
-            base_type                       = (Type *)malloc(sizeof(Type));
-            base_type->kind                 = TYPE_ENUM;
-            base_type->u.enum_t.name        = ts->u.enum_spec.name;
-            base_type->u.enum_t.enumerators = ts->u.enum_spec.enumerators;
-            base_type->qualifiers           = qualifiers;
-        } else if (ts->kind == TYPE_SPEC_TYPEDEF_NAME) {
-            base_type                      = (Type *)malloc(sizeof(Type));
-            base_type->kind                = TYPE_TYPEDEF_NAME;
-            base_type->u.typedef_name.name = ts->u.typedef_name.name;
-            base_type->qualifiers          = qualifiers;
-        } else if (ts->kind == TYPE_SPEC_ATOMIC) {
-            base_type                = (Type *)malloc(sizeof(Type));
-            base_type->kind          = TYPE_ATOMIC;
-            base_type->u.atomic.base = ts->u.atomic.type;
-            base_type->qualifiers    = qualifiers;
-        }
-
+        /* Construct base type from type_specs */
+        Type *base_type = fuse_type_specifiers(type_specs);
         if (!base_type) {
             free(param);
             free(name);
@@ -2086,26 +2303,7 @@ Type *parse_type_name()
         return NULL;
 
     /* Construct base Type from type_specs (simplified to first basic type) */
-    Type *base_type = NULL;
-    TypeSpec *ts    = type_specs;
-    if (ts->kind == TYPE_SPEC_BASIC) {
-        base_type = ts->u.basic;
-    } else if (ts->kind == TYPE_SPEC_STRUCT || ts->kind == TYPE_SPEC_UNION) {
-        base_type = new_type(ts->kind == TYPE_SPEC_STRUCT ? TYPE_STRUCT : TYPE_UNION);
-        base_type->u.struct_t.name   = ts->u.struct_spec.name;
-        base_type->u.struct_t.fields = ts->u.struct_spec.fields;
-    } else if (ts->kind == TYPE_SPEC_ENUM) {
-        base_type                       = new_type(TYPE_ENUM);
-        base_type->u.enum_t.name        = ts->u.enum_spec.name;
-        base_type->u.enum_t.enumerators = ts->u.enum_spec.enumerators;
-    } else if (ts->kind == TYPE_SPEC_TYPEDEF_NAME) {
-        base_type                      = new_type(TYPE_TYPEDEF_NAME);
-        base_type->u.typedef_name.name = ts->u.typedef_name.name;
-    } else if (ts->kind == TYPE_SPEC_ATOMIC) {
-        base_type                = new_type(TYPE_ATOMIC);
-        base_type->u.atomic.base = ts->u.atomic.type;
-    }
-
+    Type *base_type = fuse_type_specifiers(type_specs);
     if (!base_type) {
         fatal_error("Incorrect type");
         return NULL;
