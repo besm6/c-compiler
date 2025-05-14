@@ -261,7 +261,7 @@ TEST_F(ParserTest, ParseTypeSigned)
     Declaration *decl = ext->u.declaration;
     EXPECT_EQ(TYPE_SPEC_BASIC, decl->u.var.specifiers->type_specs->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->type_specs->u.basic->kind);
-    EXPECT_EQ(SIGNED_SIGNED, decl->u.var.specifiers->type_specs->u.basic->u.char_t.signedness);
+    EXPECT_EQ(SIGNED_SIGNED, decl->u.var.specifiers->type_specs->u.basic->u.integer.signedness);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
 }
 
@@ -276,7 +276,7 @@ TEST_F(ParserTest, ParseTypeUnsigned)
     Declaration *decl = ext->u.declaration;
     EXPECT_EQ(TYPE_SPEC_BASIC, decl->u.var.specifiers->type_specs->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->type_specs->u.basic->kind);
-    EXPECT_EQ(SIGNED_UNSIGNED, decl->u.var.specifiers->type_specs->u.basic->u.char_t.signedness);
+    EXPECT_EQ(SIGNED_UNSIGNED, decl->u.var.specifiers->type_specs->u.basic->u.integer.signedness);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
 }
 

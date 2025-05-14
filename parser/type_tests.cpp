@@ -30,6 +30,7 @@ TEST_F(ParserTest, TypeChar)
     Type *type = TestType("char");
 
     EXPECT_EQ(type->kind, TYPE_CHAR);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
     free_type(type);
 }
 
@@ -38,6 +39,83 @@ TEST_F(ParserTest, TypeInt)
     Type *type = TestType("int");
 
     EXPECT_EQ(type->kind, TYPE_INT);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeShort)
+{
+    Type *type = TestType("short");
+
+    EXPECT_EQ(type->kind, TYPE_SHORT);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeLong)
+{
+    Type *type = TestType("long");
+
+    EXPECT_EQ(type->kind, TYPE_LONG);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeFloat)
+{
+    Type *type = TestType("float");
+
+    EXPECT_EQ(type->kind, TYPE_FLOAT);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeDouble)
+{
+    Type *type = TestType("double");
+
+    EXPECT_EQ(type->kind, TYPE_DOUBLE);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeSigned)
+{
+    Type *type = TestType("signed");
+
+    EXPECT_EQ(type->kind, TYPE_INT);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeUnsigned)
+{
+    Type *type = TestType("unsigned");
+
+    EXPECT_EQ(type->kind, TYPE_INT);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_UNSIGNED);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeBool)
+{
+    Type *type = TestType("_Bool");
+
+    EXPECT_EQ(type->kind, TYPE_BOOL);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeComplex)
+{
+    Type *type = TestType("_Complex");
+
+    EXPECT_EQ(type->kind, TYPE_COMPLEX);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeImaginary)
+{
+    Type *type = TestType("_Imaginary");
+
+    EXPECT_EQ(type->kind, TYPE_IMAGINARY);
     free_type(type);
 }
 

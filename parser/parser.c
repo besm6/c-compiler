@@ -87,7 +87,7 @@ static Type *new_type(TypeKind kind)
     Type *t                = malloc(sizeof(Type));
     t->kind                = kind;
     t->qualifiers          = NULL;
-    t->u.char_t.signedness = SIGNED_SIGNED; /* Default */
+    t->u.integer.signedness = SIGNED_SIGNED; /* Default */
     return t;
 }
 
@@ -125,18 +125,11 @@ static Param *new_param()
     return p;
 }
 
-static ParamList *new_param_list(bool is_empty, bool is_ident_list)
+static ParamList *new_param_list()
 {
-    ParamList *pl     = malloc(sizeof(ParamList));
-    pl->is_empty      = is_empty;
-    pl->is_ident_list = is_ident_list;
-    if (is_empty) {
-        pl->u.params = NULL;
-    } else if (is_ident_list) {
-        pl->u.idents = NULL;
-    } else {
-        pl->u.params = NULL;
-    }
+    ParamList *pl = malloc(sizeof(ParamList));
+    pl->is_empty  = true;
+    pl->u.params  = NULL;
     return pl;
 }
 
@@ -1170,12 +1163,12 @@ TypeSpec *parse_type_specifier()
     } else if (current_token == TOKEN_SIGNED) {
         ts                               = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic                      = new_type(TYPE_INT);
-        ts->u.basic->u.char_t.signedness = SIGNED_SIGNED;
+        ts->u.basic->u.integer.signedness = SIGNED_SIGNED;
         advance_token();
     } else if (current_token == TOKEN_UNSIGNED) {
         ts                               = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic                      = new_type(TYPE_INT);
-        ts->u.basic->u.char_t.signedness = SIGNED_UNSIGNED;
+        ts->u.basic->u.integer.signedness = SIGNED_UNSIGNED;
         advance_token();
     } else if (current_token == TOKEN_BOOL) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
@@ -1388,22 +1381,22 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
             } else if (current_token == TOKEN_CHAR) {
                 ts                               = new_type_spec(TYPE_SPEC_BASIC);
                 ts->u.basic                      = new_type(TYPE_CHAR);
-                ts->u.basic->u.char_t.signedness = SIGNED_SIGNED;
+                ts->u.basic->u.integer.signedness = SIGNED_SIGNED;
                 advance_token();
             } else if (current_token == TOKEN_SHORT) {
                 ts                               = new_type_spec(TYPE_SPEC_BASIC);
                 ts->u.basic                      = new_type(TYPE_SHORT);
-                ts->u.basic->u.char_t.signedness = SIGNED_SIGNED;
+                ts->u.basic->u.integer.signedness = SIGNED_SIGNED;
                 advance_token();
             } else if (current_token == TOKEN_INT) {
                 ts                               = new_type_spec(TYPE_SPEC_BASIC);
                 ts->u.basic                      = new_type(TYPE_INT);
-                ts->u.basic->u.char_t.signedness = SIGNED_SIGNED;
+                ts->u.basic->u.integer.signedness = SIGNED_SIGNED;
                 advance_token();
             } else if (current_token == TOKEN_LONG) {
                 ts                               = new_type_spec(TYPE_SPEC_BASIC);
                 ts->u.basic                      = new_type(TYPE_LONG);
-                ts->u.basic->u.char_t.signedness = SIGNED_SIGNED;
+                ts->u.basic->u.integer.signedness = SIGNED_SIGNED;
                 advance_token();
             } else if (current_token == TOKEN_FLOAT) {
                 ts          = new_type_spec(TYPE_SPEC_BASIC);
@@ -1416,12 +1409,12 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
             } else if (current_token == TOKEN_SIGNED) {
                 ts                               = new_type_spec(TYPE_SPEC_BASIC);
                 ts->u.basic                      = new_type(TYPE_INT); /* Default to int */
-                ts->u.basic->u.char_t.signedness = SIGNED_SIGNED;
+                ts->u.basic->u.integer.signedness = SIGNED_SIGNED;
                 advance_token();
             } else if (current_token == TOKEN_UNSIGNED) {
                 ts                               = new_type_spec(TYPE_SPEC_BASIC);
                 ts->u.basic                      = new_type(TYPE_INT); /* Default to int */
-                ts->u.basic->u.char_t.signedness = SIGNED_UNSIGNED;
+                ts->u.basic->u.integer.signedness = SIGNED_UNSIGNED;
                 advance_token();
             } else if (current_token == TOKEN_BOOL) {
                 ts          = new_type_spec(TYPE_SPEC_BASIC);
@@ -1791,7 +1784,7 @@ Declarator *parse_direct_declarator()
             if (current_token != TOKEN_RPAREN) {
                 params = parse_parameter_type_list();
             } else {
-                params = new_param_list(true, false);
+                params = new_param_list();
             }
             expect_token(TOKEN_RPAREN);
             suffix->u.function.params   = params;
@@ -1860,12 +1853,10 @@ ParamList *parse_parameter_type_list()
     if (current_token == TOKEN_RPAREN) {
         ParamList *pl     = (ParamList *)malloc(sizeof(ParamList));
         pl->is_empty      = true;
-        pl->is_ident_list = false;
         return pl;
     }
     ParamList *pl     = (ParamList *)malloc(sizeof(ParamList));
     pl->is_empty      = false;
-    pl->is_ident_list = false;
     Param *params = NULL, **params_tail = &params;
     do {
         TypeQualifier *param_quals = NULL;

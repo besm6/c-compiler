@@ -64,39 +64,231 @@ void print_statement(FILE *fd, Stmt *stmt, int indent);
 static void print_declaration(FILE *fd, Declaration *decl, int indent);
 static void print_external_decl(FILE *fd, ExternalDecl *ext, int indent);
 
+// Print Field structure
+void print_field(FILE *fd, Field *field, int indent)
+{
+    if (!field) {
+        print_indent(fd, indent);
+        fprintf(fd, "Field: NULL\n");
+        return;
+    }
+
+    print_indent(fd, indent);
+    fprintf(fd, "Field: %s\n",
+            field->is_anonymous ? "(anonymous)"
+                                : (field->u.named.name ? field->u.named.name : "(no name)"));
+    print_indent(fd, indent + 1);
+    fprintf(fd, "IsAnonymous: %s\n", field->is_anonymous ? "yes" : "no");
+
+    if (field->is_anonymous) {
+        print_indent(fd, indent + 1);
+        fprintf(fd, "Type:\n");
+        print_type(fd, field->u.anonymous.type, indent + 2);
+    } else {
+        print_indent(fd, indent + 1);
+        fprintf(fd, "Type:\n");
+        print_type(fd, field->u.named.type, indent + 2);
+        if (field->u.named.bitfield) {
+            print_indent(fd, indent + 1);
+            fprintf(fd, "Bitfield:\n");
+            print_expression(fd, field->u.named.bitfield, indent + 2);
+        }
+    }
+}
+
+// Print ParamList structure
+void print_param_list(FILE *fd, ParamList *params, int indent)
+{
+    if (!params) {
+        print_indent(fd, indent);
+        fprintf(fd, "ParamList: NULL\n");
+        return;
+    }
+
+    print_indent(fd, indent);
+    fprintf(fd, "ParamList:\n");
+    print_indent(fd, indent + 1);
+    fprintf(fd, "IsEmpty: %s\n", params->is_empty ? "yes" : "no");
+
+    if (params->is_empty) {
+        return;
+    }
+
+    print_indent(fd, indent + 1);
+    fprintf(fd, "Parameters:\n");
+    for (Param *p = params->u.params; p; p = p->next) {
+        print_indent(fd, indent + 2);
+        fprintf(fd, "Param: %s\n", p->name ? p->name : "(no name)");
+        print_indent(fd, indent + 3);
+        fprintf(fd, "Type:\n");
+        print_type(fd, p->type, indent + 4);
+    }
+}
+
+// Print TypeQualifier list
+void print_type_qualifiers(FILE *fd, TypeQualifier *qualifiers, int indent)
+{
+    if (!qualifiers)
+        return;
+    print_indent(fd, indent);
+    fprintf(fd, "Qualifiers:\n");
+    for (TypeQualifier *q = qualifiers; q; q = q->next) {
+        print_indent(fd, indent + 2);
+        switch (q->kind) {
+        case TYPE_QUALIFIER_CONST:
+            fprintf(fd, "const ");
+            break;
+        case TYPE_QUALIFIER_RESTRICT:
+            fprintf(fd, "restrict ");
+            break;
+        case TYPE_QUALIFIER_VOLATILE:
+            fprintf(fd, "volatile ");
+            break;
+        case TYPE_QUALIFIER_ATOMIC:
+            fprintf(fd, "_Atomic ");
+            break;
+        default:
+            fprintf(fd, "unknown ");
+            break;
+        }
+    }
+}
+
 // Print Type
 void print_type(FILE *fd, Type *type, int indent)
 {
     if (!type) {
         print_indent(fd, indent);
-        fprintf(fd, "Type: null\n");
+        fprintf(fd, "Type: NULL\n");
         return;
     }
+
     print_indent(fd, indent);
-    fprintf(fd, "Type: %s\n", type_kind_str[type->kind]);
-    if (type->qualifiers) {
-        print_indent(fd, indent + 2);
-        fprintf(fd, "Qualifiers: ");
-        TypeQualifier *qual = type->qualifiers;
-        while (qual) {
-            switch (qual->kind) {
-            case TYPE_QUALIFIER_CONST:
-                fprintf(fd, "const ");
-                break;
-            case TYPE_QUALIFIER_RESTRICT:
-                fprintf(fd, "restrict ");
-                break;
-            case TYPE_QUALIFIER_VOLATILE:
-                fprintf(fd, "volatile ");
-                break;
-            case TYPE_QUALIFIER_ATOMIC:
-                fprintf(fd, "_Atomic ");
-                break;
-            }
-            qual = qual->next;
+    fprintf(fd, "Type: ");
+    switch (type->kind) {
+    case TYPE_VOID:
+        fprintf(fd, "void\n");
+        break;
+    case TYPE_BOOL:
+        fprintf(fd, "_Bool\n");
+        break;
+    case TYPE_CHAR:
+        fprintf(fd, "char (%s)\n",
+                type->u.integer.signedness == SIGNED_SIGNED ? "signed" : "unsigned");
+        break;
+    case TYPE_SHORT:
+        fprintf(fd, "short (%s)\n",
+                type->u.integer.signedness == SIGNED_SIGNED ? "signed" : "unsigned");
+        break;
+    case TYPE_INT:
+        fprintf(fd, "int (%s)\n",
+                type->u.integer.signedness == SIGNED_SIGNED ? "signed" : "unsigned");
+        break;
+    case TYPE_LONG:
+            fprintf(fd, "long (%s)\n", type->u.integer.signedness == SIGNED_SIGNED ?  "signed" : "unsigned");
+            break;
+    case TYPE_FLOAT:
+        fprintf(fd, "float\n");
+        break;
+    case TYPE_DOUBLE:
+        fprintf(fd, "double\n");
+        break;
+    case TYPE_COMPLEX:
+        fprintf(fd, "complex\n");
+        print_indent(fd, indent + 1);
+        fprintf(fd, "Base:\n");
+        print_type(fd, type->u.complex.base, indent + 2);
+        break;
+    case TYPE_IMAGINARY:
+        fprintf(fd, "imaginary\n");
+        print_indent(fd, indent + 1);
+        fprintf(fd, "Base:\n");
+        print_type(fd, type->u.complex.base, indent + 2);
+        break;
+    case TYPE_POINTER:
+        fprintf(fd, "pointer\n");
+        print_indent(fd, indent + 1);
+        fprintf(fd, "Target:\n");
+        print_type(fd, type->u.pointer.target, indent + 2);
+        print_type_qualifiers(fd, type->u.pointer.qualifiers, indent + 1);
+        break;
+    case TYPE_ARRAY:
+        fprintf(fd, "array\n");
+        print_indent(fd, indent + 1);
+        fprintf(fd, "Element:\n");
+        print_type(fd, type->u.array.element, indent + 2);
+        if (type->u.array.size) {
+            print_indent(fd, indent + 1);
+            fprintf(fd, "Size:\n");
+            print_expression(fd, type->u.array.size, indent + 2);
         }
-        fprintf(fd, "\n");
+        print_type_qualifiers(fd, type->u.array.qualifiers, indent + 1);
+        break;
+    case TYPE_FUNCTION:
+        fprintf(fd, "function\n");
+        print_indent(fd, indent + 1);
+        fprintf(fd, "ReturnType:\n");
+        print_type(fd, type->u.function.returnType, indent + 2);
+        print_indent(fd, indent + 1);
+        fprintf(fd, "Parameters:\n");
+        print_param_list(fd, type->u.function.params, indent + 2);
+        print_indent(fd, indent + 1);
+        fprintf(fd, "Variadic: %s\n", type->u.function.variadic ? "yes" : "no");
+        break;
+    case TYPE_STRUCT:
+        fprintf(fd, "struct %s\n", type->u.struct_t.name ? type->u.struct_t.name : "(anonymous)");
+        if (type->u.struct_t.fields) {
+            print_indent(fd, indent + 1);
+            fprintf(fd, "Fields:\n");
+            for (Field *f = type->u.struct_t.fields; f; f = f->next) {
+                print_field(fd, f, indent + 2);
+            }
+        }
+        break;
+    case TYPE_UNION:
+        fprintf(fd, "union %s\n", type->u.struct_t.name ? type->u.struct_t.name : "(anonymous)");
+        if (type->u.struct_t.fields) {
+            print_indent(fd, indent + 1);
+            fprintf(fd, "Fields:\n");
+            for (Field *f = type->u.struct_t.fields; f; f = f->next) {
+                print_field(fd, f, indent + 2);
+            }
+        }
+        break;
+    case TYPE_ENUM:
+        fprintf(fd, "enum %s\n", type->u.enum_t.name ? type->u.enum_t.name : "(anonymous)");
+        if (type->u.enum_t.enumerators) {
+            print_indent(fd, indent + 1);
+            fprintf(fd, "Enumerators:\n");
+            for (Enumerator *e = type->u.enum_t.enumerators; e; e = e->next) {
+                print_indent(fd, indent + 2);
+                fprintf(fd, "%s", e->name ? e->name : "(null)");
+                if (e->value) {
+                    fprintf(fd, " = ");
+                    print_expression(fd, e->value, indent + 3);
+                } else {
+                    fprintf(fd, "\n");
+                }
+            }
+        }
+        break;
+    case TYPE_TYPEDEF_NAME:
+        fprintf(fd, "typedef %s\n",
+                type->u.typedef_name.name ? type->u.typedef_name.name : "(null)");
+        break;
+    case TYPE_ATOMIC:
+        fprintf(fd, "atomic\n");
+        print_indent(fd, indent + 1);
+        fprintf(fd, "Base:\n");
+        print_type(fd, type->u.atomic.base, indent + 2);
+        break;
+    default:
+        fprintf(fd, "unknown\n");
+        break;
     }
+
+    /* Print qualifiers for the type itself */
+    print_type_qualifiers(fd, type->qualifiers, indent);
 }
 
 // Print Literal

@@ -73,7 +73,7 @@ struct Type {
     union {
         struct {
             Signedness signedness;
-        } char_t; /* for Char, Short, Int, Long */
+        } integer; /* for Char, Short, Int, Long */
         struct {
             Type *base;
         } complex; /* for Complex, Imaginary */
@@ -145,10 +145,8 @@ struct Enumerator {
 /* Parameter List */
 struct ParamList {
     bool is_empty;
-    bool is_ident_list;
     union {
         Param *params;
-        Ident *idents; /* K&R style, linked list of Ident */
     } u;
 };
 
