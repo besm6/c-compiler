@@ -423,6 +423,20 @@ TEST_F(ParserTest, TypeAtomicStruct)
     free_type(type);
 }
 
+TEST_F(ParserTest, TypeAtomicConstChar)
+{
+    Type *type = TestType("_Atomic(const char)");
+
+    EXPECT_EQ(type->kind, TYPE_CHAR);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    ASSERT_NE(type->qualifiers->next, nullptr);
+    EXPECT_EQ(type->qualifiers->next->kind, TYPE_QUALIFIER_ATOMIC);
+    EXPECT_EQ(type->qualifiers->next->next, nullptr);
+    free_type(type);
+}
+
 //TODO:
 //
 // 6. Pointer Types
