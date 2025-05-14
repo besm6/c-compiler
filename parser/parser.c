@@ -15,10 +15,20 @@ static char lexeme_buffer[1024]; // Buffer for current lexeme
 static int debug = 1;
 
 /* Error handling */
-static void fatal_error(const char *message)
+static void fatal_error(const char *message, ...)
 {
-    fprintf(stderr, "Parse error: %s (token: %d, lexeme: %s)\n", message, current_token,
-            current_lexeme ? current_lexeme : "");
+    fprintf(stderr, "Parse error: ",
+
+    va_list ap;
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    va_end(ap);
+
+    if (current_lexeme) {
+        fprintf(stderr, " (token: %d, lexeme: %s)\n", current_token, current_lexeme);
+    } else {
+        fprintf(stderr, " (token: %d)\n", current_token);
+    }
     exit(1);
 }
 
@@ -1028,7 +1038,7 @@ Expr *parse_constant_expression()
 Type *fuse_type_specifiers(TypeSpec *specs)
 {
     if (!specs) {
-        fprintf(stderr, "Error: Empty type specifier list\n");
+        fatal_error("Empty type specifier list");
         return NULL;
     }
 
@@ -1053,39 +1063,39 @@ Type *fuse_type_specifiers(TypeSpec *specs)
             switch (s->u.basic->kind) {
             case TYPE_VOID:
                 if (base_kind != -1) {
-                    fprintf(stderr, "Error: void cannot combine with other types\n");
+                    fatal_error("void cannot combine with other types");
                     return NULL;
                 }
                 base_kind = TYPE_VOID;
                 break;
             case TYPE_BOOL:
                 if (base_kind != -1) {
-                    fprintf(stderr, "Error: _Bool cannot combine with other types\n");
+                    fatal_error("_Bool cannot combine with other types");
                     return NULL;
                 }
                 base_kind = TYPE_BOOL;
                 break;
             case TYPE_CHAR:
                 if (base_kind != -1) {
-                    fprintf(stderr, "Error: char cannot combine with %s\n", type_kind_str[base_kind]);
+                    fatal_error("char cannot combine with %s", type_kind_str[base_kind]);
                     return NULL;
                 }
                 base_kind = TYPE_CHAR;
                 break;
             case TYPE_SHORT:
                 if (base_kind != -1 && base_kind != TYPE_INT) {
-                    fprintf(stderr, "Error: short cannot combine with %s\n", type_kind_str[base_kind]);
+                    fatal_error("short cannot combine with %s", type_kind_str[base_kind]);
                     return NULL;
                 }
                 base_kind = TYPE_SHORT;
                 break;
             case TYPE_INT:
                 if (base_kind != -1 && base_kind != TYPE_SHORT && base_kind != TYPE_LONG) {
-                    fprintf(stderr, "Error: int cannot combine with %s\n", type_kind_str[base_kind]);
+                    fatal_error("int cannot combine with %s", type_kind_str[base_kind]);
                     return NULL;
                 }
                 if (int_count > 0) {
-                    fprintf(stderr, "Error: multiple int specifiers\n");
+                    fatal_error("multiple int specifiers");
                     return NULL;
                 }
                 int_count++;
@@ -1096,11 +1106,11 @@ Type *fuse_type_specifiers(TypeSpec *specs)
             case TYPE_LONG:
                 if (base_kind != -1 && base_kind != TYPE_INT && base_kind != TYPE_LONG &&
                     base_kind != TYPE_DOUBLE) {
-                    fprintf(stderr, "Error: long cannot combine with %s\n", type_kind_str[base_kind]);
+                    fatal_error("long cannot combine with %s", type_kind_str[base_kind]);
                     return NULL;
                 }
                 if (long_count > 2) {
-                    fprintf(stderr, "Error: too many long specifiers\n");
+                    fatal_error("too many long specifiers");
                     return NULL;
                 }
                 long_count++;
@@ -1114,7 +1124,7 @@ Type *fuse_type_specifiers(TypeSpec *specs)
                 break;
             case TYPE_FLOAT:
                 if (base_kind != -1 && base_kind != TYPE_COMPLEX && base_kind != TYPE_IMAGINARY) {
-                    fprintf(stderr, "Error: float cannot combine with %s\n", type_kind_str[base_kind]);
+                    fatal_error("float cannot combine with %s", type_kind_str[base_kind]);
                     return NULL;
                 }
                 base_kind = TYPE_FLOAT;
@@ -1122,7 +1132,7 @@ Type *fuse_type_specifiers(TypeSpec *specs)
             case TYPE_DOUBLE:
                 if (base_kind != -1 && base_kind != TYPE_LONG && base_kind != TYPE_COMPLEX &&
                     base_kind != TYPE_IMAGINARY) {
-                    fprintf(stderr, "Error: double cannot combine with %s\n", type_kind_str[base_kind]);
+                    fatal_error("double cannot combine with %s", type_kind_str[base_kind]);
                     return NULL;
                 }
                 base_kind = TYPE_DOUBLE;
@@ -1130,7 +1140,7 @@ Type *fuse_type_specifiers(TypeSpec *specs)
             case TYPE_SIGNED:
                 if (base_kind != -1 && base_kind != TYPE_CHAR && base_kind != TYPE_SHORT &&
                     base_kind != TYPE_INT && base_kind != TYPE_LONG) {
-                    fprintf(stderr, "Error: signed cannot combine with %s\n", type_kind_str[base_kind]);
+                    fatal_error("signed cannot combine with %s", type_kind_str[base_kind]);
                     return NULL;
                 }
                 signedness = SIGNED_SIGNED;
@@ -1138,14 +1148,14 @@ Type *fuse_type_specifiers(TypeSpec *specs)
             case TYPE_UNSIGNED:
                 if (base_kind != -1 && base_kind != TYPE_CHAR && base_kind != TYPE_SHORT &&
                     base_kind != TYPE_INT && base_kind != TYPE_LONG) {
-                    fprintf(stderr, "Error: unsigned cannot combine with %s\n", type_kind_str[base_kind]);
+                    fatal_error("unsigned cannot combine with %s", type_kind_str[base_kind]);
                     return NULL;
                 }
                 signedness = SIGNED_UNSIGNED;
                 break;
             case TYPE_COMPLEX:
                 if (base_kind != -1 && base_kind != TYPE_FLOAT && base_kind != TYPE_DOUBLE) {
-                    fprintf(stderr, "Error: _Complex cannot combine with %s\n", type_kind_str[base_kind]);
+                    fatal_error("_Complex cannot combine with %s", type_kind_str[base_kind]);
                     return NULL;
                 }
                 is_complex = true;
@@ -1154,7 +1164,7 @@ Type *fuse_type_specifiers(TypeSpec *specs)
                 break;
             case TYPE_IMAGINARY:
                 if (base_kind != -1 && base_kind != TYPE_FLOAT && base_kind != TYPE_DOUBLE) {
-                    fprintf(stderr, "Error: _Imaginary cannot combine with %s\n", type_kind_str[base_kind]);
+                    fatal_error("_Imaginary cannot combine with %s", type_kind_str[base_kind]);
                     return NULL;
                 }
                 is_imaginary = true;
@@ -1162,36 +1172,35 @@ Type *fuse_type_specifiers(TypeSpec *specs)
                     base_kind = TYPE_DOUBLE; /* Default for _Imaginary */
                 break;
             default:
-                fprintf(stderr, "Error: Unknown basic type specifier\n");
+                fatal_error("Unknown basic type specifier");
                 return NULL;
             }
         } else if (s->kind == TYPE_SPEC_STRUCT) {
             if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
-                fprintf(stderr, "Error: struct cannot combine with other distinct types\n");
+                fatal_error("struct cannot combine with other distinct types");
                 return NULL;
             }
             struct_spec = s;
         } else if (s->kind == TYPE_SPEC_UNION) {
             if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
-                fprintf(stderr, "Error: union cannot combine with other distinct types\n");
+                fatal_error("union cannot combine with other distinct types");
                 return NULL;
             }
             union_spec = s;
         } else if (s->kind == TYPE_SPEC_ENUM) {
             if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
-                fprintf(stderr, "Error: enum cannot combine with other distinct types\n");
+                fatal_error("enum cannot combine with other distinct types");
                 return NULL;
             }
             enum_spec = s;
         } else if (s->kind == TYPE_SPEC_TYPEDEF_NAME) {
             if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
-                fprintf(stderr, "Error: typedef name cannot combine with other distinct types\n");
+                fatal_error("typedef name cannot combine with other distinct types");
                 return NULL;
             }
             typedef_spec = s;
         } else if (s->kind == TYPE_SPEC_ATOMIC) {
             fatal_error("Atomic() is not supported");
-            fprintf(stderr, "Error: _Atomic() is not supported\n");
             return NULL;
         }
     }
@@ -1218,28 +1227,28 @@ Type *fuse_type_specifiers(TypeSpec *specs)
         /* Handle basic types */
         if (base_kind == -1) {
             if (signedness == -1) {
-                fprintf(stderr, "Error: No valid type specifier provided\n");
+                fatal_error("No valid type specifier provided");
                 return NULL;
             }
             // Signed/unsigned defaults to int.
             base_kind = TYPE_INT;
         }
         if (is_complex && is_imaginary) {
-            fprintf(stderr, "Error: _Complex and _Imaginary cannot combine\n");
+            fatal_error("_Complex and _Imaginary cannot combine");
             return NULL;
         }
         if ((is_complex || is_imaginary) && (base_kind != TYPE_FLOAT && base_kind != TYPE_DOUBLE)) {
-            fprintf(stderr, "Error: _Complex/_Imaginary require float or double\n");
+            fatal_error("_Complex/_Imaginary require float or double");
             return NULL;
         }
         if ((signedness == SIGNED_UNSIGNED || long_count > 0) &&
             (base_kind == TYPE_FLOAT || base_kind == TYPE_DOUBLE)) {
-            fprintf(stderr, "Error: signed/unsigned/long cannot combine with float/double\n");
+            fatal_error("signed/unsigned/long cannot combine with float/double");
             return NULL;
         }
         if (base_kind == TYPE_VOID || base_kind == TYPE_BOOL) {
             if (long_count > 0 || signedness == SIGNED_UNSIGNED || is_complex || is_imaginary) {
-                fprintf(stderr, "Error: void/_Bool cannot combine with modifiers\n");
+                fatal_error("void/_Bool cannot combine with modifiers");
                 return NULL;
             }
         }
