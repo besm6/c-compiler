@@ -137,7 +137,6 @@ TEST_F(ParserTest, TypeImaginary)
     free_type(type);
 }
 
-//TODO:
 //
 // 2. Modified Basic Types
 // Combinations of type specifiers for integer and floating-point types.
@@ -196,6 +195,105 @@ TEST_F(ParserTest, TypeLongInt)
 // 28. const volatile unsigned char
 //
 
+TEST_F(ParserTest, TypeConstInt)
+{
+    Type *type = TestType("const int");
+
+    EXPECT_EQ(type->kind, TYPE_INT);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->qualifiers->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeVolatileChar)
+{
+    Type *type = TestType("volatile char");
+
+    EXPECT_EQ(type->kind, TYPE_CHAR);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_VOLATILE);
+    EXPECT_EQ(type->qualifiers->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeRestrictDouble)
+{
+    Type *type = TestType("restrict double");
+
+    EXPECT_EQ(type->kind, TYPE_DOUBLE);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_RESTRICT);
+    EXPECT_EQ(type->qualifiers->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeAtomicFloat)
+{
+    Type *type = TestType("_Atomic float");
+
+    EXPECT_EQ(type->kind, TYPE_FLOAT);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_ATOMIC);
+    EXPECT_EQ(type->qualifiers->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeConstUnsignedInt)
+{
+    Type *type = TestType("const unsigned int");
+
+    EXPECT_EQ(type->kind, TYPE_INT);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_UNSIGNED);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->qualifiers->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeVolatileLongLong)
+{
+    Type *type = TestType("volatile long long");
+
+    EXPECT_EQ(type->kind, TYPE_LONG_LONG);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_VOLATILE);
+    EXPECT_EQ(type->qualifiers->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeConstRestrictInt)
+{
+    Type *type = TestType("const restrict int");
+
+    EXPECT_EQ(type->kind, TYPE_INT);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    ASSERT_NE(type->qualifiers->next, nullptr);
+    EXPECT_EQ(type->qualifiers->next->kind, TYPE_QUALIFIER_RESTRICT);
+    EXPECT_EQ(type->qualifiers->next->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeConstVolatileUnsignedChar)
+{
+    Type *type = TestType("const volatile unsigned char");
+
+    EXPECT_EQ(type->kind, TYPE_CHAR);
+    EXPECT_EQ(type->u.integer.signedness, SIGNED_UNSIGNED);
+    ASSERT_NE(type->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    ASSERT_NE(type->qualifiers->next, nullptr);
+    EXPECT_EQ(type->qualifiers->next->kind, TYPE_QUALIFIER_VOLATILE);
+    EXPECT_EQ(type->qualifiers->next->next, nullptr);
+    free_type(type);
+}
+
+//TODO:
 //
 // 4. Struct, Union, Enum, and Typedef Types
 // Testing complex type specifiers.

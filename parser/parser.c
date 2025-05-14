@@ -1100,6 +1100,10 @@ Type *fuse_type_specifiers(TypeSpec *specs)
                     fprintf(stderr, "Error: long cannot combine with %s\n", type_kind_str[base_kind]);
                     return NULL;
                 }
+                if (long_count > 2) {
+                    fprintf(stderr, "Error: too many long specifiers\n");
+                    return NULL;
+                }
                 long_count++;
                 if (base_kind == TYPE_DOUBLE) {
                     base_kind = TYPE_LONG_DOUBLE;
@@ -1228,11 +1232,6 @@ Type *fuse_type_specifiers(TypeSpec *specs)
         }
         if (is_complex && is_imaginary) {
             fprintf(stderr, "Error: _Complex and _Imaginary cannot combine\n");
-            return NULL;
-        }
-        if (long_count > 2 ||
-            (long_count == 2 && base_kind != TYPE_LONG && base_kind != TYPE_INT)) {
-            fprintf(stderr, "Error: Invalid use of multiple long specifiers\n");
             return NULL;
         }
         if ((is_complex || is_imaginary) && (base_kind != TYPE_FLOAT && base_kind != TYPE_DOUBLE)) {
