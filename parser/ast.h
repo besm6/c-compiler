@@ -52,10 +52,12 @@ typedef enum {
     TYPE_SHORT,
     TYPE_INT,
     TYPE_LONG,
-    TYPE_SIGNED,
-    TYPE_UNSIGNED,
+    TYPE_LONG_LONG,
+    TYPE_SIGNED,   // Internal for parser only
+    TYPE_UNSIGNED, // Internal for parser only
     TYPE_FLOAT,
     TYPE_DOUBLE,
+    TYPE_LONG_DOUBLE,
     TYPE_COMPLEX,
     TYPE_IMAGINARY,
     TYPE_POINTER,

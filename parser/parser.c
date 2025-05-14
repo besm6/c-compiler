@@ -1034,9 +1034,10 @@ Type *fuse_type_specifiers(TypeSpec *specs)
     }
 
     /* State for tracking type specifiers */
-    TypeKind base_kind     = -1;            /* Unset */
-    Signedness signedness  = SIGNED_SIGNED; /* Default */
-    int long_count         = 0;             /* For long, long long */
+    TypeKind base_kind     = -1; /* Unset */
+    Signedness signedness  = -1; /* Unset */
+    int int_count          = 0;  /* For int */
+    int long_count         = 0;  /* For long, long long */
     bool is_complex        = false;
     bool is_imaginary      = false;
     bool is_atomic         = false;
@@ -1066,38 +1067,44 @@ Type *fuse_type_specifiers(TypeSpec *specs)
                 base_kind = TYPE_BOOL;
                 break;
             case TYPE_CHAR:
-                if (base_kind != -1 && base_kind != TYPE_SIGNED && base_kind != TYPE_UNSIGNED) {
+                if (base_kind != -1) {
                     fprintf(stderr, "Error: char cannot combine with %s\n", type_kind_str[base_kind]);
                     return NULL;
                 }
                 base_kind = TYPE_CHAR;
                 break;
             case TYPE_SHORT:
-                if (base_kind != -1 && base_kind != TYPE_INT && base_kind != TYPE_SIGNED &&
-                    base_kind != TYPE_UNSIGNED) {
+                if (base_kind != -1 && base_kind != TYPE_INT) {
                     fprintf(stderr, "Error: short cannot combine with %s\n", type_kind_str[base_kind]);
                     return NULL;
                 }
                 base_kind = TYPE_SHORT;
                 break;
             case TYPE_INT:
-                if (base_kind != -1 && base_kind != TYPE_SHORT && base_kind != TYPE_LONG &&
-                    base_kind != TYPE_SIGNED && base_kind != TYPE_UNSIGNED) {
+                if (base_kind != -1 && base_kind != TYPE_SHORT && base_kind != TYPE_LONG) {
                     fprintf(stderr, "Error: int cannot combine with %s\n", type_kind_str[base_kind]);
                     return NULL;
                 }
-                base_kind = TYPE_INT;
+                if (int_count > 0) {
+                    fprintf(stderr, "Error: multiple int specifiers\n");
+                    return NULL;
+                }
+                int_count++;
+                if (base_kind == -1) {
+                    base_kind = TYPE_INT;
+                }
                 break;
             case TYPE_LONG:
                 if (base_kind != -1 && base_kind != TYPE_INT && base_kind != TYPE_LONG &&
-                    base_kind != TYPE_DOUBLE && base_kind != TYPE_SIGNED &&
-                    base_kind != TYPE_UNSIGNED) {
+                    base_kind != TYPE_DOUBLE) {
                     fprintf(stderr, "Error: long cannot combine with %s\n", type_kind_str[base_kind]);
                     return NULL;
                 }
                 long_count++;
                 if (base_kind == TYPE_DOUBLE) {
-                    base_kind = TYPE_DOUBLE; /* long double */
+                    base_kind = TYPE_LONG_DOUBLE;
+                } else if (long_count == 2) {
+                    base_kind = TYPE_LONG_LONG;
                 } else {
                     base_kind = TYPE_LONG;
                 }
@@ -1124,8 +1131,6 @@ Type *fuse_type_specifiers(TypeSpec *specs)
                     return NULL;
                 }
                 signedness = SIGNED_SIGNED;
-                if (base_kind == -1)
-                    base_kind = TYPE_INT; /* Default for signed */
                 break;
             case TYPE_UNSIGNED:
                 if (base_kind != -1 && base_kind != TYPE_CHAR && base_kind != TYPE_SHORT &&
@@ -1134,8 +1139,6 @@ Type *fuse_type_specifiers(TypeSpec *specs)
                     return NULL;
                 }
                 signedness = SIGNED_UNSIGNED;
-                if (base_kind == -1)
-                    base_kind = TYPE_INT; /* Default for unsigned */
                 break;
             case TYPE_COMPLEX:
                 if (base_kind != -1 && base_kind != TYPE_FLOAT && base_kind != TYPE_DOUBLE) {
@@ -1213,8 +1216,16 @@ Type *fuse_type_specifiers(TypeSpec *specs)
     } else if (typedef_spec) {
         result                      = new_type(TYPE_TYPEDEF_NAME);
         result->u.typedef_name.name = typedef_spec->u.typedef_name.name;
-    } else if (base_kind != -1) {
+    } else {
         /* Handle basic types */
+        if (base_kind == -1) {
+            if (signedness == -1) {
+                fprintf(stderr, "Error: No valid type specifier provided\n");
+                return NULL;
+            }
+            // Signed/unsigned defaults to int.
+            base_kind = TYPE_INT;
+        }
         if (is_complex && is_imaginary) {
             fprintf(stderr, "Error: _Complex and _Imaginary cannot combine\n");
             return NULL;
@@ -1228,13 +1239,13 @@ Type *fuse_type_specifiers(TypeSpec *specs)
             fprintf(stderr, "Error: _Complex/_Imaginary require float or double\n");
             return NULL;
         }
-        if ((signedness != SIGNED_SIGNED || long_count > 0) &&
+        if ((signedness == SIGNED_UNSIGNED || long_count > 0) &&
             (base_kind == TYPE_FLOAT || base_kind == TYPE_DOUBLE)) {
             fprintf(stderr, "Error: signed/unsigned/long cannot combine with float/double\n");
             return NULL;
         }
         if (base_kind == TYPE_VOID || base_kind == TYPE_BOOL) {
-            if (long_count > 0 || signedness != SIGNED_SIGNED || is_complex || is_imaginary) {
+            if (long_count > 0 || signedness == SIGNED_UNSIGNED || is_complex || is_imaginary) {
                 fprintf(stderr, "Error: void/_Bool cannot combine with modifiers\n");
                 return NULL;
             }
@@ -1251,12 +1262,12 @@ Type *fuse_type_specifiers(TypeSpec *specs)
             result = new_type(base_kind);
             if (base_kind == TYPE_CHAR || base_kind == TYPE_SHORT || base_kind == TYPE_INT ||
                 base_kind == TYPE_LONG) {
+                if (signedness == -1) {
+                    signedness = SIGNED_SIGNED; // Default
+                }
                 result->u.integer.signedness = signedness;
             }
         }
-    } else {
-        fprintf(stderr, "Error: No valid type specifier provided\n");
-        return NULL;
     }
 
     /* Apply _Atomic as a qualifier if present */
