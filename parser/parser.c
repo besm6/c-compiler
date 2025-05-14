@@ -15,7 +15,7 @@ static char lexeme_buffer[1024]; // Buffer for current lexeme
 static int debug = 1;
 
 /* Error handling */
-void fatal_error(const char *message)
+static void fatal_error(const char *message)
 {
     fprintf(stderr, "Parse error: %s (token: %d, lexeme: %s)\n", message, current_token,
             current_lexeme ? current_lexeme : "");
@@ -35,7 +35,7 @@ void advance_token()
 }
 
 // Does this token have something valuable in yytext?
-bool has_yytext(int token)
+static bool has_yytext(int token)
 {
     return token == TOKEN_IDENTIFIER || token == TOKEN_I_CONSTANT ||
            token == TOKEN_F_CONSTANT || token == TOKEN_ENUMERATION_CONSTANT ||
@@ -43,7 +43,7 @@ bool has_yytext(int token)
 }
 
 // Peek next token, without advancing the parser.
-int next_token()
+static int next_token()
 {
     if (peek_token == 0) {
         if (has_yytext(current_token)) {
@@ -56,7 +56,7 @@ int next_token()
     return peek_token;
 }
 
-void expect_token(int expected)
+static void expect_token(int expected)
 {
     if (current_token != expected) {
         fprintf(stderr, "Parse error: Expected token %d, got %d (lexeme: %s)\n",
@@ -67,7 +67,7 @@ void expect_token(int expected)
 }
 
 // Is this token a start of a type name?
-bool is_type_name(int token)
+static bool is_type_name(int token)
 {
     return token == TOKEN_VOID || token == TOKEN_CHAR ||
            token == TOKEN_SHORT || token == TOKEN_INT ||
@@ -82,7 +82,7 @@ bool is_type_name(int token)
 }
 
 /* Helper functions for AST construction */
-Type *new_type(TypeKind kind)
+static Type *new_type(TypeKind kind)
 {
     Type *t                = malloc(sizeof(Type));
     t->kind                = kind;
@@ -91,7 +91,7 @@ Type *new_type(TypeKind kind)
     return t;
 }
 
-TypeQualifier *new_type_qualifier(TypeQualifierKind kind)
+static TypeQualifier *new_type_qualifier(TypeQualifierKind kind)
 {
     TypeQualifier *q = malloc(sizeof(TypeQualifier));
     q->kind          = kind;
@@ -99,22 +99,15 @@ TypeQualifier *new_type_qualifier(TypeQualifierKind kind)
     return q;
 }
 
-Field *new_field(Ident name, Type *type, Expr *bitfield, bool is_anonymous)
+static Field *new_field(void)
 {
-    Field *f        = malloc(sizeof(Field));
-    f->is_anonymous = is_anonymous;
-    if (is_anonymous) {
-        f->u.anonymous.type = type;
-    } else {
-        f->u.named.name     = name;
-        f->u.named.type     = type;
-        f->u.named.bitfield = bitfield;
-    }
-    f->next = NULL;
+    Field *f        = (Field *)malloc(sizeof(Field));
+    f->next         = NULL;
+    f->is_anonymous = false;
     return f;
 }
 
-Enumerator *new_enumerator(Ident name, Expr *value)
+static Enumerator *new_enumerator(Ident name, Expr *value)
 {
     Enumerator *e = malloc(sizeof(Enumerator));
     e->name       = name;
@@ -123,7 +116,7 @@ Enumerator *new_enumerator(Ident name, Expr *value)
     return e;
 }
 
-Param *new_param(Ident name, Type *type)
+static Param *new_param(Ident name, Type *type)
 {
     Param *p = malloc(sizeof(Param));
     p->name  = name;
@@ -132,7 +125,7 @@ Param *new_param(Ident name, Type *type)
     return p;
 }
 
-ParamList *new_param_list(bool is_empty, bool is_ident_list)
+static ParamList *new_param_list(bool is_empty, bool is_ident_list)
 {
     ParamList *pl     = malloc(sizeof(ParamList));
     pl->is_empty      = is_empty;
@@ -147,7 +140,7 @@ ParamList *new_param_list(bool is_empty, bool is_ident_list)
     return pl;
 }
 
-Declaration *new_declaration(DeclarationKind kind)
+static Declaration *new_declaration(DeclarationKind kind)
 {
     Declaration *d = malloc(sizeof(Declaration));
     d->kind        = kind;
@@ -155,7 +148,7 @@ Declaration *new_declaration(DeclarationKind kind)
     return d;
 }
 
-DeclSpec *new_decl_spec()
+static DeclSpec *new_decl_spec()
 {
     DeclSpec *ds   = malloc(sizeof(DeclSpec));
     ds->storage    = NULL;
@@ -166,14 +159,14 @@ DeclSpec *new_decl_spec()
     return ds;
 }
 
-StorageClass *new_storage_class(StorageClassKind kind)
+static StorageClass *new_storage_class(StorageClassKind kind)
 {
     StorageClass *sc = malloc(sizeof(StorageClass));
     sc->kind         = kind;
     return sc;
 }
 
-TypeSpec *new_type_spec(TypeSpecKind kind)
+static TypeSpec *new_type_spec(TypeSpecKind kind)
 {
     TypeSpec *ts   = malloc(sizeof(TypeSpec));
     ts->kind       = kind;
@@ -182,7 +175,7 @@ TypeSpec *new_type_spec(TypeSpecKind kind)
     return ts;
 }
 
-FunctionSpec *new_function_spec(FunctionSpecKind kind)
+static FunctionSpec *new_function_spec(FunctionSpecKind kind)
 {
     FunctionSpec *fs = malloc(sizeof(FunctionSpec));
     fs->kind         = kind;
@@ -190,14 +183,14 @@ FunctionSpec *new_function_spec(FunctionSpecKind kind)
     return fs;
 }
 
-AlignmentSpec *new_alignment_spec(AlignmentSpecKind kind)
+static AlignmentSpec *new_alignment_spec(AlignmentSpecKind kind)
 {
     AlignmentSpec *as = malloc(sizeof(AlignmentSpec));
     as->kind          = kind;
     return as;
 }
 
-InitDeclarator *new_init_declarator(Declarator *declarator, Initializer *init)
+static InitDeclarator *new_init_declarator(Declarator *declarator, Initializer *init)
 {
     InitDeclarator *id = malloc(sizeof(InitDeclarator));
     id->declarator     = declarator;
@@ -206,7 +199,7 @@ InitDeclarator *new_init_declarator(Declarator *declarator, Initializer *init)
     return id;
 }
 
-Declarator *new_declarator(DeclaratorKind kind)
+static Declarator *new_declarator(DeclaratorKind kind)
 {
     Declarator *d = malloc(sizeof(Declarator));
     d->kind       = kind;
@@ -222,7 +215,7 @@ Declarator *new_declarator(DeclaratorKind kind)
     return d;
 }
 
-Pointer *new_pointer()
+static Pointer *new_pointer()
 {
     Pointer *p    = malloc(sizeof(Pointer));
     p->qualifiers = NULL;
@@ -230,7 +223,7 @@ Pointer *new_pointer()
     return p;
 }
 
-DeclaratorSuffix *new_declarator_suffix(DeclaratorSuffixKind kind)
+static DeclaratorSuffix *new_declarator_suffix(DeclaratorSuffixKind kind)
 {
     DeclaratorSuffix *ds = malloc(sizeof(DeclaratorSuffix));
     ds->kind             = kind;
@@ -238,14 +231,14 @@ DeclaratorSuffix *new_declarator_suffix(DeclaratorSuffixKind kind)
     return ds;
 }
 
-Initializer *new_initializer(InitializerKind kind)
+static Initializer *new_initializer(InitializerKind kind)
 {
     Initializer *i = malloc(sizeof(Initializer));
     i->kind        = kind;
     return i;
 }
 
-InitItem *new_init_item(Designator *designators, Initializer *init)
+static InitItem *new_init_item(Designator *designators, Initializer *init)
 {
     InitItem *ii    = malloc(sizeof(InitItem));
     ii->designators = designators;
@@ -254,7 +247,7 @@ InitItem *new_init_item(Designator *designators, Initializer *init)
     return ii;
 }
 
-Designator *new_designator(DesignatorKind kind)
+static Designator *new_designator(DesignatorKind kind)
 {
     Designator *d = malloc(sizeof(Designator));
     d->kind       = kind;
@@ -262,7 +255,7 @@ Designator *new_designator(DesignatorKind kind)
     return d;
 }
 
-Expr *new_expression(ExprKind kind)
+static Expr *new_expression(ExprKind kind)
 {
     Expr *e = malloc(sizeof(Expr));
     e->kind = kind;
@@ -271,35 +264,35 @@ Expr *new_expression(ExprKind kind)
     return e;
 }
 
-Literal *new_literal(LiteralKind kind)
+static Literal *new_literal(LiteralKind kind)
 {
     Literal *l = malloc(sizeof(Literal));
     l->kind    = kind;
     return l;
 }
 
-UnaryOp *new_unary_op(UnaryOpKind kind)
+static UnaryOp *new_unary_op(UnaryOpKind kind)
 {
     UnaryOp *op = malloc(sizeof(UnaryOp));
     op->kind    = kind;
     return op;
 }
 
-BinaryOp *new_binary_op(BinaryOpKind kind)
+static BinaryOp *new_binary_op(BinaryOpKind kind)
 {
     BinaryOp *op = malloc(sizeof(BinaryOp));
     op->kind     = kind;
     return op;
 }
 
-AssignOp *new_assign_op(AssignOpKind kind)
+static AssignOp *new_assign_op(AssignOpKind kind)
 {
     AssignOp *op = malloc(sizeof(AssignOp));
     op->kind     = kind;
     return op;
 }
 
-GenericAssoc *new_generic_assoc(GenericAssocKind kind)
+static GenericAssoc *new_generic_assoc(GenericAssocKind kind)
 {
     GenericAssoc *ga = malloc(sizeof(GenericAssoc));
     ga->kind         = kind;
@@ -307,14 +300,14 @@ GenericAssoc *new_generic_assoc(GenericAssocKind kind)
     return ga;
 }
 
-Stmt *new_stmt(StmtKind kind)
+static Stmt *new_stmt(StmtKind kind)
 {
     Stmt *s = malloc(sizeof(Stmt));
     s->kind = kind;
     return s;
 }
 
-DeclOrStmt *new_decl_or_stmt(DeclOrStmtKind kind)
+static DeclOrStmt *new_decl_or_stmt(DeclOrStmtKind kind)
 {
     DeclOrStmt *ds = malloc(sizeof(DeclOrStmt));
     ds->kind       = kind;
@@ -322,14 +315,14 @@ DeclOrStmt *new_decl_or_stmt(DeclOrStmtKind kind)
     return ds;
 }
 
-ForInit *new_for_init(ForInitKind kind)
+static ForInit *new_for_init(ForInitKind kind)
 {
     ForInit *fi = malloc(sizeof(ForInit));
     fi->kind    = kind;
     return fi;
 }
 
-ExternalDecl *new_external_decl(ExternalDeclKind kind)
+static ExternalDecl *new_external_decl(ExternalDeclKind kind)
 {
     ExternalDecl *ed = malloc(sizeof(ExternalDecl));
     ed->kind         = kind;
@@ -337,7 +330,7 @@ ExternalDecl *new_external_decl(ExternalDeclKind kind)
     return ed;
 }
 
-Program *new_program()
+static Program *new_program()
 {
     Program *p = malloc(sizeof(Program));
     p->decls   = NULL;
@@ -345,7 +338,7 @@ Program *new_program()
 }
 
 /* Append to linked list */
-void append_list(void *head_ptr, void *node_ptr)
+static void append_list(void *head_ptr, void *node_ptr)
 {
     typedef struct List List;
     struct List {
@@ -1270,23 +1263,87 @@ Field *parse_struct_declaration()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_STATIC_ASSERT) {
-        parse_static_assert_declaration(); /* Ignore for now */
+        parse_static_assert_declaration(); // TODO: Ignore for now
         return NULL;
     }
+
+    /* Parse specifier_qualifier_list */
     TypeQualifier *qualifiers = NULL;
-    TypeSpec *spec = parse_specifier_qualifier_list(&qualifiers);
-    //TODO: qualifiers
+    TypeSpec *type_specs      = parse_specifier_qualifier_list(&qualifiers);
+    if (!type_specs)
+        return NULL;
+
+    /* Check for anonymous struct/union */
     if (current_token == TOKEN_SEMICOLON) {
-        advance_token();
-        return new_field(NULL, spec->u.basic, NULL, true);
+        Field *field            = new_field();
+        field->is_anonymous     = true;
+        field->u.anonymous.type = parse_type_name();
+        if (!field->u.anonymous.type) {
+            free(field);
+            return NULL;
+        }
+        advance_token(); /* Consume ';' */
+        return field;
     }
-    Declarator *decls = parse_struct_declarator_list();
-    expect_token(TOKEN_SEMICOLON);
-    return new_field(decls->u.named.name, spec->u.basic, NULL, false);
+
+    /* Parse struct_declarator_list */
+    Field *fields = NULL, **fields_tail = &fields;
+    do {
+        Field *field            = new_field();
+        field->is_anonymous     = false;
+        field->u.named.name     = (current_token == TOKEN_IDENTIFIER) ? strdup(current_lexeme) : NULL;
+        field->u.named.bitfield = NULL;
+
+        /* Parse field type */
+        field->u.named.type = parse_type_name();
+        if (!field->u.named.type) {
+            free(field);
+            return NULL;
+        }
+
+        if (field->u.named.name)
+            advance_token();
+
+        /* Handle bitfield */
+        if (current_token == TOKEN_COLON) {
+            advance_token();
+            field->u.named.bitfield = parse_constant_expression();
+            if (!field->u.named.bitfield) {
+                free(field);
+                return NULL;
+            }
+        }
+
+        *fields_tail = field;
+        fields_tail  = &field->next;
+
+        if (current_token == TOKEN_COMMA) {
+            advance_token();
+        } else {
+            break;
+        }
+    } while (current_token != TOKEN_SEMICOLON);
+
+    if (current_token != TOKEN_SEMICOLON) {
+        /* Free allocated fields on error */
+        while (fields) {
+            Field *next = fields->next;
+            free(fields->u.named.name);
+            free(fields);
+            fields = next;
+        }
+        return NULL;
+    }
+
+    advance_token(); /* Consume ';' */
+    return fields;
 }
 
 TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
 {
+    if (debug) {
+        printf("--- %s()\n", __func__);
+    }
     TypeSpec *type_specs = NULL;
     *qualifiers          = NULL;
 
@@ -1855,6 +1912,9 @@ Param *parse_parameter_list()
 
 DeclaratorSuffix *parse_direct_abstract_declarator()
 {
+    if (debug) {
+        printf("--- %s()\n", __func__);
+    }
     DeclaratorSuffix *suffixes = NULL, **suffixes_tail = &suffixes;
     while (1) {
         if (current_token == TOKEN_LBRACKET) {
