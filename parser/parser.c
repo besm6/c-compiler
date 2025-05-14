@@ -222,10 +222,10 @@ Declarator *new_declarator(DeclaratorKind kind)
     return d;
 }
 
-Pointer *new_pointer(TypeQualifier *qualifiers)
+Pointer *new_pointer()
 {
     Pointer *p    = malloc(sizeof(Pointer));
-    p->qualifiers = qualifiers;
+    p->qualifiers = NULL;
     p->next       = NULL;
     return p;
 }
@@ -1752,17 +1752,15 @@ Pointer *parse_pointer()
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    expect_token(TOKEN_STAR);
-    TypeQualifier *qualifiers = NULL;
-    if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
-        current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
-        qualifiers = parse_type_qualifier_list();
+    Pointer *pointers = NULL, **pointers_tail = &pointers;
+    while (current_token == TOKEN_STAR) {
+        Pointer *p = new_pointer();
+        advance_token();
+        p->qualifiers  = parse_type_qualifier_list();
+        *pointers_tail = p;
+        pointers_tail  = &p->next;
     }
-    Pointer *pointer = new_pointer(qualifiers);
-    if (current_token == TOKEN_STAR) {
-        pointer->next = parse_pointer();
-    }
-    return pointer;
+    return pointers;
 }
 
 TypeQualifier *parse_type_qualifier_list()
