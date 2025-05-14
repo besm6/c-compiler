@@ -116,11 +116,11 @@ static Enumerator *new_enumerator(Ident name, Expr *value)
     return e;
 }
 
-static Param *new_param(Ident name, Type *type)
+static Param *new_param()
 {
     Param *p = malloc(sizeof(Param));
-    p->name  = name;
-    p->type  = type;
+    p->name  = NULL;
+    p->type  = NULL;
     p->next  = NULL;
     return p;
 }
@@ -1968,18 +1968,116 @@ Param *parse_parameter_declaration()
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    DeclSpec *spec = parse_declaration_specifiers();
-    if (current_token == TOKEN_IDENTIFIER || current_token == TOKEN_LPAREN ||
-        current_token == TOKEN_STAR) {
-        Declarator *decl = parse_declarator();
-        return new_param(decl->u.named.name, spec->type_specs ? spec->type_specs->u.basic : NULL);
-    } else if (current_token == TOKEN_LBRACKET) {
-        //TODO: Declarator *decl = parse_abstract_declarator();
-        //TODO: *pointers = parse_pointer();
-        //TODO: *suffixes = parse_direct_abstract_declarator();
-        return new_param(NULL, spec->type_specs ? spec->type_specs->u.basic : NULL);
+    Param *param = new_param();
+
+    /* Parse declaration_specifiers */
+    TypeQualifier *qualifiers = NULL;
+    TypeSpec *type_specs      = parse_specifier_qualifier_list(&qualifiers);
+    if (!type_specs) {
+        free(param);
+        return NULL;
     }
-    return new_param(NULL, spec->type_specs ? spec->type_specs->u.basic : NULL);
+
+    /* Check for declarator or abstract_declarator */
+    if (current_token == TOKEN_IDENTIFIER || current_token == TOKEN_LPAREN ||
+        current_token == TOKEN_STAR || current_token == TOKEN_LBRACKET) {
+        bool is_declarator = (current_token == TOKEN_IDENTIFIER || current_token == TOKEN_LPAREN);
+        char *name         = NULL;
+        Pointer *pointers  = NULL;
+        DeclaratorSuffix *suffixes = NULL;
+
+        if (is_declarator && current_token == TOKEN_IDENTIFIER) {
+            name = strdup(current_lexeme);
+            advance_token();
+            if (current_token == TOKEN_STAR || current_token == TOKEN_LBRACKET ||
+                current_token == TOKEN_LPAREN) {
+                // Parse abstract_declarator.
+                pointers = parse_pointer();
+                suffixes = parse_direct_abstract_declarator();
+            }
+        } else {
+            // Parse abstract_declarator.
+            pointers = parse_pointer();
+            suffixes = parse_direct_abstract_declarator();
+        }
+
+        /* Construct base type from type_specs (simplified to first type) */
+        Type *base_type = NULL;
+        TypeSpec *ts    = type_specs;
+        if (ts->kind == TYPE_SPEC_BASIC) {
+            base_type = ts->u.basic;
+        } else if (ts->kind == TYPE_SPEC_STRUCT || ts->kind == TYPE_SPEC_UNION) {
+            base_type                  = (Type *)malloc(sizeof(Type));
+            base_type->kind            = (ts->kind == TYPE_SPEC_STRUCT ? TYPE_STRUCT : TYPE_UNION);
+            base_type->u.struct_t.name = ts->u.struct_spec.name;
+            base_type->u.struct_t.fields = ts->u.struct_spec.fields;
+            base_type->qualifiers        = qualifiers;
+        } else if (ts->kind == TYPE_SPEC_ENUM) {
+            base_type                       = (Type *)malloc(sizeof(Type));
+            base_type->kind                 = TYPE_ENUM;
+            base_type->u.enum_t.name        = ts->u.enum_spec.name;
+            base_type->u.enum_t.enumerators = ts->u.enum_spec.enumerators;
+            base_type->qualifiers           = qualifiers;
+        } else if (ts->kind == TYPE_SPEC_TYPEDEF_NAME) {
+            base_type                      = (Type *)malloc(sizeof(Type));
+            base_type->kind                = TYPE_TYPEDEF_NAME;
+            base_type->u.typedef_name.name = ts->u.typedef_name.name;
+            base_type->qualifiers          = qualifiers;
+        } else if (ts->kind == TYPE_SPEC_ATOMIC) {
+            base_type                = (Type *)malloc(sizeof(Type));
+            base_type->kind          = TYPE_ATOMIC;
+            base_type->u.atomic.base = ts->u.atomic.type;
+            base_type->qualifiers    = qualifiers;
+        }
+
+        if (!base_type) {
+            free(param);
+            free(name);
+            return NULL;
+        }
+
+        /* Apply pointers and suffixes */
+        Type *current_type = base_type;
+        for (Pointer *p = pointers; p; p = p->next) {
+            Type *ptr_type                 = (Type *)malloc(sizeof(Type));
+            ptr_type->kind                 = TYPE_POINTER;
+            ptr_type->u.pointer.target     = current_type;
+            ptr_type->u.pointer.qualifiers = p->qualifiers;
+            ptr_type->qualifiers           = NULL;
+            current_type                   = ptr_type;
+        }
+        for (DeclaratorSuffix *s = suffixes; s; s = s->next) {
+            if (s->kind == SUFFIX_ARRAY) {
+                Type *array_type               = (Type *)malloc(sizeof(Type));
+                array_type->kind               = TYPE_ARRAY;
+                array_type->u.array.element    = current_type;
+                array_type->u.array.size       = s->u.array.size;
+                array_type->u.array.qualifiers = s->u.array.qualifiers;
+                array_type->qualifiers         = NULL;
+                current_type                   = array_type;
+            } else if (s->kind == SUFFIX_FUNCTION) {
+                Type *func_type                  = (Type *)malloc(sizeof(Type));
+                func_type->kind                  = TYPE_FUNCTION;
+                func_type->u.function.returnType = current_type;
+                func_type->u.function.params     = s->u.function.params;
+                func_type->u.function.variadic   = s->u.function.variadic;
+                func_type->qualifiers            = NULL;
+                current_type                     = func_type;
+            }
+        }
+
+        param->name = name;
+        param->type = current_type;
+    } else {
+        /* Only declaration_specifiers (unnamed parameter) */
+        param->type = parse_type_name();
+        if (!param->type) {
+            free(param);
+            return NULL;
+        }
+    }
+
+    return param;
 }
 
 //
