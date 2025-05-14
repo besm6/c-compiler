@@ -688,7 +688,6 @@ Expr *parse_unary_expression()
         if (current_token == TOKEN_LPAREN && is_type_name(next_token())) {
             expect_token(TOKEN_LPAREN);
             Type *type = parse_type_name();
-//printf("--- type: "); print_type(stdout, type, 0);
             expect_token(TOKEN_RPAREN);
             Expr *new_expr          = new_expression(EXPR_SIZEOF_TYPE);
             new_expr->u.sizeof_type = type;
@@ -1191,18 +1190,8 @@ Type *fuse_type_specifiers(TypeSpec *specs)
             }
             typedef_spec = s;
         } else if (s->kind == TYPE_SPEC_ATOMIC) {
-            if (base_kind != -1 || signedness != -1 || struct_spec || union_spec || enum_spec || typedef_spec || s->next) {
-                fprintf(stderr, "Error: _Atomic() cannot combine with other types\n");
-                return NULL;
-            }
-            Type *result = s->u.atomic.type;
-            s->u.atomic.type = NULL;
-
-            /* Apply _Atomic as a qualifier */
-            append_list(&result->qualifiers, new_type_qualifier(TYPE_QUALIFIER_ATOMIC));
-            return result;
-        } else {
-            fprintf(stderr, "Error: Unknown TypeSpec kind\n");
+            fatal_error("Atomic() is not supported");
+            fprintf(stderr, "Error: _Atomic() is not supported\n");
             return NULL;
         }
     }
@@ -2320,7 +2309,6 @@ Type *parse_type_name()
         fatal_error("Incorrect type");
         return NULL;
     }
-    append_list(&qualifiers, base_type->qualifiers);
     base_type->qualifiers = qualifiers;
 
     /* Parse optional abstract_declarator */

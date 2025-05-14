@@ -397,47 +397,9 @@ TEST_F(ParserTest, TypeAtomicEnum)
 // 37. _Atomic(struct S)
 // 38. _Atomic(const char)
 //
+// _Atomic() is not supported in this parser.
+//
 
-TEST_F(ParserTest, TypeAtomicInt)
-{
-    Type *type = TestType("_Atomic(int)");
-
-    EXPECT_EQ(type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
-    ASSERT_NE(type->qualifiers, nullptr);
-    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_ATOMIC);
-    EXPECT_EQ(type->qualifiers->next, nullptr);
-    free_type(type);
-}
-
-TEST_F(ParserTest, TypeAtomicStruct)
-{
-    Type *type = TestType("_Atomic(struct S)");
-
-    EXPECT_EQ(type->kind, TYPE_STRUCT);
-    EXPECT_STREQ(type->u.struct_t.name, "S");
-    EXPECT_EQ(type->u.struct_t.fields, nullptr);
-    ASSERT_NE(type->qualifiers, nullptr);
-    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_ATOMIC);
-    EXPECT_EQ(type->qualifiers->next, nullptr);
-    free_type(type);
-}
-
-TEST_F(ParserTest, TypeAtomicConstChar)
-{
-    Type *type = TestType("_Atomic(const char)");
-
-    EXPECT_EQ(type->kind, TYPE_CHAR);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
-    ASSERT_NE(type->qualifiers, nullptr);
-    EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_CONST);
-    ASSERT_NE(type->qualifiers->next, nullptr);
-    EXPECT_EQ(type->qualifiers->next->kind, TYPE_QUALIFIER_ATOMIC);
-    EXPECT_EQ(type->qualifiers->next->next, nullptr);
-    free_type(type);
-}
-
-//TODO:
 //
 // 6. Pointer Types
 // Testing "type_name : specifier_qualifier_list abstract_declarator"
@@ -457,6 +419,21 @@ TEST_F(ParserTest, TypeAtomicConstChar)
 // 50. int * const volatile
 //
 
+TEST_F(ParserTest, TypeIntPtr)
+{
+    Type *type = TestType("int *");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
+    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+    free_type(type);
+}
+
+//TODO:
 //
 // 7. Array Types
 // Testing "abstract_declarator : direct_abstract_declarator" with array declarators.
