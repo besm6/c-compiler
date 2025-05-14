@@ -1780,17 +1780,43 @@ TypeQualifier *parse_type_qualifier_list()
 
 ParamList *parse_parameter_type_list()
 {
-    if (debug) {
-        printf("--- %s()\n", __func__);
+    if (current_token == TOKEN_RPAREN) {
+        ParamList *pl     = (ParamList *)malloc(sizeof(ParamList));
+        pl->is_empty      = true;
+        pl->is_ident_list = false;
+        return pl;
     }
-    ParamList *pl = new_param_list(false, false);
-    pl->u.params  = parse_parameter_list();
-    if (current_token == TOKEN_COMMA && next_token() == TOKEN_ELLIPSIS) {
-        advance_token();
-        expect_token(TOKEN_ELLIPSIS);
-        Param *variadic = new_param(NULL, NULL);
-        append_list(&pl->u.params, variadic);
-    }
+    ParamList *pl     = (ParamList *)malloc(sizeof(ParamList));
+    pl->is_empty      = false;
+    pl->is_ident_list = false;
+    Param *params = NULL, **params_tail = &params;
+    do {
+        TypeQualifier *param_quals = NULL;
+        TypeSpec *param_specs      = parse_specifier_qualifier_list(&param_quals);
+        if (!param_specs)
+            return NULL;
+        Param *param = (Param *)malloc(sizeof(Param));
+        param->type  = parse_type_name(); /* Recursive call */
+        if (!param->type)
+            return NULL;
+        param->name = (current_token == TOKEN_IDENTIFIER) ? strdup(current_lexeme) : NULL;
+        param->next = NULL;
+        if (param->name)
+            advance_token();
+        *params_tail = param;
+        params_tail  = &param->next;
+        if (current_token == TOKEN_COMMA) {
+            advance_token();
+            if (current_token == TOKEN_ELLIPSIS) {
+                advance_token();
+                pl->u.params = params;
+                return pl; /* Variadic */
+            }
+        } else {
+            break;
+        }
+    } while (current_token != TOKEN_RPAREN);
+    pl->u.params = params;
     return pl;
 }
 
