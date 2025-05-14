@@ -22,6 +22,7 @@ TEST_F(ParserTest, TypeVoid)
     Type *type = TestType("void");
 
     EXPECT_EQ(type->kind, TYPE_VOID);
+    EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
 
@@ -31,6 +32,7 @@ TEST_F(ParserTest, TypeChar)
 
     EXPECT_EQ(type->kind, TYPE_CHAR);
     EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
 
@@ -40,6 +42,7 @@ TEST_F(ParserTest, TypeInt)
 
     EXPECT_EQ(type->kind, TYPE_INT);
     EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
 
@@ -49,6 +52,7 @@ TEST_F(ParserTest, TypeShort)
 
     EXPECT_EQ(type->kind, TYPE_SHORT);
     EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
 
@@ -58,6 +62,7 @@ TEST_F(ParserTest, TypeLong)
 
     EXPECT_EQ(type->kind, TYPE_LONG);
     EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
 
@@ -66,6 +71,7 @@ TEST_F(ParserTest, TypeFloat)
     Type *type = TestType("float");
 
     EXPECT_EQ(type->kind, TYPE_FLOAT);
+    EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
 
@@ -74,6 +80,7 @@ TEST_F(ParserTest, TypeDouble)
     Type *type = TestType("double");
 
     EXPECT_EQ(type->kind, TYPE_DOUBLE);
+    EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
 
@@ -83,6 +90,7 @@ TEST_F(ParserTest, TypeSigned)
 
     EXPECT_EQ(type->kind, TYPE_INT);
     EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
 
@@ -92,6 +100,7 @@ TEST_F(ParserTest, TypeUnsigned)
 
     EXPECT_EQ(type->kind, TYPE_INT);
     EXPECT_EQ(type->u.integer.signedness, SIGNED_UNSIGNED);
+    EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
 
@@ -100,6 +109,7 @@ TEST_F(ParserTest, TypeBool)
     Type *type = TestType("_Bool");
 
     EXPECT_EQ(type->kind, TYPE_BOOL);
+    EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
 
@@ -108,6 +118,10 @@ TEST_F(ParserTest, TypeComplex)
     Type *type = TestType("_Complex");
 
     EXPECT_EQ(type->kind, TYPE_COMPLEX);
+    ASSERT_NE(type->u.complex.base, nullptr);
+    EXPECT_EQ(type->u.complex.base->kind, TYPE_DOUBLE);
+    EXPECT_EQ(type->u.complex.base->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
 
@@ -116,6 +130,10 @@ TEST_F(ParserTest, TypeImaginary)
     Type *type = TestType("_Imaginary");
 
     EXPECT_EQ(type->kind, TYPE_IMAGINARY);
+    ASSERT_NE(type->u.complex.base, nullptr);
+    EXPECT_EQ(type->u.complex.base->kind, TYPE_DOUBLE);
+    EXPECT_EQ(type->u.complex.base->qualifiers, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
 
