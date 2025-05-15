@@ -605,7 +605,6 @@ TEST_F(ParserTest, TypeIntPtrConstVolatile)
     free_type(type);
 }
 
-//TODO:
 //
 // 7. Array Types
 // Testing "abstract_declarator : direct_abstract_declarator" with array declarators.
@@ -622,6 +621,188 @@ TEST_F(ParserTest, TypeIntPtrConstVolatile)
 // 60. const int [N]
 //
 
+TEST_F(ParserTest, TypeIntArray)
+{
+    Type *type = TestType("int []");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    ASSERT_NE(type->u.array.element, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
+    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.array.element->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeCharArray5)
+{
+    Type *type = TestType("char [5]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    ASSERT_NE(type->u.array.element, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.element->kind, TYPE_CHAR);
+    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.array.element->qualifiers, nullptr);
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 5);
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeDoubleArray10)
+{
+    Type *type = TestType("double [10]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    ASSERT_NE(type->u.array.element, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.element->kind, TYPE_DOUBLE);
+    EXPECT_EQ(type->u.array.element->qualifiers, nullptr);
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 10);
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeConstIntArray)
+{
+    Type *type = TestType("const int []");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    ASSERT_NE(type->u.array.element, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
+    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->u.array.element->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.element->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->u.array.element->qualifiers->next, nullptr);
+    EXPECT_EQ(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeIntArrayConst5)
+{
+    Type *type = TestType("int [const 5]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    ASSERT_NE(type->u.array.element, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
+    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.array.element->qualifiers, nullptr);
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 5);
+    ASSERT_NE(type->u.array.qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->u.array.qualifiers->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, DISABLED_TypeIntArrayStatic10)
+{
+    Type *type = TestType("int [static 10]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    ASSERT_NE(type->u.array.element, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
+    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.array.element->qualifiers, nullptr);
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 10);
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    //TODO: EXPECT_TRUE(type->u.array.is_static); // static is ignored?
+    free_type(type);
+}
+
+// Parser fails on const inside brackets.
+TEST_F(ParserTest, DISABLED_TypeIntArrayConstStatic5)
+{
+    Type *type = TestType("int [const static 5]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    ASSERT_NE(type->u.array.element, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
+    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.array.element->qualifiers, nullptr);
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 5);
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeStructArray3)
+{
+    Type *type = TestType("struct S [3]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    ASSERT_NE(type->u.array.element, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.element->kind, TYPE_STRUCT);
+    EXPECT_STREQ(type->u.array.element->u.struct_t.name, "S");
+    EXPECT_EQ(type->u.array.element->u.struct_t.fields, nullptr);
+    EXPECT_EQ(type->u.array.element->qualifiers, nullptr);
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 3);
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    free_type(type);
+}
+
+// Parse error: Expected primary expression
+TEST_F(ParserTest, DISABLED_TypeConstIntArrayStar)
+{
+    Type *type = TestType("const int [*]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    ASSERT_NE(type->u.array.element, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
+    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->u.array.element->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.element->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->u.array.element->qualifiers->next, nullptr);
+    EXPECT_EQ(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, DISABLED_TypeConstIntArrayN)
+{
+    Type *type = TestType("const int [N]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    ASSERT_NE(type->u.array.element, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
+    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->u.array.element->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.element->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->u.array.element->qualifiers->next, nullptr);
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_VAR);
+    EXPECT_STREQ(type->u.array.size->u.var, "N");
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    free_type(type);
+}
+
+//TODO:
 //
 // 8. Function Types
 // Testing "direct_abstract_declarator : '(' parameter_type_list ')'" or "()".
