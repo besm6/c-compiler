@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include "ast.h"
 #include "scanner.h"
@@ -17,7 +18,7 @@ static int debug = 1;
 /* Error handling */
 static void fatal_error(const char *message, ...)
 {
-    fprintf(stderr, "Parse error: ",
+    fprintf(stderr, "Parse error: ");
 
     va_list ap;
     va_start(ap, message);

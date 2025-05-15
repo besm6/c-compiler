@@ -433,6 +433,178 @@ TEST_F(ParserTest, TypeIntPtr)
     free_type(type);
 }
 
+TEST_F(ParserTest, TypeCharPtr)
+{
+    Type *type = TestType("char *");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_CHAR);
+    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeVoidPtr)
+{
+    Type *type = TestType("void *");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_VOID);
+    EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeConstIntPtr)
+{
+    Type *type = TestType("const int *");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
+    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->u.pointer.target->qualifiers->next, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeIntPtrConst)
+{
+    Type *type = TestType("int * const");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
+    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
+    ASSERT_NE(type->u.pointer.qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->u.pointer.qualifiers->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeVolatileCharPtr)
+{
+    Type *type = TestType("volatile char *");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_CHAR);
+    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->qualifiers->kind, TYPE_QUALIFIER_VOLATILE);
+    EXPECT_EQ(type->u.pointer.target->qualifiers->next, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeIntPtrVolatile)
+{
+    Type *type = TestType("int * volatile");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
+    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
+    ASSERT_NE(type->u.pointer.qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers->kind, TYPE_QUALIFIER_VOLATILE);
+    EXPECT_EQ(type->u.pointer.qualifiers->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeConstRestrictIntPtr)
+{
+    Type *type = TestType("const restrict int *");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
+    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    ASSERT_NE(type->u.pointer.target->qualifiers->next, nullptr);
+    EXPECT_EQ(type->u.pointer.target->qualifiers->next->kind, TYPE_QUALIFIER_RESTRICT);
+    EXPECT_EQ(type->u.pointer.target->qualifiers->next->next, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeIntPtrPtr)
+{
+    Type *type = TestType("int **");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_POINTER);
+    EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->u.pointer.target->kind, TYPE_INT);
+    EXPECT_EQ(type->u.pointer.target->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.pointer.target->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->u.pointer.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeStructPtr)
+{
+    Type *type = TestType("struct S *");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_STRUCT);
+    EXPECT_STREQ(type->u.pointer.target->u.struct_t.name, "S");
+    EXPECT_EQ(type->u.pointer.target->u.struct_t.fields, nullptr);
+    EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeUnsignedLongPtr)
+{
+    Type *type = TestType("unsigned long *");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_LONG);
+    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_UNSIGNED);
+    EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeIntPtrConstVolatile)
+{
+    Type *type = TestType("int * const volatile");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
+    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
+    ASSERT_NE(type->u.pointer.qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers->kind, TYPE_QUALIFIER_CONST);
+    ASSERT_NE(type->u.pointer.qualifiers->next, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers->next->kind, TYPE_QUALIFIER_VOLATILE);
+    EXPECT_EQ(type->u.pointer.qualifiers->next->next, nullptr);
+    free_type(type);
+}
+
 //TODO:
 //
 // 7. Array Types
