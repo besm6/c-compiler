@@ -894,9 +894,72 @@ TEST_F(ParserTest, TypeCharFuncCharPtrInt)
     free_type(type);
 }
 
+TEST_F(ParserTest, TypeStructFuncVoid)
+{
+    Type *type = TestType("struct S (void)");
+
+    EXPECT_EQ(type->kind, TYPE_FUNCTION);
+    EXPECT_EQ(type->qualifiers, nullptr);
+
+    ASSERT_NE(type->u.function.returnType, nullptr);
+    EXPECT_EQ(type->u.function.returnType->kind, TYPE_STRUCT);
+    EXPECT_STREQ(type->u.function.returnType->u.struct_t.name, "S");
+    EXPECT_EQ(type->u.function.returnType->u.struct_t.fields, nullptr);
+    EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
+
+    EXPECT_FALSE(type->u.function.variadic);
+
+    ASSERT_NE(type->u.function.params, nullptr);
+    EXPECT_FALSE(type->u.function.params->is_empty);
+    const Param *p1 = type->u.function.params->u.params;
+    ASSERT_NE(p1, nullptr);
+    EXPECT_EQ(p1->next, nullptr);
+
+    EXPECT_EQ(p1->name, nullptr);
+    ASSERT_NE(p1->type, nullptr);
+    EXPECT_EQ(p1->type->kind, TYPE_VOID);
+    EXPECT_EQ(p1->type->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeConstIntFuncDoubleChar)
+{
+    Type *type = TestType("const int (double, char)");
+
+    EXPECT_EQ(type->kind, TYPE_FUNCTION);
+    EXPECT_EQ(type->qualifiers, nullptr);
+
+    ASSERT_NE(type->u.function.returnType, nullptr);
+    EXPECT_EQ(type->u.function.returnType->kind, TYPE_INT);
+    EXPECT_EQ(type->u.function.returnType->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->u.function.returnType->qualifiers, nullptr);
+    EXPECT_EQ(type->u.function.returnType->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->u.function.returnType->qualifiers->next, nullptr);
+
+    EXPECT_FALSE(type->u.function.variadic);
+
+    ASSERT_NE(type->u.function.params, nullptr);
+    EXPECT_FALSE(type->u.function.params->is_empty);
+    const Param *p1 = type->u.function.params->u.params;
+    ASSERT_NE(p1, nullptr);
+    const Param *p2 = p1->next;
+    ASSERT_NE(p2, nullptr);
+    EXPECT_EQ(p2->next, nullptr);
+
+    EXPECT_EQ(p1->name, nullptr);
+    ASSERT_NE(p1->type, nullptr);
+    EXPECT_EQ(p1->type->kind, TYPE_DOUBLE);
+    EXPECT_EQ(p1->type->qualifiers, nullptr);
+
+    EXPECT_EQ(p2->name, nullptr);
+    ASSERT_NE(p2->type, nullptr);
+    EXPECT_EQ(p2->type->kind, TYPE_CHAR);
+    EXPECT_EQ(p2->type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(p2->type->qualifiers, nullptr);
+    free_type(type);
+}
+
 //TODO:
-// 64. struct S (void)
-// 65. const int (double, char)
 // 66. int (*)(int)
 // 67. void (*)(char *)
 
