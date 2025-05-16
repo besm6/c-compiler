@@ -1,3 +1,16 @@
+//
+// Tests for types are split into ten groups:
+// 1. Simple Types ("specifier_qualifier_list" only)
+// 2. Modified Basic Types
+// 3. Qualified Types
+// 4. Struct, Union, Enum, and Typedef Types
+// 5. Atomic Type Specifier
+// 6. Pointer Types
+// 7. Array Types
+// 8. Function Types
+// 9. Nested Combinations
+// 10. Parenthesized and Complex Declarators
+//
 #include "fixture.h"
 
 //
@@ -150,7 +163,6 @@ TEST_F(ParserTest, TypeImaginary)
 // 19. long double
 // 20. unsigned long long
 //
-
 TEST_F(ParserTest, TypeUnsignedInt)
 {
     Type *type = TestType("unsigned int");
@@ -194,7 +206,6 @@ TEST_F(ParserTest, TypeLongInt)
 // 27. const restrict int
 // 28. const volatile unsigned char
 //
-
 TEST_F(ParserTest, TypeConstInt)
 {
     Type *type = TestType("const int");
@@ -305,7 +316,6 @@ TEST_F(ParserTest, TypeConstVolatileUnsignedChar)
 // 34. volatile union U
 // 35. _Atomic enum E
 //
-
 TEST_F(ParserTest, TypeStruct)
 {
     Type *type = TestType("struct S");
@@ -399,6 +409,13 @@ TEST_F(ParserTest, TypeAtomicEnum)
 //
 // _Atomic() is not supported in this parser.
 //
+TEST_F(ParserTest, DISABLED_TypeAtomicPtr)
+{
+    Type *type = TestType("_Atomic(int)");
+
+    //TODO
+    free_type(type);
+}
 
 //
 // 6. Pointer Types
@@ -418,7 +435,6 @@ TEST_F(ParserTest, TypeAtomicEnum)
 // 49. unsigned long *
 // 50. int * const volatile
 //
-
 TEST_F(ParserTest, TypeIntPtr)
 {
     Type *type = TestType("int *");
@@ -620,7 +636,6 @@ TEST_F(ParserTest, TypeIntPtrConstVolatile)
 // 59. int [*]
 // 60. const int [N]
 //
-
 TEST_F(ParserTest, TypeIntArray)
 {
     Type *type = TestType("int []");
@@ -815,7 +830,6 @@ TEST_F(ParserTest, TypeConstIntArrayN)
 // 66. int (*)(int)
 // 67. void (*)(char *)
 //
-
 TEST_F(ParserTest, TypeIntFunc)
 {
     Type *type = TestType("int ()");
@@ -1046,7 +1060,6 @@ TEST_F(ParserTest, TypeVoidParensPtrFuncCharPtr)
 // 76. int (*(*)[5])(int)
 // 77. const int * const [3]
 //
-
 TEST_F(ParserTest, TypeIntPtrArray)
 {
     Type *type = TestType("int *[]");
@@ -1422,7 +1435,6 @@ TEST_F(ParserTest, TypeConstIntPtrConstArray3)
 // 82. unsigned int (*(*)[5])
 // 83. const struct S (*(int))
 //
-
 TEST_F(ParserTest, TypeIntParensPtr)
 {
     Type *type = TestType("int (*)");
@@ -1596,69 +1608,5 @@ TEST_F(ParserTest, TypeConstStructParensPtrFuncInt)
     EXPECT_EQ(p1->type->kind, TYPE_INT);
     EXPECT_EQ(p1->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(p1->type->qualifiers, nullptr);
-    free_type(type);
-}
-
-//TODO:
-//
-// Nested types
-//
-// Variant 1: Nested Struct with Simple Field
-// struct Outer { int x; struct Inner { int y; } inner; }
-//
-// Variant 2: Struct with Pointer to Itself
-// struct Node { int data; struct Node *next; }
-//
-// Variant 3: Function Pointer with Struct Parameter
-// void (*)(struct Pair { int x; int y; })
-//
-// Variant 4: Nested Struct with Array Field
-// struct Container { struct Item { int value; } items[10]; }
-//
-// Variant 5: Union with Nested Struct and Anonymous Struct
-// union Variant { struct { int a; int b; }; struct Named { float x; } named; }
-//
-TEST_F(ParserTest, NestedStructWithSimpleField)
-{
-    Type *type = TestType("struct Outer { int x; struct Inner { int y; } inner; }");
-
-    EXPECT_EQ(type->kind, TYPE_STRUCT);
-    //TODO
-    free_type(type);
-}
-
-TEST_F(ParserTest, DISABLED_StructWithPointerToItself)
-{
-    Type *type = TestType("struct Node { int data; struct Node *next; }");
-
-    EXPECT_EQ(type->kind, TYPE_STRUCT);
-    //TODO
-    free_type(type);
-}
-
-TEST_F(ParserTest, FunctionPointerWithStructParameter)
-{
-    Type *type = TestType("void (*)(struct Pair { int x; int y; })");
-
-    EXPECT_EQ(type->kind, TYPE_POINTER);
-    //TODO
-    free_type(type);
-}
-
-TEST_F(ParserTest, DISABLED_NestedStructWithArrayField)
-{
-    Type *type = TestType("struct Container { struct Item { int value; } items[10]; }");
-
-    EXPECT_EQ(type->kind, TYPE_STRUCT);
-    //TODO
-    free_type(type);
-}
-
-TEST_F(ParserTest, UnionWithNestedStructAndAnonymousStruct)
-{
-    Type *type = TestType("union Variant { struct { int a; int b; }; struct Named { float x; } named; }");
-
-    EXPECT_EQ(type->kind, TYPE_UNION);
-    //TODO
     free_type(type);
 }
