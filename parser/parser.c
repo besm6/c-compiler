@@ -2249,7 +2249,7 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
     return suffix;
 }
 
-Type *type_from_pointers_suffixes(Type *type, Pointer *pointers, DeclaratorSuffix *suffixes)
+Type *type_apply_pointers(Type *type, Pointer *pointers)
 {
     for (Pointer *p = pointers; p; p = p->next) {
         Type *ptr                 = new_type(TYPE_POINTER);
@@ -2258,6 +2258,11 @@ Type *type_from_pointers_suffixes(Type *type, Pointer *pointers, DeclaratorSuffi
         ptr->qualifiers           = NULL;
         type                      = ptr;
     }
+    return type;
+}
+
+Type *type_apply_suffixes(Type *type, DeclaratorSuffix *suffixes)
+{
     for (DeclaratorSuffix *s = suffixes; s; s = s->next) {
         switch (s->kind) {
         case SUFFIX_ARRAY: {
@@ -2279,8 +2284,9 @@ Type *type_from_pointers_suffixes(Type *type, Pointer *pointers, DeclaratorSuffi
             break;
         }
         case SUFFIX_POINTER:
-            type = type_from_pointers_suffixes(type, s->u.pointer.pointers, s->u.pointer.suffix);
-            break;
+            type = type_apply_suffixes(type, s->next);
+            type = type_apply_pointers(type, s->u.pointer.pointers);
+            return type_apply_suffixes(type, s->u.pointer.suffix);
         }
     }
     return type;
@@ -2333,7 +2339,7 @@ Param *parse_parameter_declaration()
         }
 
         /* Apply pointers and suffixes */
-        param->type = type_from_pointers_suffixes(base_type, pointers, suffixes);
+        param->type = type_apply_suffixes(type_apply_pointers(base_type, pointers), suffixes);
         param->name = name;
     } else {
         /* Only declaration_specifiers (unnamed parameter) */
@@ -2379,7 +2385,7 @@ Type *parse_type_name()
     }
 
     /* Apply pointers and suffixes to construct the final type */
-    return type_from_pointers_suffixes(base_type, pointers, suffixes);
+    return type_apply_suffixes(type_apply_pointers(base_type, pointers), suffixes);
 }
 
 Initializer *parse_initializer()

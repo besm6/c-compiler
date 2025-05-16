@@ -963,21 +963,33 @@ TEST_F(ParserTest, TypeIntFuncPtrInt)
 {
     Type *type = TestType("int (*)(int)");
 
-    EXPECT_EQ(type->kind, TYPE_FUNCTION);
-    ASSERT_NE(type->u.function.returnType, nullptr);
+    EXPECT_EQ(type->kind, TYPE_POINTER);
     EXPECT_EQ(type->qualifiers, nullptr);
-    EXPECT_EQ(type->u.function.returnType->kind, TYPE_VOID);
-    EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
-    ASSERT_NE(type->u.function.params, nullptr);
-    EXPECT_FALSE(type->u.function.params->is_empty);
-    EXPECT_FALSE(type->u.function.variadic);
-    ASSERT_NE(type->u.function.params->u.params, nullptr);
-    EXPECT_EQ(type->u.function.params->u.params->next, nullptr);
-    EXPECT_EQ(type->u.function.params->u.params->name, nullptr);
-    ASSERT_NE(type->u.function.params->u.params->type, nullptr);
-    EXPECT_EQ(type->u.function.params->u.params->type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.function.params->u.params->type->u.integer.signedness, SIGNED_SIGNED);
-    EXPECT_EQ(type->u.function.params->u.params->type->qualifiers, nullptr);
+
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_FUNCTION);
+    EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
+
+    ASSERT_NE(type->u.pointer.target->u.function.returnType, nullptr);
+    EXPECT_EQ(type->u.pointer.target->u.function.returnType->kind, TYPE_INT);
+    EXPECT_EQ(type->u.pointer.target->u.function.returnType->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.pointer.target->u.function.returnType->qualifiers, nullptr);
+
+    EXPECT_FALSE(type->u.pointer.target->u.function.variadic);
+
+    ASSERT_NE(type->u.pointer.target->u.function.params, nullptr);
+    EXPECT_FALSE(type->u.pointer.target->u.function.params->is_empty);
+    const Param *p1 = type->u.pointer.target->u.function.params->u.params;
+    ASSERT_NE(p1, nullptr);
+    EXPECT_EQ(p1->next, nullptr);
+
+    EXPECT_EQ(p1->name, nullptr);
+    ASSERT_NE(p1->type, nullptr);
+    EXPECT_EQ(p1->type->kind, TYPE_INT);
+    EXPECT_EQ(p1->type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(p1->type->qualifiers, nullptr);
     free_type(type);
 }
 
