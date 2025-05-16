@@ -242,6 +242,8 @@ void print_type(FILE *fd, Type *type, int indent)
             print_expression(fd, type->u.array.size, indent + 2);
         }
         print_type_qualifiers(fd, type->u.array.qualifiers, indent + 1);
+        print_indent(fd, indent + 1);
+        fprintf(fd, "Static: %s\n", type->u.array.is_static ? "yes" : "no");
         break;
     case TYPE_FUNCTION:
         fprintf(fd, "function\n");

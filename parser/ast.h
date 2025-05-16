@@ -89,6 +89,7 @@ struct Type {
             Type *element;
             Expr *size;
             TypeQualifier *qualifiers;
+            bool is_static;
         } array;
         struct {
             Type *returnType;

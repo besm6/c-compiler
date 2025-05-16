@@ -2270,6 +2270,7 @@ Type *type_apply_suffixes(Type *type, DeclaratorSuffix *suffixes)
             array->u.array.element    = type;
             array->u.array.size       = s->u.array.size;
             array->u.array.qualifiers = s->u.array.qualifiers;
+            array->u.array.is_static  = s->u.array.is_static;
             array->qualifiers         = NULL;
             type                      = array;
             break;
