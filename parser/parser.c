@@ -2154,19 +2154,13 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
                 tail                                         = &new_suffix->next;
             } else if (current_token == TOKEN_STAR) {
                 // Case: '(' abstract_declarator ')'
-                Pointer *pointer = parse_pointer();
-                if (!pointer) {
-                    fatal_error("Expected pointer in abstract_declarator");
-                }
+                DeclaratorSuffix *new_suffix   = new_declarator_suffix(SUFFIX_POINTER);
+                new_suffix->u.pointer.pointers = parse_pointer();
+                new_suffix->u.pointer.suffix   = parse_direct_abstract_declarator();
+                new_suffix->next               = NULL;
                 expect_token(TOKEN_RPAREN); // Consume ')'
-                DeclaratorSuffix *new_suffix    = new_declarator_suffix(SUFFIX_FUNCTION); // Treat as function for simplicity
-                new_suffix->u.function.params   = NULL;            // No params, just pointer
-                new_suffix->u.function.variadic = false;
-                new_suffix->next                = NULL;
-                *tail                           = new_suffix;
-                tail                            = &new_suffix->next;
-                // Note: pointer is not directly stored in suffix; typically handled by outer
-                // abstract_declarator
+                *tail = new_suffix;
+                tail  = &new_suffix->next;
             } else {
                 // Case: '(' parameter_type_list ')'
                 ParamList *params = parse_parameter_type_list();
@@ -2255,6 +2249,43 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
     return suffix;
 }
 
+Type *type_from_pointers_suffixes(Type *type, Pointer *pointers, DeclaratorSuffix *suffixes)
+{
+    for (Pointer *p = pointers; p; p = p->next) {
+        Type *ptr                 = new_type(TYPE_POINTER);
+        ptr->u.pointer.target     = type;
+        ptr->u.pointer.qualifiers = p->qualifiers;
+        ptr->qualifiers           = NULL;
+        type                      = ptr;
+    }
+    for (DeclaratorSuffix *s = suffixes; s; s = s->next) {
+        switch (s->kind) {
+        case SUFFIX_ARRAY: {
+            Type *array               = new_type(TYPE_ARRAY);
+            array->u.array.element    = type;
+            array->u.array.size       = s->u.array.size;
+            array->u.array.qualifiers = s->u.array.qualifiers;
+            array->qualifiers         = NULL;
+            type                      = array;
+            break;
+        }
+        case SUFFIX_FUNCTION: {
+            Type *func                  = new_type(TYPE_FUNCTION);
+            func->u.function.returnType = type;
+            func->u.function.params     = s->u.function.params;
+            func->u.function.variadic   = s->u.function.variadic;
+            func->qualifiers            = NULL;
+            type                        = func;
+            break;
+        }
+        case SUFFIX_POINTER:
+            type = type_from_pointers_suffixes(type, s->u.pointer.pointers, s->u.pointer.suffix);
+            break;
+        }
+    }
+    return type;
+}
+
 Param *parse_parameter_declaration()
 {
     if (debug) {
@@ -2302,37 +2333,8 @@ Param *parse_parameter_declaration()
         }
 
         /* Apply pointers and suffixes */
-        Type *current_type = base_type;
-        for (Pointer *p = pointers; p; p = p->next) {
-            Type *ptr_type                 = (Type *)malloc(sizeof(Type));
-            ptr_type->kind                 = TYPE_POINTER;
-            ptr_type->u.pointer.target     = current_type;
-            ptr_type->u.pointer.qualifiers = p->qualifiers;
-            ptr_type->qualifiers           = NULL;
-            current_type                   = ptr_type;
-        }
-        for (DeclaratorSuffix *s = suffixes; s; s = s->next) {
-            if (s->kind == SUFFIX_ARRAY) {
-                Type *array_type               = (Type *)malloc(sizeof(Type));
-                array_type->kind               = TYPE_ARRAY;
-                array_type->u.array.element    = current_type;
-                array_type->u.array.size       = s->u.array.size;
-                array_type->u.array.qualifiers = s->u.array.qualifiers;
-                array_type->qualifiers         = NULL;
-                current_type                   = array_type;
-            } else if (s->kind == SUFFIX_FUNCTION) {
-                Type *func_type                  = (Type *)malloc(sizeof(Type));
-                func_type->kind                  = TYPE_FUNCTION;
-                func_type->u.function.returnType = current_type;
-                func_type->u.function.params     = s->u.function.params;
-                func_type->u.function.variadic   = s->u.function.variadic;
-                func_type->qualifiers            = NULL;
-                current_type                     = func_type;
-            }
-        }
-
+        param->type = type_from_pointers_suffixes(base_type, pointers, suffixes);
         param->name = name;
-        param->type = current_type;
     } else {
         /* Only declaration_specifiers (unnamed parameter) */
         param->type = parse_type_name();
@@ -2377,30 +2379,7 @@ Type *parse_type_name()
     }
 
     /* Apply pointers and suffixes to construct the final type */
-    Type *current_type = base_type;
-    for (Pointer *p = pointers; p; p = p->next) {
-        Type *ptr_type                 = new_type(TYPE_POINTER);
-        ptr_type->u.pointer.target     = current_type;
-        ptr_type->u.pointer.qualifiers = p->qualifiers;
-        current_type                   = ptr_type;
-    }
-    for (DeclaratorSuffix *s = suffixes; s; s = s->next) {
-        if (s->kind == SUFFIX_ARRAY) {
-            Type *array_type               = new_type(TYPE_ARRAY);
-            array_type->u.array.element    = current_type;
-            array_type->u.array.size       = s->u.array.size;
-            array_type->u.array.qualifiers = s->u.array.qualifiers;
-            current_type                   = array_type;
-        } else if (s->kind == SUFFIX_FUNCTION) {
-            Type *func_type                  = new_type(TYPE_FUNCTION);
-            func_type->u.function.returnType = current_type;
-            func_type->u.function.params     = s->u.function.params;
-            func_type->u.function.variadic   = s->u.function.variadic;
-            current_type                     = func_type;
-        }
-    }
-
-    return current_type;
+    return type_from_pointers_suffixes(base_type, pointers, suffixes);
 }
 
 Initializer *parse_initializer()

@@ -277,7 +277,7 @@ struct Pointer {
     TypeQualifier *qualifiers;
 };
 
-typedef enum { SUFFIX_ARRAY, SUFFIX_FUNCTION } DeclaratorSuffixKind;
+typedef enum { SUFFIX_ARRAY, SUFFIX_FUNCTION, SUFFIX_POINTER } DeclaratorSuffixKind;
 
 struct DeclaratorSuffix {
     DeclaratorSuffix *next; /* linked list */
@@ -292,6 +292,10 @@ struct DeclaratorSuffix {
             ParamList *params;
             bool variadic;
         } function;
+        struct {
+            Pointer *pointers;
+            DeclaratorSuffix *suffix;
+        } pointer;
     } u;
 };
 

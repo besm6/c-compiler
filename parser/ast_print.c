@@ -473,6 +473,56 @@ void print_expression(FILE *fd, Expr *expr, int indent)
     }
 }
 
+// Print Pointer
+void print_pointer(FILE *fd, Pointer *pointer, int indent)
+{
+    print_indent(fd, indent);
+    fprintf(fd, "Pointer\n");
+    print_type_qualifiers(fd, pointer->qualifiers, indent + 2);
+}
+
+// Print DeclaratorSuffix
+void print_declarator_suffix(FILE *fd, DeclaratorSuffix *suffix, int indent)
+{
+    print_indent(fd, indent);
+    fprintf(fd, "Suffix: ");
+    switch (suffix->kind) {
+    case SUFFIX_ARRAY:
+        fprintf(fd, "Array\n");
+        if (suffix->u.array.size) {
+            print_expression(fd, suffix->u.array.size, indent + 2);
+        }
+        break;
+    case SUFFIX_FUNCTION:
+        fprintf(fd, "Function\n");
+        print_indent(fd, indent + 2);
+        fprintf(fd, "Parameters:\n");
+        if (suffix->u.function.params->is_empty) {
+            print_indent(fd, indent + 4);
+            fprintf(fd, "Empty\n");
+        } else {
+            for (Param *param = suffix->u.function.params->u.params; param;
+                 param        = param->next) {
+                print_indent(fd, indent + 4);
+                fprintf(fd, "Param:\n");
+                print_type(fd, param->type, indent + 6);
+                print_indent(fd, indent + 6);
+                fprintf(fd, "Name: \"%s\"\n", param->name);
+            }
+        }
+        break;
+    case SUFFIX_POINTER:
+        fprintf(fd, "Pointer\n");
+        print_indent(fd, indent + 2);
+        fprintf(fd, "Indirections:\n");
+        for (Pointer *pointer = suffix->u.pointer.pointers; pointer; pointer = pointer->next) {
+            print_pointer(fd, pointer, indent + 4);
+        }
+        print_declarator_suffix(fd, suffix->u.pointer.suffix, indent + 2);
+        break;
+    }
+}
+
 // Print Declarator
 void print_declarator(FILE *fd, Declarator *decl, int indent)
 {
@@ -487,34 +537,7 @@ void print_declarator(FILE *fd, Declarator *decl, int indent)
         print_indent(fd, indent + 2);
         fprintf(fd, "Name: \"%s\"\n", decl->u.named.name);
         for (DeclaratorSuffix *suffix = decl->u.named.suffixes; suffix; suffix = suffix->next) {
-            print_indent(fd, indent + 2);
-            fprintf(fd, "Suffix: ");
-            switch (suffix->kind) {
-            case SUFFIX_ARRAY:
-                fprintf(fd, "Array\n");
-                if (suffix->u.array.size) {
-                    print_expression(fd, suffix->u.array.size, indent + 4);
-                }
-                break;
-            case SUFFIX_FUNCTION:
-                fprintf(fd, "Function\n");
-                print_indent(fd, indent + 4);
-                fprintf(fd, "Parameters:\n");
-                if (suffix->u.function.params->is_empty) {
-                    print_indent(fd, indent + 6);
-                    fprintf(fd, "Empty\n");
-                } else {
-                    for (Param *param = suffix->u.function.params->u.params; param;
-                         param        = param->next) {
-                        print_indent(fd, indent + 6);
-                        fprintf(fd, "Param:\n");
-                        print_type(fd, param->type, indent + 8);
-                        print_indent(fd, indent + 8);
-                        fprintf(fd, "Name: \"%s\"\n", param->name);
-                    }
-                }
-                break;
-            }
+            print_declarator_suffix(fd, suffix, indent + 2);
         }
     } else {
         print_indent(fd, indent + 2);

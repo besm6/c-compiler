@@ -142,6 +142,57 @@ void free_expression(Expr *expr)
     free_expression(next);
 }
 
+// Free Pointer
+void free_pointer(Pointer *pointer)
+{
+    while (pointer) {
+        TypeQualifier *qual = pointer->qualifiers;
+        while (qual) {
+            TypeQualifier *next = qual->next;
+            free(qual);
+            qual = next;
+        }
+        Pointer *next = pointer->next;
+        free(pointer);
+        pointer = next;
+    }
+}
+
+// Free DeclaratorSuffix
+void free_declarator_suffix(DeclaratorSuffix *suffix)
+{
+    while (suffix) {
+        DeclaratorSuffix *next = suffix->next;
+        switch (suffix->kind) {
+        case SUFFIX_ARRAY:
+            free_expression(suffix->u.array.size);
+            break;
+        case SUFFIX_FUNCTION: {
+            ParamList *params = suffix->u.function.params;
+            if (!params->is_empty) {
+                Param *param = params->u.params;
+                while (param) {
+                    Param *next_param = param->next;
+                    free_type(param->type);
+                    if (param->name)
+                        free(param->name);
+                    free(param);
+                    param = next_param;
+                }
+            }
+            free(params);
+            break;
+        }
+        case SUFFIX_POINTER:
+            free_pointer(suffix->u.pointer.pointers);
+            free_declarator_suffix(suffix->u.pointer.suffix);
+            break;
+        }
+        free(suffix);
+        suffix = next;
+    }
+}
+
 // Free Declarator
 void free_declarator(Declarator *decl)
 {
@@ -150,29 +201,7 @@ void free_declarator(Declarator *decl)
     if (decl->kind == DECLARATOR_NAMED) {
         if (decl->u.named.name)
             free(decl->u.named.name);
-        DeclaratorSuffix *suffix = decl->u.named.suffixes;
-        while (suffix) {
-            DeclaratorSuffix *next = suffix->next;
-            if (suffix->kind == SUFFIX_ARRAY) {
-                free_expression(suffix->u.array.size);
-            } else if (suffix->kind == SUFFIX_FUNCTION) {
-                ParamList *params = suffix->u.function.params;
-                if (!params->is_empty) {
-                    Param *param = params->u.params;
-                    while (param) {
-                        Param *next_param = param->next;
-                        free_type(param->type);
-                        if (param->name)
-                            free(param->name);
-                        free(param);
-                        param = next_param;
-                    }
-                }
-                free(params);
-            }
-            free(suffix);
-            suffix = next;
-        }
+        free_declarator_suffix(decl->u.named.suffixes);
     }
     free(decl);
 }
