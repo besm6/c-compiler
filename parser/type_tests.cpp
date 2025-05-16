@@ -960,7 +960,7 @@ TEST_F(ParserTest, TypeConstIntFuncDoubleChar)
     free_type(type);
 }
 
-TEST_F(ParserTest, TypeIntFuncPtrInt)
+TEST_F(ParserTest, TypeIntParensPtrFuncInt)
 {
     Type *type = TestType("int (*)(int)");
 
@@ -994,7 +994,7 @@ TEST_F(ParserTest, TypeIntFuncPtrInt)
     free_type(type);
 }
 
-TEST_F(ParserTest, TypeVoidFuncPtrCharPtr)
+TEST_F(ParserTest, TypeVoidParensPtrFuncCharPtr)
 {
     Type *type = TestType("void (*)(char *)");
 
@@ -1031,7 +1031,6 @@ TEST_F(ParserTest, TypeVoidFuncPtrCharPtr)
     free_type(type);
 }
 
-//TODO:
 //
 // 9. Nested Combinations
 // Testing complex combinations of pointers, arrays, and functions.
@@ -1048,6 +1047,370 @@ TEST_F(ParserTest, TypeVoidFuncPtrCharPtr)
 // 77. const int * const [3]
 //
 
+TEST_F(ParserTest, TypeIntPtrArray)
+{
+    Type *type = TestType("int *[]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    EXPECT_FALSE(type->u.array.is_static);
+
+    Type *element = type->u.array.element;
+    ASSERT_NE(element, nullptr);
+
+    EXPECT_EQ(element->kind, TYPE_POINTER);
+    EXPECT_EQ(element->qualifiers, nullptr);
+    ASSERT_NE(element->u.pointer.target, nullptr);
+    EXPECT_EQ(element->u.pointer.target->kind, TYPE_INT);
+    EXPECT_EQ(element->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(element->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(element->u.pointer.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeIntArrayArray5)
+{
+    Type *type = TestType("int [][5]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    EXPECT_EQ(type->qualifiers, nullptr);
+
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 5);
+
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    EXPECT_FALSE(type->u.array.is_static);
+
+    Type *element = type->u.array.element;
+    ASSERT_NE(element, nullptr);
+
+    EXPECT_EQ(element->kind, TYPE_ARRAY);
+    EXPECT_EQ(element->qualifiers, nullptr);
+    EXPECT_EQ(element->u.array.size, nullptr);
+    EXPECT_EQ(element->u.array.qualifiers, nullptr);
+    EXPECT_FALSE(element->u.array.is_static);
+
+    Type *item = element->u.array.element;
+    ASSERT_NE(item, nullptr);
+    EXPECT_EQ(item->kind, TYPE_INT);
+    EXPECT_EQ(item->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(item->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeCharPtrArray3)
+{
+    Type *type = TestType("char * [3]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    EXPECT_EQ(type->qualifiers, nullptr);
+
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 3);
+
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    EXPECT_FALSE(type->u.array.is_static);
+
+    Type *element = type->u.array.element;
+    ASSERT_NE(element, nullptr);
+
+    EXPECT_EQ(element->kind, TYPE_POINTER);
+    EXPECT_EQ(element->qualifiers, nullptr);
+    ASSERT_NE(element->u.pointer.target, nullptr);
+    EXPECT_EQ(element->u.pointer.target->kind, TYPE_CHAR);
+    EXPECT_EQ(element->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(element->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(element->u.pointer.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeIntParensPtrArray5)
+{
+    Type *type = TestType("int (*)[5]");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+
+    Type *target = type->u.pointer.target;
+    ASSERT_NE(target, nullptr);
+
+    EXPECT_EQ(target->kind, TYPE_ARRAY);
+    EXPECT_EQ(target->qualifiers, nullptr);
+
+    ASSERT_NE(target->u.array.size, nullptr);
+    EXPECT_EQ(target->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(target->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(target->u.array.size->u.literal->u.int_val, 5);
+
+    EXPECT_EQ(target->u.array.qualifiers, nullptr);
+    EXPECT_FALSE(target->u.array.is_static);
+
+    Type *element = target->u.array.element;
+    ASSERT_NE(element, nullptr);
+
+    EXPECT_EQ(element->kind, TYPE_INT);
+    EXPECT_EQ(element->qualifiers, nullptr);
+    EXPECT_EQ(element->u.integer.signedness, SIGNED_SIGNED);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeVoidParensPtrArrayFuncInt)
+{
+    Type *type = TestType("void (*[]) (int)");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    EXPECT_FALSE(type->u.array.is_static);
+
+    Type *element = type->u.array.element;
+    ASSERT_NE(element, nullptr);
+
+    EXPECT_EQ(element->kind, TYPE_POINTER);
+    EXPECT_EQ(element->qualifiers, nullptr);
+
+    ASSERT_NE(element->u.pointer.target, nullptr);
+    EXPECT_EQ(element->u.pointer.qualifiers, nullptr);
+
+    EXPECT_EQ(element->u.pointer.target->kind, TYPE_FUNCTION);
+    EXPECT_EQ(element->u.pointer.target->qualifiers, nullptr);
+
+    ASSERT_NE(element->u.pointer.target->u.function.returnType, nullptr);
+    EXPECT_EQ(element->u.pointer.target->u.function.returnType->kind, TYPE_VOID);
+    EXPECT_EQ(element->u.pointer.target->u.function.returnType->qualifiers, nullptr);
+
+    EXPECT_FALSE(element->u.pointer.target->u.function.variadic);
+
+    ASSERT_NE(element->u.pointer.target->u.function.params, nullptr);
+    EXPECT_FALSE(element->u.pointer.target->u.function.params->is_empty);
+
+    const Param *p1 = element->u.pointer.target->u.function.params->u.params;
+    ASSERT_NE(p1, nullptr);
+    EXPECT_EQ(p1->next, nullptr);
+
+    EXPECT_EQ(p1->name, nullptr);
+    ASSERT_NE(p1->type, nullptr);
+    EXPECT_EQ(p1->type->kind, TYPE_INT);
+    EXPECT_EQ(p1->type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(p1->type->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeIntParensPtrArray3FuncChar)
+{
+    Type *type = TestType("int (*[3])(char)");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    EXPECT_EQ(type->qualifiers, nullptr);
+
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 3);
+
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    EXPECT_FALSE(type->u.array.is_static);
+
+    Type *element = type->u.array.element;
+    ASSERT_NE(element, nullptr);
+
+    EXPECT_EQ(element->kind, TYPE_POINTER);
+    EXPECT_EQ(element->qualifiers, nullptr);
+
+    ASSERT_NE(element->u.pointer.target, nullptr);
+    EXPECT_EQ(element->u.pointer.qualifiers, nullptr);
+
+    EXPECT_EQ(element->u.pointer.target->kind, TYPE_FUNCTION);
+    EXPECT_EQ(element->u.pointer.target->qualifiers, nullptr);
+
+    ASSERT_NE(element->u.pointer.target->u.function.returnType, nullptr);
+    EXPECT_EQ(element->u.pointer.target->u.function.returnType->kind, TYPE_INT);
+    EXPECT_EQ(element->u.pointer.target->u.function.returnType->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(element->u.pointer.target->u.function.returnType->qualifiers, nullptr);
+
+    EXPECT_FALSE(element->u.pointer.target->u.function.variadic);
+
+    ASSERT_NE(element->u.pointer.target->u.function.params, nullptr);
+    EXPECT_FALSE(element->u.pointer.target->u.function.params->is_empty);
+
+    const Param *p1 = element->u.pointer.target->u.function.params->u.params;
+    ASSERT_NE(p1, nullptr);
+    EXPECT_EQ(p1->next, nullptr);
+
+    EXPECT_EQ(p1->name, nullptr);
+    ASSERT_NE(p1->type, nullptr);
+    EXPECT_EQ(p1->type->kind, TYPE_CHAR);
+    EXPECT_EQ(p1->type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(p1->type->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeIntPtrPtrArray5)
+{
+    Type *type = TestType("int **[5]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    EXPECT_EQ(type->qualifiers, nullptr);
+
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 5);
+
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    EXPECT_FALSE(type->u.array.is_static);
+
+    Type *element = type->u.array.element;
+    ASSERT_NE(element, nullptr);
+
+    EXPECT_EQ(element->kind, TYPE_POINTER);
+    EXPECT_EQ(element->qualifiers, nullptr);
+    EXPECT_EQ(element->u.pointer.qualifiers, nullptr);
+
+    Type *target = element->u.pointer.target;
+    ASSERT_NE(target, nullptr);
+
+    EXPECT_EQ(target->kind, TYPE_POINTER);
+    EXPECT_EQ(target->qualifiers, nullptr);
+    EXPECT_EQ(target->u.pointer.qualifiers, nullptr);
+
+    EXPECT_EQ(target->u.pointer.target->kind, TYPE_INT);
+    EXPECT_EQ(target->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(target->u.pointer.target->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeStructPtrArray10)
+{
+    Type *type = TestType("struct S *[10]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    EXPECT_EQ(type->qualifiers, nullptr);
+
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 10);
+
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    EXPECT_FALSE(type->u.array.is_static);
+
+    Type *element = type->u.array.element;
+    ASSERT_NE(element, nullptr);
+
+    EXPECT_EQ(element->kind, TYPE_POINTER);
+    EXPECT_EQ(element->qualifiers, nullptr);
+    EXPECT_EQ(element->u.pointer.qualifiers, nullptr);
+
+    Type *target = element->u.pointer.target;
+    ASSERT_NE(target, nullptr);
+    EXPECT_EQ(target->kind, TYPE_STRUCT);
+    EXPECT_STREQ(target->u.struct_t.name, "S");
+    EXPECT_EQ(target->u.struct_t.fields, nullptr);
+    EXPECT_EQ(target->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeIntParensPtrParensPtrArray5FuncInt)
+{
+    Type *type = TestType("int (*(*)[5])(int)");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+
+    Type *target = type->u.pointer.target;
+    ASSERT_NE(target, nullptr);
+
+    EXPECT_EQ(target->kind, TYPE_ARRAY);
+    EXPECT_EQ(target->qualifiers, nullptr);
+
+    ASSERT_NE(target->u.array.size, nullptr);
+    EXPECT_EQ(target->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(target->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(target->u.array.size->u.literal->u.int_val, 5);
+
+    EXPECT_EQ(target->u.array.qualifiers, nullptr);
+    EXPECT_FALSE(target->u.array.is_static);
+
+    Type *element = target->u.array.element;
+    ASSERT_NE(element, nullptr);
+
+    EXPECT_EQ(element->kind, TYPE_POINTER);
+    EXPECT_EQ(element->qualifiers, nullptr);
+
+    ASSERT_NE(element->u.pointer.target, nullptr);
+    EXPECT_EQ(element->u.pointer.qualifiers, nullptr);
+
+    EXPECT_EQ(element->u.pointer.target->kind, TYPE_FUNCTION);
+    EXPECT_EQ(element->u.pointer.target->qualifiers, nullptr);
+
+    ASSERT_NE(element->u.pointer.target->u.function.returnType, nullptr);
+    EXPECT_EQ(element->u.pointer.target->u.function.returnType->kind, TYPE_INT);
+    EXPECT_EQ(element->u.pointer.target->u.function.returnType->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(element->u.pointer.target->u.function.returnType->qualifiers, nullptr);
+
+    EXPECT_FALSE(element->u.pointer.target->u.function.variadic);
+
+    ASSERT_NE(element->u.pointer.target->u.function.params, nullptr);
+    EXPECT_FALSE(element->u.pointer.target->u.function.params->is_empty);
+
+    const Param *p1 = element->u.pointer.target->u.function.params->u.params;
+    ASSERT_NE(p1, nullptr);
+    EXPECT_EQ(p1->next, nullptr);
+
+    EXPECT_EQ(p1->name, nullptr);
+    ASSERT_NE(p1->type, nullptr);
+    EXPECT_EQ(p1->type->kind, TYPE_INT);
+    EXPECT_EQ(p1->type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(p1->type->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeConstIntPtrConstArray3)
+{
+    Type *type = TestType("const int * const [3]");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    EXPECT_EQ(type->qualifiers, nullptr);
+
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 3);
+
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    EXPECT_FALSE(type->u.array.is_static);
+
+    Type *element = type->u.array.element;
+    ASSERT_NE(element, nullptr);
+
+    EXPECT_EQ(element->kind, TYPE_POINTER);
+    EXPECT_EQ(element->qualifiers, nullptr);
+
+    ASSERT_NE(element->u.pointer.qualifiers, nullptr);
+    EXPECT_EQ(element->u.pointer.qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(element->u.pointer.qualifiers->next, nullptr);
+
+    Type *target = element->u.pointer.target;
+    ASSERT_NE(target, nullptr);
+    EXPECT_EQ(target->kind, TYPE_INT);
+    EXPECT_EQ(target->u.integer.signedness, SIGNED_SIGNED);
+
+    ASSERT_NE(target->qualifiers, nullptr);
+    EXPECT_EQ(target->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(target->qualifiers->next, nullptr);
+    free_type(type);
+}
+
 //
 // 10. Parenthesized and Complex Declarators
 // Testing "direct_abstract_declarator : '(' abstract_declarator ')'" and nested constructs.
@@ -1060,6 +1423,183 @@ TEST_F(ParserTest, TypeVoidFuncPtrCharPtr)
 // 83. const struct S (*(int))
 //
 
+TEST_F(ParserTest, TypeIntParensPtr)
+{
+    Type *type = TestType("int (*)");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
+    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeConstCharParensPtrConst)
+{
+    Type *type = TestType("const char (* const)");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    ASSERT_NE(type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_CHAR);
+    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
+
+    ASSERT_NE(type->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.target->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->u.pointer.target->qualifiers->next, nullptr);
+
+    ASSERT_NE(type->u.pointer.qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->u.pointer.qualifiers->next, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeStructParensPtrArray3)
+{
+    Type *type = TestType("struct S (*[3])");
+
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    EXPECT_EQ(type->qualifiers, nullptr);
+
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 3);
+
+    EXPECT_EQ(type->u.array.qualifiers, nullptr);
+    EXPECT_FALSE(type->u.array.is_static);
+
+    Type *element = type->u.array.element;
+    ASSERT_NE(element, nullptr);
+
+    EXPECT_EQ(element->kind, TYPE_POINTER);
+    ASSERT_NE(element->u.pointer.target, nullptr);
+    EXPECT_EQ(element->qualifiers, nullptr);
+    EXPECT_EQ(element->u.pointer.target->kind, TYPE_STRUCT);
+    EXPECT_STREQ(element->u.pointer.target->u.struct_t.name, "S");
+    EXPECT_EQ(element->u.pointer.target->u.struct_t.fields, nullptr);
+    EXPECT_EQ(element->u.pointer.target->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeVoidParensPtrParensPtrFuncInt)
+{
+    Type *type = TestType("void (*(*)(int))");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+
+    Type *target = type->u.pointer.target;
+    ASSERT_NE(target, nullptr);
+
+    EXPECT_EQ(target->kind, TYPE_FUNCTION);
+    EXPECT_EQ(target->qualifiers, nullptr);
+
+    ASSERT_NE(target->u.function.returnType, nullptr);
+
+    EXPECT_EQ(target->u.function.returnType->kind, TYPE_POINTER);
+    EXPECT_EQ(target->u.function.returnType->qualifiers, nullptr);
+    EXPECT_EQ(target->u.function.returnType->u.pointer.qualifiers, nullptr);
+
+    ASSERT_NE(target->u.function.returnType->u.pointer.target, nullptr);
+    EXPECT_EQ(target->u.function.returnType->u.pointer.target->kind, TYPE_VOID);
+    EXPECT_EQ(target->u.function.returnType->u.pointer.target->qualifiers, nullptr);
+
+    EXPECT_FALSE(target->u.function.variadic);
+
+    ASSERT_NE(target->u.function.params, nullptr);
+    EXPECT_FALSE(target->u.function.params->is_empty);
+
+    const Param *p1 = target->u.function.params->u.params;
+    ASSERT_NE(p1, nullptr);
+    EXPECT_EQ(p1->next, nullptr);
+
+    EXPECT_EQ(p1->name, nullptr);
+    ASSERT_NE(p1->type, nullptr);
+    EXPECT_EQ(p1->type->kind, TYPE_INT);
+    EXPECT_EQ(p1->type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(p1->type->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeUnsignedIntParensPtrParensPtrArray5)
+{
+    Type *type = TestType("unsigned int (*(*)[5])");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
+
+    Type *target = type->u.pointer.target;
+    ASSERT_NE(target, nullptr);
+
+    EXPECT_EQ(target->kind, TYPE_ARRAY);
+    EXPECT_EQ(target->qualifiers, nullptr);
+
+    ASSERT_NE(target->u.array.size, nullptr);
+    EXPECT_EQ(target->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(target->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(target->u.array.size->u.literal->u.int_val, 5);
+
+    EXPECT_EQ(target->u.array.qualifiers, nullptr);
+    EXPECT_FALSE(target->u.array.is_static);
+
+    Type *element = target->u.array.element;
+    ASSERT_NE(element, nullptr);
+
+    EXPECT_EQ(element->kind, TYPE_POINTER);
+    EXPECT_EQ(element->qualifiers, nullptr);
+    EXPECT_EQ(element->u.pointer.qualifiers, nullptr);
+
+    ASSERT_NE(element->u.pointer.target, nullptr);
+    EXPECT_EQ(element->u.pointer.target->kind, TYPE_INT);
+    EXPECT_EQ(element->u.pointer.target->u.integer.signedness, SIGNED_UNSIGNED);
+    EXPECT_EQ(element->u.pointer.target->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeConstStructParensPtrFuncInt)
+{
+    Type *type = TestType("const struct S (*(int))");
+
+    EXPECT_EQ(type->kind, TYPE_FUNCTION);
+    EXPECT_EQ(type->qualifiers, nullptr);
+
+    ASSERT_NE(type->u.function.returnType, nullptr);
+    EXPECT_EQ(type->u.function.returnType->kind, TYPE_POINTER);
+    EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
+    EXPECT_EQ(type->u.function.returnType->u.pointer.qualifiers, nullptr);
+
+    ASSERT_NE(type->u.function.returnType->u.pointer.target, nullptr);
+    EXPECT_EQ(type->u.function.returnType->u.pointer.target->kind, TYPE_STRUCT);
+    EXPECT_STREQ(type->u.function.returnType->u.pointer.target->u.struct_t.name, "S");
+    EXPECT_EQ(type->u.function.returnType->u.pointer.target->u.struct_t.fields, nullptr);
+
+    ASSERT_NE(type->u.function.returnType->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(type->u.function.returnType->u.pointer.target->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->u.function.returnType->u.pointer.target->qualifiers->next, nullptr);
+
+    EXPECT_FALSE(type->u.function.variadic);
+
+    ASSERT_NE(type->u.function.params, nullptr);
+    EXPECT_FALSE(type->u.function.params->is_empty);
+    const Param *p1 = type->u.function.params->u.params;
+    ASSERT_NE(p1, nullptr);
+    EXPECT_EQ(p1->next, nullptr);
+
+    EXPECT_EQ(p1->name, nullptr);
+    ASSERT_NE(p1->type, nullptr);
+    EXPECT_EQ(p1->type->kind, TYPE_INT);
+    EXPECT_EQ(p1->type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(p1->type->qualifiers, nullptr);
+    free_type(type);
+}
+
+//TODO:
 //
 // Nested types
 //
@@ -1078,3 +1618,47 @@ TEST_F(ParserTest, TypeVoidFuncPtrCharPtr)
 // Variant 5: Union with Nested Struct and Anonymous Struct
 // union Variant { struct { int a; int b; }; struct Named { float x; } named; }
 //
+TEST_F(ParserTest, NestedStructWithSimpleField)
+{
+    Type *type = TestType("struct Outer { int x; struct Inner { int y; } inner; }");
+
+    EXPECT_EQ(type->kind, TYPE_STRUCT);
+    //TODO
+    free_type(type);
+}
+
+TEST_F(ParserTest, DISABLED_StructWithPointerToItself)
+{
+    Type *type = TestType("struct Node { int data; struct Node *next; }");
+
+    EXPECT_EQ(type->kind, TYPE_STRUCT);
+    //TODO
+    free_type(type);
+}
+
+TEST_F(ParserTest, FunctionPointerWithStructParameter)
+{
+    Type *type = TestType("void (*)(struct Pair { int x; int y; })");
+
+    EXPECT_EQ(type->kind, TYPE_POINTER);
+    //TODO
+    free_type(type);
+}
+
+TEST_F(ParserTest, DISABLED_NestedStructWithArrayField)
+{
+    Type *type = TestType("struct Container { struct Item { int value; } items[10]; }");
+
+    EXPECT_EQ(type->kind, TYPE_STRUCT);
+    //TODO
+    free_type(type);
+}
+
+TEST_F(ParserTest, UnionWithNestedStructAndAnonymousStruct)
+{
+    Type *type = TestType("union Variant { struct { int a; int b; }; struct Named { float x; } named; }");
+
+    EXPECT_EQ(type->kind, TYPE_UNION);
+    //TODO
+    free_type(type);
+}
