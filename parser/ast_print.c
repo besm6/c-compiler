@@ -646,10 +646,10 @@ static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
             break;
         }
     }
-    if (spec->type_specs) {
+    if (spec->base_type) {
         print_indent(fd, indent + 2);
-        fprintf(fd, "TypeSpec: ");
-        print_type_spec(fd, spec->type_specs, indent + 4);
+        fprintf(fd, "Base Type: ");
+        print_type(fd, spec->base_type, indent + 4);
     }
     if (spec->qualifiers) {
         print_type_qualifiers(fd, spec->qualifiers, indent + 2);

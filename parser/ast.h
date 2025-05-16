@@ -180,11 +180,11 @@ struct Declaration {
 };
 
 struct DeclSpec {
-    StorageClass *storage; /* optional */
-    TypeQualifier *qualifiers;
-    TypeSpec *type_specs;
-    FunctionSpec *func_specs;
-    AlignmentSpec *align_spec; /* optional */
+    Type *base_type;           // void, int, char ...
+    TypeQualifier *qualifiers; // const, volatile, restrict, _Atomic
+    StorageClass *storage;     // extern, static, auto, register ...
+    FunctionSpec *func_specs;  // inline, _Noreturn
+    AlignmentSpec *align_spec; // _Alignas
 };
 
 typedef enum {

@@ -157,7 +157,7 @@ static DeclSpec *new_decl_spec()
     DeclSpec *ds   = malloc(sizeof(DeclSpec));
     ds->storage    = NULL;
     ds->qualifiers = NULL;
-    ds->type_specs = NULL;
+    ds->base_type = NULL;
     ds->func_specs = NULL;
     ds->align_spec = NULL;
     return ds;
@@ -1278,6 +1278,7 @@ DeclSpec *parse_declaration_specifiers()
         printf("--- %s()\n", __func__);
     }
     DeclSpec *ds = new_decl_spec();
+    TypeSpec *type_specs = NULL;
     while (1) {
         if (current_token == TOKEN_TYPEDEF || current_token == TOKEN_EXTERN ||
             current_token == TOKEN_STATIC || current_token == TOKEN_THREAD_LOCAL ||
@@ -1293,7 +1294,7 @@ DeclSpec *parse_declaration_specifiers()
                    current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME ||
                    (current_token == TOKEN_ATOMIC && next_token() == TOKEN_LPAREN)) {
             TypeSpec *ts = parse_type_specifier();
-            append_list(&ds->type_specs, ts);
+            append_list(&type_specs, ts);
         } else if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
                    current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
             TypeQualifier *q = parse_type_qualifier();
@@ -1307,6 +1308,7 @@ DeclSpec *parse_declaration_specifiers()
             break;
         }
     }
+    ds->base_type = fuse_type_specifiers(type_specs);
     return ds;
 }
 

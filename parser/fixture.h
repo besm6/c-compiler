@@ -70,4 +70,29 @@ protected:
         print_type(stdout, type, 0);
         return type;
     }
+
+    // Helper to get external declaration from program
+    ExternalDecl *GetExternalDecl(const char *content)
+    {
+        program = parse(CreateTempFile(content));
+        EXPECT_NE(nullptr, program);
+        print_program(stdout, program);
+
+        EXPECT_NE(nullptr, program->decls);
+        return program->decls;
+    }
+
+    // Helper to get declaration from program
+    Declaration *GetDeclaration(const char *content)
+    {
+        program = parse(CreateTempFile(content));
+        EXPECT_NE(nullptr, program);
+        print_program(stdout, program);
+
+        // Expect one external declaration.
+        EXPECT_NE(nullptr, program->decls);
+        EXPECT_EQ(EXTERNAL_DECL_DECLARATION, program->decls->kind);
+        EXPECT_EQ(nullptr, program->decls->next);
+        return program->decls->u.declaration;
+    }
 };

@@ -219,6 +219,55 @@ static void free_initializer(Initializer *init)
     free(init);
 }
 
+// Free TypeSpec
+void free_type_spec(TypeSpec *ts)
+{
+    if (!ts)
+        return;
+    switch (ts->kind) {
+    case TYPE_SPEC_BASIC:
+        free_type(ts->u.basic);
+        break;
+    case TYPE_SPEC_STRUCT:
+    case TYPE_SPEC_UNION:
+        if (ts->u.struct_spec.name)
+            free(ts->u.struct_spec.name);
+        Field *field = ts->u.struct_spec.fields;
+        while (field) {
+            Field *next = field->next;
+            if (!field->is_anonymous) {
+                if (field->u.named.name)
+                    free(field->u.named.name);
+                free_type(field->u.named.type);
+            }
+            free(field);
+            field = next;
+        }
+        break;
+    case TYPE_SPEC_ENUM:
+        if (ts->u.enum_spec.name)
+            free(ts->u.enum_spec.name);
+        Enumerator *e = ts->u.enum_spec.enumerators;
+        while (e) {
+            Enumerator *next = e->next;
+            if (e->name)
+                free(e->name);
+            free_expression(e->value);
+            free(e);
+            e = next;
+        }
+        break;
+    case TYPE_SPEC_TYPEDEF_NAME:
+        if (ts->u.typedef_name.name)
+            free(ts->u.typedef_name.name);
+        break;
+    case TYPE_SPEC_ATOMIC:
+        free_type(ts->u.atomic.type);
+        break;
+    }
+    free(ts);
+}
+
 // Free DeclSpec
 static void free_decl_spec(DeclSpec *spec)
 {
@@ -226,49 +275,8 @@ static void free_decl_spec(DeclSpec *spec)
         return;
     if (spec->storage)
         free(spec->storage);
-    if (spec->type_specs) {
-        switch (spec->type_specs->kind) {
-        case TYPE_SPEC_BASIC:
-            free_type(spec->type_specs->u.basic);
-            break;
-        case TYPE_SPEC_STRUCT:
-        case TYPE_SPEC_UNION:
-            if (spec->type_specs->u.struct_spec.name)
-                free(spec->type_specs->u.struct_spec.name);
-            Field *field = spec->type_specs->u.struct_spec.fields;
-            while (field) {
-                Field *next = field->next;
-                if (!field->is_anonymous) {
-                    if (field->u.named.name)
-                        free(field->u.named.name);
-                    free_type(field->u.named.type);
-                }
-                free(field);
-                field = next;
-            }
-            break;
-        case TYPE_SPEC_ENUM:
-            if (spec->type_specs->u.enum_spec.name)
-                free(spec->type_specs->u.enum_spec.name);
-            Enumerator *e = spec->type_specs->u.enum_spec.enumerators;
-            while (e) {
-                Enumerator *next = e->next;
-                if (e->name)
-                    free(e->name);
-                free_expression(e->value);
-                free(e);
-                e = next;
-            }
-            break;
-        case TYPE_SPEC_TYPEDEF_NAME:
-            if (spec->type_specs->u.typedef_name.name)
-                free(spec->type_specs->u.typedef_name.name);
-            break;
-        case TYPE_SPEC_ATOMIC:
-            free_type(spec->type_specs->u.atomic.type);
-            break;
-        }
-        free(spec->type_specs);
+    if (spec->base_type) {
+        free_type(spec->base_type);
     }
     TypeQualifier *qual = spec->qualifiers;
     while (qual) {
