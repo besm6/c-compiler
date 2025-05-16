@@ -959,8 +959,30 @@ TEST_F(ParserTest, TypeConstIntFuncDoubleChar)
     free_type(type);
 }
 
+TEST_F(ParserTest, TypeIntFuncPtrInt)
+{
+    Type *type = TestType("int (*)(int)");
+
+    EXPECT_EQ(type->kind, TYPE_FUNCTION);
+    ASSERT_NE(type->u.function.returnType, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.function.returnType->kind, TYPE_VOID);
+    EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
+    ASSERT_NE(type->u.function.params, nullptr);
+    EXPECT_FALSE(type->u.function.params->is_empty);
+    EXPECT_FALSE(type->u.function.variadic);
+    ASSERT_NE(type->u.function.params->u.params, nullptr);
+    EXPECT_EQ(type->u.function.params->u.params->next, nullptr);
+    EXPECT_EQ(type->u.function.params->u.params->name, nullptr);
+    ASSERT_NE(type->u.function.params->u.params->type, nullptr);
+    EXPECT_EQ(type->u.function.params->u.params->type->kind, TYPE_INT);
+    EXPECT_EQ(type->u.function.params->u.params->type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.function.params->u.params->type->qualifiers, nullptr);
+    free_type(type);
+}
+
+
 //TODO:
-// 66. int (*)(int)
 // 67. void (*)(char *)
 
 

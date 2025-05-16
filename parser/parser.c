@@ -1040,7 +1040,6 @@ Type *fuse_type_specifiers(TypeSpec *specs)
 {
     if (!specs) {
         fatal_error("Empty type specifier list");
-        return NULL;
     }
 
     /* State for tracking type specifiers */
@@ -1065,39 +1064,33 @@ Type *fuse_type_specifiers(TypeSpec *specs)
             case TYPE_VOID:
                 if (base_kind != -1) {
                     fatal_error("void cannot combine with other types");
-                    return NULL;
                 }
                 base_kind = TYPE_VOID;
                 break;
             case TYPE_BOOL:
                 if (base_kind != -1) {
                     fatal_error("_Bool cannot combine with other types");
-                    return NULL;
                 }
                 base_kind = TYPE_BOOL;
                 break;
             case TYPE_CHAR:
                 if (base_kind != -1) {
                     fatal_error("char cannot combine with %s", type_kind_str[base_kind]);
-                    return NULL;
                 }
                 base_kind = TYPE_CHAR;
                 break;
             case TYPE_SHORT:
                 if (base_kind != -1 && base_kind != TYPE_INT) {
                     fatal_error("short cannot combine with %s", type_kind_str[base_kind]);
-                    return NULL;
                 }
                 base_kind = TYPE_SHORT;
                 break;
             case TYPE_INT:
                 if (base_kind != -1 && base_kind != TYPE_SHORT && base_kind != TYPE_LONG) {
                     fatal_error("int cannot combine with %s", type_kind_str[base_kind]);
-                    return NULL;
                 }
                 if (int_count > 0) {
                     fatal_error("multiple int specifiers");
-                    return NULL;
                 }
                 int_count++;
                 if (base_kind == -1) {
@@ -1108,11 +1101,9 @@ Type *fuse_type_specifiers(TypeSpec *specs)
                 if (base_kind != -1 && base_kind != TYPE_INT && base_kind != TYPE_LONG &&
                     base_kind != TYPE_DOUBLE) {
                     fatal_error("long cannot combine with %s", type_kind_str[base_kind]);
-                    return NULL;
                 }
                 if (long_count > 2) {
                     fatal_error("too many long specifiers");
-                    return NULL;
                 }
                 long_count++;
                 if (base_kind == TYPE_DOUBLE) {
@@ -1126,7 +1117,6 @@ Type *fuse_type_specifiers(TypeSpec *specs)
             case TYPE_FLOAT:
                 if (base_kind != -1 && base_kind != TYPE_COMPLEX && base_kind != TYPE_IMAGINARY) {
                     fatal_error("float cannot combine with %s", type_kind_str[base_kind]);
-                    return NULL;
                 }
                 base_kind = TYPE_FLOAT;
                 break;
@@ -1134,7 +1124,6 @@ Type *fuse_type_specifiers(TypeSpec *specs)
                 if (base_kind != -1 && base_kind != TYPE_LONG && base_kind != TYPE_COMPLEX &&
                     base_kind != TYPE_IMAGINARY) {
                     fatal_error("double cannot combine with %s", type_kind_str[base_kind]);
-                    return NULL;
                 }
                 base_kind = TYPE_DOUBLE;
                 break;
@@ -1142,7 +1131,6 @@ Type *fuse_type_specifiers(TypeSpec *specs)
                 if (base_kind != -1 && base_kind != TYPE_CHAR && base_kind != TYPE_SHORT &&
                     base_kind != TYPE_INT && base_kind != TYPE_LONG) {
                     fatal_error("signed cannot combine with %s", type_kind_str[base_kind]);
-                    return NULL;
                 }
                 signedness = SIGNED_SIGNED;
                 break;
@@ -1150,14 +1138,12 @@ Type *fuse_type_specifiers(TypeSpec *specs)
                 if (base_kind != -1 && base_kind != TYPE_CHAR && base_kind != TYPE_SHORT &&
                     base_kind != TYPE_INT && base_kind != TYPE_LONG) {
                     fatal_error("unsigned cannot combine with %s", type_kind_str[base_kind]);
-                    return NULL;
                 }
                 signedness = SIGNED_UNSIGNED;
                 break;
             case TYPE_COMPLEX:
                 if (base_kind != -1 && base_kind != TYPE_FLOAT && base_kind != TYPE_DOUBLE) {
                     fatal_error("_Complex cannot combine with %s", type_kind_str[base_kind]);
-                    return NULL;
                 }
                 is_complex = true;
                 if (base_kind == -1)
@@ -1166,7 +1152,6 @@ Type *fuse_type_specifiers(TypeSpec *specs)
             case TYPE_IMAGINARY:
                 if (base_kind != -1 && base_kind != TYPE_FLOAT && base_kind != TYPE_DOUBLE) {
                     fatal_error("_Imaginary cannot combine with %s", type_kind_str[base_kind]);
-                    return NULL;
                 }
                 is_imaginary = true;
                 if (base_kind == -1)
@@ -1174,35 +1159,29 @@ Type *fuse_type_specifiers(TypeSpec *specs)
                 break;
             default:
                 fatal_error("Unknown basic type specifier");
-                return NULL;
             }
         } else if (s->kind == TYPE_SPEC_STRUCT) {
             if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
                 fatal_error("struct cannot combine with other distinct types");
-                return NULL;
             }
             struct_spec = s;
         } else if (s->kind == TYPE_SPEC_UNION) {
             if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
                 fatal_error("union cannot combine with other distinct types");
-                return NULL;
             }
             union_spec = s;
         } else if (s->kind == TYPE_SPEC_ENUM) {
             if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
                 fatal_error("enum cannot combine with other distinct types");
-                return NULL;
             }
             enum_spec = s;
         } else if (s->kind == TYPE_SPEC_TYPEDEF_NAME) {
             if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
                 fatal_error("typedef name cannot combine with other distinct types");
-                return NULL;
             }
             typedef_spec = s;
         } else if (s->kind == TYPE_SPEC_ATOMIC) {
             fatal_error("Atomic() is not supported");
-            return NULL;
         }
     }
 
@@ -1229,28 +1208,23 @@ Type *fuse_type_specifiers(TypeSpec *specs)
         if (base_kind == -1) {
             if (signedness == -1) {
                 fatal_error("No valid type specifier provided");
-                return NULL;
             }
             // Signed/unsigned defaults to int.
             base_kind = TYPE_INT;
         }
         if (is_complex && is_imaginary) {
             fatal_error("_Complex and _Imaginary cannot combine");
-            return NULL;
         }
         if ((is_complex || is_imaginary) && (base_kind != TYPE_FLOAT && base_kind != TYPE_DOUBLE)) {
             fatal_error("_Complex/_Imaginary require float or double");
-            return NULL;
         }
         if ((signedness == SIGNED_UNSIGNED || long_count > 0) &&
             (base_kind == TYPE_FLOAT || base_kind == TYPE_DOUBLE)) {
             fatal_error("signed/unsigned/long cannot combine with float/double");
-            return NULL;
         }
         if (base_kind == TYPE_VOID || base_kind == TYPE_BOOL) {
             if (long_count > 0 || signedness == SIGNED_UNSIGNED || is_complex || is_imaginary) {
                 fatal_error("void/_Bool cannot combine with modifiers");
-                return NULL;
             }
         }
 
@@ -1481,13 +1455,12 @@ int parse_struct_or_union()
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    if (current_token == TOKEN_STRUCT || current_token == TOKEN_UNION) {
-        int su = current_token;
-        advance_token();
-        return su;
+    if (current_token != TOKEN_STRUCT && current_token != TOKEN_UNION) {
+        fatal_error("Expected struct or union");
     }
-    fatal_error("Expected struct or union");
-    return 0;
+    int su = current_token;
+    advance_token();
+    return su;
 }
 
 Field *parse_struct_declaration_list()
@@ -1744,7 +1717,6 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                                 field->u.anonymous.type = fuse_type_specifiers(field_specs);
                                 if (!field->u.anonymous.type) {
                                     fatal_error("Incorrect type of anonymous field");
-                                    return NULL;
                                 }
                                 field->u.anonymous.type->qualifiers = field_quals;
                                 field->next  = NULL;
@@ -1763,7 +1735,6 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                                     field->u.named.type = fuse_type_specifiers(field_specs);
                                     if (!field->u.named.type) {
                                         fatal_error("Incorrect type of named field");
-                                        return NULL;
                                     }
                                     field->u.named.type->qualifiers = field_quals;
                                     field->next = NULL;
@@ -2124,7 +2095,6 @@ ParamList *parse_parameter_type_list()
         param->type = parse_type_name();
         if (!param->type) {
             fatal_error("Incorrect parameter type");
-            return NULL;
         }
         param->name = (current_token == TOKEN_IDENTIFIER) ? strdup(current_lexeme) : NULL;
         param->next = NULL;
@@ -2165,52 +2135,124 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    DeclaratorSuffix *suffixes = NULL, **suffixes_tail = &suffixes;
+    DeclaratorSuffix *suffix = NULL;
+    DeclaratorSuffix **tail  = &suffix; // Pointer to the last suffix's next field
+
     while (1) {
-        if (current_token == TOKEN_LBRACKET) {
-            advance_token();
-            DeclaratorSuffix *s   = new_declarator_suffix(SUFFIX_ARRAY);
-            s->u.array.is_static  = false;
-            s->u.array.qualifiers = NULL;
-            s->u.array.size       = NULL;
-            if (current_token == TOKEN_STATIC) {
-                s->u.array.is_static = true;
-                advance_token();
+        if (current_token == TOKEN_LPAREN) {
+            // Handle '(' abstract_declarator ')' or '(' parameter_type_list ')' or '(' ')'
+            advance_token(); // Consume '('
+            if (current_token == TOKEN_RPAREN) {
+                // Case: '(' ')'
+                advance_token(); // Consume ')'
+                DeclaratorSuffix *new_suffix                 = new_declarator_suffix(SUFFIX_FUNCTION);
+                new_suffix->u.function.params                = new_param_list();
+                new_suffix->u.function.params->is_empty      = true;
+                new_suffix->u.function.variadic              = false;
+                new_suffix->next                             = NULL;
+                *tail                                        = new_suffix;
+                tail                                         = &new_suffix->next;
+            } else if (current_token == TOKEN_STAR) {
+                // Case: '(' abstract_declarator ')'
+                Pointer *pointer = parse_pointer();
+                if (!pointer) {
+                    fatal_error("Expected pointer in abstract_declarator");
+                }
+                expect_token(TOKEN_RPAREN); // Consume ')'
+                DeclaratorSuffix *new_suffix    = new_declarator_suffix(SUFFIX_FUNCTION); // Treat as function for simplicity
+                new_suffix->u.function.params   = NULL;            // No params, just pointer
+                new_suffix->u.function.variadic = false;
+                new_suffix->next                = NULL;
+                *tail                           = new_suffix;
+                tail                            = &new_suffix->next;
+                // Note: pointer is not directly stored in suffix; typically handled by outer
+                // abstract_declarator
+            } else {
+                // Case: '(' parameter_type_list ')'
+                ParamList *params = parse_parameter_type_list();
+                if (!params) {
+                    fatal_error("Expected parameter_type_list in parentheses");
+                }
+                expect_token(TOKEN_RPAREN); // Consume ')'
+                DeclaratorSuffix *new_suffix    = new_declarator_suffix(SUFFIX_FUNCTION);
+                new_suffix->u.function.params   = params;
+                new_suffix->u.function.variadic = false;
+                new_suffix->next                = NULL;
+                *tail                           = new_suffix;
+                tail                            = &new_suffix->next;
             }
-            s->u.array.qualifiers = parse_type_qualifier_list();
-            if (current_token != TOKEN_RBRACKET && current_token != TOKEN_STATIC) {
-                s->u.array.size = parse_assignment_expression(); // TODO: check
-                if (!s->u.array.size)
-                    return NULL;
+        } else if (current_token == TOKEN_LBRACKET) {
+            // Handle array-related cases
+            advance_token(); // Consume '['
+            DeclaratorSuffix *new_suffix   = new_declarator_suffix(SUFFIX_ARRAY);
+            new_suffix->u.array.size       = NULL;
+            new_suffix->u.array.qualifiers = NULL;
+            new_suffix->u.array.is_static  = false;
+            new_suffix->next               = NULL;
+
+            if (current_token == TOKEN_RBRACKET) {
+                // Case: '[' ']'
+                advance_token(); // Consume ']'
+            } else if (current_token == TOKEN_STAR) {
+                // Case: '[' '*' ']'
+                advance_token();                 // Consume '*'
+                expect_token(TOKEN_RBRACKET);    // Consume ']'
+                new_suffix->u.array.size = NULL; // VLA with *
+            } else if (current_token == TOKEN_STATIC) {
+                // Cases: '[' STATIC ... ']'
+                advance_token(); // Consume STATIC
+                new_suffix->u.array.is_static = true;
+                if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
+                    current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
+                    // Case: '[' STATIC type_qualifier_list assignment_expression ']'
+                    new_suffix->u.array.qualifiers = parse_type_qualifier_list();
+                } else {
+                    // Case: '[' STATIC assignment_expression ']'
+                }
+                new_suffix->u.array.size = parse_assignment_expression();
+                if (!new_suffix->u.array.size) {
+                    fatal_error("Invalid array size");
+                }
+                expect_token(TOKEN_RBRACKET); // Consume ']'
+            } else if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
+                       current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
+                // Cases: '[' type_qualifier_list ... ']'
+                new_suffix->u.array.qualifiers = parse_type_qualifier_list();
+                if (current_token == TOKEN_STATIC) {
+                    // Case: '[' type_qualifier_list STATIC assignment_expression ']'
+                    advance_token(); // Consume STATIC
+                    new_suffix->u.array.is_static = true;
+                    new_suffix->u.array.size      = parse_assignment_expression();
+                    if (!new_suffix->u.array.size) {
+                        fatal_error("Invalid array size");
+                    }
+                } else {
+                    // Case: '[' type_qualifier_list assignment_expression ']'
+                    //    or '[' type_qualifier_list ']'
+                    if (current_token != TOKEN_RBRACKET) {
+                        new_suffix->u.array.size = parse_assignment_expression();
+                        if (!new_suffix->u.array.size) {
+                            fatal_error("Invalid array size");
+                        }
+                    }
+                }
+                expect_token(TOKEN_RBRACKET); // Consume ']'
+            } else {
+                // Case: '[' assignment_expression ']'
+                new_suffix->u.array.size = parse_assignment_expression();
+                if (!new_suffix->u.array.size) {
+                    fatal_error("Invalid array size");
+                }
+                expect_token(TOKEN_RBRACKET); // Consume ']'
             }
-            if (current_token != TOKEN_RBRACKET)
-                return NULL;
-            advance_token();
-            *suffixes_tail = s;
-            suffixes_tail  = &s->next;
-        } else if (current_token == TOKEN_LPAREN) {
-            advance_token();
-            DeclaratorSuffix *s    = new_declarator_suffix(SUFFIX_FUNCTION);
-            s->u.function.variadic = false;
-            s->u.function.params   = parse_parameter_type_list();
-            if (!s->u.function.params)
-                return NULL;
-            if (current_token != TOKEN_RPAREN)
-                return NULL;
-            advance_token();
-            if (s->u.function.params->is_empty) {
-                s->u.function.variadic = false;
-            } else if (next_token() == TOKEN_ELLIPSIS) {
-                s->u.function.variadic = true;
-                advance_token();
-            }
-            *suffixes_tail = s;
-            suffixes_tail  = &s->next;
+            *tail = new_suffix;
+            tail  = &new_suffix->next;
         } else {
+            // No more suffixes to parse
             break;
         }
     }
-    return suffixes;
+    return suffix;
 }
 
 Param *parse_parameter_declaration()
@@ -2321,7 +2363,6 @@ Type *parse_type_name()
     Type *base_type = fuse_type_specifiers(type_specs);
     if (!base_type) {
         fatal_error("Incorrect type");
-        return NULL;
     }
     base_type->qualifiers = qualifiers;
 
@@ -2434,16 +2475,16 @@ Designator *parse_designator()
         Designator *d = new_designator(DESIGNATOR_ARRAY);
         d->u.expr     = expr;
         return d;
-    } else if (current_token == TOKEN_DOT) {
-        advance_token();
-        Ident name = strdup(current_lexeme);
-        expect_token(TOKEN_IDENTIFIER);
-        Designator *d = new_designator(DESIGNATOR_FIELD);
-        d->u.name     = name;
-        return d;
     }
-    fatal_error("Expected designator");
-    return NULL;
+    if (current_token != TOKEN_DOT) {
+        fatal_error("Expected designator");
+    }
+    advance_token();
+    Ident name = strdup(current_lexeme);
+    expect_token(TOKEN_IDENTIFIER);
+    Designator *d = new_designator(DESIGNATOR_FIELD);
+    d->u.name     = name;
+    return d;
 }
 
 Declaration *parse_static_assert_declaration()
@@ -2513,16 +2554,15 @@ Stmt *parse_labeled_statement()
         case_stmt->u.case_stmt.expr = expr;
         case_stmt->u.case_stmt.stmt = stmt;
         return case_stmt;
-    } else if (current_token == TOKEN_DEFAULT) {
-        advance_token();
-        expect_token(TOKEN_COLON);
-        Stmt *stmt                   = parse_statement();
-        Stmt *default_stmt           = new_stmt(STMT_DEFAULT);
-        default_stmt->u.default_stmt = stmt;
-        return default_stmt;
+    } else if (current_token != TOKEN_DEFAULT) {
+        fatal_error("Expected labeled statement");
     }
-    fatal_error("Expected labeled statement");
-    return NULL;
+    advance_token();
+    expect_token(TOKEN_COLON);
+    Stmt *stmt                   = parse_statement();
+    Stmt *default_stmt           = new_stmt(STMT_DEFAULT);
+    default_stmt->u.default_stmt = stmt;
+    return default_stmt;
 }
 
 Stmt *parse_compound_statement()
@@ -2620,19 +2660,18 @@ Stmt *parse_selection_statement()
         stmt->u.if_stmt.then_stmt = then_stmt;
         stmt->u.if_stmt.else_stmt = else_stmt;
         return stmt;
-    } else if (current_token == TOKEN_SWITCH) {
-        advance_token();
-        expect_token(TOKEN_LPAREN);
-        Expr *expr = parse_expression();
-        expect_token(TOKEN_RPAREN);
-        Stmt *body               = parse_statement();
-        Stmt *stmt               = new_stmt(STMT_SWITCH);
-        stmt->u.switch_stmt.expr = expr;
-        stmt->u.switch_stmt.body = body;
-        return stmt;
+    } else if (current_token != TOKEN_SWITCH) {
+        fatal_error("Expected if or switch");
     }
-    fatal_error("Expected if or switch");
-    return NULL;
+    advance_token();
+    expect_token(TOKEN_LPAREN);
+    Expr *expr = parse_expression();
+    expect_token(TOKEN_RPAREN);
+    Stmt *body               = parse_statement();
+    Stmt *stmt               = new_stmt(STMT_SWITCH);
+    stmt->u.switch_stmt.expr = expr;
+    stmt->u.switch_stmt.body = body;
+    return stmt;
 }
 
 Stmt *parse_iteration_statement()
@@ -2662,51 +2701,50 @@ Stmt *parse_iteration_statement()
         stmt->u.do_while.body      = body;
         stmt->u.do_while.condition = condition;
         return stmt;
-    } else if (current_token == TOKEN_FOR) {
-        advance_token();
-        expect_token(TOKEN_LPAREN);
-        ForInit *init   = NULL;
-        Expr *condition = NULL;
-        Expr *update    = NULL;
-        if (current_token == TOKEN_TYPEDEF || current_token == TOKEN_EXTERN ||
-            current_token == TOKEN_STATIC || current_token == TOKEN_THREAD_LOCAL ||
-            current_token == TOKEN_AUTO || current_token == TOKEN_REGISTER ||
-            current_token == TOKEN_VOID || current_token == TOKEN_CHAR ||
-            current_token == TOKEN_SHORT || current_token == TOKEN_INT ||
-            current_token == TOKEN_LONG || current_token == TOKEN_FLOAT ||
-            current_token == TOKEN_DOUBLE || current_token == TOKEN_SIGNED ||
-            current_token == TOKEN_UNSIGNED || current_token == TOKEN_BOOL ||
-            current_token == TOKEN_COMPLEX || current_token == TOKEN_IMAGINARY ||
-            current_token == TOKEN_STRUCT || current_token == TOKEN_UNION ||
-            current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME ||
-            current_token == TOKEN_ATOMIC || current_token == TOKEN_CONST ||
-            current_token == TOKEN_RESTRICT || current_token == TOKEN_VOLATILE ||
-            current_token == TOKEN_INLINE || current_token == TOKEN_NORETURN ||
-            current_token == TOKEN_ALIGNAS || current_token == TOKEN_STATIC_ASSERT) {
-            Declaration *decl = parse_declaration();
-            init              = new_for_init(FOR_INIT_DECL);
-            init->u.decl      = decl;
-        } else {
-            Stmt *expr_stmt = parse_expression_statement();
-            init            = new_for_init(FOR_INIT_EXPR);
-            init->u.expr    = expr_stmt->u.expr;
-        }
-        Stmt *cond_stmt = parse_expression_statement();
-        condition       = cond_stmt->u.expr;
-        if (current_token != TOKEN_RPAREN) {
-            update = parse_expression();
-        }
-        expect_token(TOKEN_RPAREN);
-        Stmt *body                 = parse_statement();
-        Stmt *stmt                 = new_stmt(STMT_FOR);
-        stmt->u.for_stmt.init      = init;
-        stmt->u.for_stmt.condition = condition;
-        stmt->u.for_stmt.update    = update;
-        stmt->u.for_stmt.body      = body;
-        return stmt;
+    } else if (current_token != TOKEN_FOR) {
+        fatal_error("Expected while, do, or for");
     }
-    fatal_error("Expected while, do, or for");
-    return NULL;
+    advance_token();
+    expect_token(TOKEN_LPAREN);
+    ForInit *init   = NULL;
+    Expr *condition = NULL;
+    Expr *update    = NULL;
+    if (current_token == TOKEN_TYPEDEF || current_token == TOKEN_EXTERN ||
+        current_token == TOKEN_STATIC || current_token == TOKEN_THREAD_LOCAL ||
+        current_token == TOKEN_AUTO || current_token == TOKEN_REGISTER ||
+        current_token == TOKEN_VOID || current_token == TOKEN_CHAR ||
+        current_token == TOKEN_SHORT || current_token == TOKEN_INT ||
+        current_token == TOKEN_LONG || current_token == TOKEN_FLOAT ||
+        current_token == TOKEN_DOUBLE || current_token == TOKEN_SIGNED ||
+        current_token == TOKEN_UNSIGNED || current_token == TOKEN_BOOL ||
+        current_token == TOKEN_COMPLEX || current_token == TOKEN_IMAGINARY ||
+        current_token == TOKEN_STRUCT || current_token == TOKEN_UNION ||
+        current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME ||
+        current_token == TOKEN_ATOMIC || current_token == TOKEN_CONST ||
+        current_token == TOKEN_RESTRICT || current_token == TOKEN_VOLATILE ||
+        current_token == TOKEN_INLINE || current_token == TOKEN_NORETURN ||
+        current_token == TOKEN_ALIGNAS || current_token == TOKEN_STATIC_ASSERT) {
+        Declaration *decl = parse_declaration();
+        init              = new_for_init(FOR_INIT_DECL);
+        init->u.decl      = decl;
+    } else {
+        Stmt *expr_stmt = parse_expression_statement();
+        init            = new_for_init(FOR_INIT_EXPR);
+        init->u.expr    = expr_stmt->u.expr;
+    }
+    Stmt *cond_stmt = parse_expression_statement();
+    condition       = cond_stmt->u.expr;
+    if (current_token != TOKEN_RPAREN) {
+        update = parse_expression();
+    }
+    expect_token(TOKEN_RPAREN);
+    Stmt *body                 = parse_statement();
+    Stmt *stmt                 = new_stmt(STMT_FOR);
+    stmt->u.for_stmt.init      = init;
+    stmt->u.for_stmt.condition = condition;
+    stmt->u.for_stmt.update    = update;
+    stmt->u.for_stmt.body      = body;
+    return stmt;
 }
 
 Stmt *parse_jump_statement()
@@ -2730,19 +2768,18 @@ Stmt *parse_jump_statement()
         advance_token();
         expect_token(TOKEN_SEMICOLON);
         return new_stmt(STMT_BREAK);
-    } else if (current_token == TOKEN_RETURN) {
-        advance_token();
-        Expr *expr = NULL;
-        if (current_token != TOKEN_SEMICOLON) {
-            expr = parse_expression();
-        }
-        expect_token(TOKEN_SEMICOLON);
-        Stmt *stmt   = new_stmt(STMT_RETURN);
-        stmt->u.expr = expr;
-        return stmt;
+    } else if (current_token != TOKEN_RETURN) {
+        fatal_error("Expected jump statement");
     }
-    fatal_error("Expected jump statement");
-    return NULL;
+    advance_token();
+    Expr *expr = NULL;
+    if (current_token != TOKEN_SEMICOLON) {
+        expr = parse_expression();
+    }
+    expect_token(TOKEN_SEMICOLON);
+    Stmt *stmt   = new_stmt(STMT_RETURN);
+    stmt->u.expr = expr;
+    return stmt;
 }
 
 Program *parse_translation_unit()
