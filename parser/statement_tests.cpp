@@ -199,7 +199,6 @@ TEST_F(ParserTest, ParseForStatement)
     EXPECT_STREQ("x", stmt->u.for_stmt.body->u.expr->u.var);
 }
 
-#if 0
 // Test for statement with declaration: for (int i = 0; i < 10; i++) x;
 TEST_F(ParserTest, ParseForDeclStatement)
 {
@@ -210,7 +209,7 @@ TEST_F(ParserTest, ParseForDeclStatement)
     EXPECT_EQ(STMT_FOR, stmt->kind);
     EXPECT_EQ(FOR_INIT_DECL, stmt->u.for_stmt.init->kind);
     EXPECT_EQ(DECL_VAR, stmt->u.for_stmt.init->u.decl->kind);
-    EXPECT_EQ(TYPE_INT, stmt->u.for_stmt.init->u.decl->u.var.specifiers->type_specs->u.basic->kind);
+    EXPECT_EQ(TYPE_INT, stmt->u.for_stmt.init->u.decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("i", stmt->u.for_stmt.init->u.decl->u.var.declarators->declarator->u.named.name);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.for_stmt.condition->kind);
     EXPECT_EQ(BINARY_LT, stmt->u.for_stmt.condition->u.binary_op.op->kind);
@@ -222,7 +221,6 @@ TEST_F(ParserTest, ParseForDeclStatement)
     EXPECT_EQ(STMT_EXPR, stmt->u.for_stmt.body->kind);
     EXPECT_STREQ("x", stmt->u.for_stmt.body->u.expr->u.var);
 }
-#endif
 
 // Test goto statement: goto label;
 TEST_F(ParserTest, ParseGotoStatement)

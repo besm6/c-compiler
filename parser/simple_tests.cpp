@@ -112,9 +112,8 @@ TEST_F(ParserTest, ParseVariableDeclaration)
     ASSERT_NE(nullptr, decl->u.var.specifiers);
     ASSERT_NE(nullptr, decl->u.var.specifiers->base_type);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
-//  ASSERT_NE(nullptr, decl->u.var.specifiers->type_specs);
-//  EXPECT_EQ(TYPE_SPEC_BASIC, decl->u.var.specifiers->type_specs->kind);
-//  EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->type_specs->u.basic->kind);
+    ASSERT_NE(nullptr, decl->u.var.specifiers->base_type);
+    EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
 
     InitDeclarator *id = decl->u.var.declarators;
     ASSERT_NE(nullptr, id);
@@ -126,7 +125,6 @@ TEST_F(ParserTest, ParseVariableDeclaration)
     EXPECT_EQ(42, id->init->u.expr->u.literal->u.int_val);
 }
 
-#if 0
 // Test function definition: int main() { return 0; }
 TEST_F(ParserTest, ParseFunctionDefinition)
 {
@@ -139,9 +137,8 @@ TEST_F(ParserTest, ParseFunctionDefinition)
 
     DeclSpec *spec = program->decls->u.function.specifiers;
     ASSERT_NE(nullptr, spec);
-    ASSERT_NE(nullptr, spec->type_specs);
-    EXPECT_EQ(TYPE_SPEC_BASIC, spec->type_specs->kind);
-    EXPECT_EQ(TYPE_INT, spec->type_specs->u.basic->kind);
+    ASSERT_NE(nullptr, spec->base_type);
+    EXPECT_EQ(TYPE_INT, spec->base_type->kind);
 
     Declarator *decl = program->decls->u.function.declarator;
     ASSERT_NE(nullptr, decl);
@@ -174,16 +171,14 @@ TEST_F(ParserTest, ParseTranslationUnit)
     Declaration *decl = program->decls->u.declaration;
     EXPECT_EQ(DECL_VAR, decl->kind);
     ASSERT_NE(nullptr, decl->u.var.specifiers);
-    EXPECT_EQ(TYPE_SPEC_BASIC, decl->u.var.specifiers->type_specs->kind);
-    EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->type_specs->u.basic->kind);
+    EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
 
     ASSERT_NE(nullptr, program->decls->next);
     EXPECT_EQ(EXTERNAL_DECL_FUNCTION, program->decls->next->kind);
 
     DeclSpec *spec = program->decls->next->u.function.specifiers;
-    EXPECT_EQ(TYPE_SPEC_BASIC, spec->type_specs->kind);
-    EXPECT_EQ(TYPE_VOID, spec->type_specs->u.basic->kind);
+    EXPECT_EQ(TYPE_VOID, spec->base_type->kind);
 
     Declarator *func = program->decls->next->u.function.declarator;
     EXPECT_STREQ("f", func->u.named.name);
@@ -192,4 +187,3 @@ TEST_F(ParserTest, ParseTranslationUnit)
     EXPECT_EQ(STMT_COMPOUND, program->decls->next->u.function.body->kind);
     EXPECT_EQ(nullptr, program->decls->next->u.function.body->u.compound);
 }
-#endif

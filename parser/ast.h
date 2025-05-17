@@ -207,9 +207,9 @@ typedef enum {
     TYPE_SPEC_ENUM,
     TYPE_SPEC_TYPEDEF_NAME,
     TYPE_SPEC_ATOMIC
-} TypeSpecKind;
+} TypeSpecKind; // Internal for parser only
 
-struct TypeSpec {
+struct TypeSpec { // Internal for parser only
     TypeSpec *next;            /* linked list */
     TypeSpecKind kind;
     union {
