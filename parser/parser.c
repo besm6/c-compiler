@@ -1027,7 +1027,8 @@ Expr *parse_constant_expression()
 }
 
 //
-// Fuse TypeSpec list into a single Type
+// Fuse TypeSpec list into a single Type.
+// Returns non-NULL value.
 //
 Type *fuse_type_specifiers(TypeSpec *specs)
 {
@@ -1531,18 +1532,12 @@ Field *parse_struct_declaration()
     /* Parse specifier_qualifier_list */
     TypeQualifier *qualifiers = NULL;
     TypeSpec *type_specs      = parse_specifier_qualifier_list(&qualifiers);
-    if (!type_specs)
-        return NULL;
 
     /* Check for anonymous struct/union */
     if (current_token == TOKEN_SEMICOLON) {
         Field *field            = new_field();
         field->is_anonymous     = true;
-        field->u.anonymous.type = parse_type_name(); // Wrong! use type_specs
-        if (!field->u.anonymous.type) {
-            free(field);
-            return NULL;
-        }
+        field->u.anonymous.type = fuse_type_specifiers(type_specs);
         advance_token(); /* Consume ';' */
         return field;
     }
@@ -1556,11 +1551,7 @@ Field *parse_struct_declaration()
         field->u.named.bitfield = NULL;
 
         /* Parse field type */
-        field->u.named.type = parse_type_name(); // Wrong! use type_specs
-        if (!field->u.named.type) {
-            free(field);
-            return NULL;
-        }
+        field->u.named.type = fuse_type_specifiers(type_specs);
 
         if (field->u.named.name)
             advance_token();
@@ -1739,9 +1730,6 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                                 Field *field            = (Field *)malloc(sizeof(Field));
                                 field->is_anonymous     = true;
                                 field->u.anonymous.type = fuse_type_specifiers(field_specs);
-                                if (!field->u.anonymous.type) {
-                                    fatal_error("Incorrect type of anonymous field");
-                                }
                                 field->u.anonymous.type->qualifiers = field_quals;
                                 field->next  = NULL;
                                 *fields_tail = field;
@@ -1757,9 +1745,6 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                                                                   : NULL;
                                     field->u.named.bitfield = NULL;
                                     field->u.named.type = fuse_type_specifiers(field_specs);
-                                    if (!field->u.named.type) {
-                                        fatal_error("Incorrect type of named field");
-                                    }
                                     field->u.named.type->qualifiers = field_quals;
                                     field->next = NULL;
                                     if (field->u.named.name)
@@ -2151,9 +2136,6 @@ ParamList *parse_parameter_type_list()
     do {
         Param *param = (Param *)malloc(sizeof(Param));
         param->type = parse_type_name();
-        if (!param->type) {
-            fatal_error("Incorrect parameter type");
-        }
         param->name = (current_token == TOKEN_IDENTIFIER) ? strdup(current_lexeme) : NULL;
         param->next = NULL;
         if (param->name)
@@ -2392,10 +2374,6 @@ Param *parse_parameter_declaration()
     /* Parse declaration_specifiers */
     TypeQualifier *qualifiers = NULL;
     TypeSpec *type_specs      = parse_specifier_qualifier_list(&qualifiers);
-    if (!type_specs) {
-        free(param);
-        return NULL;
-    }
 
     /* Check for declarator or abstract_declarator */
     if (current_token == TOKEN_IDENTIFIER || current_token == TOKEN_LPAREN ||
@@ -2422,11 +2400,6 @@ Param *parse_parameter_declaration()
 
         /* Construct base type from type_specs */
         Type *base_type = fuse_type_specifiers(type_specs);
-        if (!base_type) {
-            free(param);
-            free(name);
-            return NULL;
-        }
 
         /* Apply pointers and suffixes */
         param->type = type_apply_suffixes(type_apply_pointers(base_type, pointers), suffixes);
@@ -2434,10 +2407,6 @@ Param *parse_parameter_declaration()
     } else {
         /* Only declaration_specifiers (unnamed parameter) */
         param->type = parse_type_name();
-        if (!param->type) {
-            free(param);
-            return NULL;
-        }
     }
 
     return param;
@@ -2447,6 +2416,8 @@ Param *parse_parameter_declaration()
 // type_name : specifier_qualifier_list abstract_declarator
 //           | specifier_qualifier_list
 //           ;
+// Returns non-NULL value.
+//
 Type *parse_type_name()
 {
     if (debug) {
@@ -2454,14 +2425,9 @@ Type *parse_type_name()
     }
     TypeQualifier *qualifiers = NULL;
     TypeSpec *type_specs      = parse_specifier_qualifier_list(&qualifiers);
-    if (!type_specs)
-        return NULL;
 
     /* Construct base Type from type_specs (simplified to first basic type) */
     Type *base_type = fuse_type_specifiers(type_specs);
-    if (!base_type) {
-        fatal_error("Incorrect type");
-    }
     base_type->qualifiers = qualifiers;
 
     /* Parse optional abstract_declarator */

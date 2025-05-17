@@ -231,7 +231,7 @@ TEST_F(ParserTest, ParseTypeStruct)
     EXPECT_STREQ("s", decl->u.var.declarators->declarator->u.named.name);
 }
 
-TEST_F(ParserTest, DISABLED_ParseTypeAnonymousStruct) // TODO
+TEST_F(ParserTest, ParseTypeAnonymousStruct)
 {
     Declaration *decl = GetDeclaration("struct { int x; } s;");
 
@@ -245,7 +245,7 @@ TEST_F(ParserTest, DISABLED_ParseTypeAnonymousStruct) // TODO
     EXPECT_STREQ("s", decl->u.var.declarators->declarator->u.named.name);
 }
 
-TEST_F(ParserTest, DISABLED_ParseTypeUnion) // TODO
+TEST_F(ParserTest, ParseTypeUnion)
 {
     Declaration *decl = GetDeclaration("union U { int x; } u;");
 
@@ -426,7 +426,7 @@ TEST_F(ParserTest, ParseFunctionSpecifierNoreturn)
     EXPECT_STREQ("f", ext->u.function.declarator->u.named.name);
 }
 
-TEST_F(ParserTest, DISABLED_ParseAlignmentSpecifierType) // TODO
+TEST_F(ParserTest, ParseAlignmentSpecifierType)
 {
     Declaration *decl = GetDeclaration("_Alignas(int) int x;");
 
