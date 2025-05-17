@@ -85,18 +85,14 @@ static void print_external_decl(FILE *fd, ExternalDecl *ext, int indent);
 // Print Field structure
 void print_field(FILE *fd, Field *field, int indent)
 {
+    print_indent(fd, indent);
     if (!field) {
-        print_indent(fd, indent);
         fprintf(fd, "Field: NULL\n");
         return;
     }
-
-    print_indent(fd, indent);
     fprintf(fd, "Field:\n");
     print_type(fd, field->type, indent + 2);
     if (field->declarator) {
-        print_indent(fd, indent + 2);
-        fprintf(fd, "Declarator:\n");
         print_declarator(fd, field->declarator, indent + 4);
     }
     if (field->bitfield) {
@@ -520,12 +516,11 @@ void print_declarator_suffix(FILE *fd, DeclaratorSuffix *suffix, int indent)
 // Print Declarator
 void print_declarator(FILE *fd, Declarator *decl, int indent)
 {
+    print_indent(fd, indent);
     if (!decl) {
-        print_indent(fd, indent);
         fprintf(fd, "Declarator: null\n");
         return;
     }
-    print_indent(fd, indent);
     fprintf(fd, "Declarator:\n");
     if (decl->kind == DECLARATOR_NAMED) {
         print_indent(fd, indent + 2);
@@ -622,7 +617,7 @@ static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
     }
     if (spec->base_type) {
         print_indent(fd, indent + 2);
-        fprintf(fd, "Base Type: ");
+        fprintf(fd, "Base Type:\n");
         print_type(fd, spec->base_type, indent + 4);
     }
     if (spec->qualifiers) {

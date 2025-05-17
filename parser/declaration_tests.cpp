@@ -5,9 +5,9 @@ TEST_F(ParserTest, ParseSimpleDeclaration)
     Declaration *decl = GetDeclaration("int x;");
 
     EXPECT_EQ(DECL_VAR, decl->kind);
-    EXPECT_NE(nullptr, decl->u.var.specifiers);
+    ASSERT_NE(nullptr, decl->u.var.specifiers);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
-    EXPECT_NE(nullptr, decl->u.var.declarators);
+    ASSERT_NE(nullptr, decl->u.var.declarators);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
     EXPECT_EQ(nullptr, decl->u.var.declarators->init);
 }
@@ -19,7 +19,7 @@ TEST_F(ParserTest, ParseInitializedDeclaration)
     EXPECT_EQ(DECL_VAR, decl->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
-    EXPECT_NE(nullptr, decl->u.var.declarators->init);
+    ASSERT_NE(nullptr, decl->u.var.declarators->init);
     EXPECT_EQ(INITIALIZER_SINGLE, decl->u.var.declarators->init->kind);
     EXPECT_EQ(EXPR_LITERAL, decl->u.var.declarators->init->u.expr->kind);
     EXPECT_EQ(LITERAL_INT, decl->u.var.declarators->init->u.expr->u.literal->kind);
@@ -33,7 +33,7 @@ TEST_F(ParserTest, ParseMultipleDeclarators)
     EXPECT_EQ(DECL_VAR, decl->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
-    EXPECT_NE(nullptr, decl->u.var.declarators->next);
+    ASSERT_NE(nullptr, decl->u.var.declarators->next);
     EXPECT_STREQ("y", decl->u.var.declarators->next->declarator->u.named.name);
     EXPECT_EQ(nullptr, decl->u.var.declarators->next->next);
 }
@@ -47,7 +47,7 @@ TEST_F(ParserTest, ParseEmptyDeclaration)
     EXPECT_EQ(nullptr, decl->u.var.declarators);
 }
 
-TEST_F(ParserTest, ParseStaticAssertDeclaration) // TODO
+TEST_F(ParserTest, ParseStaticAssertDeclaration)
 {
     Declaration *decl = GetDeclaration("_Static_assert(1, \"msg\");");
 
@@ -65,7 +65,7 @@ TEST_F(ParserTest, ParseFunctionDefinitionNoParams)
     EXPECT_EQ(EXTERNAL_DECL_FUNCTION, ext->kind);
     EXPECT_EQ(TYPE_INT, ext->u.function.specifiers->base_type->kind);
     EXPECT_STREQ("f", ext->u.function.declarator->u.named.name);
-    EXPECT_NE(nullptr, ext->u.function.declarator->u.named.suffixes);
+    ASSERT_NE(nullptr, ext->u.function.declarator->u.named.suffixes);
     EXPECT_EQ(SUFFIX_FUNCTION, ext->u.function.declarator->u.named.suffixes->kind);
     EXPECT_TRUE(ext->u.function.declarator->u.named.suffixes->u.function.params->is_empty);
     EXPECT_EQ(STMT_COMPOUND, ext->u.function.body->kind);
@@ -82,11 +82,11 @@ TEST_F(ParserTest, ParseFunctionDefinitionWithParams)
     EXPECT_EQ(SUFFIX_FUNCTION, ext->u.function.declarator->u.named.suffixes->kind);
     ParamList *params = ext->u.function.declarator->u.named.suffixes->u.function.params;
     EXPECT_FALSE(params->is_empty);
-    EXPECT_NE(nullptr, params->u.params);
+    ASSERT_NE(nullptr, params->u.params);
     EXPECT_EQ(TYPE_INT, params->u.params->type->kind);
     EXPECT_STREQ("x", params->u.params->name);
     EXPECT_EQ(STMT_COMPOUND, ext->u.function.body->kind);
-    EXPECT_NE(nullptr, ext->u.function.body->u.compound);
+    ASSERT_NE(nullptr, ext->u.function.body->u.compound);
     EXPECT_EQ(STMT_RETURN, ext->u.function.body->u.compound->u.stmt->kind);
     EXPECT_STREQ("x", ext->u.function.body->u.compound->u.stmt->u.expr->u.var);
 }
@@ -98,12 +98,12 @@ TEST_F(ParserTest, ParseDeclarationList)
     EXPECT_EQ(STMT_COMPOUND, ext->u.function.body->kind);
 
     DeclOrStmt *items = ext->u.function.body->u.compound;
-    EXPECT_NE(nullptr, items);
+    ASSERT_NE(nullptr, items);
     EXPECT_EQ(DECL_OR_STMT_DECL, items->kind);
     EXPECT_EQ(DECL_VAR, items->u.decl->kind);
     EXPECT_EQ(TYPE_INT, items->u.decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", items->u.decl->u.var.declarators->declarator->u.named.name);
-    EXPECT_NE(nullptr, items->next);
+    ASSERT_NE(nullptr, items->next);
     EXPECT_EQ(DECL_OR_STMT_DECL, items->next->kind);
     EXPECT_EQ(DECL_VAR, items->next->u.decl->kind);
     EXPECT_STREQ("y", items->next->u.decl->u.var.declarators->declarator->u.named.name);
@@ -172,15 +172,15 @@ TEST_F(ParserTest, ParseTypeSigned)
     EXPECT_EQ(decl->kind, DECL_VAR);
     EXPECT_EQ(decl->next, nullptr);
 
-    EXPECT_NE(nullptr, decl->u.var.specifiers);
+    ASSERT_NE(nullptr, decl->u.var.specifiers);
     Type *base_type = decl->u.var.specifiers->base_type;
-    EXPECT_NE(nullptr, base_type);
+    ASSERT_NE(nullptr, base_type);
     EXPECT_EQ(TYPE_INT, base_type->kind);
     EXPECT_EQ(SIGNED_SIGNED, base_type->u.integer.signedness);
 
-    EXPECT_NE(nullptr, decl->u.var.declarators);
+    ASSERT_NE(nullptr, decl->u.var.declarators);
     Declarator *declarator = decl->u.var.declarators->declarator;
-    EXPECT_NE(nullptr, declarator);
+    ASSERT_NE(nullptr, declarator);
     EXPECT_STREQ("x", declarator->u.named.name);
 }
 
@@ -221,69 +221,158 @@ TEST_F(ParserTest, ParseTypeStruct)
 {
     Declaration *decl = GetDeclaration("struct S { int x; } s;");
 
-    EXPECT_EQ(TYPE_STRUCT, decl->u.var.specifiers->base_type->kind);
-    EXPECT_STREQ("S", decl->u.var.specifiers->base_type->u.struct_t.name);
+    EXPECT_EQ(decl->kind, DECL_VAR);
+    EXPECT_EQ(decl->next, nullptr);
+    ASSERT_NE(decl->u.var.specifiers, nullptr);
 
-    Field *field = decl->u.var.specifiers->base_type->u.struct_t.fields;
-    EXPECT_NE(nullptr, field);
-//    EXPECT_FALSE(field->is_anonymous);
-//    EXPECT_STREQ("x", field->u.named.name);
-//    EXPECT_EQ(TYPE_INT, field->u.named.type->kind);
+    Type *type = decl->u.var.specifiers->base_type;
+    EXPECT_EQ(type->kind, TYPE_STRUCT);
+    EXPECT_STREQ(type->u.struct_t.name, "S");
 
-    EXPECT_STREQ("s", decl->u.var.declarators->declarator->u.named.name);
+    Field *field = type->u.struct_t.fields;
+    ASSERT_NE(field, nullptr);
+    EXPECT_EQ(field->next, nullptr);
+
+    ASSERT_NE(field->type, nullptr);
+    EXPECT_EQ(field->type->kind, TYPE_INT);
+    EXPECT_EQ(field->type->u.integer.signedness, SIGNED_SIGNED);
+
+    ASSERT_NE(field->declarator, nullptr);
+    EXPECT_EQ(field->declarator->next, nullptr);
+    EXPECT_EQ(field->declarator->kind, DECLARATOR_NAMED);
+
+    ASSERT_NE(field->declarator->u.named.name, nullptr);
+    EXPECT_STREQ(field->declarator->u.named.name, "x");
+    EXPECT_EQ(field->declarator->u.named.pointers, nullptr);
+    EXPECT_EQ(field->declarator->u.named.suffixes, nullptr);
+
+    InitDeclarator *init_decl = decl->u.var.declarators;
+    ASSERT_NE(init_decl, nullptr);
+    EXPECT_EQ(init_decl->next, nullptr);
+    EXPECT_EQ(init_decl->init, nullptr);
+
+    Declarator *declarator = init_decl->declarator;
+    ASSERT_NE(declarator, nullptr);
+    EXPECT_EQ(declarator->next, nullptr);
+    EXPECT_EQ(declarator->kind, DECLARATOR_NAMED);
+
+    ASSERT_NE(declarator->u.named.name, nullptr);
+    EXPECT_STREQ(declarator->u.named.name, "s");
+    EXPECT_EQ(declarator->u.named.pointers, nullptr);
+    EXPECT_EQ(declarator->u.named.suffixes, nullptr);
 }
 
 TEST_F(ParserTest, ParseTypeAnonymousStruct)
 {
     Declaration *decl = GetDeclaration("struct { int x; } s;");
 
-    EXPECT_EQ(TYPE_STRUCT, decl->u.var.specifiers->base_type->kind);
-    EXPECT_EQ(nullptr, decl->u.var.specifiers->base_type->u.struct_t.name);
+    EXPECT_EQ(decl->kind, DECL_VAR);
+    EXPECT_EQ(decl->next, nullptr);
+    ASSERT_NE(decl->u.var.specifiers, nullptr);
 
-    Field *field = decl->u.var.specifiers->base_type->u.struct_t.fields;
-    EXPECT_NE(nullptr, field);
-//    EXPECT_FALSE(field->is_anonymous);
-//    EXPECT_STREQ("x", field->u.named.name);
-//    EXPECT_EQ(TYPE_INT, field->u.named.type->kind);
+    Type *type = decl->u.var.specifiers->base_type;
+    EXPECT_EQ(type->kind, TYPE_STRUCT);
+    EXPECT_EQ(type->u.struct_t.name, nullptr);
 
-    EXPECT_STREQ("s", decl->u.var.declarators->declarator->u.named.name);
+    Field *field = type->u.struct_t.fields;
+    ASSERT_NE(field, nullptr);
+    EXPECT_EQ(field->next, nullptr);
+
+    ASSERT_NE(field->type, nullptr);
+    EXPECT_EQ(field->type->kind, TYPE_INT);
+    EXPECT_EQ(field->type->u.integer.signedness, SIGNED_SIGNED);
+
+    ASSERT_NE(field->declarator, nullptr);
+    EXPECT_EQ(field->declarator->next, nullptr);
+    EXPECT_EQ(field->declarator->kind, DECLARATOR_NAMED);
+
+    ASSERT_NE(field->declarator->u.named.name, nullptr);
+    EXPECT_STREQ(field->declarator->u.named.name, "x");
+    EXPECT_EQ(field->declarator->u.named.pointers, nullptr);
+    EXPECT_EQ(field->declarator->u.named.suffixes, nullptr);
+
+    InitDeclarator *init_decl = decl->u.var.declarators;
+    ASSERT_NE(init_decl, nullptr);
+    EXPECT_EQ(init_decl->next, nullptr);
+    EXPECT_EQ(init_decl->init, nullptr);
+
+    Declarator *declarator = init_decl->declarator;
+    ASSERT_NE(declarator, nullptr);
+    EXPECT_EQ(declarator->next, nullptr);
+    EXPECT_EQ(declarator->kind, DECLARATOR_NAMED);
+
+    ASSERT_NE(declarator->u.named.name, nullptr);
+    EXPECT_STREQ(declarator->u.named.name, "s");
+    EXPECT_EQ(declarator->u.named.pointers, nullptr);
+    EXPECT_EQ(declarator->u.named.suffixes, nullptr);
 }
 
 TEST_F(ParserTest, ParseTypeUnion)
 {
     Declaration *decl = GetDeclaration("union U { int x; } u;");
 
-    EXPECT_EQ(TYPE_UNION, decl->u.var.specifiers->base_type->kind);
-    EXPECT_STREQ("U", decl->u.var.specifiers->base_type->u.struct_t.name);
+    EXPECT_EQ(decl->kind, DECL_VAR);
+    EXPECT_EQ(decl->next, nullptr);
+    ASSERT_NE(decl->u.var.specifiers, nullptr);
 
-    Field *field = decl->u.var.specifiers->base_type->u.struct_t.fields;
-    EXPECT_NE(nullptr, field);
-//    EXPECT_FALSE(field->is_anonymous);
-//    EXPECT_STREQ("x", field->u.named.name);
-//    EXPECT_EQ(TYPE_INT, field->u.named.type->kind);
+    Type *type = decl->u.var.specifiers->base_type;
+    EXPECT_EQ(type->kind, TYPE_UNION);
+    EXPECT_STREQ(type->u.struct_t.name, "U");
 
-    EXPECT_STREQ("u", decl->u.var.declarators->declarator->u.named.name);
+    Field *field = type->u.struct_t.fields;
+    ASSERT_NE(field, nullptr);
+    EXPECT_EQ(field->next, nullptr);
+
+    ASSERT_NE(field->type, nullptr);
+    EXPECT_EQ(field->type->kind, TYPE_INT);
+    EXPECT_EQ(field->type->u.integer.signedness, SIGNED_SIGNED);
+
+    ASSERT_NE(field->declarator, nullptr);
+    EXPECT_EQ(field->declarator->next, nullptr);
+    EXPECT_EQ(field->declarator->kind, DECLARATOR_NAMED);
+
+    ASSERT_NE(field->declarator->u.named.name, nullptr);
+    EXPECT_STREQ(field->declarator->u.named.name, "x");
+    EXPECT_EQ(field->declarator->u.named.pointers, nullptr);
+    EXPECT_EQ(field->declarator->u.named.suffixes, nullptr);
+
+    InitDeclarator *init_decl = decl->u.var.declarators;
+    ASSERT_NE(init_decl, nullptr);
+    EXPECT_EQ(init_decl->next, nullptr);
+    EXPECT_EQ(init_decl->init, nullptr);
+
+    Declarator *declarator = init_decl->declarator;
+    ASSERT_NE(declarator, nullptr);
+    EXPECT_EQ(declarator->next, nullptr);
+    EXPECT_EQ(declarator->kind, DECLARATOR_NAMED);
+
+    ASSERT_NE(declarator->u.named.name, nullptr);
+    EXPECT_STREQ(declarator->u.named.name, "u");
+    EXPECT_EQ(declarator->u.named.pointers, nullptr);
+    EXPECT_EQ(declarator->u.named.suffixes, nullptr);
 }
 
 TEST_F(ParserTest, ParseTypeEnum)
 {
     Declaration *decl = GetDeclaration("enum E { A };");
 
-    EXPECT_EQ(TYPE_ENUM, decl->u.var.specifiers->base_type->kind);
-    EXPECT_STREQ("E", decl->u.var.specifiers->base_type->u.enum_t.name);
-    EXPECT_NE(nullptr, decl->u.var.specifiers->base_type->u.enum_t.enumerators);
-    EXPECT_STREQ("A", decl->u.var.specifiers->base_type->u.enum_t.enumerators->name);
-    EXPECT_EQ(nullptr, decl->u.var.specifiers->base_type->u.enum_t.enumerators->value);
+    Type *type = decl->u.var.specifiers->base_type;
+    EXPECT_EQ(TYPE_ENUM, type->kind);
+    EXPECT_STREQ("E", type->u.enum_t.name);
+    ASSERT_NE(nullptr, type->u.enum_t.enumerators);
+    EXPECT_STREQ("A", type->u.enum_t.enumerators->name);
+    EXPECT_EQ(nullptr, type->u.enum_t.enumerators->value);
 }
 
 TEST_F(ParserTest, ParseTypeAnonymousEnum)
 {
     Declaration *decl = GetDeclaration("enum { A };");
 
-    EXPECT_EQ(TYPE_ENUM, decl->u.var.specifiers->base_type->kind);
-    EXPECT_EQ(nullptr, decl->u.var.specifiers->base_type->u.enum_t.name);
-    EXPECT_NE(nullptr, decl->u.var.specifiers->base_type->u.enum_t.enumerators);
-    EXPECT_STREQ("A", decl->u.var.specifiers->base_type->u.enum_t.enumerators->name);
+    Type *type = decl->u.var.specifiers->base_type;
+    EXPECT_EQ(TYPE_ENUM, type->kind);
+    EXPECT_EQ(nullptr, type->u.enum_t.name);
+    ASSERT_NE(nullptr, type->u.enum_t.enumerators);
+    EXPECT_STREQ("A", type->u.enum_t.enumerators->name);
 }
 
 //TODO: Add typedef MyType to the symbol table.
@@ -298,7 +387,7 @@ TEST_F(ParserTest, DISABLED_ParseTypeTypedef)
     EXPECT_STREQ("T", decl->u.var.declarators->declarator->u.named.name);
 
     decl = ext->next->u.declaration;
-    //TODO
+    //TODO: check typedef node
     EXPECT_EQ(nullptr, decl->next);
 }
 
@@ -306,7 +395,7 @@ TEST_F(ParserTest, DISABLED_ParseTypeTypedef)
 TEST_F(ParserTest, DISABLED_ParseTypeAtomic)
 {
     Declaration *decl = GetDeclaration("_Atomic(int) x;");
-    //TODO
+    //TODO: check _Atomic(int) node
     ASSERT_NE(decl, nullptr);
 }
 
@@ -314,7 +403,7 @@ TEST_F(ParserTest, ParseTypeQualifierConst)
 {
     Declaration *decl = GetDeclaration("const int x;");
 
-    EXPECT_NE(nullptr, decl->u.var.specifiers->qualifiers);
+    ASSERT_NE(nullptr, decl->u.var.specifiers->qualifiers);
     EXPECT_EQ(TYPE_QUALIFIER_CONST, decl->u.var.specifiers->qualifiers->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
@@ -324,7 +413,7 @@ TEST_F(ParserTest, ParseTypeQualifierRestrict)
 {
     Declaration *decl = GetDeclaration("restrict int x;");
 
-    EXPECT_NE(nullptr, decl->u.var.specifiers->qualifiers);
+    ASSERT_NE(nullptr, decl->u.var.specifiers->qualifiers);
     EXPECT_EQ(TYPE_QUALIFIER_RESTRICT, decl->u.var.specifiers->qualifiers->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
@@ -334,7 +423,7 @@ TEST_F(ParserTest, ParseTypeQualifierVolatile)
 {
     Declaration *decl = GetDeclaration("volatile int x;");
 
-    EXPECT_NE(nullptr, decl->u.var.specifiers->qualifiers);
+    ASSERT_NE(nullptr, decl->u.var.specifiers->qualifiers);
     EXPECT_EQ(TYPE_QUALIFIER_VOLATILE, decl->u.var.specifiers->qualifiers->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
@@ -344,7 +433,7 @@ TEST_F(ParserTest, ParseTypeQualifierAtomic)
 {
     Declaration *decl = GetDeclaration("_Atomic int x;");
 
-    EXPECT_NE(nullptr, decl->u.var.specifiers->qualifiers);
+    ASSERT_NE(nullptr, decl->u.var.specifiers->qualifiers);
     EXPECT_EQ(TYPE_QUALIFIER_ATOMIC, decl->u.var.specifiers->qualifiers->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
@@ -354,7 +443,7 @@ TEST_F(ParserTest, ParseStorageClassTypedef)
 {
     Declaration *decl = GetDeclaration("typedef int x;");
 
-    EXPECT_NE(nullptr, decl->u.var.specifiers->storage);
+    ASSERT_NE(nullptr, decl->u.var.specifiers->storage);
     EXPECT_EQ(STORAGE_CLASS_TYPEDEF, decl->u.var.specifiers->storage->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
@@ -364,7 +453,7 @@ TEST_F(ParserTest, ParseStorageClassExtern)
 {
     Declaration *decl = GetDeclaration("extern int x;");
 
-    EXPECT_NE(nullptr, decl->u.var.specifiers->storage);
+    ASSERT_NE(nullptr, decl->u.var.specifiers->storage);
     EXPECT_EQ(STORAGE_CLASS_EXTERN, decl->u.var.specifiers->storage->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
@@ -374,7 +463,7 @@ TEST_F(ParserTest, ParseStorageClassStatic)
 {
     Declaration *decl = GetDeclaration("static int x;");
 
-    EXPECT_NE(nullptr, decl->u.var.specifiers->storage);
+    ASSERT_NE(nullptr, decl->u.var.specifiers->storage);
     EXPECT_EQ(STORAGE_CLASS_STATIC, decl->u.var.specifiers->storage->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
@@ -384,7 +473,7 @@ TEST_F(ParserTest, ParseStorageClassThreadLocal)
 {
     Declaration *decl = GetDeclaration("_Thread_local int x;");
 
-    EXPECT_NE(nullptr, decl->u.var.specifiers->storage);
+    ASSERT_NE(nullptr, decl->u.var.specifiers->storage);
     EXPECT_EQ(STORAGE_CLASS_THREAD_LOCAL, decl->u.var.specifiers->storage->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
@@ -394,7 +483,7 @@ TEST_F(ParserTest, ParseStorageClassAuto)
 {
     Declaration *decl = GetDeclaration("auto int x;");
 
-    EXPECT_NE(nullptr, decl->u.var.specifiers->storage);
+    ASSERT_NE(nullptr, decl->u.var.specifiers->storage);
     EXPECT_EQ(STORAGE_CLASS_AUTO, decl->u.var.specifiers->storage->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
@@ -404,7 +493,7 @@ TEST_F(ParserTest, ParseStorageClassRegister)
 {
     Declaration *decl = GetDeclaration("register int x;");
 
-    EXPECT_NE(nullptr, decl->u.var.specifiers->storage);
+    ASSERT_NE(nullptr, decl->u.var.specifiers->storage);
     EXPECT_EQ(STORAGE_CLASS_REGISTER, decl->u.var.specifiers->storage->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
@@ -415,7 +504,7 @@ TEST_F(ParserTest, ParseFunctionSpecifierInline)
     ExternalDecl *ext = GetExternalDecl("inline int f() {}");
     EXPECT_EQ(EXTERNAL_DECL_FUNCTION, ext->kind);
 
-    EXPECT_NE(nullptr, ext->u.function.specifiers->func_specs);
+    ASSERT_NE(nullptr, ext->u.function.specifiers->func_specs);
     EXPECT_EQ(FUNC_SPEC_INLINE, ext->u.function.specifiers->func_specs->kind);
     EXPECT_EQ(TYPE_INT, ext->u.function.specifiers->base_type->kind);
     EXPECT_STREQ("f", ext->u.function.declarator->u.named.name);
@@ -426,7 +515,7 @@ TEST_F(ParserTest, ParseFunctionSpecifierNoreturn)
     ExternalDecl *ext = GetExternalDecl("_Noreturn void f() {}");
     EXPECT_EQ(EXTERNAL_DECL_FUNCTION, ext->kind);
 
-    EXPECT_NE(nullptr, ext->u.function.specifiers->func_specs);
+    ASSERT_NE(nullptr, ext->u.function.specifiers->func_specs);
     EXPECT_EQ(FUNC_SPEC_NORETURN, ext->u.function.specifiers->func_specs->kind);
     EXPECT_EQ(TYPE_VOID, ext->u.function.specifiers->base_type->kind);
     EXPECT_STREQ("f", ext->u.function.declarator->u.named.name);
@@ -436,7 +525,7 @@ TEST_F(ParserTest, ParseAlignmentSpecifierType)
 {
     Declaration *decl = GetDeclaration("_Alignas(int) int x;");
 
-    EXPECT_NE(nullptr, decl->u.var.specifiers->align_spec);
+    ASSERT_NE(nullptr, decl->u.var.specifiers->align_spec);
     EXPECT_EQ(ALIGN_SPEC_TYPE, decl->u.var.specifiers->align_spec->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->align_spec->u.type->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
@@ -447,7 +536,7 @@ TEST_F(ParserTest, ParseAlignmentSpecifierExpr)
 {
     Declaration *decl = GetDeclaration("_Alignas(8) int x;");
 
-    EXPECT_NE(nullptr, decl->u.var.specifiers->align_spec);
+    ASSERT_NE(nullptr, decl->u.var.specifiers->align_spec);
     EXPECT_EQ(ALIGN_SPEC_EXPR, decl->u.var.specifiers->align_spec->kind);
     EXPECT_EQ(EXPR_LITERAL, decl->u.var.specifiers->align_spec->u.expr->kind);
     EXPECT_EQ(8, decl->u.var.specifiers->align_spec->u.expr->u.literal->u.int_val);
@@ -462,7 +551,7 @@ TEST_F(ParserTest, ParseFunctionDeclaration)
     EXPECT_EQ(DECL_VAR, decl->kind);
     EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
     EXPECT_STREQ("f", decl->u.var.declarators->declarator->u.named.name);
-    EXPECT_NE(nullptr, decl->u.var.declarators->declarator->u.named.suffixes);
+    ASSERT_NE(nullptr, decl->u.var.declarators->declarator->u.named.suffixes);
     EXPECT_EQ(SUFFIX_FUNCTION, decl->u.var.declarators->declarator->u.named.suffixes->kind);
     EXPECT_TRUE(decl->u.var.declarators->declarator->u.named.suffixes->u.function.params->is_empty);
 }

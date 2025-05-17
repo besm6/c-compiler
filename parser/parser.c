@@ -1527,7 +1527,7 @@ Field *parse_struct_declaration()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_STATIC_ASSERT) {
-        parse_static_assert_declaration(); // TODO: Ignore for now
+        parse_static_assert_declaration(); // TODO: implement static assert as a special kind of Field
         return NULL;
     }
 
@@ -1736,38 +1736,6 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
         fatal_error("Expected type specifier");
     }
     return type_specs;
-}
-
-Declarator *parse_struct_declarator_list()
-{
-    if (debug) {
-        printf("--- %s()\n", __func__);
-    }
-    Declarator *decl = parse_struct_declarator();
-    if (current_token == TOKEN_COMMA) {
-        advance_token();
-        decl->next = parse_struct_declarator_list();
-    }
-    return decl;
-}
-
-Declarator *parse_struct_declarator()
-{
-    if (debug) {
-        printf("--- %s()\n", __func__);
-    }
-    if (current_token == TOKEN_COLON) {
-        advance_token();
-        Expr *bitfield = parse_constant_expression(); // TODO
-        return new_declarator(DECLARATOR_NAMED); /* Placeholder */
-    }
-    Declarator *decl = parse_declarator();
-    if (current_token == TOKEN_COLON) {
-        advance_token();
-        Expr *bitfield = parse_constant_expression(); // TODO
-        /* Update decl with bitfield */
-    }
-    return decl;
 }
 
 Type *parse_enum_specifier()
@@ -1986,7 +1954,7 @@ Declarator *parse_direct_declarator()
             }
             expect_token(TOKEN_RPAREN);
             suffix->u.function.params   = params;
-            suffix->u.function.variadic = false; // TODO
+            suffix->u.function.variadic = false; // TODO: detect variadic function
             append_list(&decl->u.named.suffixes, suffix);
         } else {
             break;
@@ -2165,7 +2133,7 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
                 expect_token(TOKEN_RPAREN); // Consume ')'
                 DeclaratorSuffix *new_suffix    = new_declarator_suffix(SUFFIX_FUNCTION);
                 new_suffix->u.function.params   = params;
-                new_suffix->u.function.variadic = false; // TODO
+                new_suffix->u.function.variadic = false; // TODO: detect variadic function
                 new_suffix->next                = NULL;
                 *tail                           = new_suffix;
                 tail                            = &new_suffix->next;
