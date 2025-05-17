@@ -45,6 +45,12 @@ void advance_token()
     current_lexeme = get_yytext();
 }
 
+// Is current token valid but different from the given one?
+static inline bool current_token_is_not(int token)
+{
+    return (current_token != TOKEN_EOF) && (current_token != token);
+}
+
 // Does this token have something valuable in yytext?
 static bool has_yytext(int token)
 {
@@ -396,8 +402,8 @@ Expr *parse_expression();
 Expr *parse_constant_expression();
 Declaration *parse_declaration();
 DeclSpec *parse_declaration_specifiers();
-InitDeclarator *parse_init_declarator_list();
-InitDeclarator *parse_init_declarator();
+InitDeclarator *parse_init_declarator_list(Declarator *first);
+InitDeclarator *parse_init_declarator(Declarator *decl);
 StorageClass *parse_storage_class_specifier();
 TypeSpec *parse_type_specifier();
 Type *parse_struct_or_union_specifier();
@@ -612,7 +618,7 @@ Expr *parse_postfix_expression()
         } else if (current_token == TOKEN_LPAREN) {
             advance_token();
             Expr *args = NULL;
-            if (current_token != TOKEN_RPAREN) {
+            if (current_token_is_not(TOKEN_RPAREN)) {
                 args = parse_argument_expression_list();
             }
             expect_token(TOKEN_RPAREN);
@@ -1249,6 +1255,13 @@ Type *fuse_type_specifiers(TypeSpec *specs)
     return result;
 }
 
+//
+// declaration
+//     : declaration_specifiers ';'
+//     | declaration_specifiers init_declarator_list ';'
+//     | static_assert_declaration
+//     ;
+//
 Declaration *parse_declaration()
 {
     if (debug) {
@@ -1264,7 +1277,7 @@ Declaration *parse_declaration()
         decl->u.var.specifiers = specifiers;
         return decl;
     }
-    InitDeclarator *declarators = parse_init_declarator_list();
+    InitDeclarator *declarators = parse_init_declarator_list(NULL);
     expect_token(TOKEN_SEMICOLON);
     Declaration *decl       = new_declaration(DECL_VAR);
     decl->u.var.specifiers  = specifiers;
@@ -1312,26 +1325,28 @@ DeclSpec *parse_declaration_specifiers()
     return ds;
 }
 
-InitDeclarator *parse_init_declarator_list()
+InitDeclarator *parse_init_declarator_list(Declarator *first)
 {
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    InitDeclarator *decl = parse_init_declarator();
+    InitDeclarator *decl = parse_init_declarator(first);
     if (current_token == TOKEN_COMMA) {
         advance_token();
-        decl->next = parse_init_declarator_list();
+        decl->next = parse_init_declarator_list(NULL);
     }
     return decl;
 }
 
-InitDeclarator *parse_init_declarator()
+InitDeclarator *parse_init_declarator(Declarator *declarator)
 {
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    Declarator *declarator = parse_declarator();
-    Initializer *init      = NULL;
+    if (!declarator) {
+        declarator = parse_declarator();
+    }
+    Initializer *init = NULL;
     if (current_token == TOKEN_ASSIGN) {
         advance_token();
         init = parse_initializer();
@@ -1471,7 +1486,7 @@ Field *parse_struct_declaration_list()
         printf("--- %s()\n", __func__);
     }
     Field *fields = parse_struct_declaration();
-    if (current_token != TOKEN_RBRACE) {
+    if (current_token_is_not(TOKEN_RBRACE)) {
         fields->next = parse_struct_declaration_list();
     }
     return fields;
@@ -1542,7 +1557,7 @@ Field *parse_struct_declaration()
         } else {
             break;
         }
-    } while (current_token != TOKEN_SEMICOLON);
+    } while (current_token_is_not(TOKEN_SEMICOLON));
 
     if (current_token != TOKEN_SEMICOLON) {
         /* Free allocated fields on error */
@@ -1689,7 +1704,7 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                     advance_token();
                     /* Parse struct_declaration_list */
                     Field *fields = NULL, **fields_tail = &fields;
-                    while (current_token != TOKEN_RBRACE) {
+                    while (current_token_is_not(TOKEN_RBRACE)) {
                         if (current_token == TOKEN_STATIC_ASSERT) {
                             /* Skip static_assert_declaration */
                             advance_token();
@@ -1754,15 +1769,13 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                                         advance_token();
                                     else
                                         break;
-                                } while (current_token != TOKEN_SEMICOLON);
-                                if (current_token != TOKEN_SEMICOLON)
-                                    return NULL;
-                                advance_token();
+                                } while (current_token_is_not(TOKEN_SEMICOLON));
+                                expect_token(TOKEN_SEMICOLON);
                             }
                         }
                     }
                     ts->u.struct_spec.fields = fields;
-                    advance_token(); /* Consume '}' */
+                    expect_token(TOKEN_RBRACE); /* Consume '}' */
                 }
             } else if (current_token == TOKEN_ENUM) {
                 advance_token();
@@ -1796,10 +1809,8 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                             advance_token();
                         else
                             break;
-                    } while (current_token != TOKEN_RBRACE);
-                    if (current_token != TOKEN_RBRACE)
-                        return NULL;
-                    advance_token();
+                    } while (current_token_is_not(TOKEN_RBRACE));
+                    expect_token(TOKEN_RBRACE);
                     ts->u.enum_spec.enumerators = enums;
                 }
             }
@@ -1952,6 +1963,12 @@ AlignmentSpec *parse_alignment_specifier()
     return as;
 }
 
+//
+// declarator
+//    : pointer direct_declarator
+//    | direct_declarator
+//    ;
+//
 Declarator *parse_declarator()
 {
     if (debug) {
@@ -1968,6 +1985,24 @@ Declarator *parse_declarator()
     return decl;
 }
 
+//
+// direct_declarator
+//     : IDENTIFIER
+//     | '(' declarator ')'
+//     | direct_declarator '[' ']'
+//     | direct_declarator '[' '*' ']'
+//     | direct_declarator '[' STATIC type_qualifier_list assignment_expression ']'
+//     | direct_declarator '[' STATIC assignment_expression ']'
+//     | direct_declarator '[' type_qualifier_list '*' ']'
+//     | direct_declarator '[' type_qualifier_list STATIC assignment_expression ']'
+//     | direct_declarator '[' type_qualifier_list assignment_expression ']'
+//     | direct_declarator '[' type_qualifier_list ']'
+//     | direct_declarator '[' assignment_expression ']'
+//     | direct_declarator '(' parameter_type_list ')'
+//     | direct_declarator '(' ')'
+//     | direct_declarator '(' identifier_list ')'
+//     ;
+//
 Declarator *parse_direct_declarator()
 {
     if (debug) {
@@ -2000,11 +2035,10 @@ Declarator *parse_direct_declarator()
                 qualifiers = parse_type_qualifier_list();
             }
             Expr *size = NULL;
-            if (current_token != TOKEN_RBRACKET && current_token != TOKEN_STAR) {
-                size = parse_assignment_expression();
-            }
             if (current_token == TOKEN_STAR) {
                 advance_token();
+            } else if (current_token_is_not(TOKEN_RBRACKET)) {
+                size = parse_assignment_expression();
             }
             expect_token(TOKEN_RBRACKET);
             suffix->u.array.qualifiers = qualifiers;
@@ -2014,14 +2048,14 @@ Declarator *parse_direct_declarator()
             advance_token();
             DeclaratorSuffix *suffix = new_declarator_suffix(SUFFIX_FUNCTION);
             ParamList *params        = NULL;
-            if (current_token != TOKEN_RPAREN) {
+            if (current_token_is_not(TOKEN_RPAREN)) {
                 params = parse_parameter_type_list();
             } else {
                 params = new_param_list();
             }
             expect_token(TOKEN_RPAREN);
             suffix->u.function.params   = params;
-            suffix->u.function.variadic = params->u.params && params->u.params->next;
+            suffix->u.function.variadic = false; // TODO
             append_list(&decl->u.named.suffixes, suffix);
         } else {
             break;
@@ -2114,7 +2148,7 @@ ParamList *parse_parameter_type_list()
         } else {
             break;
         }
-    } while (current_token != TOKEN_RPAREN);
+    } while (current_token_is_not(TOKEN_RPAREN));
     pl->u.params = params;
     return pl;
 }
@@ -2132,6 +2166,37 @@ Param *parse_parameter_list()
     return param;
 }
 
+//
+// abstract_declarator
+//     : pointer direct_abstract_declarator
+//     | pointer
+//     | direct_abstract_declarator
+//     ;
+//
+// direct_abstract_declarator
+//     : '(' abstract_declarator ')'
+//     | '[' ']'
+//     | '[' '*' ']'
+//     | '[' STATIC type_qualifier_list assignment_expression ']'
+//     | '[' STATIC assignment_expression ']'
+//     | '[' type_qualifier_list STATIC assignment_expression ']'
+//     | '[' type_qualifier_list assignment_expression ']'
+//     | '[' type_qualifier_list ']'
+//     | '[' assignment_expression ']'
+//     | direct_abstract_declarator '[' ']'
+//     | direct_abstract_declarator '[' '*' ']'
+//     | direct_abstract_declarator '[' STATIC type_qualifier_list assignment_expression ']'
+//     | direct_abstract_declarator '[' STATIC assignment_expression ']'
+//     | direct_abstract_declarator '[' type_qualifier_list assignment_expression ']'
+//     | direct_abstract_declarator '[' type_qualifier_list STATIC assignment_expression ']'
+//     | direct_abstract_declarator '[' type_qualifier_list ']'
+//     | direct_abstract_declarator '[' assignment_expression ']'
+//     | '(' ')'
+//     | '(' parameter_type_list ')'
+//     | direct_abstract_declarator '(' ')'
+//     | direct_abstract_declarator '(' parameter_type_list ')'
+//     ;
+//
 DeclaratorSuffix *parse_direct_abstract_declarator()
 {
     if (debug) {
@@ -2172,7 +2237,7 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
                 expect_token(TOKEN_RPAREN); // Consume ')'
                 DeclaratorSuffix *new_suffix    = new_declarator_suffix(SUFFIX_FUNCTION);
                 new_suffix->u.function.params   = params;
-                new_suffix->u.function.variadic = false;
+                new_suffix->u.function.variadic = false; // TODO
                 new_suffix->next                = NULL;
                 *tail                           = new_suffix;
                 tail                            = &new_suffix->next;
@@ -2225,7 +2290,7 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
                 } else {
                     // Case: '[' type_qualifier_list assignment_expression ']'
                     //    or '[' type_qualifier_list ']'
-                    if (current_token != TOKEN_RBRACKET) {
+                    if (current_token_is_not(TOKEN_RBRACKET)) {
                         new_suffix->u.array.size = parse_assignment_expression();
                         if (!new_suffix->u.array.size) {
                             fatal_error("Invalid array size");
@@ -2560,7 +2625,7 @@ Stmt *parse_compound_statement()
     }
     expect_token(TOKEN_LBRACE);
     DeclOrStmt *items = NULL;
-    if (current_token != TOKEN_RBRACE) {
+    if (current_token_is_not(TOKEN_RBRACE)) {
         items = parse_block_item_list();
     }
     expect_token(TOKEN_RBRACE);
@@ -2575,7 +2640,7 @@ DeclOrStmt *parse_block_item_list()
         printf("--- %s()\n", __func__);
     }
     DeclOrStmt *item = parse_block_item();
-    if (current_token != TOKEN_RBRACE) {
+    if (current_token_is_not(TOKEN_RBRACE)) {
         item->next = parse_block_item_list();
     }
     return item;
@@ -2618,7 +2683,7 @@ Stmt *parse_expression_statement()
         printf("--- %s()\n", __func__);
     }
     Expr *expr = NULL;
-    if (current_token != TOKEN_SEMICOLON) {
+    if (current_token_is_not(TOKEN_SEMICOLON)) {
         expr = parse_expression();
     }
     expect_token(TOKEN_SEMICOLON);
@@ -2722,7 +2787,7 @@ Stmt *parse_iteration_statement()
     }
     Stmt *cond_stmt = parse_expression_statement();
     condition       = cond_stmt->u.expr;
-    if (current_token != TOKEN_RPAREN) {
+    if (current_token_is_not(TOKEN_RPAREN)) {
         update = parse_expression();
     }
     expect_token(TOKEN_RPAREN);
@@ -2761,7 +2826,7 @@ Stmt *parse_jump_statement()
     }
     advance_token();
     Expr *expr = NULL;
-    if (current_token != TOKEN_SEMICOLON) {
+    if (current_token_is_not(TOKEN_SEMICOLON)) {
         expr = parse_expression();
     }
     expect_token(TOKEN_SEMICOLON);
@@ -2770,6 +2835,12 @@ Stmt *parse_jump_statement()
     return stmt;
 }
 
+//
+// translation_unit
+//     : external_declaration
+//     | translation_unit external_declaration
+//     ;
+//
 Program *parse_translation_unit()
 {
     if (debug) {
@@ -2783,6 +2854,12 @@ Program *parse_translation_unit()
     return program;
 }
 
+//
+// external_declaration
+//     : function_definition
+//     | declaration
+//     ;
+//
 ExternalDecl *parse_external_declaration()
 {
     if (debug) {
@@ -2795,7 +2872,11 @@ ExternalDecl *parse_external_declaration()
         ed->u.declaration = parse_static_assert_declaration();
         return ed;
     }
+
+    // Parse declaration_specifiers (common to both function_definition and declaration).
     DeclSpec *spec = parse_declaration_specifiers();
+
+    // Check if it's a declaration (ends with ';').
     if (current_token == TOKEN_SEMICOLON) {
 
         // Empty declaration.
@@ -2807,44 +2888,52 @@ ExternalDecl *parse_external_declaration()
         ed->u.declaration = decl;
         return ed;
     }
-    if (current_token == TOKEN_IDENTIFIER && (next_token() == TOKEN_SEMICOLON ||
-        next_token() == TOKEN_COMMA || next_token() == TOKEN_ASSIGN)) {
+
+    // Parse declarator (required for both function_definition and declaration with
+    // init_declarator_list).
+    Declarator *decl = parse_declarator();
+
+    // Check if it's a declaration with init_declarator_list.
+    if (current_token == TOKEN_SEMICOLON || current_token == TOKEN_COMMA ||
+        current_token == TOKEN_ASSIGN) {
 
         // Declaration of variables.
-        InitDeclarator *declarators = parse_init_declarator_list();
-        expect_token(TOKEN_SEMICOLON);
-        Declaration *decl       = new_declaration(DECL_VAR);
-        decl->u.var.specifiers  = spec;
-        decl->u.var.declarators = declarators;
-
         ExternalDecl *ed  = new_external_decl(EXTERNAL_DECL_DECLARATION);
-        ed->u.declaration = decl;
+        ed->u.declaration = new_declaration(DECL_VAR);
+
+        ed->u.declaration->u.var.specifiers  = spec;
+        ed->u.declaration->u.var.declarators = parse_init_declarator_list(decl);
+        expect_token(TOKEN_SEMICOLON);
         return ed;
     }
 
-    // Function definition.
-    Declarator *decl   = parse_declarator();
-    Declaration *decls = NULL;
-    if (current_token != TOKEN_LBRACE) {
-        decls = parse_declaration_list();
+    // Must be a function_definition.
+    Declaration *decl_list = NULL;
+    if (current_token_is_not(TOKEN_LBRACE)) {
+        decl_list = parse_declaration_list();
     }
-    Stmt *body = parse_compound_statement();
 
     ExternalDecl *ed          = new_external_decl(EXTERNAL_DECL_FUNCTION);
     ed->u.function.specifiers = spec;
     ed->u.function.declarator = decl;
-    ed->u.function.decls      = decls;
-    ed->u.function.body       = body;
+    ed->u.function.decls      = decl_list;
+    ed->u.function.body       = parse_compound_statement();
     return ed;
 }
 
+//
+// declaration_list
+//     : declaration
+//     | declaration_list declaration
+//     ;
+//
 Declaration *parse_declaration_list()
 {
     if (debug) {
         printf("--- %s()\n", __func__);
     }
     Declaration *decl = parse_declaration();
-    if (current_token != TOKEN_LBRACE) {
+    if (current_token_is_not(TOKEN_LBRACE)) {
         decl->next = parse_declaration_list();
     }
     return decl;

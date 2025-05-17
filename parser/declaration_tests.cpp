@@ -449,7 +449,7 @@ TEST_F(ParserTest, ParseAlignmentSpecifierExpr)
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
 }
 
-TEST_F(ParserTest, DISABLED_ParseFunctionDeclaration) // TODO
+TEST_F(ParserTest, ParseFunctionDeclaration)
 {
     Declaration *decl = GetDeclaration("int f();");
 
