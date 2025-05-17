@@ -16,7 +16,7 @@ static char lexeme_buffer[1024]; // Buffer for current lexeme
 static int debug = 1;
 
 /* Error handling */
-static void fatal_error(const char *message, ...)
+static void _Noreturn fatal_error(const char *message, ...)
 {
     fprintf(stderr, "Parse error: ");
 
@@ -83,8 +83,8 @@ static void expect_token(int expected)
     advance_token();
 }
 
-// Is this token a start of a type name?
-static bool is_type_name(int token)
+// Is this token a type specifier?
+static bool is_type_specifier(int token)
 {
     return token == TOKEN_VOID || token == TOKEN_CHAR ||
            token == TOKEN_SHORT || token == TOKEN_INT ||
@@ -93,9 +93,15 @@ static bool is_type_name(int token)
            token == TOKEN_UNSIGNED || token == TOKEN_BOOL ||
            token == TOKEN_COMPLEX || token == TOKEN_IMAGINARY ||
            token == TOKEN_STRUCT || token == TOKEN_UNION ||
-           token == TOKEN_ENUM || token == TOKEN_TYPEDEF_NAME ||
-           token == TOKEN_CONST || token == TOKEN_RESTRICT ||
-           token == TOKEN_VOLATILE || token == TOKEN_ATOMIC;
+           token == TOKEN_ENUM || token == TOKEN_TYPEDEF_NAME;
+}
+
+// Is this token a type qualifier?
+// Except _Atomic.
+static bool is_type_qualifier(int token)
+{
+    return token == TOKEN_CONST || token == TOKEN_RESTRICT ||
+           token == TOKEN_VOLATILE;
 }
 
 /* Helper functions for AST construction */
@@ -577,33 +583,6 @@ Expr *parse_postfix_expression()
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-#if 0
-    // TODO: Try compound literal:
-    // '(' type_name ')' '{' initializer_list '}' |
-    // '(' type_name ')' '{' initializer_list ',' '}'
-    if (current_token == TOKEN_LPAREN) {
-        save_scanner_position();
-        advance_token();
-        if (/* current_token is type name? */) {
-            Type *type = parse_type_name();
-            expect_token(TOKEN_RPAREN);
-            expect_token(TOKEN_LBRACE);
-
-            InitItem *items = parse_initializer_list();
-            if (current_token == TOKEN_COMMA)
-                advance_token();
-            expect_token(TOKEN_RBRACE);
-
-            Expr *expr       = new_expression(EXPR_COMPOUND);
-            expr->u.compound.type = type;
-            expr->u.compound.init = init;
-            return expr;
-        }
-        // Rewind if not a type name.
-        restore_scanner_position();
-        current_token = TOKEN_LPAREN;
-    }
-#endif
     Expr *expr = parse_primary_expression();
     while (1) {
         if (current_token == TOKEN_LBRACKET) {
@@ -702,7 +681,9 @@ Expr *parse_unary_expression()
         return new_expr;
     } else if (current_token == TOKEN_SIZEOF) {
         advance_token();
-        if (current_token == TOKEN_LPAREN && is_type_name(next_token())) {
+        if (current_token == TOKEN_LPAREN &&
+            (is_type_specifier(next_token()) || is_type_qualifier(next_token()) ||
+             next_token() == TOKEN_ATOMIC)) {
             expect_token(TOKEN_LPAREN);
             Type *type = parse_type_name();
             expect_token(TOKEN_RPAREN);
@@ -1031,6 +1012,12 @@ Expr *parse_expression()
     return expr;
 }
 
+//
+// constant_expression
+//     : conditional_expression    /* with constraints */
+//     ;
+// Returns non-NULL value.
+//
 Expr *parse_constant_expression()
 {
     if (debug) {
@@ -1297,19 +1284,11 @@ DeclSpec *parse_declaration_specifiers()
             current_token == TOKEN_STATIC || current_token == TOKEN_THREAD_LOCAL ||
             current_token == TOKEN_AUTO || current_token == TOKEN_REGISTER) {
             ds->storage = parse_storage_class_specifier();
-        } else if (current_token == TOKEN_VOID || current_token == TOKEN_CHAR ||
-                   current_token == TOKEN_SHORT || current_token == TOKEN_INT ||
-                   current_token == TOKEN_LONG || current_token == TOKEN_FLOAT ||
-                   current_token == TOKEN_DOUBLE || current_token == TOKEN_SIGNED ||
-                   current_token == TOKEN_UNSIGNED || current_token == TOKEN_BOOL ||
-                   current_token == TOKEN_COMPLEX || current_token == TOKEN_IMAGINARY ||
-                   current_token == TOKEN_STRUCT || current_token == TOKEN_UNION ||
-                   current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME ||
+        } else if (is_type_specifier(current_token) ||
                    (current_token == TOKEN_ATOMIC && next_token() == TOKEN_LPAREN)) {
             TypeSpec *ts = parse_type_specifier();
             append_list(&type_specs, ts);
-        } else if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
-                   current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
+        } else if (is_type_qualifier(current_token) || current_token == TOKEN_ATOMIC) {
             TypeQualifier *q = parse_type_qualifier();
             append_list(&ds->qualifiers, q);
         } else if (current_token == TOKEN_INLINE || current_token == TOKEN_NORETURN) {
@@ -1369,6 +1348,27 @@ StorageClass *parse_storage_class_specifier()
     return new_storage_class(kind);
 }
 
+//
+// type_specifier
+//     : VOID
+//     | CHAR
+//     | SHORT
+//     | INT
+//     | LONG
+//     | FLOAT
+//     | DOUBLE
+//     | SIGNED
+//     | UNSIGNED
+//     | BOOL
+//     | COMPLEX
+//     | IMAGINARY     /* non-mandated extension */
+//     | atomic_type_specifier
+//     | struct_or_union_specifier
+//     | enum_specifier
+//     | TYPEDEF_NAME      /* after it has been defined as such */
+//     ;
+// Returns non-NULL value.
+//
 TypeSpec *parse_type_specifier()
 {
     if (debug) {
@@ -1448,6 +1448,13 @@ TypeSpec *parse_type_specifier()
     return ts;
 }
 
+//
+// struct_or_union_specifier
+//     : struct_or_union '{' struct_declaration_list '}'
+//     | struct_or_union IDENTIFIER '{' struct_declaration_list '}'
+//     | struct_or_union IDENTIFIER
+//     ;
+//
 Type *parse_struct_or_union_specifier()
 {
     if (debug) {
@@ -1467,6 +1474,12 @@ Type *parse_struct_or_union_specifier()
     return type;
 }
 
+//
+// struct_or_union
+//     : STRUCT
+//     | UNION
+//     ;
+//
 int parse_struct_or_union()
 {
     if (debug) {
@@ -1480,6 +1493,12 @@ int parse_struct_or_union()
     return su;
 }
 
+//
+// struct_declaration_list
+//     : struct_declaration
+//     | struct_declaration_list struct_declaration
+//     ;
+//
 Field *parse_struct_declaration_list()
 {
     if (debug) {
@@ -1492,6 +1511,13 @@ Field *parse_struct_declaration_list()
     return fields;
 }
 
+//
+// struct_declaration
+//     : specifier_qualifier_list ';'  /* for anonymous struct/union */
+//     | specifier_qualifier_list struct_declarator_list ';'
+//     | static_assert_declaration
+//     ;
+//
 Field *parse_struct_declaration()
 {
     if (debug) {
@@ -1543,10 +1569,6 @@ Field *parse_struct_declaration()
         if (current_token == TOKEN_COLON) {
             advance_token();
             field->u.named.bitfield = parse_constant_expression();
-            if (!field->u.named.bitfield) {
-                free(field);
-                return NULL;
-            }
         }
 
         *fields_tail = field;
@@ -1574,6 +1596,15 @@ Field *parse_struct_declaration()
     return fields;
 }
 
+//
+// specifier_qualifier_list
+//     : type_specifier specifier_qualifier_list
+//     | type_specifier
+//     | type_qualifier specifier_qualifier_list
+//     | type_qualifier
+//     ;
+// Returns non-NULL value.
+//
 TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
 {
     if (debug) {
@@ -1602,18 +1633,11 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                 q_kind = TYPE_QUALIFIER_ATOMIC;
                 break;
             default:
-                return NULL; /* Unreachable */
+                fatal_error("Bad type qualifier"); /* Unreachable */
             }
             append_list(qualifiers, new_type_qualifier(q_kind));
             advance_token();
-        } else if (current_token == TOKEN_VOID || current_token == TOKEN_CHAR ||
-                   current_token == TOKEN_SHORT || current_token == TOKEN_INT ||
-                   current_token == TOKEN_LONG || current_token == TOKEN_FLOAT ||
-                   current_token == TOKEN_DOUBLE || current_token == TOKEN_SIGNED ||
-                   current_token == TOKEN_UNSIGNED || current_token == TOKEN_BOOL ||
-                   current_token == TOKEN_COMPLEX || current_token == TOKEN_IMAGINARY ||
-                   current_token == TOKEN_STRUCT || current_token == TOKEN_UNION ||
-                   current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME ||
+        } else if (is_type_specifier(current_token) || is_type_qualifier(current_token) ||
                    (current_token == TOKEN_ATOMIC && next_token() == TOKEN_LPAREN)) {
             /* Parse type_specifier */
             TypeSpec *ts = NULL;
@@ -1679,17 +1703,10 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                 advance_token();
             } else if (current_token == TOKEN_ATOMIC) {
                 advance_token();
-                if (current_token != TOKEN_LPAREN)
-                    return NULL; /* Expected '(' */
-                advance_token();
-                Type *base = parse_type_name();
-                if (!base)
-                    return NULL;
-                if (current_token != TOKEN_RPAREN)
-                    return NULL; /* Expected ')' */
-                advance_token();
+                expect_token(TOKEN_LPAREN); /* Expected '(' */
                 ts                = new_type_spec(TYPE_SPEC_ATOMIC);
-                ts->u.atomic.type = base;
+                ts->u.atomic.type = parse_type_name();
+                expect_token(TOKEN_RPAREN); /* Expected ')' */
             } else if (current_token == TOKEN_STRUCT || current_token == TOKEN_UNION) {
                 bool is_struct = (current_token == TOKEN_STRUCT);
                 advance_token();
@@ -1708,25 +1725,15 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                         if (current_token == TOKEN_STATIC_ASSERT) {
                             /* Skip static_assert_declaration */
                             advance_token();
-                            if (current_token != TOKEN_LPAREN)
-                                return NULL;
-                            advance_token();
-                            Expr *cond = parse_constant_expression(); // TODO: check
-                            if (!cond || current_token != TOKEN_COMMA)
-                                return NULL;
-                            advance_token();
-                            if (current_token != TOKEN_STRING_LITERAL)
-                                return NULL;
-                            advance_token();
-                            if (current_token != TOKEN_RPAREN || next_token() != TOKEN_SEMICOLON)
-                                return NULL;
-                            advance_token();
-                            advance_token();
+                            expect_token(TOKEN_LPAREN);
+                            parse_constant_expression();
+                            expect_token(TOKEN_COMMA);
+                            expect_token(TOKEN_STRING_LITERAL);
+                            expect_token(TOKEN_RPAREN);
+                            expect_token(TOKEN_SEMICOLON);
                         } else {
                             TypeQualifier *field_quals = NULL;
                             TypeSpec *field_specs = parse_specifier_qualifier_list(&field_quals);
-                            if (!field_specs)
-                                return NULL;
                             if (current_token == TOKEN_SEMICOLON) {
                                 /* Anonymous struct/union */
                                 Field *field            = (Field *)malloc(sizeof(Field));
@@ -1759,23 +1766,21 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                                         advance_token();
                                     if (current_token == TOKEN_COLON) {
                                         advance_token();
-                                        field->u.named.bitfield = parse_constant_expression(); // TODO: check
-                                        if (!field->u.named.bitfield)
-                                            return NULL;
+                                        field->u.named.bitfield = parse_constant_expression();
                                     }
                                     *fields_tail = field;
                                     fields_tail  = &field->next;
-                                    if (current_token == TOKEN_COMMA)
-                                        advance_token();
-                                    else
+                                    if (current_token != TOKEN_COMMA) {
                                         break;
+                                    }
+                                    advance_token();
                                 } while (current_token_is_not(TOKEN_SEMICOLON));
                                 expect_token(TOKEN_SEMICOLON);
                             }
                         }
                     }
                     ts->u.struct_spec.fields = fields;
-                    expect_token(TOKEN_RBRACE); /* Consume '}' */
+                    expect_token(TOKEN_RBRACE);
                 }
             } else if (current_token == TOKEN_ENUM) {
                 advance_token();
@@ -1790,8 +1795,9 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                     advance_token();
                     Enumerator *enums = NULL, **enums_tail = &enums;
                     do {
-                        if (current_token != TOKEN_IDENTIFIER)
-                            return NULL;
+                        if (current_token != TOKEN_IDENTIFIER) {
+                            fatal_error("Expected identifier");
+                        }
                         Enumerator *e = (Enumerator *)malloc(sizeof(Enumerator));
                         e->name       = strdup(current_lexeme);
                         e->value      = NULL;
@@ -1799,16 +1805,14 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                         advance_token();
                         if (current_token == TOKEN_ASSIGN) {
                             advance_token();
-                            e->value = parse_constant_expression(); // TODO: check
-                            if (!e->value)
-                                return NULL;
+                            e->value = parse_constant_expression();
                         }
                         *enums_tail = e;
                         enums_tail  = &e->next;
-                        if (current_token == TOKEN_COMMA)
-                            advance_token();
-                        else
+                        if (current_token != TOKEN_COMMA) {
                             break;
+                        }
+                        advance_token();
                     } while (current_token_is_not(TOKEN_RBRACE));
                     expect_token(TOKEN_RBRACE);
                     ts->u.enum_spec.enumerators = enums;
@@ -1818,6 +1822,9 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
         } else {
             break; /* End of specifier_qualifier_list */
         }
+    }
+    if (!type_specs) {
+        fatal_error("Expected type specifier");
     }
     return type_specs;
 }
@@ -1842,13 +1849,13 @@ Declarator *parse_struct_declarator()
     }
     if (current_token == TOKEN_COLON) {
         advance_token();
-        Expr *bitfield = parse_constant_expression();
+        Expr *bitfield = parse_constant_expression(); // TODO
         return new_declarator(DECLARATOR_NAMED); /* Placeholder */
     }
     Declarator *decl = parse_declarator();
     if (current_token == TOKEN_COLON) {
         advance_token();
-        Expr *bitfield = parse_constant_expression();
+        Expr *bitfield = parse_constant_expression(); // TODO
         /* Update decl with bitfield */
     }
     return decl;
@@ -1917,17 +1924,36 @@ Type *parse_atomic_type_specifier()
     return atomic;
 }
 
+//
+// type_qualifier
+//     : CONST
+//     | RESTRICT
+//     | VOLATILE
+//     | ATOMIC
+//     ;
+// Returns non-NULL value.
+//
 TypeQualifier *parse_type_qualifier()
 {
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    TypeQualifierKind kind = current_token == TOKEN_CONST      ? TYPE_QUALIFIER_CONST
-                             : current_token == TOKEN_RESTRICT ? TYPE_QUALIFIER_RESTRICT
-                             : current_token == TOKEN_VOLATILE ? TYPE_QUALIFIER_VOLATILE
-                                                               : TYPE_QUALIFIER_ATOMIC;
-    advance_token();
-    return new_type_qualifier(kind);
+    switch (current_token) {
+    case TOKEN_CONST:
+        advance_token();
+        return new_type_qualifier(TYPE_QUALIFIER_CONST);
+    case TOKEN_RESTRICT:
+        advance_token();
+        return new_type_qualifier(TYPE_QUALIFIER_RESTRICT);
+    case TOKEN_VOLATILE:
+        advance_token();
+        return new_type_qualifier(TYPE_QUALIFIER_VOLATILE);
+    case TOKEN_ATOMIC:
+        advance_token();
+        return new_type_qualifier(TYPE_QUALIFIER_ATOMIC);
+    default:
+        fatal_error("Expected type qualifier");
+    }
 }
 
 FunctionSpec *parse_function_specifier()
@@ -1948,16 +1974,12 @@ AlignmentSpec *parse_alignment_specifier()
     expect_token(TOKEN_ALIGNAS);
     expect_token(TOKEN_LPAREN);
     AlignmentSpec *as;
-    if (current_token == TOKEN_VOID || current_token == TOKEN_CHAR || /* Type check simplified */
-        current_token == TOKEN_STRUCT || current_token == TOKEN_UNION ||
-        current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME) {
-        Type *type = parse_type_name();
+    if (is_type_specifier(current_token)) {
         as         = new_alignment_spec(ALIGN_SPEC_TYPE);
-        as->u.type = type;
+        as->u.type = parse_type_name();
     } else {
-        Expr *expr = parse_constant_expression();
         as         = new_alignment_spec(ALIGN_SPEC_EXPR);
-        as->u.expr = expr;
+        as->u.expr = parse_constant_expression();
     }
     expect_token(TOKEN_RPAREN);
     return as;
@@ -2654,16 +2676,8 @@ DeclOrStmt *parse_block_item()
     if (current_token == TOKEN_TYPEDEF || current_token == TOKEN_EXTERN ||
         current_token == TOKEN_STATIC || current_token == TOKEN_THREAD_LOCAL ||
         current_token == TOKEN_AUTO || current_token == TOKEN_REGISTER ||
-        current_token == TOKEN_VOID || current_token == TOKEN_CHAR ||
-        current_token == TOKEN_SHORT || current_token == TOKEN_INT || current_token == TOKEN_LONG ||
-        current_token == TOKEN_FLOAT || current_token == TOKEN_DOUBLE ||
-        current_token == TOKEN_SIGNED || current_token == TOKEN_UNSIGNED ||
-        current_token == TOKEN_BOOL || current_token == TOKEN_COMPLEX ||
-        current_token == TOKEN_IMAGINARY || current_token == TOKEN_STRUCT ||
-        current_token == TOKEN_UNION || current_token == TOKEN_ENUM ||
-        current_token == TOKEN_TYPEDEF_NAME || current_token == TOKEN_ATOMIC ||
-        current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
-        current_token == TOKEN_VOLATILE || current_token == TOKEN_INLINE ||
+        is_type_specifier(current_token) || is_type_qualifier(current_token) ||
+        current_token == TOKEN_ATOMIC || current_token == TOKEN_INLINE ||
         current_token == TOKEN_NORETURN || current_token == TOKEN_ALIGNAS ||
         current_token == TOKEN_STATIC_ASSERT) {
         Declaration *decl = parse_declaration();
@@ -2765,17 +2779,8 @@ Stmt *parse_iteration_statement()
     if (current_token == TOKEN_TYPEDEF || current_token == TOKEN_EXTERN ||
         current_token == TOKEN_STATIC || current_token == TOKEN_THREAD_LOCAL ||
         current_token == TOKEN_AUTO || current_token == TOKEN_REGISTER ||
-        current_token == TOKEN_VOID || current_token == TOKEN_CHAR ||
-        current_token == TOKEN_SHORT || current_token == TOKEN_INT ||
-        current_token == TOKEN_LONG || current_token == TOKEN_FLOAT ||
-        current_token == TOKEN_DOUBLE || current_token == TOKEN_SIGNED ||
-        current_token == TOKEN_UNSIGNED || current_token == TOKEN_BOOL ||
-        current_token == TOKEN_COMPLEX || current_token == TOKEN_IMAGINARY ||
-        current_token == TOKEN_STRUCT || current_token == TOKEN_UNION ||
-        current_token == TOKEN_ENUM || current_token == TOKEN_TYPEDEF_NAME ||
-        current_token == TOKEN_ATOMIC || current_token == TOKEN_CONST ||
-        current_token == TOKEN_RESTRICT || current_token == TOKEN_VOLATILE ||
-        current_token == TOKEN_INLINE || current_token == TOKEN_NORETURN ||
+        is_type_specifier(current_token) || is_type_qualifier(current_token) ||
+        current_token == TOKEN_ATOMIC || current_token == TOKEN_INLINE || current_token == TOKEN_NORETURN ||
         current_token == TOKEN_ALIGNAS || current_token == TOKEN_STATIC_ASSERT) {
         Declaration *decl = parse_declaration();
         init              = new_for_init(FOR_INIT_DECL);

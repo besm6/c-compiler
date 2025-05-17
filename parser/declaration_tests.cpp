@@ -217,7 +217,7 @@ TEST_F(ParserTest, ParseTypeImaginary)
     EXPECT_STREQ("x", decl->u.var.declarators->declarator->u.named.name);
 }
 
-TEST_F(ParserTest, DISABLED_ParseTypeStruct) // TODO
+TEST_F(ParserTest, ParseTypeStruct)
 {
     Declaration *decl = GetDeclaration("struct S { int x; } s;");
 
