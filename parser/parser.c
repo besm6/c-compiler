@@ -2549,12 +2549,12 @@ Declaration *parse_static_assert_declaration()
     expect_token(TOKEN_LPAREN);
     Expr *condition = parse_constant_expression();
     expect_token(TOKEN_COMMA);
-    expect_token(TOKEN_STRING_LITERAL);
     char *message = strdup(current_lexeme);
-    advance_token();
+    expect_token(TOKEN_STRING_LITERAL);
     expect_token(TOKEN_RPAREN);
     expect_token(TOKEN_SEMICOLON);
-    Declaration *decl               = new_declaration(DECL_STATIC_ASSERT);
+
+    Declaration *decl              = new_declaration(DECL_STATIC_ASSERT);
     decl->u.static_assrt.condition = condition;
     decl->u.static_assrt.message   = message;
     return decl;

@@ -47,7 +47,7 @@ TEST_F(ParserTest, ParseEmptyDeclaration)
     EXPECT_EQ(nullptr, decl->u.var.declarators);
 }
 
-TEST_F(ParserTest, DISABLED_ParseStaticAssertDeclaration) // TODO
+TEST_F(ParserTest, ParseStaticAssertDeclaration) // TODO
 {
     Declaration *decl = GetDeclaration("_Static_assert(1, \"msg\");");
 
@@ -55,7 +55,7 @@ TEST_F(ParserTest, DISABLED_ParseStaticAssertDeclaration) // TODO
     EXPECT_EQ(EXPR_LITERAL, decl->u.static_assrt.condition->kind);
     EXPECT_EQ(LITERAL_INT, decl->u.static_assrt.condition->u.literal->kind);
     EXPECT_EQ(1, decl->u.static_assrt.condition->u.literal->u.int_val);
-    EXPECT_STREQ("msg", decl->u.static_assrt.message);
+    EXPECT_STREQ("\"msg\"", decl->u.static_assrt.message); // TODO: strip quotes
 }
 
 TEST_F(ParserTest, ParseFunctionDefinitionNoParams)
