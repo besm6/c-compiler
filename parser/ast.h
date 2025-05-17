@@ -128,17 +128,9 @@ struct TypeQualifier {
 
 struct Field {
     Field *next; /* linked list */
-    bool is_anonymous;
-    union {
-        struct {
-            Ident name;
-            Type *type;
-            Expr *bitfield;
-        } named; /* optional name, bitfield */
-        struct {
-            Type *type;
-        } anonymous;
-    } u;
+    Type *type;
+    Declarator *declarator; /* optional */
+    Expr *bitfield;         /* optional */
 };
 
 struct Enumerator {

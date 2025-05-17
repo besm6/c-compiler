@@ -92,25 +92,17 @@ void print_field(FILE *fd, Field *field, int indent)
     }
 
     print_indent(fd, indent);
-    fprintf(fd, "Field: %s\n",
-            field->is_anonymous ? "(anonymous)"
-                                : (field->u.named.name ? field->u.named.name : "(no name)"));
-    print_indent(fd, indent + 1);
-    fprintf(fd, "IsAnonymous: %s\n", field->is_anonymous ? "yes" : "no");
-
-    if (field->is_anonymous) {
-        print_indent(fd, indent + 1);
-        fprintf(fd, "Type:\n");
-        print_type(fd, field->u.anonymous.type, indent + 2);
-    } else {
-        print_indent(fd, indent + 1);
-        fprintf(fd, "Type:\n");
-        print_type(fd, field->u.named.type, indent + 2);
-        if (field->u.named.bitfield) {
-            print_indent(fd, indent + 1);
-            fprintf(fd, "Bitfield:\n");
-            print_expression(fd, field->u.named.bitfield, indent + 2);
-        }
+    fprintf(fd, "Field:\n");
+    print_type(fd, field->type, indent + 2);
+    if (field->declarator) {
+        print_indent(fd, indent + 2);
+        fprintf(fd, "Declarator:\n");
+        print_declarator(fd, field->declarator, indent + 4);
+    }
+    if (field->bitfield) {
+        print_indent(fd, indent + 2);
+        fprintf(fd, "Bitfield:\n");
+        print_expression(fd, field->bitfield, indent + 4);
     }
 }
 
@@ -560,16 +552,7 @@ void print_type_spec(FILE *fd, TypeSpec *spec, int indent)
                                                      : "(anonymous)");
         for (Field *field = spec->u.struct_spec.fields; field;
              field        = field->next) {
-            print_indent(fd, indent + 4);
-            fprintf(fd, "Field:\n");
-            if (field->is_anonymous) {
-                print_indent(fd, indent + 6);
-                fprintf(fd, "Anonymous\n");
-            } else {
-                print_indent(fd, indent + 6);
-                fprintf(fd, "Name: \"%s\"\n", field->u.named.name);
-                print_type(fd, field->u.named.type, indent + 6);
-            }
+            print_field(fd, field, indent + 4);
         }
         break;
     case TYPE_SPEC_UNION:
@@ -578,16 +561,7 @@ void print_type_spec(FILE *fd, TypeSpec *spec, int indent)
                                                      : "(anonymous)");
         for (Field *field = spec->u.struct_spec.fields; field;
              field        = field->next) {
-            print_indent(fd, indent + 4);
-            fprintf(fd, "Field:\n");
-            if (field->is_anonymous) {
-                print_indent(fd, indent + 6);
-                fprintf(fd, "Anonymous\n");
-            } else {
-                print_indent(fd, indent + 6);
-                fprintf(fd, "Name: \"%s\"\n", field->u.named.name);
-                print_type(fd, field->u.named.type, indent + 6);
-            }
+            print_field(fd, field, indent + 4);
         }
         break;
     case TYPE_SPEC_ENUM:

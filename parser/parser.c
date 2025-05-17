@@ -124,11 +124,11 @@ static TypeQualifier *new_type_qualifier(TypeQualifierKind kind)
 
 static Field *new_field(void)
 {
-    Field *f            = (Field *)malloc(sizeof(Field));
-    f->next             = NULL;
-    f->is_anonymous     = false;
-    f->u.named.name     = NULL;
-    f->u.named.bitfield = NULL;
+    Field *f      = (Field *)malloc(sizeof(Field));
+    f->next       = NULL;
+    f->type       = NULL;
+    f->declarator = NULL;
+    f->bitfield   = NULL;
     return f;
 }
 
@@ -1535,43 +1535,32 @@ Field *parse_struct_declaration()
     TypeQualifier *qualifiers = NULL;
     TypeSpec *type_specs      = parse_specifier_qualifier_list(&qualifiers);
 
-    // TODO: if STAR parse pointers
-
-    /* Check for anonymous struct/union */
-    if (current_token == TOKEN_SEMICOLON) {
-        Field *field            = new_field();
-        field->is_anonymous     = true;
-        field->u.anonymous.type = fuse_type_specifiers(type_specs); // TODO: pointers, qualifiers
-        advance_token(); /* Consume ';' */
-        return field;
-    }
+    /* Construct base Type from type_specs (simplified to first basic type) */
+    Type *base_type = fuse_type_specifiers(type_specs);
+    base_type->qualifiers = qualifiers;
 
     /* Parse struct_declarator_list */
     Field *fields = NULL, **fields_tail = &fields;
-    while (current_token_is_not(TOKEN_SEMICOLON)) {
+    for (;;) {
         Field *field = new_field();
-        if (current_token == TOKEN_IDENTIFIER) {
-            field->u.named.name = strdup(current_lexeme);
-            advance_token();
-        }
-        field->u.named.type = fuse_type_specifiers(type_specs); // TODO: pointers, qualifiers
+        field->type = base_type; // TODO: clone?
 
-        /* Handle bitfield */
+        if (current_token != TOKEN_COLON && current_token != TOKEN_SEMICOLON) {
+            field->declarator = parse_declarator();
+        }
         if (current_token == TOKEN_COLON) {
             advance_token();
-            field->u.named.bitfield = parse_constant_expression();
+            field->bitfield = parse_constant_expression();
         }
+
         *fields_tail = field;
         fields_tail  = &field->next;
 
-        if (current_token != TOKEN_COMMA) {
+        if (current_token == TOKEN_SEMICOLON) {
             break;
         }
-        advance_token();
-
-        // TODO: if STAR parse pointers
+        expect_token(TOKEN_COMMA);
     }
-
     expect_token(TOKEN_SEMICOLON);
     return fields;
 }
@@ -1699,61 +1688,7 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                 }
                 if (current_token == TOKEN_LBRACE) {
                     advance_token();
-                    /* Parse struct_declaration_list */
-                    Field *fields = NULL, **fields_tail = &fields;
-                    while (current_token_is_not(TOKEN_RBRACE)) {
-                        if (current_token == TOKEN_STATIC_ASSERT) {
-                            /* Skip static_assert_declaration */
-                            advance_token();
-                            expect_token(TOKEN_LPAREN);
-                            parse_constant_expression();
-                            expect_token(TOKEN_COMMA);
-                            expect_token(TOKEN_STRING_LITERAL);
-                            expect_token(TOKEN_RPAREN);
-                            expect_token(TOKEN_SEMICOLON);
-                        } else {
-                            TypeQualifier *field_quals = NULL;
-                            TypeSpec *field_specs = parse_specifier_qualifier_list(&field_quals);
-                            if (current_token == TOKEN_SEMICOLON) {
-                                /* Anonymous struct/union */
-                                Field *field            = (Field *)malloc(sizeof(Field));
-                                field->is_anonymous     = true;
-                                field->u.anonymous.type = fuse_type_specifiers(field_specs);
-                                field->u.anonymous.type->qualifiers = field_quals;
-                                field->next  = NULL;
-                                *fields_tail = field;
-                                fields_tail  = &field->next;
-                                advance_token();
-                            } else {
-                                /* struct_declarator_list */
-                                do {
-                                    Field *field            = (Field *)malloc(sizeof(Field));
-                                    field->is_anonymous     = false;
-                                    field->u.named.name     = (current_token == TOKEN_IDENTIFIER)
-                                                                  ? strdup(current_lexeme)
-                                                                  : NULL;
-                                    field->u.named.bitfield = NULL;
-                                    field->u.named.type = fuse_type_specifiers(field_specs);
-                                    field->u.named.type->qualifiers = field_quals;
-                                    field->next = NULL;
-                                    if (field->u.named.name)
-                                        advance_token();
-                                    if (current_token == TOKEN_COLON) {
-                                        advance_token();
-                                        field->u.named.bitfield = parse_constant_expression();
-                                    }
-                                    *fields_tail = field;
-                                    fields_tail  = &field->next;
-                                    if (current_token != TOKEN_COMMA) {
-                                        break;
-                                    }
-                                    advance_token();
-                                } while (current_token_is_not(TOKEN_SEMICOLON));
-                                expect_token(TOKEN_SEMICOLON);
-                            }
-                        }
-                    }
-                    ts->u.struct_spec.fields = fields;
+                    ts->u.struct_spec.fields = parse_struct_declaration_list();
                     expect_token(TOKEN_RBRACE);
                 }
             } else if (current_token == TOKEN_ENUM) {

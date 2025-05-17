@@ -235,10 +235,12 @@ void free_type_spec(TypeSpec *ts)
         Field *field = ts->u.struct_spec.fields;
         while (field) {
             Field *next = field->next;
-            if (!field->is_anonymous) {
-                if (field->u.named.name)
-                    free(field->u.named.name);
-                free_type(field->u.named.type);
+            free_type(field->type);
+            if (field->declarator) {
+                free_declarator(field->declarator);
+            }
+            if (field->bitfield) {
+                free_expression(field->bitfield);
             }
             free(field);
             field = next;

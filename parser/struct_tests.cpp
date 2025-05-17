@@ -20,7 +20,7 @@
 //
 TEST_F(ParserTest, NestedStructWithSimpleField)
 {
-    Type *type = TestType("struct Outer { int x; struct Inner { int y; } inner; }");
+    Type *type = TestType("struct Outer { int x; struct Inner { int y; } inner; };");
 
     EXPECT_EQ(type->kind, TYPE_STRUCT);
     //TODO
@@ -29,7 +29,7 @@ TEST_F(ParserTest, NestedStructWithSimpleField)
 
 TEST_F(ParserTest, StructWithPointerToItself)
 {
-    Type *type = TestType("struct Node { int data; struct Node *next; }");
+    Type *type = TestType("struct Node { int data; struct Node *next; };");
 
     EXPECT_EQ(type->kind, TYPE_STRUCT);
     //TODO
@@ -38,16 +38,16 @@ TEST_F(ParserTest, StructWithPointerToItself)
 
 TEST_F(ParserTest, FunctionPointerWithStructParameter)
 {
-    Type *type = TestType("void (*)(struct Pair { int x; int y; })");
+    Type *type = TestType("void (*)(struct Pair { int x; int y; });");
 
     EXPECT_EQ(type->kind, TYPE_POINTER);
     //TODO
     free_type(type);
 }
 
-TEST_F(ParserTest, DISABLED_NestedStructWithArrayField)
+TEST_F(ParserTest, NestedStructWithArrayField)
 {
-    Type *type = TestType("struct Container { struct Item { int value; } items[10]; }");
+    Type *type = TestType("struct Container { struct Item { int value; } items[10]; };");
 
     EXPECT_EQ(type->kind, TYPE_STRUCT);
     //TODO
@@ -56,7 +56,7 @@ TEST_F(ParserTest, DISABLED_NestedStructWithArrayField)
 
 TEST_F(ParserTest, UnionWithNestedStructAndAnonymousStruct)
 {
-    Type *type = TestType("union Variant { struct { int a; int b; }; struct Named { float x; } named; }");
+    Type *type = TestType("union Variant { struct { int a; int b; }; struct Named { float x; } named; };");
 
     EXPECT_EQ(type->kind, TYPE_UNION);
     //TODO
