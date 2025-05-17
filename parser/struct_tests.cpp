@@ -95,10 +95,61 @@ TEST_F(ParserTest, StructWithPointerToItself)
 {
     Type *type = TestType("struct Node { int data; struct Node *next; };");
 
+    //
+    // Check struct Node
+    //
     EXPECT_EQ(type->kind, TYPE_STRUCT);
-    //TODO
+    EXPECT_STREQ(type->u.struct_t.name, "Node");
+
+    Field *data = type->u.struct_t.fields;
+    ASSERT_NE(data, nullptr);
+    Field *next = data->next;
+    EXPECT_EQ(next->next, nullptr);
+
+    //
+    // Check field data
+    //
+    ASSERT_NE(data->type, nullptr);
+    EXPECT_EQ(data->type->kind, TYPE_INT);
+    EXPECT_EQ(data->type->u.integer.signedness, SIGNED_SIGNED);
+
+    ASSERT_NE(data->declarator, nullptr);
+    EXPECT_EQ(data->declarator->next, nullptr);
+    EXPECT_EQ(data->declarator->kind, DECLARATOR_NAMED);
+
+    ASSERT_NE(data->declarator->u.named.name, nullptr);
+    EXPECT_STREQ(data->declarator->u.named.name, "data");
+    EXPECT_EQ(data->declarator->u.named.pointers, nullptr);
+    EXPECT_EQ(data->declarator->u.named.suffixes, nullptr);
+
+    //
+    // Check field next
+    //
+    ASSERT_NE(next->type, nullptr);
+    EXPECT_EQ(next->type->kind, TYPE_STRUCT);
+    EXPECT_STREQ(next->type->u.struct_t.name, "Node");
+
+    ASSERT_NE(next->declarator, nullptr);
+    EXPECT_EQ(next->declarator->next, nullptr);
+    EXPECT_EQ(next->declarator->kind, DECLARATOR_NAMED);
+
+    ASSERT_NE(next->declarator->u.named.name, nullptr);
+    EXPECT_STREQ(next->declarator->u.named.name, "next");
+    EXPECT_EQ(next->declarator->u.named.pointers, nullptr); // TODO
+    EXPECT_EQ(next->declarator->u.named.suffixes, nullptr);
+
     free_type(type);
 }
+// Type: struct Node
+//  Fields:
+//   Field:
+//     Type: int (signed)
+//       Declarator:
+//         Name: "data"
+//   Field:
+//     Type: struct Node
+//       Declarator:
+//         Name: "next"
 
 //
 // Function Pointer with Struct Parameter

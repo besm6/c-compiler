@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
 #include "ast.h"
+#include "internal.h"
 
 // Forward declarations
 void free_expression(Expr *expr);

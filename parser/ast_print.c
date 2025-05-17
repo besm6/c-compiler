@@ -1,6 +1,7 @@
 #include <string.h>
 
 #include "ast.h"
+#include "internal.h"
 
 // Helper function to print indentation
 static void print_indent(FILE *fd, int indent)

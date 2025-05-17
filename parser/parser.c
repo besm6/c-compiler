@@ -5,6 +5,7 @@
 
 #include "ast.h"
 #include "scanner.h"
+#include "internal.h"
 
 /* Global lexer state */
 static int current_token;

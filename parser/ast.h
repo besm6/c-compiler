@@ -19,7 +19,6 @@ typedef struct Param Param;
 typedef struct Declaration Declaration;
 typedef struct DeclSpec DeclSpec;
 typedef struct StorageClass StorageClass;
-typedef struct TypeSpec TypeSpec;
 typedef struct FunctionSpec FunctionSpec;
 typedef struct AlignmentSpec AlignmentSpec;
 typedef struct InitDeclarator InitDeclarator;
@@ -190,38 +189,6 @@ typedef enum {
 
 struct StorageClass {
     StorageClassKind kind;
-};
-
-typedef enum {
-    TYPE_SPEC_BASIC,
-    TYPE_SPEC_STRUCT,
-    TYPE_SPEC_UNION,
-    TYPE_SPEC_ENUM,
-    TYPE_SPEC_TYPEDEF_NAME,
-    TYPE_SPEC_ATOMIC
-} TypeSpecKind; // Internal for parser only
-
-struct TypeSpec { // Internal for parser only
-    TypeSpec *next;            /* linked list */
-    TypeSpecKind kind;
-    union {
-        Type *basic;
-        struct {
-            Ident name;
-            Field *fields;
-        } struct_spec; /* optional name */
-        struct {
-            Ident name;
-            Enumerator *enumerators;
-        } enum_spec;
-        struct {
-            Ident name;
-        } typedef_name;
-        struct {
-            Type *type;
-        } atomic;
-    } u;
-    TypeQualifier *qualifiers; /* attributes */
 };
 
 typedef enum { FUNC_SPEC_INLINE, FUNC_SPEC_NORETURN } FunctionSpecKind;
@@ -591,7 +558,6 @@ void print_program(FILE *fd, Program *program);
 void print_declarator(FILE *fd, Declarator *decl, int indent);
 void print_expression(FILE *fd, Expr *expr, int indent);
 void print_statement(FILE *fd, Stmt *stmt, int indent);
-void print_type_spec(FILE *fd, TypeSpec *spec, int indent);
 void print_type(FILE *fd, Type *type, int indent);
 void print_type_qualifiers(FILE *fd, TypeQualifier *qualifiers, int indent);
 extern const char *type_kind_str[];
