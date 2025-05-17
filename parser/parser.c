@@ -124,9 +124,11 @@ static TypeQualifier *new_type_qualifier(TypeQualifierKind kind)
 
 static Field *new_field(void)
 {
-    Field *f        = (Field *)malloc(sizeof(Field));
-    f->next         = NULL;
-    f->is_anonymous = false;
+    Field *f            = (Field *)malloc(sizeof(Field));
+    f->next             = NULL;
+    f->is_anonymous     = false;
+    f->u.named.name     = NULL;
+    f->u.named.bitfield = NULL;
     return f;
 }
 
@@ -1533,57 +1535,44 @@ Field *parse_struct_declaration()
     TypeQualifier *qualifiers = NULL;
     TypeSpec *type_specs      = parse_specifier_qualifier_list(&qualifiers);
 
+    // TODO: if STAR parse pointers
+
     /* Check for anonymous struct/union */
     if (current_token == TOKEN_SEMICOLON) {
         Field *field            = new_field();
         field->is_anonymous     = true;
-        field->u.anonymous.type = fuse_type_specifiers(type_specs);
+        field->u.anonymous.type = fuse_type_specifiers(type_specs); // TODO: pointers, qualifiers
         advance_token(); /* Consume ';' */
         return field;
     }
 
     /* Parse struct_declarator_list */
     Field *fields = NULL, **fields_tail = &fields;
-    do {
-        Field *field            = new_field();
-        field->is_anonymous     = false;
-        field->u.named.name     = (current_token == TOKEN_IDENTIFIER) ? strdup(current_lexeme) : NULL;
-        field->u.named.bitfield = NULL;
-
-        /* Parse field type */
-        field->u.named.type = fuse_type_specifiers(type_specs);
-
-        if (field->u.named.name)
+    while (current_token_is_not(TOKEN_SEMICOLON)) {
+        Field *field = new_field();
+        if (current_token == TOKEN_IDENTIFIER) {
+            field->u.named.name = strdup(current_lexeme);
             advance_token();
+        }
+        field->u.named.type = fuse_type_specifiers(type_specs); // TODO: pointers, qualifiers
 
         /* Handle bitfield */
         if (current_token == TOKEN_COLON) {
             advance_token();
             field->u.named.bitfield = parse_constant_expression();
         }
-
         *fields_tail = field;
         fields_tail  = &field->next;
 
-        if (current_token == TOKEN_COMMA) {
-            advance_token();
-        } else {
+        if (current_token != TOKEN_COMMA) {
             break;
         }
-    } while (current_token_is_not(TOKEN_SEMICOLON));
+        advance_token();
 
-    if (current_token != TOKEN_SEMICOLON) {
-        /* Free allocated fields on error */
-        while (fields) {
-            Field *next = fields->next;
-            free(fields->u.named.name);
-            free(fields);
-            fields = next;
-        }
-        return NULL;
+        // TODO: if STAR parse pointers
     }
 
-    advance_token(); /* Consume ';' */
+    expect_token(TOKEN_SEMICOLON);
     return fields;
 }
 

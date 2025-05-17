@@ -27,7 +27,7 @@ TEST_F(ParserTest, NestedStructWithSimpleField)
     free_type(type);
 }
 
-TEST_F(ParserTest, DISABLED_StructWithPointerToItself)
+TEST_F(ParserTest, StructWithPointerToItself)
 {
     Type *type = TestType("struct Node { int data; struct Node *next; }");
 
