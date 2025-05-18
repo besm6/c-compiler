@@ -1446,27 +1446,27 @@ TypeSpec *parse_type_specifier()
     return ts;
 }
 
-Type *type_apply_pointers(Type *type, Pointer *pointers)
+Type *type_apply_pointers(Type *type, /*const*/ Pointer *pointers)
 {
-    for (Pointer *p = pointers; p; p = p->next) {
+    for (/*const*/ Pointer *p = pointers; p; p = p->next) {
         Type *ptr                 = new_type(TYPE_POINTER);
         ptr->u.pointer.target     = type;
-        ptr->u.pointer.qualifiers = p->qualifiers;
+        ptr->u.pointer.qualifiers = p->qualifiers; // TODO: clone_qualifiers()
         ptr->qualifiers           = NULL;
         type                      = ptr;
     }
     return type;
 }
 
-Type *type_apply_suffixes(Type *type, DeclaratorSuffix *suffixes)
+Type *type_apply_suffixes(Type *type, /*const*/ DeclaratorSuffix *suffixes)
 {
-    for (DeclaratorSuffix *s = suffixes; s; s = s->next) {
+    for (/*const*/ DeclaratorSuffix *s = suffixes; s; s = s->next) {
         switch (s->kind) {
         case SUFFIX_ARRAY: {
             Type *array               = new_type(TYPE_ARRAY);
             array->u.array.element    = type;
-            array->u.array.size       = s->u.array.size;
-            array->u.array.qualifiers = s->u.array.qualifiers;
+            array->u.array.size       = s->u.array.size; s->u.array.size = NULL; // TODO: clone_expr()
+            array->u.array.qualifiers = s->u.array.qualifiers; // TODO: clone_qualifiers()
             array->u.array.is_static  = s->u.array.is_static;
             array->qualifiers         = NULL;
             type                      = array;
@@ -1475,7 +1475,7 @@ Type *type_apply_suffixes(Type *type, DeclaratorSuffix *suffixes)
         case SUFFIX_FUNCTION: {
             Type *func                  = new_type(TYPE_FUNCTION);
             func->u.function.returnType = type;
-            func->u.function.params     = s->u.function.params;
+            func->u.function.params     = s->u.function.params; // TODO: clone_params()
             func->u.function.variadic   = s->u.function.variadic;
             func->qualifiers            = NULL;
             type                        = func;
