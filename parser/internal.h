@@ -10,6 +10,10 @@ extern "C" {
 
 #include <stdio.h>
 
+/* Forward declarations for recursive types */
+typedef struct Declarator Declarator;
+typedef struct DeclaratorSuffix DeclaratorSuffix;
+typedef struct Pointer Pointer;
 typedef struct TypeSpec TypeSpec;
 
 typedef enum {
@@ -44,7 +48,47 @@ struct TypeSpec { // Internal for parser only
     TypeQualifier *qualifiers; /* attributes */
 };
 
+struct Declarator {
+    Declarator *next; /* linked list */
+    Ident name;       /* NULL for abstract declarator */
+    Pointer *pointers;
+    DeclaratorSuffix *suffixes;
+};
+
+struct Pointer {
+    Pointer *next; /* linked list */
+    TypeQualifier *qualifiers;
+};
+
+typedef enum { SUFFIX_ARRAY, SUFFIX_FUNCTION, SUFFIX_POINTER } DeclaratorSuffixKind;
+
+struct DeclaratorSuffix {
+    DeclaratorSuffix *next; /* linked list */
+    DeclaratorSuffixKind kind;
+    union {
+        struct {
+            Expr *size;
+            TypeQualifier *qualifiers;
+            bool is_static;
+        } array;
+        struct {
+            Param *params;
+            bool variadic;
+        } function;
+        struct {
+            Pointer *pointers;
+            DeclaratorSuffix *suffix;
+        } pointer;
+    } u;
+};
+
 void print_type_spec(FILE *fd, TypeSpec *spec, int indent);
+void print_declarator(FILE *fd, Declarator *decl, int indent);
+
+void free_declarator(Declarator *decl);
+void free_decl_spec(DeclSpec *spec);
+
+Declarator *parse_declarator(void);
 
 #ifdef __cplusplus
 }

@@ -21,9 +21,6 @@ typedef struct StorageClass StorageClass;
 typedef struct FunctionSpec FunctionSpec;
 typedef struct AlignmentSpec AlignmentSpec;
 typedef struct InitDeclarator InitDeclarator;
-typedef struct Declarator Declarator;
-typedef struct Pointer Pointer;
-typedef struct DeclaratorSuffix DeclaratorSuffix;
 typedef struct Initializer Initializer;
 typedef struct InitItem InitItem;
 typedef struct Designator Designator;
@@ -158,11 +155,14 @@ struct Declaration {
             Expr *condition;
             char *message;
         } static_assrt;
+        struct {
+            DeclSpec *specifiers;
+            Type *type;
+        } empty;
     } u;
 };
 
 struct DeclSpec {
-    Type *base_type;           // void, int, char ... (TODO: remove)
     TypeQualifier *qualifiers; // const, volatile, restrict, _Atomic
     StorageClass *storage;     // extern, static, auto, register ...
     FunctionSpec *func_specs;  // inline, _Noreturn
@@ -199,44 +199,11 @@ struct AlignmentSpec {
     } u;
 };
 
-struct InitDeclarator { // TODO: add type from DeclSpec
+struct InitDeclarator {
     InitDeclarator *next; /* linked list */
-    Declarator *declarator; // TODO: replace with name
+    Type *type;
+    Ident name;
     Initializer *init;    /* optional */
-};
-
-struct Declarator {
-    Declarator *next; /* linked list */
-    Ident name;       /* NULL for abstract declarator */
-    Pointer *pointers;
-    DeclaratorSuffix *suffixes;
-};
-
-struct Pointer {
-    Pointer *next; /* linked list */
-    TypeQualifier *qualifiers;
-};
-
-typedef enum { SUFFIX_ARRAY, SUFFIX_FUNCTION, SUFFIX_POINTER } DeclaratorSuffixKind;
-
-struct DeclaratorSuffix {
-    DeclaratorSuffix *next; /* linked list */
-    DeclaratorSuffixKind kind;
-    union {
-        struct {
-            Expr *size;
-            TypeQualifier *qualifiers;
-            bool is_static;
-        } array;
-        struct {
-            Param *params;
-            bool variadic;
-        } function;
-        struct {
-            Pointer *pointers;
-            DeclaratorSuffix *suffix;
-        } pointer;
-    } u;
 };
 
 typedef enum { INITIALIZER_SINGLE, INITIALIZER_COMPOUND } InitializerKind;
@@ -336,7 +303,7 @@ struct Expr {
         Expr *post_dec;
         Expr *sizeof_expr;
         Type *sizeof_type;
-        Type * align_of;
+        Type *align_of;
         struct {
             Expr *controlling_expr;
             GenericAssoc *associations;
@@ -522,9 +489,10 @@ struct ExternalDecl {
     ExternalDeclKind kind;
     union {
         struct {
+            Type *type;
+            Ident name;
             DeclSpec *specifiers;
-            Declarator *declarator;
-            Declaration *decls;
+            Declaration *decls;         // TODO: rename as decl_params
             Stmt *body;
         } function;
         Declaration *declaration;
@@ -535,21 +503,18 @@ Program *parse(FILE *input);
 void free_program(Program* program);
 
 void print_program(FILE *fd, Program *program);
-void print_declarator(FILE *fd, Declarator *decl, int indent);
 void print_expression(FILE *fd, Expr *expr, int indent);
 void print_statement(FILE *fd, Stmt *stmt, int indent);
 void print_type(FILE *fd, Type *type, int indent);
 void print_type_qualifiers(FILE *fd, TypeQualifier *qualifiers, int indent);
 extern const char *type_kind_str[];
 
-void free_declarator(Declarator *decl);
 void free_expression(Expr *expr);
 void free_statement(Stmt *stmt);
 void free_type(Type *type);
 
 #ifdef GTEST_API_
 void advance_token(void);
-Declarator *parse_declarator(void);
 Expr *parse_primary_expression(void);
 Expr *parse_expression(void);
 Stmt *parse_statement(void);

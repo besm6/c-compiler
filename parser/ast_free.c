@@ -265,15 +265,12 @@ void free_type_spec(TypeSpec *ts)
 }
 
 // Free DeclSpec
-static void free_decl_spec(DeclSpec *spec)
+void free_decl_spec(DeclSpec *spec)
 {
     if (!spec)
         return;
     if (spec->storage)
         free(spec->storage);
-    if (spec->base_type) {
-        free_type(spec->base_type);
-    }
     TypeQualifier *qual = spec->qualifiers;
     while (qual) {
         TypeQualifier *next = qual->next;
@@ -298,7 +295,8 @@ static void free_init_declarator(InitDeclarator *id)
 {
     if (!id)
         return;
-    free_declarator(id->declarator);
+    if (id->name)
+        free(id->name);
     free_initializer(id->init);
     InitDeclarator *next = id->next;
     free(id);
@@ -321,7 +319,8 @@ static void free_declaration(Declaration *decl)
             free(decl->u.static_assrt.message);
         break;
     case DECL_EMPTY:
-        free_decl_spec(decl->u.var.specifiers);
+        free_decl_spec(decl->u.empty.specifiers);
+        free_type(decl->u.empty.type);
         break;
     }
     free(decl);
@@ -413,8 +412,10 @@ static void free_external_decl(ExternalDecl *ext)
         return;
     switch (ext->kind) {
     case EXTERNAL_DECL_FUNCTION:
+        free_type(ext->u.function.type);
+        if (ext->u.function.name)
+            free(ext->u.function.name);
         free_decl_spec(ext->u.function.specifiers);
-        free_declarator(ext->u.function.declarator);
         free_statement(ext->u.function.body);
         break;
     case EXTERNAL_DECL_DECLARATION:

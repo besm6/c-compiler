@@ -589,11 +589,6 @@ static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
             break;
         }
     }
-    if (spec->base_type) {
-        print_indent(fd, indent + 2);
-        fprintf(fd, "Base Type:\n");
-        print_type(fd, spec->base_type, indent + 4);
-    }
     if (spec->qualifiers) {
         print_type_qualifiers(fd, spec->qualifiers, indent + 2);
     }
@@ -631,8 +626,8 @@ static void print_init_declarator(FILE *fd, InitDeclarator *id, int indent)
         return;
     }
     print_indent(fd, indent);
-    fprintf(fd, "InitDeclarator:\n");
-    print_declarator(fd, id->declarator, indent + 2);
+    fprintf(fd, "InitDeclarator: %s\n", id->name ? id->name : "(abstract)");
+    print_type(fd, id->type, indent + 2);
     if (id->init) {
         print_initializer(fd, id->init, indent + 2);
     }
@@ -669,7 +664,8 @@ static void print_declaration(FILE *fd, Declaration *decl, int indent)
         break;
     case DECL_EMPTY:
         fprintf(fd, "Empty\n");
-        print_decl_spec(fd, decl->u.var.specifiers, indent + 2);
+        print_decl_spec(fd, decl->u.empty.specifiers, indent + 2);
+        print_type(fd, decl->u.empty.type, indent + 2);
         break;
     }
 }
@@ -801,23 +797,24 @@ static void print_external_decl(FILE *fd, ExternalDecl *ext, int indent)
         return;
     }
     print_indent(fd, indent);
-    fprintf(fd, "ExternalDecl: ");
+    fprintf(fd, "ExternalDecl:\n");
+    print_indent(fd, indent + 2);
     switch (ext->kind) {
     case EXTERNAL_DECL_FUNCTION:
-        fprintf(fd, "Function\n");
-        print_decl_spec(fd, ext->u.function.specifiers, indent + 2);
-        print_declarator(fd, ext->u.function.declarator, indent + 2);
-        print_statement(fd, ext->u.function.body, indent + 2);
+        fprintf(fd, "Function: %s\n", ext->u.function.name ? ext->u.function.name : "(anonymous)");
+        print_type(fd, ext->u.function.type, indent + 4);
+        print_decl_spec(fd, ext->u.function.specifiers, indent + 4);
+        print_statement(fd, ext->u.function.body, indent + 4);
         break;
     case EXTERNAL_DECL_DECLARATION:
         fprintf(fd, "Declaration\n");
-        print_declaration(fd, ext->u.declaration, indent + 2);
+        print_declaration(fd, ext->u.declaration, indent + 4);
         break;
     }
     if (ext->next) {
         print_indent(fd, indent);
         fprintf(fd, "Next ExternalDecl:\n");
-        print_external_decl(fd, ext->next, indent + 2);
+        print_external_decl(fd, ext->next, indent + 4);
     }
 }
 

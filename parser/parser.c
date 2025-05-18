@@ -164,7 +164,7 @@ static DeclSpec *new_decl_spec()
     DeclSpec *ds   = malloc(sizeof(DeclSpec));
     ds->storage    = NULL;
     ds->qualifiers = NULL;
-    ds->base_type = NULL;
+//  ds->base_type  = NULL; -- remove
     ds->func_specs = NULL;
     ds->align_spec = NULL;
     return ds;
@@ -201,12 +201,13 @@ static AlignmentSpec *new_alignment_spec(AlignmentSpecKind kind)
     return as;
 }
 
-static InitDeclarator *new_init_declarator(Declarator *declarator, Initializer *init)
+static InitDeclarator *new_init_declarator()
 {
     InitDeclarator *id = malloc(sizeof(InitDeclarator));
-    id->declarator     = declarator;
-    id->init           = init;
+    id->init           = NULL;
     id->next           = NULL;
+    id->type           = NULL;
+    id->name           = NULL;
     return id;
 }
 
@@ -396,9 +397,9 @@ AssignOp *parse_assignment_operator();
 Expr *parse_expression();
 Expr *parse_constant_expression();
 Declaration *parse_declaration();
-DeclSpec *parse_declaration_specifiers();
-InitDeclarator *parse_init_declarator_list(Declarator *first);
-InitDeclarator *parse_init_declarator(Declarator *decl);
+DeclSpec *parse_declaration_specifiers(Type **base_type);
+InitDeclarator *parse_init_declarator_list(Declarator *first, Type *base_type);
+InitDeclarator *parse_init_declarator(Declarator *decl, Type *base_type);
 StorageClass *parse_storage_class_specifier();
 TypeSpec *parse_type_specifier();
 Type *parse_struct_or_union_specifier();
@@ -1232,6 +1233,50 @@ Type *fuse_type_specifiers(TypeSpec *specs)
     return result;
 }
 
+Type *type_apply_pointers(Type *type, /*const*/ Pointer *pointers)
+{
+    for (/*const*/ Pointer *p = pointers; p; p = p->next) {
+        Type *ptr                 = new_type(TYPE_POINTER);
+        ptr->u.pointer.target     = type;
+        ptr->u.pointer.qualifiers = p->qualifiers; // TODO: clone_qualifiers()
+        ptr->qualifiers           = NULL;
+        type                      = ptr;
+    }
+    return type;
+}
+
+Type *type_apply_suffixes(Type *type, /*const*/ DeclaratorSuffix *suffixes)
+{
+    for (/*const*/ DeclaratorSuffix *s = suffixes; s; s = s->next) {
+        switch (s->kind) {
+        case SUFFIX_ARRAY: {
+            Type *array               = new_type(TYPE_ARRAY);
+            array->u.array.element    = type;
+            array->u.array.size       = s->u.array.size; s->u.array.size = NULL; // TODO: clone_expr()
+            array->u.array.qualifiers = s->u.array.qualifiers; // TODO: clone_qualifiers()
+            array->u.array.is_static  = s->u.array.is_static;
+            array->qualifiers         = NULL;
+            type                      = array;
+            break;
+        }
+        case SUFFIX_FUNCTION: {
+            Type *func                  = new_type(TYPE_FUNCTION);
+            func->u.function.returnType = type;
+            func->u.function.params     = s->u.function.params; // TODO: clone_params()
+            func->u.function.variadic   = s->u.function.variadic;
+            func->qualifiers            = NULL;
+            type                        = func;
+            break;
+        }
+        case SUFFIX_POINTER:
+            type = type_apply_suffixes(type, s->next);
+            type = type_apply_pointers(type, s->u.pointer.pointers);
+            return type_apply_suffixes(type, s->u.pointer.suffix);
+        }
+    }
+    return type;
+}
+
 //
 // declaration
 //     : declaration_specifiers ';'
@@ -1247,14 +1292,16 @@ Declaration *parse_declaration()
     if (current_token == TOKEN_STATIC_ASSERT) {
         return parse_static_assert_declaration();
     }
-    DeclSpec *specifiers = parse_declaration_specifiers();
+    Type *base_type = NULL;
+    DeclSpec *specifiers = parse_declaration_specifiers(&base_type);
     if (current_token == TOKEN_SEMICOLON) {
         advance_token();
-        Declaration *decl      = new_declaration(DECL_EMPTY);
-        decl->u.var.specifiers = specifiers;
+        Declaration *decl        = new_declaration(DECL_EMPTY);
+        decl->u.empty.specifiers = specifiers;
+        decl->u.empty.type       = base_type;
         return decl;
     }
-    InitDeclarator *declarators = parse_init_declarator_list(NULL);
+    InitDeclarator *declarators = parse_init_declarator_list(NULL, base_type);
     expect_token(TOKEN_SEMICOLON);
     Declaration *decl       = new_declaration(DECL_VAR);
     decl->u.var.specifiers  = specifiers;
@@ -1262,7 +1309,24 @@ Declaration *parse_declaration()
     return decl;
 }
 
-DeclSpec *parse_declaration_specifiers()
+//
+// declaration_specifiers
+//     : storage_class_specifier declaration_specifiers
+//     | storage_class_specifier
+//     | type_specifier declaration_specifiers
+//     | type_specifier
+//     | type_qualifier declaration_specifiers
+//     | type_qualifier
+//     | function_specifier declaration_specifiers
+//     | function_specifier
+//     | alignment_specifier declaration_specifiers
+//     | alignment_specifier
+//     ;
+// Stores base type by provided pointer.
+// Returns DeclSpec object when it's not empty.
+// Otherwise returns NULL.
+//
+DeclSpec *parse_declaration_specifiers(Type **base_type_result)
 {
     if (debug) {
         printf("--- %s()\n", __func__);
@@ -1290,37 +1354,49 @@ DeclSpec *parse_declaration_specifiers()
             break;
         }
     }
-    ds->base_type = fuse_type_specifiers(type_specs);
+    *base_type_result = fuse_type_specifiers(type_specs);
+    if (!ds->storage && !ds->qualifiers && !ds->func_specs && !ds->align_spec) {
+        free_decl_spec(ds);
+        return NULL;
+    }
     return ds;
 }
 
-InitDeclarator *parse_init_declarator_list(Declarator *first)
+InitDeclarator *parse_init_declarator_list(Declarator *first, Type *base_type)
 {
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    InitDeclarator *decl = parse_init_declarator(first);
+    InitDeclarator *decl = parse_init_declarator(first, base_type);
     if (current_token == TOKEN_COMMA) {
         advance_token();
-        decl->next = parse_init_declarator_list(NULL);
+        decl->next = parse_init_declarator_list(NULL, base_type);
     }
     return decl;
 }
 
-InitDeclarator *parse_init_declarator(Declarator *declarator)
+//
+// init_declarator
+//     : declarator '=' initializer
+//     | declarator
+//     ;
+//
+InitDeclarator *parse_init_declarator(Declarator *decl, Type *base_type)
 {
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    if (!declarator) {
-        declarator = parse_declarator();
+    if (!decl) {
+        decl = parse_declarator();
     }
-    Initializer *init = NULL;
+    InitDeclarator *init_decl = new_init_declarator();
+    init_decl->name = decl->name; // TODO: clone
     if (current_token == TOKEN_ASSIGN) {
         advance_token();
-        init = parse_initializer();
+        init_decl->init = parse_initializer();
     }
-    return new_init_declarator(declarator, init);
+    init_decl->type = type_apply_suffixes(type_apply_pointers(base_type, decl->pointers), decl->suffixes);
+    return init_decl;
 }
 
 StorageClass *parse_storage_class_specifier()
@@ -1436,50 +1512,6 @@ TypeSpec *parse_type_specifier()
         fatal_error("Expected type specifier");
     }
     return ts;
-}
-
-Type *type_apply_pointers(Type *type, /*const*/ Pointer *pointers)
-{
-    for (/*const*/ Pointer *p = pointers; p; p = p->next) {
-        Type *ptr                 = new_type(TYPE_POINTER);
-        ptr->u.pointer.target     = type;
-        ptr->u.pointer.qualifiers = p->qualifiers; // TODO: clone_qualifiers()
-        ptr->qualifiers           = NULL;
-        type                      = ptr;
-    }
-    return type;
-}
-
-Type *type_apply_suffixes(Type *type, /*const*/ DeclaratorSuffix *suffixes)
-{
-    for (/*const*/ DeclaratorSuffix *s = suffixes; s; s = s->next) {
-        switch (s->kind) {
-        case SUFFIX_ARRAY: {
-            Type *array               = new_type(TYPE_ARRAY);
-            array->u.array.element    = type;
-            array->u.array.size       = s->u.array.size; s->u.array.size = NULL; // TODO: clone_expr()
-            array->u.array.qualifiers = s->u.array.qualifiers; // TODO: clone_qualifiers()
-            array->u.array.is_static  = s->u.array.is_static;
-            array->qualifiers         = NULL;
-            type                      = array;
-            break;
-        }
-        case SUFFIX_FUNCTION: {
-            Type *func                  = new_type(TYPE_FUNCTION);
-            func->u.function.returnType = type;
-            func->u.function.params     = s->u.function.params; // TODO: clone_params()
-            func->u.function.variadic   = s->u.function.variadic;
-            func->qualifiers            = NULL;
-            type                        = func;
-            break;
-        }
-        case SUFFIX_POINTER:
-            type = type_apply_suffixes(type, s->next);
-            type = type_apply_pointers(type, s->u.pointer.pointers);
-            return type_apply_suffixes(type, s->u.pointer.suffix);
-        }
-    }
-    return type;
 }
 
 //
@@ -2730,15 +2762,17 @@ ExternalDecl *parse_external_declaration()
     }
 
     // Parse declaration_specifiers (common to both function_definition and declaration).
-    DeclSpec *spec = parse_declaration_specifiers();
+    Type *base_type = NULL;
+    DeclSpec *spec = parse_declaration_specifiers(&base_type);
 
     // Check if it's a declaration (ends with ';').
     if (current_token == TOKEN_SEMICOLON) {
 
         // Empty declaration.
         advance_token();
-        Declaration *decl      = new_declaration(DECL_EMPTY);
-        decl->u.var.specifiers = spec;
+        Declaration *decl        = new_declaration(DECL_EMPTY);
+        decl->u.empty.specifiers = spec;
+        decl->u.empty.type       = base_type;
 
         ExternalDecl *ed  = new_external_decl(EXTERNAL_DECL_DECLARATION);
         ed->u.declaration = decl;
@@ -2758,7 +2792,7 @@ ExternalDecl *parse_external_declaration()
         ed->u.declaration = new_declaration(DECL_VAR);
 
         ed->u.declaration->u.var.specifiers  = spec;
-        ed->u.declaration->u.var.declarators = parse_init_declarator_list(decl);
+        ed->u.declaration->u.var.declarators = parse_init_declarator_list(decl, base_type);
         expect_token(TOKEN_SEMICOLON);
         return ed;
     }
@@ -2771,7 +2805,8 @@ ExternalDecl *parse_external_declaration()
 
     ExternalDecl *ed          = new_external_decl(EXTERNAL_DECL_FUNCTION);
     ed->u.function.specifiers = spec;
-    ed->u.function.declarator = decl;
+    ed->u.function.name       = decl->name;
+    ed->u.function.type       = type_apply_suffixes(type_apply_pointers(base_type, decl->pointers), decl->suffixes);
     ed->u.function.decls      = decl_list;
     ed->u.function.body       = parse_compound_statement();
     return ed;

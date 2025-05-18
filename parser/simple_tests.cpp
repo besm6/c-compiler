@@ -1,4 +1,5 @@
 #include "fixture.h"
+#include "internal.h"
 
 // Test primary expression: identifier
 TEST_F(ParserTest, ScanIdentifier)
@@ -108,15 +109,14 @@ TEST_F(ParserTest, ParseVariableDeclaration)
 
     Declaration *decl = program->decls->u.declaration;
     EXPECT_EQ(DECL_VAR, decl->kind);
-    ASSERT_NE(nullptr, decl->u.var.specifiers);
-    ASSERT_NE(nullptr, decl->u.var.specifiers->base_type);
-    EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
-    ASSERT_NE(nullptr, decl->u.var.specifiers->base_type);
-    EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
+    EXPECT_EQ(nullptr, decl->u.var.specifiers);
 
     InitDeclarator *id = decl->u.var.declarators;
     ASSERT_NE(nullptr, id);
-    EXPECT_STREQ("x", id->declarator->name);
+    ASSERT_NE(nullptr, id->type);
+    EXPECT_EQ(TYPE_INT, id->type->kind);
+    EXPECT_STREQ("x", id->name);
+
     ASSERT_NE(nullptr, id->init);
     EXPECT_EQ(INITIALIZER_SINGLE, id->init->kind);
     EXPECT_EQ(EXPR_LITERAL, id->init->u.expr->kind);
@@ -133,18 +133,15 @@ TEST_F(ParserTest, ParseFunctionDefinition)
 
     ASSERT_NE(nullptr, program->decls);
     EXPECT_EQ(EXTERNAL_DECL_FUNCTION, program->decls->kind);
+    EXPECT_STREQ("main", program->decls->u.function.name);
 
-    DeclSpec *spec = program->decls->u.function.specifiers;
-    ASSERT_NE(nullptr, spec);
-    ASSERT_NE(nullptr, spec->base_type);
-    EXPECT_EQ(TYPE_INT, spec->base_type->kind);
+    Type *type = program->decls->u.function.type;
+    ASSERT_NE(nullptr, type);
+    EXPECT_EQ(TYPE_FUNCTION, type->kind);
+    ASSERT_NE(nullptr, type->u.function.returnType);
+    EXPECT_EQ(TYPE_INT, type->u.function.returnType->kind);
 
-    Declarator *decl = program->decls->u.function.declarator;
-    ASSERT_NE(nullptr, decl);
-    EXPECT_STREQ("main", decl->name);
-    ASSERT_NE(nullptr, decl->suffixes);
-    EXPECT_EQ(SUFFIX_FUNCTION, decl->suffixes->kind);
-    EXPECT_EQ(decl->suffixes->u.function.params, nullptr);
+    EXPECT_EQ(nullptr, program->decls->u.function.specifiers);
 
     Stmt *body = program->decls->u.function.body;
     ASSERT_NE(nullptr, body);
@@ -169,20 +166,20 @@ TEST_F(ParserTest, ParseTranslationUnit)
 
     Declaration *decl = program->decls->u.declaration;
     EXPECT_EQ(DECL_VAR, decl->kind);
-    ASSERT_NE(nullptr, decl->u.var.specifiers);
-    EXPECT_EQ(TYPE_INT, decl->u.var.specifiers->base_type->kind);
-    EXPECT_STREQ("x", decl->u.var.declarators->declarator->name);
+    EXPECT_EQ(nullptr, decl->u.var.specifiers);
 
-    ASSERT_NE(nullptr, program->decls->next);
-    EXPECT_EQ(EXTERNAL_DECL_FUNCTION, program->decls->next->kind);
+    InitDeclarator *id = decl->u.var.declarators;
+    ASSERT_NE(nullptr, id);
+    EXPECT_STREQ("x", id->name);
+    ASSERT_NE(nullptr, id->type);
+    EXPECT_EQ(TYPE_INT, id->type->kind);
 
-    DeclSpec *spec = program->decls->next->u.function.specifiers;
-    EXPECT_EQ(TYPE_VOID, spec->base_type->kind);
+    ExternalDecl *func = program->decls->next;
+    ASSERT_NE(nullptr, func);
+    EXPECT_EQ(EXTERNAL_DECL_FUNCTION, func->kind);
+    EXPECT_EQ(nullptr, func->u.function.specifiers);
 
-    Declarator *func = program->decls->next->u.function.declarator;
-    EXPECT_STREQ("f", func->name);
-    EXPECT_EQ(SUFFIX_FUNCTION, func->suffixes->kind);
-    EXPECT_EQ(func->suffixes->u.function.params, nullptr);
-    EXPECT_EQ(STMT_COMPOUND, program->decls->next->u.function.body->kind);
-    EXPECT_EQ(nullptr, program->decls->next->u.function.body->u.compound);
+    EXPECT_STREQ("f", func->u.function.name);
+    EXPECT_EQ(STMT_COMPOUND, func->u.function.body->kind);
+    EXPECT_EQ(nullptr, func->u.function.body->u.compound);
 }
