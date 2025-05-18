@@ -23,11 +23,11 @@ enable_testing()
 add_executable(c-parser-tests
     parser.c
     simple_tests.cpp
-#    statement_tests.cpp
-#    operator_tests.cpp
-#    type_tests.cpp
-#    struct_tests.cpp
-#    declaration_tests.cpp
+    statement_tests.cpp
+    operator_tests.cpp
+    type_tests.cpp
+    struct_tests.cpp
+    declaration_tests.cpp
 #   negative_tests.cpp
     ../scanner/scanner.c
     ast_print.c
