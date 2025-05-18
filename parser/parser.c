@@ -151,14 +151,6 @@ static Param *new_param()
     return p;
 }
 
-static ParamList *new_param_list()
-{
-    ParamList *pl = malloc(sizeof(ParamList));
-    pl->is_empty  = true;
-    pl->u.params  = NULL;
-    return pl;
-}
-
 static Declaration *new_declaration(DeclarationKind kind)
 {
     Declaration *d = malloc(sizeof(Declaration));
@@ -427,7 +419,7 @@ Declarator *parse_declarator();
 Declarator *parse_direct_declarator();
 Pointer *parse_pointer();
 TypeQualifier *parse_type_qualifier_list();
-ParamList *parse_parameter_type_list();
+Param *parse_parameter_type_list();
 Param *parse_parameter_list();
 Param *parse_parameter_declaration();
 Type *parse_type_name();
@@ -1996,11 +1988,9 @@ Declarator *parse_direct_declarator()
         } else if (current_token == TOKEN_LPAREN) {
             advance_token();
 
-            ParamList *params = NULL;
+            Param *params = NULL;
             if (current_token_is_not(TOKEN_RPAREN)) {
                 params = parse_parameter_type_list();
-            } else {
-                params = new_param_list();
             }
             expect_token(TOKEN_RPAREN);
             suffix = new_declarator_suffix(SUFFIX_FUNCTION);
@@ -2063,41 +2053,43 @@ TypeQualifier *parse_type_qualifier_list()
     return qualifiers;
 }
 
-ParamList *parse_parameter_type_list()
+//
+// parameter_type_list
+//     : parameter_list ',' ELLIPSIS
+//     | parameter_list
+//     ;
+// Return a linked list of parameters.
+// Return NULL for empty parameter list.
+//
+Param *parse_parameter_type_list()
 {
     if (debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_RPAREN) {
-        ParamList *pl     = (ParamList *)malloc(sizeof(ParamList));
-        pl->is_empty      = true;
-        return pl;
+        return NULL;
     }
-    ParamList *pl     = (ParamList *)malloc(sizeof(ParamList));
-    pl->is_empty      = false;
     Param *params = NULL, **params_tail = &params;
-    do {
-        Param *param = (Param *)malloc(sizeof(Param));
+    while (current_token_is_not(TOKEN_RPAREN)) {
+
+        Param *param = new_param();
         param->type = parse_type_name();
-        param->name = (current_token == TOKEN_IDENTIFIER) ? strdup(current_lexeme) : NULL;
-        param->next = NULL;
-        if (param->name)
+        if (current_token == TOKEN_IDENTIFIER) {
+            param->name = strdup(current_lexeme);
             advance_token();
+        }
         *params_tail = param;
         params_tail  = &param->next;
-        if (current_token == TOKEN_COMMA) {
-            advance_token();
-            if (current_token == TOKEN_ELLIPSIS) {
-                advance_token();
-                pl->u.params = params;
-                return pl; /* Variadic */
-            }
-        } else {
+        if (current_token != TOKEN_COMMA) {
             break;
         }
-    } while (current_token_is_not(TOKEN_RPAREN));
-    pl->u.params = params;
-    return pl;
+        advance_token();
+        if (current_token == TOKEN_ELLIPSIS) {
+            advance_token();
+            return params; // TODO: variadic
+        }
+    }
+    return params;
 }
 
 Param *parse_parameter_list()
@@ -2160,8 +2152,7 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
                 // Case: '(' ')'
                 advance_token(); // Consume ')'
                 DeclaratorSuffix *new_suffix                 = new_declarator_suffix(SUFFIX_FUNCTION);
-                new_suffix->u.function.params                = new_param_list();
-                new_suffix->u.function.params->is_empty      = true;
+                new_suffix->u.function.params                = NULL;
                 new_suffix->u.function.variadic              = false;
                 new_suffix->next                             = NULL;
                 *tail                                        = new_suffix;
@@ -2177,7 +2168,7 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
                 tail  = &new_suffix->next;
             } else {
                 // Case: '(' parameter_type_list ')'
-                ParamList *params = parse_parameter_type_list();
+                Param *params = parse_parameter_type_list();
                 if (!params) {
                     fatal_error("Expected parameter_type_list in parentheses");
                 }

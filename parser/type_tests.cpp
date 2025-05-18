@@ -840,9 +840,7 @@ TEST_F(ParserTest, TypeIntFunc)
     EXPECT_EQ(type->u.function.returnType->kind, TYPE_INT);
     EXPECT_EQ(type->u.function.returnType->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
-    ASSERT_NE(type->u.function.params, nullptr);
-    EXPECT_TRUE(type->u.function.params->is_empty);
-    EXPECT_EQ(type->u.function.params->u.params, nullptr);
+    EXPECT_EQ(type->u.function.params, nullptr);
     EXPECT_FALSE(type->u.function.variadic);
     free_type(type);
 }
@@ -857,15 +855,14 @@ TEST_F(ParserTest, TypeVoidFuncInt)
     EXPECT_EQ(type->u.function.returnType->kind, TYPE_VOID);
     EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
     ASSERT_NE(type->u.function.params, nullptr);
-    EXPECT_FALSE(type->u.function.params->is_empty);
     EXPECT_FALSE(type->u.function.variadic);
-    ASSERT_NE(type->u.function.params->u.params, nullptr);
-    EXPECT_EQ(type->u.function.params->u.params->next, nullptr);
-    EXPECT_EQ(type->u.function.params->u.params->name, nullptr);
-    ASSERT_NE(type->u.function.params->u.params->type, nullptr);
-    EXPECT_EQ(type->u.function.params->u.params->type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.function.params->u.params->type->u.integer.signedness, SIGNED_SIGNED);
-    EXPECT_EQ(type->u.function.params->u.params->type->qualifiers, nullptr);
+    ASSERT_NE(type->u.function.params, nullptr);
+    EXPECT_EQ(type->u.function.params->next, nullptr);
+    EXPECT_EQ(type->u.function.params->name, nullptr);
+    ASSERT_NE(type->u.function.params->type, nullptr);
+    EXPECT_EQ(type->u.function.params->type->kind, TYPE_INT);
+    EXPECT_EQ(type->u.function.params->type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.function.params->type->qualifiers, nullptr);
     free_type(type);
 }
 
@@ -884,8 +881,7 @@ TEST_F(ParserTest, TypeCharFuncCharPtrInt)
     EXPECT_FALSE(type->u.function.variadic);
 
     ASSERT_NE(type->u.function.params, nullptr);
-    EXPECT_FALSE(type->u.function.params->is_empty);
-    const Param *p1 = type->u.function.params->u.params;
+    const Param *p1 = type->u.function.params;
     ASSERT_NE(p1, nullptr);
     const Param *p2 = p1->next;
     ASSERT_NE(p2, nullptr);
@@ -925,8 +921,7 @@ TEST_F(ParserTest, TypeStructFuncVoid)
     EXPECT_FALSE(type->u.function.variadic);
 
     ASSERT_NE(type->u.function.params, nullptr);
-    EXPECT_FALSE(type->u.function.params->is_empty);
-    const Param *p1 = type->u.function.params->u.params;
+    const Param *p1 = type->u.function.params;
     ASSERT_NE(p1, nullptr);
     EXPECT_EQ(p1->next, nullptr);
 
@@ -954,8 +949,7 @@ TEST_F(ParserTest, TypeConstIntFuncDoubleChar)
     EXPECT_FALSE(type->u.function.variadic);
 
     ASSERT_NE(type->u.function.params, nullptr);
-    EXPECT_FALSE(type->u.function.params->is_empty);
-    const Param *p1 = type->u.function.params->u.params;
+    const Param *p1 = type->u.function.params;
     ASSERT_NE(p1, nullptr);
     const Param *p2 = p1->next;
     ASSERT_NE(p2, nullptr);
@@ -995,8 +989,7 @@ TEST_F(ParserTest, TypeIntParensPtrFuncInt)
     EXPECT_FALSE(type->u.pointer.target->u.function.variadic);
 
     ASSERT_NE(type->u.pointer.target->u.function.params, nullptr);
-    EXPECT_FALSE(type->u.pointer.target->u.function.params->is_empty);
-    const Param *p1 = type->u.pointer.target->u.function.params->u.params;
+    const Param *p1 = type->u.pointer.target->u.function.params;
     ASSERT_NE(p1, nullptr);
     EXPECT_EQ(p1->next, nullptr);
 
@@ -1028,8 +1021,7 @@ TEST_F(ParserTest, TypeVoidParensPtrFuncCharPtr)
     EXPECT_FALSE(type->u.pointer.target->u.function.variadic);
 
     ASSERT_NE(type->u.pointer.target->u.function.params, nullptr);
-    EXPECT_FALSE(type->u.pointer.target->u.function.params->is_empty);
-    const Param *p1 = type->u.pointer.target->u.function.params->u.params;
+    const Param *p1 = type->u.pointer.target->u.function.params;
     ASSERT_NE(p1, nullptr);
     EXPECT_EQ(p1->next, nullptr);
 
@@ -1203,9 +1195,8 @@ TEST_F(ParserTest, TypeVoidParensPtrArrayFuncInt)
     EXPECT_FALSE(element->u.pointer.target->u.function.variadic);
 
     ASSERT_NE(element->u.pointer.target->u.function.params, nullptr);
-    EXPECT_FALSE(element->u.pointer.target->u.function.params->is_empty);
 
-    const Param *p1 = element->u.pointer.target->u.function.params->u.params;
+    const Param *p1 = element->u.pointer.target->u.function.params;
     ASSERT_NE(p1, nullptr);
     EXPECT_EQ(p1->next, nullptr);
 
@@ -1252,9 +1243,8 @@ TEST_F(ParserTest, TypeIntParensPtrArray3FuncChar)
     EXPECT_FALSE(element->u.pointer.target->u.function.variadic);
 
     ASSERT_NE(element->u.pointer.target->u.function.params, nullptr);
-    EXPECT_FALSE(element->u.pointer.target->u.function.params->is_empty);
 
-    const Param *p1 = element->u.pointer.target->u.function.params->u.params;
+    const Param *p1 = element->u.pointer.target->u.function.params;
     ASSERT_NE(p1, nullptr);
     EXPECT_EQ(p1->next, nullptr);
 
@@ -1374,9 +1364,8 @@ TEST_F(ParserTest, TypeIntParensPtrParensPtrArray5FuncInt)
     EXPECT_FALSE(element->u.pointer.target->u.function.variadic);
 
     ASSERT_NE(element->u.pointer.target->u.function.params, nullptr);
-    EXPECT_FALSE(element->u.pointer.target->u.function.params->is_empty);
 
-    const Param *p1 = element->u.pointer.target->u.function.params->u.params;
+    const Param *p1 = element->u.pointer.target->u.function.params;
     ASSERT_NE(p1, nullptr);
     EXPECT_EQ(p1->next, nullptr);
 
@@ -1524,9 +1513,8 @@ TEST_F(ParserTest, TypeVoidParensPtrParensPtrFuncInt)
     EXPECT_FALSE(target->u.function.variadic);
 
     ASSERT_NE(target->u.function.params, nullptr);
-    EXPECT_FALSE(target->u.function.params->is_empty);
 
-    const Param *p1 = target->u.function.params->u.params;
+    const Param *p1 = target->u.function.params;
     ASSERT_NE(p1, nullptr);
     EXPECT_EQ(p1->next, nullptr);
 
@@ -1598,8 +1586,7 @@ TEST_F(ParserTest, TypeConstStructParensPtrFuncInt)
     EXPECT_FALSE(type->u.function.variadic);
 
     ASSERT_NE(type->u.function.params, nullptr);
-    EXPECT_FALSE(type->u.function.params->is_empty);
-    const Param *p1 = type->u.function.params->u.params;
+    const Param *p1 = type->u.function.params;
     ASSERT_NE(p1, nullptr);
     EXPECT_EQ(p1->next, nullptr);
 

@@ -100,31 +100,18 @@ void print_field(FILE *fd, Field *field, int indent)
     }
 }
 
-// Print ParamList structure
-void print_param_list(FILE *fd, ParamList *params, int indent)
+// Print Param structure
+void print_param(FILE *fd, Param *params, int indent)
 {
     if (!params) {
         print_indent(fd, indent);
-        fprintf(fd, "ParamList: NULL\n");
+        fprintf(fd, "Param: NULL\n");
         return;
     }
 
-    print_indent(fd, indent);
-    fprintf(fd, "ParamList:\n");
-    print_indent(fd, indent + 1);
-    fprintf(fd, "IsEmpty: %s\n", params->is_empty ? "yes" : "no");
-
-    if (params->is_empty) {
-        return;
-    }
-
-    print_indent(fd, indent + 1);
-    fprintf(fd, "Parameters:\n");
-    for (Param *p = params->u.params; p; p = p->next) {
-        print_indent(fd, indent + 2);
+    for (Param *p = params; p; p = p->next) {
+        print_indent(fd, indent);
         fprintf(fd, "Param: %s\n", p->name ? p->name : "(no name)");
-        print_indent(fd, indent + 3);
-        fprintf(fd, "Type:\n");
         print_type(fd, p->type, indent + 4);
     }
 }
@@ -238,7 +225,7 @@ void print_type(FILE *fd, Type *type, int indent)
         print_type(fd, type->u.function.returnType, indent + 2);
         print_indent(fd, indent + 1);
         fprintf(fd, "Parameters:\n");
-        print_param_list(fd, type->u.function.params, indent + 2);
+        print_param(fd, type->u.function.params, indent + 2);
         print_indent(fd, indent + 1);
         fprintf(fd, "Variadic: %s\n", type->u.function.variadic ? "yes" : "no");
         break;
@@ -485,18 +472,11 @@ void print_declarator_suffix(FILE *fd, DeclaratorSuffix *suffix, int indent)
         fprintf(fd, "Function\n");
         print_indent(fd, indent + 2);
         fprintf(fd, "Parameters:\n");
-        if (suffix->u.function.params->is_empty) {
+        if (!suffix->u.function.params) {
             print_indent(fd, indent + 4);
             fprintf(fd, "Empty\n");
         } else {
-            for (Param *param = suffix->u.function.params->u.params; param;
-                 param        = param->next) {
-                print_indent(fd, indent + 4);
-                fprintf(fd, "Param:\n");
-                print_type(fd, param->type, indent + 6);
-                print_indent(fd, indent + 6);
-                fprintf(fd, "Name: \"%s\"\n", param->name);
-            }
+            print_param(fd, suffix->u.function.params, indent + 4);
         }
         break;
     case SUFFIX_POINTER:

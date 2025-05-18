@@ -144,7 +144,7 @@ TEST_F(ParserTest, ParseFunctionDefinition)
     EXPECT_STREQ("main", decl->name);
     ASSERT_NE(nullptr, decl->suffixes);
     EXPECT_EQ(SUFFIX_FUNCTION, decl->suffixes->kind);
-    EXPECT_TRUE(decl->suffixes->u.function.params->is_empty);
+    EXPECT_EQ(decl->suffixes->u.function.params, nullptr);
 
     Stmt *body = program->decls->u.function.body;
     ASSERT_NE(nullptr, body);
@@ -182,7 +182,7 @@ TEST_F(ParserTest, ParseTranslationUnit)
     Declarator *func = program->decls->next->u.function.declarator;
     EXPECT_STREQ("f", func->name);
     EXPECT_EQ(SUFFIX_FUNCTION, func->suffixes->kind);
-    EXPECT_TRUE(func->suffixes->u.function.params->is_empty);
+    EXPECT_EQ(func->suffixes->u.function.params, nullptr);
     EXPECT_EQ(STMT_COMPOUND, program->decls->next->u.function.body->kind);
     EXPECT_EQ(nullptr, program->decls->next->u.function.body->u.compound);
 }

@@ -14,7 +14,6 @@ typedef struct Type Type;
 typedef struct TypeQualifier TypeQualifier;
 typedef struct Field Field;
 typedef struct Enumerator Enumerator;
-typedef struct ParamList ParamList;
 typedef struct Param Param;
 typedef struct Declaration Declaration;
 typedef struct DeclSpec DeclSpec;
@@ -92,7 +91,7 @@ struct Type {
         } array;
         struct {
             Type *returnType;
-            ParamList *params;
+            Param *params;
             bool variadic;
         } function;
         struct {
@@ -136,14 +135,6 @@ struct Enumerator {
     Enumerator *next; /* linked list */
     Ident name;
     Expr *value;      /* optional */
-};
-
-/* Parameter List */
-struct ParamList { // TODO: remove
-    bool is_empty;
-    union {
-        Param *params;
-    } u;
 };
 
 struct Param {
@@ -238,7 +229,7 @@ struct DeclaratorSuffix {
             bool is_static;
         } array;
         struct {
-            ParamList *params;
+            Param *params;
             bool variadic;
         } function;
         struct {

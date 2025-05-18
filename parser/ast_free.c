@@ -169,19 +169,15 @@ void free_declarator_suffix(DeclaratorSuffix *suffix)
             free_expression(suffix->u.array.size);
             break;
         case SUFFIX_FUNCTION: {
-            ParamList *params = suffix->u.function.params;
-            if (!params->is_empty) {
-                Param *param = params->u.params;
-                while (param) {
-                    Param *next_param = param->next;
-                    free_type(param->type);
-                    if (param->name)
-                        free(param->name);
-                    free(param);
-                    param = next_param;
-                }
+            Param *param = suffix->u.function.params;
+            while (param) {
+                Param *next_param = param->next;
+                free_type(param->type);
+                if (param->name)
+                    free(param->name);
+                free(param);
+                param = next_param;
             }
-            free(params);
             break;
         }
         case SUFFIX_POINTER:

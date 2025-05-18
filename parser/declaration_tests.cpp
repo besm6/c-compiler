@@ -67,7 +67,7 @@ TEST_F(ParserTest, ParseFunctionDefinitionNoParams)
     EXPECT_STREQ("f", ext->u.function.declarator->name);
     ASSERT_NE(nullptr, ext->u.function.declarator->suffixes);
     EXPECT_EQ(SUFFIX_FUNCTION, ext->u.function.declarator->suffixes->kind);
-    EXPECT_TRUE(ext->u.function.declarator->suffixes->u.function.params->is_empty);
+    EXPECT_EQ(ext->u.function.declarator->suffixes->u.function.params, nullptr);
     EXPECT_EQ(STMT_COMPOUND, ext->u.function.body->kind);
     EXPECT_EQ(nullptr, ext->u.function.body->u.compound);
 }
@@ -80,11 +80,11 @@ TEST_F(ParserTest, ParseFunctionDefinitionWithParams)
     EXPECT_EQ(TYPE_INT, ext->u.function.specifiers->base_type->kind);
     EXPECT_STREQ("f", ext->u.function.declarator->name);
     EXPECT_EQ(SUFFIX_FUNCTION, ext->u.function.declarator->suffixes->kind);
-    ParamList *params = ext->u.function.declarator->suffixes->u.function.params;
-    EXPECT_FALSE(params->is_empty);
-    ASSERT_NE(nullptr, params->u.params);
-    EXPECT_EQ(TYPE_INT, params->u.params->type->kind);
-    EXPECT_STREQ("x", params->u.params->name);
+
+    Param *params = ext->u.function.declarator->suffixes->u.function.params;
+    ASSERT_NE(params, nullptr);
+    EXPECT_EQ(TYPE_INT, params->type->kind);
+    EXPECT_STREQ("x", params->name);
     EXPECT_EQ(STMT_COMPOUND, ext->u.function.body->kind);
     ASSERT_NE(nullptr, ext->u.function.body->u.compound);
     EXPECT_EQ(STMT_RETURN, ext->u.function.body->u.compound->u.stmt->kind);
@@ -520,5 +520,5 @@ TEST_F(ParserTest, ParseFunctionDeclaration)
     EXPECT_STREQ("f", decl->u.var.declarators->declarator->name);
     ASSERT_NE(nullptr, decl->u.var.declarators->declarator->suffixes);
     EXPECT_EQ(SUFFIX_FUNCTION, decl->u.var.declarators->declarator->suffixes->kind);
-    EXPECT_TRUE(decl->u.var.declarators->declarator->suffixes->u.function.params->is_empty);
+    EXPECT_EQ(decl->u.var.declarators->declarator->suffixes->u.function.params, nullptr);
 }
