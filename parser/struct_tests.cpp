@@ -34,14 +34,8 @@ TEST_F(ParserTest, NestedStructWithSimpleField)
     EXPECT_EQ(x->type->kind, TYPE_INT);
     EXPECT_EQ(x->type->u.integer.signedness, SIGNED_SIGNED);
 
-    ASSERT_NE(x->declarator, nullptr);
-    EXPECT_EQ(x->declarator->next, nullptr);
-    EXPECT_EQ(x->declarator->kind, DECLARATOR_NAMED);
-
-    ASSERT_NE(x->declarator->u.named.name, nullptr);
-    EXPECT_STREQ(x->declarator->u.named.name, "x");
-    EXPECT_EQ(x->declarator->u.named.pointers, nullptr);
-    EXPECT_EQ(x->declarator->u.named.suffixes, nullptr);
+    EXPECT_STREQ(x->name, "x");
+    EXPECT_EQ(x->bitfield, nullptr);
 
     //
     // Check field inner
@@ -50,14 +44,8 @@ TEST_F(ParserTest, NestedStructWithSimpleField)
     EXPECT_EQ(inner->type->kind, TYPE_STRUCT);
     EXPECT_STREQ(inner->type->u.struct_t.name, "Inner");
 
-    ASSERT_NE(inner->declarator, nullptr);
-    EXPECT_EQ(inner->declarator->next, nullptr);
-    EXPECT_EQ(inner->declarator->kind, DECLARATOR_NAMED);
-
-    ASSERT_NE(inner->declarator->u.named.name, nullptr);
-    EXPECT_STREQ(inner->declarator->u.named.name, "inner");
-    EXPECT_EQ(inner->declarator->u.named.pointers, nullptr);
-    EXPECT_EQ(inner->declarator->u.named.suffixes, nullptr);
+    EXPECT_STREQ(inner->name, "inner");
+    EXPECT_EQ(inner->bitfield, nullptr);
 
     //
     // Check struct Inner
@@ -72,14 +60,8 @@ TEST_F(ParserTest, NestedStructWithSimpleField)
     EXPECT_EQ(y->type->kind, TYPE_INT);
     EXPECT_EQ(y->type->u.integer.signedness, SIGNED_SIGNED);
 
-    ASSERT_NE(y->declarator, nullptr);
-    EXPECT_EQ(y->declarator->next, nullptr);
-    EXPECT_EQ(y->declarator->kind, DECLARATOR_NAMED);
-
-    ASSERT_NE(y->declarator->u.named.name, nullptr);
-    EXPECT_STREQ(y->declarator->u.named.name, "y");
-    EXPECT_EQ(y->declarator->u.named.pointers, nullptr);
-    EXPECT_EQ(y->declarator->u.named.suffixes, nullptr);
+    EXPECT_STREQ(y->name, "y");
+    EXPECT_EQ(y->bitfield, nullptr);
 
     free_type(type);
 }
@@ -109,47 +91,30 @@ TEST_F(ParserTest, StructWithPointerToItself)
     //
     // Check field data
     //
+    EXPECT_STREQ(data->name, "data");
+    EXPECT_EQ(data->bitfield, nullptr);
     ASSERT_NE(data->type, nullptr);
     EXPECT_EQ(data->type->kind, TYPE_INT);
     EXPECT_EQ(data->type->u.integer.signedness, SIGNED_SIGNED);
 
-    ASSERT_NE(data->declarator, nullptr);
-    EXPECT_EQ(data->declarator->next, nullptr);
-    EXPECT_EQ(data->declarator->kind, DECLARATOR_NAMED);
-
-    ASSERT_NE(data->declarator->u.named.name, nullptr);
-    EXPECT_STREQ(data->declarator->u.named.name, "data");
-    EXPECT_EQ(data->declarator->u.named.pointers, nullptr);
-    EXPECT_EQ(data->declarator->u.named.suffixes, nullptr);
-
     //
     // Check field next
     //
+    EXPECT_STREQ(next->name, "next");
+    EXPECT_EQ(next->bitfield, nullptr);
     ASSERT_NE(next->type, nullptr);
-    EXPECT_EQ(next->type->kind, TYPE_STRUCT);
-    EXPECT_STREQ(next->type->u.struct_t.name, "Node");
+    EXPECT_EQ(next->type->kind, TYPE_POINTER);
+    EXPECT_EQ(next->type->qualifiers, nullptr);
+    EXPECT_EQ(next->type->u.pointer.qualifiers, nullptr);
 
-    ASSERT_NE(next->declarator, nullptr);
-    EXPECT_EQ(next->declarator->next, nullptr);
-    EXPECT_EQ(next->declarator->kind, DECLARATOR_NAMED);
-
-    ASSERT_NE(next->declarator->u.named.name, nullptr);
-    EXPECT_STREQ(next->declarator->u.named.name, "next");
-    EXPECT_EQ(next->declarator->u.named.pointers, nullptr); // TODO
-    EXPECT_EQ(next->declarator->u.named.suffixes, nullptr);
+    Type *target = next->type->u.pointer.target;
+    ASSERT_NE(target, nullptr);
+    EXPECT_EQ(target->kind, TYPE_STRUCT);
+    EXPECT_STREQ(target->u.struct_t.name, "Node");
+    EXPECT_EQ(target->qualifiers, nullptr);
 
     free_type(type);
 }
-// Type: struct Node
-//  Fields:
-//   Field:
-//     Type: int (signed)
-//       Declarator:
-//         Name: "data"
-//   Field:
-//     Type: struct Node
-//       Declarator:
-//         Name: "next"
 
 //
 // Function Pointer with Struct Parameter

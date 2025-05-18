@@ -199,11 +199,10 @@ void free_declarator(Declarator *decl)
 {
     if (!decl)
         return;
-    if (decl->kind == DECLARATOR_NAMED) {
-        if (decl->u.named.name)
-            free(decl->u.named.name);
-        free_declarator_suffix(decl->u.named.suffixes);
-    }
+    if (decl->name)
+        free(decl->name);
+    free_pointer(decl->pointers);
+    free_declarator_suffix(decl->suffixes);
     free(decl);
 }
 
@@ -237,12 +236,10 @@ void free_type_spec(TypeSpec *ts)
         while (field) {
             Field *next = field->next;
             free_type(field->type);
-            if (field->declarator) {
-                free_declarator(field->declarator);
+            if (field->name) {
+                free(field->name);
             }
-            if (field->bitfield) {
-                free_expression(field->bitfield);
-            }
+            free_expression(field->bitfield);
             free(field);
             field = next;
         }

@@ -91,11 +91,8 @@ void print_field(FILE *fd, Field *field, int indent)
         fprintf(fd, "Field: NULL\n");
         return;
     }
-    fprintf(fd, "Field:\n");
+    fprintf(fd, "Field: %s\n", field->name ? field->name : "(anonymous)");
     print_type(fd, field->type, indent + 2);
-    if (field->declarator) {
-        print_declarator(fd, field->declarator, indent + 4);
-    }
     if (field->bitfield) {
         print_indent(fd, indent + 2);
         fprintf(fd, "Bitfield:\n");
@@ -522,16 +519,12 @@ void print_declarator(FILE *fd, Declarator *decl, int indent)
         fprintf(fd, "Declarator: null\n");
         return;
     }
-    fprintf(fd, "Declarator:\n");
-    if (decl->kind == DECLARATOR_NAMED) {
-        print_indent(fd, indent + 2);
-        fprintf(fd, "Name: \"%s\"\n", decl->u.named.name);
-        for (DeclaratorSuffix *suffix = decl->u.named.suffixes; suffix; suffix = suffix->next) {
-            print_declarator_suffix(fd, suffix, indent + 2);
-        }
-    } else {
-        print_indent(fd, indent + 2);
-        fprintf(fd, "Abstract\n");
+    fprintf(fd, "Declarator: %s\n", decl->name ? decl->name : "(abstract)");
+    for (Pointer *pointer = decl->pointers; pointer; pointer = pointer->next) {
+        print_pointer(fd, pointer, indent + 4);
+    }
+    for (DeclaratorSuffix *suffix = decl->suffixes; suffix; suffix = suffix->next) {
+        print_declarator_suffix(fd, suffix, indent + 2);
     }
 }
 

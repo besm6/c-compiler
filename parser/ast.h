@@ -128,8 +128,8 @@ struct TypeQualifier {
 struct Field {
     Field *next; /* linked list */
     Type *type;
-    Declarator *declarator; /* optional */
-    Expr *bitfield;         /* optional */
+    Ident name;     /* optional */
+    Expr *bitfield; /* optional */
 };
 
 struct Enumerator {
@@ -139,7 +139,7 @@ struct Enumerator {
 };
 
 /* Parameter List */
-struct ParamList {
+struct ParamList { // TODO: remove
     bool is_empty;
     union {
         Param *params;
@@ -171,7 +171,7 @@ struct Declaration {
 };
 
 struct DeclSpec {
-    Type *base_type;           // void, int, char ...
+    Type *base_type;           // void, int, char ... (TODO: remove)
     TypeQualifier *qualifiers; // const, volatile, restrict, _Atomic
     StorageClass *storage;     // extern, static, auto, register ...
     FunctionSpec *func_specs;  // inline, _Noreturn
@@ -208,28 +208,17 @@ struct AlignmentSpec {
     } u;
 };
 
-struct InitDeclarator {
+struct InitDeclarator { // TODO: add type from DeclSpec
     InitDeclarator *next; /* linked list */
-    Declarator *declarator;
+    Declarator *declarator; // TODO: replace with name
     Initializer *init;    /* optional */
 };
 
-typedef enum { DECLARATOR_NAMED, DECLARATOR_ABSTRACT } DeclaratorKind;
-
 struct Declarator {
     Declarator *next; /* linked list */
-    DeclaratorKind kind;
-    union {
-        struct {
-            Ident name;
-            Pointer *pointers;
-            DeclaratorSuffix *suffixes;
-        } named;
-        struct {
-            Pointer *pointers;
-            DeclaratorSuffix *suffixes;
-        } abstract;
-    } u;
+    Ident name;       /* NULL for abstract declarator */
+    Pointer *pointers;
+    DeclaratorSuffix *suffixes;
 };
 
 struct Pointer {

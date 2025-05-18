@@ -210,7 +210,7 @@ TEST_F(ParserTest, ParseForDeclStatement)
     EXPECT_EQ(FOR_INIT_DECL, stmt->u.for_stmt.init->kind);
     EXPECT_EQ(DECL_VAR, stmt->u.for_stmt.init->u.decl->kind);
     EXPECT_EQ(TYPE_INT, stmt->u.for_stmt.init->u.decl->u.var.specifiers->base_type->kind);
-    EXPECT_STREQ("i", stmt->u.for_stmt.init->u.decl->u.var.declarators->declarator->u.named.name);
+    EXPECT_STREQ("i", stmt->u.for_stmt.init->u.decl->u.var.declarators->declarator->name);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.for_stmt.condition->kind);
     EXPECT_EQ(BINARY_LT, stmt->u.for_stmt.condition->u.binary_op.op->kind);
     EXPECT_STREQ("i", stmt->u.for_stmt.condition->u.binary_op.left->u.var);

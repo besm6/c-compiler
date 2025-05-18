@@ -125,11 +125,11 @@ static TypeQualifier *new_type_qualifier(TypeQualifierKind kind)
 
 static Field *new_field(void)
 {
-    Field *f      = (Field *)malloc(sizeof(Field));
-    f->next       = NULL;
-    f->type       = NULL;
-    f->declarator = NULL;
-    f->bitfield   = NULL;
+    Field *f    = (Field *)malloc(sizeof(Field));
+    f->next     = NULL;
+    f->type     = NULL;
+    f->name     = NULL;
+    f->bitfield = NULL;
     return f;
 }
 
@@ -218,19 +218,13 @@ static InitDeclarator *new_init_declarator(Declarator *declarator, Initializer *
     return id;
 }
 
-static Declarator *new_declarator(DeclaratorKind kind)
+static Declarator *new_declarator()
 {
     Declarator *d = malloc(sizeof(Declarator));
-    d->kind       = kind;
     d->next       = NULL;
-    if (kind == DECLARATOR_NAMED) {
-        d->u.named.name     = NULL;
-        d->u.named.pointers = NULL;
-        d->u.named.suffixes = NULL;
-    } else {
-        d->u.abstract.pointers = NULL;
-        d->u.abstract.suffixes = NULL;
-    }
+    d->name       = NULL;
+    d->pointers   = NULL;
+    d->suffixes   = NULL;
     return d;
 }
 
@@ -1452,6 +1446,50 @@ TypeSpec *parse_type_specifier()
     return ts;
 }
 
+Type *type_apply_pointers(Type *type, Pointer *pointers)
+{
+    for (Pointer *p = pointers; p; p = p->next) {
+        Type *ptr                 = new_type(TYPE_POINTER);
+        ptr->u.pointer.target     = type;
+        ptr->u.pointer.qualifiers = p->qualifiers;
+        ptr->qualifiers           = NULL;
+        type                      = ptr;
+    }
+    return type;
+}
+
+Type *type_apply_suffixes(Type *type, DeclaratorSuffix *suffixes)
+{
+    for (DeclaratorSuffix *s = suffixes; s; s = s->next) {
+        switch (s->kind) {
+        case SUFFIX_ARRAY: {
+            Type *array               = new_type(TYPE_ARRAY);
+            array->u.array.element    = type;
+            array->u.array.size       = s->u.array.size;
+            array->u.array.qualifiers = s->u.array.qualifiers;
+            array->u.array.is_static  = s->u.array.is_static;
+            array->qualifiers         = NULL;
+            type                      = array;
+            break;
+        }
+        case SUFFIX_FUNCTION: {
+            Type *func                  = new_type(TYPE_FUNCTION);
+            func->u.function.returnType = type;
+            func->u.function.params     = s->u.function.params;
+            func->u.function.variadic   = s->u.function.variadic;
+            func->qualifiers            = NULL;
+            type                        = func;
+            break;
+        }
+        case SUFFIX_POINTER:
+            type = type_apply_suffixes(type, s->next);
+            type = type_apply_pointers(type, s->u.pointer.pointers);
+            return type_apply_suffixes(type, s->u.pointer.suffix);
+        }
+    }
+    return type;
+}
+
 //
 // struct_or_union_specifier
 //     : struct_or_union '{' struct_declaration_list '}'
@@ -1544,10 +1582,19 @@ Field *parse_struct_declaration()
     Field *fields = NULL, **fields_tail = &fields;
     for (;;) {
         Field *field = new_field();
-        field->type = base_type; // TODO: clone?
+        field->type = base_type; // TODO: clone base_type?
 
         if (current_token != TOKEN_COLON && current_token != TOKEN_SEMICOLON) {
-            field->declarator = parse_declarator();
+            Declarator *declarator = parse_declarator();
+            field->name            = declarator->name;
+            declarator->name       = NULL;
+            if (declarator->pointers) {
+                field->type = type_apply_pointers(field->type, declarator->pointers);
+            }
+            if (declarator->suffixes) {
+                field->type = type_apply_suffixes(field->type, declarator->suffixes);
+            }
+            free_declarator(declarator);
         }
         if (current_token == TOKEN_COLON) {
             advance_token();
@@ -1880,7 +1927,7 @@ Declarator *parse_declarator()
     }
     Declarator *decl = parse_direct_declarator();
     if (pointers) {
-        append_list(&decl->u.named.pointers, pointers);
+        append_list(&decl->pointers, pointers);
     }
     return decl;
 }
@@ -1910,8 +1957,8 @@ Declarator *parse_direct_declarator()
     }
     Declarator *decl;
     if (current_token == TOKEN_IDENTIFIER) {
-        decl               = new_declarator(DECLARATOR_NAMED);
-        decl->u.named.name = strdup(current_lexeme);
+        decl       = new_declarator();
+        decl->name = strdup(current_lexeme);
         advance_token();
     } else if (current_token == TOKEN_LPAREN) {
         advance_token();
@@ -1921,9 +1968,11 @@ Declarator *parse_direct_declarator()
         fatal_error("Expected identifier or '('");
     }
     while (1) {
+        DeclaratorSuffix *suffix = NULL;
+
         if (current_token == TOKEN_LBRACKET) {
             advance_token();
-            DeclaratorSuffix *suffix = new_declarator_suffix(SUFFIX_ARRAY);
+            suffix = new_declarator_suffix(SUFFIX_ARRAY);
             if (current_token == TOKEN_STATIC) {
                 advance_token();
                 suffix->u.array.is_static = true;
@@ -1943,23 +1992,24 @@ Declarator *parse_direct_declarator()
             expect_token(TOKEN_RBRACKET);
             suffix->u.array.qualifiers = qualifiers;
             suffix->u.array.size       = size;
-            append_list(&decl->u.named.suffixes, suffix);
+            append_list(&decl->suffixes, suffix);
         } else if (current_token == TOKEN_LPAREN) {
             advance_token();
-            DeclaratorSuffix *suffix = new_declarator_suffix(SUFFIX_FUNCTION);
-            ParamList *params        = NULL;
+
+            ParamList *params = NULL;
             if (current_token_is_not(TOKEN_RPAREN)) {
                 params = parse_parameter_type_list();
             } else {
                 params = new_param_list();
             }
             expect_token(TOKEN_RPAREN);
+            suffix = new_declarator_suffix(SUFFIX_FUNCTION);
             suffix->u.function.params   = params;
             suffix->u.function.variadic = false; // TODO: detect variadic function
-            append_list(&decl->u.named.suffixes, suffix);
         } else {
             break;
         }
+        append_list(&decl->suffixes, suffix);
     }
     return decl;
 }
@@ -2211,50 +2261,6 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
         }
     }
     return suffix;
-}
-
-Type *type_apply_pointers(Type *type, Pointer *pointers)
-{
-    for (Pointer *p = pointers; p; p = p->next) {
-        Type *ptr                 = new_type(TYPE_POINTER);
-        ptr->u.pointer.target     = type;
-        ptr->u.pointer.qualifiers = p->qualifiers;
-        ptr->qualifiers           = NULL;
-        type                      = ptr;
-    }
-    return type;
-}
-
-Type *type_apply_suffixes(Type *type, DeclaratorSuffix *suffixes)
-{
-    for (DeclaratorSuffix *s = suffixes; s; s = s->next) {
-        switch (s->kind) {
-        case SUFFIX_ARRAY: {
-            Type *array               = new_type(TYPE_ARRAY);
-            array->u.array.element    = type;
-            array->u.array.size       = s->u.array.size;
-            array->u.array.qualifiers = s->u.array.qualifiers;
-            array->u.array.is_static  = s->u.array.is_static;
-            array->qualifiers         = NULL;
-            type                      = array;
-            break;
-        }
-        case SUFFIX_FUNCTION: {
-            Type *func                  = new_type(TYPE_FUNCTION);
-            func->u.function.returnType = type;
-            func->u.function.params     = s->u.function.params;
-            func->u.function.variadic   = s->u.function.variadic;
-            func->qualifiers            = NULL;
-            type                        = func;
-            break;
-        }
-        case SUFFIX_POINTER:
-            type = type_apply_suffixes(type, s->next);
-            type = type_apply_pointers(type, s->u.pointer.pointers);
-            return type_apply_suffixes(type, s->u.pointer.suffix);
-        }
-    }
-    return type;
 }
 
 Param *parse_parameter_declaration()
