@@ -419,7 +419,7 @@ Declarator *parse_declarator();
 Declarator *parse_direct_declarator();
 Pointer *parse_pointer();
 TypeQualifier *parse_type_qualifier_list();
-Param *parse_parameter_type_list();
+Param *parse_parameter_type_list(bool *variadic_flag);
 Param *parse_parameter_list();
 Param *parse_parameter_declaration();
 Type *parse_type_name();
@@ -1987,15 +1987,11 @@ Declarator *parse_direct_declarator()
             append_list(&decl->suffixes, suffix);
         } else if (current_token == TOKEN_LPAREN) {
             advance_token();
-
-            Param *params = NULL;
+            suffix = new_declarator_suffix(SUFFIX_FUNCTION);
             if (current_token_is_not(TOKEN_RPAREN)) {
-                params = parse_parameter_type_list();
+                suffix->u.function.params = parse_parameter_type_list(&suffix->u.function.variadic);
             }
             expect_token(TOKEN_RPAREN);
-            suffix = new_declarator_suffix(SUFFIX_FUNCTION);
-            suffix->u.function.params   = params;
-            suffix->u.function.variadic = false; // TODO: detect variadic function
         } else {
             break;
         }
@@ -2061,13 +2057,18 @@ TypeQualifier *parse_type_qualifier_list()
 // Return a linked list of parameters.
 // Return NULL for empty parameter list.
 //
-Param *parse_parameter_type_list()
+Param *parse_parameter_type_list(bool *variadic_flag)
 {
     if (debug) {
         printf("--- %s()\n", __func__);
     }
+    // Assume non-variadic by default.
+    *variadic_flag = false;
     if (current_token == TOKEN_RPAREN) {
         return NULL;
+    }
+    if (current_token == TOKEN_ELLIPSIS) {
+        fatal_error("Variadic function must have at least one parameter");
     }
     Param *params = NULL, **params_tail = &params;
     while (current_token_is_not(TOKEN_RPAREN)) {
@@ -2086,7 +2087,8 @@ Param *parse_parameter_type_list()
         advance_token();
         if (current_token == TOKEN_ELLIPSIS) {
             advance_token();
-            return params; // TODO: variadic
+            *variadic_flag = true;
+            break;
         }
     }
     return params;
@@ -2151,34 +2153,28 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
             if (current_token == TOKEN_RPAREN) {
                 // Case: '(' ')'
                 advance_token(); // Consume ')'
-                DeclaratorSuffix *new_suffix                 = new_declarator_suffix(SUFFIX_FUNCTION);
-                new_suffix->u.function.params                = NULL;
-                new_suffix->u.function.variadic              = false;
-                new_suffix->next                             = NULL;
-                *tail                                        = new_suffix;
-                tail                                         = &new_suffix->next;
+                DeclaratorSuffix *new_suffix    = new_declarator_suffix(SUFFIX_FUNCTION);
+                new_suffix->u.function.params   = NULL;
+                new_suffix->u.function.variadic = false;
+                *tail                           = new_suffix;
+                tail                            = &new_suffix->next;
             } else if (current_token == TOKEN_STAR) {
                 // Case: '(' abstract_declarator ')'
                 DeclaratorSuffix *new_suffix   = new_declarator_suffix(SUFFIX_POINTER);
                 new_suffix->u.pointer.pointers = parse_pointer();
                 new_suffix->u.pointer.suffix   = parse_direct_abstract_declarator();
-                new_suffix->next               = NULL;
                 expect_token(TOKEN_RPAREN); // Consume ')'
                 *tail = new_suffix;
                 tail  = &new_suffix->next;
+            } else if (current_token == TOKEN_ELLIPSIS) {
+                fatal_error("Variadic function must have at least one parameter");
             } else {
                 // Case: '(' parameter_type_list ')'
-                Param *params = parse_parameter_type_list();
-                if (!params) {
-                    fatal_error("Expected parameter_type_list in parentheses");
-                }
+                DeclaratorSuffix *new_suffix  = new_declarator_suffix(SUFFIX_FUNCTION);
+                new_suffix->u.function.params = parse_parameter_type_list(&new_suffix->u.function.variadic);
                 expect_token(TOKEN_RPAREN); // Consume ')'
-                DeclaratorSuffix *new_suffix    = new_declarator_suffix(SUFFIX_FUNCTION);
-                new_suffix->u.function.params   = params;
-                new_suffix->u.function.variadic = false; // TODO: detect variadic function
-                new_suffix->next                = NULL;
-                *tail                           = new_suffix;
-                tail                            = &new_suffix->next;
+                *tail = new_suffix;
+                tail  = &new_suffix->next;
             }
         } else if (current_token == TOKEN_LBRACKET) {
             // Handle array-related cases
@@ -2187,7 +2183,6 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
             new_suffix->u.array.size       = NULL;
             new_suffix->u.array.qualifiers = NULL;
             new_suffix->u.array.is_static  = false;
-            new_suffix->next               = NULL;
 
             if (current_token == TOKEN_RBRACKET) {
                 // Case: '[' ']'
