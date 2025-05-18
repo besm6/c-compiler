@@ -32,6 +32,7 @@ add_executable(c-parser-tests
     ../scanner/scanner.c
     ast_print.c
     ast_free.c
+    ast_clone.c
 )
 target_include_directories(c-parser-tests BEFORE PUBLIC
     ../scanner

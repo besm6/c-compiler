@@ -1233,27 +1233,27 @@ Type *fuse_type_specifiers(TypeSpec *specs)
     return result;
 }
 
-Type *type_apply_pointers(Type *type, /*const*/ Pointer *pointers)
+Type *type_apply_pointers(Type *type, const Pointer *pointers)
 {
-    for (/*const*/ Pointer *p = pointers; p; p = p->next) {
+    for (const Pointer *p = pointers; p; p = p->next) {
         Type *ptr                 = new_type(TYPE_POINTER);
         ptr->u.pointer.target     = type;
-        ptr->u.pointer.qualifiers = p->qualifiers; // TODO: clone_qualifiers()
+        ptr->u.pointer.qualifiers = clone_type_qualifier(p->qualifiers);
         ptr->qualifiers           = NULL;
         type                      = ptr;
     }
     return type;
 }
 
-Type *type_apply_suffixes(Type *type, /*const*/ DeclaratorSuffix *suffixes)
+Type *type_apply_suffixes(Type *type, const DeclaratorSuffix *suffixes)
 {
-    for (/*const*/ DeclaratorSuffix *s = suffixes; s; s = s->next) {
+    for (const DeclaratorSuffix *s = suffixes; s; s = s->next) {
         switch (s->kind) {
         case SUFFIX_ARRAY: {
             Type *array               = new_type(TYPE_ARRAY);
             array->u.array.element    = type;
-            array->u.array.size       = s->u.array.size; s->u.array.size = NULL; // TODO: clone_expr()
-            array->u.array.qualifiers = s->u.array.qualifiers; // TODO: clone_qualifiers()
+            array->u.array.size       = clone_expression(s->u.array.size);
+            array->u.array.qualifiers = clone_type_qualifier(s->u.array.qualifiers);
             array->u.array.is_static  = s->u.array.is_static;
             array->qualifiers         = NULL;
             type                      = array;
@@ -1262,7 +1262,7 @@ Type *type_apply_suffixes(Type *type, /*const*/ DeclaratorSuffix *suffixes)
         case SUFFIX_FUNCTION: {
             Type *func                   = new_type(TYPE_FUNCTION);
             func->u.function.return_type = type;
-            func->u.function.params      = s->u.function.params; // TODO: clone_params()
+            func->u.function.params      = clone_param(s->u.function.params);
             func->u.function.variadic    = s->u.function.variadic;
             func->qualifiers             = NULL;
             type                         = func;
@@ -1390,7 +1390,7 @@ InitDeclarator *parse_init_declarator(Declarator *decl, Type *base_type)
         decl = parse_declarator();
     }
     InitDeclarator *init_decl = new_init_declarator();
-    init_decl->name = decl->name; // TODO: clone
+    init_decl->name = clone_string(decl->name);
     if (current_token == TOKEN_ASSIGN) {
         advance_token();
         init_decl->init = parse_initializer();
@@ -1606,7 +1606,7 @@ Field *parse_struct_declaration()
     Field *fields = NULL, **fields_tail = &fields;
     for (;;) {
         Field *field = new_field();
-        field->type = base_type; // TODO: clone base_type?
+        field->type = clone_type(base_type);
 
         if (current_token != TOKEN_COLON && current_token != TOKEN_SEMICOLON) {
             Declarator *declarator = parse_declarator();

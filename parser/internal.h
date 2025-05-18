@@ -90,6 +90,18 @@ void free_decl_spec(DeclSpec *spec);
 
 Declarator *parse_declarator(void);
 
+char *clone_string(const char *str);
+Type *clone_type(const Type *type);
+TypeQualifier *clone_type_qualifier(const TypeQualifier *qualifier);
+Param *clone_param(const Param *param);
+Expr *clone_expression(const Expr *expression);
+Literal *clone_literal(const Literal *literal);
+UnaryOp *clone_unary_op(const UnaryOp *op);
+BinaryOp *clone_binary_op(const BinaryOp *op);
+AssignOp *clone_assign_op(const AssignOp *op);
+GenericAssoc *clone_generic_assoc(const GenericAssoc *assoc);
+InitItem *clone_init_item(const InitItem *item);
+
 #ifdef __cplusplus
 }
 #endif
