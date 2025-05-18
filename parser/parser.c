@@ -1260,12 +1260,12 @@ Type *type_apply_suffixes(Type *type, /*const*/ DeclaratorSuffix *suffixes)
             break;
         }
         case SUFFIX_FUNCTION: {
-            Type *func                  = new_type(TYPE_FUNCTION);
-            func->u.function.returnType = type;
-            func->u.function.params     = s->u.function.params; // TODO: clone_params()
-            func->u.function.variadic   = s->u.function.variadic;
-            func->qualifiers            = NULL;
-            type                        = func;
+            Type *func                   = new_type(TYPE_FUNCTION);
+            func->u.function.return_type = type;
+            func->u.function.params      = s->u.function.params; // TODO: clone_params()
+            func->u.function.variadic    = s->u.function.variadic;
+            func->qualifiers             = NULL;
+            type                         = func;
             break;
         }
         case SUFFIX_POINTER:
@@ -2803,12 +2803,12 @@ ExternalDecl *parse_external_declaration()
         decl_list = parse_declaration_list();
     }
 
-    ExternalDecl *ed          = new_external_decl(EXTERNAL_DECL_FUNCTION);
-    ed->u.function.specifiers = spec;
-    ed->u.function.name       = decl->name;
-    ed->u.function.type       = type_apply_suffixes(type_apply_pointers(base_type, decl->pointers), decl->suffixes);
-    ed->u.function.decls      = decl_list;
-    ed->u.function.body       = parse_compound_statement();
+    ExternalDecl *ed           = new_external_decl(EXTERNAL_DECL_FUNCTION);
+    ed->u.function.specifiers  = spec;
+    ed->u.function.name        = decl->name;
+    ed->u.function.type        = type_apply_suffixes(type_apply_pointers(base_type, decl->pointers), decl->suffixes);
+    ed->u.function.param_decls = decl_list;
+    ed->u.function.body        = parse_compound_statement();
     return ed;
 }
 

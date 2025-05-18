@@ -835,11 +835,11 @@ TEST_F(ParserTest, TypeIntFunc)
     Type *type = TestType("int ()");
 
     EXPECT_EQ(type->kind, TYPE_FUNCTION);
-    ASSERT_NE(type->u.function.returnType, nullptr);
+    ASSERT_NE(type->u.function.return_type, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
-    EXPECT_EQ(type->u.function.returnType->kind, TYPE_INT);
-    EXPECT_EQ(type->u.function.returnType->u.integer.signedness, SIGNED_SIGNED);
-    EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
+    EXPECT_EQ(type->u.function.return_type->kind, TYPE_INT);
+    EXPECT_EQ(type->u.function.return_type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.function.return_type->qualifiers, nullptr);
     EXPECT_EQ(type->u.function.params, nullptr);
     EXPECT_FALSE(type->u.function.variadic);
     free_type(type);
@@ -850,10 +850,10 @@ TEST_F(ParserTest, TypeVoidFuncInt)
     Type *type = TestType("void (int)");
 
     EXPECT_EQ(type->kind, TYPE_FUNCTION);
-    ASSERT_NE(type->u.function.returnType, nullptr);
+    ASSERT_NE(type->u.function.return_type, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
-    EXPECT_EQ(type->u.function.returnType->kind, TYPE_VOID);
-    EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
+    EXPECT_EQ(type->u.function.return_type->kind, TYPE_VOID);
+    EXPECT_EQ(type->u.function.return_type->qualifiers, nullptr);
     ASSERT_NE(type->u.function.params, nullptr);
     EXPECT_FALSE(type->u.function.variadic);
     ASSERT_NE(type->u.function.params, nullptr);
@@ -871,10 +871,10 @@ TEST_F(ParserTest, TypeVoidFuncFloatVariadic)
     Type *type = TestType("void (double, ...)");
 
     EXPECT_EQ(type->kind, TYPE_FUNCTION);
-    ASSERT_NE(type->u.function.returnType, nullptr);
+    ASSERT_NE(type->u.function.return_type, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
-    EXPECT_EQ(type->u.function.returnType->kind, TYPE_VOID);
-    EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
+    EXPECT_EQ(type->u.function.return_type->kind, TYPE_VOID);
+    EXPECT_EQ(type->u.function.return_type->qualifiers, nullptr);
     ASSERT_NE(type->u.function.params, nullptr);
     EXPECT_TRUE(type->u.function.variadic);
     ASSERT_NE(type->u.function.params, nullptr);
@@ -893,10 +893,10 @@ TEST_F(ParserTest, TypeCharFuncCharPtrInt)
     EXPECT_EQ(type->kind, TYPE_FUNCTION);
     EXPECT_EQ(type->qualifiers, nullptr);
 
-    ASSERT_NE(type->u.function.returnType, nullptr);
-    EXPECT_EQ(type->u.function.returnType->kind, TYPE_CHAR);
-    EXPECT_EQ(type->u.function.returnType->u.integer.signedness, SIGNED_SIGNED);
-    EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
+    ASSERT_NE(type->u.function.return_type, nullptr);
+    EXPECT_EQ(type->u.function.return_type->kind, TYPE_CHAR);
+    EXPECT_EQ(type->u.function.return_type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.function.return_type->qualifiers, nullptr);
 
     EXPECT_FALSE(type->u.function.variadic);
 
@@ -932,11 +932,11 @@ TEST_F(ParserTest, TypeStructFuncVoid)
     EXPECT_EQ(type->kind, TYPE_FUNCTION);
     EXPECT_EQ(type->qualifiers, nullptr);
 
-    ASSERT_NE(type->u.function.returnType, nullptr);
-    EXPECT_EQ(type->u.function.returnType->kind, TYPE_STRUCT);
-    EXPECT_STREQ(type->u.function.returnType->u.struct_t.name, "S");
-    EXPECT_EQ(type->u.function.returnType->u.struct_t.fields, nullptr);
-    EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
+    ASSERT_NE(type->u.function.return_type, nullptr);
+    EXPECT_EQ(type->u.function.return_type->kind, TYPE_STRUCT);
+    EXPECT_STREQ(type->u.function.return_type->u.struct_t.name, "S");
+    EXPECT_EQ(type->u.function.return_type->u.struct_t.fields, nullptr);
+    EXPECT_EQ(type->u.function.return_type->qualifiers, nullptr);
 
     EXPECT_FALSE(type->u.function.variadic);
 
@@ -959,12 +959,12 @@ TEST_F(ParserTest, TypeConstIntFuncDoubleChar)
     EXPECT_EQ(type->kind, TYPE_FUNCTION);
     EXPECT_EQ(type->qualifiers, nullptr);
 
-    ASSERT_NE(type->u.function.returnType, nullptr);
-    EXPECT_EQ(type->u.function.returnType->kind, TYPE_INT);
-    EXPECT_EQ(type->u.function.returnType->u.integer.signedness, SIGNED_SIGNED);
-    ASSERT_NE(type->u.function.returnType->qualifiers, nullptr);
-    EXPECT_EQ(type->u.function.returnType->qualifiers->kind, TYPE_QUALIFIER_CONST);
-    EXPECT_EQ(type->u.function.returnType->qualifiers->next, nullptr);
+    ASSERT_NE(type->u.function.return_type, nullptr);
+    EXPECT_EQ(type->u.function.return_type->kind, TYPE_INT);
+    EXPECT_EQ(type->u.function.return_type->u.integer.signedness, SIGNED_SIGNED);
+    ASSERT_NE(type->u.function.return_type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.function.return_type->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->u.function.return_type->qualifiers->next, nullptr);
 
     EXPECT_FALSE(type->u.function.variadic);
 
@@ -1001,10 +1001,10 @@ TEST_F(ParserTest, TypeIntParensPtrFuncInt)
     EXPECT_EQ(type->u.pointer.target->kind, TYPE_FUNCTION);
     EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
 
-    ASSERT_NE(type->u.pointer.target->u.function.returnType, nullptr);
-    EXPECT_EQ(type->u.pointer.target->u.function.returnType->kind, TYPE_INT);
-    EXPECT_EQ(type->u.pointer.target->u.function.returnType->u.integer.signedness, SIGNED_SIGNED);
-    EXPECT_EQ(type->u.pointer.target->u.function.returnType->qualifiers, nullptr);
+    ASSERT_NE(type->u.pointer.target->u.function.return_type, nullptr);
+    EXPECT_EQ(type->u.pointer.target->u.function.return_type->kind, TYPE_INT);
+    EXPECT_EQ(type->u.pointer.target->u.function.return_type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.pointer.target->u.function.return_type->qualifiers, nullptr);
 
     EXPECT_FALSE(type->u.pointer.target->u.function.variadic);
 
@@ -1034,9 +1034,9 @@ TEST_F(ParserTest, TypeVoidParensPtrFuncCharPtr)
     EXPECT_EQ(type->u.pointer.target->kind, TYPE_FUNCTION);
     EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
 
-    ASSERT_NE(type->u.pointer.target->u.function.returnType, nullptr);
-    EXPECT_EQ(type->u.pointer.target->u.function.returnType->kind, TYPE_VOID);
-    EXPECT_EQ(type->u.pointer.target->u.function.returnType->qualifiers, nullptr);
+    ASSERT_NE(type->u.pointer.target->u.function.return_type, nullptr);
+    EXPECT_EQ(type->u.pointer.target->u.function.return_type->kind, TYPE_VOID);
+    EXPECT_EQ(type->u.pointer.target->u.function.return_type->qualifiers, nullptr);
 
     EXPECT_FALSE(type->u.pointer.target->u.function.variadic);
 
@@ -1208,9 +1208,9 @@ TEST_F(ParserTest, TypeVoidParensPtrArrayFuncInt)
     EXPECT_EQ(element->u.pointer.target->kind, TYPE_FUNCTION);
     EXPECT_EQ(element->u.pointer.target->qualifiers, nullptr);
 
-    ASSERT_NE(element->u.pointer.target->u.function.returnType, nullptr);
-    EXPECT_EQ(element->u.pointer.target->u.function.returnType->kind, TYPE_VOID);
-    EXPECT_EQ(element->u.pointer.target->u.function.returnType->qualifiers, nullptr);
+    ASSERT_NE(element->u.pointer.target->u.function.return_type, nullptr);
+    EXPECT_EQ(element->u.pointer.target->u.function.return_type->kind, TYPE_VOID);
+    EXPECT_EQ(element->u.pointer.target->u.function.return_type->qualifiers, nullptr);
 
     EXPECT_FALSE(element->u.pointer.target->u.function.variadic);
 
@@ -1255,10 +1255,10 @@ TEST_F(ParserTest, TypeIntParensPtrArray3FuncChar)
     EXPECT_EQ(element->u.pointer.target->kind, TYPE_FUNCTION);
     EXPECT_EQ(element->u.pointer.target->qualifiers, nullptr);
 
-    ASSERT_NE(element->u.pointer.target->u.function.returnType, nullptr);
-    EXPECT_EQ(element->u.pointer.target->u.function.returnType->kind, TYPE_INT);
-    EXPECT_EQ(element->u.pointer.target->u.function.returnType->u.integer.signedness, SIGNED_SIGNED);
-    EXPECT_EQ(element->u.pointer.target->u.function.returnType->qualifiers, nullptr);
+    ASSERT_NE(element->u.pointer.target->u.function.return_type, nullptr);
+    EXPECT_EQ(element->u.pointer.target->u.function.return_type->kind, TYPE_INT);
+    EXPECT_EQ(element->u.pointer.target->u.function.return_type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(element->u.pointer.target->u.function.return_type->qualifiers, nullptr);
 
     EXPECT_FALSE(element->u.pointer.target->u.function.variadic);
 
@@ -1376,10 +1376,10 @@ TEST_F(ParserTest, TypeIntParensPtrParensPtrArray5FuncInt)
     EXPECT_EQ(element->u.pointer.target->kind, TYPE_FUNCTION);
     EXPECT_EQ(element->u.pointer.target->qualifiers, nullptr);
 
-    ASSERT_NE(element->u.pointer.target->u.function.returnType, nullptr);
-    EXPECT_EQ(element->u.pointer.target->u.function.returnType->kind, TYPE_INT);
-    EXPECT_EQ(element->u.pointer.target->u.function.returnType->u.integer.signedness, SIGNED_SIGNED);
-    EXPECT_EQ(element->u.pointer.target->u.function.returnType->qualifiers, nullptr);
+    ASSERT_NE(element->u.pointer.target->u.function.return_type, nullptr);
+    EXPECT_EQ(element->u.pointer.target->u.function.return_type->kind, TYPE_INT);
+    EXPECT_EQ(element->u.pointer.target->u.function.return_type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(element->u.pointer.target->u.function.return_type->qualifiers, nullptr);
 
     EXPECT_FALSE(element->u.pointer.target->u.function.variadic);
 
@@ -1520,15 +1520,15 @@ TEST_F(ParserTest, TypeVoidParensPtrParensPtrFuncInt)
     EXPECT_EQ(target->kind, TYPE_FUNCTION);
     EXPECT_EQ(target->qualifiers, nullptr);
 
-    ASSERT_NE(target->u.function.returnType, nullptr);
+    ASSERT_NE(target->u.function.return_type, nullptr);
 
-    EXPECT_EQ(target->u.function.returnType->kind, TYPE_POINTER);
-    EXPECT_EQ(target->u.function.returnType->qualifiers, nullptr);
-    EXPECT_EQ(target->u.function.returnType->u.pointer.qualifiers, nullptr);
+    EXPECT_EQ(target->u.function.return_type->kind, TYPE_POINTER);
+    EXPECT_EQ(target->u.function.return_type->qualifiers, nullptr);
+    EXPECT_EQ(target->u.function.return_type->u.pointer.qualifiers, nullptr);
 
-    ASSERT_NE(target->u.function.returnType->u.pointer.target, nullptr);
-    EXPECT_EQ(target->u.function.returnType->u.pointer.target->kind, TYPE_VOID);
-    EXPECT_EQ(target->u.function.returnType->u.pointer.target->qualifiers, nullptr);
+    ASSERT_NE(target->u.function.return_type->u.pointer.target, nullptr);
+    EXPECT_EQ(target->u.function.return_type->u.pointer.target->kind, TYPE_VOID);
+    EXPECT_EQ(target->u.function.return_type->u.pointer.target->qualifiers, nullptr);
 
     EXPECT_FALSE(target->u.function.variadic);
 
@@ -1589,19 +1589,19 @@ TEST_F(ParserTest, TypeConstStructParensPtrFuncInt)
     EXPECT_EQ(type->kind, TYPE_FUNCTION);
     EXPECT_EQ(type->qualifiers, nullptr);
 
-    ASSERT_NE(type->u.function.returnType, nullptr);
-    EXPECT_EQ(type->u.function.returnType->kind, TYPE_POINTER);
-    EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
-    EXPECT_EQ(type->u.function.returnType->u.pointer.qualifiers, nullptr);
+    ASSERT_NE(type->u.function.return_type, nullptr);
+    EXPECT_EQ(type->u.function.return_type->kind, TYPE_POINTER);
+    EXPECT_EQ(type->u.function.return_type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.function.return_type->u.pointer.qualifiers, nullptr);
 
-    ASSERT_NE(type->u.function.returnType->u.pointer.target, nullptr);
-    EXPECT_EQ(type->u.function.returnType->u.pointer.target->kind, TYPE_STRUCT);
-    EXPECT_STREQ(type->u.function.returnType->u.pointer.target->u.struct_t.name, "S");
-    EXPECT_EQ(type->u.function.returnType->u.pointer.target->u.struct_t.fields, nullptr);
+    ASSERT_NE(type->u.function.return_type->u.pointer.target, nullptr);
+    EXPECT_EQ(type->u.function.return_type->u.pointer.target->kind, TYPE_STRUCT);
+    EXPECT_STREQ(type->u.function.return_type->u.pointer.target->u.struct_t.name, "S");
+    EXPECT_EQ(type->u.function.return_type->u.pointer.target->u.struct_t.fields, nullptr);
 
-    ASSERT_NE(type->u.function.returnType->u.pointer.target->qualifiers, nullptr);
-    EXPECT_EQ(type->u.function.returnType->u.pointer.target->qualifiers->kind, TYPE_QUALIFIER_CONST);
-    EXPECT_EQ(type->u.function.returnType->u.pointer.target->qualifiers->next, nullptr);
+    ASSERT_NE(type->u.function.return_type->u.pointer.target->qualifiers, nullptr);
+    EXPECT_EQ(type->u.function.return_type->u.pointer.target->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->u.function.return_type->u.pointer.target->qualifiers->next, nullptr);
 
     EXPECT_FALSE(type->u.function.variadic);
 

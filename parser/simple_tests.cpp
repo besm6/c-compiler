@@ -138,8 +138,8 @@ TEST_F(ParserTest, ParseFunctionDefinition)
     Type *type = program->decls->u.function.type;
     ASSERT_NE(nullptr, type);
     EXPECT_EQ(TYPE_FUNCTION, type->kind);
-    ASSERT_NE(nullptr, type->u.function.returnType);
-    EXPECT_EQ(TYPE_INT, type->u.function.returnType->kind);
+    ASSERT_NE(nullptr, type->u.function.return_type);
+    EXPECT_EQ(TYPE_INT, type->u.function.return_type->kind);
 
     EXPECT_EQ(nullptr, program->decls->u.function.specifiers);
 

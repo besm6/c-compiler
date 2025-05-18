@@ -63,7 +63,7 @@ TEST_F(ParserTest, ParseFunctionDefinitionNoParams)
     ExternalDecl *ext = GetExternalDecl("int f() {}");
 
     EXPECT_EQ(EXTERNAL_DECL_FUNCTION, ext->kind);
-    EXPECT_EQ(TYPE_INT, ext->u.function.type->u.function.returnType->kind);
+    EXPECT_EQ(TYPE_INT, ext->u.function.type->u.function.return_type->kind);
     EXPECT_STREQ("f", ext->u.function.name);
     EXPECT_EQ(ext->u.function.type->u.function.params, nullptr);
     EXPECT_FALSE(ext->u.function.type->u.function.variadic);
@@ -76,7 +76,7 @@ TEST_F(ParserTest, ParseFunctionDefinitionWithParams)
     ExternalDecl *ext = GetExternalDecl("int f(int x) { return x; }");
 
     EXPECT_EQ(EXTERNAL_DECL_FUNCTION, ext->kind);
-    EXPECT_EQ(TYPE_INT, ext->u.function.type->u.function.returnType->kind);
+    EXPECT_EQ(TYPE_INT, ext->u.function.type->u.function.return_type->kind);
     EXPECT_STREQ("f", ext->u.function.name);
     EXPECT_FALSE(ext->u.function.type->u.function.variadic);
 
@@ -95,7 +95,7 @@ TEST_F(ParserTest, ParseFunctionDefinitionVariadic)
     ExternalDecl *ext = GetExternalDecl("int f(int x, ...) { return x; }");
 
     EXPECT_EQ(EXTERNAL_DECL_FUNCTION, ext->kind);
-    EXPECT_EQ(TYPE_INT, ext->u.function.type->u.function.returnType->kind);
+    EXPECT_EQ(TYPE_INT, ext->u.function.type->u.function.return_type->kind);
     EXPECT_STREQ("f", ext->u.function.name);
     EXPECT_TRUE(ext->u.function.type->u.function.variadic);
 
@@ -473,7 +473,7 @@ TEST_F(ParserTest, ParseFunctionSpecifierInline)
 
     ASSERT_NE(nullptr, ext->u.function.specifiers->func_specs);
     EXPECT_EQ(FUNC_SPEC_INLINE, ext->u.function.specifiers->func_specs->kind);
-    EXPECT_EQ(TYPE_INT, ext->u.function.type->u.function.returnType->kind);
+    EXPECT_EQ(TYPE_INT, ext->u.function.type->u.function.return_type->kind);
     EXPECT_STREQ("f", ext->u.function.name);
 }
 
@@ -484,7 +484,7 @@ TEST_F(ParserTest, ParseFunctionSpecifierNoreturn)
 
     ASSERT_NE(nullptr, ext->u.function.specifiers->func_specs);
     EXPECT_EQ(FUNC_SPEC_NORETURN, ext->u.function.specifiers->func_specs->kind);
-    EXPECT_EQ(TYPE_VOID, ext->u.function.type->u.function.returnType->kind);
+    EXPECT_EQ(TYPE_VOID, ext->u.function.type->u.function.return_type->kind);
     EXPECT_STREQ("f", ext->u.function.name);
 }
 
@@ -521,6 +521,6 @@ TEST_F(ParserTest, ParseFunctionDeclaration)
 
     Type *type = decl->u.var.declarators->type;
     EXPECT_EQ(TYPE_FUNCTION, type->kind);
-    EXPECT_EQ(TYPE_INT, type->u.function.returnType->kind);
+    EXPECT_EQ(TYPE_INT, type->u.function.return_type->kind);
     EXPECT_EQ(type->u.function.params, nullptr);
 }

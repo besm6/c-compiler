@@ -87,7 +87,7 @@ struct Type {
             bool is_static;
         } array;
         struct {
-            Type *returnType;
+            Type *return_type;
             Param *params;
             bool variadic;
         } function;
@@ -492,7 +492,7 @@ struct ExternalDecl {
             Type *type;
             Ident name;
             DeclSpec *specifiers;
-            Declaration *decls;         // TODO: rename as decl_params
+            Declaration *param_decls;
             Stmt *body;
         } function;
         Declaration *declaration;

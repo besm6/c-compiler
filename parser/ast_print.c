@@ -222,7 +222,7 @@ void print_type(FILE *fd, Type *type, int indent)
         fprintf(fd, "function\n");
         print_indent(fd, indent + 1);
         fprintf(fd, "ReturnType:\n");
-        print_type(fd, type->u.function.returnType, indent + 2);
+        print_type(fd, type->u.function.return_type, indent + 2);
         print_indent(fd, indent + 1);
         fprintf(fd, "Parameters:\n");
         print_param(fd, type->u.function.params, indent + 2);
