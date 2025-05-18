@@ -131,6 +131,120 @@ static void append_list(void *head_ptr, void *node_ptr)
     node->next = NULL;
 }
 
+// Checks if an expression is a constant expression according to C language rules.
+static bool is_constant_expression(const Expr *expression)
+{
+    if (!expression)
+        return false;
+
+    switch (expression->kind) {
+    case EXPR_LITERAL:
+        /* All literals are constant, including enum constants */
+        return true;
+
+    case EXPR_VAR:
+        /* Variables are not constant, even if they are enum constants
+         * (handled in EXPR_LITERAL with LITERAL_ENUM) */
+        return false;
+
+    case EXPR_UNARY_OP: {
+        /* Check which unary operations are allowed */
+        UnaryOpKind op_kind = expression->u.unary_op.op->kind;
+        Expr *operand       = expression->u.unary_op.expr;
+        switch (op_kind) {
+        case UNARY_PLUS:
+        case UNARY_NEG:
+        case UNARY_BIT_NOT:
+        case UNARY_LOG_NOT:
+            /* These operators are allowed if operand is constant */
+            return is_constant_expression(operand);
+        case UNARY_ADDRESS:
+        case UNARY_DEREF:
+        case UNARY_PRE_INC:
+        case UNARY_PRE_DEC:
+            /* These involve addresses or modification, not constant */
+            return false;
+        }
+        return false; /* Unreachable, but for safety */
+    }
+
+    case EXPR_BINARY_OP: {
+        /* Arithmetic, bitwise, relational, and logical ops are allowed */
+        Expr *left  = expression->u.binary_op.left;
+        Expr *right = expression->u.binary_op.right;
+        return is_constant_expression(left) && is_constant_expression(right);
+    }
+
+    case EXPR_ASSIGN:
+        /* Assignments are not constant */
+        return false;
+
+    case EXPR_COND: {
+        /* Ternary operator is allowed if all operands are constant */
+        Expr *cond      = expression->u.cond.condition;
+        Expr *then_expr = expression->u.cond.then_expr;
+        Expr *else_expr = expression->u.cond.else_expr;
+        return is_constant_expression(cond) && is_constant_expression(then_expr) &&
+               is_constant_expression(else_expr);
+    }
+
+    case EXPR_CAST: {
+        /* Casts are allowed if the operand is constant and target is scalar */
+        Expr *operand     = expression->u.cast.expr;
+        Type *target_type = expression->u.cast.type;
+        /* Check if target type is scalar (void, arithmetic, pointer) */
+        bool is_scalar =
+            target_type &&
+            (target_type->kind == TYPE_VOID || target_type->kind == TYPE_BOOL ||
+             target_type->kind == TYPE_CHAR || target_type->kind == TYPE_SHORT ||
+             target_type->kind == TYPE_INT || target_type->kind == TYPE_LONG ||
+             target_type->kind == TYPE_LONG_LONG || target_type->kind == TYPE_FLOAT ||
+             target_type->kind == TYPE_DOUBLE || target_type->kind == TYPE_LONG_DOUBLE ||
+             target_type->kind == TYPE_COMPLEX || target_type->kind == TYPE_IMAGINARY ||
+             target_type->kind == TYPE_POINTER);
+        return is_scalar && is_constant_expression(operand);
+    }
+
+    case EXPR_CALL:
+        /* Function calls are not constant */
+        return false;
+
+    case EXPR_COMPOUND:
+        /* Compound literals are not constant (may involve runtime init) */
+        return false;
+
+    case EXPR_FIELD_ACCESS:
+    case EXPR_PTR_ACCESS:
+        /* Member access involves addresses, not constant */
+        return false;
+
+    case EXPR_POST_INC:
+    case EXPR_POST_DEC:
+        /* Increment/decrement are not constant */
+        return false;
+
+    case EXPR_SIZEOF_EXPR:
+        /* sizeof(expr) is constant if the expression's type is known at compile-time.
+         * In C, sizeof doesn't evaluate the expression, so we don't need to check
+         * if the operand is constant. */
+        return true;
+
+    case EXPR_SIZEOF_TYPE:
+        /* sizeof(type) is always constant */
+        return true;
+
+    case EXPR_ALIGNOF:
+        /* _Alignof(type) is always constant */
+        return true;
+
+    case EXPR_GENERIC:
+        /* _Generic is not constant (type selection may be runtime-dependent) */
+        return false;
+    }
+
+    return false; /* Unreachable, but for safety */
+}
+
 /* Parser functions */
 Expr *parse_primary_expression();
 Expr *parse_constant();
@@ -775,7 +889,11 @@ Expr *parse_constant_expression()
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    return parse_conditional_expression();
+    Expr *expression = parse_conditional_expression();
+    if (!is_constant_expression(expression)) {
+        fatal_error("Expected constant expression");
+    }
+    return expression;
 }
 
 //
