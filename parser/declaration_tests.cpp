@@ -68,6 +68,7 @@ TEST_F(ParserTest, ParseFunctionDefinitionNoParams)
     ASSERT_NE(nullptr, ext->u.function.declarator->suffixes);
     EXPECT_EQ(SUFFIX_FUNCTION, ext->u.function.declarator->suffixes->kind);
     EXPECT_EQ(ext->u.function.declarator->suffixes->u.function.params, nullptr);
+    EXPECT_FALSE(ext->u.function.declarator->suffixes->u.function.variadic);
     EXPECT_EQ(STMT_COMPOUND, ext->u.function.body->kind);
     EXPECT_EQ(nullptr, ext->u.function.body->u.compound);
 }
@@ -80,6 +81,27 @@ TEST_F(ParserTest, ParseFunctionDefinitionWithParams)
     EXPECT_EQ(TYPE_INT, ext->u.function.specifiers->base_type->kind);
     EXPECT_STREQ("f", ext->u.function.declarator->name);
     EXPECT_EQ(SUFFIX_FUNCTION, ext->u.function.declarator->suffixes->kind);
+    EXPECT_FALSE(ext->u.function.declarator->suffixes->u.function.variadic);
+
+    Param *params = ext->u.function.declarator->suffixes->u.function.params;
+    ASSERT_NE(params, nullptr);
+    EXPECT_EQ(TYPE_INT, params->type->kind);
+    EXPECT_STREQ("x", params->name);
+    EXPECT_EQ(STMT_COMPOUND, ext->u.function.body->kind);
+    ASSERT_NE(nullptr, ext->u.function.body->u.compound);
+    EXPECT_EQ(STMT_RETURN, ext->u.function.body->u.compound->u.stmt->kind);
+    EXPECT_STREQ("x", ext->u.function.body->u.compound->u.stmt->u.expr->u.var);
+}
+
+TEST_F(ParserTest, ParseFunctionDefinitionVariadic)
+{
+    ExternalDecl *ext = GetExternalDecl("int f(int x, ...) { return x; }");
+
+    EXPECT_EQ(EXTERNAL_DECL_FUNCTION, ext->kind);
+    EXPECT_EQ(TYPE_INT, ext->u.function.specifiers->base_type->kind);
+    EXPECT_STREQ("f", ext->u.function.declarator->name);
+    EXPECT_EQ(SUFFIX_FUNCTION, ext->u.function.declarator->suffixes->kind);
+    EXPECT_TRUE(ext->u.function.declarator->suffixes->u.function.variadic);
 
     Param *params = ext->u.function.declarator->suffixes->u.function.params;
     ASSERT_NE(params, nullptr);

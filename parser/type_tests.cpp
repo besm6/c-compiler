@@ -845,6 +845,20 @@ TEST_F(ParserTest, TypeIntFunc)
     free_type(type);
 }
 
+TEST_F(ParserTest, TypeDoubleFuncVariadic)
+{
+    Type *type = TestType("double (...)");
+
+    EXPECT_EQ(type->kind, TYPE_FUNCTION);
+    ASSERT_NE(type->u.function.returnType, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.function.returnType->kind, TYPE_DOUBLE);
+    EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
+    EXPECT_EQ(type->u.function.params, nullptr);
+    EXPECT_TRUE(type->u.function.variadic);
+    free_type(type);
+}
+
 TEST_F(ParserTest, TypeVoidFuncInt)
 {
     Type *type = TestType("void (int)");
@@ -862,6 +876,26 @@ TEST_F(ParserTest, TypeVoidFuncInt)
     ASSERT_NE(type->u.function.params->type, nullptr);
     EXPECT_EQ(type->u.function.params->type->kind, TYPE_INT);
     EXPECT_EQ(type->u.function.params->type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.function.params->type->qualifiers, nullptr);
+    free_type(type);
+}
+
+TEST_F(ParserTest, TypeVoidFuncFloatVariadic)
+{
+    Type *type = TestType("void (float, ...)");
+
+    EXPECT_EQ(type->kind, TYPE_FUNCTION);
+    ASSERT_NE(type->u.function.returnType, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.function.returnType->kind, TYPE_VOID);
+    EXPECT_EQ(type->u.function.returnType->qualifiers, nullptr);
+    ASSERT_NE(type->u.function.params, nullptr);
+    EXPECT_TRUE(type->u.function.variadic);
+    ASSERT_NE(type->u.function.params, nullptr);
+    EXPECT_EQ(type->u.function.params->next, nullptr);
+    EXPECT_EQ(type->u.function.params->name, nullptr);
+    ASSERT_NE(type->u.function.params->type, nullptr);
+    EXPECT_EQ(type->u.function.params->type->kind, TYPE_FLOAT);
     EXPECT_EQ(type->u.function.params->type->qualifiers, nullptr);
     free_type(type);
 }
