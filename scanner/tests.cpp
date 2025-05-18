@@ -223,6 +223,18 @@ TEST_F(ScannerTest, HandlesEndOfInput)
     EXPECT_EQ(GetNextToken(), TOKEN_EOF);
 }
 
+// Test ellipsis
+TEST_F(ScannerTest, HandlesEllipsis)
+{
+    SetInput("(...)");
+    EXPECT_EQ(GetNextToken(), TOKEN_LPAREN);
+    EXPECT_EQ(GetLexeme(), "(");
+    EXPECT_EQ(GetNextToken(), TOKEN_ELLIPSIS);
+    EXPECT_EQ(GetLexeme(), "...");
+    EXPECT_EQ(GetNextToken(), TOKEN_RPAREN);
+    EXPECT_EQ(GetLexeme(), ")");
+}
+
 // Main function for running tests
 int main(int argc, char **argv)
 {

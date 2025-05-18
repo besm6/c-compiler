@@ -408,8 +408,12 @@ static int scan_operator(void)
     int c2 = next_char;
 
     // Multi-character operators
-    if (c == '.' && c2 == '.' && fgetc(input_file) == '.') {
+    if (c == '.' && c2 == '.') {
         consume_char();
+        if (next_char != '.') {
+            fprintf(stderr, "Error: bad ellipsis\n");
+            exit(1);
+        }
         consume_char();
         return TOKEN_ELLIPSIS;
     }
