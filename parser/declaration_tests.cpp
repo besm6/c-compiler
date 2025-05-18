@@ -359,11 +359,19 @@ TEST_F(ParserTest, DISABLED_ParseTypeTypedef)
 }
 
 // _Atomic() is not supported in this parser.
-TEST_F(ParserTest, DISABLED_ParseTypeAtomic)
+TEST_F(ParserTest, ParseTypeAtomic)
 {
     Declaration *decl = GetDeclaration("_Atomic(int) x;");
-    //TODO: check _Atomic(int) node
+
     ASSERT_NE(decl, nullptr);
+    EXPECT_EQ(decl->kind, DECL_VAR);
+    EXPECT_STREQ("x", decl->u.var.declarators->name);
+    EXPECT_EQ(TYPE_ATOMIC, decl->u.var.declarators->type->kind);
+
+    Type *base = decl->u.var.declarators->type->u.atomic.base;
+    ASSERT_NE(nullptr, base);
+    EXPECT_EQ(TYPE_INT, base->kind);
+    EXPECT_EQ(SIGNED_SIGNED, base->u.integer.signedness);
 }
 
 TEST_F(ParserTest, ParseTypeQualifierConst)

@@ -919,6 +919,7 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
     const TypeSpec *union_spec   = NULL;
     const TypeSpec *enum_spec    = NULL;
     const TypeSpec *typedef_spec = NULL;
+    const TypeSpec *atomic_spec  = NULL;
 
     /* Collect specifiers */
     for (const TypeSpec *s = specs; s; s = s->next) {
@@ -1025,27 +1026,30 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
                 fatal_error("Unknown basic type specifier");
             }
         } else if (s->kind == TYPE_SPEC_STRUCT) {
-            if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec || base_kind != -1) {
                 fatal_error("struct cannot combine with other distinct types");
             }
             struct_spec = s;
         } else if (s->kind == TYPE_SPEC_UNION) {
-            if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec || base_kind != -1) {
                 fatal_error("union cannot combine with other distinct types");
             }
             union_spec = s;
         } else if (s->kind == TYPE_SPEC_ENUM) {
-            if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec || base_kind != -1) {
                 fatal_error("enum cannot combine with other distinct types");
             }
             enum_spec = s;
         } else if (s->kind == TYPE_SPEC_TYPEDEF_NAME) {
-            if (struct_spec || union_spec || enum_spec || typedef_spec || base_kind != -1) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec || base_kind != -1) {
                 fatal_error("typedef name cannot combine with other distinct types");
             }
             typedef_spec = s;
         } else if (s->kind == TYPE_SPEC_ATOMIC) {
-            fatal_error("Atomic() is not supported");
+            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec || base_kind != -1) {
+                fatal_error("_Atomic(type) cannot combine with other distinct types");
+            }
+            atomic_spec = s;
         }
     }
 
@@ -1067,6 +1071,9 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
     } else if (typedef_spec) {
         result                      = new_type(TYPE_TYPEDEF_NAME);
         result->u.typedef_name.name = clone_string(typedef_spec->u.typedef_name.name);
+    } else if (atomic_spec) {
+        result                = new_type(TYPE_ATOMIC);
+        result->u.atomic.base = clone_type(atomic_spec->u.atomic.type);
     } else {
         /* Handle basic types */
         if (base_kind == -1) {
@@ -1747,9 +1754,7 @@ Type *parse_atomic_type_specifier()
     expect_token(TOKEN_LPAREN);
     Type *type = parse_type_name();
     expect_token(TOKEN_RPAREN);
-    Type *atomic          = new_type(TYPE_ATOMIC);
-    atomic->u.atomic.base = type;
-    return atomic;
+    return type;
 }
 
 //

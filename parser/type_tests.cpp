@@ -407,13 +407,16 @@ TEST_F(ParserTest, TypeAtomicEnum)
 // 37. _Atomic(struct S)
 // 38. _Atomic(const char)
 //
-// _Atomic() is not supported in this parser.
-//
-TEST_F(ParserTest, DISABLED_TypeAtomicPtr)
+TEST_F(ParserTest, TypeAtomicPtr)
 {
     Type *type = TestType("_Atomic(int)");
 
-    //TODO
+    EXPECT_EQ(type->kind, TYPE_ATOMIC);
+    ASSERT_NE(type->u.atomic.base, nullptr);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    EXPECT_EQ(type->u.atomic.base->kind, TYPE_INT);
+    EXPECT_EQ(type->u.atomic.base->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->u.atomic.base->qualifiers, nullptr);
     free_type(type);
 }
 
