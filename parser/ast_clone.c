@@ -340,3 +340,38 @@ Expr *clone_expression(const Expr *expression)
     }
     return new_expr;
 }
+
+/* Clone TypeSpec */
+TypeSpec *clone_type_spec(const TypeSpec *ts)
+{
+    if (!ts)
+        return NULL;
+    TypeSpec *new_ts = malloc(sizeof(TypeSpec));
+    if (!new_ts)
+        return NULL;
+    new_ts->kind       = ts->kind;
+    new_ts->next       = clone_type_spec(ts->next);
+    new_ts->qualifiers = clone_type_qualifier(ts->qualifiers);
+
+    switch (ts->kind) {
+    case TYPE_SPEC_BASIC:
+        new_ts->u.basic = clone_type(ts->u.basic);
+        break;
+    case TYPE_SPEC_STRUCT:
+    case TYPE_SPEC_UNION:
+        new_ts->u.struct_spec.name   = clone_string(ts->u.struct_spec.name);
+        new_ts->u.struct_spec.fields = clone_field(ts->u.struct_spec.fields);
+        break;
+    case TYPE_SPEC_ENUM:
+        new_ts->u.enum_spec.name        = clone_string(ts->u.enum_spec.name);
+        new_ts->u.enum_spec.enumerators = clone_enumerator(ts->u.enum_spec.enumerators);
+        break;
+    case TYPE_SPEC_TYPEDEF_NAME:
+        new_ts->u.typedef_name.name = clone_string(ts->u.typedef_name.name);
+        break;
+    case TYPE_SPEC_ATOMIC:
+        new_ts->u.atomic.type = clone_type(ts->u.atomic.type);
+        break;
+    }
+    return new_ts;
+}

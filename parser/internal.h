@@ -82,14 +82,62 @@ struct DeclaratorSuffix {
     } u;
 };
 
+//
+// Parse
+//
+Declarator *parse_declarator(void);
+
+//
+// Print
+//
 void print_type_spec(FILE *fd, TypeSpec *spec, int indent);
 void print_declarator(FILE *fd, Declarator *decl, int indent);
 
+//
+// Allocate
+//
+Type *new_type(TypeKind kind);
+TypeQualifier *new_type_qualifier(TypeQualifierKind kind);
+Field *new_field(void);
+Enumerator *new_enumerator(Ident name, Expr *value);
+Param *new_param(void);
+Declaration *new_declaration(DeclarationKind kind);
+DeclSpec *new_decl_spec(void);
+StorageClass *new_storage_class(StorageClassKind kind);
+TypeSpec *new_type_spec(TypeSpecKind kind);
+FunctionSpec *new_function_spec(FunctionSpecKind kind);
+AlignmentSpec *new_alignment_spec(AlignmentSpecKind kind);
+InitDeclarator *new_init_declarator(void);
+Declarator *new_declarator(void);
+Pointer *new_pointer(void);
+DeclaratorSuffix *new_declarator_suffix(DeclaratorSuffixKind kind);
+Initializer *new_initializer(InitializerKind kind);
+InitItem *new_init_item(Designator *designators, Initializer *init);
+Designator *new_designator(DesignatorKind kind);
+Expr *new_expression(ExprKind kind);
+Literal *new_literal(LiteralKind kind);
+UnaryOp *new_unary_op(UnaryOpKind kind);
+BinaryOp *new_binary_op(BinaryOpKind kind);
+AssignOp *new_assign_op(AssignOpKind kind);
+GenericAssoc *new_generic_assoc(GenericAssocKind kind);
+Stmt *new_stmt(StmtKind kind);
+DeclOrStmt *new_decl_or_stmt(DeclOrStmtKind kind);
+ForInit *new_for_init(ForInitKind kind);
+ExternalDecl *new_external_decl(ExternalDeclKind kind);
+Program *new_program(void);
+
+//
+// Deallocate
+//
 void free_declarator(Declarator *decl);
 void free_decl_spec(DeclSpec *spec);
+void free_type_spec(TypeSpec *ts);
+void free_pointer(Pointer *pointer);
+void free_declarator_suffix(DeclaratorSuffix *suffix);
 
-Declarator *parse_declarator(void);
-
+//
+// Clone
+//
 char *clone_string(const char *str);
 Type *clone_type(const Type *type);
 TypeQualifier *clone_type_qualifier(const TypeQualifier *qualifier);
@@ -101,6 +149,9 @@ BinaryOp *clone_binary_op(const BinaryOp *op);
 AssignOp *clone_assign_op(const AssignOp *op);
 GenericAssoc *clone_generic_assoc(const GenericAssoc *assoc);
 InitItem *clone_init_item(const InitItem *item);
+TypeSpec *clone_type_spec(const TypeSpec *ts);
+Field *clone_field(const Field *field);
+Enumerator *clone_enumerator(const Enumerator *enumerator);
 
 #ifdef __cplusplus
 }

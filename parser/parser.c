@@ -10,7 +10,7 @@
 /* Global lexer state */
 static int current_token;
 static int peek_token;
-static char *current_lexeme;
+static const char *current_lexeme;
 static char lexeme_buffer[1024]; // Buffer for current lexeme
 
 // Set manually to enable debug output
@@ -103,244 +103,6 @@ static bool is_type_qualifier(int token)
 {
     return token == TOKEN_CONST || token == TOKEN_RESTRICT ||
            token == TOKEN_VOLATILE;
-}
-
-/* Helper functions for AST construction */
-static Type *new_type(TypeKind kind)
-{
-    Type *t                = malloc(sizeof(Type));
-    t->kind                = kind;
-    t->qualifiers          = NULL;
-    t->u.integer.signedness = SIGNED_SIGNED; /* Default */
-    return t;
-}
-
-static TypeQualifier *new_type_qualifier(TypeQualifierKind kind)
-{
-    TypeQualifier *q = malloc(sizeof(TypeQualifier));
-    q->kind          = kind;
-    q->next          = NULL;
-    return q;
-}
-
-static Field *new_field(void)
-{
-    Field *f    = (Field *)malloc(sizeof(Field));
-    f->next     = NULL;
-    f->type     = NULL;
-    f->name     = NULL;
-    f->bitfield = NULL;
-    return f;
-}
-
-static Enumerator *new_enumerator(Ident name, Expr *value)
-{
-    Enumerator *e = malloc(sizeof(Enumerator));
-    e->name       = name;
-    e->value      = value;
-    e->next       = NULL;
-    return e;
-}
-
-static Param *new_param()
-{
-    Param *p = malloc(sizeof(Param));
-    p->name  = NULL;
-    p->type  = NULL;
-    p->next  = NULL;
-    return p;
-}
-
-static Declaration *new_declaration(DeclarationKind kind)
-{
-    Declaration *d = malloc(sizeof(Declaration));
-    d->kind        = kind;
-    d->next        = NULL;
-    return d;
-}
-
-static DeclSpec *new_decl_spec()
-{
-    DeclSpec *ds   = malloc(sizeof(DeclSpec));
-    ds->storage    = NULL;
-    ds->qualifiers = NULL;
-//  ds->base_type  = NULL; -- remove
-    ds->func_specs = NULL;
-    ds->align_spec = NULL;
-    return ds;
-}
-
-static StorageClass *new_storage_class(StorageClassKind kind)
-{
-    StorageClass *sc = malloc(sizeof(StorageClass));
-    sc->kind         = kind;
-    return sc;
-}
-
-static TypeSpec *new_type_spec(TypeSpecKind kind)
-{
-    TypeSpec *ts   = malloc(sizeof(TypeSpec));
-    ts->kind       = kind;
-    ts->qualifiers = NULL;
-    ts->next       = NULL;
-    return ts;
-}
-
-static FunctionSpec *new_function_spec(FunctionSpecKind kind)
-{
-    FunctionSpec *fs = malloc(sizeof(FunctionSpec));
-    fs->kind         = kind;
-    fs->next         = NULL;
-    return fs;
-}
-
-static AlignmentSpec *new_alignment_spec(AlignmentSpecKind kind)
-{
-    AlignmentSpec *as = malloc(sizeof(AlignmentSpec));
-    as->kind          = kind;
-    return as;
-}
-
-static InitDeclarator *new_init_declarator()
-{
-    InitDeclarator *id = malloc(sizeof(InitDeclarator));
-    id->init           = NULL;
-    id->next           = NULL;
-    id->type           = NULL;
-    id->name           = NULL;
-    return id;
-}
-
-static Declarator *new_declarator()
-{
-    Declarator *d = malloc(sizeof(Declarator));
-    d->next       = NULL;
-    d->name       = NULL;
-    d->pointers   = NULL;
-    d->suffixes   = NULL;
-    return d;
-}
-
-static Pointer *new_pointer()
-{
-    Pointer *p    = malloc(sizeof(Pointer));
-    p->qualifiers = NULL;
-    p->next       = NULL;
-    return p;
-}
-
-static DeclaratorSuffix *new_declarator_suffix(DeclaratorSuffixKind kind)
-{
-    DeclaratorSuffix *ds = malloc(sizeof(DeclaratorSuffix));
-    ds->kind             = kind;
-    ds->next             = NULL;
-    return ds;
-}
-
-static Initializer *new_initializer(InitializerKind kind)
-{
-    Initializer *i = malloc(sizeof(Initializer));
-    i->kind        = kind;
-    return i;
-}
-
-static InitItem *new_init_item(Designator *designators, Initializer *init)
-{
-    InitItem *ii    = malloc(sizeof(InitItem));
-    ii->designators = designators;
-    ii->init        = init;
-    ii->next        = NULL;
-    return ii;
-}
-
-static Designator *new_designator(DesignatorKind kind)
-{
-    Designator *d = malloc(sizeof(Designator));
-    d->kind       = kind;
-    d->next       = NULL;
-    return d;
-}
-
-static Expr *new_expression(ExprKind kind)
-{
-    Expr *e = malloc(sizeof(Expr));
-    e->kind = kind;
-    e->type = NULL;
-    e->next = NULL;
-    return e;
-}
-
-static Literal *new_literal(LiteralKind kind)
-{
-    Literal *l = malloc(sizeof(Literal));
-    l->kind    = kind;
-    return l;
-}
-
-static UnaryOp *new_unary_op(UnaryOpKind kind)
-{
-    UnaryOp *op = malloc(sizeof(UnaryOp));
-    op->kind    = kind;
-    return op;
-}
-
-static BinaryOp *new_binary_op(BinaryOpKind kind)
-{
-    BinaryOp *op = malloc(sizeof(BinaryOp));
-    op->kind     = kind;
-    return op;
-}
-
-static AssignOp *new_assign_op(AssignOpKind kind)
-{
-    AssignOp *op = malloc(sizeof(AssignOp));
-    op->kind     = kind;
-    return op;
-}
-
-static GenericAssoc *new_generic_assoc(GenericAssocKind kind)
-{
-    GenericAssoc *ga = malloc(sizeof(GenericAssoc));
-    ga->kind         = kind;
-    ga->next         = NULL;
-    return ga;
-}
-
-static Stmt *new_stmt(StmtKind kind)
-{
-    Stmt *s = malloc(sizeof(Stmt));
-    s->kind = kind;
-    return s;
-}
-
-static DeclOrStmt *new_decl_or_stmt(DeclOrStmtKind kind)
-{
-    DeclOrStmt *ds = malloc(sizeof(DeclOrStmt));
-    ds->kind       = kind;
-    ds->next       = NULL;
-    return ds;
-}
-
-static ForInit *new_for_init(ForInitKind kind)
-{
-    ForInit *fi = malloc(sizeof(ForInit));
-    fi->kind    = kind;
-    return fi;
-}
-
-static ExternalDecl *new_external_decl(ExternalDeclKind kind)
-{
-    ExternalDecl *ed = malloc(sizeof(ExternalDecl));
-    ed->kind         = kind;
-    ed->next         = NULL;
-    return ed;
-}
-
-static Program *new_program()
-{
-    Program *p = malloc(sizeof(Program));
-    p->decls   = NULL;
-    return p;
 }
 
 /* Append to linked list */
@@ -453,7 +215,7 @@ Expr *parse_primary_expression()
     switch (current_token) {
     case TOKEN_IDENTIFIER:
         expr        = new_expression(EXPR_VAR);
-        expr->u.var = strdup(current_lexeme);
+        expr->u.var = clone_string(current_lexeme);
         advance_token();
         break;
     case TOKEN_I_CONSTANT:
@@ -496,7 +258,7 @@ Expr *parse_constant()
         expr->u.literal->u.float_val = atof(current_lexeme);
         break;
     case TOKEN_ENUMERATION_CONSTANT:
-        expr->u.literal->u.enum_const = strdup(current_lexeme);
+        expr->u.literal->u.enum_const = clone_string(current_lexeme);
         break;
     }
     advance_token();
@@ -510,7 +272,7 @@ Expr *parse_string()
     }
     Expr *expr                    = new_expression(EXPR_LITERAL);
     expr->u.literal               = new_literal(LITERAL_STRING);
-    expr->u.literal->u.string_val = strdup(current_lexeme);
+    expr->u.literal->u.string_val = clone_string(current_lexeme);
     advance_token();
     return expr;
 }
@@ -597,7 +359,7 @@ Expr *parse_postfix_expression()
             expr                  = new_expr;
         } else if (current_token == TOKEN_DOT) {
             advance_token();
-            Ident field = strdup(current_lexeme);
+            Ident field = clone_string(current_lexeme);
             expect_token(TOKEN_IDENTIFIER);
             Expr *new_expr                 = new_expression(EXPR_FIELD_ACCESS);
             new_expr->u.field_access.expr  = expr;
@@ -605,7 +367,7 @@ Expr *parse_postfix_expression()
             expr = new_expr;
         } else if (current_token == TOKEN_PTR_OP) {
             advance_token();
-            Ident field = strdup(current_lexeme);
+            Ident field = clone_string(current_lexeme);
             expect_token(TOKEN_IDENTIFIER);
             Expr *new_expr               = new_expression(EXPR_PTR_ACCESS);
             new_expr->u.ptr_access.expr  = expr;
@@ -1020,7 +782,7 @@ Expr *parse_constant_expression()
 // Fuse TypeSpec list into a single Type.
 // Returns non-NULL value.
 //
-Type *fuse_type_specifiers(TypeSpec *specs)
+Type *fuse_type_specifiers(const TypeSpec *specs)
 {
     if (!specs) {
         fatal_error("Empty type specifier list");
@@ -1034,14 +796,14 @@ Type *fuse_type_specifiers(TypeSpec *specs)
     bool is_complex        = false;
     bool is_imaginary      = false;
     bool is_atomic         = false;
-    TypeSpec *struct_spec  = NULL;
-    TypeSpec *union_spec   = NULL;
-    TypeSpec *enum_spec    = NULL;
-    TypeSpec *typedef_spec = NULL;
     int specifier_count    = 0;
+    const TypeSpec *struct_spec  = NULL;
+    const TypeSpec *union_spec   = NULL;
+    const TypeSpec *enum_spec    = NULL;
+    const TypeSpec *typedef_spec = NULL;
 
     /* Collect specifiers */
-    for (TypeSpec *s = specs; s; s = s->next) {
+    for (const TypeSpec *s = specs; s; s = s->next) {
         specifier_count++;
         if (s->kind == TYPE_SPEC_BASIC) {
             switch (s->u.basic->kind) {
@@ -1174,19 +936,19 @@ Type *fuse_type_specifiers(TypeSpec *specs)
 
     if (struct_spec) {
         result                    = new_type(TYPE_STRUCT);
-        result->u.struct_t.name   = struct_spec->u.struct_spec.name;
-        result->u.struct_t.fields = struct_spec->u.struct_spec.fields;
+        result->u.struct_t.name   = clone_string(struct_spec->u.struct_spec.name);
+        result->u.struct_t.fields = clone_field(struct_spec->u.struct_spec.fields);
     } else if (union_spec) {
         result                    = new_type(TYPE_UNION);
-        result->u.struct_t.name   = union_spec->u.struct_spec.name;
-        result->u.struct_t.fields = union_spec->u.struct_spec.fields;
+        result->u.struct_t.name   = clone_string(union_spec->u.struct_spec.name);
+        result->u.struct_t.fields = clone_field(union_spec->u.struct_spec.fields);
     } else if (enum_spec) {
         result                       = new_type(TYPE_ENUM);
-        result->u.enum_t.name        = enum_spec->u.enum_spec.name;
-        result->u.enum_t.enumerators = enum_spec->u.enum_spec.enumerators;
+        result->u.enum_t.name        = clone_string(enum_spec->u.enum_spec.name);
+        result->u.enum_t.enumerators = clone_enumerator(enum_spec->u.enum_spec.enumerators);
     } else if (typedef_spec) {
         result                      = new_type(TYPE_TYPEDEF_NAME);
-        result->u.typedef_name.name = typedef_spec->u.typedef_name.name;
+        result->u.typedef_name.name = clone_string(typedef_spec->u.typedef_name.name);
     } else {
         /* Handle basic types */
         if (base_kind == -1) {
@@ -1359,6 +1121,7 @@ DeclSpec *parse_declaration_specifiers(Type **base_type_result)
         free_decl_spec(ds);
         return NULL;
     }
+    free_type_spec(type_specs);
     return ds;
 }
 
@@ -1506,7 +1269,7 @@ TypeSpec *parse_type_specifier()
         ts->u.enum_spec.enumerators = type->u.enum_t.enumerators;
     } else if (current_token == TOKEN_TYPEDEF_NAME) {
         ts                      = new_type_spec(TYPE_SPEC_TYPEDEF_NAME);
-        ts->u.typedef_name.name = strdup(current_lexeme);
+        ts->u.typedef_name.name = clone_string(current_lexeme);
         advance_token();
     } else {
         fatal_error("Expected type specifier");
@@ -1529,7 +1292,7 @@ Type *parse_struct_or_union_specifier()
     int su     = parse_struct_or_union();
     Type *type = new_type(su == TOKEN_STRUCT ? TYPE_STRUCT : TYPE_UNION);
     if (current_token == TOKEN_IDENTIFIER) {
-        type->u.struct_t.name = strdup(current_lexeme);
+        type->u.struct_t.name = clone_string(current_lexeme);
         advance_token();
     }
     if (current_token == TOKEN_LBRACE) {
@@ -1634,6 +1397,7 @@ Field *parse_struct_declaration()
         expect_token(TOKEN_COMMA);
     }
     expect_token(TOKEN_SEMICOLON);
+    free_type(base_type);
     return fields;
 }
 
@@ -1740,7 +1504,7 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                 advance_token();
             } else if (current_token == TOKEN_TYPEDEF_NAME) {
                 ts                      = new_type_spec(TYPE_SPEC_TYPEDEF_NAME);
-                ts->u.typedef_name.name = strdup(current_lexeme);
+                ts->u.typedef_name.name = clone_string(current_lexeme);
                 advance_token();
             } else if (current_token == TOKEN_ATOMIC) {
                 advance_token();
@@ -1753,7 +1517,7 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                 advance_token();
                 ts = new_type_spec(is_struct ? TYPE_SPEC_STRUCT : TYPE_SPEC_UNION);
                 if (current_token == TOKEN_IDENTIFIER) {
-                    ts->u.struct_spec.name = strdup(current_lexeme);
+                    ts->u.struct_spec.name = clone_string(current_lexeme);
                     advance_token();
                 } else {
                     ts->u.struct_spec.name = NULL;
@@ -1767,7 +1531,7 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                 advance_token();
                 ts = new_type_spec(TYPE_SPEC_ENUM);
                 if (current_token == TOKEN_IDENTIFIER) {
-                    ts->u.enum_spec.name = strdup(current_lexeme);
+                    ts->u.enum_spec.name = clone_string(current_lexeme);
                     advance_token();
                 } else {
                     ts->u.enum_spec.name = NULL;
@@ -1779,10 +1543,7 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                         if (current_token != TOKEN_IDENTIFIER) {
                             fatal_error("Expected identifier");
                         }
-                        Enumerator *e = (Enumerator *)malloc(sizeof(Enumerator));
-                        e->name       = strdup(current_lexeme);
-                        e->value      = NULL;
-                        e->next       = NULL;
+                        Enumerator *e = new_enumerator(clone_string(current_lexeme), NULL);
                         advance_token();
                         if (current_token == TOKEN_ASSIGN) {
                             advance_token();
@@ -1818,7 +1579,7 @@ Type *parse_enum_specifier()
     expect_token(TOKEN_ENUM);
     Type *type = new_type(TYPE_ENUM);
     if (current_token == TOKEN_IDENTIFIER) {
-        type->u.enum_t.name = strdup(current_lexeme);
+        type->u.enum_t.name = clone_string(current_lexeme);
         advance_token();
     }
     if (current_token == TOKEN_LBRACE) {
@@ -1849,7 +1610,7 @@ Enumerator *parse_enumerator()
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    Ident name = strdup(current_lexeme);
+    Ident name = clone_string(current_lexeme);
     expect_token(TOKEN_IDENTIFIER);
     Expr *value = NULL;
     if (current_token == TOKEN_ASSIGN) {
@@ -1982,7 +1743,7 @@ Declarator *parse_direct_declarator()
     Declarator *decl;
     if (current_token == TOKEN_IDENTIFIER) {
         decl       = new_declarator();
-        decl->name = strdup(current_lexeme);
+        decl->name = clone_string(current_lexeme);
         advance_token();
     } else if (current_token == TOKEN_LPAREN) {
         advance_token();
@@ -2108,7 +1869,7 @@ Param *parse_parameter_type_list(bool *variadic_flag)
         Param *param = new_param();
         param->type = parse_type_name();
         if (current_token == TOKEN_IDENTIFIER) {
-            param->name = strdup(current_lexeme);
+            param->name = clone_string(current_lexeme);
             advance_token();
         }
         *params_tail = param;
@@ -2301,7 +2062,7 @@ Param *parse_parameter_declaration()
         DeclaratorSuffix *suffixes = NULL;
 
         if (is_declarator && current_token == TOKEN_IDENTIFIER) {
-            name = strdup(current_lexeme);
+            name = clone_string(current_lexeme);
             advance_token();
             if (current_token == TOKEN_STAR || current_token == TOKEN_LBRACKET ||
                 current_token == TOKEN_LPAREN) {
@@ -2325,7 +2086,6 @@ Param *parse_parameter_declaration()
         /* Only declaration_specifiers (unnamed parameter) */
         param->type = parse_type_name();
     }
-
     return param;
 }
 
@@ -2346,6 +2106,7 @@ Type *parse_type_name()
     /* Construct base Type from type_specs (simplified to first basic type) */
     Type *base_type = fuse_type_specifiers(type_specs);
     base_type->qualifiers = qualifiers;
+    free_type_spec(type_specs);
 
     /* Parse optional abstract_declarator */
     Pointer *pointers          = NULL;
@@ -2358,7 +2119,10 @@ Type *parse_type_name()
     }
 
     /* Apply pointers and suffixes to construct the final type */
-    return type_apply_suffixes(type_apply_pointers(base_type, pointers), suffixes);
+    Type *type = type_apply_suffixes(type_apply_pointers(base_type, pointers), suffixes);
+    free_pointer(pointers);
+    free_declarator_suffix(suffixes);
+    return type;
 }
 
 Initializer *parse_initializer()
@@ -2438,7 +2202,7 @@ Designator *parse_designator()
         fatal_error("Expected designator");
     }
     advance_token();
-    Ident name = strdup(current_lexeme);
+    Ident name = clone_string(current_lexeme);
     expect_token(TOKEN_IDENTIFIER);
     Designator *d = new_designator(DESIGNATOR_FIELD);
     d->u.name     = name;
@@ -2454,7 +2218,7 @@ Declaration *parse_static_assert_declaration()
     expect_token(TOKEN_LPAREN);
     Expr *condition = parse_constant_expression();
     expect_token(TOKEN_COMMA);
-    char *message = strdup(current_lexeme);
+    char *message = clone_string(current_lexeme);
     expect_token(TOKEN_STRING_LITERAL);
     expect_token(TOKEN_RPAREN);
     expect_token(TOKEN_SEMICOLON);
@@ -2495,7 +2259,7 @@ Stmt *parse_labeled_statement()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_IDENTIFIER) {
-        Ident label = strdup(current_lexeme);
+        Ident label = clone_string(current_lexeme);
         advance_token();
         expect_token(TOKEN_COLON);
         Stmt *stmt               = parse_statement();
@@ -2695,7 +2459,7 @@ Stmt *parse_jump_statement()
     }
     if (current_token == TOKEN_GOTO) {
         advance_token();
-        Ident label = strdup(current_lexeme);
+        Ident label = clone_string(current_lexeme);
         expect_token(TOKEN_IDENTIFIER);
         expect_token(TOKEN_SEMICOLON);
         Stmt *stmt         = new_stmt(STMT_GOTO);
@@ -2805,10 +2569,11 @@ ExternalDecl *parse_external_declaration()
 
     ExternalDecl *ed           = new_external_decl(EXTERNAL_DECL_FUNCTION);
     ed->u.function.specifiers  = spec;
-    ed->u.function.name        = decl->name;
+    ed->u.function.name        = clone_string(decl->name);
     ed->u.function.type        = type_apply_suffixes(type_apply_pointers(base_type, decl->pointers), decl->suffixes);
     ed->u.function.param_decls = decl_list;
     ed->u.function.body        = parse_compound_statement();
+    free_declarator(decl);
     return ed;
 }
 

@@ -30,6 +30,7 @@ add_executable(c-parser-tests
     declaration_tests.cpp
 #   negative_tests.cpp
     ../scanner/scanner.c
+    ast_alloc.c
     ast_print.c
     ast_free.c
     ast_clone.c
