@@ -131,3 +131,12 @@ size_t xtotal_allocated_size()
     }
     return total;
 }
+
+void xfree_all()
+{
+    while (head) {
+        BlockHeader *next = head->next;
+        free(head);
+        head = next;
+    }
+}
