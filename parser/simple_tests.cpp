@@ -193,3 +193,93 @@ TEST_F(ParserTest, TypedefScope)
     EXPECT_EQ(symtab_find("T"), TOKEN_TYPEDEF_NAME); // at level 0
     EXPECT_EQ(symtab_find("Q"), 0);                  // at level 1
 }
+
+TEST_F(ParserTest, EnumScope)
+{
+    program = parse(CreateTempFile("enum { FOO = 1 }; void f() { enum { BAR = 2 }; }"));
+    ASSERT_NE(nullptr, program);
+    print_program(stdout, program);
+
+    EXPECT_EQ(symtab_find("FOO"), TOKEN_ENUMERATION_CONSTANT); // at level 0
+    EXPECT_EQ(symtab_find("BAR"), 0);                          // at level 1
+}
+
+TEST_F(ParserTest, TypedefEnumField)
+{
+    program = parse(CreateTempFile("typedef int foo; enum { qux = 1 }; struct { foo bar : qux; } x;"));
+    ASSERT_NE(nullptr, program);
+    print_program(stdout, program);
+
+    EXPECT_EQ(symtab_find("foo"), TOKEN_TYPEDEF_NAME);
+    EXPECT_EQ(symtab_find("qux"), TOKEN_ENUMERATION_CONSTANT);
+
+    ExternalDecl *ext = program->decls;
+    ASSERT_NE(nullptr, ext);
+    EXPECT_EQ(EXTERNAL_DECL_DECLARATION, ext->kind);
+    ASSERT_NE(nullptr, ext->next);
+    EXPECT_EQ(EXTERNAL_DECL_DECLARATION, ext->next->kind);
+    ASSERT_NE(nullptr, ext->next->next);
+    EXPECT_EQ(EXTERNAL_DECL_DECLARATION, ext->next->next->kind);
+    EXPECT_EQ(nullptr, ext->next->next->next);
+
+    //
+    // Check typedef foo
+    //
+    Declaration *decl = ext->u.declaration;
+    EXPECT_EQ(DECL_VAR, decl->kind);
+    EXPECT_EQ(STORAGE_CLASS_TYPEDEF, decl->u.var.specifiers->storage->kind);
+
+    InitDeclarator *init = decl->u.var.declarators;
+    ASSERT_NE(nullptr, init);
+    EXPECT_STREQ("foo", init->name);
+    EXPECT_EQ(nullptr, init->init);
+    ASSERT_NE(nullptr, init->type);
+    EXPECT_EQ(TYPE_INT, init->type->kind);
+    EXPECT_EQ(SIGNED_SIGNED, init->type->u.integer.signedness);
+
+    //
+    // Check enum qux
+    //
+    decl = ext->next->u.declaration;
+    EXPECT_EQ(DECL_EMPTY, decl->kind);
+    EXPECT_EQ(nullptr, decl->u.empty.specifiers);
+
+    Type *type = decl->u.empty.type;
+    EXPECT_EQ(TYPE_ENUM, type->kind);
+    EXPECT_EQ(nullptr, type->u.enum_t.name);
+    ASSERT_NE(nullptr, type->u.enum_t.enumerators);
+    EXPECT_STREQ("qux", type->u.enum_t.enumerators->name);
+
+    Expr *value = type->u.enum_t.enumerators->value;
+    ASSERT_NE(nullptr, value);
+    EXPECT_EQ(EXPR_LITERAL, value->kind);
+    EXPECT_EQ(LITERAL_INT, value->u.literal->kind);
+    EXPECT_EQ(1, value->u.literal->u.int_val);
+
+    //
+    // Check variable x
+    //
+    decl = ext->next->next->u.declaration;
+    EXPECT_EQ(DECL_VAR, decl->kind);
+    EXPECT_EQ(nullptr, decl->u.var.specifiers);
+
+    init = decl->u.var.declarators;
+    ASSERT_NE(nullptr, init);
+    EXPECT_STREQ("x", init->name);
+    EXPECT_EQ(nullptr, init->init);
+    ASSERT_NE(nullptr, init->type);
+    EXPECT_EQ(TYPE_STRUCT, init->type->kind);
+    EXPECT_EQ(nullptr, init->type->u.struct_t.name);
+
+    Field *field = init->type->u.struct_t.fields;
+    EXPECT_STREQ("bar", field->name);
+    ASSERT_NE(nullptr, field->type);
+    EXPECT_EQ(TYPE_TYPEDEF_NAME, field->type->kind);
+    EXPECT_STREQ("foo", field->type->u.typedef_name.name);
+
+    Expr *bitfield = field->bitfield;
+    ASSERT_NE(nullptr, bitfield);
+    EXPECT_EQ(EXPR_LITERAL, bitfield->kind);
+    EXPECT_EQ(LITERAL_ENUM, bitfield->u.literal->kind);
+    EXPECT_STREQ("qux", bitfield->u.literal->u.enum_const);
+}
