@@ -16,7 +16,7 @@ static int debug = 1;     // Set manually to enable debug output
 static void consume_char(void);
 static void unget_char(void);
 static int is_keyword(const char *str);
-static int check_type(void);
+static int (*symbol_type)(const char *str);
 static void skip_whitespace(void);
 static void skip_comment(void);
 static int scan_identifier(void);
@@ -26,12 +26,13 @@ static int scan_char(void);
 static int scan_operator(void);
 
 // Initialize scanner with input file
-void init_scanner(FILE *input)
+void init_scanner(FILE *input, int (*sym_type)(const char *str))
 {
-    input_file = input;
-    yyleng     = 0;
-    yytext[0]  = '\0';
-    next_char  = input_file ? fgetc(input_file) : EOF;
+    input_file  = input;
+    symbol_type = sym_type;
+    yyleng      = 0;
+    yytext[0]   = '\0';
+    next_char   = input_file ? fgetc(input_file) : EOF;
 }
 
 // Main lexer function
@@ -71,7 +72,6 @@ again:
     if (isalpha(next_char) || next_char == '_') {
         token = scan_identifier();
     } else if (isdigit(next_char)) {
-        // TODO: in scan_number() when next_char == '0' && (next_char == 'x' || next_char == 'X')
         token = scan_number();
     } else if (next_char == '"') {
         token = scan_string();
@@ -169,29 +169,6 @@ static int is_keyword(const char *str)
     return 0;
 }
 
-// Check identifier type
-static int check_type(void)
-{
-#if 0
-    // TODO: Get type from symbol table.
-    switch (sym_type(yytext)) {
-    case TOKEN_TYPEDEF_NAME:
-        // Previously defined typedef
-        return TOKEN_TYPEDEF_NAME;
-
-    case TOKEN_ENUMERATION_CONSTANT:
-        // Previously defined enum
-        return TOKEN_ENUMERATION_CONSTANT;
-
-    default:
-        // Includes undefined names
-        return TOKEN_IDENTIFIER;
-    }
-#endif
-    // No symbol table for now
-    return TOKEN_IDENTIFIER;
-}
-
 // Skip whitespace
 static void skip_whitespace(void)
 {
@@ -248,7 +225,20 @@ static int scan_identifier(void)
         consume_char();
     }
     int token = is_keyword(yytext);
-    return token ? token : check_type();
+    if (token)
+        return token;
+
+    // Check identifier type
+    if (symbol_type != NULL) {
+        // Let's look in the parser's symbol table.
+        token = symbol_type(yytext);
+        if (token) {
+            // Either previously defined typedef (TOKEN_TYPEDEF_NAME)
+            // or previously defined enum (TOKEN_ENUMERATION_CONSTANT).
+            return token;
+        }
+    }
+    return TOKEN_IDENTIFIER;
 }
 
 // Scan number (integer or floating-point)

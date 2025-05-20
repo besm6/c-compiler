@@ -153,6 +153,11 @@ TypeSpec *clone_type_spec(const TypeSpec *ts);
 Field *clone_field(const Field *field);
 Enumerator *clone_enumerator(const Enumerator *enumerator);
 
+//
+// Symbol table
+//
+int symtab_token(const char *str);
+
 #ifdef __cplusplus
 }
 #endif

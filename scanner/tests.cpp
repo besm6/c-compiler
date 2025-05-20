@@ -11,7 +11,7 @@ protected:
     void SetUp() override
     {
         // Reset scanner state
-        init_scanner(nullptr);
+        init_scanner(nullptr, nullptr);
     }
 
     // Helper function to set scanner input from a string
@@ -21,7 +21,7 @@ protected:
         temp_file = tmpfile();
         fwrite(input.c_str(), 1, input.size(), temp_file);
         rewind(temp_file);
-        init_scanner(temp_file);
+        init_scanner(temp_file, nullptr);
     }
 
     // Helper function to get next token
@@ -35,7 +35,7 @@ protected:
         if (temp_file) {
             fclose(temp_file);
         }
-        init_scanner(nullptr);
+        init_scanner(nullptr, nullptr);
     }
 
 private:

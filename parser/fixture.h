@@ -7,6 +7,7 @@
 
 #include "ast.h"
 #include "scanner.h"
+#include "internal.h"
 
 // Test fixture
 class ParserTest : public ::testing::Test {
@@ -63,7 +64,7 @@ protected:
     // Helper to get function body from program
     Type *TestType(const char *content)
     {
-        init_scanner(CreateTempFile(content));
+        init_scanner(CreateTempFile(content), symtab_token);
         advance_token();
         Type *type = parse_type_name();
         EXPECT_NE(type, nullptr);
