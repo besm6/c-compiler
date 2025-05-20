@@ -134,13 +134,14 @@ void map_init(StringMap *map)
 }
 
 // Create a new node
-static StringNode *create_node(const char *key, int value)
+static StringNode *create_node(const char *key, int value, int level)
 {
     StringNode *node = (StringNode *)malloc(sizeof(StringNode) + strlen(key));
     if (!node)
         return NULL;
     strcpy(node->key, key);
     node->value  = value;
+    node->level  = level;
     node->left   = NULL;
     node->right  = NULL;
     node->height = 1;
@@ -148,30 +149,31 @@ static StringNode *create_node(const char *key, int value)
 }
 
 // Insert or update a key-value pair
-static StringNode *insert_node(StringNode *node, const char *key, int value)
+static StringNode *insert_node(StringNode *node, const char *key, int value, int level)
 {
     if (!node) {
-        return create_node(key, value);
+        return create_node(key, value, level);
     }
 
     int cmp = strcmp(key, node->key);
     if (cmp == 0) {
         node->value = value; // Update value
+        node->level = level; // Update level
         return node;
     } else if (cmp < 0) {
-        node->left = insert_node(node->left, key, value);
+        node->left = insert_node(node->left, key, value, level);
     } else {
-        node->right = insert_node(node->right, key, value);
+        node->right = insert_node(node->right, key, value, level);
     }
 
     return rebalance(node);
 }
 
-int map_insert(StringMap *map, const char *key, int value)
+int map_insert(StringMap *map, const char *key, int value, int level)
 {
     if (!map || !key)
         return 0;
-    map->root = insert_node(map->root, key, value);
+    map->root = insert_node(map->root, key, value, level);
     return map->root ? 1 : 0;
 }
 
@@ -319,41 +321,3 @@ void map_free(StringMap *map)
 {
     free_nodes(map->root);
 }
-
-#if 0
-// Example usage
-int main()
-{
-    StringMap map;
-    map_init(&map);
-
-    // Insert some key-value pairs
-    map_insert(&map, "apple", 5);
-    map_insert(&map, "banana", 10);
-    map_insert(&map, "orange", 15);
-    map_insert(&map, "apple", 20); // Update apple's value
-
-    // Retrieve values
-    int value;
-    if (map_get(&map, "apple", &value)) {
-        printf("apple: %d\n", value); // Should print 20
-    }
-    if (map_get(&map, "banana", &value)) {
-        printf("banana: %d\n", value); // Should print 10
-    }
-    if (!map_get(&map, "grape", &value)) {
-        printf("grape: not found\n");
-    }
-
-    // Remove a key
-    if (map_remove_key(&map, "banana")) {
-        printf("banana removed\n");
-    }
-    if (!map_get(&map, "banana", &value)) {
-        printf("banana: not found\n");
-    }
-
-    map_free(&map);
-    return 0;
-}
-#endif

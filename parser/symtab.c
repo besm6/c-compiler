@@ -21,7 +21,7 @@ int symtab_find(const char *name)
 //
 bool symtab_define(const char *name, int value, int level)
 {
-    return map_insert(&symtab, name, value /*TODO:, level*/);
+    return map_insert(&symtab, name, value, level);
 }
 
 //

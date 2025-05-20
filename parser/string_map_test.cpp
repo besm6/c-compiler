@@ -74,7 +74,7 @@ TEST_F(StringMapTest, CreateStringMap)
 // Test inserting a new key-value pair
 TEST_F(StringMapTest, InsertNewKey)
 {
-    EXPECT_TRUE(map_insert(&map, "key1", 42));
+    EXPECT_TRUE(map_insert(&map, "key1", 42, 0));
     int value;
     EXPECT_TRUE(map_get(&map, "key1", &value));
     EXPECT_EQ(value, 42);
@@ -83,8 +83,8 @@ TEST_F(StringMapTest, InsertNewKey)
 // Test updating an existing key
 TEST_F(StringMapTest, UpdateExistingKey)
 {
-    EXPECT_TRUE(map_insert(&map, "key1", 42));
-    EXPECT_TRUE(map_insert(&map, "key1", 100));
+    EXPECT_TRUE(map_insert(&map, "key1", 42, 0));
+    EXPECT_TRUE(map_insert(&map, "key1", 100, 0));
     int value;
     EXPECT_TRUE(map_get(&map, "key1", &value));
     EXPECT_EQ(value, 100);
@@ -93,9 +93,9 @@ TEST_F(StringMapTest, UpdateExistingKey)
 // Test inserting multiple keys
 TEST_F(StringMapTest, InsertMultipleKeys)
 {
-    EXPECT_TRUE(map_insert(&map, "apple", 5));
-    EXPECT_TRUE(map_insert(&map, "banana", 10));
-    EXPECT_TRUE(map_insert(&map, "orange", 15));
+    EXPECT_TRUE(map_insert(&map, "apple", 5, 0));
+    EXPECT_TRUE(map_insert(&map, "banana", 10, 0));
+    EXPECT_TRUE(map_insert(&map, "orange", 15, 0));
 
     int value;
     EXPECT_TRUE(map_get(&map, "apple", &value));
@@ -116,7 +116,7 @@ TEST_F(StringMapTest, GetNonExistentKey)
 // Test removing a key
 TEST_F(StringMapTest, RemoveKey)
 {
-    EXPECT_TRUE(map_insert(&map, "key1", 42));
+    EXPECT_TRUE(map_insert(&map, "key1", 42, 0));
     map_remove_key(&map, "key1");
     int value;
     EXPECT_FALSE(map_get(&map, "key1", &value));
@@ -131,8 +131,8 @@ TEST_F(StringMapTest, RemoveNonExistentKey)
 // Test null inputs
 TEST_F(StringMapTest, NullInputs)
 {
-    EXPECT_FALSE(map_insert(nullptr, "key1", 42));
-    EXPECT_FALSE(map_insert(&map, nullptr, 42));
+    EXPECT_FALSE(map_insert(nullptr, "key1", 42, 0));
+    EXPECT_FALSE(map_insert(&map, nullptr, 42, 0));
     int value;
     EXPECT_FALSE(map_get(nullptr, "key1", &value));
     EXPECT_FALSE(map_get(&map, nullptr, &value));
@@ -147,7 +147,7 @@ TEST_F(StringMapTest, BalanceAfterInsertions)
     // Insert keys in a way that may cause imbalance
     const char *keys[] = { "a", "b", "c", "d", "e" };
     for (int i = 0; i < 5; i++) {
-        EXPECT_TRUE(map_insert(&map, keys[i], i));
+        EXPECT_TRUE(map_insert(&map, keys[i], i, 0));
     }
 
     EXPECT_TRUE(is_balanced(map.root));
@@ -157,10 +157,10 @@ TEST_F(StringMapTest, BalanceAfterInsertions)
 TEST_F(StringMapTest, BalanceAfterDeletions)
 {
     // Insert multiple keys
-    EXPECT_TRUE(map_insert(&map, "apple", 5));
-    EXPECT_TRUE(map_insert(&map, "banana", 10));
-    EXPECT_TRUE(map_insert(&map, "orange", 15));
-    EXPECT_TRUE(map_insert(&map, "grape", 20));
+    EXPECT_TRUE(map_insert(&map, "apple", 5, 0));
+    EXPECT_TRUE(map_insert(&map, "banana", 10, 0));
+    EXPECT_TRUE(map_insert(&map, "orange", 15, 0));
+    EXPECT_TRUE(map_insert(&map, "grape", 20, 0));
 
     // Remove some keys
     map_remove_key(&map, "banana");
@@ -202,9 +202,9 @@ static bool cond_false(const char *key)
 // Test no removals (cond always false)
 TEST_F(StringMapTest, CondNoRemovals)
 {
-    map_insert(&map, "apple", 1);
-    map_insert(&map, "banana", 2);
-    map_insert(&map, "cherry", 3);
+    map_insert(&map, "apple", 1, 0);
+    map_insert(&map, "banana", 2, 0);
+    map_insert(&map, "cherry", 3, 0);
     map_remove_cond(&map, cond_false);
     EXPECT_EQ(count_nodes(map.root), 3);
     EXPECT_TRUE(is_balanced(map.root));
@@ -214,9 +214,9 @@ TEST_F(StringMapTest, CondNoRemovals)
 // Test remove all nodes (cond always true)
 TEST_F(StringMapTest, CondRemoveAll)
 {
-    map_insert(&map, "apple", 1);
-    map_insert(&map, "banana", 2);
-    map_insert(&map, "cherry", 3);
+    map_insert(&map, "apple", 1, 0);
+    map_insert(&map, "banana", 2, 0);
+    map_insert(&map, "cherry", 3, 0);
     map_remove_cond(&map, cond_true);
     EXPECT_EQ(map.root, nullptr);
     EXPECT_TRUE(is_balanced(map.root));
@@ -231,11 +231,11 @@ static bool cond_less4(const char *key)
 // Test remove short keys
 TEST_F(StringMapTest, CondRemoveShortKeys)
 {
-    map_insert(&map, "a", 1);
-    map_insert(&map, "bb", 2);
-    map_insert(&map, "ccc", 3);
-    map_insert(&map, "dddd", 4);
-    map_insert(&map, "eeeee", 5);
+    map_insert(&map, "a", 1, 0);
+    map_insert(&map, "bb", 2, 0);
+    map_insert(&map, "ccc", 3, 0);
+    map_insert(&map, "dddd", 4, 0);
+    map_insert(&map, "eeeee", 5, 0);
     map_remove_cond(&map, cond_less4);
     EXPECT_EQ(count_nodes(map.root), 2); // Should keep "dddd" and "eeeee"
     EXPECT_TRUE(is_balanced(map.root));
@@ -257,10 +257,10 @@ static bool cond_ca(const char *key)
 // Test remove keys with prefix
 TEST_F(StringMapTest, CondRemovePrefix)
 {
-    map_insert(&map, "cat", 1);
-    map_insert(&map, "car", 2);
-    map_insert(&map, "dog", 3);
-    map_insert(&map, "bird", 4);
+    map_insert(&map, "cat", 1, 0);
+    map_insert(&map, "car", 2, 0);
+    map_insert(&map, "dog", 3, 0);
+    map_insert(&map, "bird", 4, 0);
     map_remove_cond(&map, cond_ca);
     EXPECT_EQ(count_nodes(map.root), 2); // Should keep "dog" and "bird"
     EXPECT_TRUE(is_balanced(map.root));
@@ -284,7 +284,7 @@ TEST_F(StringMapTest, CondLargeTreeMixedRemovals)
                            "zeta",  "eta",  "theta", "iota",  "kappa" };
     int n              = sizeof(keys) / sizeof(keys[0]);
     for (int i = 0; i < n; i++) {
-        map_insert(&map, keys[i], i + 1);
+        map_insert(&map, keys[i], i + 1, 0);
     }
     map_remove_cond(&map, cond_even); // Remove keys with even length
 
