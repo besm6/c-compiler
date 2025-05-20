@@ -2724,7 +2724,7 @@ Program *parse(FILE *input)
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    init_scanner(input, symtab_token);
+    init_scanner(input, symtab_find);
     advance_token();
     Program *program = parse_translation_unit();
     if (current_token != TOKEN_EOF) {

@@ -36,9 +36,17 @@ add_executable(c-parser-tests
     ast_free.c
     ast_clone.c
     symtab.c
+    string_map.c
 )
 target_include_directories(c-parser-tests BEFORE PUBLIC
     ../scanner
 )
 target_link_libraries(c-parser-tests GTest::gtest_main)
 gtest_discover_tests(c-parser-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+
+add_executable(string-map-tests
+    string_map_test.cpp
+    string_map.c
+)
+target_link_libraries(string-map-tests GTest::gtest_main)
+gtest_discover_tests(string-map-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

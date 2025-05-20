@@ -156,7 +156,10 @@ Enumerator *clone_enumerator(const Enumerator *enumerator);
 //
 // Symbol table
 //
-int symtab_token(const char *str);
+int symtab_find(const char *name);
+bool symtab_define(const char *name, int token, int level);
+void symtab_purge(int level);
+void symtab_free(void);
 
 #ifdef __cplusplus
 }
