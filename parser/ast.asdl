@@ -1,118 +1,118 @@
 module AST {
-    type Program = (ExternalDecl* decls)
+    Program = (ExternalDecl* decls)
 
-    type ExternalDecl = Function(Type type, identifier name, DeclSpec specifiers, Declaration* param_decls, Stmt? body)
-                      | Declaration(Declaration decl)
+    ExternalDecl = Function(Type type, identifier name, DeclSpec specifiers, Declaration* param_decls, Stmt? body)
+                 | Declaration(Declaration decl)
 
-    type Declaration = Var(DeclSpec specifiers, InitDeclarator* declarators)
-                     | StaticAssert(Expr condition, string? message)
-                     | Empty(DeclSpec specifiers, Type type)
+    Declaration = Var(DeclSpec specifiers, InitDeclarator* declarators)
+                | StaticAssert(Expr condition, string? message)
+                | Empty(DeclSpec specifiers, Type type)
 
-    type DeclSpec = (TypeQualifier* qualifiers, StorageClass? storage, FunctionSpec* func_specs, AlignmentSpec? align_spec)
+    DeclSpec = (TypeQualifier* qualifiers, StorageClass? storage, FunctionSpec* func_specs, AlignmentSpec? align_spec)
 
-    type StorageClass = Typedef | Extern | Static | ThreadLocal | Auto | Register
+    StorageClass = Typedef | Extern | Static | ThreadLocal | Auto | Register
 
-    type FunctionSpec = Inline | NoReturn
+    FunctionSpec = Inline | NoReturn
 
-    type AlignmentSpec = AlignType(Type type) | AlignExpr(Expr expr)
+    AlignmentSpec = AlignType(Type type) | AlignExpr(Expr expr)
 
-    type InitDeclarator = (Type type, identifier name, Initializer? init)
+    InitDeclarator = (Type type, identifier name, Initializer? init)
 
-    type Initializer = Single(Expr expr)
-                     | Compound(InitItem* items)
+    Initializer = Single(Expr expr)
+                | Compound(InitItem* items)
 
-    type InitItem = (Designator* designators, Initializer init)
+    InitItem = (Designator* designators, Initializer init)
 
-    type Designator = Array(Expr expr)
-                    | Field(identifier name)
+    Designator = Array(Expr expr)
+               | Field(identifier name)
 
-    type Type = Void
-              | Bool
-              | Char(Signedness signedness)
-              | Short(Signedness signedness)
-              | Int(Signedness signedness)
-              | Long(Signedness signedness)
-              | LongLong(Signedness signedness)
-              | Float
-              | Double
-              | LongDouble
-              | Complex(Type base)
-              | Imaginary(Type base)
-              | Pointer(Type target, TypeQualifier* qualifiers)
-              | Array(Type element, Expr? size, TypeQualifier* qualifiers, bool is_static)
-              | Function(Type return_type, Param* params, bool variadic)
-              | Struct(identifier? name, Field* fields)
-              | Union(identifier? name, Field* fields)
-              | Enum(identifier? name, Enumerator* enumerators)
-              | TypedefName(identifier name)
-              | Atomic(Type base)
-              attributes(TypeQualifier* qualifiers)
+    Type = Void
+         | Bool
+         | Char(Signedness signedness)
+         | Short(Signedness signedness)
+         | Int(Signedness signedness)
+         | Long(Signedness signedness)
+         | LongLong(Signedness signedness)
+         | Float
+         | Double
+         | LongDouble
+         | Complex(Type base)
+         | Imaginary(Type base)
+         | Pointer(Type target, TypeQualifier* qualifiers)
+         | Array(Type element, Expr? size, TypeQualifier* qualifiers, bool is_static)
+         | Function(Type return_type, Param* params, bool variadic)
+         | Struct(identifier? name, Field* fields)
+         | Union(identifier? name, Field* fields)
+         | Enum(identifier? name, Enumerator* enumerators)
+         | TypedefName(identifier name)
+         | Atomic(Type base)
+         attributes(TypeQualifier* qualifiers)
 
-    type Signedness = Signed | Unsigned
+    Signedness = Signed | Unsigned
 
-    type TypeQualifier = Const | Restrict | Volatile | Atomic
+    TypeQualifier = Const | Restrict | Volatile | Atomic
 
-    type Field = (Type type, identifier? name, Expr? bitfield)
+    Field = (Type type, identifier? name, Expr? bitfield)
 
-    type Enumerator = (identifier name, Expr? value)
+    Enumerator = (identifier name, Expr? value)
 
-    type Param = (identifier? name, Type type)
+    Param = (identifier? name, Type type)
 
-    type Expr = Literal(Literal lit)
-              | Var(identifier var)
-              | UnaryOp(UnaryOp op, Expr expr)
-              | BinaryOp(BinaryOp op, Expr left, Expr right)
-              | Assign(AssignOp op, Expr target, Expr value)
-              | Cond(Expr condition, Expr then_expr, Expr else_expr)
-              | Cast(Type type, Expr expr)
-              | Call(Expr func, Expr* args)
-              | Compound(Type type, InitItem* init)
-              | FieldAccess(Expr expr, identifier field)
-              | PtrAccess(Expr expr, identifier field)
-              | PostInc(Expr expr)
-              | PostDec(Expr expr)
-              | SizeofExpr(Expr expr)
-              | SizeofType(Type type)
-              | Alignof(Type type)
-              | Generic(Expr controlling_expr, GenericAssoc* associations)
-              attributes(Type? type)
+    Expr = Literal(Literal lit)
+         | Var(identifier var)
+         | UnaryOp(UnaryOp op, Expr expr)
+         | BinaryOp(BinaryOp op, Expr left, Expr right)
+         | Assign(AssignOp op, Expr target, Expr value)
+         | Cond(Expr condition, Expr then_expr, Expr else_expr)
+         | Cast(Type type, Expr expr)
+         | Call(Expr func, Expr* args)
+         | Compound(Type type, InitItem* init)
+         | FieldAccess(Expr expr, identifier field)
+         | PtrAccess(Expr expr, identifier field)
+         | PostInc(Expr expr)
+         | PostDec(Expr expr)
+         | SizeofExpr(Expr expr)
+         | SizeofType(Type type)
+         | Alignof(Type type)
+         | Generic(Expr controlling_expr, GenericAssoc* associations)
+         attributes(Type? type)
 
-    type Literal = Int(int val)
-                 | Float(float val)
-                 | Char(char val)
-                 | String(string val)
-                 | Enum(identifier enum_const)
+    Literal = Int(int val)
+            | Float(float val)
+            | Char(char val)
+            | String(string val)
+            | Enum(identifier enum_const)
 
-    type UnaryOp = Address | Deref | Plus | Neg | BitNot | LogNot | PreInc | PreDec
+    UnaryOp = Address | Deref | Plus | Neg | BitNot | LogNot | PreInc | PreDec
 
-    type BinaryOp = Mul | Div | Mod | Add | Sub | LeftShift | RightShift
-                  | Lt | Gt | Le | Ge | Eq | Ne
-                  | BitAnd | BitXor | BitOr | LogAnd | LogOr
+    BinaryOp = Mul | Div | Mod | Add | Sub | LeftShift | RightShift
+             | Lt | Gt | Le | Ge | Eq | Ne
+             | BitAnd | BitXor | BitOr | LogAnd | LogOr
 
-    type AssignOp = Simple | MulAssign | DivAssign | ModAssign | AddAssign | SubAssign
-                  | LeftAssign | RightAssign | AndAssign | XorAssign | OrAssign
+    AssignOp = Simple | MulAssign | DivAssign | ModAssign | AddAssign | SubAssign
+             | LeftAssign | RightAssign | AndAssign | XorAssign | OrAssign
 
-    type GenericAssoc = TypeAssoc(Type type, Expr expr)
-                      | DefaultAssoc(Expr expr)
+    GenericAssoc = TypeAssoc(Type type, Expr expr)
+                 | DefaultAssoc(Expr expr)
 
-    type Stmt = ExprStmt(Expr? expr)
-              | Compound(DeclOrStmt* compound)
-              | If(Expr condition, Stmt then_stmt, Stmt? else_stmt)
-              | Switch(Expr expr, Stmt body)
-              | While(Expr condition, Stmt body)
-              | DoWhile(Stmt body, Expr condition)
-              | For(ForInit init, Expr? condition, Expr? update, Stmt body)
-              | Goto(identifier label)
-              | Continue
-              | Break
-              | Return(Expr? expr)
-              | Labeled(identifier label, Stmt stmt)
-              | Case(Expr expr, Stmt stmt)
-              | Default(Stmt stmt)
+    Stmt = ExprStmt(Expr? expr)
+         | Compound(DeclOrStmt* compound)
+         | If(Expr condition, Stmt then_stmt, Stmt? else_stmt)
+         | Switch(Expr expr, Stmt body)
+         | While(Expr condition, Stmt body)
+         | DoWhile(Stmt body, Expr condition)
+         | For(ForInit init, Expr? condition, Expr? update, Stmt body)
+         | Goto(identifier label)
+         | Continue
+         | Break
+         | Return(Expr? expr)
+         | Labeled(identifier label, Stmt stmt)
+         | Case(Expr expr, Stmt stmt)
+         | Default(Stmt stmt)
 
-    type DeclOrStmt = Decl(Declaration decl)
-                    | Stmt(Stmt stmt)
+    DeclOrStmt = Decl(Declaration decl)
+               | Stmt(Stmt stmt)
 
-    type ForInit = ExprInit(Expr expr)
-                 | DeclInit(Declaration decl)
+    ForInit = ExprInit(Expr expr)
+            | DeclInit(Declaration decl)
 }
