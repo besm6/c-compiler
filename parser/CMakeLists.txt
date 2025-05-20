@@ -35,6 +35,7 @@ add_executable(c-parser-tests
     ast_print.c
     ast_free.c
     ast_clone.c
+    ast_yaml.c
     symtab.c
     string_map.c
 )
