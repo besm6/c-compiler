@@ -183,3 +183,13 @@ TEST_F(ParserTest, ParseTranslationUnit)
     EXPECT_EQ(STMT_COMPOUND, func->u.function.body->kind);
     EXPECT_EQ(nullptr, func->u.function.body->u.compound);
 }
+
+TEST_F(ParserTest, TypedefScope)
+{
+    program = parse(CreateTempFile("typedef int T; void f() { typedef char Q; }"));
+    ASSERT_NE(nullptr, program);
+    print_program(stdout, program);
+
+    EXPECT_EQ(symtab_find("T"), TOKEN_TYPEDEF_NAME); // at level 0
+    EXPECT_EQ(symtab_find("Q"), 0);                  // at level 1
+}
