@@ -27,10 +27,10 @@ static int scan_operator(void);
 // Initialize scanner with input file
 void init_scanner(FILE *input)
 {
-    input_file  = input;
-    yyleng      = 0;
-    yytext[0]   = '\0';
-    next_char   = input_file ? fgetc(input_file) : EOF;
+    input_file = input;
+    yyleng     = 0;
+    yytext[0]  = '\0';
+    next_char  = input_file ? fgetc(input_file) : EOF;
 }
 
 // Main lexer function
@@ -106,65 +106,80 @@ static void unget_char(void)
     }
 }
 
-// Check if yytext is a keyword
+struct keyword {
+    const char *name;
+    int token;
+};
+
+// Comparison function for bsearch
+static int compare(const void *a, const void *b)
+{
+    const char *key             = a;
+    const struct keyword *entry = b;
+    return strcmp(key, entry->name);
+}
+
+// Check if yytext is a keyword using bsearch
 static int is_keyword(const char *str)
 {
     static const struct {
         const char *name;
         int token;
-    } keywords[] = { { "auto", TOKEN_AUTO },
-                     { "break", TOKEN_BREAK },
-                     { "case", TOKEN_CASE },
-                     { "char", TOKEN_CHAR },
-                     { "const", TOKEN_CONST },
-                     { "continue", TOKEN_CONTINUE },
-                     { "default", TOKEN_DEFAULT },
-                     { "do", TOKEN_DO },
-                     { "double", TOKEN_DOUBLE },
-                     { "else", TOKEN_ELSE },
-                     { "enum", TOKEN_ENUM },
-                     { "extern", TOKEN_EXTERN },
-                     { "float", TOKEN_FLOAT },
-                     { "for", TOKEN_FOR },
-                     { "goto", TOKEN_GOTO },
-                     { "if", TOKEN_IF },
-                     { "inline", TOKEN_INLINE },
-                     { "int", TOKEN_INT },
-                     { "long", TOKEN_LONG },
-                     { "register", TOKEN_REGISTER },
-                     { "restrict", TOKEN_RESTRICT },
-                     { "return", TOKEN_RETURN },
-                     { "short", TOKEN_SHORT },
-                     { "signed", TOKEN_SIGNED },
-                     { "sizeof", TOKEN_SIZEOF },
-                     { "static", TOKEN_STATIC },
-                     { "struct", TOKEN_STRUCT },
-                     { "switch", TOKEN_SWITCH },
-                     { "typedef", TOKEN_TYPEDEF },
-                     { "union", TOKEN_UNION },
-                     { "unsigned", TOKEN_UNSIGNED },
-                     { "void", TOKEN_VOID },
-                     { "volatile", TOKEN_VOLATILE },
-                     { "while", TOKEN_WHILE },
-                     { "_Alignas", TOKEN_ALIGNAS },
-                     { "_Alignof", TOKEN_ALIGNOF },
-                     { "_Atomic", TOKEN_ATOMIC },
-                     { "_Bool", TOKEN_BOOL },
-                     { "_Complex", TOKEN_COMPLEX },
-                     { "_Generic", TOKEN_GENERIC },
-                     { "_Imaginary", TOKEN_IMAGINARY },
-                     { "_Noreturn", TOKEN_NORETURN },
-                     { "_Static_assert", TOKEN_STATIC_ASSERT },
-                     { "_Thread_local", TOKEN_THREAD_LOCAL },
-                     { "__func__", TOKEN_FUNC_NAME },
-                     { NULL, 0 } };
+    } keywords[] = {
+        { "__func__", TOKEN_FUNC_NAME },
+        { "_Alignas", TOKEN_ALIGNAS },
+        { "_Alignof", TOKEN_ALIGNOF },
+        { "_Atomic", TOKEN_ATOMIC },
+        { "_Bool", TOKEN_BOOL },
+        { "_Complex", TOKEN_COMPLEX },
+        { "_Generic", TOKEN_GENERIC },
+        { "_Imaginary", TOKEN_IMAGINARY },
+        { "_Noreturn", TOKEN_NORETURN },
+        { "_Static_assert", TOKEN_STATIC_ASSERT },
+        { "_Thread_local", TOKEN_THREAD_LOCAL },
+        { "auto", TOKEN_AUTO },
+        { "break", TOKEN_BREAK },
+        { "case", TOKEN_CASE },
+        { "char", TOKEN_CHAR },
+        { "const", TOKEN_CONST },
+        { "continue", TOKEN_CONTINUE },
+        { "default", TOKEN_DEFAULT },
+        { "do", TOKEN_DO },
+        { "double", TOKEN_DOUBLE },
+        { "else", TOKEN_ELSE },
+        { "enum", TOKEN_ENUM },
+        { "extern", TOKEN_EXTERN },
+        { "float", TOKEN_FLOAT },
+        { "for", TOKEN_FOR },
+        { "goto", TOKEN_GOTO },
+        { "if", TOKEN_IF },
+        { "inline", TOKEN_INLINE },
+        { "int", TOKEN_INT },
+        { "long", TOKEN_LONG },
+        { "register", TOKEN_REGISTER },
+        { "restrict", TOKEN_RESTRICT },
+        { "return", TOKEN_RETURN },
+        { "short", TOKEN_SHORT },
+        { "signed", TOKEN_SIGNED },
+        { "sizeof", TOKEN_SIZEOF },
+        { "static", TOKEN_STATIC },
+        { "struct", TOKEN_STRUCT },
+        { "switch", TOKEN_SWITCH },
+        { "typedef", TOKEN_TYPEDEF },
+        { "union", TOKEN_UNION },
+        { "unsigned", TOKEN_UNSIGNED },
+        { "void", TOKEN_VOID },
+        { "volatile", TOKEN_VOLATILE },
+        { "while", TOKEN_WHILE },
+    };
 
-    for (int i = 0; keywords[i].name != NULL; i++) {
-        if (strcmp(str, keywords[i].name) == 0) {
-            return keywords[i].token;
-        }
+    // Perform binary search
+    struct keyword *result = bsearch(str, keywords, sizeof(keywords) / sizeof(keywords[0]),
+                                     sizeof(keywords[0]), compare);
+    if (!result) {
+        return 0;
     }
-    return 0;
+    return result->token;
 }
 
 // Skip whitespace
@@ -263,7 +278,7 @@ static int scan_number(void)
         }
     } else {
         // Decimal or octal
-decimal:
+    decimal:
         while (isdigit(next_char)) {
             consume_char();
         }
