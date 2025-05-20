@@ -23,18 +23,31 @@
 //
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdio.h>
 
-/* Structure for the header of each allocated block */
+#include "xalloc.h"
+
+//
+// Structure for the header of each allocated block
+//
 typedef struct BlockHeader {
     struct BlockHeader *next;
     struct BlockHeader *prev;
+    size_t requested_size;
+    const char *funcname;
+    const char *filename;
+    unsigned lineno;
 } BlockHeader;
 
-/* Global pointer to the head of the doubly linked list */
+//
+// Global pointer to the head of the doubly linked list
+//
 static BlockHeader *head = NULL;
 
-/* Allocates memory like malloc, but adds a header and maintains a doubly linked list */
-void *xmalloc(size_t size)
+//
+// Allocates memory like malloc, but adds a header and maintains a doubly linked list
+//
+void *xmalloc(size_t size, const char *funcname, const char *filename, unsigned lineno)
 {
     /* Calculate total size: header + requested size */
     size_t total_size = sizeof(BlockHeader) + size;
@@ -42,13 +55,19 @@ void *xmalloc(size_t size)
     /* Allocate memory using malloc */
     void *ptr = malloc(total_size);
     if (ptr == NULL) {
-        return NULL; /* malloc failed */
+        fprintf(stderr, "Out of memory allocating %zu bytes by %s() at file %s, line %u\n",
+                size, funcname, filename, lineno);
+        exit(1);
     }
 
     /* Set up the header */
-    BlockHeader *header = (BlockHeader *)ptr;
-    header->next        = NULL;
-    header->prev        = NULL;
+    BlockHeader *header    = (BlockHeader *)ptr;
+    header->next           = NULL;
+    header->prev           = NULL;
+    header->requested_size = size;
+    header->funcname       = funcname;
+    header->filename       = filename;
+    header->lineno         = lineno;
 
     /* Insert into the doubly linked list */
     if (head == NULL) {
@@ -65,7 +84,9 @@ void *xmalloc(size_t size)
     return (void *)((char *)ptr + sizeof(BlockHeader));
 }
 
-/* Frees memory like free, but removes the block from the doubly linked list */
+//
+// Frees memory like free, but removes the block from the doubly linked list
+//
 void xfree(void *ptr)
 {
     if (ptr == NULL) {
@@ -89,4 +110,24 @@ void xfree(void *ptr)
 
     /* Free the entire block (header + user data) */
     free(header);
+}
+
+void xreport_lost_memory()
+{
+    if (head) {
+        printf("Lost memory:\n");
+    }
+    for (BlockHeader *h = head; h; h = h->next) {
+        printf("%zu bytes allocated by %s() at file %s, line %u\n",
+               h->requested_size, h->funcname, h->filename, h->lineno);
+    }
+}
+
+size_t xtotal_allocated_size()
+{
+    size_t total = 0;
+    for (BlockHeader *h = head; h; h = h->next) {
+        total += h->requested_size;
+    }
+    return total;
 }

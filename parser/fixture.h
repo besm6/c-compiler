@@ -8,6 +8,7 @@
 #include "ast.h"
 #include "scanner.h"
 #include "internal.h"
+#include "xalloc.h"
 
 // Test fixture
 class ParserTest : public ::testing::Test {
@@ -31,6 +32,8 @@ protected:
         if (program) {
             free_program(program);
         }
+        xreport_lost_memory();
+        EXPECT_EQ(xtotal_allocated_size(), 0);
     }
 
     // Helper to create a temporary file with content

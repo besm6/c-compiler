@@ -10,7 +10,7 @@ char *clone_string(const char *str)
 {
     if (!str)
         return NULL;
-    char *new_str = xmalloc(strlen(str) + 1);
+    char *new_str = xmalloc(strlen(str) + 1, __func__, __FILE__, __LINE__);
     if (new_str)
         strcpy(new_str, str);
     return new_str;
@@ -21,7 +21,7 @@ TypeQualifier *clone_type_qualifier(const TypeQualifier *qualifier)
 {
     if (!qualifier)
         return NULL;
-    TypeQualifier *new_qual = xmalloc(sizeof(TypeQualifier));
+    TypeQualifier *new_qual = xmalloc(sizeof(TypeQualifier), __func__, __FILE__, __LINE__);
     if (!new_qual)
         return NULL;
     new_qual->kind = qualifier->kind;
@@ -34,7 +34,7 @@ Param *clone_param(const Param *param)
 {
     if (!param)
         return NULL;
-    Param *new_param = xmalloc(sizeof(Param));
+    Param *new_param = xmalloc(sizeof(Param), __func__, __FILE__, __LINE__);
     if (!new_param)
         return NULL;
     new_param->name = clone_string(param->name);
@@ -48,7 +48,7 @@ Field *clone_field(const Field *field)
 {
     if (!field)
         return NULL;
-    Field *new_field = xmalloc(sizeof(Field));
+    Field *new_field = xmalloc(sizeof(Field), __func__, __FILE__, __LINE__);
     if (!new_field)
         return NULL;
     new_field->type     = clone_type(field->type);
@@ -63,7 +63,7 @@ Enumerator *clone_enumerator(const Enumerator *enumerator)
 {
     if (!enumerator)
         return NULL;
-    Enumerator *new_enum = xmalloc(sizeof(Enumerator));
+    Enumerator *new_enum = xmalloc(sizeof(Enumerator), __func__, __FILE__, __LINE__);
     if (!new_enum)
         return NULL;
     new_enum->name  = clone_string(enumerator->name);
@@ -77,7 +77,7 @@ Type *clone_type(const Type *type)
 {
     if (!type)
         return NULL;
-    Type *new_type = xmalloc(sizeof(Type));
+    Type *new_type = xmalloc(sizeof(Type), __func__, __FILE__, __LINE__);
     if (!new_type)
         return NULL;
     new_type->kind       = type->kind;
@@ -132,7 +132,7 @@ Literal *clone_literal(const Literal *literal)
 {
     if (!literal)
         return NULL;
-    Literal *new_literal = xmalloc(sizeof(Literal));
+    Literal *new_literal = xmalloc(sizeof(Literal), __func__, __FILE__, __LINE__);
     if (!new_literal)
         return NULL;
     new_literal->kind = literal->kind;
@@ -161,7 +161,7 @@ UnaryOp *clone_unary_op(const UnaryOp *op)
 {
     if (!op)
         return NULL;
-    UnaryOp *new_op = xmalloc(sizeof(UnaryOp));
+    UnaryOp *new_op = xmalloc(sizeof(UnaryOp), __func__, __FILE__, __LINE__);
     if (!new_op)
         return NULL;
     new_op->kind = op->kind;
@@ -173,7 +173,7 @@ BinaryOp *clone_binary_op(const BinaryOp *op)
 {
     if (!op)
         return NULL;
-    BinaryOp *new_op = xmalloc(sizeof(BinaryOp));
+    BinaryOp *new_op = xmalloc(sizeof(BinaryOp), __func__, __FILE__, __LINE__);
     if (!new_op)
         return NULL;
     new_op->kind = op->kind;
@@ -185,7 +185,7 @@ AssignOp *clone_assign_op(const AssignOp *op)
 {
     if (!op)
         return NULL;
-    AssignOp *new_op = xmalloc(sizeof(AssignOp));
+    AssignOp *new_op = xmalloc(sizeof(AssignOp), __func__, __FILE__, __LINE__);
     if (!new_op)
         return NULL;
     new_op->kind = op->kind;
@@ -197,7 +197,7 @@ GenericAssoc *clone_generic_assoc(const GenericAssoc *assoc)
 {
     if (!assoc)
         return NULL;
-    GenericAssoc *new_assoc = xmalloc(sizeof(GenericAssoc));
+    GenericAssoc *new_assoc = xmalloc(sizeof(GenericAssoc), __func__, __FILE__, __LINE__);
     if (!new_assoc)
         return NULL;
     new_assoc->kind = assoc->kind;
@@ -216,7 +216,7 @@ Designator *clone_designator(const Designator *designator)
 {
     if (!designator)
         return NULL;
-    Designator *new_designator = xmalloc(sizeof(Designator));
+    Designator *new_designator = xmalloc(sizeof(Designator), __func__, __FILE__, __LINE__);
     if (!new_designator)
         return NULL;
     new_designator->kind = designator->kind;
@@ -234,7 +234,7 @@ Initializer *clone_initializer(const Initializer *init)
 {
     if (!init)
         return NULL;
-    Initializer *new_init = xmalloc(sizeof(Initializer));
+    Initializer *new_init = xmalloc(sizeof(Initializer), __func__, __FILE__, __LINE__);
     if (!new_init)
         return NULL;
     new_init->kind = init->kind;
@@ -251,7 +251,7 @@ InitItem *clone_init_item(const InitItem *item)
 {
     if (!item)
         return NULL;
-    InitItem *new_item = xmalloc(sizeof(InitItem));
+    InitItem *new_item = xmalloc(sizeof(InitItem), __func__, __FILE__, __LINE__);
     if (!new_item)
         return NULL;
     new_item->designators = clone_designator(item->designators);
@@ -265,7 +265,7 @@ Expr *clone_expression(const Expr *expression)
 {
     if (!expression)
         return NULL;
-    Expr *new_expr = xmalloc(sizeof(Expr));
+    Expr *new_expr = xmalloc(sizeof(Expr), __func__, __FILE__, __LINE__);
     if (!new_expr)
         return NULL;
     new_expr->kind = expression->kind;
@@ -347,7 +347,7 @@ TypeSpec *clone_type_spec(const TypeSpec *ts)
 {
     if (!ts)
         return NULL;
-    TypeSpec *new_ts = xmalloc(sizeof(TypeSpec));
+    TypeSpec *new_ts = xmalloc(sizeof(TypeSpec), __func__, __FILE__, __LINE__);
     if (!new_ts)
         return NULL;
     new_ts->kind       = ts->kind;

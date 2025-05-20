@@ -137,7 +137,7 @@ void map_init(StringMap *map)
 // Create a new node
 static StringNode *create_node(const char *key, int value, int level)
 {
-    StringNode *node = (StringNode *)xmalloc(sizeof(StringNode) + strlen(key));
+    StringNode *node = (StringNode *)xmalloc(sizeof(StringNode) + strlen(key), __func__, __FILE__, __LINE__);
     if (!node)
         return NULL;
     strcpy(node->key, key);
