@@ -16,6 +16,8 @@ static char lexeme_buffer[1024]; // Buffer for current lexeme
 // Set manually to enable debug output
 static int debug = 1;
 
+static int scope_level;
+
 /* Error handling */
 static void _Noreturn fatal_error(const char *message, ...)
 {
@@ -1165,6 +1167,28 @@ Type *type_apply_suffixes(Type *type, const DeclaratorSuffix *suffixes)
 }
 
 //
+// Is this a typedef?
+//
+static bool is_typedef(DeclSpec *specifiers)
+{
+    if (!specifiers || !specifiers->storage)
+        return false;
+    return specifiers->storage->kind == STORAGE_CLASS_TYPEDEF;
+}
+
+//
+// Define all names in this declarator as typedef.
+//
+static void define_typedef(InitDeclarator *decl)
+{
+    for (; decl; decl = decl->next) {
+        if (!symtab_define(decl->name, TOKEN_TYPEDEF_NAME, scope_level)) {
+            fatal_error("Typedef %s redefined", decl->name);
+        }
+    }
+}
+
+//
 // declaration
 //     : declaration_specifiers ';'
 //     | declaration_specifiers init_declarator_list ';'
@@ -1193,6 +1217,9 @@ Declaration *parse_declaration()
     Declaration *decl       = new_declaration(DECL_VAR);
     decl->u.var.specifiers  = specifiers;
     decl->u.var.declarators = declarators;
+    if (is_typedef(specifiers)) {
+        define_typedef(declarators);
+    }
     return decl;
 }
 
@@ -1741,6 +1768,9 @@ Enumerator *parse_enumerator()
     if (current_token == TOKEN_ASSIGN) {
         advance_token();
         value = parse_constant_expression();
+    }
+    if (!symtab_define(name, TOKEN_ENUMERATION_CONSTANT, scope_level)) {
+        fatal_error("Enumerator %s redefined", name);
     }
     return new_enumerator(name, value);
 }
@@ -2416,11 +2446,16 @@ Stmt *parse_compound_statement()
         printf("--- %s()\n", __func__);
     }
     expect_token(TOKEN_LBRACE);
+    scope_level++;
+
     DeclOrStmt *items = NULL;
     if (current_token_is_not(TOKEN_RBRACE)) {
         items = parse_block_item_list();
     }
     expect_token(TOKEN_RBRACE);
+    scope_level--;
+    symtab_purge(scope_level);
+
     Stmt *stmt       = new_stmt(STMT_COMPOUND);
     stmt->u.compound = items;
     return stmt;
@@ -2680,6 +2715,9 @@ ExternalDecl *parse_external_declaration()
 
         ed->u.declaration->u.var.specifiers  = spec;
         ed->u.declaration->u.var.declarators = parse_init_declarator_list(decl, base_type);
+        if (is_typedef(spec)) {
+            define_typedef(ed->u.declaration->u.var.declarators);
+        }
         expect_token(TOKEN_SEMICOLON);
         return ed;
     }

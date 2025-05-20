@@ -342,20 +342,35 @@ TEST_F(ParserTest, ParseTypeAnonymousEnum)
     EXPECT_STREQ("A", type->u.enum_t.enumerators->name);
 }
 
-//TODO: Add typedef MyType to the symbol table.
-TEST_F(ParserTest, DISABLED_ParseTypeTypedef)
+TEST_F(ParserTest, ParseTypedef)
 {
     ExternalDecl *ext = GetExternalDecl("typedef int T; T x;");
     EXPECT_EQ(EXTERNAL_DECL_DECLARATION, ext->kind);
+    ASSERT_NE(nullptr, ext->next);
+    EXPECT_EQ(EXTERNAL_DECL_DECLARATION, ext->next->kind);
+    EXPECT_EQ(nullptr, ext->next->next);
 
+    //
+    // Check typedef T
+    //
     Declaration *decl = ext->u.declaration;
     EXPECT_EQ(STORAGE_CLASS_TYPEDEF, decl->u.var.specifiers->storage->kind);
-    EXPECT_EQ(TYPE_INT, decl->u.var.declarators->type->kind);
-    EXPECT_STREQ("T", decl->u.var.declarators->name);
 
+    InitDeclarator *init = decl->u.var.declarators;
+    EXPECT_STREQ("T", init->name);
+    EXPECT_EQ(TYPE_INT, init->type->kind);
+    EXPECT_EQ(SIGNED_SIGNED, init->type->u.integer.signedness);
+
+    //
+    // Check variable x
+    //
     decl = ext->next->u.declaration;
-    //TODO: check typedef node
-    EXPECT_EQ(nullptr, decl->next);
+    EXPECT_EQ(nullptr, decl->u.var.specifiers);
+
+    init = decl->u.var.declarators;
+    EXPECT_STREQ("x", init->name);
+    EXPECT_EQ(TYPE_TYPEDEF_NAME, init->type->kind);
+    EXPECT_STREQ("T", init->type->u.typedef_name.name);
 }
 
 // _Atomic() is not supported in this parser.

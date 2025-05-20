@@ -1,5 +1,6 @@
 #include "ast.h"
 #include "string_map.h"
+#include "scanner.h" // for debug
 
 static StringMap symtab;
 
@@ -18,9 +19,15 @@ int symtab_find(const char *name)
 
 //
 // Add name to the symbol table, with given value, at given level.
+// Values can be:
+//      TOKEN_TYPEDEF_NAME
+//      TOKEN_ENUMERATION_CONSTANT
 //
 bool symtab_define(const char *name, int value, int level)
 {
+    //printf("--- define %s as %s at level %d\n", name,
+    //value == TOKEN_TYPEDEF_NAME ? "TOKEN_TYPEDEF_NAME" :
+    //value == TOKEN_ENUMERATION_CONSTANT ? "TOKEN_ENUMERATION_CONSTANT" : "???", level);
     return map_insert(&symtab, name, value, level);
 }
 

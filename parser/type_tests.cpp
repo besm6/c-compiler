@@ -349,9 +349,11 @@ TEST_F(ParserTest, TypeEnum)
     free_type(type);
 }
 
-TEST_F(ParserTest, DISABLED_TypeTypedef)
+TEST_F(ParserTest, TypeTypedef)
 {
-    //TODO: Add typedef MyType to the symbol table.
+    // Add typedef MyType to the symbol table.
+    symtab_define("MyType", TOKEN_TYPEDEF_NAME, 0);
+
     Type *type = TestType("MyType");
 
     EXPECT_EQ(type->kind, TYPE_TYPEDEF_NAME);
