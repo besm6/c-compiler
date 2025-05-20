@@ -75,9 +75,9 @@ int map_get(StringMap *map, const char *key, int *value);
 void map_remove_key(StringMap *map, const char *key);
 
 //
-// Remove by condition: Remove nodes where cond(key) returns true.
+// Remove beyond level Remove nodes which exceed given level.
 //
-void map_remove_cond(StringMap *map, bool (*cond)(const char *));
+void map_remove_level(StringMap *map, int level);
 
 //
 // Free: Recursively frees all nodes and their keys.

@@ -29,7 +29,7 @@ bool symtab_define(const char *name, int value, int level)
 //
 void symtab_purge(int level)
 {
-    //TODO: map_remove_level(&symtab, level);
+    map_remove_level(&symtab, level);
 }
 
 //

@@ -264,19 +264,19 @@ static StringNode *remove_node(StringNode *node, const char *key)
     return rebalance(node);
 }
 
-// Helper function for conditional node removal
-static StringNode *remove_node_cond(StringNode *node, bool (*cond)(const char *))
+// Helper function for node removal by level
+static StringNode *remove_node_level(StringNode *node, int level)
 {
     if (!node) {
         return NULL;
     }
 
     // Post-order traversal: process left and right subtrees first
-    node->left  = remove_node_cond(node->left, cond);
-    node->right = remove_node_cond(node->right, cond);
+    node->left  = remove_node_level(node->left, level);
+    node->right = remove_node_level(node->right, level);
 
-    // Check condition for current node
-    if (cond(node->key)) {
+    // Check level for current node
+    if (node->level > level) {
         node = remove_single_node(node);
         if (!node) {
             return NULL; // Node was removed and had no children
@@ -295,13 +295,13 @@ void map_remove_key(StringMap *map, const char *key)
     }
 }
 
-void map_remove_cond(StringMap *map, bool (*cond)(const char *))
+void map_remove_level(StringMap *map, int level)
 {
-    if (!map || !cond) {
+    if (!map) {
         return;
     }
     // Phase 1: Remove nodes without balancing
-    map->root = remove_node_cond(map->root, cond);
+    map->root = remove_node_level(map->root, level);
 
     // Phase 2: Rebalance the entire tree
     map->root = rebalance_tree(map->root);
