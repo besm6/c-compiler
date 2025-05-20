@@ -38,6 +38,7 @@
 #include <string.h>
 
 #include "string_map.h"
+#include "xalloc.h"
 
 // Get the height of a node (0 for NULL)
 int map_node_height(StringNode *node)
@@ -136,7 +137,7 @@ void map_init(StringMap *map)
 // Create a new node
 static StringNode *create_node(const char *key, int value, int level)
 {
-    StringNode *node = (StringNode *)malloc(sizeof(StringNode) + strlen(key));
+    StringNode *node = (StringNode *)xmalloc(sizeof(StringNode) + strlen(key));
     if (!node)
         return NULL;
     strcpy(node->key, key);
@@ -216,11 +217,11 @@ static StringNode *remove_single_node(StringNode *node)
     // Node with only one child or no child
     if (!node->left) {
         StringNode *temp = node->right;
-        free(node);
+        xfree(node);
         return temp;
     } else if (!node->right) {
         StringNode *temp = node->left;
-        free(node);
+        xfree(node);
         return temp;
     }
 
@@ -242,7 +243,7 @@ static StringNode *remove_single_node(StringNode *node)
     update_height(successor);
 
     // Free the node
-    free(node);
+    xfree(node);
     return successor;
 }
 
@@ -313,7 +314,7 @@ static void free_nodes(StringNode *node)
         return;
     free_nodes(node->left);
     free_nodes(node->right);
-    free(node);
+    xfree(node);
 }
 
 // Free the map and all its nodes

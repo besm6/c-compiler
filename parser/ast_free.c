@@ -2,6 +2,7 @@
 
 #include "ast.h"
 #include "internal.h"
+#include "xalloc.h"
 
 // Forward declarations
 void free_expression(Expr *expr);
@@ -18,10 +19,10 @@ void free_type(Type *type)
     TypeQualifier *qual = type->qualifiers;
     while (qual) {
         TypeQualifier *next = qual->next;
-        free(qual);
+        xfree(qual);
         qual = next;
     }
-    free(type);
+    xfree(type);
 }
 
 // Free Literal
@@ -30,9 +31,9 @@ static void free_literal(Literal *lit)
     if (!lit)
         return;
     if (lit->kind == LITERAL_STRING && lit->u.string_val) {
-        free(lit->u.string_val);
+        xfree(lit->u.string_val);
     }
-    free(lit);
+    xfree(lit);
 }
 
 // Free Designator
@@ -43,7 +44,7 @@ static void free_designator(Designator *designator)
         if (designator->kind == DESIGNATOR_ARRAY) {
             free_expression(designator->u.expr);
         }
-        free(designator);
+        xfree(designator);
         designator = next;
     }
 }
@@ -55,7 +56,7 @@ static void free_init_item(InitItem *init_item)
         InitItem *next = init_item->next;
         free_designator(init_item->designators);
         free_initializer(init_item->init);
-        free(init_item);
+        xfree(init_item);
         init_item = next;
     }
 }
@@ -68,18 +69,18 @@ void free_expression(Expr *expr)
     switch (expr->kind) {
     case EXPR_VAR:
         if (expr->u.var)
-            free(expr->u.var);
+            xfree(expr->u.var);
         break;
     case EXPR_LITERAL:
         free_literal(expr->u.literal);
         break;
     case EXPR_BINARY_OP:
-        free(expr->u.binary_op.op);
+        xfree(expr->u.binary_op.op);
         free_expression(expr->u.binary_op.left);
         free_expression(expr->u.binary_op.right);
         break;
     case EXPR_UNARY_OP:
-        free(expr->u.unary_op.op);
+        xfree(expr->u.unary_op.op);
         free_expression(expr->u.unary_op.expr);
         break;
     case EXPR_POST_INC:
@@ -118,7 +119,7 @@ void free_expression(Expr *expr)
             } else {
                 free_expression(assoc->u.default_assoc);
             }
-            free(assoc);
+            xfree(assoc);
             assoc = next;
         }
         break;
@@ -139,7 +140,7 @@ void free_expression(Expr *expr)
         break;
     }
     Expr *next = expr->next;
-    free(expr);
+    xfree(expr);
     free_expression(next);
 }
 
@@ -150,11 +151,11 @@ void free_pointer(Pointer *pointer)
         TypeQualifier *qual = pointer->qualifiers;
         while (qual) {
             TypeQualifier *next = qual->next;
-            free(qual);
+            xfree(qual);
             qual = next;
         }
         Pointer *next = pointer->next;
-        free(pointer);
+        xfree(pointer);
         pointer = next;
     }
 }
@@ -174,8 +175,8 @@ void free_declarator_suffix(DeclaratorSuffix *suffix)
                 Param *next_param = param->next;
                 free_type(param->type);
                 if (param->name)
-                    free(param->name);
-                free(param);
+                    xfree(param->name);
+                xfree(param);
                 param = next_param;
             }
             break;
@@ -185,7 +186,7 @@ void free_declarator_suffix(DeclaratorSuffix *suffix)
             free_declarator_suffix(suffix->u.pointer.suffix);
             break;
         }
-        free(suffix);
+        xfree(suffix);
         suffix = next;
     }
 }
@@ -196,10 +197,10 @@ void free_declarator(Declarator *decl)
     if (!decl)
         return;
     if (decl->name)
-        free(decl->name);
+        xfree(decl->name);
     free_pointer(decl->pointers);
     free_declarator_suffix(decl->suffixes);
-    free(decl);
+    xfree(decl);
 }
 
 // Free Initializer
@@ -212,7 +213,7 @@ static void free_initializer(Initializer *init)
     } else {
         free_init_item(init->u.items);
     }
-    free(init);
+    xfree(init);
 }
 
 // Free TypeSpec
@@ -227,41 +228,41 @@ void free_type_spec(TypeSpec *ts)
     case TYPE_SPEC_STRUCT:
     case TYPE_SPEC_UNION:
         if (ts->u.struct_spec.name)
-            free(ts->u.struct_spec.name);
+            xfree(ts->u.struct_spec.name);
         Field *field = ts->u.struct_spec.fields;
         while (field) {
             Field *next = field->next;
             free_type(field->type);
             if (field->name) {
-                free(field->name);
+                xfree(field->name);
             }
             free_expression(field->bitfield);
-            free(field);
+            xfree(field);
             field = next;
         }
         break;
     case TYPE_SPEC_ENUM:
         if (ts->u.enum_spec.name)
-            free(ts->u.enum_spec.name);
+            xfree(ts->u.enum_spec.name);
         Enumerator *e = ts->u.enum_spec.enumerators;
         while (e) {
             Enumerator *next = e->next;
             if (e->name)
-                free(e->name);
+                xfree(e->name);
             free_expression(e->value);
-            free(e);
+            xfree(e);
             e = next;
         }
         break;
     case TYPE_SPEC_TYPEDEF_NAME:
         if (ts->u.typedef_name.name)
-            free(ts->u.typedef_name.name);
+            xfree(ts->u.typedef_name.name);
         break;
     case TYPE_SPEC_ATOMIC:
         free_type(ts->u.atomic.type);
         break;
     }
-    free(ts);
+    xfree(ts);
 }
 
 // Free DeclSpec
@@ -270,24 +271,24 @@ void free_decl_spec(DeclSpec *spec)
     if (!spec)
         return;
     if (spec->storage)
-        free(spec->storage);
+        xfree(spec->storage);
     TypeQualifier *qual = spec->qualifiers;
     while (qual) {
         TypeQualifier *next = qual->next;
-        free(qual);
+        xfree(qual);
         qual = next;
     }
     if (spec->func_specs)
-        free(spec->func_specs);
+        xfree(spec->func_specs);
     if (spec->align_spec) {
         if (spec->align_spec->kind == ALIGN_SPEC_TYPE) {
             free_type(spec->align_spec->u.type);
         } else {
             free_expression(spec->align_spec->u.expr);
         }
-        free(spec->align_spec);
+        xfree(spec->align_spec);
     }
-    free(spec);
+    xfree(spec);
 }
 
 // Free InitDeclarator
@@ -296,10 +297,10 @@ static void free_init_declarator(InitDeclarator *id)
     if (!id)
         return;
     if (id->name)
-        free(id->name);
+        xfree(id->name);
     free_initializer(id->init);
     InitDeclarator *next = id->next;
-    free(id);
+    xfree(id);
     free_init_declarator(next);
 }
 
@@ -316,14 +317,14 @@ static void free_declaration(Declaration *decl)
     case DECL_STATIC_ASSERT:
         free_expression(decl->u.static_assrt.condition);
         if (decl->u.static_assrt.message)
-            free(decl->u.static_assrt.message);
+            xfree(decl->u.static_assrt.message);
         break;
     case DECL_EMPTY:
         free_decl_spec(decl->u.empty.specifiers);
         free_type(decl->u.empty.type);
         break;
     }
-    free(decl);
+    xfree(decl);
 }
 
 // Free Stmt
@@ -359,7 +360,7 @@ void free_statement(Stmt *stmt)
             } else {
                 free_declaration(stmt->u.for_stmt.init->u.decl);
             }
-            free(stmt->u.for_stmt.init);
+            xfree(stmt->u.for_stmt.init);
         }
         free_expression(stmt->u.for_stmt.condition);
         free_expression(stmt->u.for_stmt.update);
@@ -367,7 +368,7 @@ void free_statement(Stmt *stmt)
         break;
     case STMT_GOTO:
         if (stmt->u.goto_label)
-            free(stmt->u.goto_label);
+            xfree(stmt->u.goto_label);
         break;
     case STMT_CONTINUE:
     case STMT_BREAK:
@@ -377,7 +378,7 @@ void free_statement(Stmt *stmt)
         break;
     case STMT_LABELED:
         if (stmt->u.labeled.label)
-            free(stmt->u.labeled.label);
+            xfree(stmt->u.labeled.label);
         free_statement(stmt->u.labeled.stmt);
         break;
     case STMT_CASE:
@@ -396,13 +397,13 @@ void free_statement(Stmt *stmt)
             } else {
                 free_statement(item->u.stmt);
             }
-            free(item);
+            xfree(item);
             item = next;
         }
         break;
     }
     }
-    free(stmt);
+    xfree(stmt);
 }
 
 // Free ExternalDecl
@@ -414,7 +415,7 @@ static void free_external_decl(ExternalDecl *ext)
     case EXTERNAL_DECL_FUNCTION:
         free_type(ext->u.function.type);
         if (ext->u.function.name)
-            free(ext->u.function.name);
+            xfree(ext->u.function.name);
         free_decl_spec(ext->u.function.specifiers);
         free_statement(ext->u.function.body);
         break;
@@ -423,7 +424,7 @@ static void free_external_decl(ExternalDecl *ext)
         break;
     }
     ExternalDecl *next = ext->next;
-    free(ext);
+    xfree(ext);
     free_external_decl(next);
 }
 
@@ -433,5 +434,5 @@ void free_program(Program *program)
     if (!program)
         return;
     free_external_decl(program->decls);
-    free(program);
+    xfree(program);
 }

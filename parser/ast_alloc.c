@@ -2,11 +2,12 @@
 
 #include "ast.h"
 #include "internal.h"
+#include "xalloc.h"
 
 /* Helper functions for AST construction */
 Type *new_type(TypeKind kind)
 {
-    Type *t                = malloc(sizeof(Type));
+    Type *t                = xmalloc(sizeof(Type));
     t->kind                = kind;
     t->qualifiers          = NULL;
     t->u.integer.signedness = SIGNED_SIGNED; /* Default */
@@ -15,7 +16,7 @@ Type *new_type(TypeKind kind)
 
 TypeQualifier *new_type_qualifier(TypeQualifierKind kind)
 {
-    TypeQualifier *q = malloc(sizeof(TypeQualifier));
+    TypeQualifier *q = xmalloc(sizeof(TypeQualifier));
     q->kind          = kind;
     q->next          = NULL;
     return q;
@@ -23,7 +24,7 @@ TypeQualifier *new_type_qualifier(TypeQualifierKind kind)
 
 Field *new_field(void)
 {
-    Field *f    = (Field *)malloc(sizeof(Field));
+    Field *f    = (Field *)xmalloc(sizeof(Field));
     f->next     = NULL;
     f->type     = NULL;
     f->name     = NULL;
@@ -33,7 +34,7 @@ Field *new_field(void)
 
 Enumerator *new_enumerator(Ident name, Expr *value)
 {
-    Enumerator *e = malloc(sizeof(Enumerator));
+    Enumerator *e = xmalloc(sizeof(Enumerator));
     e->name       = name;
     e->value      = value;
     e->next       = NULL;
@@ -42,7 +43,7 @@ Enumerator *new_enumerator(Ident name, Expr *value)
 
 Param *new_param()
 {
-    Param *p = malloc(sizeof(Param));
+    Param *p = xmalloc(sizeof(Param));
     p->name  = NULL;
     p->type  = NULL;
     p->next  = NULL;
@@ -51,7 +52,7 @@ Param *new_param()
 
 Declaration *new_declaration(DeclarationKind kind)
 {
-    Declaration *d = malloc(sizeof(Declaration));
+    Declaration *d = xmalloc(sizeof(Declaration));
     d->kind        = kind;
     d->next        = NULL;
     return d;
@@ -59,7 +60,7 @@ Declaration *new_declaration(DeclarationKind kind)
 
 DeclSpec *new_decl_spec()
 {
-    DeclSpec *ds   = malloc(sizeof(DeclSpec));
+    DeclSpec *ds   = xmalloc(sizeof(DeclSpec));
     ds->storage    = NULL;
     ds->qualifiers = NULL;
     ds->func_specs = NULL;
@@ -69,14 +70,14 @@ DeclSpec *new_decl_spec()
 
 StorageClass *new_storage_class(StorageClassKind kind)
 {
-    StorageClass *sc = malloc(sizeof(StorageClass));
+    StorageClass *sc = xmalloc(sizeof(StorageClass));
     sc->kind         = kind;
     return sc;
 }
 
 TypeSpec *new_type_spec(TypeSpecKind kind)
 {
-    TypeSpec *ts   = malloc(sizeof(TypeSpec));
+    TypeSpec *ts   = xmalloc(sizeof(TypeSpec));
     ts->kind       = kind;
     ts->qualifiers = NULL;
     ts->next       = NULL;
@@ -85,7 +86,7 @@ TypeSpec *new_type_spec(TypeSpecKind kind)
 
 FunctionSpec *new_function_spec(FunctionSpecKind kind)
 {
-    FunctionSpec *fs = malloc(sizeof(FunctionSpec));
+    FunctionSpec *fs = xmalloc(sizeof(FunctionSpec));
     fs->kind         = kind;
     fs->next         = NULL;
     return fs;
@@ -93,14 +94,14 @@ FunctionSpec *new_function_spec(FunctionSpecKind kind)
 
 AlignmentSpec *new_alignment_spec(AlignmentSpecKind kind)
 {
-    AlignmentSpec *as = malloc(sizeof(AlignmentSpec));
+    AlignmentSpec *as = xmalloc(sizeof(AlignmentSpec));
     as->kind          = kind;
     return as;
 }
 
 InitDeclarator *new_init_declarator()
 {
-    InitDeclarator *id = malloc(sizeof(InitDeclarator));
+    InitDeclarator *id = xmalloc(sizeof(InitDeclarator));
     id->init           = NULL;
     id->next           = NULL;
     id->type           = NULL;
@@ -110,7 +111,7 @@ InitDeclarator *new_init_declarator()
 
 Declarator *new_declarator()
 {
-    Declarator *d = malloc(sizeof(Declarator));
+    Declarator *d = xmalloc(sizeof(Declarator));
     d->next       = NULL;
     d->name       = NULL;
     d->pointers   = NULL;
@@ -120,7 +121,7 @@ Declarator *new_declarator()
 
 Pointer *new_pointer()
 {
-    Pointer *p    = malloc(sizeof(Pointer));
+    Pointer *p    = xmalloc(sizeof(Pointer));
     p->qualifiers = NULL;
     p->next       = NULL;
     return p;
@@ -128,7 +129,7 @@ Pointer *new_pointer()
 
 DeclaratorSuffix *new_declarator_suffix(DeclaratorSuffixKind kind)
 {
-    DeclaratorSuffix *ds = malloc(sizeof(DeclaratorSuffix));
+    DeclaratorSuffix *ds = xmalloc(sizeof(DeclaratorSuffix));
     ds->kind             = kind;
     ds->next             = NULL;
     return ds;
@@ -136,14 +137,14 @@ DeclaratorSuffix *new_declarator_suffix(DeclaratorSuffixKind kind)
 
 Initializer *new_initializer(InitializerKind kind)
 {
-    Initializer *i = malloc(sizeof(Initializer));
+    Initializer *i = xmalloc(sizeof(Initializer));
     i->kind        = kind;
     return i;
 }
 
 InitItem *new_init_item(Designator *designators, Initializer *init)
 {
-    InitItem *ii    = malloc(sizeof(InitItem));
+    InitItem *ii    = xmalloc(sizeof(InitItem));
     ii->designators = designators;
     ii->init        = init;
     ii->next        = NULL;
@@ -152,7 +153,7 @@ InitItem *new_init_item(Designator *designators, Initializer *init)
 
 Designator *new_designator(DesignatorKind kind)
 {
-    Designator *d = malloc(sizeof(Designator));
+    Designator *d = xmalloc(sizeof(Designator));
     d->kind       = kind;
     d->next       = NULL;
     return d;
@@ -160,7 +161,7 @@ Designator *new_designator(DesignatorKind kind)
 
 Expr *new_expression(ExprKind kind)
 {
-    Expr *e = malloc(sizeof(Expr));
+    Expr *e = xmalloc(sizeof(Expr));
     e->kind = kind;
     e->type = NULL;
     e->next = NULL;
@@ -169,35 +170,35 @@ Expr *new_expression(ExprKind kind)
 
 Literal *new_literal(LiteralKind kind)
 {
-    Literal *l = malloc(sizeof(Literal));
+    Literal *l = xmalloc(sizeof(Literal));
     l->kind    = kind;
     return l;
 }
 
 UnaryOp *new_unary_op(UnaryOpKind kind)
 {
-    UnaryOp *op = malloc(sizeof(UnaryOp));
+    UnaryOp *op = xmalloc(sizeof(UnaryOp));
     op->kind    = kind;
     return op;
 }
 
 BinaryOp *new_binary_op(BinaryOpKind kind)
 {
-    BinaryOp *op = malloc(sizeof(BinaryOp));
+    BinaryOp *op = xmalloc(sizeof(BinaryOp));
     op->kind     = kind;
     return op;
 }
 
 AssignOp *new_assign_op(AssignOpKind kind)
 {
-    AssignOp *op = malloc(sizeof(AssignOp));
+    AssignOp *op = xmalloc(sizeof(AssignOp));
     op->kind     = kind;
     return op;
 }
 
 GenericAssoc *new_generic_assoc(GenericAssocKind kind)
 {
-    GenericAssoc *ga = malloc(sizeof(GenericAssoc));
+    GenericAssoc *ga = xmalloc(sizeof(GenericAssoc));
     ga->kind         = kind;
     ga->next         = NULL;
     return ga;
@@ -205,14 +206,14 @@ GenericAssoc *new_generic_assoc(GenericAssocKind kind)
 
 Stmt *new_stmt(StmtKind kind)
 {
-    Stmt *s = malloc(sizeof(Stmt));
+    Stmt *s = xmalloc(sizeof(Stmt));
     s->kind = kind;
     return s;
 }
 
 DeclOrStmt *new_decl_or_stmt(DeclOrStmtKind kind)
 {
-    DeclOrStmt *ds = malloc(sizeof(DeclOrStmt));
+    DeclOrStmt *ds = xmalloc(sizeof(DeclOrStmt));
     ds->kind       = kind;
     ds->next       = NULL;
     return ds;
@@ -220,14 +221,14 @@ DeclOrStmt *new_decl_or_stmt(DeclOrStmtKind kind)
 
 ForInit *new_for_init(ForInitKind kind)
 {
-    ForInit *fi = malloc(sizeof(ForInit));
+    ForInit *fi = xmalloc(sizeof(ForInit));
     fi->kind    = kind;
     return fi;
 }
 
 ExternalDecl *new_external_decl(ExternalDeclKind kind)
 {
-    ExternalDecl *ed = malloc(sizeof(ExternalDecl));
+    ExternalDecl *ed = xmalloc(sizeof(ExternalDecl));
     ed->kind         = kind;
     ed->next         = NULL;
     return ed;
@@ -235,7 +236,7 @@ ExternalDecl *new_external_decl(ExternalDeclKind kind)
 
 Program *new_program()
 {
-    Program *p = malloc(sizeof(Program));
+    Program *p = xmalloc(sizeof(Program));
     p->decls   = NULL;
     return p;
 }

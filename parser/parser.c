@@ -38,7 +38,7 @@ static void _Noreturn fatal_error(const char *message, ...)
 
 //
 // In case of identifier, look in the parser's symbol table.
-// When it's a previously defined typedef  - return TOKEN_TYPEDEF_NAME.
+// When it's a previously defined typedef - return TOKEN_TYPEDEF_NAME.
 // When a previously defined enumerator - return TOKEN_ENUMERATION_CONSTANT.
 //
 static int token_translation(int token)

@@ -39,6 +39,7 @@ add_executable(c-parser-tests
     ast_graphviz.c
     symtab.c
     string_map.c
+    xalloc.c
 )
 target_include_directories(c-parser-tests BEFORE PUBLIC
     ../scanner
@@ -49,6 +50,7 @@ gtest_discover_tests(c-parser-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEO
 add_executable(string-map-tests
     string_map_test.cpp
     string_map.c
+    xalloc.c
 )
 target_link_libraries(string-map-tests GTest::gtest_main)
 gtest_discover_tests(string-map-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

@@ -3,13 +3,14 @@
 
 #include "ast.h"
 #include "internal.h"
+#include "xalloc.h"
 
 /* Helper to duplicate a string */
 char *clone_string(const char *str)
 {
     if (!str)
         return NULL;
-    char *new_str = malloc(strlen(str) + 1);
+    char *new_str = xmalloc(strlen(str) + 1);
     if (new_str)
         strcpy(new_str, str);
     return new_str;
@@ -20,7 +21,7 @@ TypeQualifier *clone_type_qualifier(const TypeQualifier *qualifier)
 {
     if (!qualifier)
         return NULL;
-    TypeQualifier *new_qual = malloc(sizeof(TypeQualifier));
+    TypeQualifier *new_qual = xmalloc(sizeof(TypeQualifier));
     if (!new_qual)
         return NULL;
     new_qual->kind = qualifier->kind;
@@ -33,7 +34,7 @@ Param *clone_param(const Param *param)
 {
     if (!param)
         return NULL;
-    Param *new_param = malloc(sizeof(Param));
+    Param *new_param = xmalloc(sizeof(Param));
     if (!new_param)
         return NULL;
     new_param->name = clone_string(param->name);
@@ -47,7 +48,7 @@ Field *clone_field(const Field *field)
 {
     if (!field)
         return NULL;
-    Field *new_field = malloc(sizeof(Field));
+    Field *new_field = xmalloc(sizeof(Field));
     if (!new_field)
         return NULL;
     new_field->type     = clone_type(field->type);
@@ -62,7 +63,7 @@ Enumerator *clone_enumerator(const Enumerator *enumerator)
 {
     if (!enumerator)
         return NULL;
-    Enumerator *new_enum = malloc(sizeof(Enumerator));
+    Enumerator *new_enum = xmalloc(sizeof(Enumerator));
     if (!new_enum)
         return NULL;
     new_enum->name  = clone_string(enumerator->name);
@@ -76,7 +77,7 @@ Type *clone_type(const Type *type)
 {
     if (!type)
         return NULL;
-    Type *new_type = malloc(sizeof(Type));
+    Type *new_type = xmalloc(sizeof(Type));
     if (!new_type)
         return NULL;
     new_type->kind       = type->kind;
@@ -131,7 +132,7 @@ Literal *clone_literal(const Literal *literal)
 {
     if (!literal)
         return NULL;
-    Literal *new_literal = malloc(sizeof(Literal));
+    Literal *new_literal = xmalloc(sizeof(Literal));
     if (!new_literal)
         return NULL;
     new_literal->kind = literal->kind;
@@ -160,7 +161,7 @@ UnaryOp *clone_unary_op(const UnaryOp *op)
 {
     if (!op)
         return NULL;
-    UnaryOp *new_op = malloc(sizeof(UnaryOp));
+    UnaryOp *new_op = xmalloc(sizeof(UnaryOp));
     if (!new_op)
         return NULL;
     new_op->kind = op->kind;
@@ -172,7 +173,7 @@ BinaryOp *clone_binary_op(const BinaryOp *op)
 {
     if (!op)
         return NULL;
-    BinaryOp *new_op = malloc(sizeof(BinaryOp));
+    BinaryOp *new_op = xmalloc(sizeof(BinaryOp));
     if (!new_op)
         return NULL;
     new_op->kind = op->kind;
@@ -184,7 +185,7 @@ AssignOp *clone_assign_op(const AssignOp *op)
 {
     if (!op)
         return NULL;
-    AssignOp *new_op = malloc(sizeof(AssignOp));
+    AssignOp *new_op = xmalloc(sizeof(AssignOp));
     if (!new_op)
         return NULL;
     new_op->kind = op->kind;
@@ -196,7 +197,7 @@ GenericAssoc *clone_generic_assoc(const GenericAssoc *assoc)
 {
     if (!assoc)
         return NULL;
-    GenericAssoc *new_assoc = malloc(sizeof(GenericAssoc));
+    GenericAssoc *new_assoc = xmalloc(sizeof(GenericAssoc));
     if (!new_assoc)
         return NULL;
     new_assoc->kind = assoc->kind;
@@ -215,7 +216,7 @@ Designator *clone_designator(const Designator *designator)
 {
     if (!designator)
         return NULL;
-    Designator *new_designator = malloc(sizeof(Designator));
+    Designator *new_designator = xmalloc(sizeof(Designator));
     if (!new_designator)
         return NULL;
     new_designator->kind = designator->kind;
@@ -233,7 +234,7 @@ Initializer *clone_initializer(const Initializer *init)
 {
     if (!init)
         return NULL;
-    Initializer *new_init = malloc(sizeof(Initializer));
+    Initializer *new_init = xmalloc(sizeof(Initializer));
     if (!new_init)
         return NULL;
     new_init->kind = init->kind;
@@ -250,7 +251,7 @@ InitItem *clone_init_item(const InitItem *item)
 {
     if (!item)
         return NULL;
-    InitItem *new_item = malloc(sizeof(InitItem));
+    InitItem *new_item = xmalloc(sizeof(InitItem));
     if (!new_item)
         return NULL;
     new_item->designators = clone_designator(item->designators);
@@ -264,7 +265,7 @@ Expr *clone_expression(const Expr *expression)
 {
     if (!expression)
         return NULL;
-    Expr *new_expr = malloc(sizeof(Expr));
+    Expr *new_expr = xmalloc(sizeof(Expr));
     if (!new_expr)
         return NULL;
     new_expr->kind = expression->kind;
@@ -346,7 +347,7 @@ TypeSpec *clone_type_spec(const TypeSpec *ts)
 {
     if (!ts)
         return NULL;
-    TypeSpec *new_ts = malloc(sizeof(TypeSpec));
+    TypeSpec *new_ts = xmalloc(sizeof(TypeSpec));
     if (!new_ts)
         return NULL;
     new_ts->kind       = ts->kind;
