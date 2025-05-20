@@ -16,7 +16,6 @@ static int debug = 1;     // Set manually to enable debug output
 static void consume_char(void);
 static void unget_char(void);
 static int is_keyword(const char *str);
-static int (*symbol_type)(const char *str);
 static void skip_whitespace(void);
 static void skip_comment(void);
 static int scan_identifier(void);
@@ -26,10 +25,9 @@ static int scan_char(void);
 static int scan_operator(void);
 
 // Initialize scanner with input file
-void init_scanner(FILE *input, int (*sym_type)(const char *str))
+void init_scanner(FILE *input)
 {
     input_file  = input;
-    symbol_type = sym_type;
     yyleng      = 0;
     yytext[0]   = '\0';
     next_char   = input_file ? fgetc(input_file) : EOF;
@@ -225,18 +223,8 @@ static int scan_identifier(void)
         consume_char();
     }
     int token = is_keyword(yytext);
-    if (token)
+    if (token) {
         return token;
-
-    // Check identifier type
-    if (symbol_type != NULL) {
-        // Let's look in the parser's symbol table.
-        token = symbol_type(yytext);
-        if (token) {
-            // Either previously defined typedef (TOKEN_TYPEDEF_NAME)
-            // or previously defined enum (TOKEN_ENUMERATION_CONSTANT).
-            return token;
-        }
     }
     return TOKEN_IDENTIFIER;
 }

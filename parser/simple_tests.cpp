@@ -4,7 +4,7 @@
 // Test primary expression: identifier
 TEST_F(ParserTest, ScanIdentifier)
 {
-    init_scanner(CreateTempFile("x"), nullptr);
+    init_scanner(CreateTempFile("x"));
     advance_token();
     Declarator *decl = parse_declarator();
     ASSERT_NE(decl, nullptr);
@@ -21,7 +21,7 @@ TEST_F(ParserTest, ScanIdentifier)
 // Test primary expression: integer constant
 TEST_F(ParserTest, ScanIntegerConstant)
 {
-    init_scanner(CreateTempFile("42;"), nullptr);
+    init_scanner(CreateTempFile("42;"));
     advance_token();
     Expr *expr = parse_primary_expression();
     ASSERT_NE(expr, nullptr);
@@ -37,7 +37,7 @@ TEST_F(ParserTest, ScanIntegerConstant)
 // Test binary expression: x + y
 TEST_F(ParserTest, ScanBinaryExpression)
 {
-    init_scanner(CreateTempFile("x + y;"), nullptr);
+    init_scanner(CreateTempFile("x + y;"));
     advance_token();
     Expr *expr = parse_expression();
     ASSERT_NE(expr, nullptr);
@@ -56,7 +56,7 @@ TEST_F(ParserTest, ScanBinaryExpression)
 // Test function call: f(x, y)
 TEST_F(ParserTest, ScanFunctionCall)
 {
-    init_scanner(CreateTempFile("f(x, y);"), nullptr);
+    init_scanner(CreateTempFile("f(x, y);"));
     advance_token();
     Expr *expr = parse_expression();
     ASSERT_NE(expr, nullptr);
@@ -80,7 +80,7 @@ TEST_F(ParserTest, ScanFunctionCall)
 // Test if statement: if (x) return y;
 TEST_F(ParserTest, ScanIfStatement)
 {
-    init_scanner(CreateTempFile("if (x) return y;"), nullptr);
+    init_scanner(CreateTempFile("if (x) return y;"));
     advance_token();
     Stmt *stmt = parse_statement();
     ASSERT_NE(stmt, nullptr);

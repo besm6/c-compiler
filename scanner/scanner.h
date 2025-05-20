@@ -109,7 +109,7 @@ enum {
     TOKEN_ENUMERATION_CONSTANT,
 };
 
-void init_scanner(FILE *input, int (*sym_type)(const char *str));
+void init_scanner(FILE *input);
 int yylex(void);
 
 // Get current lexeme

@@ -64,7 +64,7 @@ protected:
     // Helper to get function body from program
     Type *TestType(const char *content)
     {
-        init_scanner(CreateTempFile(content), symtab_find);
+        init_scanner(CreateTempFile(content));
         advance_token();
         Type *type = parse_type_name();
         EXPECT_NE(type, nullptr);

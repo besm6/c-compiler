@@ -36,6 +36,23 @@ static void _Noreturn fatal_error(const char *message, ...)
     exit(1);
 }
 
+//
+// In case of identifier, look in the parser's symbol table.
+// When it's a previously defined typedef  - return TOKEN_TYPEDEF_NAME.
+// When a previously defined enumerator - return TOKEN_ENUMERATION_CONSTANT.
+//
+static int token_translation(int token)
+{
+    // Check identifier type
+    if (token == TOKEN_IDENTIFIER) {
+        token = symtab_find(get_yytext());
+        if (! token) {
+            token = TOKEN_IDENTIFIER;
+        }
+    }
+    return token;
+}
+
 /* Token handling */
 void advance_token()
 {
@@ -43,7 +60,7 @@ void advance_token()
         current_token = peek_token;
         peek_token    = 0;
     } else {
-        current_token = yylex();
+        current_token = token_translation(yylex());
     }
     current_lexeme = get_yytext();
 }
@@ -71,7 +88,7 @@ static int next_token()
             strcpy(lexeme_buffer, current_lexeme);
             current_lexeme = lexeme_buffer;
         }
-        peek_token = yylex();
+        peek_token = token_translation(yylex());
     }
     return peek_token;
 }
@@ -2762,7 +2779,7 @@ Program *parse(FILE *input)
     if (debug) {
         printf("--- %s()\n", __func__);
     }
-    init_scanner(input, symtab_find);
+    init_scanner(input);
     advance_token();
     Program *program = parse_translation_unit();
     if (current_token != TOKEN_EOF) {
