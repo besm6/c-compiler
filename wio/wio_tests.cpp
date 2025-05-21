@@ -136,7 +136,9 @@ TEST_F(WIOTest, WPutWAndWGetW)
     for (size_t w : data) {
         EXPECT_EQ(wgetw(rstream), w);
     }
-    EXPECT_TRUE(weof(rstream));
+    EXPECT_FALSE(weof(rstream));           // at file end
+    EXPECT_EQ(wgetw(rstream), (size_t)-1); // failed
+    EXPECT_TRUE(weof(rstream));            // beyond file end
     wclose(rstream);
 }
 
