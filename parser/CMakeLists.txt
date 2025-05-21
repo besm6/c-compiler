@@ -1,36 +1,8 @@
-cmake_minimum_required(VERSION 3.10)
-project(c-parser)
-
-# Set C++ standard
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "-Wall -Werror -Wshadow")
-
-# Download GoogleTest
-include(FetchContent)
-FetchContent_Declare(
-    googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG v1.15.2
-)
-set(BUILD_GMOCK OFF CACHE BOOL "Builds the googlemock subproject" FORCE)
-set(INSTALL_GTEST OFF CACHE BOOL "Enable installation of googletest" FORCE)
-FetchContent_MakeAvailable(googletest)
-include(GoogleTest)
-enable_testing()
-
-# Build tests
-add_executable(c-parser-tests
+#
+# Parser library
+#
+add_library(parser STATIC
     parser.c
-    simple_tests.cpp
-    statement_tests.cpp
-    operator_tests.cpp
-    type_tests.cpp
-    struct_tests.cpp
-    declaration_tests.cpp
-    constant_tests.cpp
-#   negative_tests.cpp
-    ../scanner/scanner.c
     ast_alloc.c
     ast_print.c
     ast_free.c
@@ -41,16 +13,38 @@ add_executable(c-parser-tests
     string_map.c
     xalloc.c
 )
-target_include_directories(c-parser-tests BEFORE PUBLIC
-    ../scanner
-)
-target_link_libraries(c-parser-tests GTest::gtest_main)
-gtest_discover_tests(c-parser-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+target_include_directories(parser PUBLIC .)
+target_link_libraries(parser scanner)
 
+#
+# 'cast' executable
+#
+add_executable(cast
+    main.c
+)
+target_link_libraries(cast parser scanner)
+
+#
+# Tests for parser
+#
+add_executable(parser-tests
+    simple_tests.cpp
+    statement_tests.cpp
+    operator_tests.cpp
+    type_tests.cpp
+    struct_tests.cpp
+    declaration_tests.cpp
+    constant_tests.cpp
+#   negative_tests.cpp
+)
+target_link_libraries(parser-tests parser scanner GTest::gtest_main)
+gtest_discover_tests(parser-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+
+#
+# Tests for string map
+#
 add_executable(string-map-tests
     string_map_test.cpp
-    string_map.c
-    xalloc.c
 )
-target_link_libraries(string-map-tests GTest::gtest_main)
+target_link_libraries(string-map-tests parser GTest::gtest_main)
 gtest_discover_tests(string-map-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
