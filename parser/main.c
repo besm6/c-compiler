@@ -156,6 +156,7 @@ void process_file(Args *args)
         printf("Debug: Format = %d, Input = %s, Output = %s\n", args->format, args->input_file,
                args->output_file);
     }
+    parser_debug = args->debug;
     FILE *input_file = fopen(args->input_file, "r");
     Program *program = parse(input_file);
     fclose(input_file);
@@ -186,7 +187,10 @@ void process_file(Args *args)
         fclose(output_file);
     }
     free_program(program);
-    xreport_lost_memory();
+    if (args->debug) {
+        xreport_lost_memory();
+    }
+    xfree_all();
 }
 
 int main(int argc, char *argv[])

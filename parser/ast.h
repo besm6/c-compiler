@@ -499,6 +499,9 @@ struct ExternalDecl {
     } u;
 };
 
+// Enable debug output
+extern int parser_debug;
+
 Program *parse(FILE *input);
 void free_program(Program* program);
 void export_yaml(FILE *fd, Program *program);

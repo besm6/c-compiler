@@ -10,7 +10,6 @@ static FILE *input_file;
 static char yytext[1024]; // Buffer for current lexeme
 static int yyleng = 0;    // Length of current lexeme
 static int next_char;     // Lookahead character
-static int debug = 1;     // Set manually to enable debug output
 
 // Function prototypes
 static void consume_char(void);
@@ -41,12 +40,11 @@ again:
         return TOKEN_EOF; // End of input
     }
     skip_whitespace();
+    yyleng    = 0;
+    yytext[0] = '\0';
     if (next_char == EOF) {
         return TOKEN_EOF;
     }
-
-    yyleng    = 0;
-    yytext[0] = '\0';
 
     // Check for comments
     if (next_char == '/') {
@@ -77,9 +75,6 @@ again:
         token = scan_char();
     } else {
         token = scan_operator();
-    }
-    if (debug) {
-        printf("--- token %d '%s'\n", token, yytext);
     }
     return token;
 }

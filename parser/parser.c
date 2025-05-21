@@ -13,8 +13,8 @@ static int peek_token;
 static const char *current_lexeme;
 static char lexeme_buffer[1024]; // Buffer for current lexeme
 
-// Set manually to enable debug output
-static int debug = 1;
+// Enable debug output
+int parser_debug;
 
 static int scope_level;
 
@@ -49,6 +49,9 @@ static int token_translation(int token)
         if (! token) {
             token = TOKEN_IDENTIFIER;
         }
+    }
+    if (parser_debug) {
+        printf("--- token %d '%s'\n", token, get_yytext());
     }
     return token;
 }
@@ -341,7 +344,7 @@ Declaration *parse_declaration_list();
 
 Expr *parse_primary_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = NULL;
@@ -376,7 +379,7 @@ Expr *parse_primary_expression()
 
 Expr *parse_constant()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr      = new_expression(EXPR_LITERAL);
@@ -400,7 +403,7 @@ Expr *parse_constant()
 
 Expr *parse_string()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr                    = new_expression(EXPR_LITERAL);
@@ -412,7 +415,7 @@ Expr *parse_string()
 
 Expr *parse_generic_selection()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     expect_token(TOKEN_GENERIC);
@@ -429,7 +432,7 @@ Expr *parse_generic_selection()
 
 GenericAssoc *parse_generic_assoc_list()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     GenericAssoc *assoc = parse_generic_association();
@@ -442,7 +445,7 @@ GenericAssoc *parse_generic_assoc_list()
 
 GenericAssoc *parse_generic_association()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     GenericAssoc *assoc;
@@ -465,7 +468,7 @@ GenericAssoc *parse_generic_association()
 
 Expr *parse_postfix_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_primary_expression();
@@ -525,7 +528,7 @@ Expr *parse_postfix_expression()
 
 Expr *parse_argument_expression_list()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_assignment_expression();
@@ -538,7 +541,7 @@ Expr *parse_argument_expression_list()
 
 Expr *parse_unary_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_INC_OP) {
@@ -596,7 +599,7 @@ Expr *parse_unary_expression()
 
 UnaryOp *parse_unary_operator()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     UnaryOp *op = new_unary_op(current_token == TOKEN_AMPERSAND ? UNARY_ADDRESS
@@ -611,7 +614,7 @@ UnaryOp *parse_unary_operator()
 
 Expr *parse_cast_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_LPAREN) {
@@ -629,7 +632,7 @@ Expr *parse_cast_expression()
 
 Expr *parse_multiplicative_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_cast_expression();
@@ -651,7 +654,7 @@ Expr *parse_multiplicative_expression()
 
 Expr *parse_additive_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_multiplicative_expression();
@@ -670,7 +673,7 @@ Expr *parse_additive_expression()
 
 Expr *parse_shift_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_additive_expression();
@@ -690,7 +693,7 @@ Expr *parse_shift_expression()
 
 Expr *parse_relational_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_shift_expression();
@@ -713,7 +716,7 @@ Expr *parse_relational_expression()
 
 Expr *parse_equality_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_relational_expression();
@@ -732,7 +735,7 @@ Expr *parse_equality_expression()
 
 Expr *parse_and_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_equality_expression();
@@ -750,7 +753,7 @@ Expr *parse_and_expression()
 
 Expr *parse_exclusive_or_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_and_expression();
@@ -768,7 +771,7 @@ Expr *parse_exclusive_or_expression()
 
 Expr *parse_inclusive_or_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_exclusive_or_expression();
@@ -786,7 +789,7 @@ Expr *parse_inclusive_or_expression()
 
 Expr *parse_logical_and_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_inclusive_or_expression();
@@ -804,7 +807,7 @@ Expr *parse_logical_and_expression()
 
 Expr *parse_logical_or_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_logical_and_expression();
@@ -822,7 +825,7 @@ Expr *parse_logical_or_expression()
 
 Expr *parse_conditional_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_logical_or_expression();
@@ -842,7 +845,7 @@ Expr *parse_conditional_expression()
 
 Expr *parse_assignment_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_conditional_expression();
@@ -865,7 +868,7 @@ Expr *parse_assignment_expression()
 
 AssignOp *parse_assignment_operator()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     AssignOp *op = new_assign_op(current_token == TOKEN_ASSIGN         ? ASSIGN_SIMPLE
@@ -885,7 +888,7 @@ AssignOp *parse_assignment_operator()
 
 Expr *parse_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = parse_assignment_expression();
@@ -905,7 +908,7 @@ Expr *parse_expression()
 //
 Expr *parse_constant_expression()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expression = parse_conditional_expression();
@@ -1214,7 +1217,7 @@ static void define_typedef(InitDeclarator *decl)
 //
 Declaration *parse_declaration()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_STATIC_ASSERT) {
@@ -1259,7 +1262,7 @@ Declaration *parse_declaration()
 //
 DeclSpec *parse_declaration_specifiers(Type **base_type_result)
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     DeclSpec *ds = new_decl_spec();
@@ -1296,7 +1299,7 @@ DeclSpec *parse_declaration_specifiers(Type **base_type_result)
 
 InitDeclarator *parse_init_declarator_list(Declarator *first, Type *base_type)
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     InitDeclarator *decl = parse_init_declarator(first, base_type);
@@ -1315,7 +1318,7 @@ InitDeclarator *parse_init_declarator_list(Declarator *first, Type *base_type)
 //
 InitDeclarator *parse_init_declarator(Declarator *decl, Type *base_type)
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (!decl) {
@@ -1333,7 +1336,7 @@ InitDeclarator *parse_init_declarator(Declarator *decl, Type *base_type)
 
 StorageClass *parse_storage_class_specifier()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     StorageClassKind kind = current_token == TOKEN_TYPEDEF        ? STORAGE_CLASS_TYPEDEF
@@ -1369,7 +1372,7 @@ StorageClass *parse_storage_class_specifier()
 //
 TypeSpec *parse_type_specifier()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     TypeSpec *ts;
@@ -1455,7 +1458,7 @@ TypeSpec *parse_type_specifier()
 //
 Type *parse_struct_or_union_specifier()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     int su     = parse_struct_or_union();
@@ -1480,7 +1483,7 @@ Type *parse_struct_or_union_specifier()
 //
 int parse_struct_or_union()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token != TOKEN_STRUCT && current_token != TOKEN_UNION) {
@@ -1499,7 +1502,7 @@ int parse_struct_or_union()
 //
 Field *parse_struct_declaration_list()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Field *fields = parse_struct_declaration();
@@ -1518,7 +1521,7 @@ Field *parse_struct_declaration_list()
 //
 Field *parse_struct_declaration()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_STATIC_ASSERT) {
@@ -1581,7 +1584,7 @@ Field *parse_struct_declaration()
 //
 TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     TypeSpec *type_specs = NULL;
@@ -1742,7 +1745,7 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
 
 Type *parse_enum_specifier()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     expect_token(TOKEN_ENUM);
@@ -1763,7 +1766,7 @@ Type *parse_enum_specifier()
 
 Enumerator *parse_enumerator_list()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Enumerator *enumr = parse_enumerator();
@@ -1776,7 +1779,7 @@ Enumerator *parse_enumerator_list()
 
 Enumerator *parse_enumerator()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Ident name = clone_string(current_lexeme);
@@ -1794,7 +1797,7 @@ Enumerator *parse_enumerator()
 
 Type *parse_atomic_type_specifier()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     expect_token(TOKEN_ATOMIC);
@@ -1815,7 +1818,7 @@ Type *parse_atomic_type_specifier()
 //
 TypeQualifier *parse_type_qualifier()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     switch (current_token) {
@@ -1838,7 +1841,7 @@ TypeQualifier *parse_type_qualifier()
 
 FunctionSpec *parse_function_specifier()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     FunctionSpecKind kind = current_token == TOKEN_INLINE ? FUNC_SPEC_INLINE : FUNC_SPEC_NORETURN;
@@ -1848,7 +1851,7 @@ FunctionSpec *parse_function_specifier()
 
 AlignmentSpec *parse_alignment_specifier()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     expect_token(TOKEN_ALIGNAS);
@@ -1873,7 +1876,7 @@ AlignmentSpec *parse_alignment_specifier()
 //
 Declarator *parse_declarator()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Pointer *pointers = NULL;
@@ -1907,7 +1910,7 @@ Declarator *parse_declarator()
 //
 Declarator *parse_direct_declarator()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Declarator *decl;
@@ -1965,7 +1968,7 @@ Declarator *parse_direct_declarator()
 
 Pointer *parse_pointer()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Pointer *pointers = NULL, **pointers_tail = &pointers;
@@ -1981,7 +1984,7 @@ Pointer *parse_pointer()
 
 TypeQualifier *parse_type_qualifier_list()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     TypeQualifier *qualifiers = NULL, **qualifiers_tail = &qualifiers;
@@ -2022,7 +2025,7 @@ TypeQualifier *parse_type_qualifier_list()
 //
 Param *parse_parameter_type_list(bool *variadic_flag)
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     // Assume non-variadic by default.
@@ -2059,7 +2062,7 @@ Param *parse_parameter_type_list(bool *variadic_flag)
 
 Param *parse_parameter_list()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Param *param = parse_parameter_declaration();
@@ -2103,7 +2106,7 @@ Param *parse_parameter_list()
 //
 DeclaratorSuffix *parse_direct_abstract_declarator()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     DeclaratorSuffix *suffix = NULL;
@@ -2214,7 +2217,7 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
 
 Param *parse_parameter_declaration()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Param *param = new_param();
@@ -2267,7 +2270,7 @@ Param *parse_parameter_declaration()
 //
 Type *parse_type_name()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     TypeQualifier *qualifiers = NULL;
@@ -2297,7 +2300,7 @@ Type *parse_type_name()
 
 Initializer *parse_initializer()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_LBRACE) {
@@ -2317,7 +2320,7 @@ Initializer *parse_initializer()
 
 InitItem *parse_initializer_list()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Designator *designation = NULL;
@@ -2335,7 +2338,7 @@ InitItem *parse_initializer_list()
 
 Designator *parse_designation()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Designator *designators = parse_designator_list();
@@ -2345,7 +2348,7 @@ Designator *parse_designation()
 
 Designator *parse_designator_list()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Designator *designator = parse_designator();
@@ -2357,7 +2360,7 @@ Designator *parse_designator_list()
 
 Designator *parse_designator()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_LBRACKET) {
@@ -2381,7 +2384,7 @@ Designator *parse_designator()
 
 Declaration *parse_static_assert_declaration()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     expect_token(TOKEN_STATIC_ASSERT);
@@ -2401,7 +2404,7 @@ Declaration *parse_static_assert_declaration()
 
 Stmt *parse_statement()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_IDENTIFIER && next_token() == TOKEN_COLON) {
@@ -2425,7 +2428,7 @@ Stmt *parse_statement()
 
 Stmt *parse_labeled_statement()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_IDENTIFIER) {
@@ -2459,7 +2462,7 @@ Stmt *parse_labeled_statement()
 
 Stmt *parse_compound_statement()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     expect_token(TOKEN_LBRACE);
@@ -2480,7 +2483,7 @@ Stmt *parse_compound_statement()
 
 DeclOrStmt *parse_block_item_list()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     DeclOrStmt *item = parse_block_item();
@@ -2492,7 +2495,7 @@ DeclOrStmt *parse_block_item_list()
 
 DeclOrStmt *parse_block_item()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_TYPEDEF || current_token == TOKEN_EXTERN ||
@@ -2515,7 +2518,7 @@ DeclOrStmt *parse_block_item()
 
 Stmt *parse_expression_statement()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *expr = NULL;
@@ -2530,7 +2533,7 @@ Stmt *parse_expression_statement()
 
 Stmt *parse_selection_statement()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_IF) {
@@ -2565,7 +2568,7 @@ Stmt *parse_selection_statement()
 
 Stmt *parse_iteration_statement()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_WHILE) {
@@ -2629,7 +2632,7 @@ Stmt *parse_iteration_statement()
 
 Stmt *parse_jump_statement()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_GOTO) {
@@ -2670,7 +2673,7 @@ Stmt *parse_jump_statement()
 //
 Program *parse_translation_unit()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Program *program = new_program();
@@ -2689,7 +2692,7 @@ Program *parse_translation_unit()
 //
 ExternalDecl *parse_external_declaration()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_STATIC_ASSERT) {
@@ -2763,7 +2766,7 @@ ExternalDecl *parse_external_declaration()
 //
 Declaration *parse_declaration_list()
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     Declaration *decl = parse_declaration();
@@ -2776,7 +2779,7 @@ Declaration *parse_declaration_list()
 /* Main parsing function */
 Program *parse(FILE *input)
 {
-    if (debug) {
+    if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     init_scanner(input);

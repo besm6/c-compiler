@@ -24,6 +24,7 @@ protected:
         auto filename = test_name + ".c";
         input_file = fopen(filename.c_str(), "w+");
         ASSERT_NE(nullptr, input_file);
+        parser_debug = 1;
     }
 
     void TearDown() override
