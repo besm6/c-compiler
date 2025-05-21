@@ -487,7 +487,7 @@ static void export_literal(FILE *fd, Literal *lit, int level)
         fprintf(fd, "'%c'\n", lit->u.char_val);
         break;
     case LITERAL_STRING:
-        fprintf(fd, "\"%s\"\n", lit->u.string_val);
+        fprintf(fd, "%s\n", lit->u.string_val);
         break;
     case LITERAL_ENUM:
         fprintf(fd, "%s\n", lit->u.enum_const);

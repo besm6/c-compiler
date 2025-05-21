@@ -414,6 +414,17 @@ static void export_decl(FILE *fd, Declaration *decl, int parent_id)
     }
 }
 
+static void export_string(FILE *fd, const char *str)
+{
+    while (*str) {
+        if (*str == '"' || *str == '\\') {
+            fputc('\\', fd);
+        }
+        fputc(*str, fd);
+        str++;
+    }
+}
+
 static void export_literal(FILE *fd, Literal *lit, int parent_id)
 {
     int id = gen_node_id();
@@ -429,7 +440,8 @@ static void export_literal(FILE *fd, Literal *lit, int parent_id)
         fprintf(fd, "char: '%c'", lit->u.char_val);
         break;
     case LITERAL_STRING:
-        fprintf(fd, "string: \\\"%s\\\"", lit->u.string_val);
+        fprintf(fd, "string: ");
+        export_string(fd, lit->u.string_val);
         break;
     case LITERAL_ENUM:
         fprintf(fd, "enum: %s", lit->u.enum_const);

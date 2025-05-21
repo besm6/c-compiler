@@ -32,14 +32,19 @@ typedef struct {
 //
 void print_usage(const char *prog_name)
 {
-    fprintf(stderr, "Usage: %s [options] input-filename [output-filename]\n", prog_name);
+    const char *p = strrchr(prog_name, '/');
+    if (p) {
+        prog_name = p + 1;
+    }
+    fprintf(stderr, "Usage:\n");
+    fprintf(stderr, "    %s [options] input-filename [output-filename]\n", prog_name);
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "  --ast            Emit AST in binary format (default)\n");
-    fprintf(stderr, "  --yaml           Emit YAML format\n");
-    fprintf(stderr, "  --dot            Emit Graphviz DOT script\n");
-    fprintf(stderr, "  -v, --verbose    Enable verbose mode\n");
-    fprintf(stderr, "  -D, --debug      Print debug information\n");
-    fprintf(stderr, "  -h, --help       Show this help message\n");
+    fprintf(stderr, "    --ast            Emit AST in binary format (default)\n");
+    fprintf(stderr, "    --yaml           Emit YAML format\n");
+    fprintf(stderr, "    --dot            Emit Graphviz DOT script\n");
+    fprintf(stderr, "    -v, --verbose    Enable verbose mode\n");
+    fprintf(stderr, "    -D, --debug      Print debug information\n");
+    fprintf(stderr, "    -h, --help       Show this help message\n");
 }
 
 //
@@ -97,6 +102,11 @@ int parse_args(int argc, char *argv[], Args *args)
     int opt;
     int option_index = 0;
 
+    if (argc < 2) {
+        // Show usage.
+        args->help = 1;
+        return 0;
+    }
     while ((opt = getopt_long(argc, argv, "vhD", long_options, &option_index)) != -1) {
         switch (opt) {
         case 'v':
@@ -104,7 +114,7 @@ int parse_args(int argc, char *argv[], Args *args)
             break;
         case 'h':
             args->help = 1;
-            break;
+            return 0;
         case 'D':
             args->debug = 1;
             break;
@@ -169,16 +179,22 @@ void process_file(Args *args)
     switch (args->format) {
     default:
     case FORMAT_AST:
-        printf("Emitting AST in binary format to %s\n", args->output_file);
+        if (args->verbose) {
+            printf("Emitting AST in binary format to %s\n", args->output_file);
+        }
         //TODO: emit AST
         print_program(output_file, program);
         break;
     case FORMAT_YAML:
-        printf("Emitting YAML format to %s\n", args->output_file);
+        if (args->verbose) {
+            printf("Emitting YAML format to %s\n", args->output_file);
+        }
         export_yaml(output_file, program);
         break;
     case FORMAT_DOT:
-        printf("Emitting Graphviz DOT script to %s\n", args->output_file);
+        if (args->verbose) {
+            printf("Emitting Graphviz DOT script to %s\n", args->output_file);
+        }
         export_dot(output_file, program);
         break;
     }
