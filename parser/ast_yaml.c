@@ -1003,9 +1003,11 @@ void export_yaml(FILE *fd, Program *program)
             fprintf(fd, "type:\n");
             export_type(fd, decl->u.function.type, 3);
             export_ident(fd, decl->u.function.name, 2);
-            print_indent(fd, 2);
-            fprintf(fd, "specifiers:\n");
-            export_decl_spec(fd, decl->u.function.specifiers, 3);
+            if (decl->u.function.specifiers) {
+                print_indent(fd, 2);
+                fprintf(fd, "specifiers:\n");
+                export_decl_spec(fd, decl->u.function.specifiers, 3);
+            }
             if (decl->u.function.param_decls) {
                 print_indent(fd, 2);
                 fprintf(fd, "param_decls:\n");
