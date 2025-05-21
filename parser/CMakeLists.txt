@@ -17,14 +17,6 @@ target_include_directories(parser PUBLIC .)
 target_link_libraries(parser scanner)
 
 #
-# 'cast' executable
-#
-add_executable(cast
-    main.c
-)
-target_link_libraries(cast parser scanner)
-
-#
 # Tests for parser
 #
 add_executable(parser-tests

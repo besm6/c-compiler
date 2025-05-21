@@ -501,6 +501,8 @@ struct ExternalDecl {
 
 Program *parse(FILE *input);
 void free_program(Program* program);
+void export_yaml(FILE *fd, Program *program);
+void export_dot(FILE *fd, Program *program);
 
 void print_program(FILE *fd, Program *program);
 void print_expression(FILE *fd, Expr *expr, int indent);

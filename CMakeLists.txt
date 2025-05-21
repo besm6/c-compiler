@@ -22,3 +22,11 @@ enable_testing()
 
 add_subdirectory(scanner)
 add_subdirectory(parser)
+
+#
+# 'cast' executable
+#
+add_executable(cast
+    parser/main.c
+)
+target_link_libraries(cast parser scanner)
