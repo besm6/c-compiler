@@ -37,6 +37,8 @@ bool weof(WFILE *stream);
 bool werror(WFILE *stream);
 int wfileno(WFILE *stream);
 void wclearerr(WFILE *stream);
+char *wgetstr(WFILE *stream); // dynamically allocated
+int wputstr(const char *str, WFILE *stream);
 
 #ifdef __cplusplus
 }

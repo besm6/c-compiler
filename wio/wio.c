@@ -309,3 +309,50 @@ void wclearerr(WFILE *stream)
         stream->is_error = false;
     }
 }
+
+//
+// Read a zero terminated string, aligned to word boundary.
+// Return a dynamically allocated buffer.
+// Max size is limited by 128 words.
+//
+char *wgetstr(WFILE *stream)
+{
+    size_t buf[128];
+    int n;
+
+    for (;;) {
+        buf[n] = wgetw(stream);
+        if (stream->is_eof) {
+            return NULL;
+        }
+        // Does this word contain '\0' byte?
+        bool is_last_word = memchr(&buf[n], '\0', sizeof(size_t)) != NULL;
+        if (is_last_word) {
+            return strdup((char*) buf);
+        }
+        n++;
+        if (n * sizeof(size_t) >= sizeof(buf)) {
+            // Too long string
+            return NULL;
+        }
+    }
+}
+
+//
+// Write a zero terminated string, aligned to word boundary.
+//
+int wputstr(const char *str, WFILE *stream)
+{
+    for (;;) {
+        size_t w = 0;
+        bool is_last_word = memccpy(&w, str, '\0', sizeof(w)) != NULL;
+
+        if (wputw(w, stream) < 0) {
+            return -1;
+        }
+        if (is_last_word) {
+            return 0;
+        }
+        str += sizeof(size_t);
+    }
+}

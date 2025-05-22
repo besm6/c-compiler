@@ -272,3 +272,39 @@ TEST_F(WIOTest, WCloseNull)
 {
     wclose(nullptr); // Should not crash
 }
+
+//
+// Write strings to a file and read them back, verifying data integrity and EOF.
+//
+TEST_F(WIOTest, WPutStrAndWGetStr)
+{
+    WFILE *wstream = wopen(filename, "w");
+    ASSERT_NE(wstream, nullptr);
+
+    static const char *twas = "Twas brillig, and the slithy toves Did gyre and gimble in the wabefoobar";
+    EXPECT_EQ(wputw(42, wstream), 0);
+    EXPECT_EQ(wputstr("foobar", wstream), 0);
+    EXPECT_EQ(wputw(123, wstream), 0);
+    EXPECT_EQ(wputstr(twas, wstream), 0);
+    EXPECT_EQ(wputw(999, wstream), 0);
+    EXPECT_EQ(wflush(wstream), 0);
+    wclose(wstream);
+
+    WFILE *rstream = wopen(filename, "r");
+    ASSERT_NE(rstream, nullptr);
+    EXPECT_EQ(wgetw(rstream), 42);
+    char *str = wgetstr(rstream);
+    ASSERT_NE(str, nullptr);
+    EXPECT_STREQ(str, "foobar");
+    free(str);
+    EXPECT_EQ(wgetw(rstream), 123);
+    str = wgetstr(rstream);
+    ASSERT_NE(str, nullptr);
+    EXPECT_STREQ(str, twas);
+    free(str);
+    EXPECT_EQ(wgetw(rstream), 999);
+    EXPECT_FALSE(weof(rstream));           // at file end
+    EXPECT_EQ(wgetw(rstream), (size_t)-1); // failed
+    EXPECT_TRUE(weof(rstream));            // beyond file end
+    wclose(rstream);
+}
