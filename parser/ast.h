@@ -512,7 +512,7 @@ void export_dot(FILE *fd, Program *program);
 void print_program(FILE *fd, Program *program);
 void print_expression(FILE *fd, Expr *expr, int indent);
 void print_statement(FILE *fd, Stmt *stmt, int indent);
-void print_type(FILE *fd, Type *type, int indent);
+void print_type(FILE *fd, const Type *type, int indent);
 void print_type_qualifiers(FILE *fd, TypeQualifier *qualifiers, int indent);
 extern const char *type_kind_str[];
 

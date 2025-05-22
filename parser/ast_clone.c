@@ -89,8 +89,7 @@ Type *clone_type(const Type *type)
     case TYPE_ATOMIC:
         result->u.atomic.base = clone_type(type->u.atomic.base);
         break;
-    case TYPE_SIGNED:
-    case TYPE_UNSIGNED:
+    case TYPE_INT:
         result->u.integer.signedness = type->u.integer.signedness;
         break;
     default:

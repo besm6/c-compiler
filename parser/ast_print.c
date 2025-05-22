@@ -147,7 +147,7 @@ void print_type_qualifiers(FILE *fd, TypeQualifier *qualifiers, int indent)
 }
 
 // Print Type
-void print_type(FILE *fd, Type *type, int indent)
+void print_type(FILE *fd, const Type *type, int indent)
 {
     if (!type) {
         print_indent(fd, indent);

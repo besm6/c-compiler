@@ -1325,6 +1325,8 @@ InitDeclarator *parse_init_declarator(Declarator *decl, const Type *base_type)
 {
     if (parser_debug) {
         printf("--- %s()\n", __func__);
+        if (base_type)
+            print_type(stdout, base_type, 4);
     }
     if (!decl) {
         decl = parse_declarator();
