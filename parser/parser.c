@@ -308,7 +308,7 @@ Field *parse_struct_declaration();
 TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers);
 Declarator *parse_struct_declarator_list();
 Declarator *parse_struct_declarator();
-Type *parse_enum_specifier();
+TypeSpec *parse_enum_specifier();
 Enumerator *parse_enumerator_list();
 Enumerator *parse_enumerator();
 Type *parse_atomic_type_specifier();
@@ -1439,10 +1439,7 @@ TypeSpec *parse_type_specifier()
     } else if (current_token == TOKEN_STRUCT || current_token == TOKEN_UNION) {
         ts = parse_struct_or_union_specifier();
     } else if (current_token == TOKEN_ENUM) {
-        Type *type                  = parse_enum_specifier();
-        ts                          = new_type_spec(TYPE_SPEC_ENUM);
-        ts->u.enum_spec.name        = type->u.enum_t.name;
-        ts->u.enum_spec.enumerators = type->u.enum_t.enumerators;
+        ts = parse_enum_specifier();
     } else if (current_token == TOKEN_TYPEDEF_NAME) {
         ts                      = new_type_spec(TYPE_SPEC_TYPEDEF_NAME);
         ts->u.typedef_name.name = xstrdup(current_lexeme);
@@ -1603,25 +1600,25 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
     return type_specs;
 }
 
-Type *parse_enum_specifier()
+TypeSpec *parse_enum_specifier()
 {
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
     expect_token(TOKEN_ENUM);
-    Type *type = new_type(TYPE_ENUM);
+    TypeSpec *ts = new_type_spec(TYPE_SPEC_ENUM);
     if (current_token == TOKEN_IDENTIFIER) {
-        type->u.enum_t.name = xstrdup(current_lexeme);
+        ts->u.enum_spec.name = xstrdup(current_lexeme);
         advance_token();
     }
     if (current_token == TOKEN_LBRACE) {
         advance_token();
-        type->u.enum_t.enumerators = parse_enumerator_list();
+        ts->u.enum_spec.enumerators = parse_enumerator_list();
         if (current_token == TOKEN_COMMA)
             advance_token();
         expect_token(TOKEN_RBRACE);
     }
-    return type;
+    return ts;
 }
 
 Enumerator *parse_enumerator_list()
