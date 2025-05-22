@@ -925,6 +925,9 @@ Expr *parse_constant_expression()
 //
 Type *fuse_type_specifiers(const TypeSpec *specs)
 {
+    if (parser_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!specs) {
         fatal_error("Empty type specifier list");
     }
@@ -1290,11 +1293,11 @@ DeclSpec *parse_declaration_specifiers(Type **base_type_result)
         }
     }
     *base_type_result = fuse_type_specifiers(type_specs);
+    free_type_spec(type_specs);
     if (!ds->storage && !ds->qualifiers && !ds->func_specs && !ds->align_spec) {
         free_decl_spec(ds);
         return NULL;
     }
-    free_type_spec(type_specs);
     return ds;
 }
 
@@ -1326,12 +1329,14 @@ InitDeclarator *parse_init_declarator(Declarator *decl, Type *base_type)
         decl = parse_declarator();
     }
     InitDeclarator *init_decl = new_init_declarator();
-    init_decl->name = xstrdup(decl->name);
+    init_decl->name = decl->name;
+    decl->name = NULL;
     if (current_token == TOKEN_ASSIGN) {
         advance_token();
         init_decl->init = parse_initializer();
     }
     init_decl->type = type_apply_suffixes(type_apply_pointers(base_type, decl->pointers), decl->suffixes);
+    free_declarator(decl);
     return init_decl;
 }
 

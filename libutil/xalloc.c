@@ -62,24 +62,25 @@ void *xmalloc(size_t size, const char *funcname, const char *filename, unsigned 
     }
 
     /* Set up the header */
-    BlockHeader *header    = (BlockHeader *)ptr;
-    header->next           = NULL;
-    header->prev           = NULL;
-    header->requested_size = size;
-    header->funcname       = funcname;
-    header->filename       = filename;
-    header->lineno         = lineno;
+    BlockHeader *h    = (BlockHeader *)ptr;
+    h->next           = NULL;
+    h->prev           = NULL;
+    h->requested_size = size;
+    h->funcname       = funcname;
+    h->filename       = filename;
+    h->lineno         = lineno;
 
     /* Insert into the doubly linked list */
     if (head == NULL) {
         /* First allocation */
-        head = header;
+        head = h;
     } else {
         /* Insert at the head of the list */
-        header->next = head;
-        head->prev   = header;
-        head         = header;
+        h->next = head;
+        head->prev   = h;
+        head         = h;
     }
+printf("--- %zu bytes allocated by %s() at line %u of file %s\n", h->requested_size, h->funcname, h->lineno, filename);
 
     /* Return pointer to user data (after header) */
     return (void *)((char *)ptr + sizeof(BlockHeader));

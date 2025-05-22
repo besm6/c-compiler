@@ -35,7 +35,7 @@ protected:
             free_program(program);
         }
         xreport_lost_memory();
-        //EXPECT_EQ(xtotal_allocated_size(), 0); // TODO
+        EXPECT_EQ(xtotal_allocated_size(), 0); // TODO
         xfree_all();
     }
 
