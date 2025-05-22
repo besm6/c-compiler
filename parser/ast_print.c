@@ -300,7 +300,7 @@ static void print_literal(FILE *fd, Literal *lit, int indent)
         fprintf(fd, "int %d\n", lit->u.int_val);
         break;
     case LITERAL_FLOAT:
-        fprintf(fd, "float %f\n", lit->u.float_val);
+        fprintf(fd, "float %f\n", lit->u.real_val);
         break;
     case LITERAL_STRING:
         fprintf(fd, "string \"%s\"\n", lit->u.string_val);

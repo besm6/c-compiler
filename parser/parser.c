@@ -388,10 +388,10 @@ Expr *parse_constant()
                                                                       : LITERAL_ENUM);
     switch (current_token) {
     case TOKEN_I_CONSTANT:
-        expr->u.literal->u.int_val = atoi(current_lexeme);
+        expr->u.literal->u.int_val = strtoul(current_lexeme, NULL, 0); // TODO: suffixes
         break;
     case TOKEN_F_CONSTANT:
-        expr->u.literal->u.float_val = atof(current_lexeme);
+        expr->u.literal->u.real_val = strtod(current_lexeme, NULL); // TODO: suffixes
         break;
     case TOKEN_ENUMERATION_CONSTANT:
         expr->u.literal->u.enum_const = clone_string(current_lexeme);

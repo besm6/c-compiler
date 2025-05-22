@@ -141,7 +141,7 @@ Literal *clone_literal(const Literal *literal)
         new_literal->u.int_val = literal->u.int_val;
         break;
     case LITERAL_FLOAT:
-        new_literal->u.float_val = literal->u.float_val;
+        new_literal->u.real_val = literal->u.real_val;
         break;
     case LITERAL_CHAR:
         new_literal->u.char_val = literal->u.char_val;

@@ -9,12 +9,14 @@ add_library(parser STATIC
     ast_clone.c
     ast_yaml.c
     ast_graphviz.c
+    ast_export.c
+    ast_import.c
     symtab.c
     string_map.c
     xalloc.c
 )
 target_include_directories(parser PUBLIC .)
-target_link_libraries(parser scanner)
+target_link_libraries(parser scanner wio)
 
 #
 # Tests for parser

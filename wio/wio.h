@@ -33,6 +33,8 @@ long wtell(WFILE *stream);
 void wrewind(WFILE *stream);
 size_t wgetw(WFILE *stream);
 int wputw(size_t w, WFILE *stream);
+double wgetd(WFILE *stream);
+int wputd(double w, WFILE *stream);
 bool weof(WFILE *stream);
 bool werror(WFILE *stream);
 int wfileno(WFILE *stream);

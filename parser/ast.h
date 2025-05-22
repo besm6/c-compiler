@@ -318,7 +318,7 @@ struct Literal {
     LiteralKind kind;
     union {
         int int_val;
-        float float_val;
+        double real_val;
         char char_val;
         char *string_val;
         Ident enum_const;

@@ -481,7 +481,7 @@ static void export_literal(FILE *fd, Literal *lit, int level)
         fprintf(fd, "%d\n", lit->u.int_val);
         break;
     case LITERAL_FLOAT:
-        fprintf(fd, "%f\n", lit->u.float_val);
+        fprintf(fd, "%f\n", lit->u.real_val);
         break;
     case LITERAL_CHAR:
         fprintf(fd, "'%c'\n", lit->u.char_val);
