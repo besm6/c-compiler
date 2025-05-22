@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <math.h>
@@ -16,6 +17,8 @@
 #include "wio.h"
 
 #define BUFFER_SIZE (4096 / sizeof(size_t)) /* Buffer holds words, aligned to page size */
+
+static const bool wio_debug = true; // Enable manually for debug
 
 //
 // Open a file with appropriate flags based on mode (`r`, `w`, `a`),
@@ -61,6 +64,7 @@ WFILE *wopen(const char *path, const char *mode)
     stream->is_eof = false;
     stream->is_error = false;
     stream->mode = m;
+    stream->must_close_fd = true;
 
     return stream;
 }
@@ -74,7 +78,10 @@ WFILE *wreopen(const char *path, const char *mode, WFILE *stream)
         if (stream->mode == 'w' || stream->mode == 'a') {
             wflush(stream);
         }
-        close(stream->fd);
+        if (stream->must_close_fd) {
+            close(stream->fd);
+            stream->must_close_fd = false;
+        }
         free(stream->buffer);
         free(stream);
     }
@@ -109,6 +116,7 @@ WFILE *wdopen(int fildes, const char *mode)
     stream->is_eof = false;
     stream->is_error = false;
     stream->mode = m;
+    stream->must_close_fd = false;
 
     return stream;
 }
@@ -147,7 +155,10 @@ void wclose(WFILE *stream)
         wflush(stream);
     }
 
-    close(stream->fd);
+    if (stream->must_close_fd) {
+        close(stream->fd);
+        stream->must_close_fd = false;
+    }
     free(stream->buffer);
     free(stream);
 }
@@ -245,7 +256,11 @@ size_t wgetw(WFILE *stream)
         }
     }
 
-    return stream->buffer[stream->buffer_pos++];
+    size_t w = stream->buffer[stream->buffer_pos++];
+    if (wio_debug) {
+        printf("--- %s %#zx\n", __func__, w);
+    }
+    return w;
 }
 
 //
@@ -264,6 +279,9 @@ int wputw(size_t w, WFILE *stream)
         }
     }
 
+    if (wio_debug) {
+        printf("--- %s %#zx\n", __func__, w);
+    }
     stream->buffer[stream->buffer_pos++] = w;
     return 0;
 }

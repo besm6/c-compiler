@@ -30,6 +30,7 @@ add_executable(parser-tests
     struct_tests.cpp
     declaration_tests.cpp
     constant_tests.cpp
+    serialize_tests.cpp
 #   negative_tests.cpp
 )
 target_link_libraries(parser-tests parser scanner GTest::gtest_main)

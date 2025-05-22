@@ -9,6 +9,7 @@
 #include "scanner.h"
 #include "internal.h"
 #include "xalloc.h"
+#include <fcntl.h>
 
 // Test fixture
 class ParserTest : public ::testing::Test {
@@ -100,5 +101,14 @@ protected:
         EXPECT_EQ(EXTERNAL_DECL_DECLARATION, program->decls->kind);
         EXPECT_EQ(nullptr, program->decls->next);
         return program->decls->u.declaration;
+    }
+
+    // Helper to create a temporary AST file
+    int CreateAstFile()
+    {
+        auto filename = test_name + ".ast";
+        int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0600);
+        EXPECT_GE(fd, 0);
+        return fd;
     }
 };

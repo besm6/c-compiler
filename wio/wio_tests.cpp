@@ -100,7 +100,7 @@ TEST_F(WIOTest, WDOpen)
     EXPECT_EQ(wfileno(stream), fd);
     EXPECT_EQ(stream->mode, 'r');
     wclose(stream);
-    EXPECT_LT(close(fd), 0);
+    EXPECT_GE(close(fd), 0); // Note: wclose() does not close fd after wdopen()
 }
 
 //

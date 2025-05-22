@@ -34,7 +34,7 @@ void export_ast(int fileno, Program *program)
 {
     if (!program)
         return;
-    WFILE *fd = wdopen(fileno, "r");
+    WFILE *fd = wdopen(fileno, "a");
     if (!fd) {
         fprintf(stderr, "Error exporting AST: cannot open file descriptor #%d\n", fileno);
         exit(1);

@@ -19,6 +19,7 @@ struct _wfile {
     size_t buffer_count; /* Number of words in buffer */
     bool is_eof;         /* End-of-file flag */
     bool is_error;       /* Error flag */
+    bool must_close_fd;  /* after wopen */
     char mode;           /* 'r' for read, 'w' for write, 'a' for append */
 };
 typedef struct _wfile WFILE;

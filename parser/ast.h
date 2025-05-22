@@ -503,6 +503,7 @@ struct ExternalDecl {
 extern int parser_debug;
 
 Program *parse(FILE *input);
+Program *import_ast(int fileno);
 void free_program(Program* program);
 void export_ast(int fileno, Program *program);
 void export_yaml(FILE *fd, Program *program);

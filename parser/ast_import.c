@@ -6,7 +6,6 @@
 #include "tags.h"
 #include "wio.h"
 
-Program *import_ast(WFILE *input);
 Type *import_type(WFILE *input);
 TypeQualifier *import_type_qualifier(WFILE *input);
 Field *import_field(WFILE *input);
@@ -44,8 +43,13 @@ static void check_input(WFILE *input, const char *context)
     }
 }
 
-Program *import_ast(WFILE *input)
+Program *import_ast(int fileno)
 {
+    WFILE *input = wdopen(fileno, "r");
+    if (!input) {
+        fprintf(stderr, "Error importing AST: cannot open file descriptor #%d\n", fileno);
+        exit(1);
+    }
     size_t tag = wgetw(input);
     check_input(input, "program tag");
     if (tag != TAG_PROGRAM) {
@@ -61,6 +65,7 @@ Program *import_ast(WFILE *input)
             next_decl = &(*next_decl)->next;
     }
     check_input(input, "external decl list end");
+    wclose(input);
     return program;
 }
 
