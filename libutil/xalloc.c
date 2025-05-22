@@ -119,8 +119,13 @@ void xreport_lost_memory()
         printf("Lost memory:\n");
     }
     for (BlockHeader *h = head; h; h = h->next) {
-        printf("%zu bytes allocated by %s() at file %s, line %u\n",
-               h->requested_size, h->funcname, h->filename, h->lineno);
+        const char *filename = strrchr(h->filename, '/');
+        if (!filename)
+            filename = h->filename;
+        else
+            filename++;
+        printf("%zu bytes allocated by %s() at line %u of file %s\n",
+               h->requested_size, h->funcname, h->lineno, filename);
     }
 }
 
