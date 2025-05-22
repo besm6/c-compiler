@@ -1595,26 +1595,8 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
         if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
             current_token == TOKEN_VOLATILE ||
             (current_token == TOKEN_ATOMIC && next_token() != TOKEN_LPAREN)) {
-            /* Parse type_qualifier */
-            TypeQualifierKind q_kind;
-            switch (current_token) {
-            case TOKEN_CONST:
-                q_kind = TYPE_QUALIFIER_CONST;
-                break;
-            case TOKEN_RESTRICT:
-                q_kind = TYPE_QUALIFIER_RESTRICT;
-                break;
-            case TOKEN_VOLATILE:
-                q_kind = TYPE_QUALIFIER_VOLATILE;
-                break;
-            case TOKEN_ATOMIC:
-                q_kind = TYPE_QUALIFIER_ATOMIC;
-                break;
-            default:
-                fatal_error("Bad type qualifier"); /* Unreachable */
-            }
-            append_list(qualifiers, new_type_qualifier(q_kind));
-            advance_token();
+            TypeQualifier *q = parse_type_qualifier();
+            append_list(qualifiers, q);
         } else if (is_type_specifier(current_token) || is_type_qualifier(current_token) ||
                    (current_token == TOKEN_ATOMIC && next_token() == TOKEN_LPAREN)) {
             TypeSpec *ts = parse_type_specifier();
