@@ -5,363 +5,619 @@
 #include "internal.h"
 #include "xalloc.h"
 
-/* Clone TypeQualifier */
-TypeQualifier *clone_type_qualifier(const TypeQualifier *qualifier)
+/* Forward declarations for recursive clone functions */
+Type *clone_type(const Type *type);
+TypeQualifier *clone_type_qualifier(const TypeQualifier *qual);
+Field *clone_field(const Field *field);
+Enumerator *clone_enumerator(const Enumerator *enumerator);
+Param *clone_param(const Param *param);
+Declaration *clone_declaration(const Declaration *decl);
+DeclSpec *clone_decl_spec(const DeclSpec *spec);
+StorageClass *clone_storage_class(const StorageClass *sc);
+FunctionSpec *clone_function_spec(const FunctionSpec *fs);
+AlignmentSpec *clone_alignment_spec(const AlignmentSpec *as);
+InitDeclarator *clone_init_declarator(const InitDeclarator *init_decl);
+Initializer *clone_initializer(const Initializer *init);
+InitItem *clone_init_item(const InitItem *item);
+Designator *clone_designator(const Designator *design);
+Expr *clone_expression(const Expr *expr);
+Literal *clone_literal(const Literal *lit);
+UnaryOp *clone_unary_op(const UnaryOp *op);
+BinaryOp *clone_binary_op(const BinaryOp *op);
+AssignOp *clone_assign_op(const AssignOp *op);
+GenericAssoc *clone_generic_assoc(const GenericAssoc *assoc);
+Stmt *clone_stmt(const Stmt *stmt);
+DeclOrStmt *clone_decl_or_stmt(const DeclOrStmt *ds);
+ForInit *clone_for_init(const ForInit *fi);
+ExternalDecl *clone_external_decl(const ExternalDecl *ext_decl);
+TypeSpec *clone_type_spec(const TypeSpec *ts);
+Declarator *clone_declarator(const Declarator *decl);
+Pointer *clone_pointer(const Pointer *ptr);
+DeclaratorSuffix *clone_declarator_suffix(const DeclaratorSuffix *suffix);
+
+Program *clone_program(const Program *program)
 {
-    if (!qualifier)
+    if (program == NULL)
         return NULL;
-    TypeQualifier *new_qual = xmalloc(sizeof(TypeQualifier), __func__, __FILE__, __LINE__);
-    if (!new_qual)
+    Program *result = new_program();
+    if (result == NULL)
         return NULL;
-    new_qual->kind = qualifier->kind;
-    new_qual->next = clone_type_qualifier(qualifier->next);
-    return new_qual;
+    result->decls = clone_external_decl(program->decls);
+    return result;
 }
 
-/* Clone Param */
-Param *clone_param(const Param *param)
-{
-    if (!param)
-        return NULL;
-    Param *new_param = xmalloc(sizeof(Param), __func__, __FILE__, __LINE__);
-    if (!new_param)
-        return NULL;
-    new_param->name = xstrdup(param->name);
-    new_param->type = clone_type(param->type);
-    new_param->next = clone_param(param->next);
-    return new_param;
-}
-
-/* Clone Field */
-Field *clone_field(const Field *field)
-{
-    if (!field)
-        return NULL;
-    Field *new_field = xmalloc(sizeof(Field), __func__, __FILE__, __LINE__);
-    if (!new_field)
-        return NULL;
-    new_field->type     = clone_type(field->type);
-    new_field->name     = xstrdup(field->name);
-    new_field->bitfield = clone_expression(field->bitfield);
-    new_field->next     = clone_field(field->next);
-    return new_field;
-}
-
-/* Clone Enumerator */
-Enumerator *clone_enumerator(const Enumerator *enumerator)
-{
-    if (!enumerator)
-        return NULL;
-    Enumerator *new_enum = xmalloc(sizeof(Enumerator), __func__, __FILE__, __LINE__);
-    if (!new_enum)
-        return NULL;
-    new_enum->name  = xstrdup(enumerator->name);
-    new_enum->value = clone_expression(enumerator->value);
-    new_enum->next  = clone_enumerator(enumerator->next);
-    return new_enum;
-}
-
-/* Clone Type */
 Type *clone_type(const Type *type)
 {
-    if (!type)
+    if (type == NULL)
         return NULL;
-    Type *new_type = xmalloc(sizeof(Type), __func__, __FILE__, __LINE__);
-    if (!new_type)
+    Type *result = new_type(type->kind);
+    if (result == NULL)
         return NULL;
-    new_type->kind       = type->kind;
-    new_type->qualifiers = clone_type_qualifier(type->qualifiers);
-
     switch (type->kind) {
-    case TYPE_INT:
-        new_type->u.integer.signedness = type->u.integer.signedness;
-        break;
     case TYPE_COMPLEX:
     case TYPE_IMAGINARY:
-        new_type->u.complex.base = clone_type(type->u.complex.base);
+        result->u.complex.base = clone_type(type->u.complex.base);
         break;
     case TYPE_POINTER:
-        new_type->u.pointer.target     = clone_type(type->u.pointer.target);
-        new_type->u.pointer.qualifiers = clone_type_qualifier(type->u.pointer.qualifiers);
+        result->u.pointer.target     = clone_type(type->u.pointer.target);
+        result->u.pointer.qualifiers = clone_type_qualifier(type->u.pointer.qualifiers);
         break;
     case TYPE_ARRAY:
-        new_type->u.array.element    = clone_type(type->u.array.element);
-        new_type->u.array.size       = clone_expression(type->u.array.size);
-        new_type->u.array.qualifiers = clone_type_qualifier(type->u.array.qualifiers);
-        new_type->u.array.is_static  = type->u.array.is_static;
+        result->u.array.element    = clone_type(type->u.array.element);
+        result->u.array.size       = clone_expression(type->u.array.size);
+        result->u.array.qualifiers = clone_type_qualifier(type->u.array.qualifiers);
+        result->u.array.is_static  = type->u.array.is_static;
         break;
     case TYPE_FUNCTION:
-        new_type->u.function.return_type = clone_type(type->u.function.return_type);
-        new_type->u.function.params      = clone_param(type->u.function.params);
-        new_type->u.function.variadic    = type->u.function.variadic;
+        result->u.function.return_type = clone_type(type->u.function.return_type);
+        result->u.function.params      = clone_param(type->u.function.params);
+        result->u.function.variadic    = type->u.function.variadic;
         break;
     case TYPE_STRUCT:
     case TYPE_UNION:
-        new_type->u.struct_t.name   = xstrdup(type->u.struct_t.name);
-        new_type->u.struct_t.fields = clone_field(type->u.struct_t.fields);
+        result->u.struct_t.name   = type->u.struct_t.name ? xstrdup(type->u.struct_t.name) : NULL;
+        result->u.struct_t.fields = clone_field(type->u.struct_t.fields);
         break;
     case TYPE_ENUM:
-        new_type->u.enum_t.name        = xstrdup(type->u.enum_t.name);
-        new_type->u.enum_t.enumerators = clone_enumerator(type->u.enum_t.enumerators);
+        result->u.enum_t.name        = type->u.enum_t.name ? xstrdup(type->u.enum_t.name) : NULL;
+        result->u.enum_t.enumerators = clone_enumerator(type->u.enum_t.enumerators);
         break;
     case TYPE_TYPEDEF_NAME:
-        new_type->u.typedef_name.name = xstrdup(type->u.typedef_name.name);
+        result->u.typedef_name.name =
+            type->u.typedef_name.name ? xstrdup(type->u.typedef_name.name) : NULL;
         break;
     case TYPE_ATOMIC:
-        new_type->u.atomic.base = clone_type(type->u.atomic.base);
+        result->u.atomic.base = clone_type(type->u.atomic.base);
+        break;
+    case TYPE_SIGNED:
+    case TYPE_UNSIGNED:
+        result->u.integer.signedness = type->u.integer.signedness;
         break;
     default:
+        break; /* No nested fields for basic types */
+    }
+    result->qualifiers = clone_type_qualifier(type->qualifiers);
+    return result;
+}
+
+TypeQualifier *clone_type_qualifier(const TypeQualifier *qual)
+{
+    if (qual == NULL)
+        return NULL;
+    TypeQualifier *result = new_type_qualifier(qual->kind);
+    if (result == NULL)
+        return NULL;
+    result->next = clone_type_qualifier(qual->next);
+    return result;
+}
+
+Field *clone_field(const Field *field)
+{
+    if (field == NULL)
+        return NULL;
+    Field *result = new_field();
+    if (result == NULL)
+        return NULL;
+    result->type     = clone_type(field->type);
+    result->name     = field->name ? xstrdup(field->name) : NULL;
+    result->bitfield = clone_expression(field->bitfield);
+    result->next     = clone_field(field->next);
+    return result;
+}
+
+Enumerator *clone_enumerator(const Enumerator *enumerator)
+{
+    if (enumerator == NULL)
+        return NULL;
+    Enumerator *result = new_enumerator(enumerator->name ? xstrdup(enumerator->name) : NULL,
+                                        clone_expression(enumerator->value));
+    if (result == NULL)
+        return NULL;
+    result->next = clone_enumerator(enumerator->next);
+    return result;
+}
+
+Param *clone_param(const Param *param)
+{
+    if (param == NULL)
+        return NULL;
+    Param *result = new_param();
+    if (result == NULL)
+        return NULL;
+    result->name = param->name ? xstrdup(param->name) : NULL;
+    result->type = clone_type(param->type);
+    result->next = clone_param(param->next);
+    return result;
+}
+
+Declaration *clone_declaration(const Declaration *decl)
+{
+    if (decl == NULL)
+        return NULL;
+    Declaration *result = new_declaration(decl->kind);
+    if (result == NULL)
+        return NULL;
+    switch (decl->kind) {
+    case DECL_VAR:
+        result->u.var.specifiers  = clone_decl_spec(decl->u.var.specifiers);
+        result->u.var.declarators = clone_init_declarator(decl->u.var.declarators);
+        break;
+    case DECL_STATIC_ASSERT:
+        result->u.static_assrt.condition = clone_expression(decl->u.static_assrt.condition);
+        result->u.static_assrt.message =
+            decl->u.static_assrt.message ? xstrdup(decl->u.static_assrt.message) : NULL;
+        break;
+    case DECL_EMPTY:
+        result->u.empty.specifiers = clone_decl_spec(decl->u.empty.specifiers);
+        result->u.empty.type       = clone_type(decl->u.empty.type);
         break;
     }
-    return new_type;
+    result->next = clone_declaration(decl->next);
+    return result;
 }
 
-/* Clone Literal */
-Literal *clone_literal(const Literal *literal)
+DeclSpec *clone_decl_spec(const DeclSpec *spec)
 {
-    if (!literal)
+    if (spec == NULL)
         return NULL;
-    Literal *new_literal = xmalloc(sizeof(Literal), __func__, __FILE__, __LINE__);
-    if (!new_literal)
+    DeclSpec *result = new_decl_spec();
+    if (result == NULL)
         return NULL;
-    new_literal->kind = literal->kind;
-    switch (literal->kind) {
-    case LITERAL_INT:
-        new_literal->u.int_val = literal->u.int_val;
-        break;
-    case LITERAL_FLOAT:
-        new_literal->u.real_val = literal->u.real_val;
-        break;
-    case LITERAL_CHAR:
-        new_literal->u.char_val = literal->u.char_val;
-        break;
-    case LITERAL_STRING:
-        new_literal->u.string_val = xstrdup(literal->u.string_val);
-        break;
-    case LITERAL_ENUM:
-        new_literal->u.enum_const = xstrdup(literal->u.enum_const);
-        break;
-    }
-    return new_literal;
+    result->qualifiers = clone_type_qualifier(spec->qualifiers);
+    result->storage    = clone_storage_class(spec->storage);
+    result->func_specs = clone_function_spec(spec->func_specs);
+    result->align_spec = clone_alignment_spec(spec->align_spec);
+    return result;
 }
 
-/* Clone UnaryOp */
-UnaryOp *clone_unary_op(const UnaryOp *op)
+StorageClass *clone_storage_class(const StorageClass *sc)
 {
-    if (!op)
+    if (sc == NULL)
         return NULL;
-    UnaryOp *new_op = xmalloc(sizeof(UnaryOp), __func__, __FILE__, __LINE__);
-    if (!new_op)
-        return NULL;
-    new_op->kind = op->kind;
-    return new_op;
+    StorageClass *result = new_storage_class(sc->kind);
+    return result;
 }
 
-/* Clone BinaryOp */
-BinaryOp *clone_binary_op(const BinaryOp *op)
+FunctionSpec *clone_function_spec(const FunctionSpec *fs)
 {
-    if (!op)
+    if (fs == NULL)
         return NULL;
-    BinaryOp *new_op = xmalloc(sizeof(BinaryOp), __func__, __FILE__, __LINE__);
-    if (!new_op)
+    FunctionSpec *result = new_function_spec(fs->kind);
+    if (result == NULL)
         return NULL;
-    new_op->kind = op->kind;
-    return new_op;
+    result->next = clone_function_spec(fs->next);
+    return result;
 }
 
-/* Clone AssignOp */
-AssignOp *clone_assign_op(const AssignOp *op)
+AlignmentSpec *clone_alignment_spec(const AlignmentSpec *as)
 {
-    if (!op)
+    if (as == NULL)
         return NULL;
-    AssignOp *new_op = xmalloc(sizeof(AssignOp), __func__, __FILE__, __LINE__);
-    if (!new_op)
+    AlignmentSpec *result = new_alignment_spec(as->kind);
+    if (result == NULL)
         return NULL;
-    new_op->kind = op->kind;
-    return new_op;
-}
-
-/* Clone GenericAssoc */
-GenericAssoc *clone_generic_assoc(const GenericAssoc *assoc)
-{
-    if (!assoc)
-        return NULL;
-    GenericAssoc *new_assoc = xmalloc(sizeof(GenericAssoc), __func__, __FILE__, __LINE__);
-    if (!new_assoc)
-        return NULL;
-    new_assoc->kind = assoc->kind;
-    if (assoc->kind == GENERIC_ASSOC_TYPE) {
-        new_assoc->u.type_assoc.type = clone_type(assoc->u.type_assoc.type);
-        new_assoc->u.type_assoc.expr = clone_expression(assoc->u.type_assoc.expr);
+    if (as->kind == ALIGN_SPEC_TYPE) {
+        result->u.type = clone_type(as->u.type);
     } else {
-        new_assoc->u.default_assoc = clone_expression(assoc->u.default_assoc);
+        result->u.expr = clone_expression(as->u.expr);
     }
-    new_assoc->next = clone_generic_assoc(assoc->next);
-    return new_assoc;
+    return result;
 }
 
-/* Clone Designator */
-Designator *clone_designator(const Designator *designator)
+InitDeclarator *clone_init_declarator(const InitDeclarator *init_decl)
 {
-    if (!designator)
+    if (init_decl == NULL)
         return NULL;
-    Designator *new_designator = xmalloc(sizeof(Designator), __func__, __FILE__, __LINE__);
-    if (!new_designator)
+    InitDeclarator *result = new_init_declarator();
+    if (result == NULL)
         return NULL;
-    new_designator->kind = designator->kind;
-    if (designator->kind == DESIGNATOR_ARRAY) {
-        new_designator->u.expr = clone_expression(designator->u.expr);
-    } else {
-        new_designator->u.name = xstrdup(designator->u.name);
-    }
-    new_designator->next = clone_designator(designator->next);
-    return new_designator;
+    result->type = clone_type(init_decl->type);
+    result->name = init_decl->name ? xstrdup(init_decl->name) : NULL;
+    result->init = clone_initializer(init_decl->init);
+    result->next = clone_init_declarator(init_decl->next);
+    return result;
 }
 
-/* Clone Initializer */
 Initializer *clone_initializer(const Initializer *init)
 {
-    if (!init)
+    if (init == NULL)
         return NULL;
-    Initializer *new_init = xmalloc(sizeof(Initializer), __func__, __FILE__, __LINE__);
-    if (!new_init)
+    Initializer *result = new_initializer(init->kind);
+    if (result == NULL)
         return NULL;
-    new_init->kind = init->kind;
-    if (init->kind == INITIALIZER_SINGLE) {
-        new_init->u.expr = clone_expression(init->u.expr);
-    } else {
-        new_init->u.items = clone_init_item(init->u.items);
+    switch (init->kind) {
+    case INITIALIZER_SINGLE:
+        result->u.expr = clone_expression(init->u.expr);
+        break;
+    case INITIALIZER_COMPOUND:
+        result->u.items = clone_init_item(init->u.items);
+        break;
     }
-    return new_init;
+    return result;
 }
 
-/* Clone InitItem */
 InitItem *clone_init_item(const InitItem *item)
 {
-    if (!item)
+    if (item == NULL)
         return NULL;
-    InitItem *new_item = xmalloc(sizeof(InitItem), __func__, __FILE__, __LINE__);
-    if (!new_item)
+    InitItem *result =
+        new_init_item(clone_designator(item->designators), clone_initializer(item->init));
+    if (result == NULL)
         return NULL;
-    new_item->designators = clone_designator(item->designators);
-    new_item->init        = clone_initializer(item->init);
-    new_item->next        = clone_init_item(item->next);
-    return new_item;
+    result->next = clone_init_item(item->next);
+    return result;
 }
 
-/* Main function to clone an expression */
-Expr *clone_expression(const Expr *expression)
+Designator *clone_designator(const Designator *design)
 {
-    if (!expression)
+    if (design == NULL)
         return NULL;
-    Expr *new_expr = xmalloc(sizeof(Expr), __func__, __FILE__, __LINE__);
-    if (!new_expr)
+    Designator *result = new_designator(design->kind);
+    if (result == NULL)
         return NULL;
-    new_expr->kind = expression->kind;
-    new_expr->next = clone_expression(expression->next);
-    new_expr->type = clone_type(expression->type);
+    if (design->kind == DESIGNATOR_ARRAY) {
+        result->u.expr = clone_expression(design->u.expr);
+    } else {
+        result->u.name = design->u.name ? xstrdup(design->u.name) : NULL;
+    }
+    result->next = clone_designator(design->next);
+    return result;
+}
 
-    switch (expression->kind) {
+Expr *clone_expression(const Expr *expr)
+{
+    if (expr == NULL)
+        return NULL;
+    Expr *result = new_expression(expr->kind);
+    if (result == NULL)
+        return NULL;
+    switch (expr->kind) {
     case EXPR_LITERAL:
-        new_expr->u.literal = clone_literal(expression->u.literal);
+        result->u.literal = clone_literal(expr->u.literal);
         break;
     case EXPR_VAR:
-        new_expr->u.var = xstrdup(expression->u.var);
+        result->u.var = expr->u.var ? xstrdup(expr->u.var) : NULL;
         break;
     case EXPR_UNARY_OP:
-        new_expr->u.unary_op.op   = clone_unary_op(expression->u.unary_op.op);
-        new_expr->u.unary_op.expr = clone_expression(expression->u.unary_op.expr);
+        result->u.unary_op.op   = clone_unary_op(expr->u.unary_op.op);
+        result->u.unary_op.expr = clone_expression(expr->u.unary_op.expr);
         break;
     case EXPR_BINARY_OP:
-        new_expr->u.binary_op.op    = clone_binary_op(expression->u.binary_op.op);
-        new_expr->u.binary_op.left  = clone_expression(expression->u.binary_op.left);
-        new_expr->u.binary_op.right = clone_expression(expression->u.binary_op.right);
+        result->u.binary_op.op    = clone_binary_op(expr->u.binary_op.op);
+        result->u.binary_op.left  = clone_expression(expr->u.binary_op.left);
+        result->u.binary_op.right = clone_expression(expr->u.binary_op.right);
         break;
     case EXPR_ASSIGN:
-        new_expr->u.assign.op     = clone_assign_op(expression->u.assign.op);
-        new_expr->u.assign.target = clone_expression(expression->u.assign.target);
-        new_expr->u.assign.value  = clone_expression(expression->u.assign.value);
+        result->u.assign.target = clone_expression(expr->u.assign.target);
+        result->u.assign.op     = clone_assign_op(expr->u.assign.op);
+        result->u.assign.value  = clone_expression(expr->u.assign.value);
         break;
     case EXPR_COND:
-        new_expr->u.cond.condition = clone_expression(expression->u.cond.condition);
-        new_expr->u.cond.then_expr = clone_expression(expression->u.cond.then_expr);
-        new_expr->u.cond.else_expr = clone_expression(expression->u.cond.else_expr);
+        result->u.cond.condition = clone_expression(expr->u.cond.condition);
+        result->u.cond.then_expr = clone_expression(expr->u.cond.then_expr);
+        result->u.cond.else_expr = clone_expression(expr->u.cond.else_expr);
         break;
     case EXPR_CAST:
-        new_expr->u.cast.type = clone_type(expression->u.cast.type);
-        new_expr->u.cast.expr = clone_expression(expression->u.cast.expr);
+        result->u.cast.type = clone_type(expr->u.cast.type);
+        result->u.cast.expr = clone_expression(expr->u.cast.expr);
         break;
     case EXPR_CALL:
-        new_expr->u.call.func = clone_expression(expression->u.call.func);
-        new_expr->u.call.args = clone_expression(expression->u.call.args);
+        result->u.call.func = clone_expression(expr->u.call.func);
+        result->u.call.args = clone_expression(expr->u.call.args);
         break;
     case EXPR_COMPOUND:
-        new_expr->u.compound_literal.type = clone_type(expression->u.compound_literal.type);
-        new_expr->u.compound_literal.init = clone_init_item(expression->u.compound_literal.init);
+        result->u.compound_literal.type = clone_type(expr->u.compound_literal.type);
+        result->u.compound_literal.init = clone_init_item(expr->u.compound_literal.init);
         break;
     case EXPR_FIELD_ACCESS:
-        new_expr->u.field_access.expr  = clone_expression(expression->u.field_access.expr);
-        new_expr->u.field_access.field = xstrdup(expression->u.field_access.field);
-        break;
     case EXPR_PTR_ACCESS:
-        new_expr->u.ptr_access.expr  = clone_expression(expression->u.ptr_access.expr);
-        new_expr->u.ptr_access.field = xstrdup(expression->u.ptr_access.field);
+        result->u.field_access.expr = clone_expression(expr->u.field_access.expr);
+        result->u.field_access.field =
+            expr->u.field_access.field ? xstrdup(expr->u.field_access.field) : NULL;
         break;
     case EXPR_POST_INC:
-        new_expr->u.post_inc = clone_expression(expression->u.post_inc);
-        break;
     case EXPR_POST_DEC:
-        new_expr->u.post_dec = clone_expression(expression->u.post_dec);
+        result->u.post_inc = clone_expression(expr->u.post_inc);
         break;
     case EXPR_SIZEOF_EXPR:
-        new_expr->u.sizeof_expr = clone_expression(expression->u.sizeof_expr);
+        result->u.sizeof_expr = clone_expression(expr->u.sizeof_expr);
         break;
     case EXPR_SIZEOF_TYPE:
-        new_expr->u.sizeof_type = clone_type(expression->u.sizeof_type);
-        break;
     case EXPR_ALIGNOF:
-        new_expr->u.align_of = clone_type(expression->u.align_of);
+        result->u.sizeof_type = clone_type(expr->u.sizeof_type);
         break;
     case EXPR_GENERIC:
-        new_expr->u.generic.controlling_expr =
-            clone_expression(expression->u.generic.controlling_expr);
-        new_expr->u.generic.associations = clone_generic_assoc(expression->u.generic.associations);
+        result->u.generic.controlling_expr = clone_expression(expr->u.generic.controlling_expr);
+        result->u.generic.associations     = clone_generic_assoc(expr->u.generic.associations);
         break;
     }
-    return new_expr;
+    result->type = clone_type(expr->type);
+    result->next = clone_expression(expr->next);
+    return result;
 }
 
-/* Clone TypeSpec */
+Literal *clone_literal(const Literal *lit)
+{
+    if (lit == NULL)
+        return NULL;
+    Literal *result = new_literal(lit->kind);
+    if (result == NULL)
+        return NULL;
+    switch (lit->kind) {
+    case LITERAL_INT:
+        result->u.int_val = lit->u.int_val;
+        break;
+    case LITERAL_FLOAT:
+        result->u.real_val = lit->u.real_val;
+        break;
+    case LITERAL_CHAR:
+        result->u.char_val = lit->u.char_val;
+        break;
+    case LITERAL_STRING:
+        result->u.string_val = lit->u.string_val ? xstrdup(lit->u.string_val) : NULL;
+        break;
+    case LITERAL_ENUM:
+        result->u.enum_const = lit->u.enum_const ? xstrdup(lit->u.enum_const) : NULL;
+        break;
+    }
+    return result;
+}
+
+UnaryOp *clone_unary_op(const UnaryOp *op)
+{
+    if (op == NULL)
+        return NULL;
+    UnaryOp *result = new_unary_op(op->kind);
+    return result;
+}
+
+BinaryOp *clone_binary_op(const BinaryOp *op)
+{
+    if (op == NULL)
+        return NULL;
+    BinaryOp *result = new_binary_op(op->kind);
+    return result;
+}
+
+AssignOp *clone_assign_op(const AssignOp *op)
+{
+    if (op == NULL)
+        return NULL;
+    AssignOp *result = new_assign_op(op->kind);
+    return result;
+}
+
+GenericAssoc *clone_generic_assoc(const GenericAssoc *assoc)
+{
+    if (assoc == NULL)
+        return NULL;
+    GenericAssoc *result = new_generic_assoc(assoc->kind);
+    if (result == NULL)
+        return NULL;
+    if (assoc->kind == GENERIC_ASSOC_TYPE) {
+        result->u.type_assoc.type = clone_type(assoc->u.type_assoc.type);
+        result->u.type_assoc.expr = clone_expression(assoc->u.type_assoc.expr);
+    } else {
+        result->u.default_assoc = clone_expression(assoc->u.default_assoc);
+    }
+    result->next = clone_generic_assoc(assoc->next);
+    return result;
+}
+
+Stmt *clone_stmt(const Stmt *stmt)
+{
+    if (stmt == NULL)
+        return NULL;
+    Stmt *result = new_stmt(stmt->kind);
+    if (result == NULL)
+        return NULL;
+    switch (stmt->kind) {
+    case STMT_EXPR:
+        result->u.expr = clone_expression(stmt->u.expr);
+        break;
+    case STMT_COMPOUND:
+        result->u.compound = clone_decl_or_stmt(stmt->u.compound);
+        break;
+    case STMT_IF:
+        result->u.if_stmt.condition = clone_expression(stmt->u.if_stmt.condition);
+        result->u.if_stmt.then_stmt = clone_stmt(stmt->u.if_stmt.then_stmt);
+        result->u.if_stmt.else_stmt = clone_stmt(stmt->u.if_stmt.else_stmt);
+        break;
+    case STMT_SWITCH:
+        result->u.switch_stmt.expr = clone_expression(stmt->u.switch_stmt.expr);
+        result->u.switch_stmt.body = clone_stmt(stmt->u.switch_stmt.body);
+        break;
+    case STMT_WHILE:
+        result->u.while_stmt.condition = clone_expression(stmt->u.while_stmt.condition);
+        result->u.while_stmt.body      = clone_stmt(stmt->u.while_stmt.body);
+        break;
+    case STMT_DO_WHILE:
+        result->u.do_while.body      = clone_stmt(stmt->u.do_while.body);
+        result->u.do_while.condition = clone_expression(stmt->u.do_while.condition);
+        break;
+    case STMT_FOR:
+        result->u.for_stmt.init      = clone_for_init(stmt->u.for_stmt.init);
+        result->u.for_stmt.condition = clone_expression(stmt->u.for_stmt.condition);
+        result->u.for_stmt.update    = clone_expression(stmt->u.for_stmt.update);
+        result->u.for_stmt.body      = clone_stmt(stmt->u.for_stmt.body);
+        break;
+    case STMT_GOTO:
+        result->u.goto_label = stmt->u.goto_label ? xstrdup(stmt->u.goto_label) : NULL;
+        break;
+    case STMT_CONTINUE:
+    case STMT_BREAK:
+        break; /* No fields to clone */
+    case STMT_RETURN:
+        result->u.expr = clone_expression(stmt->u.expr);
+        break;
+    case STMT_LABELED:
+        result->u.labeled.label = stmt->u.labeled.label ? xstrdup(stmt->u.labeled.label) : NULL;
+        result->u.labeled.stmt  = clone_stmt(stmt->u.labeled.stmt);
+        break;
+    case STMT_CASE:
+        result->u.case_stmt.expr = clone_expression(stmt->u.case_stmt.expr);
+        result->u.case_stmt.stmt = clone_stmt(stmt->u.case_stmt.stmt);
+        break;
+    case STMT_DEFAULT:
+        result->u.default_stmt = clone_stmt(stmt->u.default_stmt);
+        break;
+    }
+    return result;
+}
+
+DeclOrStmt *clone_decl_or_stmt(const DeclOrStmt *ds)
+{
+    if (ds == NULL)
+        return NULL;
+    DeclOrStmt *result = new_decl_or_stmt(ds->kind);
+    if (result == NULL)
+        return NULL;
+    if (ds->kind == DECL_OR_STMT_DECL) {
+        result->u.decl = clone_declaration(ds->u.decl);
+    } else {
+        result->u.stmt = clone_stmt(ds->u.stmt);
+    }
+    result->next = clone_decl_or_stmt(ds->next);
+    return result;
+}
+
+ForInit *clone_for_init(const ForInit *fi)
+{
+    if (fi == NULL)
+        return NULL;
+    ForInit *result = new_for_init(fi->kind);
+    if (result == NULL)
+        return NULL;
+    if (fi->kind == FOR_INIT_EXPR) {
+        result->u.expr = clone_expression(fi->u.expr);
+    } else {
+        result->u.decl = clone_declaration(fi->u.decl);
+    }
+    return result;
+}
+
+ExternalDecl *clone_external_decl(const ExternalDecl *ext_decl)
+{
+    if (ext_decl == NULL)
+        return NULL;
+    ExternalDecl *result = new_external_decl(ext_decl->kind);
+    if (result == NULL)
+        return NULL;
+    if (ext_decl->kind == EXTERNAL_DECL_FUNCTION) {
+        result->u.function.type = clone_type(ext_decl->u.function.type);
+        result->u.function.name =
+            ext_decl->u.function.name ? xstrdup(ext_decl->u.function.name) : NULL;
+        result->u.function.specifiers  = clone_decl_spec(ext_decl->u.function.specifiers);
+        result->u.function.param_decls = clone_declaration(ext_decl->u.function.param_decls);
+        result->u.function.body        = clone_stmt(ext_decl->u.function.body);
+    } else {
+        result->u.declaration = clone_declaration(ext_decl->u.declaration);
+    }
+    result->next = clone_external_decl(ext_decl->next);
+    return result;
+}
+
 TypeSpec *clone_type_spec(const TypeSpec *ts)
 {
-    if (!ts)
+    if (ts == NULL)
         return NULL;
-    TypeSpec *new_ts = xmalloc(sizeof(TypeSpec), __func__, __FILE__, __LINE__);
-    if (!new_ts)
+    TypeSpec *result = new_type_spec(ts->kind);
+    if (result == NULL)
         return NULL;
-    new_ts->kind       = ts->kind;
-    new_ts->next       = clone_type_spec(ts->next);
-    new_ts->qualifiers = clone_type_qualifier(ts->qualifiers);
-
     switch (ts->kind) {
     case TYPE_SPEC_BASIC:
-        new_ts->u.basic = clone_type(ts->u.basic);
+        result->u.basic = clone_type(ts->u.basic);
         break;
     case TYPE_SPEC_STRUCT:
     case TYPE_SPEC_UNION:
-        new_ts->u.struct_spec.name   = xstrdup(ts->u.struct_spec.name);
-        new_ts->u.struct_spec.fields = clone_field(ts->u.struct_spec.fields);
+        result->u.struct_spec.name = ts->u.struct_spec.name ? xstrdup(ts->u.struct_spec.name) : NULL;
+        result->u.struct_spec.fields = clone_field(ts->u.struct_spec.fields);
         break;
     case TYPE_SPEC_ENUM:
-        new_ts->u.enum_spec.name        = xstrdup(ts->u.enum_spec.name);
-        new_ts->u.enum_spec.enumerators = clone_enumerator(ts->u.enum_spec.enumerators);
+        result->u.enum_spec.name = ts->u.enum_spec.name ? xstrdup(ts->u.enum_spec.name) : NULL;
+        result->u.enum_spec.enumerators = clone_enumerator(ts->u.enum_spec.enumerators);
         break;
     case TYPE_SPEC_TYPEDEF_NAME:
-        new_ts->u.typedef_name.name = xstrdup(ts->u.typedef_name.name);
+        result->u.typedef_name.name =
+            ts->u.typedef_name.name ? xstrdup(ts->u.typedef_name.name) : NULL;
         break;
     case TYPE_SPEC_ATOMIC:
-        new_ts->u.atomic.type = clone_type(ts->u.atomic.type);
+        result->u.atomic.type = clone_type(ts->u.atomic.type);
         break;
     }
-    return new_ts;
+    result->qualifiers = clone_type_qualifier(ts->qualifiers);
+    result->next       = clone_type_spec(ts->next);
+    return result;
+}
+
+Declarator *clone_declarator(const Declarator *decl)
+{
+    if (decl == NULL)
+        return NULL;
+    Declarator *result = new_declarator();
+    if (result == NULL)
+        return NULL;
+    result->name     = decl->name ? xstrdup(decl->name) : NULL;
+    result->pointers = clone_pointer(decl->pointers);
+    result->suffixes = clone_declarator_suffix(decl->suffixes);
+    result->next     = clone_declarator(decl->next);
+    return result;
+}
+
+Pointer *clone_pointer(const Pointer *ptr)
+{
+    if (ptr == NULL)
+        return NULL;
+    Pointer *result = new_pointer();
+    if (result == NULL)
+        return NULL;
+    result->qualifiers = clone_type_qualifier(ptr->qualifiers);
+    result->next       = clone_pointer(ptr->next);
+    return result;
+}
+
+DeclaratorSuffix *clone_declarator_suffix(const DeclaratorSuffix *suffix)
+{
+    if (suffix == NULL)
+        return NULL;
+    DeclaratorSuffix *result = new_declarator_suffix(suffix->kind);
+    if (result == NULL)
+        return NULL;
+    switch (suffix->kind) {
+    case SUFFIX_ARRAY:
+        result->u.array.size       = clone_expression(suffix->u.array.size);
+        result->u.array.qualifiers = clone_type_qualifier(suffix->u.array.qualifiers);
+        result->u.array.is_static  = suffix->u.array.is_static;
+        break;
+    case SUFFIX_FUNCTION:
+        result->u.function.params   = clone_param(suffix->u.function.params);
+        result->u.function.variadic = suffix->u.function.variadic;
+        break;
+    case SUFFIX_POINTER:
+        result->u.pointer.pointers = clone_pointer(suffix->u.pointer.pointers);
+        result->u.pointer.suffix   = clone_declarator_suffix(suffix->u.pointer.suffix);
+        break;
+    }
+    result->next = clone_declarator_suffix(suffix->next);
+    return result;
 }
