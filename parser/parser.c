@@ -2474,12 +2474,16 @@ Stmt *parse_iteration_statement()
         Stmt *expr_stmt = parse_expression_statement();
         init            = new_for_init(FOR_INIT_EXPR);
         init->u.expr    = expr_stmt->u.expr;
+        expr_stmt->u.expr = NULL;
+        free_statement(expr_stmt);
     }
     Stmt *cond_stmt = parse_expression_statement();
     condition       = cond_stmt->u.expr;
     if (current_token_is_not(TOKEN_RPAREN)) {
         update = parse_expression();
     }
+    cond_stmt->u.expr = NULL;
+    free_statement(cond_stmt);
     expect_token(TOKEN_RPAREN);
     Stmt *body                 = parse_statement();
     Stmt *stmt                 = new_stmt(STMT_FOR);
