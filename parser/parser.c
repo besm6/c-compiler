@@ -297,8 +297,8 @@ Expr *parse_expression();
 Expr *parse_constant_expression();
 Declaration *parse_declaration();
 DeclSpec *parse_declaration_specifiers(Type **base_type);
-InitDeclarator *parse_init_declarator_list(Declarator *first, Type *base_type);
-InitDeclarator *parse_init_declarator(Declarator *decl, Type *base_type);
+InitDeclarator *parse_init_declarator_list(Declarator *first, const Type *base_type);
+InitDeclarator *parse_init_declarator(Declarator *decl, const Type *base_type);
 StorageClass *parse_storage_class_specifier();
 TypeSpec *parse_type_specifier();
 Type *parse_struct_or_union_specifier();
@@ -1238,6 +1238,7 @@ Declaration *parse_declaration()
     }
     InitDeclarator *declarators = parse_init_declarator_list(NULL, base_type);
     expect_token(TOKEN_SEMICOLON);
+    free_type(base_type);
     Declaration *decl       = new_declaration(DECL_VAR);
     decl->u.var.specifiers  = specifiers;
     decl->u.var.declarators = declarators;
@@ -1301,7 +1302,7 @@ DeclSpec *parse_declaration_specifiers(Type **base_type_result)
     return ds;
 }
 
-InitDeclarator *parse_init_declarator_list(Declarator *first, Type *base_type)
+InitDeclarator *parse_init_declarator_list(Declarator *first, const Type *base_type)
 {
     if (parser_debug) {
         printf("--- %s()\n", __func__);
@@ -1320,7 +1321,7 @@ InitDeclarator *parse_init_declarator_list(Declarator *first, Type *base_type)
 //     | declarator
 //     ;
 //
-InitDeclarator *parse_init_declarator(Declarator *decl, Type *base_type)
+InitDeclarator *parse_init_declarator(Declarator *decl, const Type *base_type)
 {
     if (parser_debug) {
         printf("--- %s()\n", __func__);
@@ -1335,7 +1336,7 @@ InitDeclarator *parse_init_declarator(Declarator *decl, Type *base_type)
         advance_token();
         init_decl->init = parse_initializer();
     }
-    init_decl->type = type_apply_suffixes(type_apply_pointers(base_type, decl->pointers), decl->suffixes);
+    init_decl->type = type_apply_suffixes(type_apply_pointers(clone_type(base_type), decl->pointers), decl->suffixes);
     free_declarator(decl);
     return init_decl;
 }
@@ -2612,6 +2613,7 @@ ExternalDecl *parse_external_declaration()
             define_typedef(ed->u.declaration->u.var.declarators);
         }
         expect_token(TOKEN_SEMICOLON);
+        free_type(base_type);
         return ed;
     }
 
