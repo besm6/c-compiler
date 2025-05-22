@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "xalloc.h"
 
@@ -139,4 +140,15 @@ void xfree_all()
         free(head);
         head = next;
     }
+}
+
+/* Helper to duplicate a string */
+char *xstrdup(const char *str)
+{
+    if (!str)
+        return NULL;
+    char *new_str = xmalloc(strlen(str) + 1, __func__, __FILE__, __LINE__);
+    if (new_str)
+        strcpy(new_str, str);
+    return new_str;
 }

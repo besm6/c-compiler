@@ -37,19 +37,19 @@ void export_ast(int fileno, Program *program)
     if (export_debug) {
         printf("--- %s()\n", __func__);
     }
-    WFILE *fd = wdopen(fileno, "a");
-    if (!fd) {
+    WFILE fd;
+    if (wdopen(&fd, fileno, "a") < 0) {
         fprintf(stderr, "Error exporting AST: cannot open file descriptor #%d\n", fileno);
         exit(1);
     }
-    wputw(TAG_PROGRAM, fd);
+    wputw(TAG_PROGRAM, &fd);
     if (program) {
         for (ExternalDecl *decl = program->decls; decl; decl = decl->next) {
-            export_external_decl(fd, decl);
+            export_external_decl(&fd, decl);
         }
     }
-    wputw(TAG_EOL, fd);
-    wclose(fd);
+    wputw(TAG_EOL, &fd);
+    wclose(&fd);
 }
 
 void export_type(WFILE *fd, Type *type)

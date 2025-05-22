@@ -5,17 +5,6 @@
 #include "internal.h"
 #include "xalloc.h"
 
-/* Helper to duplicate a string */
-char *clone_string(const char *str)
-{
-    if (!str)
-        return NULL;
-    char *new_str = xmalloc(strlen(str) + 1, __func__, __FILE__, __LINE__);
-    if (new_str)
-        strcpy(new_str, str);
-    return new_str;
-}
-
 /* Clone TypeQualifier */
 TypeQualifier *clone_type_qualifier(const TypeQualifier *qualifier)
 {
@@ -37,7 +26,7 @@ Param *clone_param(const Param *param)
     Param *new_param = xmalloc(sizeof(Param), __func__, __FILE__, __LINE__);
     if (!new_param)
         return NULL;
-    new_param->name = clone_string(param->name);
+    new_param->name = xstrdup(param->name);
     new_param->type = clone_type(param->type);
     new_param->next = clone_param(param->next);
     return new_param;
@@ -52,7 +41,7 @@ Field *clone_field(const Field *field)
     if (!new_field)
         return NULL;
     new_field->type     = clone_type(field->type);
-    new_field->name     = clone_string(field->name);
+    new_field->name     = xstrdup(field->name);
     new_field->bitfield = clone_expression(field->bitfield);
     new_field->next     = clone_field(field->next);
     return new_field;
@@ -66,7 +55,7 @@ Enumerator *clone_enumerator(const Enumerator *enumerator)
     Enumerator *new_enum = xmalloc(sizeof(Enumerator), __func__, __FILE__, __LINE__);
     if (!new_enum)
         return NULL;
-    new_enum->name  = clone_string(enumerator->name);
+    new_enum->name  = xstrdup(enumerator->name);
     new_enum->value = clone_expression(enumerator->value);
     new_enum->next  = clone_enumerator(enumerator->next);
     return new_enum;
@@ -108,15 +97,15 @@ Type *clone_type(const Type *type)
         break;
     case TYPE_STRUCT:
     case TYPE_UNION:
-        new_type->u.struct_t.name   = clone_string(type->u.struct_t.name);
+        new_type->u.struct_t.name   = xstrdup(type->u.struct_t.name);
         new_type->u.struct_t.fields = clone_field(type->u.struct_t.fields);
         break;
     case TYPE_ENUM:
-        new_type->u.enum_t.name        = clone_string(type->u.enum_t.name);
+        new_type->u.enum_t.name        = xstrdup(type->u.enum_t.name);
         new_type->u.enum_t.enumerators = clone_enumerator(type->u.enum_t.enumerators);
         break;
     case TYPE_TYPEDEF_NAME:
-        new_type->u.typedef_name.name = clone_string(type->u.typedef_name.name);
+        new_type->u.typedef_name.name = xstrdup(type->u.typedef_name.name);
         break;
     case TYPE_ATOMIC:
         new_type->u.atomic.base = clone_type(type->u.atomic.base);
@@ -147,10 +136,10 @@ Literal *clone_literal(const Literal *literal)
         new_literal->u.char_val = literal->u.char_val;
         break;
     case LITERAL_STRING:
-        new_literal->u.string_val = clone_string(literal->u.string_val);
+        new_literal->u.string_val = xstrdup(literal->u.string_val);
         break;
     case LITERAL_ENUM:
-        new_literal->u.enum_const = clone_string(literal->u.enum_const);
+        new_literal->u.enum_const = xstrdup(literal->u.enum_const);
         break;
     }
     return new_literal;
@@ -223,7 +212,7 @@ Designator *clone_designator(const Designator *designator)
     if (designator->kind == DESIGNATOR_ARRAY) {
         new_designator->u.expr = clone_expression(designator->u.expr);
     } else {
-        new_designator->u.name = clone_string(designator->u.name);
+        new_designator->u.name = xstrdup(designator->u.name);
     }
     new_designator->next = clone_designator(designator->next);
     return new_designator;
@@ -277,7 +266,7 @@ Expr *clone_expression(const Expr *expression)
         new_expr->u.literal = clone_literal(expression->u.literal);
         break;
     case EXPR_VAR:
-        new_expr->u.var = clone_string(expression->u.var);
+        new_expr->u.var = xstrdup(expression->u.var);
         break;
     case EXPR_UNARY_OP:
         new_expr->u.unary_op.op   = clone_unary_op(expression->u.unary_op.op);
@@ -312,11 +301,11 @@ Expr *clone_expression(const Expr *expression)
         break;
     case EXPR_FIELD_ACCESS:
         new_expr->u.field_access.expr  = clone_expression(expression->u.field_access.expr);
-        new_expr->u.field_access.field = clone_string(expression->u.field_access.field);
+        new_expr->u.field_access.field = xstrdup(expression->u.field_access.field);
         break;
     case EXPR_PTR_ACCESS:
         new_expr->u.ptr_access.expr  = clone_expression(expression->u.ptr_access.expr);
-        new_expr->u.ptr_access.field = clone_string(expression->u.ptr_access.field);
+        new_expr->u.ptr_access.field = xstrdup(expression->u.ptr_access.field);
         break;
     case EXPR_POST_INC:
         new_expr->u.post_inc = clone_expression(expression->u.post_inc);
@@ -360,15 +349,15 @@ TypeSpec *clone_type_spec(const TypeSpec *ts)
         break;
     case TYPE_SPEC_STRUCT:
     case TYPE_SPEC_UNION:
-        new_ts->u.struct_spec.name   = clone_string(ts->u.struct_spec.name);
+        new_ts->u.struct_spec.name   = xstrdup(ts->u.struct_spec.name);
         new_ts->u.struct_spec.fields = clone_field(ts->u.struct_spec.fields);
         break;
     case TYPE_SPEC_ENUM:
-        new_ts->u.enum_spec.name        = clone_string(ts->u.enum_spec.name);
+        new_ts->u.enum_spec.name        = xstrdup(ts->u.enum_spec.name);
         new_ts->u.enum_spec.enumerators = clone_enumerator(ts->u.enum_spec.enumerators);
         break;
     case TYPE_SPEC_TYPEDEF_NAME:
-        new_ts->u.typedef_name.name = clone_string(ts->u.typedef_name.name);
+        new_ts->u.typedef_name.name = xstrdup(ts->u.typedef_name.name);
         break;
     case TYPE_SPEC_ATOMIC:
         new_ts->u.atomic.type = clone_type(ts->u.atomic.type);

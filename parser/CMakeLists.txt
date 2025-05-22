@@ -13,11 +13,9 @@ add_library(parser STATIC
     ast_import.c
     ast_compare.c
     symtab.c
-    string_map.c
-    xalloc.c
 )
 target_include_directories(parser PUBLIC .)
-target_link_libraries(parser scanner wio)
+target_link_libraries(parser scanner wio libutil)
 
 #
 # Tests for parser
@@ -35,12 +33,3 @@ add_executable(parser-tests
 )
 target_link_libraries(parser-tests parser scanner GTest::gtest_main)
 gtest_discover_tests(parser-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
-
-#
-# Tests for string map
-#
-add_executable(string-map-tests
-    string_map_test.cpp
-)
-target_link_libraries(string-map-tests parser GTest::gtest_main)
-gtest_discover_tests(string-map-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

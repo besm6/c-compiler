@@ -28,6 +28,7 @@ extern "C" {
 void *xmalloc(size_t size, const char *funcname, const char *filename, unsigned lineno);
 void xfree(void *ptr);
 void xfree_all(void);
+char *xstrdup(const char *str);
 void xreport_lost_memory(void);
 size_t xtotal_allocated_size(void);
 

@@ -15,6 +15,7 @@
 #include <math.h>
 
 #include "wio.h"
+#include "xalloc.h"
 
 #define BUFFER_SIZE (4096 / sizeof(size_t)) /* Buffer holds words, aligned to page size */
 
@@ -24,12 +25,13 @@ static const bool wio_debug = true; // Enable manually for debug
 // Open a file with appropriate flags based on mode (`r`, `w`, `a`),
 // allocate a `WFILE` structure and buffer.
 //
-WFILE *wopen(const char *path, const char *mode)
+int wopen(WFILE *stream, const char *path, const char *mode)
 {
+    if (!stream) {
+        return -1;
+    }
     int flags = 0;
-    int fd;
     char m = mode[0];
-
     if (m == 'r') {
         flags = O_RDONLY;
     } else if (m == 'w') {
@@ -38,24 +40,17 @@ WFILE *wopen(const char *path, const char *mode)
         flags = O_WRONLY | O_CREAT | O_APPEND;
     } else {
         errno = EINVAL;
-        return NULL;
+        return -1;
     }
 
-    fd = open(path, flags, 0666);
+    int fd = open(path, flags, 0666);
     if (fd == -1)
-        return NULL;
-
-    WFILE *stream = malloc(sizeof(WFILE));
-    if (!stream) {
-        close(fd);
-        return NULL;
-    }
+        return -1;
 
     stream->buffer = malloc(BUFFER_SIZE * sizeof(size_t));
     if (!stream->buffer) {
         close(fd);
-        free(stream);
-        return NULL;
+        return -1;
     }
 
     stream->fd = fd;
@@ -65,49 +60,46 @@ WFILE *wopen(const char *path, const char *mode)
     stream->is_error = false;
     stream->mode = m;
     stream->must_close_fd = true;
-
-    return stream;
+    return 0;
 }
 
 //
 // Close the existing stream (flushing if needed), then reopen with new parameters.
 //
-WFILE *wreopen(const char *path, const char *mode, WFILE *stream)
+int wreopen(WFILE *stream, const char *path, const char *mode)
 {
-    if (stream) {
-        if (stream->mode == 'w' || stream->mode == 'a') {
-            wflush(stream);
-        }
-        if (stream->must_close_fd) {
-            close(stream->fd);
-            stream->must_close_fd = false;
-        }
-        free(stream->buffer);
-        free(stream);
+    if (!stream) {
+        return -1;
     }
+    if (stream->mode == 'w' || stream->mode == 'a') {
+        wflush(stream);
+    }
+    if (stream->must_close_fd) {
+        close(stream->fd);
+        stream->must_close_fd = false;
+    }
+    free(stream->buffer);
 
-    return wopen(path, mode);
+    return wopen(stream, path, mode);
 }
 
 //
 // Create a `WFILE` from an existing file descriptor.
 //
-WFILE *wdopen(int fildes, const char *mode)
+int wdopen(WFILE *stream, int fildes, const char *mode)
 {
+    if (!stream) {
+        return -1;
+    }
     char m = mode[0];
     if (m != 'r' && m != 'w' && m != 'a') {
         errno = EINVAL;
-        return NULL;
+        return -1;
     }
-
-    WFILE *stream = malloc(sizeof(WFILE));
-    if (!stream)
-        return NULL;
 
     stream->buffer = malloc(BUFFER_SIZE * sizeof(size_t));
     if (!stream->buffer) {
-        free(stream);
-        return NULL;
+        return -1;
     }
 
     stream->fd = fildes;
@@ -117,8 +109,7 @@ WFILE *wdopen(int fildes, const char *mode)
     stream->is_error = false;
     stream->mode = m;
     stream->must_close_fd = false;
-
-    return stream;
+    return 0;
 }
 
 //
@@ -160,7 +151,6 @@ void wclose(WFILE *stream)
         stream->must_close_fd = false;
     }
     free(stream->buffer);
-    free(stream);
 }
 
 //
@@ -333,6 +323,7 @@ void wclearerr(WFILE *stream)
 // Read a zero terminated string, aligned to word boundary.
 // Return a dynamically allocated buffer.
 // Max size is limited by 128 words.
+// In case of zero length string return NULL.
 //
 char *wgetstr(WFILE *stream)
 {
@@ -344,10 +335,17 @@ char *wgetstr(WFILE *stream)
         if (stream->is_eof) {
             return NULL;
         }
+        if (n == 0 && buf[n] == 0) {
+            // Read empty string.
+            return NULL;
+        }
         // Does this word contain '\0' byte?
         bool is_last_word = memchr(&buf[n], '\0', sizeof(size_t)) != NULL;
         if (is_last_word) {
-            return strdup((char*) buf);
+            if (wio_debug) {
+                printf("    %s '%s'\n", __func__, (char*) buf);
+            }
+            return xstrdup((char*) buf);
         }
         n++;
         if (n * sizeof(size_t) >= sizeof(buf)) {
@@ -362,6 +360,13 @@ char *wgetstr(WFILE *stream)
 //
 int wputstr(const char *str, WFILE *stream)
 {
+    if (wio_debug) {
+        printf("    %s '%s'\n", __func__, str ? str : "(empty)");
+    }
+    if (str == NULL) {
+        // Write empty string.
+        return wputw(0, stream);
+    }
     for (;;) {
         size_t w = 0;
         bool is_last_word = memccpy(&w, str, '\0', sizeof(w)) != NULL;

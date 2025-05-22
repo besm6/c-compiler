@@ -138,7 +138,6 @@ void free_declarator_suffix(DeclaratorSuffix *suffix);
 //
 // Clone
 //
-char *clone_string(const char *str);
 Type *clone_type(const Type *type);
 TypeQualifier *clone_type_qualifier(const TypeQualifier *qualifier);
 Param *clone_param(const Param *param);

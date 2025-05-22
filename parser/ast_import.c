@@ -51,28 +51,27 @@ Program *import_ast(int fileno)
     if (import_debug) {
         printf("--- %s()\n", __func__);
     }
-    WFILE *input = wdopen(fileno, "r");
-    if (!input) {
+    WFILE input;
+    if (wdopen(&input, fileno, "r") < 0) {
         fprintf(stderr, "Error importing AST: cannot open file descriptor #%d\n", fileno);
         exit(1);
     }
     lseek(fileno, 0L, SEEK_SET);
-    size_t tag = wgetw(input);
-    check_input(input, "program tag");
+    size_t tag = wgetw(&input);
+    check_input(&input, "program tag");
     if (tag != TAG_PROGRAM) {
         fprintf(stderr, "Error: Expected TAG_PROGRAM, got 0x%zx\n", tag);
         exit(1);
     }
     Program *program         = new_program();
     ExternalDecl **next_decl = &program->decls;
-    while ((tag = wgetw(input)) != TAG_EOL) {
-        check_input(input, "external decl tag");
-        *next_decl = import_external_decl(input);
-        if (*next_decl)
-            next_decl = &(*next_decl)->next;
+    for (;;) {
+        *next_decl = import_external_decl(&input);
+        if (!*next_decl)
+            break;
+        next_decl = &(*next_decl)->next;
     }
-    check_input(input, "external decl list end");
-    wclose(input);
+    wclose(&input);
     return program;
 }
 
@@ -111,38 +110,35 @@ Type *import_type(WFILE *input)
     case TYPE_POINTER:
         type->u.pointer.target    = import_type(input);
         TypeQualifier **next_qual = &type->u.pointer.qualifiers;
-        while ((tag = wgetw(input)) != TAG_EOL) {
-            check_input(input, "pointer qualifier tag");
+        for (;;) {
             *next_qual = import_type_qualifier(input);
-            if (*next_qual)
-                next_qual = &(*next_qual)->next;
+            if (!*next_qual)
+                break;
+            next_qual = &(*next_qual)->next;
         }
-        check_input(input, "pointer qualifier list end");
         break;
     case TYPE_ARRAY:
         type->u.array.element           = import_type(input);
         type->u.array.size              = import_expr(input);
         TypeQualifier **next_qual_array = &type->u.array.qualifiers;
-        while ((tag = wgetw(input)) != TAG_EOL) {
-            check_input(input, "array qualifier tag");
+        for (;;) {
             *next_qual_array = import_type_qualifier(input);
-            if (*next_qual_array)
-                next_qual_array = &(*next_qual_array)->next;
+            if (!*next_qual_array)
+                break;
+            next_qual_array = &(*next_qual_array)->next;
         }
-        check_input(input, "array qualifier list end");
         type->u.array.is_static = (bool)wgetw(input);
         check_input(input, "array is_static");
         break;
     case TYPE_FUNCTION:
         type->u.function.return_type = import_type(input);
         Param **next_param           = &type->u.function.params;
-        while ((tag = wgetw(input)) != TAG_EOL) {
-            check_input(input, "function param tag");
+        for (;;) {
             *next_param = import_param(input);
-            if (*next_param)
-                next_param = &(*next_param)->next;
+            if (!*next_param)
+                break;
+            next_param = &(*next_param)->next;
         }
-        check_input(input, "function param list end");
         type->u.function.variadic = (bool)wgetw(input);
         check_input(input, "function variadic");
         break;
@@ -151,25 +147,23 @@ Type *import_type(WFILE *input)
         type->u.struct_t.name = wgetstr(input);
         check_input(input, "struct/union name");
         Field **next_field = &type->u.struct_t.fields;
-        while ((tag = wgetw(input)) != TAG_EOL) {
-            check_input(input, "struct field tag");
+        for (;;) {
             *next_field = import_field(input);
-            if (*next_field)
-                next_field = &(*next_field)->next;
+            if (!*next_field)
+                break;
+            next_field = &(*next_field)->next;
         }
-        check_input(input, "struct field list end");
         break;
     case TYPE_ENUM:
         type->u.enum_t.name = wgetstr(input);
         check_input(input, "enum name");
         Enumerator **next_enum = &type->u.enum_t.enumerators;
-        while ((tag = wgetw(input)) != TAG_EOL) {
-            check_input(input, "enumerator tag");
+        for (;;) {
             *next_enum = import_enumerator(input);
-            if (*next_enum)
-                next_enum = &(*next_enum)->next;
+            if (!*next_enum)
+                break;
+            next_enum = &(*next_enum)->next;
         }
-        check_input(input, "enumerator list end");
         break;
     case TYPE_TYPEDEF_NAME:
         type->u.typedef_name.name = wgetstr(input);
@@ -180,13 +174,12 @@ Type *import_type(WFILE *input)
         break;
     }
     TypeQualifier **next_qual = &type->qualifiers;
-    while ((tag = wgetw(input)) != TAG_EOL) {
-        check_input(input, "type qualifier tag");
+    for (;;) {
         *next_qual = import_type_qualifier(input);
-        if (*next_qual)
-            next_qual = &(*next_qual)->next;
+        if (!*next_qual)
+            break;
+        next_qual = &(*next_qual)->next;
     }
-    check_input(input, "type qualifier list end");
     return type;
 }
 
@@ -197,8 +190,12 @@ TypeQualifier *import_type_qualifier(WFILE *input)
     }
     size_t tag = wgetw(input);
     check_input(input, "type qualifier tag");
-    if (tag < TAG_TYPEQUALIFIER || tag > TAG_TYPEQUALIFIER + TYPE_QUALIFIER_ATOMIC)
-        return NULL;
+    if (tag == TAG_EOL)
+         return NULL;
+    if (tag < TAG_TYPEQUALIFIER || tag > TAG_TYPEQUALIFIER + TYPE_QUALIFIER_ATOMIC) {
+        fprintf(stderr, "Error: Expected TAG_TYPEQUALIFIER, got 0x%zx\n", tag);
+        exit(1);
+    }
     TypeQualifierKind kind = (TypeQualifierKind)(tag - TAG_TYPEQUALIFIER);
     TypeQualifier *qual    = new_type_qualifier(kind);
     return qual;
@@ -211,8 +208,12 @@ Field *import_field(WFILE *input)
     }
     size_t tag = wgetw(input);
     check_input(input, "field tag");
-    if (tag != TAG_FIELD)
-        return NULL;
+    if (tag == TAG_EOL)
+         return NULL;
+    if (tag != TAG_FIELD) {
+        fprintf(stderr, "Error: Expected TAG_FIELD, got 0x%zx\n", tag);
+        exit(1);
+    }
     Field *field = new_field();
     field->type  = import_type(input);
     field->name  = wgetstr(input);
@@ -228,8 +229,12 @@ Enumerator *import_enumerator(WFILE *input)
     }
     size_t tag = wgetw(input);
     check_input(input, "enumerator tag");
-    if (tag != TAG_ENUMERATOR)
-        return NULL;
+    if (tag == TAG_EOL)
+         return NULL;
+    if (tag != TAG_ENUMERATOR) {
+        fprintf(stderr, "Error: Expected TAG_ENUMERATOR, got 0x%zx\n", tag);
+        exit(1);
+    }
     Ident name = wgetstr(input);
     check_input(input, "enumerator name");
     Expr *value       = import_expr(input);
@@ -244,8 +249,12 @@ Param *import_param(WFILE *input)
     }
     size_t tag = wgetw(input);
     check_input(input, "param tag");
-    if (tag != TAG_PARAM)
-        return NULL;
+    if (tag == TAG_EOL)
+         return NULL;
+    if (tag != TAG_PARAM) {
+        fprintf(stderr, "Error: Expected TAG_PARAM, got 0x%zx\n", tag);
+        exit(1);
+    }
     Param *param = new_param();
     param->name  = wgetstr(input);
     check_input(input, "param name");
@@ -272,13 +281,12 @@ Declaration *import_declaration(WFILE *input)
     case DECL_VAR:
         decl->u.var.specifiers      = import_decl_spec(input);
         InitDeclarator **next_idecl = &decl->u.var.declarators;
-        while ((tag = wgetw(input)) != TAG_EOL) {
-            check_input(input, "init declarator tag");
+        for (;;) {
             *next_idecl = import_init_declarator(input);
-            if (*next_idecl)
-                next_idecl = &(*next_idecl)->next;
+            if (!*next_idecl)
+                break;
+            next_idecl = &(*next_idecl)->next;
         }
-        check_input(input, "init declarator list end");
         break;
     case DECL_STATIC_ASSERT:
         decl->u.static_assrt.condition = import_expr(input);
@@ -308,22 +316,20 @@ DeclSpec *import_decl_spec(WFILE *input)
     }
     DeclSpec *spec            = new_decl_spec();
     TypeQualifier **next_qual = &spec->qualifiers;
-    while ((tag = wgetw(input)) != TAG_EOL) {
-        check_input(input, "decl spec qualifier tag");
+    for (;;) {
         *next_qual = import_type_qualifier(input);
-        if (*next_qual)
-            next_qual = &(*next_qual)->next;
+        if (!*next_qual)
+            break;
+        next_qual = &(*next_qual)->next;
     }
-    check_input(input, "decl spec qualifier list end");
     spec->storage             = import_storage_class(input);
     FunctionSpec **next_fspec = &spec->func_specs;
-    while ((tag = wgetw(input)) != TAG_EOL) {
-        check_input(input, "function spec tag");
+    for (;;) {
         *next_fspec = import_function_spec(input);
-        if (*next_fspec)
-            next_fspec = &(*next_fspec)->next;
+        if (!*next_fspec)
+            break;
+        next_fspec = &(*next_fspec)->next;
     }
-    check_input(input, "function spec list end");
     spec->align_spec = import_alignment_spec(input);
     return spec;
 }
@@ -349,8 +355,12 @@ FunctionSpec *import_function_spec(WFILE *input)
     }
     size_t tag = wgetw(input);
     check_input(input, "function spec tag");
-    if (tag < TAG_FUNCTIONSPEC || tag > TAG_FUNCTIONSPEC + FUNC_SPEC_NORETURN)
+    if (tag == TAG_EOL)
         return NULL;
+    if (tag < TAG_FUNCTIONSPEC || tag > TAG_FUNCTIONSPEC + FUNC_SPEC_NORETURN) {
+        fprintf(stderr, "Error: Expected TAG_FUNCTIONSPEC, got 0x%zx\n", tag);
+        exit(1);
+    }
     FunctionSpecKind kind = (FunctionSpecKind)(tag - TAG_FUNCTIONSPEC);
     FunctionSpec *fspec   = new_function_spec(kind);
     return fspec;
@@ -385,8 +395,12 @@ InitDeclarator *import_init_declarator(WFILE *input)
     }
     size_t tag = wgetw(input);
     check_input(input, "init declarator tag");
-    if (tag != TAG_INITDECLARATOR)
+    if (tag == TAG_EOL)
         return NULL;
+    if (tag != TAG_INITDECLARATOR) {
+        fprintf(stderr, "Error: Expected TAG_INITDECLARATOR, got 0x%zx\n", tag);
+        exit(1);
+    }
     InitDeclarator *idecl = new_init_declarator();
     idecl->type           = import_type(input);
     idecl->name           = wgetstr(input);
@@ -412,13 +426,12 @@ Initializer *import_initializer(WFILE *input)
         break;
     case INITIALIZER_COMPOUND: {
         InitItem **next_item = &init->u.items;
-        while ((tag = wgetw(input)) != TAG_EOL) {
-            check_input(input, "init item tag");
+        for (;;) {
             *next_item = import_init_item(input);
-            if (*next_item)
-                next_item = &(*next_item)->next;
+            if (!*next_item)
+                break;
+            next_item = &(*next_item)->next;
         }
-        check_input(input, "init item list end");
         break;
     }
     }
@@ -432,17 +445,20 @@ InitItem *import_init_item(WFILE *input)
     }
     size_t tag = wgetw(input);
     check_input(input, "init item tag");
-    if (tag != TAG_INITITEM)
+    if (tag == TAG_EOL)
         return NULL;
+    if (tag != TAG_INITITEM) {
+        fprintf(stderr, "Error: Expected TAG_INITITEM, got 0x%zx\n", tag);
+        exit(1);
+    }
     Designator *designators = NULL;
     Designator **next_desg  = &designators;
-    while ((tag = wgetw(input)) != TAG_EOL) {
-        check_input(input, "designator tag");
+    for (;;) {
         *next_desg = import_designator(input);
-        if (*next_desg)
-            next_desg = &(*next_desg)->next;
+        if (!*next_desg)
+            break;
+        next_desg = &(*next_desg)->next;
     }
-    check_input(input, "designator list end");
     Initializer *init = import_initializer(input);
     InitItem *item    = new_init_item(designators, init);
     return item;
@@ -455,8 +471,12 @@ Designator *import_designator(WFILE *input)
     }
     size_t tag = wgetw(input);
     check_input(input, "designator tag");
-    if (tag < TAG_DESIGNATOR || tag > TAG_DESIGNATOR + DESIGNATOR_FIELD)
+    if (tag == TAG_EOL)
         return NULL;
+    if (tag < TAG_DESIGNATOR || tag > TAG_DESIGNATOR + DESIGNATOR_FIELD) {
+        fprintf(stderr, "Error: Expected TAG_DESIGNATOR, got 0x%zx\n", tag);
+        exit(1);
+    }
     DesignatorKind kind = (DesignatorKind)(tag - TAG_DESIGNATOR);
     Designator *desg    = new_designator(kind);
     switch (kind) {
@@ -478,8 +498,12 @@ Expr *import_expr(WFILE *input)
     }
     size_t tag = wgetw(input);
     check_input(input, "expr tag");
-    if (tag < TAG_EXPR || tag > TAG_EXPR + EXPR_GENERIC)
+    if (tag == TAG_EOL)
         return NULL;
+    if (tag < TAG_EXPR || tag > TAG_EXPR + EXPR_GENERIC) {
+        fprintf(stderr, "Error: Expected TAG_EXPR, got 0x%zx\n", tag);
+        exit(1);
+    }
     ExprKind kind = (ExprKind)(tag - TAG_EXPR);
     Expr *expr    = new_expression(kind);
     switch (kind) {
@@ -516,24 +540,22 @@ Expr *import_expr(WFILE *input)
     case EXPR_CALL:
         expr->u.call.func = import_expr(input);
         Expr **next_arg   = &expr->u.call.args;
-        while ((tag = wgetw(input)) != TAG_EOL) {
-            check_input(input, "call arg tag");
+        for (;;) {
             *next_arg = import_expr(input);
-            if (*next_arg)
-                next_arg = &(*next_arg)->next;
+            if (!*next_arg)
+                break;
+            next_arg = &(*next_arg)->next;
         }
-        check_input(input, "call arg list end");
         break;
     case EXPR_COMPOUND:
         expr->u.compound_literal.type = import_type(input);
         InitItem **next_item          = &expr->u.compound_literal.init;
-        while ((tag = wgetw(input)) != TAG_EOL) {
-            check_input(input, "compound init item tag");
+        for (;;) {
             *next_item = import_init_item(input);
-            if (*next_item)
-                next_item = &(*next_item)->next;
+            if (!*next_item)
+                break;
+            next_item = &(*next_item)->next;
         }
-        check_input(input, "compound init list end");
         break;
     case EXPR_FIELD_ACCESS:
         expr->u.field_access.expr  = import_expr(input);
@@ -563,13 +585,12 @@ Expr *import_expr(WFILE *input)
     case EXPR_GENERIC:
         expr->u.generic.controlling_expr = import_expr(input);
         GenericAssoc **next_gasc         = &expr->u.generic.associations;
-        while ((tag = wgetw(input)) != TAG_EOL) {
-            check_input(input, "generic assoc tag");
+        for (;;) {
             *next_gasc = import_generic_assoc(input);
-            if (*next_gasc)
-                next_gasc = &(*next_gasc)->next;
+            if (!*next_gasc)
+                break;
+            next_gasc = &(*next_gasc)->next;
         }
-        check_input(input, "generic assoc list end");
         break;
     }
     expr->type = import_type(input);
@@ -661,8 +682,12 @@ GenericAssoc *import_generic_assoc(WFILE *input)
     }
     size_t tag = wgetw(input);
     check_input(input, "generic assoc tag");
-    if (tag < TAG_GENERICASSOC || tag > TAG_GENERICASSOC + GENERIC_ASSOC_DEFAULT)
+    if (tag == TAG_EOL)
         return NULL;
+    if (tag < TAG_GENERICASSOC || tag > TAG_GENERICASSOC + GENERIC_ASSOC_DEFAULT) {
+        fprintf(stderr, "Error: Expected TAG_STMT, got 0x%zx\n", tag);
+        exit(1);
+    }
     GenericAssocKind kind = (GenericAssocKind)(tag - TAG_GENERICASSOC);
     GenericAssoc *gasc    = new_generic_assoc(kind);
     switch (kind) {
@@ -698,13 +723,12 @@ Stmt *import_stmt(WFILE *input)
         break;
     case STMT_COMPOUND: {
         DeclOrStmt **next_dost = &stmt->u.compound;
-        while ((tag = wgetw(input)) != TAG_EOL) {
-            check_input(input, "decl or stmt tag");
+        for (;;) {
             *next_dost = import_decl_or_stmt(input);
-            if (*next_dost)
-                next_dost = &(*next_dost)->next;
+            if (!*next_dost)
+                break;
+            next_dost = &(*next_dost)->next;
         }
-        check_input(input, "compound decl or stmt list end");
         break;
     }
     case STMT_IF:
@@ -763,8 +787,12 @@ DeclOrStmt *import_decl_or_stmt(WFILE *input)
     }
     size_t tag = wgetw(input);
     check_input(input, "decl or stmt tag");
-    if (tag < TAG_DECLORSTMT || tag > TAG_DECLORSTMT + DECL_OR_STMT_STMT)
+    if (tag == TAG_EOL)
         return NULL;
+    if (tag < TAG_DECLORSTMT || tag > TAG_DECLORSTMT + DECL_OR_STMT_STMT) {
+        fprintf(stderr, "Error: Expected TAG_DECLORSTMT, got 0x%zx\n", tag);
+        exit(1);
+    }
     DeclOrStmtKind kind = (DeclOrStmtKind)(tag - TAG_DECLORSTMT);
     DeclOrStmt *dost    = new_decl_or_stmt(kind);
     switch (kind) {
@@ -818,13 +846,12 @@ ExternalDecl *import_external_decl(WFILE *input)
         check_input(input, "function name");
         exdecl->u.function.specifiers = import_decl_spec(input);
         Declaration **next_decl       = &exdecl->u.function.param_decls;
-        while ((tag = wgetw(input)) != TAG_EOL) {
-            check_input(input, "param decl tag");
+        for (;;) {
             *next_decl = import_declaration(input);
-            if (*next_decl)
-                next_decl = &(*next_decl)->next;
+            if (!*next_decl)
+                break;
+            next_decl = &(*next_decl)->next;
         }
-        check_input(input, "param decl list end");
         exdecl->u.function.body = import_stmt(input);
         break;
     case EXTERNAL_DECL_DECLARATION:

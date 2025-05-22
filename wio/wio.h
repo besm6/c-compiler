@@ -24,9 +24,9 @@ struct _wfile {
 };
 typedef struct _wfile WFILE;
 
-WFILE *wopen(const char *path, const char * mode);
-WFILE *wreopen(const char *path, const char *mode, WFILE *stream);
-WFILE *wdopen(int fildes, const char *mode);
+int wopen(WFILE *stream, const char *path, const char *mode);
+int wreopen(WFILE *stream, const char *path, const char *mode);
+int wdopen(WFILE *stream, int fildes, const char *mode);
 void wclose(WFILE *stream);
 int wflush(WFILE *stream);
 int wseek(WFILE *stream, long offset, int whence);

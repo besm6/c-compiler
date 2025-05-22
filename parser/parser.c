@@ -6,6 +6,7 @@
 #include "ast.h"
 #include "scanner.h"
 #include "internal.h"
+#include "xalloc.h"
 
 /* Global lexer state */
 static int current_token;
@@ -351,7 +352,7 @@ Expr *parse_primary_expression()
     switch (current_token) {
     case TOKEN_IDENTIFIER:
         expr        = new_expression(EXPR_VAR);
-        expr->u.var = clone_string(current_lexeme);
+        expr->u.var = xstrdup(current_lexeme);
         advance_token();
         break;
     case TOKEN_I_CONSTANT:
@@ -394,7 +395,7 @@ Expr *parse_constant()
         expr->u.literal->u.real_val = strtod(current_lexeme, NULL); // TODO: suffixes
         break;
     case TOKEN_ENUMERATION_CONSTANT:
-        expr->u.literal->u.enum_const = clone_string(current_lexeme);
+        expr->u.literal->u.enum_const = xstrdup(current_lexeme);
         break;
     }
     advance_token();
@@ -408,7 +409,7 @@ Expr *parse_string()
     }
     Expr *expr                    = new_expression(EXPR_LITERAL);
     expr->u.literal               = new_literal(LITERAL_STRING);
-    expr->u.literal->u.string_val = clone_string(current_lexeme);
+    expr->u.literal->u.string_val = xstrdup(current_lexeme);
     advance_token();
     return expr;
 }
@@ -495,7 +496,7 @@ Expr *parse_postfix_expression()
             expr                  = new_expr;
         } else if (current_token == TOKEN_DOT) {
             advance_token();
-            Ident field = clone_string(current_lexeme);
+            Ident field = xstrdup(current_lexeme);
             expect_token(TOKEN_IDENTIFIER);
             Expr *new_expr                 = new_expression(EXPR_FIELD_ACCESS);
             new_expr->u.field_access.expr  = expr;
@@ -503,7 +504,7 @@ Expr *parse_postfix_expression()
             expr = new_expr;
         } else if (current_token == TOKEN_PTR_OP) {
             advance_token();
-            Ident field = clone_string(current_lexeme);
+            Ident field = xstrdup(current_lexeme);
             expect_token(TOKEN_IDENTIFIER);
             Expr *new_expr               = new_expression(EXPR_PTR_ACCESS);
             new_expr->u.ptr_access.expr  = expr;
@@ -1080,19 +1081,19 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
 
     if (struct_spec) {
         result                    = new_type(TYPE_STRUCT);
-        result->u.struct_t.name   = clone_string(struct_spec->u.struct_spec.name);
+        result->u.struct_t.name   = xstrdup(struct_spec->u.struct_spec.name);
         result->u.struct_t.fields = clone_field(struct_spec->u.struct_spec.fields);
     } else if (union_spec) {
         result                    = new_type(TYPE_UNION);
-        result->u.struct_t.name   = clone_string(union_spec->u.struct_spec.name);
+        result->u.struct_t.name   = xstrdup(union_spec->u.struct_spec.name);
         result->u.struct_t.fields = clone_field(union_spec->u.struct_spec.fields);
     } else if (enum_spec) {
         result                       = new_type(TYPE_ENUM);
-        result->u.enum_t.name        = clone_string(enum_spec->u.enum_spec.name);
+        result->u.enum_t.name        = xstrdup(enum_spec->u.enum_spec.name);
         result->u.enum_t.enumerators = clone_enumerator(enum_spec->u.enum_spec.enumerators);
     } else if (typedef_spec) {
         result                      = new_type(TYPE_TYPEDEF_NAME);
-        result->u.typedef_name.name = clone_string(typedef_spec->u.typedef_name.name);
+        result->u.typedef_name.name = xstrdup(typedef_spec->u.typedef_name.name);
     } else if (atomic_spec) {
         result                = new_type(TYPE_ATOMIC);
         result->u.atomic.base = clone_type(atomic_spec->u.atomic.type);
@@ -1325,7 +1326,7 @@ InitDeclarator *parse_init_declarator(Declarator *decl, Type *base_type)
         decl = parse_declarator();
     }
     InitDeclarator *init_decl = new_init_declarator();
-    init_decl->name = clone_string(decl->name);
+    init_decl->name = xstrdup(decl->name);
     if (current_token == TOKEN_ASSIGN) {
         advance_token();
         init_decl->init = parse_initializer();
@@ -1441,7 +1442,7 @@ TypeSpec *parse_type_specifier()
         ts->u.enum_spec.enumerators = type->u.enum_t.enumerators;
     } else if (current_token == TOKEN_TYPEDEF_NAME) {
         ts                      = new_type_spec(TYPE_SPEC_TYPEDEF_NAME);
-        ts->u.typedef_name.name = clone_string(current_lexeme);
+        ts->u.typedef_name.name = xstrdup(current_lexeme);
         advance_token();
     } else {
         fatal_error("Expected type specifier");
@@ -1464,7 +1465,7 @@ Type *parse_struct_or_union_specifier()
     int su     = parse_struct_or_union();
     Type *type = new_type(su == TOKEN_STRUCT ? TYPE_STRUCT : TYPE_UNION);
     if (current_token == TOKEN_IDENTIFIER) {
-        type->u.struct_t.name = clone_string(current_lexeme);
+        type->u.struct_t.name = xstrdup(current_lexeme);
         advance_token();
     }
     if (current_token == TOKEN_LBRACE) {
@@ -1676,7 +1677,7 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                 advance_token();
             } else if (current_token == TOKEN_TYPEDEF_NAME) {
                 ts                      = new_type_spec(TYPE_SPEC_TYPEDEF_NAME);
-                ts->u.typedef_name.name = clone_string(current_lexeme);
+                ts->u.typedef_name.name = xstrdup(current_lexeme);
                 advance_token();
             } else if (current_token == TOKEN_ATOMIC) {
                 advance_token();
@@ -1689,7 +1690,7 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                 advance_token();
                 ts = new_type_spec(is_struct ? TYPE_SPEC_STRUCT : TYPE_SPEC_UNION);
                 if (current_token == TOKEN_IDENTIFIER) {
-                    ts->u.struct_spec.name = clone_string(current_lexeme);
+                    ts->u.struct_spec.name = xstrdup(current_lexeme);
                     advance_token();
                 } else {
                     ts->u.struct_spec.name = NULL;
@@ -1703,7 +1704,7 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                 advance_token();
                 ts = new_type_spec(TYPE_SPEC_ENUM);
                 if (current_token == TOKEN_IDENTIFIER) {
-                    ts->u.enum_spec.name = clone_string(current_lexeme);
+                    ts->u.enum_spec.name = xstrdup(current_lexeme);
                     advance_token();
                 } else {
                     ts->u.enum_spec.name = NULL;
@@ -1715,7 +1716,7 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
                         if (current_token != TOKEN_IDENTIFIER) {
                             fatal_error("Expected identifier");
                         }
-                        Enumerator *e = new_enumerator(clone_string(current_lexeme), NULL);
+                        Enumerator *e = new_enumerator(xstrdup(current_lexeme), NULL);
                         advance_token();
                         if (current_token == TOKEN_ASSIGN) {
                             advance_token();
@@ -1751,7 +1752,7 @@ Type *parse_enum_specifier()
     expect_token(TOKEN_ENUM);
     Type *type = new_type(TYPE_ENUM);
     if (current_token == TOKEN_IDENTIFIER) {
-        type->u.enum_t.name = clone_string(current_lexeme);
+        type->u.enum_t.name = xstrdup(current_lexeme);
         advance_token();
     }
     if (current_token == TOKEN_LBRACE) {
@@ -1782,7 +1783,7 @@ Enumerator *parse_enumerator()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Ident name = clone_string(current_lexeme);
+    Ident name = xstrdup(current_lexeme);
     expect_token(TOKEN_IDENTIFIER);
     Expr *value = NULL;
     if (current_token == TOKEN_ASSIGN) {
@@ -1916,7 +1917,7 @@ Declarator *parse_direct_declarator()
     Declarator *decl;
     if (current_token == TOKEN_IDENTIFIER) {
         decl       = new_declarator();
-        decl->name = clone_string(current_lexeme);
+        decl->name = xstrdup(current_lexeme);
         advance_token();
     } else if (current_token == TOKEN_LPAREN) {
         advance_token();
@@ -2042,7 +2043,7 @@ Param *parse_parameter_type_list(bool *variadic_flag)
         Param *param = new_param();
         param->type = parse_type_name();
         if (current_token == TOKEN_IDENTIFIER) {
-            param->name = clone_string(current_lexeme);
+            param->name = xstrdup(current_lexeme);
             advance_token();
         }
         *params_tail = param;
@@ -2235,7 +2236,7 @@ Param *parse_parameter_declaration()
         DeclaratorSuffix *suffixes = NULL;
 
         if (is_declarator && current_token == TOKEN_IDENTIFIER) {
-            name = clone_string(current_lexeme);
+            name = xstrdup(current_lexeme);
             advance_token();
             if (current_token == TOKEN_STAR || current_token == TOKEN_LBRACKET ||
                 current_token == TOKEN_LPAREN) {
@@ -2375,7 +2376,7 @@ Designator *parse_designator()
         fatal_error("Expected designator");
     }
     advance_token();
-    Ident name = clone_string(current_lexeme);
+    Ident name = xstrdup(current_lexeme);
     expect_token(TOKEN_IDENTIFIER);
     Designator *d = new_designator(DESIGNATOR_FIELD);
     d->u.name     = name;
@@ -2391,7 +2392,7 @@ Declaration *parse_static_assert_declaration()
     expect_token(TOKEN_LPAREN);
     Expr *condition = parse_constant_expression();
     expect_token(TOKEN_COMMA);
-    char *message = clone_string(current_lexeme);
+    char *message = xstrdup(current_lexeme);
     expect_token(TOKEN_STRING_LITERAL);
     expect_token(TOKEN_RPAREN);
     expect_token(TOKEN_SEMICOLON);
@@ -2432,7 +2433,7 @@ Stmt *parse_labeled_statement()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_IDENTIFIER) {
-        Ident label = clone_string(current_lexeme);
+        Ident label = xstrdup(current_lexeme);
         advance_token();
         expect_token(TOKEN_COLON);
         Stmt *stmt               = parse_statement();
@@ -2637,7 +2638,7 @@ Stmt *parse_jump_statement()
     }
     if (current_token == TOKEN_GOTO) {
         advance_token();
-        Ident label = clone_string(current_lexeme);
+        Ident label = xstrdup(current_lexeme);
         expect_token(TOKEN_IDENTIFIER);
         expect_token(TOKEN_SEMICOLON);
         Stmt *stmt         = new_stmt(STMT_GOTO);
@@ -2750,7 +2751,7 @@ ExternalDecl *parse_external_declaration()
 
     ExternalDecl *ed           = new_external_decl(EXTERNAL_DECL_FUNCTION);
     ed->u.function.specifiers  = spec;
-    ed->u.function.name        = clone_string(decl->name);
+    ed->u.function.name        = xstrdup(decl->name);
     ed->u.function.type        = type_apply_suffixes(type_apply_pointers(base_type, decl->pointers), decl->suffixes);
     ed->u.function.param_decls = decl_list;
     ed->u.function.body        = parse_compound_statement();
