@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "ast.h"
 #include "internal.h"
@@ -50,6 +51,7 @@ Program *import_ast(int fileno)
         fprintf(stderr, "Error importing AST: cannot open file descriptor #%d\n", fileno);
         exit(1);
     }
+    lseek(fileno, 0L, SEEK_SET);
     size_t tag = wgetw(input);
     check_input(input, "program tag");
     if (tag != TAG_PROGRAM) {
@@ -235,8 +237,12 @@ Declaration *import_declaration(WFILE *input)
 {
     size_t tag = wgetw(input);
     check_input(input, "declaration tag");
-    if (tag < TAG_DECLARATION || tag > TAG_DECLARATION + DECL_EMPTY)
-        return NULL;
+    if (tag == TAG_EOL)
+         return NULL;
+    if (tag < TAG_DECLARATION || tag > TAG_DECLARATION + DECL_EMPTY) {
+        fprintf(stderr, "Error: Expected TAG_DECLARATION, got 0x%zx\n", tag);
+        exit(1);
+    }
     DeclarationKind kind = (DeclarationKind)(tag - TAG_DECLARATION);
     Declaration *decl    = new_declaration(kind);
     switch (kind) {
@@ -268,8 +274,12 @@ DeclSpec *import_decl_spec(WFILE *input)
 {
     size_t tag = wgetw(input);
     check_input(input, "decl spec tag");
-    if (tag != TAG_DECLSPEC)
+    if (tag == TAG_EOL)
         return NULL;
+    if (tag != TAG_DECLSPEC) {
+        fprintf(stderr, "Error: Expected TAG_DECLSPEC, got 0x%zx\n", tag);
+        exit(1);
+    }
     DeclSpec *spec            = new_decl_spec();
     TypeQualifier **next_qual = &spec->qualifiers;
     while ((tag = wgetw(input)) != TAG_EOL) {
@@ -606,8 +616,12 @@ Stmt *import_stmt(WFILE *input)
 {
     size_t tag = wgetw(input);
     check_input(input, "stmt tag");
-    if (tag < TAG_STMT || tag > TAG_STMT + STMT_DEFAULT)
+    if (tag == TAG_EOL)
         return NULL;
+    if (tag < TAG_STMT || tag > TAG_STMT + STMT_DEFAULT) {
+        fprintf(stderr, "Error: Expected TAG_STMT, got 0x%zx\n", tag);
+        exit(1);
+    }
     StmtKind kind = (StmtKind)(tag - TAG_STMT);
     Stmt *stmt    = new_stmt(kind);
     switch (kind) {

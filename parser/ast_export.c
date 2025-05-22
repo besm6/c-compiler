@@ -32,16 +32,16 @@ void export_external_decl(WFILE *fd, ExternalDecl *exdecl);
 
 void export_ast(int fileno, Program *program)
 {
-    if (!program)
-        return;
     WFILE *fd = wdopen(fileno, "a");
     if (!fd) {
         fprintf(stderr, "Error exporting AST: cannot open file descriptor #%d\n", fileno);
         exit(1);
     }
     wputw(TAG_PROGRAM, fd);
-    for (ExternalDecl *decl = program->decls; decl; decl = decl->next) {
-        export_external_decl(fd, decl);
+    if (program) {
+        for (ExternalDecl *decl = program->decls; decl; decl = decl->next) {
+            export_external_decl(fd, decl);
+        }
     }
     wputw(TAG_EOL, fd);
     wclose(fd);
@@ -49,8 +49,10 @@ void export_ast(int fileno, Program *program)
 
 void export_type(WFILE *fd, Type *type)
 {
-    if (!type)
+    if (! type) {
+        wputw(TAG_EOL, fd);
         return;
+    }
     wputw(TAG_TYPE + type->kind, fd);
     switch (type->kind) {
     case TYPE_VOID:
@@ -161,8 +163,10 @@ void export_param(WFILE *fd, Param *param)
 
 void export_declaration(WFILE *fd, Declaration *decl)
 {
-    if (!decl)
+    if (!decl) {
+        wputw(TAG_EOL, fd);
         return;
+    }
     wputw(TAG_DECLARATION + decl->kind, fd);
     switch (decl->kind) {
     case DECL_VAR:
@@ -185,8 +189,10 @@ void export_declaration(WFILE *fd, Declaration *decl)
 
 void export_decl_spec(WFILE *fd, DeclSpec *spec)
 {
-    if (!spec)
+    if (!spec) {
+        wputw(TAG_EOL, fd);
         return;
+    }
     wputw(TAG_DECLSPEC, fd);
     for (TypeQualifier *q = spec->qualifiers; q; q = q->next) {
         export_type_qualifier(fd, q);
@@ -196,7 +202,6 @@ void export_decl_spec(WFILE *fd, DeclSpec *spec)
     for (FunctionSpec *fs = spec->func_specs; fs; fs = fs->next) {
         export_function_spec(fd, fs);
     }
-    wputw(TAG_EOL, fd);
     export_alignment_spec(fd, spec->align_spec);
 }
 
@@ -430,8 +435,10 @@ void export_generic_assoc(WFILE *fd, GenericAssoc *gasc)
 
 void export_stmt(WFILE *fd, Stmt *stmt)
 {
-    if (!stmt)
+    if (!stmt) {
+        wputw(TAG_EOL, fd);
         return;
+    }
     wputw(TAG_STMT + stmt->kind, fd);
     switch (stmt->kind) {
     case STMT_EXPR:
