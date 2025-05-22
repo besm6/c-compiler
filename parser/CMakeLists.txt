@@ -11,6 +11,7 @@ add_library(parser STATIC
     ast_graphviz.c
     ast_export.c
     ast_import.c
+    ast_compare.c
     symtab.c
     string_map.c
     xalloc.c

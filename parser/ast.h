@@ -504,6 +504,7 @@ extern int parser_debug;
 
 Program *parse(FILE *input);
 void free_program(Program* program);
+void export_ast(int fileno, Program *program);
 void export_yaml(FILE *fd, Program *program);
 void export_dot(FILE *fd, Program *program);
 
@@ -517,6 +518,8 @@ extern const char *type_kind_str[];
 void free_expression(Expr *expr);
 void free_statement(Stmt *stmt);
 void free_type(Type *type);
+
+bool compare_program(const Program *a, const Program *b);
 
 #ifdef GTEST_API_
 void advance_token(void);

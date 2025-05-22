@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "ast.h"
 #include "tags.h"
@@ -29,15 +30,21 @@ void export_decl_or_stmt(WFILE *fd, DeclOrStmt *dost);
 void export_for_init(WFILE *fd, ForInit *finit);
 void export_external_decl(WFILE *fd, ExternalDecl *exdecl);
 
-void export_ast(WFILE *fd, Program *program)
+void export_ast(int fileno, Program *program)
 {
     if (!program)
         return;
+    WFILE *fd = wdopen(fileno, "r");
+    if (!fd) {
+        fprintf(stderr, "Error exporting AST: cannot open file descriptor #%d\n", fileno);
+        exit(1);
+    }
     wputw(TAG_PROGRAM, fd);
     for (ExternalDecl *decl = program->decls; decl; decl = decl->next) {
         export_external_decl(fd, decl);
     }
     wputw(TAG_EOL, fd);
+    wclose(fd);
 }
 
 void export_type(WFILE *fd, Type *type)

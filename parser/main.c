@@ -182,8 +182,10 @@ void process_file(Args *args)
         if (args->verbose) {
             printf("Emitting AST in binary format to %s\n", args->output_file);
         }
-        //TODO: emit AST
-        print_program(output_file, program);
+        if (args->debug) {
+            print_program(output_file, program);
+        }
+        export_ast(fileno(output_file), program);
         break;
     case FORMAT_YAML:
         if (args->verbose) {

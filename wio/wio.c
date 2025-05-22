@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <math.h>
 
 #include "wio.h"
 
@@ -355,4 +356,69 @@ int wputstr(const char *str, WFILE *stream)
         }
         str += sizeof(size_t);
     }
+}
+
+//
+// Read FP value. Return NaN on EOF or error.
+//
+double wgetd(WFILE *stream)
+{
+    if (sizeof(double) == sizeof(size_t)) {
+        // One word
+        union {
+            size_t w;
+            double f;
+        } u;
+        u.w = wgetw(stream);
+        if (u.w == (size_t)-1)
+            return nan("");
+        return u.f;
+    }
+    if (sizeof(double) == 2*sizeof(size_t)) {
+        // Two words
+        union {
+            size_t w[2];
+            double f;
+        } u;
+        u.w[0] = wgetw(stream);
+        if (u.w[0] == (size_t)-1)
+            return nan("");
+        u.w[1] = wgetw(stream);
+        if (u.w[1] == (size_t)-1)
+            return nan("");
+        return u.f;
+    }
+    // Cannot deserialize
+    errno = EINVAL;
+    return -1;
+}
+
+//
+// Buffer an FP value.
+//
+int wputd(double f, WFILE *stream)
+{
+    if (sizeof(double) == sizeof(size_t)) {
+        // One word
+        union {
+            double f;
+            size_t w;
+        } u;
+        u.f = f;
+        return wputw(u.w, stream);
+    }
+    if (sizeof(double) == 2*sizeof(size_t)) {
+        // Two words
+        union {
+            double f;
+            size_t w[2];
+        } u;
+        u.f = f;
+        if (wputw(u.w[0], stream) < 0)
+            return -1;
+        return wputw(u.w[1], stream);
+    }
+    // Cannot serialize
+    errno = EINVAL;
+    return -1;
 }
