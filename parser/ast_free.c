@@ -298,6 +298,7 @@ static void free_init_declarator(InitDeclarator *id)
         return;
     if (id->name)
         xfree(id->name);
+    free_type(id->type);
     free_initializer(id->init);
     InitDeclarator *next = id->next;
     xfree(id);
