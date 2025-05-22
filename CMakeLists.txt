@@ -23,7 +23,6 @@ enable_testing()
 add_subdirectory(scanner)
 add_subdirectory(parser)
 add_subdirectory(libutil)
-add_subdirectory(wio)
 
 #
 # 'cast' executable

@@ -15,7 +15,7 @@ add_library(parser STATIC
     symtab.c
 )
 target_include_directories(parser PUBLIC .)
-target_link_libraries(parser scanner wio libutil)
+target_link_libraries(parser scanner libutil)
 
 #
 # Tests for parser
