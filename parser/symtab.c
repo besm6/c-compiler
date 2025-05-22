@@ -32,6 +32,14 @@ bool symtab_define(const char *name, int value, int level)
 }
 
 //
+// Remove one name.
+//
+void symtab_remove(const char *name)
+{
+    map_remove_key(&symtab, name);
+}
+
+//
 // Remove names from the tree, which exceed given level.
 //
 void symtab_purge(int level)

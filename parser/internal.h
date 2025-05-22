@@ -157,6 +157,7 @@ Enumerator *clone_enumerator(const Enumerator *enumerator);
 //
 int symtab_find(const char *name);
 bool symtab_define(const char *name, int token, int level);
+void symtab_remove(const char *name);
 void symtab_purge(int level);
 void symtab_free(void);
 

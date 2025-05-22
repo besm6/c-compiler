@@ -360,6 +360,7 @@ TEST_F(ParserTest, TypeTypedef)
     EXPECT_STREQ(type->u.enum_t.name, "MyType");
     EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
+    symtab_remove("MyType");
 }
 
 TEST_F(ParserTest, TypeConstStruct)
