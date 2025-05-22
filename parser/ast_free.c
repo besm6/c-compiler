@@ -4,338 +4,377 @@
 #include "internal.h"
 #include "xalloc.h"
 
-// Forward declarations
+/* Forward declarations for recursive free functions */
+void free_type(Type *type);
+void free_type_qualifier(TypeQualifier *qual);
+void free_field(Field *field);
+void free_enumerator(Enumerator *enumerator);
+void free_param(Param *param);
+void free_declaration(Declaration *decl);
+void free_decl_spec(DeclSpec *spec);
+void free_storage_class(StorageClass *sc);
+void free_function_spec(FunctionSpec *fs);
+void free_alignment_spec(AlignmentSpec *as);
+void free_init_declarator(InitDeclarator *init_decl);
+void free_initializer(Initializer *init);
+void free_init_item(InitItem *item);
+void free_designator(Designator *design);
 void free_expression(Expr *expr);
+void free_literal(Literal *lit);
+void free_unary_op(UnaryOp *op);
+void free_binary_op(BinaryOp *op);
+void free_assign_op(AssignOp *op);
+void free_generic_assoc(GenericAssoc *assoc);
 void free_statement(Stmt *stmt);
-static void free_declaration(Declaration *decl);
-static void free_external_decl(ExternalDecl *ext);
-static void free_initializer(Initializer *init);
+void free_decl_or_stmt(DeclOrStmt *ds);
+void free_for_init(ForInit *fi);
+void free_external_decl(ExternalDecl *ext_decl);
+void free_type_spec(TypeSpec *ts);
+void free_declarator(Declarator *decl);
+void free_pointer(Pointer *ptr);
+void free_declarator_suffix(DeclaratorSuffix *suffix);
 
-// Free Type
+void free_program(Program *program)
+{
+    if (program == NULL)
+        return;
+    free_external_decl(program->decls);
+    xfree(program);
+}
+
 void free_type(Type *type)
 {
-    if (!type)
+    if (type == NULL)
         return;
-    TypeQualifier *qual = type->qualifiers;
-    while (qual) {
+    switch (type->kind) {
+    case TYPE_COMPLEX:
+    case TYPE_IMAGINARY:
+        free_type(type->u.complex.base);
+        break;
+    case TYPE_POINTER:
+        free_type(type->u.pointer.target);
+        free_type_qualifier(type->u.pointer.qualifiers);
+        break;
+    case TYPE_ARRAY:
+        free_type(type->u.array.element);
+        free_expression(type->u.array.size);
+        free_type_qualifier(type->u.array.qualifiers);
+        break;
+    case TYPE_FUNCTION:
+        free_type(type->u.function.return_type);
+        free_param(type->u.function.params);
+        break;
+    case TYPE_STRUCT:
+    case TYPE_UNION:
+        xfree(type->u.struct_t.name);
+        free_field(type->u.struct_t.fields);
+        break;
+    case TYPE_ENUM:
+        xfree(type->u.enum_t.name);
+        free_enumerator(type->u.enum_t.enumerators);
+        break;
+    case TYPE_TYPEDEF_NAME:
+        xfree(type->u.typedef_name.name);
+        break;
+    case TYPE_ATOMIC:
+        free_type(type->u.atomic.base);
+        break;
+    default:
+        break; /* No nested allocations for basic types */
+    }
+    free_type_qualifier(type->qualifiers);
+    xfree(type);
+}
+
+void free_type_qualifier(TypeQualifier *qual)
+{
+    while (qual != NULL) {
         TypeQualifier *next = qual->next;
         xfree(qual);
         qual = next;
     }
-    xfree(type);
 }
 
-// Free Literal
-static void free_literal(Literal *lit)
+void free_field(Field *field)
 {
-    if (!lit)
-        return;
-    if (lit->kind == LITERAL_STRING && lit->u.string_val) {
-        xfree(lit->u.string_val);
-    }
-    xfree(lit);
-}
-
-// Free Designator
-static void free_designator(Designator *designator)
-{
-    while (designator) {
-        Designator *next = designator->next;
-        if (designator->kind == DESIGNATOR_ARRAY) {
-            free_expression(designator->u.expr);
-        }
-        xfree(designator);
-        designator = next;
+    while (field != NULL) {
+        Field *next = field->next;
+        free_type(field->type);
+        xfree(field->name);
+        free_expression(field->bitfield);
+        xfree(field);
+        field = next;
     }
 }
 
-// Free InitItem
-static void free_init_item(InitItem *init_item)
+void free_enumerator(Enumerator *enumerator)
 {
-    while (init_item) {
-        InitItem *next = init_item->next;
-        free_designator(init_item->designators);
-        free_initializer(init_item->init);
-        xfree(init_item);
-        init_item = next;
+    while (enumerator != NULL) {
+        Enumerator *next = enumerator->next;
+        xfree(enumerator->name);
+        free_expression(enumerator->value);
+        xfree(enumerator);
+        enumerator = next;
     }
 }
 
-// Free Expr
-void free_expression(Expr *expr)
+void free_param(Param *param)
 {
-    if (!expr)
-        return;
-    switch (expr->kind) {
-    case EXPR_VAR:
-        if (expr->u.var)
-            xfree(expr->u.var);
-        break;
-    case EXPR_LITERAL:
-        free_literal(expr->u.literal);
-        break;
-    case EXPR_BINARY_OP:
-        xfree(expr->u.binary_op.op);
-        free_expression(expr->u.binary_op.left);
-        free_expression(expr->u.binary_op.right);
-        break;
-    case EXPR_UNARY_OP:
-        xfree(expr->u.unary_op.op);
-        free_expression(expr->u.unary_op.expr);
-        break;
-    case EXPR_POST_INC:
-    case EXPR_POST_DEC:
-        free_expression(expr->u.post_inc);
-        break;
-    case EXPR_CALL:
-        free_expression(expr->u.call.func);
-        free_expression(expr->u.call.args);
-        break;
-    case EXPR_CAST:
-        free_type(expr->u.cast.type);
-        free_expression(expr->u.cast.expr);
-        break;
-    case EXPR_COMPOUND:
-        free_type(expr->u.compound_literal.type);
-        free_init_item(expr->u.compound_literal.init);
-        break;
-    case EXPR_SIZEOF_EXPR:
-        free_expression(expr->u.sizeof_expr);
-        break;
-    case EXPR_SIZEOF_TYPE:
-        free_type(expr->u.sizeof_type);
-        break;
-    case EXPR_ALIGNOF:
-        free_type(expr->u.align_of);
-        break;
-    case EXPR_GENERIC:
-        free_expression(expr->u.generic.controlling_expr);
-        GenericAssoc *assoc = expr->u.generic.associations;
-        while (assoc) {
-            GenericAssoc *next = assoc->next;
-            if (assoc->kind == GENERIC_ASSOC_TYPE) {
-                free_type(assoc->u.type_assoc.type);
-                free_expression(assoc->u.type_assoc.expr);
-            } else {
-                free_expression(assoc->u.default_assoc);
-            }
-            xfree(assoc);
-            assoc = next;
-        }
-        break;
-    case EXPR_ASSIGN:
-        free_expression(expr->u.assign.target);
-        free_expression(expr->u.assign.value);
-        break;
-    case EXPR_COND:
-        free_expression(expr->u.cond.condition);
-        free_expression(expr->u.cond.then_expr);
-        free_expression(expr->u.cond.else_expr);
-        break;
-    case EXPR_FIELD_ACCESS:
-        free_expression(expr->u.field_access.expr);
-        break;
-    case EXPR_PTR_ACCESS:
-        free_expression(expr->u.ptr_access.expr);
-        break;
-    }
-    Expr *next = expr->next;
-    xfree(expr);
-    free_expression(next);
-}
-
-// Free Pointer
-void free_pointer(Pointer *pointer)
-{
-    while (pointer) {
-        TypeQualifier *qual = pointer->qualifiers;
-        while (qual) {
-            TypeQualifier *next = qual->next;
-            xfree(qual);
-            qual = next;
-        }
-        Pointer *next = pointer->next;
-        xfree(pointer);
-        pointer = next;
+    while (param != NULL) {
+        Param *next = param->next;
+        xfree(param->name);
+        free_type(param->type);
+        xfree(param);
+        param = next;
     }
 }
 
-// Free DeclaratorSuffix
-void free_declarator_suffix(DeclaratorSuffix *suffix)
+void free_declaration(Declaration *decl)
 {
-    while (suffix) {
-        DeclaratorSuffix *next = suffix->next;
-        switch (suffix->kind) {
-        case SUFFIX_ARRAY:
-            free_expression(suffix->u.array.size);
+    while (decl != NULL) {
+        Declaration *next = decl->next;
+        switch (decl->kind) {
+        case DECL_VAR:
+            free_decl_spec(decl->u.var.specifiers);
+            free_init_declarator(decl->u.var.declarators);
             break;
-        case SUFFIX_FUNCTION: {
-            Param *param = suffix->u.function.params;
-            while (param) {
-                Param *next_param = param->next;
-                free_type(param->type);
-                if (param->name)
-                    xfree(param->name);
-                xfree(param);
-                param = next_param;
-            }
+        case DECL_STATIC_ASSERT:
+            free_expression(decl->u.static_assrt.condition);
+            xfree(decl->u.static_assrt.message);
+            break;
+        case DECL_EMPTY:
+            free_decl_spec(decl->u.empty.specifiers);
+            free_type(decl->u.empty.type);
             break;
         }
-        case SUFFIX_POINTER:
-            free_pointer(suffix->u.pointer.pointers);
-            free_declarator_suffix(suffix->u.pointer.suffix);
-            break;
-        }
-        xfree(suffix);
-        suffix = next;
+        xfree(decl);
+        decl = next;
     }
 }
 
-// Free Declarator
-void free_declarator(Declarator *decl)
+void free_decl_spec(DeclSpec *spec)
 {
-    if (!decl)
+    if (spec == NULL)
         return;
-    if (decl->name)
-        xfree(decl->name);
-    free_pointer(decl->pointers);
-    free_declarator_suffix(decl->suffixes);
-    xfree(decl);
+    free_type_qualifier(spec->qualifiers);
+    free_storage_class(spec->storage);
+    free_function_spec(spec->func_specs);
+    free_alignment_spec(spec->align_spec);
+    xfree(spec);
 }
 
-// Free Initializer
-static void free_initializer(Initializer *init)
+void free_storage_class(StorageClass *sc)
 {
-    if (!init)
+    if (sc == NULL)
         return;
-    if (init->kind == INITIALIZER_SINGLE) {
-        free_expression(init->u.expr);
+    xfree(sc);
+}
+
+void free_function_spec(FunctionSpec *fs)
+{
+    while (fs != NULL) {
+        FunctionSpec *next = fs->next;
+        xfree(fs);
+        fs = next;
+    }
+}
+
+void free_alignment_spec(AlignmentSpec *as)
+{
+    if (as == NULL)
+        return;
+    if (as->kind == ALIGN_SPEC_TYPE) {
+        free_type(as->u.type);
     } else {
+        free_expression(as->u.expr);
+    }
+    xfree(as);
+}
+
+void free_init_declarator(InitDeclarator *init_decl)
+{
+    while (init_decl != NULL) {
+        InitDeclarator *next = init_decl->next;
+        free_type(init_decl->type);
+        xfree(init_decl->name);
+        free_initializer(init_decl->init);
+        xfree(init_decl);
+        init_decl = next;
+    }
+}
+
+void free_initializer(Initializer *init)
+{
+    if (init == NULL)
+        return;
+    switch (init->kind) {
+    case INITIALIZER_SINGLE:
+        free_expression(init->u.expr);
+        break;
+    case INITIALIZER_COMPOUND:
         free_init_item(init->u.items);
+        break;
     }
     xfree(init);
 }
 
-// Free TypeSpec
-void free_type_spec(TypeSpec *ts)
+void free_init_item(InitItem *item)
 {
-    if (!ts)
-        return;
-    switch (ts->kind) {
-    case TYPE_SPEC_BASIC:
-        free_type(ts->u.basic);
-        break;
-    case TYPE_SPEC_STRUCT:
-    case TYPE_SPEC_UNION:
-        if (ts->u.struct_spec.name)
-            xfree(ts->u.struct_spec.name);
-        Field *field = ts->u.struct_spec.fields;
-        while (field) {
-            Field *next = field->next;
-            free_type(field->type);
-            if (field->name) {
-                xfree(field->name);
-            }
-            free_expression(field->bitfield);
-            xfree(field);
-            field = next;
-        }
-        break;
-    case TYPE_SPEC_ENUM:
-        if (ts->u.enum_spec.name)
-            xfree(ts->u.enum_spec.name);
-        Enumerator *e = ts->u.enum_spec.enumerators;
-        while (e) {
-            Enumerator *next = e->next;
-            if (e->name)
-                xfree(e->name);
-            free_expression(e->value);
-            xfree(e);
-            e = next;
-        }
-        break;
-    case TYPE_SPEC_TYPEDEF_NAME:
-        if (ts->u.typedef_name.name)
-            xfree(ts->u.typedef_name.name);
-        break;
-    case TYPE_SPEC_ATOMIC:
-        free_type(ts->u.atomic.type);
-        break;
+    while (item != NULL) {
+        InitItem *next = item->next;
+        free_designator(item->designators);
+        free_initializer(item->init);
+        xfree(item);
+        item = next;
     }
-    xfree(ts);
 }
 
-// Free DeclSpec
-void free_decl_spec(DeclSpec *spec)
+void free_designator(Designator *design)
 {
-    if (!spec)
-        return;
-    if (spec->storage)
-        xfree(spec->storage);
-    TypeQualifier *qual = spec->qualifiers;
-    while (qual) {
-        TypeQualifier *next = qual->next;
-        xfree(qual);
-        qual = next;
-    }
-    if (spec->func_specs)
-        xfree(spec->func_specs);
-    if (spec->align_spec) {
-        if (spec->align_spec->kind == ALIGN_SPEC_TYPE) {
-            free_type(spec->align_spec->u.type);
+    while (design != NULL) {
+        Designator *next = design->next;
+        if (design->kind == DESIGNATOR_ARRAY) {
+            free_expression(design->u.expr);
         } else {
-            free_expression(spec->align_spec->u.expr);
+            xfree(design->u.name);
         }
-        xfree(spec->align_spec);
+        xfree(design);
+        design = next;
     }
-    xfree(spec);
 }
 
-// Free InitDeclarator
-static void free_init_declarator(InitDeclarator *id)
+void free_expression(Expr *expr)
 {
-    if (!id)
-        return;
-    if (id->name)
-        xfree(id->name);
-    free_type(id->type);
-    free_initializer(id->init);
-    InitDeclarator *next = id->next;
-    xfree(id);
-    free_init_declarator(next);
-}
-
-// Free Declaration
-static void free_declaration(Declaration *decl)
-{
-    if (!decl)
-        return;
-    switch (decl->kind) {
-    case DECL_VAR:
-        free_decl_spec(decl->u.var.specifiers);
-        free_init_declarator(decl->u.var.declarators);
-        break;
-    case DECL_STATIC_ASSERT:
-        free_expression(decl->u.static_assrt.condition);
-        if (decl->u.static_assrt.message)
-            xfree(decl->u.static_assrt.message);
-        break;
-    case DECL_EMPTY:
-        free_decl_spec(decl->u.empty.specifiers);
-        free_type(decl->u.empty.type);
-        break;
+    while (expr != NULL) {
+        Expr *next = expr->next;
+        switch (expr->kind) {
+        case EXPR_LITERAL:
+            free_literal(expr->u.literal);
+            break;
+        case EXPR_VAR:
+            xfree(expr->u.var);
+            break;
+        case EXPR_UNARY_OP:
+            free_unary_op(expr->u.unary_op.op);
+            free_expression(expr->u.unary_op.expr);
+            break;
+        case EXPR_BINARY_OP:
+            free_binary_op(expr->u.binary_op.op);
+            free_expression(expr->u.binary_op.left);
+            free_expression(expr->u.binary_op.right);
+            break;
+        case EXPR_ASSIGN:
+            free_expression(expr->u.assign.target);
+            free_assign_op(expr->u.assign.op);
+            free_expression(expr->u.assign.value);
+            break;
+        case EXPR_COND:
+            free_expression(expr->u.cond.condition);
+            free_expression(expr->u.cond.then_expr);
+            free_expression(expr->u.cond.else_expr);
+            break;
+        case EXPR_CAST:
+            free_type(expr->u.cast.type);
+            free_expression(expr->u.cast.expr);
+            break;
+        case EXPR_CALL:
+            free_expression(expr->u.call.func);
+            free_expression(expr->u.call.args);
+            break;
+        case EXPR_COMPOUND:
+            free_type(expr->u.compound_literal.type);
+            free_init_item(expr->u.compound_literal.init);
+            break;
+        case EXPR_FIELD_ACCESS:
+        case EXPR_PTR_ACCESS:
+            free_expression(expr->u.field_access.expr);
+            xfree(expr->u.field_access.field);
+            break;
+        case EXPR_POST_INC:
+        case EXPR_POST_DEC:
+            free_expression(expr->u.post_inc);
+            break;
+        case EXPR_SIZEOF_EXPR:
+            free_expression(expr->u.sizeof_expr);
+            break;
+        case EXPR_SIZEOF_TYPE:
+        case EXPR_ALIGNOF:
+            free_type(expr->u.sizeof_type);
+            break;
+        case EXPR_GENERIC:
+            free_expression(expr->u.generic.controlling_expr);
+            free_generic_assoc(expr->u.generic.associations);
+            break;
+        }
+        free_type(expr->type);
+        xfree(expr);
+        expr = next;
     }
-    xfree(decl);
 }
 
-// Free Stmt
+void free_literal(Literal *lit)
+{
+    if (lit == NULL)
+        return;
+    switch (lit->kind) {
+    case LITERAL_STRING:
+        xfree(lit->u.string_val);
+        break;
+    case LITERAL_ENUM:
+        xfree(lit->u.enum_const);
+        break;
+    default:
+        break; /* No allocations for int, float, char */
+    }
+    xfree(lit);
+}
+
+void free_unary_op(UnaryOp *op)
+{
+    if (op == NULL)
+        return;
+    xfree(op);
+}
+
+void free_binary_op(BinaryOp *op)
+{
+    if (op == NULL)
+        return;
+    xfree(op);
+}
+
+void free_assign_op(AssignOp *op)
+{
+    if (op == NULL)
+        return;
+    xfree(op);
+}
+
+void free_generic_assoc(GenericAssoc *assoc)
+{
+    while (assoc != NULL) {
+        GenericAssoc *next = assoc->next;
+        if (assoc->kind == GENERIC_ASSOC_TYPE) {
+            free_type(assoc->u.type_assoc.type);
+            free_expression(assoc->u.type_assoc.expr);
+        } else {
+            free_expression(assoc->u.default_assoc);
+        }
+        xfree(assoc);
+        assoc = next;
+    }
+}
+
 void free_statement(Stmt *stmt)
 {
-    if (!stmt)
+    if (stmt == NULL)
         return;
     switch (stmt->kind) {
     case STMT_EXPR:
         free_expression(stmt->u.expr);
+        break;
+    case STMT_COMPOUND:
+        free_decl_or_stmt(stmt->u.compound);
         break;
     case STMT_IF:
         free_expression(stmt->u.if_stmt.condition);
@@ -355,31 +394,22 @@ void free_statement(Stmt *stmt)
         free_expression(stmt->u.do_while.condition);
         break;
     case STMT_FOR:
-        if (stmt->u.for_stmt.init) {
-            if (stmt->u.for_stmt.init->kind == FOR_INIT_EXPR) {
-                free_expression(stmt->u.for_stmt.init->u.expr);
-            } else {
-                free_declaration(stmt->u.for_stmt.init->u.decl);
-            }
-            xfree(stmt->u.for_stmt.init);
-        }
+        free_for_init(stmt->u.for_stmt.init);
         free_expression(stmt->u.for_stmt.condition);
         free_expression(stmt->u.for_stmt.update);
         free_statement(stmt->u.for_stmt.body);
         break;
     case STMT_GOTO:
-        if (stmt->u.goto_label)
-            xfree(stmt->u.goto_label);
+        xfree(stmt->u.goto_label);
         break;
     case STMT_CONTINUE:
     case STMT_BREAK:
-        break;
+        break; /* No allocations */
     case STMT_RETURN:
         free_expression(stmt->u.expr);
         break;
     case STMT_LABELED:
-        if (stmt->u.labeled.label)
-            xfree(stmt->u.labeled.label);
+        xfree(stmt->u.labeled.label);
         free_statement(stmt->u.labeled.stmt);
         break;
     case STMT_CASE:
@@ -389,52 +419,124 @@ void free_statement(Stmt *stmt)
     case STMT_DEFAULT:
         free_statement(stmt->u.default_stmt);
         break;
-    case STMT_COMPOUND: {
-        DeclOrStmt *item = stmt->u.compound;
-        while (item) {
-            DeclOrStmt *next = item->next;
-            if (item->kind == DECL_OR_STMT_DECL) {
-                free_declaration(item->u.decl);
-            } else {
-                free_statement(item->u.stmt);
-            }
-            xfree(item);
-            item = next;
-        }
-        break;
-    }
     }
     xfree(stmt);
 }
 
-// Free ExternalDecl
-static void free_external_decl(ExternalDecl *ext)
+void free_decl_or_stmt(DeclOrStmt *ds)
 {
-    if (!ext)
-        return;
-    switch (ext->kind) {
-    case EXTERNAL_DECL_FUNCTION:
-        free_type(ext->u.function.type);
-        if (ext->u.function.name)
-            xfree(ext->u.function.name);
-        free_decl_spec(ext->u.function.specifiers);
-        free_statement(ext->u.function.body);
-        break;
-    case EXTERNAL_DECL_DECLARATION:
-        free_declaration(ext->u.declaration);
-        break;
+    while (ds != NULL) {
+        DeclOrStmt *next = ds->next;
+        if (ds->kind == DECL_OR_STMT_DECL) {
+            free_declaration(ds->u.decl);
+        } else {
+            free_statement(ds->u.stmt);
+        }
+        xfree(ds);
+        ds = next;
     }
-    ExternalDecl *next = ext->next;
-    xfree(ext);
-    free_external_decl(next);
 }
 
-// Main free function
-void free_program(Program *program)
+void free_for_init(ForInit *fi)
 {
-    if (!program)
+    if (fi == NULL)
         return;
-    free_external_decl(program->decls);
-    xfree(program);
-    symtab_free();
+    if (fi->kind == FOR_INIT_EXPR) {
+        free_expression(fi->u.expr);
+    } else {
+        free_declaration(fi->u.decl);
+    }
+    xfree(fi);
+}
+
+void free_external_decl(ExternalDecl *ext_decl)
+{
+    while (ext_decl != NULL) {
+        ExternalDecl *next = ext_decl->next;
+        if (ext_decl->kind == EXTERNAL_DECL_FUNCTION) {
+            free_type(ext_decl->u.function.type);
+            xfree(ext_decl->u.function.name);
+            free_decl_spec(ext_decl->u.function.specifiers);
+            free_declaration(ext_decl->u.function.param_decls);
+            free_statement(ext_decl->u.function.body);
+        } else {
+            free_declaration(ext_decl->u.declaration);
+        }
+        xfree(ext_decl);
+        ext_decl = next;
+    }
+}
+
+void free_type_spec(TypeSpec *ts)
+{
+    while (ts != NULL) {
+        TypeSpec *next = ts->next;
+        switch (ts->kind) {
+        case TYPE_SPEC_BASIC:
+            free_type(ts->u.basic);
+            break;
+        case TYPE_SPEC_STRUCT:
+        case TYPE_SPEC_UNION:
+            xfree(ts->u.struct_spec.name);
+            free_field(ts->u.struct_spec.fields);
+            break;
+        case TYPE_SPEC_ENUM:
+            xfree(ts->u.enum_spec.name);
+            free_enumerator(ts->u.enum_spec.enumerators);
+            break;
+        case TYPE_SPEC_TYPEDEF_NAME:
+            xfree(ts->u.typedef_name.name);
+            break;
+        case TYPE_SPEC_ATOMIC:
+            free_type(ts->u.atomic.type);
+            break;
+        }
+        free_type_qualifier(ts->qualifiers);
+        xfree(ts);
+        ts = next;
+    }
+}
+
+void free_declarator(Declarator *decl)
+{
+    while (decl != NULL) {
+        Declarator *next = decl->next;
+        xfree(decl->name);
+        free_pointer(decl->pointers);
+        free_declarator_suffix(decl->suffixes);
+        xfree(decl);
+        decl = next;
+    }
+}
+
+void free_pointer(Pointer *ptr)
+{
+    while (ptr != NULL) {
+        Pointer *next = ptr->next;
+        free_type_qualifier(ptr->qualifiers);
+        xfree(ptr);
+        ptr = next;
+    }
+}
+
+void free_declarator_suffix(DeclaratorSuffix *suffix)
+{
+    while (suffix != NULL) {
+        DeclaratorSuffix *next = suffix->next;
+        switch (suffix->kind) {
+        case SUFFIX_ARRAY:
+            free_expression(suffix->u.array.size);
+            free_type_qualifier(suffix->u.array.qualifiers);
+            break;
+        case SUFFIX_FUNCTION:
+            free_param(suffix->u.function.params);
+            break;
+        case SUFFIX_POINTER:
+            free_pointer(suffix->u.pointer.pointers);
+            free_declarator_suffix(suffix->u.pointer.suffix);
+            break;
+        }
+        xfree(suffix);
+        suffix = next;
+    }
 }

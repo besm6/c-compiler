@@ -80,7 +80,6 @@ void *xmalloc(size_t size, const char *funcname, const char *filename, unsigned 
         head->prev   = h;
         head         = h;
     }
-printf("--- %zu bytes allocated by %s() at line %u of file %s\n", h->requested_size, h->funcname, h->lineno, filename);
 
     /* Return pointer to user data (after header) */
     return (void *)((char *)ptr + sizeof(BlockHeader));
