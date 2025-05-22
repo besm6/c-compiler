@@ -301,7 +301,7 @@ InitDeclarator *parse_init_declarator_list(Declarator *first, const Type *base_t
 InitDeclarator *parse_init_declarator(Declarator *decl, const Type *base_type);
 StorageClass *parse_storage_class_specifier();
 TypeSpec *parse_type_specifier();
-Type *parse_struct_or_union_specifier();
+TypeSpec *parse_struct_or_union_specifier();
 int parse_struct_or_union();
 Field *parse_struct_declaration_list();
 Field *parse_struct_declaration();
@@ -1437,10 +1437,7 @@ TypeSpec *parse_type_specifier()
         ts                = new_type_spec(TYPE_SPEC_ATOMIC);
         ts->u.atomic.type = parse_atomic_type_specifier();
     } else if (current_token == TOKEN_STRUCT || current_token == TOKEN_UNION) {
-        Type *type = parse_struct_or_union_specifier();
-        ts         = new_type_spec(type->kind == TYPE_STRUCT ? TYPE_SPEC_STRUCT : TYPE_SPEC_UNION);
-        ts->u.struct_spec.name   = type->u.struct_t.name;
-        ts->u.struct_spec.fields = type->u.struct_t.fields;
+        ts = parse_struct_or_union_specifier();
     } else if (current_token == TOKEN_ENUM) {
         Type *type                  = parse_enum_specifier();
         ts                          = new_type_spec(TYPE_SPEC_ENUM);
@@ -1462,33 +1459,12 @@ TypeSpec *parse_type_specifier()
 //     | struct_or_union IDENTIFIER '{' struct_declaration_list '}'
 //     | struct_or_union IDENTIFIER
 //     ;
-//
-Type *parse_struct_or_union_specifier()
-{
-    if (parser_debug) {
-        printf("--- %s()\n", __func__);
-    }
-    int su     = parse_struct_or_union();
-    Type *type = new_type(su == TOKEN_STRUCT ? TYPE_STRUCT : TYPE_UNION);
-    if (current_token == TOKEN_IDENTIFIER) {
-        type->u.struct_t.name = xstrdup(current_lexeme);
-        advance_token();
-    }
-    if (current_token == TOKEN_LBRACE) {
-        advance_token();
-        type->u.struct_t.fields = parse_struct_declaration_list();
-        expect_token(TOKEN_RBRACE);
-    }
-    return type;
-}
-
-//
 // struct_or_union
 //     : STRUCT
 //     | UNION
 //     ;
 //
-int parse_struct_or_union()
+TypeSpec *parse_struct_or_union_specifier()
 {
     if (parser_debug) {
         printf("--- %s()\n", __func__);
@@ -1496,9 +1472,18 @@ int parse_struct_or_union()
     if (current_token != TOKEN_STRUCT && current_token != TOKEN_UNION) {
         fatal_error("Expected struct or union");
     }
-    int su = current_token;
+    TypeSpec *ts = new_type_spec(current_token == TOKEN_STRUCT ? TYPE_SPEC_STRUCT : TYPE_SPEC_UNION);
     advance_token();
-    return su;
+    if (current_token == TOKEN_IDENTIFIER) {
+        ts->u.struct_spec.name = xstrdup(current_lexeme);
+        advance_token();
+    }
+    if (current_token == TOKEN_LBRACE) {
+        advance_token();
+        ts->u.struct_spec.fields = parse_struct_declaration_list();
+        expect_token(TOKEN_RBRACE);
+    }
+    return ts;
 }
 
 //
@@ -1542,6 +1527,7 @@ Field *parse_struct_declaration()
 
     /* Construct base Type from type_specs (simplified to first basic type) */
     Type *base_type = fuse_type_specifiers(type_specs);
+    free_type_spec(type_specs);
     base_type->qualifiers = qualifiers;
 
     /* Parse struct_declarator_list */
@@ -2133,6 +2119,7 @@ Param *parse_parameter_declaration()
         /* Only declaration_specifiers (unnamed parameter) */
         param->type = parse_type_name();
     }
+    free_type_spec(type_specs);
     return param;
 }
 
@@ -2152,8 +2139,8 @@ Type *parse_type_name()
 
     /* Construct base Type from type_specs (simplified to first basic type) */
     Type *base_type = fuse_type_specifiers(type_specs);
-    base_type->qualifiers = qualifiers;
     free_type_spec(type_specs);
+    base_type->qualifiers = qualifiers;
 
     /* Parse optional abstract_declarator */
     Pointer *pointers          = NULL;
