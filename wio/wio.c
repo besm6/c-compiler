@@ -258,7 +258,7 @@ size_t wgetw(WFILE *stream)
 
     size_t w = stream->buffer[stream->buffer_pos++];
     if (wio_debug) {
-        printf("--- %s %#zx\n", __func__, w);
+        printf("    %s %#zx\n", __func__, w);
     }
     return w;
 }
@@ -280,7 +280,7 @@ int wputw(size_t w, WFILE *stream)
     }
 
     if (wio_debug) {
-        printf("--- %s %#zx\n", __func__, w);
+        printf("    %s %#zx\n", __func__, w);
     }
     stream->buffer[stream->buffer_pos++] = w;
     return 0;

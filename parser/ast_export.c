@@ -5,6 +5,8 @@
 #include "tags.h"
 #include "wio.h"
 
+static const bool export_debug = true; // Enable manually for debug
+
 void export_type(WFILE *fd, Type *type);
 void export_type_qualifier(WFILE *fd, TypeQualifier *qual);
 void export_field(WFILE *fd, Field *field);
@@ -32,6 +34,9 @@ void export_external_decl(WFILE *fd, ExternalDecl *exdecl);
 
 void export_ast(int fileno, Program *program)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     WFILE *fd = wdopen(fileno, "a");
     if (!fd) {
         fprintf(stderr, "Error exporting AST: cannot open file descriptor #%d\n", fileno);
@@ -49,6 +54,9 @@ void export_ast(int fileno, Program *program)
 
 void export_type(WFILE *fd, Type *type)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (! type) {
         wputw(TAG_EOL, fd);
         return;
@@ -128,6 +136,9 @@ void export_type(WFILE *fd, Type *type)
 
 void export_type_qualifier(WFILE *fd, TypeQualifier *qual)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!qual)
         return;
     wputw(TAG_TYPEQUALIFIER + qual->kind, fd);
@@ -135,6 +146,9 @@ void export_type_qualifier(WFILE *fd, TypeQualifier *qual)
 
 void export_field(WFILE *fd, Field *field)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!field)
         return;
     wputw(TAG_FIELD, fd);
@@ -145,6 +159,9 @@ void export_field(WFILE *fd, Field *field)
 
 void export_enumerator(WFILE *fd, Enumerator *enumr)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!enumr)
         return;
     wputw(TAG_ENUMERATOR, fd);
@@ -154,6 +171,9 @@ void export_enumerator(WFILE *fd, Enumerator *enumr)
 
 void export_param(WFILE *fd, Param *param)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!param)
         return;
     wputw(TAG_PARAM, fd);
@@ -163,6 +183,9 @@ void export_param(WFILE *fd, Param *param)
 
 void export_declaration(WFILE *fd, Declaration *decl)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!decl) {
         wputw(TAG_EOL, fd);
         return;
@@ -189,6 +212,9 @@ void export_declaration(WFILE *fd, Declaration *decl)
 
 void export_decl_spec(WFILE *fd, DeclSpec *spec)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!spec) {
         wputw(TAG_EOL, fd);
         return;
@@ -207,6 +233,9 @@ void export_decl_spec(WFILE *fd, DeclSpec *spec)
 
 void export_storage_class(WFILE *fd, StorageClass *stor)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!stor)
         return;
     wputw(TAG_STORAGECLASS + stor->kind, fd);
@@ -214,6 +243,9 @@ void export_storage_class(WFILE *fd, StorageClass *stor)
 
 void export_function_spec(WFILE *fd, FunctionSpec *fspec)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!fspec)
         return;
     wputw(TAG_FUNCTIONSPEC + fspec->kind, fd);
@@ -221,6 +253,9 @@ void export_function_spec(WFILE *fd, FunctionSpec *fspec)
 
 void export_alignment_spec(WFILE *fd, AlignmentSpec *aspec)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!aspec)
         return;
     wputw(TAG_ALIGNMENTSPEC + aspec->kind, fd);
@@ -236,6 +271,9 @@ void export_alignment_spec(WFILE *fd, AlignmentSpec *aspec)
 
 void export_init_declarator(WFILE *fd, InitDeclarator *idecl)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!idecl)
         return;
     wputw(TAG_INITDECLARATOR, fd);
@@ -246,6 +284,9 @@ void export_init_declarator(WFILE *fd, InitDeclarator *idecl)
 
 void export_initializer(WFILE *fd, Initializer *init)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!init)
         return;
     wputw(TAG_INITIALIZER + init->kind, fd);
@@ -264,6 +305,9 @@ void export_initializer(WFILE *fd, Initializer *init)
 
 void export_init_item(WFILE *fd, InitItem *item)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!item)
         return;
     wputw(TAG_INITITEM, fd);
@@ -276,6 +320,9 @@ void export_init_item(WFILE *fd, InitItem *item)
 
 void export_designator(WFILE *fd, Designator *desg)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!desg)
         return;
     wputw(TAG_DESIGNATOR + desg->kind, fd);
@@ -291,6 +338,9 @@ void export_designator(WFILE *fd, Designator *desg)
 
 void export_expr(WFILE *fd, Expr *expr)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!expr)
         return;
     wputw(TAG_EXPR + expr->kind, fd);
@@ -374,6 +424,9 @@ void export_expr(WFILE *fd, Expr *expr)
 
 void export_literal(WFILE *fd, Literal *lit)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!lit)
         return;
     wputw(TAG_LITERAL + lit->kind, fd);
@@ -398,6 +451,9 @@ void export_literal(WFILE *fd, Literal *lit)
 
 void export_unary_op(WFILE *fd, UnaryOp *uop)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!uop)
         return;
     wputw(TAG_UNARYOP + uop->kind, fd);
@@ -405,6 +461,9 @@ void export_unary_op(WFILE *fd, UnaryOp *uop)
 
 void export_binary_op(WFILE *fd, BinaryOp *bop)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!bop)
         return;
     wputw(TAG_BINARYOP + bop->kind, fd);
@@ -412,6 +471,9 @@ void export_binary_op(WFILE *fd, BinaryOp *bop)
 
 void export_assign_op(WFILE *fd, AssignOp *aop)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!aop)
         return;
     wputw(TAG_ASSIGNOP + aop->kind, fd);
@@ -419,6 +481,9 @@ void export_assign_op(WFILE *fd, AssignOp *aop)
 
 void export_generic_assoc(WFILE *fd, GenericAssoc *gasc)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!gasc)
         return;
     wputw(TAG_GENERICASSOC + gasc->kind, fd);
@@ -435,6 +500,9 @@ void export_generic_assoc(WFILE *fd, GenericAssoc *gasc)
 
 void export_stmt(WFILE *fd, Stmt *stmt)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!stmt) {
         wputw(TAG_EOL, fd);
         return;
@@ -498,6 +566,9 @@ void export_stmt(WFILE *fd, Stmt *stmt)
 
 void export_decl_or_stmt(WFILE *fd, DeclOrStmt *dost)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!dost)
         return;
     wputw(TAG_DECLORSTMT + dost->kind, fd);
@@ -513,6 +584,9 @@ void export_decl_or_stmt(WFILE *fd, DeclOrStmt *dost)
 
 void export_for_init(WFILE *fd, ForInit *finit)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!finit)
         return;
     wputw(TAG_FORINIT + finit->kind, fd);
@@ -528,6 +602,9 @@ void export_for_init(WFILE *fd, ForInit *finit)
 
 void export_external_decl(WFILE *fd, ExternalDecl *exdecl)
 {
+    if (export_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!exdecl)
         return;
     wputw(TAG_EXTERNALDECL + exdecl->kind, fd);

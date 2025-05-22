@@ -7,6 +7,8 @@
 #include "tags.h"
 #include "wio.h"
 
+static const bool import_debug = true; // Enable manually for debug
+
 Type *import_type(WFILE *input);
 TypeQualifier *import_type_qualifier(WFILE *input);
 Field *import_field(WFILE *input);
@@ -46,6 +48,9 @@ static void check_input(WFILE *input, const char *context)
 
 Program *import_ast(int fileno)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     WFILE *input = wdopen(fileno, "r");
     if (!input) {
         fprintf(stderr, "Error importing AST: cannot open file descriptor #%d\n", fileno);
@@ -73,6 +78,9 @@ Program *import_ast(int fileno)
 
 Type *import_type(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "type tag");
     if (tag < TAG_TYPE || tag > TAG_TYPE + TYPE_ATOMIC)
@@ -184,6 +192,9 @@ Type *import_type(WFILE *input)
 
 TypeQualifier *import_type_qualifier(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "type qualifier tag");
     if (tag < TAG_TYPEQUALIFIER || tag > TAG_TYPEQUALIFIER + TYPE_QUALIFIER_ATOMIC)
@@ -195,6 +206,9 @@ TypeQualifier *import_type_qualifier(WFILE *input)
 
 Field *import_field(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "field tag");
     if (tag != TAG_FIELD)
@@ -209,6 +223,9 @@ Field *import_field(WFILE *input)
 
 Enumerator *import_enumerator(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "enumerator tag");
     if (tag != TAG_ENUMERATOR)
@@ -222,6 +239,9 @@ Enumerator *import_enumerator(WFILE *input)
 
 Param *import_param(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "param tag");
     if (tag != TAG_PARAM)
@@ -235,6 +255,9 @@ Param *import_param(WFILE *input)
 
 Declaration *import_declaration(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "declaration tag");
     if (tag == TAG_EOL)
@@ -272,6 +295,9 @@ Declaration *import_declaration(WFILE *input)
 
 DeclSpec *import_decl_spec(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "decl spec tag");
     if (tag == TAG_EOL)
@@ -304,6 +330,9 @@ DeclSpec *import_decl_spec(WFILE *input)
 
 StorageClass *import_storage_class(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "storage class tag");
     if (tag < TAG_STORAGECLASS || tag > TAG_STORAGECLASS + STORAGE_CLASS_REGISTER)
@@ -315,6 +344,9 @@ StorageClass *import_storage_class(WFILE *input)
 
 FunctionSpec *import_function_spec(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "function spec tag");
     if (tag < TAG_FUNCTIONSPEC || tag > TAG_FUNCTIONSPEC + FUNC_SPEC_NORETURN)
@@ -326,6 +358,9 @@ FunctionSpec *import_function_spec(WFILE *input)
 
 AlignmentSpec *import_alignment_spec(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "alignment spec tag");
     if (tag < TAG_ALIGNMENTSPEC || tag > TAG_ALIGNMENTSPEC + ALIGN_SPEC_EXPR)
@@ -345,6 +380,9 @@ AlignmentSpec *import_alignment_spec(WFILE *input)
 
 InitDeclarator *import_init_declarator(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "init declarator tag");
     if (tag != TAG_INITDECLARATOR)
@@ -359,6 +397,9 @@ InitDeclarator *import_init_declarator(WFILE *input)
 
 Initializer *import_initializer(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "initializer tag");
     if (tag < TAG_INITIALIZER || tag > TAG_INITIALIZER + INITIALIZER_COMPOUND)
@@ -386,6 +427,9 @@ Initializer *import_initializer(WFILE *input)
 
 InitItem *import_init_item(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "init item tag");
     if (tag != TAG_INITITEM)
@@ -406,6 +450,9 @@ InitItem *import_init_item(WFILE *input)
 
 Designator *import_designator(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "designator tag");
     if (tag < TAG_DESIGNATOR || tag > TAG_DESIGNATOR + DESIGNATOR_FIELD)
@@ -426,6 +473,9 @@ Designator *import_designator(WFILE *input)
 
 Expr *import_expr(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "expr tag");
     if (tag < TAG_EXPR || tag > TAG_EXPR + EXPR_GENERIC)
@@ -528,6 +578,9 @@ Expr *import_expr(WFILE *input)
 
 Literal *import_literal(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "literal tag");
     if (tag < TAG_LITERAL || tag > TAG_LITERAL + LITERAL_ENUM)
@@ -561,6 +614,9 @@ Literal *import_literal(WFILE *input)
 
 UnaryOp *import_unary_op(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "unary op tag");
     if (tag < TAG_UNARYOP || tag > TAG_UNARYOP + UNARY_PRE_DEC)
@@ -572,6 +628,9 @@ UnaryOp *import_unary_op(WFILE *input)
 
 BinaryOp *import_binary_op(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "binary op tag");
     if (tag < TAG_BINARYOP || tag > TAG_BINARYOP + BINARY_LOG_OR)
@@ -583,6 +642,9 @@ BinaryOp *import_binary_op(WFILE *input)
 
 AssignOp *import_assign_op(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "assign op tag");
     if (tag < TAG_ASSIGNOP || tag > TAG_ASSIGNOP + ASSIGN_OR)
@@ -594,6 +656,9 @@ AssignOp *import_assign_op(WFILE *input)
 
 GenericAssoc *import_generic_assoc(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "generic assoc tag");
     if (tag < TAG_GENERICASSOC || tag > TAG_GENERICASSOC + GENERIC_ASSOC_DEFAULT)
@@ -614,6 +679,9 @@ GenericAssoc *import_generic_assoc(WFILE *input)
 
 Stmt *import_stmt(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "stmt tag");
     if (tag == TAG_EOL)
@@ -690,6 +758,9 @@ Stmt *import_stmt(WFILE *input)
 
 DeclOrStmt *import_decl_or_stmt(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "decl or stmt tag");
     if (tag < TAG_DECLORSTMT || tag > TAG_DECLORSTMT + DECL_OR_STMT_STMT)
@@ -709,6 +780,9 @@ DeclOrStmt *import_decl_or_stmt(WFILE *input)
 
 ForInit *import_for_init(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "for init tag");
     if (tag < TAG_FORINIT || tag > TAG_FORINIT + FOR_INIT_DECL)
@@ -728,6 +802,9 @@ ForInit *import_for_init(WFILE *input)
 
 ExternalDecl *import_external_decl(WFILE *input)
 {
+    if (import_debug) {
+        printf("--- %s()\n", __func__);
+    }
     size_t tag = wgetw(input);
     check_input(input, "external decl tag");
     if (tag < TAG_EXTERNALDECL || tag > TAG_EXTERNALDECL + EXTERNAL_DECL_DECLARATION)
