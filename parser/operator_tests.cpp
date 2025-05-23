@@ -462,3 +462,28 @@ TEST_F(ParserTest, ParseBinaryLogOr)
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
     EXPECT_STREQ("y", stmt->u.expr->u.binary_op.right->u.var);
 }
+
+// Test type cast
+TEST_F(ParserTest, ParseTypeCast)
+{
+    DeclOrStmt *body = GetFunctionBody(R"(
+typedef int foo;
+double bar;
+enum { qux = 42 };
+int f() {
+    return ((foo)-1) + ((bar)-2) + ((qux)-3);
+}
+)");
+    EXPECT_EQ(body->kind, DECL_OR_STMT_STMT);
+    Stmt *stmt = body->u.stmt;
+
+    EXPECT_EQ(STMT_RETURN, stmt->kind);
+
+    EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
+    EXPECT_EQ(BINARY_ADD, stmt->u.expr->u.binary_op.op->kind);
+    //TODO:
+    //EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
+    //EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
+    //EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
+    //EXPECT_STREQ("y", stmt->u.expr->u.binary_op.right->u.var);
+}
