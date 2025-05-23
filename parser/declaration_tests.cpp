@@ -547,3 +547,18 @@ TEST_F(ParserTest, ParseFunctionDeclaration)
     EXPECT_EQ(TYPE_INT, type->u.function.return_type->kind);
     EXPECT_EQ(type->u.function.params, nullptr);
 }
+
+TEST_F(ParserTest, ParseFunctionDeclarationWithArgs)
+{
+    Declaration *decl = GetDeclaration("struct inode *namei(int (*func)(void), int flag);");
+
+    EXPECT_EQ(DECL_VAR, decl->kind);
+    ASSERT_NE(nullptr, decl->u.var.declarators);
+    EXPECT_STREQ("namei", decl->u.var.declarators->name);
+
+    Type *type = decl->u.var.declarators->type;
+    EXPECT_EQ(TYPE_FUNCTION, type->kind);
+    //TODO: EXPECT_EQ(TYPE_INT, type->u.function.return_type->kind);
+    ASSERT_NE(type->u.function.params, nullptr);
+    //TODO: check parameters
+}
