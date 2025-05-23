@@ -15,6 +15,7 @@ static void export_type(FILE *fd, Type *type, int parent_id);
 static void export_expr(FILE *fd, Expr *expr, int parent_id);
 static void export_stmt(FILE *fd, Stmt *stmt, int parent_id);
 static void export_decl(FILE *fd, Declaration *decl, int parent_id);
+static void export_decl_spec(FILE *fd, DeclSpec *ds, int parent_id);
 
 static void export_ident(FILE *fd, Ident ident, int parent_id, const char *label)
 {
@@ -93,6 +94,7 @@ static void export_param(FILE *fd, Param *param, int parent_id)
         fprintf(fd, "  n%d -> n%d [label=\"param\"];\n", parent_id, id);
         export_ident(fd, param->name, id, "name");
         export_type(fd, param->type, id);
+        export_decl_spec(fd, param->specifiers, id);
         param = param->next;
     }
 }

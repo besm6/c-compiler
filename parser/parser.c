@@ -128,6 +128,14 @@ static bool is_type_qualifier(int token)
            token == TOKEN_VOLATILE;
 }
 
+// Is this token a storage class specifier?
+static bool is_storage_class_specifier(int token)
+{
+    return token == TOKEN_TYPEDEF || token == TOKEN_EXTERN ||
+           token == TOKEN_STATIC || token == TOKEN_THREAD_LOCAL ||
+           token == TOKEN_AUTO || token == TOKEN_REGISTER;
+}
+
 /* Append to linked list */
 static void append_list(void *head_ptr, void *node_ptr)
 {
@@ -1460,9 +1468,7 @@ DeclSpec *parse_declaration_specifiers(Type **base_type_result)
     DeclSpec *ds = new_decl_spec();
     TypeSpec *type_specs = NULL;
     while (1) {
-        if (current_token == TOKEN_TYPEDEF || current_token == TOKEN_EXTERN ||
-            current_token == TOKEN_STATIC || current_token == TOKEN_THREAD_LOCAL ||
-            current_token == TOKEN_AUTO || current_token == TOKEN_REGISTER) {
+        if (is_storage_class_specifier(current_token)) {
             ds->storage = parse_storage_class_specifier();
         } else if (is_type_specifier(current_token) ||
                    (current_token == TOKEN_ATOMIC && next_token() == TOKEN_LPAREN)) {
@@ -2353,43 +2359,21 @@ Param *parse_parameter_declaration()
     Param *param = new_param();
 
     /* Parse declaration_specifiers */
-    TypeQualifier *qualifiers = NULL;
-    TypeSpec *type_specs      = parse_specifier_qualifier_list(&qualifiers);
+    param->specifiers = parse_declaration_specifiers(&param->type);
 
     /* Check for declarator or abstract_declarator */
-    if (current_token == TOKEN_IDENTIFIER || current_token == TOKEN_LPAREN ||
-        current_token == TOKEN_STAR || current_token == TOKEN_LBRACKET) {
-        bool is_declarator = (current_token == TOKEN_IDENTIFIER || current_token == TOKEN_LPAREN);
-        char *name         = NULL;
-        Pointer *pointers  = NULL;
-        DeclaratorSuffix *suffixes = NULL;
-
-        if (is_declarator && current_token == TOKEN_IDENTIFIER) {
-            name = xstrdup(current_lexeme);
-            advance_token();
-            if (current_token == TOKEN_STAR || current_token == TOKEN_LBRACKET ||
-                current_token == TOKEN_LPAREN) {
-                // Parse abstract_declarator.
-                pointers = parse_pointer();
-                suffixes = parse_direct_abstract_declarator();
-            }
-        } else {
-            // Parse abstract_declarator.
-            pointers = parse_pointer();
-            suffixes = parse_direct_abstract_declarator();
-        }
-
-        /* Construct base type from type_specs */
-        Type *base_type = fuse_type_specifiers(type_specs);
+    if (current_token == TOKEN_IDENTIFIER) {
+        param->name = xstrdup(current_lexeme);
+        advance_token();
+    }
+    if (current_token == TOKEN_STAR || current_token == TOKEN_LBRACKET ||
+        current_token == TOKEN_LPAREN) {
+        Pointer *pointers = parse_pointer();
+        DeclaratorSuffix *suffixes = parse_direct_abstract_declarator();
 
         /* Apply pointers and suffixes */
-        param->type = type_apply_suffixes(type_apply_pointers(base_type, pointers), suffixes);
-        param->name = name;
-    } else {
-        /* Only declaration_specifiers (unnamed parameter) */
-        param->type = parse_type_name();
+        param->type = type_apply_suffixes(type_apply_pointers(param->type, pointers), suffixes);
     }
-    free_type_spec(type_specs);
     return param;
 }
 
@@ -2701,9 +2685,7 @@ DeclOrStmt *parse_block_item()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    if (current_token == TOKEN_TYPEDEF || current_token == TOKEN_EXTERN ||
-        current_token == TOKEN_STATIC || current_token == TOKEN_THREAD_LOCAL ||
-        current_token == TOKEN_AUTO || current_token == TOKEN_REGISTER ||
+    if (is_storage_class_specifier(current_token) ||
         is_type_specifier(current_token) || is_type_qualifier(current_token) ||
         current_token == TOKEN_ATOMIC || current_token == TOKEN_INLINE ||
         current_token == TOKEN_NORETURN || current_token == TOKEN_ALIGNAS ||
@@ -2827,9 +2809,7 @@ Stmt *parse_iteration_statement()
     ForInit *init   = NULL;
     Expr *condition = NULL;
     Expr *update    = NULL;
-    if (current_token == TOKEN_TYPEDEF || current_token == TOKEN_EXTERN ||
-        current_token == TOKEN_STATIC || current_token == TOKEN_THREAD_LOCAL ||
-        current_token == TOKEN_AUTO || current_token == TOKEN_REGISTER ||
+    if (is_storage_class_specifier(current_token) ||
         is_type_specifier(current_token) || is_type_qualifier(current_token) ||
         current_token == TOKEN_ATOMIC || current_token == TOKEN_INLINE || current_token == TOKEN_NORETURN ||
         current_token == TOKEN_ALIGNAS || current_token == TOKEN_STATIC_ASSERT) {

@@ -82,6 +82,7 @@ void print_expression(FILE *fd, Expr *expr, int indent);
 void print_statement(FILE *fd, Stmt *stmt, int indent);
 static void print_declaration(FILE *fd, Declaration *decl, int indent);
 static void print_external_decl(FILE *fd, ExternalDecl *ext, int indent);
+static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent);
 
 // Print Field structure
 void print_field(FILE *fd, Field *field, int indent)
@@ -113,6 +114,7 @@ void print_param(FILE *fd, Param *params, int indent)
         print_indent(fd, indent);
         fprintf(fd, "Param: %s\n", p->name ? p->name : "(no name)");
         print_type(fd, p->type, indent + 4);
+        print_decl_spec(fd, p->specifiers, indent + 4);
     }
 }
 

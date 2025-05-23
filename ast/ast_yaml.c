@@ -17,6 +17,7 @@ static void export_type(FILE *fd, Type *type, int level);
 static void export_expr(FILE *fd, Expr *expr, int level);
 static void export_stmt(FILE *fd, Stmt *stmt, int level);
 static void export_decl(FILE *fd, Declaration *decl, int level);
+static void export_decl_spec(FILE *fd, DeclSpec *ds, int level);
 
 static void export_ident(FILE *fd, Ident ident, int level)
 {
@@ -91,6 +92,8 @@ static void export_param(FILE *fd, Param *param, int level)
         print_indent(fd, level + 1);
         fprintf(fd, "type:\n");
         export_type(fd, param->type, level + 2);
+        fprintf(fd, "specifiers:\n");
+        export_decl_spec(fd, param->specifiers, level + 2);
         param = param->next;
     }
 }

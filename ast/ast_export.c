@@ -179,6 +179,7 @@ void export_param(WFILE *fd, Param *param)
     wputw(TAG_PARAM, fd);
     wputstr(param->name, fd);
     export_type(fd, param->type);
+    export_decl_spec(fd, param->specifiers);
 }
 
 void export_declaration(WFILE *fd, Declaration *decl)

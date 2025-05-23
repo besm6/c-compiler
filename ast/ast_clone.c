@@ -146,6 +146,7 @@ Param *clone_param(const Param *param)
     result->name = param->name ? xstrdup(param->name) : NULL;
     result->type = clone_type(param->type);
     result->next = clone_param(param->next);
+    result->specifiers = clone_decl_spec(param->specifiers);
     return result;
 }
 

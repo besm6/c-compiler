@@ -138,6 +138,7 @@ struct Param {
     Param *next; /* linked list */
     Ident name; /* optional */
     Type *type;
+    DeclSpec *specifiers; /* optional */
 };
 
 /* Declarations */

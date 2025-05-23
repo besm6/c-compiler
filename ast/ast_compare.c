@@ -147,6 +147,8 @@ bool compare_param(const Param *a, const Param *b)
             return false;
         if (!compare_type(a->type, b->type))
             return false;
+        if (!compare_decl_spec(a->specifiers, b->specifiers))
+            return false;
         a = a->next;
         b = b->next;
     }

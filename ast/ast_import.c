@@ -259,6 +259,7 @@ Param *import_param(WFILE *input)
     param->name  = wgetstr(input);
     check_input(input, "param name");
     param->type = import_type(input);
+    param->specifiers = import_decl_spec(input);
     return param;
 }
 

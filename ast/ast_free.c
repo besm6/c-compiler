@@ -124,6 +124,7 @@ void free_param(Param *param)
         Param *next = param->next;
         xfree(param->name);
         free_type(param->type);
+        free_decl_spec(param->specifiers);
         xfree(param);
         param = next;
     }

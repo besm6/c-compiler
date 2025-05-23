@@ -47,6 +47,7 @@ Param *new_param()
     p->name  = NULL;
     p->type  = NULL;
     p->next  = NULL;
+    p->specifiers = NULL;
     return p;
 }
 
