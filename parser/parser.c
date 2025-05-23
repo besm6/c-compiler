@@ -343,6 +343,15 @@ Program *parse_translation_unit();
 ExternalDecl *parse_external_declaration();
 Declaration *parse_declaration_list();
 
+//
+// primary_expression
+//     : IDENTIFIER
+//     | constant
+//     | string
+//     | '(' expression ')'
+//     | generic_selection
+//     ;
+//
 Expr *parse_primary_expression()
 {
     if (parser_debug) {
@@ -378,6 +387,13 @@ Expr *parse_primary_expression()
     return expr;
 }
 
+//
+// constant
+//     : I_CONSTANT             /* includes character_constant */
+//     | F_CONSTANT
+//     | ENUMERATION_CONSTANT   /* after it has been defined as such */
+//     ;
+//
 Expr *parse_constant()
 {
     if (parser_debug) {
@@ -402,6 +418,12 @@ Expr *parse_constant()
     return expr;
 }
 
+//
+// string
+//     : STRING_LITERAL
+//     | FUNC_NAME
+//     ;
+//
 Expr *parse_string()
 {
     if (parser_debug) {
@@ -414,6 +436,11 @@ Expr *parse_string()
     return expr;
 }
 
+//
+// generic_selection
+//     : GENERIC '(' assignment_expression ',' generic_assoc_list ')'
+//     ;
+//
 Expr *parse_generic_selection()
 {
     if (parser_debug) {
@@ -431,6 +458,12 @@ Expr *parse_generic_selection()
     return expr;
 }
 
+//
+// generic_assoc_list
+//     : generic_association
+//     | generic_assoc_list ',' generic_association
+//     ;
+//
 GenericAssoc *parse_generic_assoc_list()
 {
     if (parser_debug) {
@@ -444,6 +477,12 @@ GenericAssoc *parse_generic_assoc_list()
     return assoc;
 }
 
+//
+// generic_association
+//     : type_name ':' assignment_expression
+//     | DEFAULT ':' assignment_expression
+//     ;
+//
 GenericAssoc *parse_generic_association()
 {
     if (parser_debug) {
@@ -467,6 +506,20 @@ GenericAssoc *parse_generic_association()
     return assoc;
 }
 
+//
+// postfix_expression
+//     : primary_expression
+//     | postfix_expression '[' expression ']'
+//     | postfix_expression '(' ')'
+//     | postfix_expression '(' argument_expression_list ')'
+//     | postfix_expression '.' IDENTIFIER
+//     | postfix_expression PTR_OP IDENTIFIER
+//     | postfix_expression INC_OP
+//     | postfix_expression DEC_OP
+//     | '(' type_name ')' '{' initializer_list '}'
+//     | '(' type_name ')' '{' initializer_list ',' '}'
+//     ;
+//
 Expr *parse_postfix_expression()
 {
     if (parser_debug) {
@@ -527,6 +580,12 @@ Expr *parse_postfix_expression()
     return expr;
 }
 
+//
+// argument_expression_list
+//     : assignment_expression
+//     | argument_expression_list ',' assignment_expression
+//     ;
+//
 Expr *parse_argument_expression_list()
 {
     if (parser_debug) {
@@ -540,6 +599,17 @@ Expr *parse_argument_expression_list()
     return expr;
 }
 
+//
+// unary_expression
+//     : postfix_expression
+//     | INC_OP unary_expression
+//     | DEC_OP unary_expression
+//     | unary_operator cast_expression
+//     | SIZEOF unary_expression
+//     | SIZEOF '(' type_name ')'
+//     | ALIGNOF '(' type_name ')'
+//     ;
+//
 Expr *parse_unary_expression()
 {
     if (parser_debug) {
@@ -598,6 +668,16 @@ Expr *parse_unary_expression()
     }
 }
 
+//
+// unary_operator
+//     : '&'
+//     | '*'
+//     | '+'
+//     | '-'
+//     | '~'
+//     | '!'
+//     ;
+//
 UnaryOp *parse_unary_operator()
 {
     if (parser_debug) {
@@ -613,6 +693,12 @@ UnaryOp *parse_unary_operator()
     return op;
 }
 
+//
+// cast_expression
+//     : unary_expression
+//     | '(' type_name ')' cast_expression
+//     ;
+//
 Expr *parse_cast_expression()
 {
     if (parser_debug) {
@@ -631,6 +717,14 @@ Expr *parse_cast_expression()
     return parse_unary_expression();
 }
 
+//
+// multiplicative_expression
+//     : cast_expression
+//     | multiplicative_expression '*' cast_expression
+//     | multiplicative_expression '/' cast_expression
+//     | multiplicative_expression '%' cast_expression
+//     ;
+//
 Expr *parse_multiplicative_expression()
 {
     if (parser_debug) {
@@ -653,6 +747,13 @@ Expr *parse_multiplicative_expression()
     return expr;
 }
 
+//
+// additive_expression
+//     : multiplicative_expression
+//     | additive_expression '+' multiplicative_expression
+//     | additive_expression '-' multiplicative_expression
+//     ;
+//
 Expr *parse_additive_expression()
 {
     if (parser_debug) {
@@ -672,6 +773,13 @@ Expr *parse_additive_expression()
     return expr;
 }
 
+//
+// shift_expression
+//     : additive_expression
+//     | shift_expression LEFT_OP additive_expression
+//     | shift_expression RIGHT_OP additive_expression
+//     ;
+//
 Expr *parse_shift_expression()
 {
     if (parser_debug) {
@@ -692,6 +800,15 @@ Expr *parse_shift_expression()
     return expr;
 }
 
+//
+// relational_expression
+//     : shift_expression
+//     | relational_expression '<' shift_expression
+//     | relational_expression '>' shift_expression
+//     | relational_expression LE_OP shift_expression
+//     | relational_expression GE_OP shift_expression
+//     ;
+//
 Expr *parse_relational_expression()
 {
     if (parser_debug) {
@@ -715,6 +832,13 @@ Expr *parse_relational_expression()
     return expr;
 }
 
+//
+// equality_expression
+//     : relational_expression
+//     | equality_expression EQ_OP relational_expression
+//     | equality_expression NE_OP relational_expression
+//     ;
+//
 Expr *parse_equality_expression()
 {
     if (parser_debug) {
@@ -734,6 +858,12 @@ Expr *parse_equality_expression()
     return expr;
 }
 
+//
+// and_expression
+//     : equality_expression
+//     | and_expression '&' equality_expression
+//     ;
+//
 Expr *parse_and_expression()
 {
     if (parser_debug) {
@@ -752,6 +882,12 @@ Expr *parse_and_expression()
     return expr;
 }
 
+//
+// exclusive_or_expression
+//     : and_expression
+//     | exclusive_or_expression '^' and_expression
+//     ;
+//
 Expr *parse_exclusive_or_expression()
 {
     if (parser_debug) {
@@ -770,6 +906,12 @@ Expr *parse_exclusive_or_expression()
     return expr;
 }
 
+//
+// inclusive_or_expression
+//     : exclusive_or_expression
+//     | inclusive_or_expression '|' exclusive_or_expression
+//     ;
+//
 Expr *parse_inclusive_or_expression()
 {
     if (parser_debug) {
@@ -788,6 +930,12 @@ Expr *parse_inclusive_or_expression()
     return expr;
 }
 
+//
+// logical_and_expression
+//     : inclusive_or_expression
+//     | logical_and_expression AND_OP inclusive_or_expression
+//     ;
+//
 Expr *parse_logical_and_expression()
 {
     if (parser_debug) {
@@ -806,6 +954,12 @@ Expr *parse_logical_and_expression()
     return expr;
 }
 
+//
+// logical_or_expression
+//     : logical_and_expression
+//     | logical_or_expression OR_OP logical_and_expression
+//     ;
+//
 Expr *parse_logical_or_expression()
 {
     if (parser_debug) {
@@ -824,6 +978,12 @@ Expr *parse_logical_or_expression()
     return expr;
 }
 
+//
+// conditional_expression
+//     : logical_or_expression
+//     | logical_or_expression '?' expression ':' conditional_expression
+//     ;
+//
 Expr *parse_conditional_expression()
 {
     if (parser_debug) {
@@ -844,6 +1004,12 @@ Expr *parse_conditional_expression()
     return expr;
 }
 
+//
+// assignment_expression
+//     : conditional_expression
+//     | unary_expression assignment_operator assignment_expression
+//     ;
+//
 Expr *parse_assignment_expression()
 {
     if (parser_debug) {
@@ -867,6 +1033,21 @@ Expr *parse_assignment_expression()
     return expr;
 }
 
+//
+// assignment_operator
+//     : '='
+//     | MUL_ASSIGN
+//     | DIV_ASSIGN
+//     | MOD_ASSIGN
+//     | ADD_ASSIGN
+//     | SUB_ASSIGN
+//     | LEFT_ASSIGN
+//     | RIGHT_ASSIGN
+//     | AND_ASSIGN
+//     | XOR_ASSIGN
+//     | OR_ASSIGN
+//     ;
+//
 AssignOp *parse_assignment_operator()
 {
     if (parser_debug) {
@@ -887,6 +1068,12 @@ AssignOp *parse_assignment_operator()
     return op;
 }
 
+//
+// expression
+//     : assignment_expression
+//     | expression ',' assignment_expression
+//     ;
+//
 Expr *parse_expression()
 {
     if (parser_debug) {
@@ -1302,6 +1489,12 @@ DeclSpec *parse_declaration_specifiers(Type **base_type_result)
     return ds;
 }
 
+//
+// init_declarator_list
+//     : init_declarator
+//     | init_declarator_list ',' init_declarator
+//     ;
+//
 InitDeclarator *parse_init_declarator_list(Declarator *first, const Type *base_type)
 {
     if (parser_debug) {
@@ -1343,6 +1536,16 @@ InitDeclarator *parse_init_declarator(Declarator *decl, const Type *base_type)
     return init_decl;
 }
 
+//
+// storage_class_specifier
+//     : TYPEDEF   /* identifiers must be flagged as TYPEDEF_NAME */
+//     | EXTERN
+//     | STATIC
+//     | THREAD_LOCAL
+//     | AUTO
+//     | REGISTER
+//     ;
+//
 StorageClass *parse_storage_class_specifier()
 {
     if (parser_debug) {
@@ -1602,6 +1805,15 @@ TypeSpec *parse_specifier_qualifier_list(TypeQualifier **qualifiers)
     return type_specs;
 }
 
+//
+// enum_specifier
+//     : ENUM '{' enumerator_list '}'
+//     | ENUM '{' enumerator_list ',' '}'
+//     | ENUM IDENTIFIER '{' enumerator_list '}'
+//     | ENUM IDENTIFIER '{' enumerator_list ',' '}'
+//     | ENUM IDENTIFIER
+//     ;
+//
 TypeSpec *parse_enum_specifier()
 {
     if (parser_debug) {
@@ -1623,6 +1835,12 @@ TypeSpec *parse_enum_specifier()
     return ts;
 }
 
+//
+// enumerator_list
+//     : enumerator
+//     | enumerator_list ',' enumerator
+//     ;
+//
 Enumerator *parse_enumerator_list()
 {
     if (parser_debug) {
@@ -1636,6 +1854,12 @@ Enumerator *parse_enumerator_list()
     return enumr;
 }
 
+//
+// enumerator  /* identifiers must be flagged as ENUMERATION_CONSTANT */
+//     : enumeration_constant '=' constant_expression
+//     | enumeration_constant
+//     ;
+//
 Enumerator *parse_enumerator()
 {
     if (parser_debug) {
@@ -1654,6 +1878,11 @@ Enumerator *parse_enumerator()
     return new_enumerator(name, value);
 }
 
+//
+// atomic_type_specifier
+//     : ATOMIC '(' type_name ')'
+//     ;
+//
 Type *parse_atomic_type_specifier()
 {
     if (parser_debug) {
@@ -1698,6 +1927,12 @@ TypeQualifier *parse_type_qualifier()
     }
 }
 
+//
+// function_specifier
+//     : INLINE
+//     | NORETURN
+//     ;
+//
 FunctionSpec *parse_function_specifier()
 {
     if (parser_debug) {
@@ -1708,6 +1943,12 @@ FunctionSpec *parse_function_specifier()
     return new_function_spec(kind);
 }
 
+//
+// alignment_specifier
+//     : ALIGNAS '(' type_name ')'
+//     | ALIGNAS '(' constant_expression ')'
+//     ;
+//
 AlignmentSpec *parse_alignment_specifier()
 {
     if (parser_debug) {
@@ -1825,6 +2066,14 @@ Declarator *parse_direct_declarator()
     return decl;
 }
 
+//
+// pointer
+//     : '*' type_qualifier_list pointer
+//     | '*' type_qualifier_list
+//     | '*' pointer
+//     | '*'
+//     ;
+//
 Pointer *parse_pointer()
 {
     if (parser_debug) {
@@ -1841,6 +2090,12 @@ Pointer *parse_pointer()
     return pointers;
 }
 
+//
+// type_qualifier_list
+//     : type_qualifier
+//     | type_qualifier_list type_qualifier
+//     ;
+//
 TypeQualifier *parse_type_qualifier_list()
 {
     if (parser_debug) {
@@ -1919,6 +2174,12 @@ Param *parse_parameter_type_list(bool *variadic_flag)
     return params;
 }
 
+//
+// parameter_list
+//     : parameter_declaration
+//     | parameter_list ',' parameter_declaration
+//     ;
+//
 Param *parse_parameter_list()
 {
     if (parser_debug) {
@@ -2077,6 +2338,13 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
     return suffix;
 }
 
+//
+// parameter_declaration
+//     : declaration_specifiers declarator
+//     | declaration_specifiers abstract_declarator
+//     | declaration_specifiers
+//     ;
+//
 Param *parse_parameter_declaration()
 {
     if (parser_debug) {
@@ -2161,6 +2429,13 @@ Type *parse_type_name()
     return type;
 }
 
+//
+// initializer
+//     : '{' initializer_list '}'
+//     | '{' initializer_list ',' '}'
+//     | assignment_expression
+//     ;
+//
 Initializer *parse_initializer()
 {
     if (parser_debug) {
@@ -2181,6 +2456,14 @@ Initializer *parse_initializer()
     return init;
 }
 
+//
+// initializer_list
+//     : designation initializer
+//     | initializer
+//     | initializer_list ',' designation initializer
+//     | initializer_list ',' initializer
+//     ;
+//
 InitItem *parse_initializer_list()
 {
     if (parser_debug) {
@@ -2199,6 +2482,11 @@ InitItem *parse_initializer_list()
     return item;
 }
 
+//
+// designation
+//     : designator_list '='
+//     ;
+//
 Designator *parse_designation()
 {
     if (parser_debug) {
@@ -2209,6 +2497,12 @@ Designator *parse_designation()
     return designators;
 }
 
+//
+// designator_list
+//     : designator
+//     | designator_list designator
+//     ;
+//
 Designator *parse_designator_list()
 {
     if (parser_debug) {
@@ -2221,6 +2515,12 @@ Designator *parse_designator_list()
     return designator;
 }
 
+//
+// designator
+//     : '[' constant_expression ']'
+//     | '.' IDENTIFIER
+//     ;
+//
 Designator *parse_designator()
 {
     if (parser_debug) {
@@ -2245,6 +2545,11 @@ Designator *parse_designator()
     return d;
 }
 
+//
+// static_assert_declaration
+//     : STATIC_ASSERT '(' constant_expression ',' STRING_LITERAL ')' ';'
+//     ;
+//
 Declaration *parse_static_assert_declaration()
 {
     if (parser_debug) {
@@ -2265,6 +2570,16 @@ Declaration *parse_static_assert_declaration()
     return decl;
 }
 
+//
+// statement
+//     : labeled_statement
+//     | compound_statement
+//     | expression_statement
+//     | selection_statement
+//     | iteration_statement
+//     | jump_statement
+//     ;
+//
 Stmt *parse_statement()
 {
     if (parser_debug) {
@@ -2289,6 +2604,13 @@ Stmt *parse_statement()
     }
 }
 
+//
+// labeled_statement
+//     : IDENTIFIER ':' statement
+//     | CASE constant_expression ':' statement
+//     | DEFAULT ':' statement
+//     ;
+//
 Stmt *parse_labeled_statement()
 {
     if (parser_debug) {
@@ -2323,6 +2645,12 @@ Stmt *parse_labeled_statement()
     return default_stmt;
 }
 
+//
+// compound_statement
+//     : '{' '}'
+//     | '{'  block_item_list '}'
+//     ;
+//
 Stmt *parse_compound_statement()
 {
     if (parser_debug) {
@@ -2344,6 +2672,12 @@ Stmt *parse_compound_statement()
     return stmt;
 }
 
+//
+// block_item_list
+//     : block_item
+//     | block_item_list block_item
+//     ;
+//
 DeclOrStmt *parse_block_item_list()
 {
     if (parser_debug) {
@@ -2356,6 +2690,12 @@ DeclOrStmt *parse_block_item_list()
     return item;
 }
 
+//
+// block_item
+//     : declaration
+//     | statement
+//     ;
+//
 DeclOrStmt *parse_block_item()
 {
     if (parser_debug) {
@@ -2379,6 +2719,12 @@ DeclOrStmt *parse_block_item()
     return ds;
 }
 
+//
+// expression_statement
+//     : ';'
+//     | expression ';'
+//     ;
+//
 Stmt *parse_expression_statement()
 {
     if (parser_debug) {
@@ -2394,6 +2740,13 @@ Stmt *parse_expression_statement()
     return stmt;
 }
 
+//
+// selection_statement
+//     : IF '(' expression ')' statement ELSE statement
+//     | IF '(' expression ')' statement
+//     | SWITCH '(' expression ')' statement
+//     ;
+//
 Stmt *parse_selection_statement()
 {
     if (parser_debug) {
@@ -2429,6 +2782,16 @@ Stmt *parse_selection_statement()
     return stmt;
 }
 
+//
+// iteration_statement
+//     : WHILE '(' expression ')' statement
+//     | DO statement WHILE '(' expression ')' ';'
+//     | FOR '(' expression_statement expression_statement ')' statement
+//     | FOR '(' expression_statement expression_statement expression ')' statement
+//     | FOR '(' declaration expression_statement ')' statement
+//     | FOR '(' declaration expression_statement expression ')' statement
+//     ;
+//
 Stmt *parse_iteration_statement()
 {
     if (parser_debug) {
@@ -2497,6 +2860,15 @@ Stmt *parse_iteration_statement()
     return stmt;
 }
 
+//
+// jump_statement
+//     : GOTO IDENTIFIER ';'
+//     | CONTINUE ';'
+//     | BREAK ';'
+//     | RETURN ';'
+//     | RETURN expression ';'
+//     ;
+//
 Stmt *parse_jump_statement()
 {
     if (parser_debug) {
