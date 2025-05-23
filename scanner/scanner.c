@@ -22,6 +22,11 @@ static int scan_number(void);
 static int scan_string(void);
 static int scan_char(void);
 static int scan_operator(void);
+static void scan_line_marker(void);
+
+// Current location in input file
+static int current_line_number;
+static char current_filename[1024];
 
 // Initialize scanner with input file
 void init_scanner(FILE *input)
@@ -30,6 +35,11 @@ void init_scanner(FILE *input)
     yyleng     = 0;
     yytext[0]  = '\0';
     next_char  = input_file ? fgetc(input_file) : EOF;
+
+    if (next_char == '#') {
+        consume_char();
+        scan_line_marker();
+    }
 }
 
 // Main lexer function
@@ -181,7 +191,12 @@ static int is_keyword(const char *str)
 static void skip_whitespace(void)
 {
     while (isspace(next_char)) {
+        int c = next_char;
         consume_char();
+        if (c == '\n' && next_char == '#') {
+            consume_char();
+            scan_line_marker();
+        }
     }
 }
 
@@ -202,6 +217,72 @@ static void skip_comment(void)
     }
     fprintf(stderr, "Error: unterminated comment\n");
     exit(1);
+}
+
+//
+// Process line markers:
+//      # line_number "filename" [flag1 [flag2 ...]]
+// Fields:
+//  - line_number: The line number in the original source file
+//                 that the following code corresponds to.
+//  - filename: The name of the source file (in quotes) where
+//              the code originated.
+//  - flags (optional): Numeric flags that provide additional context.
+//
+// Common flags include:
+//  1: Indicates the start of a new file
+//     (e.g., after an #include).
+//  2: Indicates a return to the previous file
+//     (e.g., after finishing an included file).
+//  3: Indicates the code is from a system header file
+//     (e.g., <stdio.h>).
+//  4: Indicates the code should be treated as an implicit
+//     extern "C" block (relevant for C++).
+//
+static void scan_line_marker()
+{
+    // Skip whitespace after '#'
+    while (isspace(next_char)) {
+        // Handle newline or spaces
+        if (next_char == '\n')
+            return; // Empty # line (null directive)
+        consume_char();
+    }
+
+    // Expect a number (line_number)
+    if (!isdigit(next_char)) {
+        return; // Not a line marker, just a # (null directive)
+    }
+
+    yyleng = 0;
+    while (isdigit(next_char)) {
+        consume_char();
+    }
+    yytext[yyleng] = '\0';
+    int line_num = atoi(yytext); // Convert to integer
+
+    // Skip whitespace
+    while (isspace(next_char) && next_char != '\n') {
+        consume_char();
+        if (next_char == '\n')
+            return; // No filename
+    }
+
+    // Expect a quoted filename
+    if (next_char == '"') {
+        yyleng = 0;
+        scan_string();
+
+        // Store in current_location
+        current_line_number = line_num;
+        strncpy(current_filename, yytext, sizeof(current_filename) - 1);
+        current_filename[sizeof(current_filename) - 1] = '\0';
+    }
+
+    // Skip optional flags and rest of the line
+    while (next_char != EOF && next_char != '\n') {
+        consume_char();
+    }
 }
 
 // Scan identifier or keyword
