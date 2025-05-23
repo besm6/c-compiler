@@ -7,7 +7,7 @@
 #include "tags.h"
 #include "wio.h"
 
-static const bool import_debug = true; // Enable manually for debug
+int import_debug; // Enable manually for debug
 
 Type *import_type(WFILE *input);
 TypeQualifier *import_type_qualifier(WFILE *input);

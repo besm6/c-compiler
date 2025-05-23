@@ -501,6 +501,9 @@ struct ExternalDecl {
 
 // Enable debug output
 extern int parser_debug;
+extern int import_debug;
+extern int export_debug;
+extern int wio_debug;
 
 Program *parse(FILE *input);
 Program *import_ast(int fileno);

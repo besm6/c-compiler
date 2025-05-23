@@ -19,7 +19,7 @@
 
 #define BUFFER_SIZE (4096 / sizeof(size_t)) /* Buffer holds words, aligned to page size */
 
-static const bool wio_debug = true; // Enable manually for debug
+int wio_debug; // Enable manually for debug
 
 //
 // Open a file with appropriate flags based on mode (`r`, `w`, `a`),

@@ -5,7 +5,7 @@
 #include "tags.h"
 #include "wio.h"
 
-static const bool export_debug = true; // Enable manually for debug
+int export_debug; // Enable manually for debug
 
 void export_type(WFILE *fd, Type *type);
 void export_type_qualifier(WFILE *fd, TypeQualifier *qual);

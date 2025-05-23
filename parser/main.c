@@ -165,8 +165,11 @@ void process_file(Args *args)
     if (args->debug) {
         printf("Debug: Format = %d, Input = %s, Output = %s\n", args->format, args->input_file,
                args->output_file);
+        parser_debug = 1;
+        import_debug = 1;
+        export_debug = 1;
+        wio_debug = 1;
     }
-    parser_debug = args->debug;
     FILE *input_file = fopen(args->input_file, "r");
     Program *program = parse(input_file);
     fclose(input_file);
@@ -183,7 +186,7 @@ void process_file(Args *args)
             printf("Emitting AST in binary format to %s\n", args->output_file);
         }
         if (args->debug) {
-            print_program(output_file, program);
+            print_program(stdout, program);
         }
         export_ast(fileno(output_file), program);
         break;
