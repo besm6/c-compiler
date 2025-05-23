@@ -91,13 +91,15 @@ char *generate_output_filename(const char *input_file, OutputFormat format)
 //
 int parse_args(int argc, char *argv[], Args *args)
 {
-    static struct option long_options[] = { { "verbose", no_argument, 0, 'v' },
-                                            { "help", no_argument, 0, 'h' },
-                                            { "debug", no_argument, 0, 'D' },
-                                            { "ast", no_argument, 0, 0 },
-                                            { "yaml", no_argument, 0, 0 },
-                                            { "dot", no_argument, 0, 0 },
-                                            { 0, 0, 0, 0 } };
+    static struct option long_options[] = {
+        { "verbose", no_argument, 0, 'v' }, //
+        { "help", no_argument, 0, 'h' },    //
+        { "debug", no_argument, 0, 'D' },   //
+        { "ast", no_argument, 0, 'a' },     //
+        { "yaml", no_argument, 0, 'y' },    //
+        { "dot", no_argument, 0, 'd' },     //
+        { },                                //
+    };
 
     int opt;
     int option_index = 0;
@@ -118,14 +120,15 @@ int parse_args(int argc, char *argv[], Args *args)
         case 'D':
             args->debug = 1;
             break;
-        case 0: // Long options without short equivalents
-            if (strcmp(long_options[option_index].name, "yaml") == 0) {
-                args->format = FORMAT_YAML;
-            } else if (strcmp(long_options[option_index].name, "dot") == 0) {
-                args->format = FORMAT_DOT;
-            } else {
-                args->format = FORMAT_AST;
-            }
+        // Long options without short equivalents
+        case 'y':
+            args->format = FORMAT_YAML;
+            break;
+        case 'd':
+            args->format = FORMAT_DOT;
+            break;
+        case 'a':
+            args->format = FORMAT_AST;
             break;
         case '?': // Unknown option
             return -1;
