@@ -315,8 +315,8 @@ Type *parse_atomic_type_specifier();
 TypeQualifier *parse_type_qualifier();
 FunctionSpec *parse_function_specifier();
 AlignmentSpec *parse_alignment_specifier();
-Declarator *parse_declarator();
-Declarator *parse_direct_declarator();
+Declarator *parse_declarator(bool accept_abstract);
+Declarator *parse_direct_declarator(bool accept_abstract);
 Pointer *parse_pointer();
 TypeQualifier *parse_type_qualifier_list();
 Param *parse_parameter_type_list(bool *variadic_flag);
@@ -1329,7 +1329,7 @@ InitDeclarator *parse_init_declarator(Declarator *decl, const Type *base_type)
             print_type(stdout, base_type, 4);
     }
     if (!decl) {
-        decl = parse_declarator();
+        decl = parse_declarator(false);
     }
     InitDeclarator *init_decl = new_init_declarator();
     init_decl->name = decl->name;
@@ -1536,7 +1536,7 @@ Field *parse_struct_declaration()
         field->type = clone_type(base_type);
 
         if (current_token != TOKEN_COLON && current_token != TOKEN_SEMICOLON) {
-            Declarator *declarator = parse_declarator();
+            Declarator *declarator = parse_declarator(false);
             field->name            = declarator->name;
             declarator->name       = NULL;
             if (declarator->pointers) {
@@ -1733,7 +1733,7 @@ AlignmentSpec *parse_alignment_specifier()
 //    | direct_declarator
 //    ;
 //
-Declarator *parse_declarator()
+Declarator *parse_declarator(bool accept_abstract)
 {
     if (parser_debug) {
         printf("--- %s()\n", __func__);
@@ -1742,11 +1742,137 @@ Declarator *parse_declarator()
     if (current_token == TOKEN_STAR) {
         pointers = parse_pointer();
     }
-    Declarator *decl = parse_direct_declarator();
+    Declarator *decl = parse_direct_declarator(accept_abstract);
     if (pointers) {
         append_list(&decl->pointers, pointers);
     }
     return decl;
+}
+
+static DeclaratorSuffix *parse_direct_suffix(bool accept_abstract)
+{
+    DeclaratorSuffix *suffix = NULL;
+#if 0
+    if (current_token == TOKEN_LPAREN) {
+        advance_token();
+        suffix = new_declarator_suffix(SUFFIX_FUNCTION);
+        if (current_token_is_not(TOKEN_RPAREN)) {
+            suffix->u.function.params = parse_parameter_type_list(&suffix->u.function.variadic);
+        }
+        expect_token(TOKEN_RPAREN);
+    } else if (current_token == TOKEN_LBRACKET) {
+        advance_token();
+        suffix = new_declarator_suffix(SUFFIX_ARRAY);
+        if (current_token == TOKEN_STATIC) {
+            advance_token();
+            suffix->u.array.is_static = true;
+        }
+        TypeQualifier *qualifiers = NULL;
+        if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
+            current_token == TOKEN_VOLATILE ||
+            (current_token == TOKEN_ATOMIC && next_token() != TOKEN_LPAREN)) {
+            qualifiers = parse_type_qualifier_list();
+        }
+        Expr *size = NULL;
+        if (current_token == TOKEN_STAR) {
+            advance_token();
+        } else if (current_token_is_not(TOKEN_RBRACKET)) {
+            size = parse_assignment_expression();
+        }
+        expect_token(TOKEN_RBRACKET);
+        suffix->u.array.qualifiers = qualifiers;
+        suffix->u.array.size       = size;
+    }
+#else
+    if (current_token == TOKEN_LPAREN) {
+        // Handle '(' abstract_declarator ')' or '(' parameter_type_list ')' or '(' ')'
+        advance_token(); // Consume '('
+        if (current_token == TOKEN_RPAREN) {
+            // Case: '(' ')'
+            advance_token(); // Consume ')'
+            DeclaratorSuffix *suffix    = new_declarator_suffix(SUFFIX_FUNCTION);
+            suffix->u.function.params   = NULL;
+            suffix->u.function.variadic = false;
+        } else if (current_token == TOKEN_STAR && accept_abstract) {
+            // Case: '(' abstract_declarator ')'
+            DeclaratorSuffix *suffix   = new_declarator_suffix(SUFFIX_POINTER);
+            suffix->u.pointer.pointers = parse_pointer();
+            suffix->u.pointer.suffix   = parse_direct_suffix(accept_abstract);
+            expect_token(TOKEN_RPAREN); // Consume ')'
+        } else if (current_token == TOKEN_ELLIPSIS) {
+            fatal_error("Variadic function must have at least one parameter");
+        } else {
+            // Case: '(' parameter_type_list ')'
+            DeclaratorSuffix *suffix  = new_declarator_suffix(SUFFIX_FUNCTION);
+            suffix->u.function.params = parse_parameter_type_list(&suffix->u.function.variadic);
+            expect_token(TOKEN_RPAREN); // Consume ')'
+        }
+    } else if (current_token == TOKEN_LBRACKET) {
+        // Handle array-related cases
+        advance_token(); // Consume '['
+        DeclaratorSuffix *suffix   = new_declarator_suffix(SUFFIX_ARRAY);
+        suffix->u.array.size       = NULL;
+        suffix->u.array.qualifiers = NULL;
+        suffix->u.array.is_static  = false;
+
+        if (current_token == TOKEN_RBRACKET) {
+            // Case: '[' ']'
+            advance_token(); // Consume ']'
+        } else if (current_token == TOKEN_STAR) {
+            // Case: '[' '*' ']'
+            advance_token();                 // Consume '*'
+            expect_token(TOKEN_RBRACKET);    // Consume ']'
+            suffix->u.array.size = NULL; // VLA with *
+        } else if (current_token == TOKEN_STATIC) {
+            // Cases: '[' STATIC ... ']'
+            advance_token(); // Consume STATIC
+            suffix->u.array.is_static = true;
+            if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
+                current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
+                // Case: '[' STATIC type_qualifier_list assignment_expression ']'
+                suffix->u.array.qualifiers = parse_type_qualifier_list();
+            } else {
+                // Case: '[' STATIC assignment_expression ']'
+            }
+            suffix->u.array.size = parse_assignment_expression();
+            if (!suffix->u.array.size) {
+                fatal_error("Invalid array size");
+            }
+            expect_token(TOKEN_RBRACKET); // Consume ']'
+        } else if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
+                   current_token == TOKEN_VOLATILE || current_token == TOKEN_ATOMIC) {
+            // Cases: '[' type_qualifier_list ... ']'
+            suffix->u.array.qualifiers = parse_type_qualifier_list();
+            if (current_token == TOKEN_STATIC) {
+                // Case: '[' type_qualifier_list STATIC assignment_expression ']'
+                advance_token(); // Consume STATIC
+                suffix->u.array.is_static = true;
+                suffix->u.array.size      = parse_assignment_expression();
+                if (!suffix->u.array.size) {
+                    fatal_error("Invalid array size");
+                }
+            } else {
+                // Case: '[' type_qualifier_list assignment_expression ']'
+                //    or '[' type_qualifier_list ']'
+                if (current_token_is_not(TOKEN_RBRACKET)) {
+                    suffix->u.array.size = parse_assignment_expression();
+                    if (!suffix->u.array.size) {
+                        fatal_error("Invalid array size");
+                    }
+                }
+            }
+            expect_token(TOKEN_RBRACKET); // Consume ']'
+        } else {
+            // Case: '[' assignment_expression ']'
+            suffix->u.array.size = parse_assignment_expression();
+            if (!suffix->u.array.size) {
+                fatal_error("Invalid array size");
+            }
+            expect_token(TOKEN_RBRACKET); // Consume ']'
+        }
+    }
+#endif
+    return suffix;
 }
 
 //
@@ -1767,7 +1893,7 @@ Declarator *parse_declarator()
 //     | direct_declarator '(' identifier_list ')'
 //     ;
 //
-Declarator *parse_direct_declarator()
+Declarator *parse_direct_declarator(bool accept_abstract)
 {
     if (parser_debug) {
         printf("--- %s()\n", __func__);
@@ -1777,49 +1903,19 @@ Declarator *parse_direct_declarator()
         decl       = new_declarator();
         decl->name = xstrdup(current_lexeme);
         advance_token();
-    } else if (current_token == TOKEN_LPAREN) {
+    } else if (current_token == TOKEN_LPAREN && !accept_abstract) {
         advance_token();
-        decl = parse_declarator();
+        decl = parse_declarator(accept_abstract);
         expect_token(TOKEN_RPAREN);
+    } else if (accept_abstract) {
+        decl = new_declarator();
     } else {
         fatal_error("Expected identifier or '('");
     }
     while (1) {
-        DeclaratorSuffix *suffix = NULL;
-
-        if (current_token == TOKEN_LBRACKET) {
-            advance_token();
-            suffix = new_declarator_suffix(SUFFIX_ARRAY);
-            if (current_token == TOKEN_STATIC) {
-                advance_token();
-                suffix->u.array.is_static = true;
-            }
-            TypeQualifier *qualifiers = NULL;
-            if (current_token == TOKEN_CONST || current_token == TOKEN_RESTRICT ||
-                current_token == TOKEN_VOLATILE ||
-                (current_token == TOKEN_ATOMIC && next_token() != TOKEN_LPAREN)) {
-                qualifiers = parse_type_qualifier_list();
-            }
-            Expr *size = NULL;
-            if (current_token == TOKEN_STAR) {
-                advance_token();
-            } else if (current_token_is_not(TOKEN_RBRACKET)) {
-                size = parse_assignment_expression();
-            }
-            expect_token(TOKEN_RBRACKET);
-            suffix->u.array.qualifiers = qualifiers;
-            suffix->u.array.size       = size;
-            append_list(&decl->suffixes, suffix);
-        } else if (current_token == TOKEN_LPAREN) {
-            advance_token();
-            suffix = new_declarator_suffix(SUFFIX_FUNCTION);
-            if (current_token_is_not(TOKEN_RPAREN)) {
-                suffix->u.function.params = parse_parameter_type_list(&suffix->u.function.variadic);
-            }
-            expect_token(TOKEN_RPAREN);
-        } else {
+        DeclaratorSuffix *suffix = parse_direct_suffix(accept_abstract);
+        if (!suffix)
             break;
-        }
         append_list(&decl->suffixes, suffix);
     }
     return decl;
@@ -2074,51 +2170,41 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
     return suffix;
 }
 
+//
+// parameter_declaration
+//     : declaration_specifiers declarator
+//     : declaration_specifiers abstract_declarator
+//     | declaration_specifiers
+//     ;
+//
 Param *parse_parameter_declaration()
 {
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Param *param = new_param();
 
     /* Parse declaration_specifiers */
-    TypeQualifier *qualifiers = NULL;
-    TypeSpec *type_specs      = parse_specifier_qualifier_list(&qualifiers);
+    Param *param = new_param();
+    DeclSpec *specifiers = parse_declaration_specifiers(&param->type);
+    if (specifiers) {
+        fatal_error("Invalid specifier in parameter");
+    }
 
     /* Check for declarator or abstract_declarator */
     if (current_token == TOKEN_IDENTIFIER || current_token == TOKEN_LPAREN ||
         current_token == TOKEN_STAR || current_token == TOKEN_LBRACKET) {
-        bool is_declarator = (current_token == TOKEN_IDENTIFIER || current_token == TOKEN_LPAREN);
-        char *name         = NULL;
-        Pointer *pointers  = NULL;
-        DeclaratorSuffix *suffixes = NULL;
 
-        if (is_declarator && current_token == TOKEN_IDENTIFIER) {
-            name = xstrdup(current_lexeme);
-            advance_token();
-            if (current_token == TOKEN_STAR || current_token == TOKEN_LBRACKET ||
-                current_token == TOKEN_LPAREN) {
-                // Parse abstract_declarator.
-                pointers = parse_pointer();
-                suffixes = parse_direct_abstract_declarator();
-            }
-        } else {
-            // Parse abstract_declarator.
-            pointers = parse_pointer();
-            suffixes = parse_direct_abstract_declarator();
+        Declarator *declarator = parse_declarator(true); // or abstract_declarator (unnamed)
+        param->name            = declarator->name;
+        declarator->name       = NULL;
+        if (declarator->pointers) {
+            param->type = type_apply_pointers(param->type, declarator->pointers);
         }
-
-        /* Construct base type from type_specs */
-        Type *base_type = fuse_type_specifiers(type_specs);
-
-        /* Apply pointers and suffixes */
-        param->type = type_apply_suffixes(type_apply_pointers(base_type, pointers), suffixes);
-        param->name = name;
-    } else {
-        /* Only declaration_specifiers (unnamed parameter) */
-        param->type = parse_type_name();
+        if (declarator->suffixes) {
+            param->type = type_apply_suffixes(param->type, declarator->suffixes);
+        }
+        free_declarator(declarator);
     }
-    free_type_spec(type_specs);
     return param;
 }
 
@@ -2146,9 +2232,17 @@ Type *parse_type_name()
     DeclaratorSuffix *suffixes = NULL;
     if (current_token == TOKEN_STAR || current_token == TOKEN_LPAREN ||
         current_token == TOKEN_LBRACKET) {
+
         // Parse abstract_declarator
-        pointers = parse_pointer();
-        suffixes = parse_direct_abstract_declarator();
+        Declarator *declarator = parse_declarator(true);
+        if (declarator->name) {
+            fatal_error("Unexpected identifier in type name");
+        }
+        pointers             = declarator->pointers;
+        suffixes             = declarator->suffixes;
+        declarator->pointers = NULL;
+        declarator->suffixes = NULL;
+        free_declarator(declarator);
     }
 
     /* Apply pointers and suffixes to construct the final type */
@@ -2587,7 +2681,7 @@ ExternalDecl *parse_external_declaration()
 
     // Parse declarator (required for both function_definition and declaration with
     // init_declarator_list).
-    Declarator *decl = parse_declarator();
+    Declarator *decl = parse_declarator(false);
 
     // Check if it's a declaration with init_declarator_list.
     if (current_token == TOKEN_SEMICOLON || current_token == TOKEN_COMMA ||

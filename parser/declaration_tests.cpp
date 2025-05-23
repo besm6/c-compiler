@@ -551,6 +551,7 @@ TEST_F(ParserTest, ParseFunctionDeclaration)
 TEST_F(ParserTest, ParseFunctionDeclarationWithArgs)
 {
     Declaration *decl = GetDeclaration("struct inode *namei(int (*func)(void), int flag);");
+//  Declaration *decl = GetDeclaration("struct inode *namei(int (*)(void), int flag);");
 
     EXPECT_EQ(DECL_VAR, decl->kind);
     ASSERT_NE(nullptr, decl->u.var.declarators);

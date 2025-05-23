@@ -22,7 +22,7 @@ extern int wio_debug;
 // Parse
 //
 Program *parse(FILE *input);
-Declarator *parse_declarator(void);
+Declarator *parse_declarator(bool accept_abstract);
 
 //
 // Symbol table

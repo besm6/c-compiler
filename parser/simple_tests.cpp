@@ -6,7 +6,7 @@ TEST_F(ParserTest, ScanIdentifier)
 {
     init_scanner(CreateTempFile("x"));
     advance_token();
-    Declarator *decl = parse_declarator();
+    Declarator *decl = parse_declarator(false);
     ASSERT_NE(decl, nullptr);
     print_declarator(stdout, decl, 0);
 
