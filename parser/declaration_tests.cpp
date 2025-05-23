@@ -562,3 +562,27 @@ TEST_F(ParserTest, ParseFunctionDeclarationWithArgs)
     ASSERT_NE(type->u.function.params, nullptr);
     //TODO: check parameters
 }
+
+TEST_F(ParserTest, ParseFunctionParameterRegister)
+{
+    Declaration *decl = GetDeclaration("int f(register int x);");
+
+    EXPECT_EQ(DECL_VAR, decl->kind);
+    ASSERT_NE(nullptr, decl->u.var.declarators);
+    EXPECT_STREQ("f", decl->u.var.declarators->name);
+
+    Type *type = decl->u.var.declarators->type;
+    EXPECT_EQ(TYPE_FUNCTION, type->kind);
+    EXPECT_EQ(TYPE_INT, type->u.function.return_type->kind);
+
+    Param *params = type->u.function.params;
+    ASSERT_NE(params, nullptr);
+    EXPECT_EQ(TYPE_INT, params->type->kind);
+    EXPECT_EQ(params->type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_STREQ("x", params->name);
+
+    DeclSpec *spec = params->specifiers;
+    ASSERT_NE(spec, nullptr);
+    ASSERT_NE(spec->storage, nullptr);
+    EXPECT_EQ(spec->storage->kind, STORAGE_CLASS_REGISTER);
+}

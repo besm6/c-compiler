@@ -2156,26 +2156,11 @@ Param *parse_parameter_type_list(bool *variadic_flag)
     if (current_token == TOKEN_ELLIPSIS) {
         fatal_error("Variadic function must have at least one parameter");
     }
-    Param *params = NULL, **params_tail = &params;
-    while (current_token_is_not(TOKEN_RPAREN)) {
-
-        Param *param = new_param();
-        param->type = parse_type_name();
-        if (current_token == TOKEN_IDENTIFIER) {
-            param->name = xstrdup(current_lexeme);
-            advance_token();
-        }
-        *params_tail = param;
-        params_tail  = &param->next;
-        if (current_token != TOKEN_COMMA) {
-            break;
-        }
+    Param *params = parse_parameter_list();
+    if (current_token == TOKEN_COMMA && next_token() == TOKEN_ELLIPSIS) {
         advance_token();
-        if (current_token == TOKEN_ELLIPSIS) {
-            advance_token();
-            *variadic_flag = true;
-            break;
-        }
+        advance_token();
+        *variadic_flag = true;
     }
     return params;
 }
@@ -2373,6 +2358,8 @@ Param *parse_parameter_declaration()
 
         /* Apply pointers and suffixes */
         param->type = type_apply_suffixes(type_apply_pointers(param->type, pointers), suffixes);
+        free_pointer(pointers);
+        free_declarator_suffix(suffixes);
     }
     return param;
 }
