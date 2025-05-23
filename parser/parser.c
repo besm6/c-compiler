@@ -1972,7 +1972,10 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
     DeclaratorSuffix **tail  = &suffix; // Pointer to the last suffix's next field
 
     while (1) {
-        if (current_token == TOKEN_LPAREN) {
+        if (current_token == TOKEN_IDENTIFIER) {
+            // Ignore
+            advance_token();
+        } else if (current_token == TOKEN_LPAREN) {
             // Handle '(' abstract_declarator ')' or '(' parameter_type_list ')' or '(' ')'
             advance_token(); // Consume '('
             if (current_token == TOKEN_RPAREN) {
