@@ -235,9 +235,42 @@ TEST_F(ScannerTest, HandlesEllipsis)
     EXPECT_EQ(GetLexeme(), ")");
 }
 
-// Main function for running tests
-int main(int argc, char **argv)
+// Test line markers
+TEST_F(ScannerTest, HandlesLineMarkers)
 {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    SetInput(R"(# 1 "main.c"
+int main() {
+# 10 "header.h"
+    return 0;
+# 3 "main.c" 2
+}
+)");
+    EXPECT_EQ(GetNextToken(), TOKEN_INT);
+    EXPECT_EQ(GetLexeme(), "int");
+    EXPECT_EQ(scanner_lineno, 1);
+    EXPECT_STREQ(scanner_filename, "\"main.c\"");
+
+    EXPECT_EQ(GetNextToken(), TOKEN_IDENTIFIER);
+    EXPECT_EQ(GetLexeme(), "main");
+    EXPECT_EQ(GetNextToken(), TOKEN_LPAREN);
+    EXPECT_EQ(GetLexeme(), "(");
+    EXPECT_EQ(GetNextToken(), TOKEN_RPAREN);
+    EXPECT_EQ(GetLexeme(), ")");
+    EXPECT_EQ(GetNextToken(), TOKEN_LBRACE);
+    EXPECT_EQ(GetLexeme(), "{");
+    EXPECT_EQ(GetNextToken(), TOKEN_RETURN);
+    EXPECT_EQ(GetLexeme(), "return");
+    EXPECT_EQ(scanner_lineno, 10);
+    EXPECT_STREQ(scanner_filename, "\"header.h\"");
+
+    EXPECT_EQ(GetNextToken(), TOKEN_I_CONSTANT);
+    EXPECT_EQ(GetLexeme(), "0");
+    EXPECT_EQ(GetNextToken(), TOKEN_SEMICOLON);
+    EXPECT_EQ(GetLexeme(), ";");
+    EXPECT_EQ(GetNextToken(), TOKEN_RBRACE);
+    EXPECT_EQ(GetLexeme(), "}");
+    EXPECT_EQ(scanner_lineno, 3);
+    EXPECT_STREQ(scanner_filename, "\"main.c\"");
+
+    EXPECT_EQ(GetNextToken(), TOKEN_EOF);
 }

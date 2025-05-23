@@ -115,6 +115,10 @@ int yylex(void);
 // Get current lexeme
 char *get_yytext(void);
 
+// Current location
+extern int scanner_lineno;
+extern char scanner_filename[1024];
+
 #ifdef __cplusplus
 }
 #endif

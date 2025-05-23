@@ -25,8 +25,8 @@ static int scan_operator(void);
 static void scan_line_marker(void);
 
 // Current location in input file
-static int current_line_number;
-static char current_filename[1024];
+int scanner_lineno;
+char scanner_filename[1024];
 
 // Initialize scanner with input file
 void init_scanner(FILE *input)
@@ -274,9 +274,9 @@ static void scan_line_marker()
         scan_string();
 
         // Store in current_location
-        current_line_number = line_num;
-        strncpy(current_filename, yytext, sizeof(current_filename) - 1);
-        current_filename[sizeof(current_filename) - 1] = '\0';
+        scanner_lineno = line_num;
+        strncpy(scanner_filename, yytext, sizeof(scanner_filename) - 1);
+        scanner_filename[sizeof(scanner_filename) - 1] = '\0';
     }
 
     // Skip optional flags and rest of the line
