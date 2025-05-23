@@ -704,7 +704,7 @@ Expr *parse_cast_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    if (current_token == TOKEN_LPAREN) {
+    if (current_token == TOKEN_LPAREN && is_type_specifier(next_token())) {
         advance_token();
         Type *type = parse_type_name();
         expect_token(TOKEN_RPAREN);
