@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdarg.h>
 
-#include "ast.h"
+#include "parser.h"
 #include "scanner.h"
 #include "internal.h"
 #include "xalloc.h"

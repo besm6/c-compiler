@@ -20,9 +20,10 @@ FetchContent_MakeAvailable(googletest)
 include(GoogleTest)
 enable_testing()
 
+add_subdirectory(libutil)
+add_subdirectory(ast)
 add_subdirectory(scanner)
 add_subdirectory(parser)
-add_subdirectory(libutil)
 
 #
 # 'cast' executable

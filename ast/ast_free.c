@@ -40,7 +40,6 @@ void free_program(Program *program)
         return;
     free_external_decl(program->decls);
     xfree(program);
-    symtab_free();
 }
 
 void free_type(Type *type)

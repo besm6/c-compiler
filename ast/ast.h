@@ -499,15 +499,7 @@ struct ExternalDecl {
     } u;
 };
 
-// Enable debug output
-extern int parser_debug;
-extern int import_debug;
-extern int export_debug;
-extern int wio_debug;
-
-Program *parse(FILE *input);
 Program *import_ast(int fileno);
-void free_program(Program* program);
 void export_ast(int fileno, Program *program);
 void export_yaml(FILE *fd, Program *program);
 void export_dot(FILE *fd, Program *program);
@@ -519,19 +511,12 @@ void print_type(FILE *fd, const Type *type, int indent);
 void print_type_qualifiers(FILE *fd, TypeQualifier *qualifiers, int indent);
 extern const char *type_kind_str[];
 
+void free_program(Program* program);
 void free_expression(Expr *expr);
 void free_statement(Stmt *stmt);
 void free_type(Type *type);
 
 bool compare_program(const Program *a, const Program *b);
-
-#ifdef GTEST_API_
-void advance_token(void);
-Expr *parse_primary_expression(void);
-Expr *parse_expression(void);
-Stmt *parse_statement(void);
-Type *parse_type_name(void);
-#endif
 
 #ifdef __cplusplus
 }

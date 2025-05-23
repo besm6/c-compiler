@@ -1,8 +1,8 @@
 //
 // Internal types for parser, hidden from consumers of AST.
 //
-#ifndef PARSER_INTERNAL_H
-#define PARSER_INTERNAL_H
+#ifndef AST_INTERNAL_H
+#define AST_INTERNAL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -83,11 +83,6 @@ struct DeclaratorSuffix {
 };
 
 //
-// Parse
-//
-Declarator *parse_declarator(void);
-
-//
 // Print
 //
 void print_type_spec(FILE *fd, TypeSpec *spec, int indent);
@@ -152,17 +147,8 @@ TypeSpec *clone_type_spec(const TypeSpec *ts);
 Field *clone_field(const Field *field);
 Enumerator *clone_enumerator(const Enumerator *enumerator);
 
-//
-// Symbol table
-//
-int symtab_find(const char *name);
-bool symtab_define(const char *name, int token, int level);
-void symtab_remove(const char *name);
-void symtab_purge(int level);
-void symtab_free(void);
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* PARSER_INTERNAL_H */
+#endif /* AST_INTERNAL_H */

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "ast.h"
+#include "parser.h"
 #include "xalloc.h"
 
 //
@@ -211,6 +211,7 @@ void process_file(Args *args)
         fclose(output_file);
     }
     free_program(program);
+    symtab_free();
     if (args->debug) {
         xreport_lost_memory();
     }

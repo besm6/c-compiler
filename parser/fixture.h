@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "ast.h"
+#include "parser.h"
 #include "scanner.h"
 #include "internal.h"
 #include "xalloc.h"
@@ -33,6 +33,7 @@ protected:
         fclose(input_file);
         if (program) {
             free_program(program);
+            symtab_free();
         }
         xreport_lost_memory();
         EXPECT_EQ(xtotal_allocated_size(), 0);
