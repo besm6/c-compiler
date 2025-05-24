@@ -92,8 +92,10 @@ static void export_param(FILE *fd, Param *param, int level)
         print_indent(fd, level + 1);
         fprintf(fd, "type:\n");
         export_type(fd, param->type, level + 2);
-        fprintf(fd, "specifiers:\n");
-        export_decl_spec(fd, param->specifiers, level + 2);
+        if (param->specifiers) {
+            fprintf(fd, "specifiers:\n");
+            export_decl_spec(fd, param->specifiers, level + 2);
+        }
         param = param->next;
     }
 }
@@ -428,9 +430,11 @@ static void export_decl(FILE *fd, Declaration *decl, int level)
             break;
         }
         if (decl->kind == DECL_VAR) {
-            print_indent(fd, level + 1);
-            fprintf(fd, "specifiers:\n");
-            export_decl_spec(fd, decl->u.var.specifiers, level + 2);
+            if (decl->u.var.specifiers) {
+                print_indent(fd, level + 1);
+                fprintf(fd, "specifiers:\n");
+                export_decl_spec(fd, decl->u.var.specifiers, level + 2);
+            }
             if (decl->u.var.declarators) {
                 print_indent(fd, level + 1);
                 fprintf(fd, "declarators:\n");
@@ -445,9 +449,11 @@ static void export_decl(FILE *fd, Declaration *decl, int level)
                 fprintf(fd, "message: %s\n", decl->u.static_assrt.message);
             }
         } else {
-            print_indent(fd, level + 1);
-            fprintf(fd, "specifiers:\n");
-            export_decl_spec(fd, decl->u.empty.specifiers, level + 2);
+            if (decl->u.empty.specifiers) {
+                print_indent(fd, level + 1);
+                fprintf(fd, "specifiers:\n");
+                export_decl_spec(fd, decl->u.empty.specifiers, level + 2);
+            }
             print_indent(fd, level + 1);
             fprintf(fd, "type:\n");
             export_type(fd, decl->u.empty.type, level + 2);
