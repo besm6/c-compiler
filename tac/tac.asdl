@@ -1,37 +1,54 @@
 module TAC {
-    program = Program(top_level*)
+    Program = (TopLevel* decls)
 
-    top_level = Function(identifier, bool global, identifier* params, instruction* body)
-              | StaticVariable(identifier, bool global, type t, static_init* init_list)
-              | StaticConstant(identifier, type t, static_init init)
+    TopLevel = Function(identifier name, bool global, identifier* params, Instruction* body)
+             | StaticVariable(identifier name, bool global, Type typ, StaticInit* init_list)
+             | StaticConstant(identifier name, Type typ, StaticInit init)
 
-    instruction = Return(val?)
-                | SignExtend(val src, val dst)
-                | Truncate(val src, val dst)
-                | ZeroExtend(val src, val dst)
-                | DoubleToInt(val src, val dst)
-                | DoubleToUInt(val src, val dst)
-                | IntToDouble(val src, val dst)
-                | UIntToDouble(val src, val dst)
-                | Unary(unary_operator, val src, val dst)
-                | Binary(binary_operator, val src1, val src2, val dst)
-                | Copy(val src, val dst)
-                | GetAddress(val src, val dst)
-                | Load(val src_ptr, val dst)
-                | Store(val src, val dst_ptr)
-                | AddPtr(val ptr, val index, int scale, val dst)
-                | CopyToOffset(val src, identifier dst, int offset)
-                | CopyFromOffset(identifier src, int offset, val dst)
+    Instruction = Return(Val? src)
+                | SignExtend(Val src, Val dst)
+                | Truncate(Val src, Val dst)
+                | ZeroExtend(Val src, Val dst)
+                | DoubleToInt(Val src, Val dst)
+                | DoubleToUInt(Val src, Val dst)
+                | IntToDouble(Val src, Val dst)
+                | UIntToDouble(Val src, Val dst)
+                | Unary(UnaryOperator op, Val src, Val dst)
+                | Binary(BinaryOperator op, Val src1, Val src2, Val dst)
+                | Copy(Val src, Val dst)
+                | GetAddress(Val src, Val dst)
+                | Load(Val src_ptr, Val dst)
+                | Store(Val src, Val dst_ptr)
+                | AddPtr(Val ptr, Val index, int scale, Val dst)
+                | CopyToOffset(Val src, identifier dst, int offset)
+                | CopyFromOffset(identifier src, int offset, Val dst)
                 | Jump(identifier target)
-                | JumpIfZero(val condition, identifier target)
-                | JumpIfNotZero(val condition, identifier target)
-                | Label(identifier)
-                | FunCall(identifier fun_name, val* args, val? dst)
+                | JumpIfZero(Val condition, identifier target)
+                | JumpIfNotZero(Val condition, identifier target)
+                | Label(identifier name)
+                | FunCall(identifier fun_name, Val* args, Val? dst)
 
-    val = Constant(const) | Var(identifier)
+    Val = Constant(Const val)
+        | Var(identifier name)
 
-    unary_operator = Complement | Negate | Not
+    UnaryOperator = Complement | Negate | Not
 
-    binary_operator = Add | Subtract | Multiply | Divide | Remainder | Equal | NotEqual
-                    | LessThan | LessOrEqual | GreaterThan | GreaterOrEqual
+    BinaryOperator = Add | Subtract | Multiply | Divide | Remainder | Equal | NotEqual
+                   | LessThan | LessOrEqual | GreaterThan | GreaterOrEqual
+                   | BitwiseAnd | BitwiseOr | BitwiseXor | LeftShift | RightShift
+
+    Type = Char | SChar | UChar | Int | Long | UInt | ULong | Double | Void
+         | FunType(Type* params, Type ret)
+         | Pointer(Type referenced)
+         | Array(Type element, int size)
+         | Structure(identifier tag)
+
+    StaticInit = IntInit(int val) | LongInit(long val) | UIntInit(int val) | ULongInit(long val)
+               | CharInit(int val) | UCharInit(int val)
+               | DoubleInit(double val) | ZeroInit(int bytes)
+               | StringInit(string val, bool null_terminated)
+               | PointerInit(string name)
+
+    Const = ConstInt(int val) | ConstLong(long val) | ConstUInt(int val) | ConstULong(long val)
+          | ConstDouble(double val) | ConstChar(int val) | ConstUChar(int val)
 }
