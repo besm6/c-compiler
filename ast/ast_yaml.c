@@ -327,6 +327,49 @@ static void export_alignment_spec(FILE *fd, AlignmentSpec *as, int level)
     }
 }
 
+static void export_init_item(FILE *fd, InitItem *item, int level)
+{
+    if (!item)
+        return;
+    print_indent(fd, level);
+    fprintf(fd, "items:\n");
+    while (item) {
+        print_indent(fd, level + 1);
+        fprintf(fd, "- item:\n");
+        Designator *des = item->designators;
+        if (des) {
+            print_indent(fd, level + 2);
+            fprintf(fd, "designators:\n");
+            while (des) {
+                print_indent(fd, level + 3);
+                fprintf(fd, "- kind: %s\n",
+                        des->kind == DESIGNATOR_ARRAY ? "array" : "field");
+                if (des->kind == DESIGNATOR_ARRAY) {
+                    print_indent(fd, level + 4);
+                    fprintf(fd, "expr:\n");
+                    export_expr(fd, des->u.expr, level + 5);
+                } else {
+                    export_ident(fd, des->u.name, level + 4);
+                }
+                des = des->next;
+            }
+        }
+        print_indent(fd, level + 2);
+        fprintf(fd, "init:\n");
+        print_indent(fd, level + 3);
+        fprintf(fd, "kind: %s\n",
+                item->init->kind == INITIALIZER_SINGLE ? "single" : "compound");
+        if (item->init->kind == INITIALIZER_SINGLE) {
+            print_indent(fd, level + 3);
+            fprintf(fd, "expr:\n");
+            export_expr(fd, item->init->u.expr, level + 4);
+        } else {
+            export_init_item(fd, item->init->u.items, level + 4); // Recursive for nested compounds
+        }
+        item = item->next;
+    }
+}
+
 static void export_init_declarator(FILE *fd, InitDeclarator *id, int level)
 {
     while (id) {
@@ -346,49 +389,7 @@ static void export_init_declarator(FILE *fd, InitDeclarator *id, int level)
                 fprintf(fd, "expr:\n");
                 export_expr(fd, id->init->u.expr, level + 3);
             } else {
-                InitItem *item = id->init->u.items;
-                if (item) {
-                    print_indent(fd, level + 2);
-                    fprintf(fd, "items:\n");
-                    while (item) {
-                        print_indent(fd, level + 3);
-                        fprintf(fd, "- item:\n");
-                        Designator *des = item->designators;
-                        if (des) {
-                            print_indent(fd, level + 4);
-                            fprintf(fd, "designators:\n");
-                            while (des) {
-                                print_indent(fd, level + 5);
-                                fprintf(fd, "- kind: %s\n",
-                                        des->kind == DESIGNATOR_ARRAY ? "array" : "field");
-                                if (des->kind == DESIGNATOR_ARRAY) {
-                                    print_indent(fd, level + 6);
-                                    fprintf(fd, "expr:\n");
-                                    export_expr(fd, des->u.expr, level + 7);
-                                } else {
-                                    export_ident(fd, des->u.name, level + 6);
-                                }
-                                des = des->next;
-                            }
-                        }
-                        print_indent(fd, level + 4);
-                        fprintf(fd, "init:\n");
-                        print_indent(fd, level + 5);
-                        fprintf(fd, "kind: %s\n",
-                                item->init->kind == INITIALIZER_SINGLE ? "single" : "compound");
-                        if (item->init->kind == INITIALIZER_SINGLE) {
-                            print_indent(fd, level + 5);
-                            fprintf(fd, "expr:\n");
-                            export_expr(fd, item->init->u.expr, level + 6);
-                        } else {
-                            print_indent(fd, level + 5);
-                            fprintf(fd, "items:\n");
-                            export_init_declarator(fd, id,
-                                                   level + 6); // Recursive for nested compounds
-                        }
-                        item = item->next;
-                    }
-                }
+                export_init_item(fd, id->init->u.items, level + 2);
             }
         }
         id = id->next;
