@@ -584,7 +584,7 @@ TEST_F(ParserTest, ParseFunctionDeclarationWithArgs)
     //
     // Check parameter #1: int (*func)(void)
     //
-    EXPECT_EQ(nullptr, param1->name); // TODO: "func"
+    EXPECT_STREQ("func", param1->name);
     EXPECT_EQ(nullptr, param1->specifiers);
     type = param1->type;
     ASSERT_NE(nullptr, type);

@@ -331,7 +331,7 @@ Param *parse_parameter_type_list(bool *variadic_flag);
 Param *parse_parameter_list();
 Param *parse_parameter_declaration();
 Type *parse_type_name();
-DeclaratorSuffix *parse_direct_abstract_declarator();
+DeclaratorSuffix *parse_direct_abstract_declarator(Ident *name_out);
 Initializer *parse_initializer();
 InitItem *parse_initializer_list();
 Designator *parse_designation();
@@ -2215,7 +2215,7 @@ Param *parse_parameter_list()
 //     | direct_abstract_declarator '(' parameter_type_list ')'
 //     ;
 //
-DeclaratorSuffix *parse_direct_abstract_declarator()
+DeclaratorSuffix *parse_direct_abstract_declarator(Ident *name_out)
 {
     if (parser_debug) {
         printf("--- %s()\n", __func__);
@@ -2224,8 +2224,9 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
     DeclaratorSuffix **tail  = &suffix; // Pointer to the last suffix's next field
 
     while (1) {
-        if (current_token == TOKEN_IDENTIFIER) {
-            // Ignore
+        if (name_out && current_token == TOKEN_IDENTIFIER) {
+            // Pass name to caller.
+            *name_out = xstrdup(current_lexeme);
             advance_token();
         } else if (current_token == TOKEN_LPAREN) {
             // Handle '(' abstract_declarator ')' or '(' parameter_type_list ')' or '(' ')'
@@ -2242,7 +2243,7 @@ DeclaratorSuffix *parse_direct_abstract_declarator()
                 // Case: '(' abstract_declarator ')'
                 DeclaratorSuffix *new_suffix   = new_declarator_suffix(SUFFIX_POINTER);
                 new_suffix->u.pointer.pointers = parse_pointer();
-                new_suffix->u.pointer.suffix   = parse_direct_abstract_declarator();
+                new_suffix->u.pointer.suffix   = parse_direct_abstract_declarator(name_out);
                 expect_token(TOKEN_RPAREN); // Consume ')'
                 *tail = new_suffix;
                 tail  = &new_suffix->next;
@@ -2354,7 +2355,7 @@ Param *parse_parameter_declaration()
     if (current_token == TOKEN_STAR || current_token == TOKEN_LBRACKET ||
         current_token == TOKEN_LPAREN) {
         Pointer *pointers = parse_pointer();
-        DeclaratorSuffix *suffixes = parse_direct_abstract_declarator();
+        DeclaratorSuffix *suffixes = parse_direct_abstract_declarator(param->name ? NULL : &param->name);
 
         /* Apply pointers and suffixes */
         param->type = type_apply_suffixes(type_apply_pointers(param->type, pointers), suffixes);
@@ -2390,7 +2391,7 @@ Type *parse_type_name()
         current_token == TOKEN_LBRACKET) {
         // Parse abstract_declarator
         pointers = parse_pointer();
-        suffixes = parse_direct_abstract_declarator();
+        suffixes = parse_direct_abstract_declarator(NULL);
     }
 
     /* Apply pointers and suffixes to construct the final type */
