@@ -552,15 +552,69 @@ TEST_F(ParserTest, ParseFunctionDeclarationWithArgs)
 {
     Declaration *decl = GetDeclaration("struct inode *namei(int (*func)(void), int flag);");
 
+    EXPECT_EQ(nullptr, decl->next);
     EXPECT_EQ(DECL_VAR, decl->kind);
-    ASSERT_NE(nullptr, decl->u.var.declarators);
-    EXPECT_STREQ("namei", decl->u.var.declarators->name);
+    EXPECT_EQ(nullptr, decl->u.var.specifiers);
 
-    Type *type = decl->u.var.declarators->type;
+    InitDeclarator *init = decl->u.var.declarators;
+    ASSERT_NE(nullptr, init);
+    EXPECT_EQ(nullptr, init->next);
+    EXPECT_STREQ("namei", init->name);
+    EXPECT_EQ(nullptr, init->init);
+
+    Type *type = init->type;
+    ASSERT_NE(nullptr, type);
     EXPECT_EQ(TYPE_FUNCTION, type->kind);
-    //TODO: EXPECT_EQ(TYPE_INT, type->u.function.return_type->kind);
-    ASSERT_NE(type->u.function.params, nullptr);
-    //TODO: check parameters
+    EXPECT_FALSE(type->u.function.variadic);
+
+    Type *ret = type->u.function.return_type;
+    ASSERT_NE(nullptr, ret);
+    EXPECT_EQ(TYPE_POINTER, ret->kind);
+    EXPECT_EQ(nullptr, ret->u.pointer.qualifiers);
+    ASSERT_NE(nullptr, ret->u.pointer.target);
+    EXPECT_EQ(TYPE_STRUCT, ret->u.pointer.target->kind);
+    EXPECT_STREQ("inode", ret->u.pointer.target->u.struct_t.name);
+
+    Param *param1 = type->u.function.params;
+    ASSERT_NE(nullptr, param1);
+    Param *param2 = param1->next;
+    ASSERT_NE(nullptr, param2);
+    EXPECT_EQ(nullptr, param2->next);
+
+    //
+    // Check parameter #1: int (*func)(void)
+    //
+    EXPECT_EQ(nullptr, param1->name); // TODO: "func"
+    EXPECT_EQ(nullptr, param1->specifiers);
+    type = param1->type;
+    ASSERT_NE(nullptr, type);
+    EXPECT_EQ(TYPE_POINTER, type->kind);
+    EXPECT_EQ(nullptr, type->u.pointer.qualifiers);
+    ASSERT_NE(nullptr, type->u.pointer.target);
+    EXPECT_EQ(TYPE_FUNCTION, type->u.pointer.target->kind);
+    EXPECT_FALSE(type->u.pointer.target->u.function.variadic);
+
+    ret = type->u.pointer.target->u.function.return_type;
+    ASSERT_NE(nullptr, ret);
+    EXPECT_EQ(TYPE_INT, ret->kind);
+    EXPECT_EQ(SIGNED_SIGNED, ret->u.integer.signedness);
+
+    param1 = type->u.pointer.target->u.function.params;
+    ASSERT_NE(nullptr, param1);
+    EXPECT_EQ(nullptr, param1->next);
+    EXPECT_EQ(nullptr, param1->name);
+    EXPECT_EQ(nullptr, param1->specifiers);
+    ASSERT_NE(nullptr, param1->type);
+    EXPECT_EQ(TYPE_VOID, param1->type->kind);
+
+    //
+    // Check parameter #2: int flag
+    //
+    EXPECT_STREQ("flag", param2->name);
+    EXPECT_EQ(nullptr, param2->specifiers);
+    ASSERT_NE(nullptr, param2->type);
+    EXPECT_EQ(TYPE_INT, param2->type->kind);
+    EXPECT_EQ(SIGNED_SIGNED, param2->type->u.integer.signedness);
 }
 
 TEST_F(ParserTest, ParseFunctionParameterRegister)
