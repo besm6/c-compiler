@@ -904,15 +904,15 @@ void export_dot(FILE *fd, Program *program)
         return;
     node_id = 0;
     fprintf(fd, "digraph AST {\n");
+    fprintf(fd, "  graph [margin=\"0,0\", pad=\"0.1\", ranksep=0.3, nodesep=0.2];\n");
+    fprintf(fd, "  node [width=0.3, height=0.3, margin=\"0.02,0.01\"];\n");
     fprintf(fd, "  node [shape=oval];\n");
     int root_id = gen_node_id();
-    fprintf(fd, "  n%d [label=\"Program\", shape=box];\n", root_id);
     ExternalDecl *decl = program->decls;
     while (decl) {
         int decl_id = gen_node_id();
         fprintf(fd, "  n%d [label=\"ExternalDecl: %s\", shape=box];\n", decl_id,
                 decl->kind == EXTERNAL_DECL_FUNCTION ? "function" : "declaration");
-        fprintf(fd, "  n%d -> n%d [label=\"decl\"];\n", root_id, decl_id);
         if (decl->kind == EXTERNAL_DECL_FUNCTION) {
             export_type(fd, decl->u.function.type, decl_id);
             export_ident(fd, decl->u.function.name, decl_id, "name");
