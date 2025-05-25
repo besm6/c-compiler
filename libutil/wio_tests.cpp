@@ -124,7 +124,7 @@ TEST_F(WIOTest, WPutWAndWGetW)
 {
     WFILE wstream;
     ASSERT_GE(wopen(&wstream, filename, "w"), 0);
-    size_t data[] = { 42, 123, 999 };
+    static const size_t data[] = { 42, 123, 999 };
     for (size_t w : data) {
         EXPECT_EQ(wputw(w, &wstream), 0);
     }

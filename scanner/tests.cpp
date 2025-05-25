@@ -19,6 +19,8 @@ protected:
     {
         // Create a temporary file with the input
         temp_file = tmpfile();
+        if (!temp_file)
+            FAIL();
         fwrite(input.c_str(), 1, input.size(), temp_file);
         rewind(temp_file);
         init_scanner(temp_file);

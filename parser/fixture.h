@@ -14,7 +14,7 @@
 // Test fixture
 class ParserTest : public ::testing::Test {
     const std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
-    FILE *input_file;
+    FILE *input_file{};
 
 public:
     Program *program{};
