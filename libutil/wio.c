@@ -328,7 +328,7 @@ void wclearerr(WFILE *stream)
 char *wgetstr(WFILE *stream)
 {
     size_t buf[128];
-    int n;
+    int n = 0;
 
     for (;;) {
         buf[n] = wgetw(stream);
