@@ -6,6 +6,25 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "-Wall -Werror -Wshadow")
 
+#
+# Enable cppcheck by default
+#
+find_program(Cppcheck NAMES cppcheck)
+if(NOT (Cppcheck MATCHES "NOTFOUND"))
+    message(STATUS "Found Cppcheck: ${Cppcheck}")
+    set(CMAKE_CXX_CPPCHECK "${Cppcheck}"
+        "--std=c++17"
+        "--enable=style"
+        "--check-level=exhaustive"
+        "--error-exitcode=1" # Fail on any issues
+        "--inline-suppr" # Enable inline control like // cppcheck-suppress "id"
+        "--quiet" # No progress report messages
+        "--suppress=badBitmaskCheck" # Allow redundant zero operands
+        "--suppress=*:*/_deps/*" # Ignore issues in Googletest
+        "--library=${CMAKE_SOURCE_DIR}/scripts/googletest.xml" # Parse TEST() macro properly
+    )
+endif()
+
 # Download GoogleTest
 include(FetchContent)
 FetchContent_Declare(
