@@ -263,7 +263,7 @@ static void export_type(FILE *fd, Type *type, int level)
     }
 }
 
-static void export_storage_class(FILE *fd, StorageClass *sc, int level)
+static void export_storage_class(FILE *fd, const StorageClass *sc, int level)
 {
     if (!sc)
         return;
@@ -463,7 +463,7 @@ static void export_decl(FILE *fd, Declaration *decl, int level)
     }
 }
 
-static void export_literal(FILE *fd, Literal *lit, int level)
+static void export_literal(FILE *fd, const Literal *lit, int level)
 {
     print_indent(fd, level);
     fprintf(fd, "kind: ");
@@ -505,7 +505,7 @@ static void export_literal(FILE *fd, Literal *lit, int level)
     }
 }
 
-static void export_unary_op(FILE *fd, UnaryOp *op, int level)
+static void export_unary_op(FILE *fd, const UnaryOp *op, int level)
 {
     print_indent(fd, level);
     fprintf(fd, "op: ");
@@ -537,7 +537,7 @@ static void export_unary_op(FILE *fd, UnaryOp *op, int level)
     }
 }
 
-static void export_binary_op(FILE *fd, BinaryOp *op, int level)
+static void export_binary_op(FILE *fd, const BinaryOp *op, int level)
 {
     print_indent(fd, level);
     fprintf(fd, "op: ");
@@ -599,7 +599,7 @@ static void export_binary_op(FILE *fd, BinaryOp *op, int level)
     }
 }
 
-static void export_assign_op(FILE *fd, AssignOp *op, int level)
+static void export_assign_op(FILE *fd, const AssignOp *op, int level)
 {
     print_indent(fd, level);
     fprintf(fd, "op: ");

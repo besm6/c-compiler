@@ -8,24 +8,24 @@
 int export_debug; // Enable manually for debug
 
 void export_type(WFILE *fd, Type *type);
-void export_type_qualifier(WFILE *fd, TypeQualifier *qual);
+void export_type_qualifier(WFILE *fd, const TypeQualifier *qual);
 void export_field(WFILE *fd, Field *field);
 void export_enumerator(WFILE *fd, Enumerator *enumr);
 void export_param(WFILE *fd, Param *param);
 void export_declaration(WFILE *fd, Declaration *decl);
 void export_decl_spec(WFILE *fd, DeclSpec *spec);
-void export_storage_class(WFILE *fd, StorageClass *stor);
-void export_function_spec(WFILE *fd, FunctionSpec *fspec);
+void export_storage_class(WFILE *fd, const StorageClass *stor);
+void export_function_spec(WFILE *fd, const FunctionSpec *fspec);
 void export_alignment_spec(WFILE *fd, AlignmentSpec *aspec);
 void export_init_declarator(WFILE *fd, InitDeclarator *idecl);
 void export_initializer(WFILE *fd, Initializer *init);
 void export_init_item(WFILE *fd, InitItem *item);
 void export_designator(WFILE *fd, Designator *desg);
 void export_expr(WFILE *fd, Expr *expr);
-void export_literal(WFILE *fd, Literal *lit);
-void export_unary_op(WFILE *fd, UnaryOp *uop);
-void export_binary_op(WFILE *fd, BinaryOp *bop);
-void export_assign_op(WFILE *fd, AssignOp *aop);
+void export_literal(WFILE *fd, const Literal *lit);
+void export_unary_op(WFILE *fd, const UnaryOp *uop);
+void export_binary_op(WFILE *fd, const BinaryOp *bop);
+void export_assign_op(WFILE *fd, const AssignOp *aop);
 void export_generic_assoc(WFILE *fd, GenericAssoc *gasc);
 void export_stmt(WFILE *fd, Stmt *stmt);
 void export_decl_or_stmt(WFILE *fd, DeclOrStmt *dost);
@@ -134,7 +134,7 @@ void export_type(WFILE *fd, Type *type)
     wputw(TAG_EOL, fd);
 }
 
-void export_type_qualifier(WFILE *fd, TypeQualifier *qual)
+void export_type_qualifier(WFILE *fd, const TypeQualifier *qual)
 {
     if (export_debug) {
         printf("--- %s()\n", __func__);
@@ -232,7 +232,7 @@ void export_decl_spec(WFILE *fd, DeclSpec *spec)
     export_alignment_spec(fd, spec->align_spec);
 }
 
-void export_storage_class(WFILE *fd, StorageClass *stor)
+void export_storage_class(WFILE *fd, const StorageClass *stor)
 {
     if (export_debug) {
         printf("--- %s()\n", __func__);
@@ -242,7 +242,7 @@ void export_storage_class(WFILE *fd, StorageClass *stor)
     wputw(TAG_STORAGECLASS + stor->kind, fd);
 }
 
-void export_function_spec(WFILE *fd, FunctionSpec *fspec)
+void export_function_spec(WFILE *fd, const FunctionSpec *fspec)
 {
     if (export_debug) {
         printf("--- %s()\n", __func__);
@@ -423,7 +423,7 @@ void export_expr(WFILE *fd, Expr *expr)
     export_type(fd, expr->type);
 }
 
-void export_literal(WFILE *fd, Literal *lit)
+void export_literal(WFILE *fd, const Literal *lit)
 {
     if (export_debug) {
         printf("--- %s()\n", __func__);
@@ -450,7 +450,7 @@ void export_literal(WFILE *fd, Literal *lit)
     }
 }
 
-void export_unary_op(WFILE *fd, UnaryOp *uop)
+void export_unary_op(WFILE *fd, const UnaryOp *uop)
 {
     if (export_debug) {
         printf("--- %s()\n", __func__);
@@ -460,7 +460,7 @@ void export_unary_op(WFILE *fd, UnaryOp *uop)
     wputw(TAG_UNARYOP + uop->kind, fd);
 }
 
-void export_binary_op(WFILE *fd, BinaryOp *bop)
+void export_binary_op(WFILE *fd, const BinaryOp *bop)
 {
     if (export_debug) {
         printf("--- %s()\n", __func__);
@@ -470,7 +470,7 @@ void export_binary_op(WFILE *fd, BinaryOp *bop)
     wputw(TAG_BINARYOP + bop->kind, fd);
 }
 
-void export_assign_op(WFILE *fd, AssignOp *aop)
+void export_assign_op(WFILE *fd, const AssignOp *aop)
 {
     if (export_debug) {
         printf("--- %s()\n", __func__);

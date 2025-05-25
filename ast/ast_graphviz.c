@@ -245,7 +245,7 @@ static void export_type(FILE *fd, Type *type, int parent_id)
     }
 }
 
-static void export_storage_class(FILE *fd, StorageClass *sc, int parent_id)
+static void export_storage_class(FILE *fd, const StorageClass *sc, int parent_id)
 {
     if (!sc)
         return;
@@ -427,7 +427,7 @@ static void export_string(FILE *fd, const char *str)
     }
 }
 
-static void export_literal(FILE *fd, Literal *lit, int parent_id)
+static void export_literal(FILE *fd, const Literal *lit, int parent_id)
 {
     int id = gen_node_id();
     fprintf(fd, "  n%d [label=\"Literal: ", id);
@@ -453,7 +453,7 @@ static void export_literal(FILE *fd, Literal *lit, int parent_id)
     fprintf(fd, "  n%d -> n%d [label=\"literal\"];\n", parent_id, id);
 }
 
-static void export_unary_op(FILE *fd, UnaryOp *op, int parent_id)
+static void export_unary_op(FILE *fd, const UnaryOp *op, int parent_id)
 {
     int id = gen_node_id();
     fprintf(fd, "  n%d [label=\"UnaryOp: ", id);
@@ -487,7 +487,7 @@ static void export_unary_op(FILE *fd, UnaryOp *op, int parent_id)
     fprintf(fd, "  n%d -> n%d [label=\"op\"];\n", parent_id, id);
 }
 
-static void export_binary_op(FILE *fd, BinaryOp *op, int parent_id)
+static void export_binary_op(FILE *fd, const BinaryOp *op, int parent_id)
 {
     int id = gen_node_id();
     fprintf(fd, "  n%d [label=\"BinaryOp: ", id);
@@ -551,7 +551,7 @@ static void export_binary_op(FILE *fd, BinaryOp *op, int parent_id)
     fprintf(fd, "  n%d -> n%d [label=\"op\"];\n", parent_id, id);
 }
 
-static void export_assign_op(FILE *fd, AssignOp *op, int parent_id)
+static void export_assign_op(FILE *fd, const AssignOp *op, int parent_id)
 {
     int id = gen_node_id();
     fprintf(fd, "  n%d [label=\"AssignOp: ", id);
@@ -907,7 +907,7 @@ void export_dot(FILE *fd, Program *program)
     fprintf(fd, "  graph [margin=\"0,0\", pad=\"0.1\", ranksep=0.3, nodesep=0.2];\n");
     fprintf(fd, "  node [width=0.3, height=0.3, margin=\"0.02,0.01\"];\n");
     fprintf(fd, "  node [shape=oval];\n");
-    int root_id = gen_node_id();
+    //int root_id = gen_node_id();
     ExternalDecl *decl = program->decls;
     while (decl) {
         int decl_id = gen_node_id();

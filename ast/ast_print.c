@@ -288,7 +288,7 @@ void print_type(FILE *fd, const Type *type, int indent)
 }
 
 // Print Literal
-static void print_literal(FILE *fd, Literal *lit, int indent)
+static void print_literal(FILE *fd, const Literal *lit, int indent)
 {
     if (!lit) {
         print_indent(fd, indent);
@@ -511,7 +511,7 @@ void print_declarator(FILE *fd, Declarator *decl, int indent)
 }
 
 // Print TypeSpec
-void print_type_spec(FILE *fd, TypeSpec *spec, int indent)
+void print_type_spec(FILE *fd, const TypeSpec *spec, int indent)
 {
     switch (spec->kind) {
     case TYPE_SPEC_BASIC:

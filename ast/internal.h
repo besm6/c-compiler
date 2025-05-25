@@ -85,7 +85,7 @@ struct DeclaratorSuffix {
 //
 // Print
 //
-void print_type_spec(FILE *fd, TypeSpec *spec, int indent);
+void print_type_spec(FILE *fd, const TypeSpec *spec, int indent);
 void print_declarator(FILE *fd, Declarator *decl, int indent);
 
 //

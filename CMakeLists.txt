@@ -23,6 +23,14 @@ if(NOT (Cppcheck MATCHES "NOTFOUND"))
         "--suppress=*:*/_deps/*" # Ignore issues in Googletest
         "--library=${CMAKE_SOURCE_DIR}/scripts/googletest.xml" # Parse TEST() macro properly
     )
+    set(CMAKE_C_CPPCHECK "${Cppcheck}"
+        "--std=c11"
+        "--enable=style"
+        "--check-level=exhaustive"
+        "--error-exitcode=1" # Fail on any issues
+        "--inline-suppr" # Enable inline control like // cppcheck-suppress "id"
+        "--quiet" # No progress report messages
+    )
 endif()
 
 # Download GoogleTest

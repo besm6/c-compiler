@@ -36,9 +36,9 @@ size_t wgetw(WFILE *stream);
 int wputw(size_t w, WFILE *stream);
 double wgetd(WFILE *stream);
 int wputd(double w, WFILE *stream);
-bool weof(WFILE *stream);
-bool werror(WFILE *stream);
-int wfileno(WFILE *stream);
+bool weof(const WFILE *stream);
+bool werror(const WFILE *stream);
+int wfileno(const WFILE *stream);
 void wclearerr(WFILE *stream);
 char *wgetstr(WFILE *stream); // dynamically allocated
 int wputstr(const char *str, WFILE *stream);

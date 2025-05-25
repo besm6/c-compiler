@@ -160,7 +160,7 @@ int parse_args(int argc, char *argv[], Args *args)
 //
 // Main processing function
 //
-void process_file(Args *args)
+void process_file(const Args *args)
 {
     if (args->verbose) {
         printf("Processing %s in verbose mode\n", args->input_file);
@@ -174,6 +174,10 @@ void process_file(Args *args)
         wio_debug = 1;
     }
     FILE *input_file = fopen(args->input_file, "r");
+    if (!input_file) {
+        perror(args->input_file);
+        exit(1);
+    }
     Program *program = parse(input_file);
     fclose(input_file);
 

@@ -279,7 +279,7 @@ int wputw(size_t w, WFILE *stream)
 //
 // Check EOF state.
 //
-bool weof(WFILE *stream)
+bool weof(const WFILE *stream)
 {
     if (!stream)
         return true;
@@ -289,7 +289,7 @@ bool weof(WFILE *stream)
 //
 // Check error state.
 //
-bool werror(WFILE *stream)
+bool werror(const WFILE *stream)
 {
     if (!stream)
         return true;
@@ -299,7 +299,7 @@ bool werror(WFILE *stream)
 //
 // Return the underlying file descriptor.
 //
-int wfileno(WFILE *stream)
+int wfileno(const WFILE *stream)
 {
     if (!stream) {
         errno = EINVAL;

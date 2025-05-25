@@ -34,7 +34,7 @@ DeclOrStmt *import_decl_or_stmt(WFILE *input);
 ForInit *import_for_init(WFILE *input);
 ExternalDecl *import_external_decl(WFILE *input);
 
-static void check_input(WFILE *input, const char *context)
+static void check_input(const WFILE *input, const char *context)
 {
     if (weof(input)) {
         fprintf(stderr, "Error: Premature EOF while reading %s\n", context);

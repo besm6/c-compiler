@@ -127,10 +127,7 @@ static int compare(const void *a, const void *b)
 // Check if yytext is a keyword using bsearch
 static int is_keyword(const char *str)
 {
-    static const struct {
-        const char *name;
-        int token;
-    } keywords[] = {
+    static const struct keyword keywords[] = {
         { "__func__", TOKEN_FUNC_NAME },
         { "_Alignas", TOKEN_ALIGNAS },
         { "_Alignof", TOKEN_ALIGNOF },
@@ -179,8 +176,8 @@ static int is_keyword(const char *str)
     };
 
     // Perform binary search
-    struct keyword *result = bsearch(str, keywords, sizeof(keywords) / sizeof(keywords[0]),
-                                     sizeof(keywords[0]), compare);
+    const struct keyword *result = bsearch(str, keywords, sizeof(keywords) / sizeof(keywords[0]),
+                                           sizeof(keywords[0]), compare);
     if (!result) {
         return 0;
     }

@@ -181,7 +181,7 @@ static bool is_constant_expression(const Expr *expression)
     case EXPR_UNARY_OP: {
         /* Check which unary operations are allowed */
         UnaryOpKind op_kind = expression->u.unary_op.op->kind;
-        Expr *operand       = expression->u.unary_op.expr;
+        const Expr *operand = expression->u.unary_op.expr;
         switch (op_kind) {
         case UNARY_PLUS:
         case UNARY_NEG:
@@ -201,8 +201,8 @@ static bool is_constant_expression(const Expr *expression)
 
     case EXPR_BINARY_OP: {
         /* Arithmetic, bitwise, relational, and logical ops are allowed */
-        Expr *left  = expression->u.binary_op.left;
-        Expr *right = expression->u.binary_op.right;
+        const Expr *left  = expression->u.binary_op.left;
+        const Expr *right = expression->u.binary_op.right;
         return is_constant_expression(left) && is_constant_expression(right);
     }
 
@@ -212,17 +212,17 @@ static bool is_constant_expression(const Expr *expression)
 
     case EXPR_COND: {
         /* Ternary operator is allowed if all operands are constant */
-        Expr *cond      = expression->u.cond.condition;
-        Expr *then_expr = expression->u.cond.then_expr;
-        Expr *else_expr = expression->u.cond.else_expr;
+        const Expr *cond      = expression->u.cond.condition;
+        const Expr *then_expr = expression->u.cond.then_expr;
+        const Expr *else_expr = expression->u.cond.else_expr;
         return is_constant_expression(cond) && is_constant_expression(then_expr) &&
                is_constant_expression(else_expr);
     }
 
     case EXPR_CAST: {
         /* Casts are allowed if the operand is constant and target is scalar */
-        Expr *operand     = expression->u.cast.expr;
-        Type *target_type = expression->u.cast.type;
+        const Expr *operand     = expression->u.cast.expr;
+        const Type *target_type = expression->u.cast.type;
         /* Check if target type is scalar (void, arithmetic, pointer) */
         bool is_scalar =
             target_type &&
@@ -1134,7 +1134,6 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
     int long_count         = 0;  /* For long, long long */
     bool is_complex        = false;
     bool is_imaginary      = false;
-    bool is_atomic         = false;
     int specifier_count    = 0;
     const TypeSpec *struct_spec  = NULL;
     const TypeSpec *union_spec   = NULL;
