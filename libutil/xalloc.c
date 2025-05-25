@@ -54,7 +54,7 @@ void *xmalloc(size_t size, const char *funcname, const char *filename, unsigned 
     size_t total_size = sizeof(BlockHeader) + size;
 
     /* Allocate memory using malloc */
-    void *ptr = malloc(total_size);
+    void *ptr = calloc(1, total_size);
     if (ptr == NULL) {
         fprintf(stderr, "Out of memory allocating %zu bytes by %s() at file %s, line %u\n",
                 size, funcname, filename, lineno);
@@ -63,8 +63,6 @@ void *xmalloc(size_t size, const char *funcname, const char *filename, unsigned 
 
     /* Set up the header */
     BlockHeader *h    = (BlockHeader *)ptr;
-    h->next           = NULL;
-    h->prev           = NULL;
     h->requested_size = size;
     h->funcname       = funcname;
     h->filename       = filename;

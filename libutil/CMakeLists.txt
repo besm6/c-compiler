@@ -7,6 +7,7 @@ add_library(libutil STATIC
     wio.c
 )
 target_include_directories(libutil PUBLIC .)
+target_link_libraries(libutil m)
 
 #
 # Tests for string map

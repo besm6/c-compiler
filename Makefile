@@ -25,4 +25,4 @@ build:
 
 debug:
 	mkdir build
-	cmake -Bbuild -DCMAKE_BUILD_TYPE=Debug
+	CC=clang CXX=clang++ cmake -Bbuild -DCMAKE_BUILD_TYPE=Debug
