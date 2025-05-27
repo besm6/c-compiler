@@ -21,7 +21,6 @@ InitItem *clone_init_item(const InitItem *item);
 Designator *clone_designator(const Designator *design);
 Expr *clone_expression(const Expr *expr);
 Literal *clone_literal(const Literal *lit);
-AssignOp *clone_assign_op(const AssignOp *op);
 GenericAssoc *clone_generic_assoc(const GenericAssoc *assoc);
 Stmt *clone_stmt(const Stmt *stmt);
 DeclOrStmt *clone_decl_or_stmt(const DeclOrStmt *ds);
@@ -298,7 +297,7 @@ Expr *clone_expression(const Expr *expr)
         break;
     case EXPR_ASSIGN:
         result->u.assign.target = clone_expression(expr->u.assign.target);
-        result->u.assign.op     = clone_assign_op(expr->u.assign.op);
+        result->u.assign.op     = expr->u.assign.op;
         result->u.assign.value  = clone_expression(expr->u.assign.value);
         break;
     case EXPR_COND:
@@ -369,14 +368,6 @@ Literal *clone_literal(const Literal *lit)
         result->u.enum_const = lit->u.enum_const ? xstrdup(lit->u.enum_const) : NULL;
         break;
     }
-    return result;
-}
-
-AssignOp *clone_assign_op(const AssignOp *op)
-{
-    if (op == NULL)
-        return NULL;
-    AssignOp *result = new_assign_op(op->kind);
     return result;
 }
 

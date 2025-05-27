@@ -24,7 +24,6 @@ InitItem *import_init_item(WFILE *input);
 Designator *import_designator(WFILE *input);
 Expr *import_expr(WFILE *input);
 Literal *import_literal(WFILE *input);
-AssignOp *import_assign_op(WFILE *input);
 GenericAssoc *import_generic_assoc(WFILE *input);
 Stmt *import_stmt(WFILE *input);
 DeclOrStmt *import_decl_or_stmt(WFILE *input);
@@ -508,8 +507,8 @@ Expr *import_expr(WFILE *input)
         expr->u.binary_op.right = import_expr(input);
         break;
     case EXPR_ASSIGN:
+        expr->u.assign.op     = wgetw(input);
         expr->u.assign.target = import_expr(input);
-        expr->u.assign.op     = import_assign_op(input);
         expr->u.assign.value  = import_expr(input);
         break;
     case EXPR_COND:
@@ -615,20 +614,6 @@ Literal *import_literal(WFILE *input)
         break;
     }
     return lit;
-}
-
-AssignOp *import_assign_op(WFILE *input)
-{
-    if (import_debug) {
-        printf("--- %s()\n", __func__);
-    }
-    size_t tag = wgetw(input);
-    check_input(input, "assign op tag");
-    if (tag < TAG_ASSIGNOP || tag > TAG_ASSIGNOP + ASSIGN_OR)
-        return NULL;
-    AssignOpKind kind = (AssignOpKind)(tag - TAG_ASSIGNOP);
-    AssignOp *aop     = new_assign_op(kind);
-    return aop;
 }
 
 GenericAssoc *import_generic_assoc(WFILE *input)

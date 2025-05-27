@@ -419,7 +419,7 @@ void print_expression(FILE *fd, const Expr *expr, int indent)
         break;
     case EXPR_ASSIGN:
         print_indent(fd, indent + 2);
-        fprintf(fd, "Assign: %s\n", assign_op_kind_str[expr->u.assign.op->kind]);
+        fprintf(fd, "Assign: %s\n", assign_op_kind_str[expr->u.assign.op]);
         print_expression(fd, expr->u.assign.target, indent + 2);
         print_expression(fd, expr->u.assign.value, indent + 2);
         break;

@@ -290,7 +290,7 @@ Expr *parse_logical_and_expression();
 Expr *parse_logical_or_expression();
 Expr *parse_conditional_expression();
 Expr *parse_assignment_expression();
-AssignOp *parse_assignment_operator();
+AssignOp parse_assignment_operator();
 Expr *parse_expression();
 Expr *parse_constant_expression();
 Declaration *parse_declaration();
@@ -991,22 +991,20 @@ Expr *parse_assignment_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *expr = parse_conditional_expression();
+    Expr *target = parse_conditional_expression();
     if (current_token == TOKEN_ASSIGN || current_token == TOKEN_MUL_ASSIGN ||
         current_token == TOKEN_DIV_ASSIGN || current_token == TOKEN_MOD_ASSIGN ||
         current_token == TOKEN_ADD_ASSIGN || current_token == TOKEN_SUB_ASSIGN ||
         current_token == TOKEN_LEFT_ASSIGN || current_token == TOKEN_RIGHT_ASSIGN ||
         current_token == TOKEN_AND_ASSIGN || current_token == TOKEN_XOR_ASSIGN ||
         current_token == TOKEN_OR_ASSIGN) {
-        AssignOp *op              = parse_assignment_operator();
-        Expr *value               = parse_assignment_expression();
-        Expr *new_expr            = new_expression(EXPR_ASSIGN);
-        new_expr->u.assign.target = expr;
-        new_expr->u.assign.op     = op;
-        new_expr->u.assign.value  = value;
-        expr                      = new_expr;
+        Expr *expr            = new_expression(EXPR_ASSIGN);
+        expr->u.assign.target = target;
+        expr->u.assign.op     = parse_assignment_operator();
+        expr->u.assign.value  = parse_assignment_expression();
+        target                = expr;
     }
-    return expr;
+    return target;
 }
 
 //
@@ -1024,22 +1022,22 @@ Expr *parse_assignment_expression()
 //     | OR_ASSIGN
 //     ;
 //
-AssignOp *parse_assignment_operator()
+AssignOp parse_assignment_operator()
 {
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    AssignOp *op = new_assign_op(current_token == TOKEN_ASSIGN         ? ASSIGN_SIMPLE
-                                 : current_token == TOKEN_MUL_ASSIGN   ? ASSIGN_MUL
-                                 : current_token == TOKEN_DIV_ASSIGN   ? ASSIGN_DIV
-                                 : current_token == TOKEN_MOD_ASSIGN   ? ASSIGN_MOD
-                                 : current_token == TOKEN_ADD_ASSIGN   ? ASSIGN_ADD
-                                 : current_token == TOKEN_SUB_ASSIGN   ? ASSIGN_SUB
-                                 : current_token == TOKEN_LEFT_ASSIGN  ? ASSIGN_LEFT
-                                 : current_token == TOKEN_RIGHT_ASSIGN ? ASSIGN_RIGHT
-                                 : current_token == TOKEN_AND_ASSIGN   ? ASSIGN_AND
-                                 : current_token == TOKEN_XOR_ASSIGN   ? ASSIGN_XOR
-                                                                       : ASSIGN_OR);
+    AssignOp op = current_token == TOKEN_ASSIGN       ? ASSIGN_SIMPLE
+                : current_token == TOKEN_MUL_ASSIGN   ? ASSIGN_MUL
+                : current_token == TOKEN_DIV_ASSIGN   ? ASSIGN_DIV
+                : current_token == TOKEN_MOD_ASSIGN   ? ASSIGN_MOD
+                : current_token == TOKEN_ADD_ASSIGN   ? ASSIGN_ADD
+                : current_token == TOKEN_SUB_ASSIGN   ? ASSIGN_SUB
+                : current_token == TOKEN_LEFT_ASSIGN  ? ASSIGN_LEFT
+                : current_token == TOKEN_RIGHT_ASSIGN ? ASSIGN_RIGHT
+                : current_token == TOKEN_AND_ASSIGN   ? ASSIGN_AND
+                : current_token == TOKEN_XOR_ASSIGN   ? ASSIGN_XOR
+                                                      : ASSIGN_OR;
     advance_token();
     return op;
 }

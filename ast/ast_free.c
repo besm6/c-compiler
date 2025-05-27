@@ -20,7 +20,6 @@ void free_init_item(InitItem *item);
 void free_designator(Designator *design);
 void free_expression(Expr *expr);
 void free_literal(Literal *lit);
-void free_assign_op(AssignOp *op);
 void free_generic_assoc(GenericAssoc *assoc);
 void free_statement(Stmt *stmt);
 void free_decl_or_stmt(DeclOrStmt *ds);
@@ -253,7 +252,6 @@ void free_expression(Expr *expr)
             break;
         case EXPR_ASSIGN:
             free_expression(expr->u.assign.target);
-            free_assign_op(expr->u.assign.op);
             free_expression(expr->u.assign.value);
             break;
         case EXPR_COND:
@@ -315,13 +313,6 @@ void free_literal(Literal *lit)
         break; /* No allocations for int, float, char */
     }
     xfree(lit);
-}
-
-void free_assign_op(AssignOp *op)
-{
-    if (op == NULL)
-        return;
-    xfree(op);
 }
 
 void free_generic_assoc(GenericAssoc *assoc)

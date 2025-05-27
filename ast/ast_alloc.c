@@ -135,13 +135,6 @@ Literal *new_literal(LiteralKind kind)
     return l;
 }
 
-AssignOp *new_assign_op(AssignOpKind kind)
-{
-    AssignOp *op = xmalloc(sizeof(AssignOp), __func__, __FILE__, __LINE__);
-    op->kind     = kind;
-    return op;
-}
-
 GenericAssoc *new_generic_assoc(GenericAssocKind kind)
 {
     GenericAssoc *ga = xmalloc(sizeof(GenericAssoc), __func__, __FILE__, __LINE__);

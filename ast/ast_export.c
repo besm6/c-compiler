@@ -22,7 +22,6 @@ void export_init_item(WFILE *fd, InitItem *item);
 void export_designator(WFILE *fd, Designator *desg);
 void export_expr(WFILE *fd, Expr *expr);
 void export_literal(WFILE *fd, const Literal *lit);
-void export_assign_op(WFILE *fd, const AssignOp *aop);
 void export_generic_assoc(WFILE *fd, GenericAssoc *gasc);
 void export_stmt(WFILE *fd, Stmt *stmt);
 void export_decl_or_stmt(WFILE *fd, DeclOrStmt *dost);
@@ -349,8 +348,8 @@ void export_expr(WFILE *fd, Expr *expr)
         export_expr(fd, expr->u.binary_op.right);
         break;
     case EXPR_ASSIGN:
+        wputw(expr->u.assign.op, fd);
         export_expr(fd, expr->u.assign.target);
-        export_assign_op(fd, expr->u.assign.op);
         export_expr(fd, expr->u.assign.value);
         break;
     case EXPR_COND:
@@ -435,16 +434,6 @@ void export_literal(WFILE *fd, const Literal *lit)
         wputstr(lit->u.enum_const, fd);
         break;
     }
-}
-
-void export_assign_op(WFILE *fd, const AssignOp *aop)
-{
-    if (export_debug) {
-        printf("--- %s()\n", __func__);
-    }
-    if (!aop)
-        return;
-    wputw(TAG_ASSIGNOP + aop->kind, fd);
 }
 
 void export_generic_assoc(WFILE *fd, GenericAssoc *gasc)

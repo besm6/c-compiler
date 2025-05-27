@@ -599,11 +599,11 @@ static void export_binary_op(FILE *fd, BinaryOp kind, int level)
     }
 }
 
-static void export_assign_op(FILE *fd, const AssignOp *op, int level)
+static void export_assign_op(FILE *fd, AssignOp kind, int level)
 {
     print_indent(fd, level);
     fprintf(fd, "op: ");
-    switch (op->kind) {
+    switch (kind) {
     case ASSIGN_SIMPLE:
         fprintf(fd, "simple\n");
         break;

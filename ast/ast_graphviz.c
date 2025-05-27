@@ -551,11 +551,11 @@ static void export_binary_op(FILE *fd, BinaryOp kind, int parent_id)
     fprintf(fd, "  n%d -> n%d [label=\"op\"];\n", parent_id, id);
 }
 
-static void export_assign_op(FILE *fd, const AssignOp *op, int parent_id)
+static void export_assign_op(FILE *fd, AssignOp kind, int parent_id)
 {
     int id = gen_node_id();
     fprintf(fd, "  n%d [label=\"AssignOp: ", id);
-    switch (op->kind) {
+    switch (kind) {
     case ASSIGN_SIMPLE:
         fprintf(fd, "simple");
         break;

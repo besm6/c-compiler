@@ -25,7 +25,6 @@ typedef struct InitItem InitItem;
 typedef struct Designator Designator;
 typedef struct Expr Expr;
 typedef struct Literal Literal;
-typedef struct AssignOp AssignOp;
 typedef struct GenericAssoc GenericAssoc;
 typedef struct Stmt Stmt;
 typedef struct DeclOrStmt DeclOrStmt;
@@ -281,6 +280,20 @@ typedef enum {
     BINARY_LOG_OR
 } BinaryOp;
 
+typedef enum {
+    ASSIGN_SIMPLE,
+    ASSIGN_MUL,
+    ASSIGN_DIV,
+    ASSIGN_MOD,
+    ASSIGN_ADD,
+    ASSIGN_SUB,
+    ASSIGN_LEFT,
+    ASSIGN_RIGHT,
+    ASSIGN_AND,
+    ASSIGN_XOR,
+    ASSIGN_OR
+} AssignOp;
+
 struct Expr {
     Expr *next; /* linked list for argument lists */
     ExprKind kind;
@@ -297,8 +310,8 @@ struct Expr {
             Expr *right;
         } binary_op;
         struct {
+            AssignOp op;
             Expr *target;
-            AssignOp *op;
             Expr *value;
         } assign;
         struct {
@@ -350,24 +363,6 @@ struct Literal {
         char *string_val;
         Ident enum_const;
     } u;
-};
-
-typedef enum {
-    ASSIGN_SIMPLE,
-    ASSIGN_MUL,
-    ASSIGN_DIV,
-    ASSIGN_MOD,
-    ASSIGN_ADD,
-    ASSIGN_SUB,
-    ASSIGN_LEFT,
-    ASSIGN_RIGHT,
-    ASSIGN_AND,
-    ASSIGN_XOR,
-    ASSIGN_OR
-} AssignOpKind;
-
-struct AssignOp {
-    AssignOpKind kind;
 };
 
 typedef enum { GENERIC_ASSOC_TYPE, GENERIC_ASSOC_DEFAULT } GenericAssocKind;

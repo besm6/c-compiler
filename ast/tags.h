@@ -1,7 +1,6 @@
 enum {
     TAG_EOL            = 0,          // end of list
     TAG_ALIGNMENTSPEC  = 0x616c7370, // 'alsp' - for struct AlignmentSpec
-    TAG_ASSIGNOP       = 0x616f7072, // 'aopr' - for struct AssignOp
     TAG_DECLARATION    = 0x6465636c, // 'decl' - for struct Declaration
     TAG_DECLORSTMT     = 0x646f7374, // 'dost' - for struct DeclOrStmt
     TAG_DECLSPEC       = 0x64737063, // 'dspc' - for struct DeclSpec
