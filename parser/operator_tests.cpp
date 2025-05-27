@@ -184,7 +184,7 @@ TEST_F(ParserTest, ParseBinaryMul)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_MUL, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_MUL, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -200,7 +200,7 @@ TEST_F(ParserTest, ParseBinaryDiv)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_DIV, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_DIV, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -216,7 +216,7 @@ TEST_F(ParserTest, ParseBinaryMod)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_MOD, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_MOD, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -232,7 +232,7 @@ TEST_F(ParserTest, ParseBinaryAdd)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_ADD, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_ADD, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -248,7 +248,7 @@ TEST_F(ParserTest, ParseBinarySub)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_SUB, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_SUB, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -264,7 +264,7 @@ TEST_F(ParserTest, ParseBinaryLeftShift)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_LEFT_SHIFT, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_LEFT_SHIFT, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -280,7 +280,7 @@ TEST_F(ParserTest, ParseBinaryRightShift)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_RIGHT_SHIFT, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_RIGHT_SHIFT, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -296,7 +296,7 @@ TEST_F(ParserTest, ParseBinaryLessThan)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_LT, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_LT, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -312,7 +312,7 @@ TEST_F(ParserTest, ParseBinaryGreaterThan)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_GT, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_GT, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -328,7 +328,7 @@ TEST_F(ParserTest, ParseBinaryLessEqual)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_LE, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_LE, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -344,7 +344,7 @@ TEST_F(ParserTest, ParseBinaryGreaterEqual)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_GE, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_GE, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -360,7 +360,7 @@ TEST_F(ParserTest, ParseBinaryEqual)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_EQ, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_EQ, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -376,7 +376,7 @@ TEST_F(ParserTest, ParseBinaryNotEqual)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_NE, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_NE, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -392,7 +392,7 @@ TEST_F(ParserTest, ParseBinaryBitAnd)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_BIT_AND, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_BIT_AND, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -408,7 +408,7 @@ TEST_F(ParserTest, ParseBinaryBitXor)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_BIT_XOR, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_BIT_XOR, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -424,7 +424,7 @@ TEST_F(ParserTest, ParseBinaryBitOr)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_BIT_OR, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_BIT_OR, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -440,7 +440,7 @@ TEST_F(ParserTest, ParseBinaryLogAnd)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_LOG_AND, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_LOG_AND, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -456,7 +456,7 @@ TEST_F(ParserTest, ParseBinaryLogOr)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_LOG_OR, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_LOG_OR, stmt->u.expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
@@ -480,7 +480,7 @@ int f() {
     EXPECT_EQ(STMT_RETURN, stmt->kind);
 
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_ADD, stmt->u.expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_ADD, stmt->u.expr->u.binary_op.op);
     //TODO:
     //EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
     //EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);

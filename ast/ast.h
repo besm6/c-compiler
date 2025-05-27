@@ -25,7 +25,6 @@ typedef struct InitItem InitItem;
 typedef struct Designator Designator;
 typedef struct Expr Expr;
 typedef struct Literal Literal;
-typedef struct BinaryOp BinaryOp;
 typedef struct AssignOp AssignOp;
 typedef struct GenericAssoc GenericAssoc;
 typedef struct Stmt Stmt;
@@ -261,6 +260,27 @@ typedef enum {
     UNARY_PRE_DEC
 } UnaryOp;
 
+typedef enum {
+    BINARY_MUL,
+    BINARY_DIV,
+    BINARY_MOD,
+    BINARY_ADD,
+    BINARY_SUB,
+    BINARY_LEFT_SHIFT,
+    BINARY_RIGHT_SHIFT,
+    BINARY_LT,
+    BINARY_GT,
+    BINARY_LE,
+    BINARY_GE,
+    BINARY_EQ,
+    BINARY_NE,
+    BINARY_BIT_AND,
+    BINARY_BIT_XOR,
+    BINARY_BIT_OR,
+    BINARY_LOG_AND,
+    BINARY_LOG_OR
+} BinaryOp;
+
 struct Expr {
     Expr *next; /* linked list for argument lists */
     ExprKind kind;
@@ -272,7 +292,7 @@ struct Expr {
             Expr *expr;
         } unary_op;
         struct {
-            BinaryOp *op;
+            BinaryOp op;
             Expr *left;
             Expr *right;
         } binary_op;
@@ -330,31 +350,6 @@ struct Literal {
         char *string_val;
         Ident enum_const;
     } u;
-};
-
-typedef enum {
-    BINARY_MUL,
-    BINARY_DIV,
-    BINARY_MOD,
-    BINARY_ADD,
-    BINARY_SUB,
-    BINARY_LEFT_SHIFT,
-    BINARY_RIGHT_SHIFT,
-    BINARY_LT,
-    BINARY_GT,
-    BINARY_LE,
-    BINARY_GE,
-    BINARY_EQ,
-    BINARY_NE,
-    BINARY_BIT_AND,
-    BINARY_BIT_XOR,
-    BINARY_BIT_OR,
-    BINARY_LOG_AND,
-    BINARY_LOG_OR
-} BinaryOpKind;
-
-struct BinaryOp {
-    BinaryOpKind kind;
 };
 
 typedef enum {

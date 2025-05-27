@@ -368,7 +368,7 @@ void print_expression(FILE *fd, const Expr *expr, int indent)
         break;
     case EXPR_BINARY_OP:
         print_indent(fd, indent + 2);
-        fprintf(fd, "Operator: %s\n", binary_op_kind_str[expr->u.binary_op.op->kind]);
+        fprintf(fd, "Operator: %s\n", binary_op_kind_str[expr->u.binary_op.op]);
         print_expression(fd, expr->u.binary_op.left, indent + 2);
         print_expression(fd, expr->u.binary_op.right, indent + 2);
         break;

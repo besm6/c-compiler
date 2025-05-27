@@ -530,7 +530,7 @@ Expr *parse_postfix_expression()
             Expr *index = parse_expression();
             expect_token(TOKEN_RBRACKET);
             Expr *new_expr              = new_expression(EXPR_BINARY_OP);
-            new_expr->u.binary_op.op    = new_binary_op(BINARY_ADD);
+            new_expr->u.binary_op.op    = BINARY_ADD;
             new_expr->u.binary_op.left  = expr;
             new_expr->u.binary_op.right = index;
             expr                        = new_expr;
@@ -721,21 +721,19 @@ Expr *parse_multiplicative_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *expr = parse_cast_expression();
+    Expr *left = parse_cast_expression();
     while (current_token == TOKEN_STAR || current_token == TOKEN_SLASH ||
            current_token == TOKEN_PERCENT) {
-        BinaryOpKind op_kind = current_token == TOKEN_STAR    ? BINARY_MUL
-                               : current_token == TOKEN_SLASH ? BINARY_DIV
-                                                              : BINARY_MOD;
+        Expr *expr           = new_expression(EXPR_BINARY_OP);
+        expr->u.binary_op.op = current_token == TOKEN_STAR  ? BINARY_MUL
+                             : current_token == TOKEN_SLASH ? BINARY_DIV
+                                                            : BINARY_MOD;
         advance_token();
-        Expr *right                 = parse_cast_expression();
-        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
-        new_expr->u.binary_op.op    = new_binary_op(op_kind);
-        new_expr->u.binary_op.left  = expr;
-        new_expr->u.binary_op.right = right;
-        expr                        = new_expr;
+        expr->u.binary_op.left  = left;
+        expr->u.binary_op.right = parse_cast_expression();
+        left                    = expr;
     }
-    return expr;
+    return left;
 }
 
 //
@@ -750,18 +748,16 @@ Expr *parse_additive_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *expr = parse_multiplicative_expression();
+    Expr *left = parse_multiplicative_expression();
     while (current_token == TOKEN_PLUS || current_token == TOKEN_MINUS) {
-        BinaryOpKind op_kind = current_token == TOKEN_PLUS ? BINARY_ADD : BINARY_SUB;
+        Expr *expr           = new_expression(EXPR_BINARY_OP);
+        expr->u.binary_op.op = current_token == TOKEN_PLUS ? BINARY_ADD : BINARY_SUB;
         advance_token();
-        Expr *right                 = parse_multiplicative_expression();
-        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
-        new_expr->u.binary_op.op    = new_binary_op(op_kind);
-        new_expr->u.binary_op.left  = expr;
-        new_expr->u.binary_op.right = right;
-        expr                        = new_expr;
+        expr->u.binary_op.left  = left;
+        expr->u.binary_op.right = parse_multiplicative_expression();
+        left                    = expr;
     }
-    return expr;
+    return left;
 }
 
 //
@@ -776,19 +772,17 @@ Expr *parse_shift_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *expr = parse_additive_expression();
+    Expr *left = parse_additive_expression();
     while (current_token == TOKEN_LEFT_OP || current_token == TOKEN_RIGHT_OP) {
-        BinaryOpKind op_kind =
-            current_token == TOKEN_LEFT_OP ? BINARY_LEFT_SHIFT : BINARY_RIGHT_SHIFT;
+        Expr *expr           = new_expression(EXPR_BINARY_OP);
+        expr->u.binary_op.op = current_token == TOKEN_LEFT_OP ? BINARY_LEFT_SHIFT
+                                                              : BINARY_RIGHT_SHIFT;
         advance_token();
-        Expr *right                 = parse_additive_expression();
-        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
-        new_expr->u.binary_op.op    = new_binary_op(op_kind);
-        new_expr->u.binary_op.left  = expr;
-        new_expr->u.binary_op.right = right;
-        expr                        = new_expr;
+        expr->u.binary_op.left  = left;
+        expr->u.binary_op.right = parse_additive_expression();
+        left                    = expr;
     }
-    return expr;
+    return left;
 }
 
 //
@@ -805,22 +799,20 @@ Expr *parse_relational_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *expr = parse_shift_expression();
+    Expr *left = parse_shift_expression();
     while (current_token == TOKEN_LT || current_token == TOKEN_GT || current_token == TOKEN_LE_OP ||
            current_token == TOKEN_GE_OP) {
-        BinaryOpKind op_kind = current_token == TOKEN_LT      ? BINARY_LT
-                               : current_token == TOKEN_GT    ? BINARY_GT
-                               : current_token == TOKEN_LE_OP ? BINARY_LE
-                                                              : BINARY_GE;
+        Expr *expr           = new_expression(EXPR_BINARY_OP);
+        expr->u.binary_op.op = current_token == TOKEN_LT    ? BINARY_LT
+                             : current_token == TOKEN_GT    ? BINARY_GT
+                             : current_token == TOKEN_LE_OP ? BINARY_LE
+                                                            : BINARY_GE;
         advance_token();
-        Expr *right                 = parse_shift_expression();
-        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
-        new_expr->u.binary_op.op    = new_binary_op(op_kind);
-        new_expr->u.binary_op.left  = expr;
-        new_expr->u.binary_op.right = right;
-        expr                        = new_expr;
+        expr->u.binary_op.left  = left;
+        expr->u.binary_op.right = parse_shift_expression();
+        left                    = expr;
     }
-    return expr;
+    return left;
 }
 
 //
@@ -835,18 +827,16 @@ Expr *parse_equality_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *expr = parse_relational_expression();
+    Expr *left = parse_relational_expression();
     while (current_token == TOKEN_EQ_OP || current_token == TOKEN_NE_OP) {
-        BinaryOpKind op_kind = current_token == TOKEN_EQ_OP ? BINARY_EQ : BINARY_NE;
+        Expr *expr           = new_expression(EXPR_BINARY_OP);
+        expr->u.binary_op.op = current_token == TOKEN_EQ_OP ? BINARY_EQ : BINARY_NE;
         advance_token();
-        Expr *right                 = parse_relational_expression();
-        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
-        new_expr->u.binary_op.op    = new_binary_op(op_kind);
-        new_expr->u.binary_op.left  = expr;
-        new_expr->u.binary_op.right = right;
-        expr                        = new_expr;
+        expr->u.binary_op.left  = left;
+        expr->u.binary_op.right = parse_relational_expression();
+        left                    = expr;
     }
-    return expr;
+    return left;
 }
 
 //
@@ -860,17 +850,16 @@ Expr *parse_and_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *expr = parse_equality_expression();
+    Expr *left = parse_equality_expression();
     while (current_token == TOKEN_AMPERSAND) {
+        Expr *expr           = new_expression(EXPR_BINARY_OP);
+        expr->u.binary_op.op = BINARY_BIT_AND;
         advance_token();
-        Expr *right                 = parse_equality_expression();
-        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
-        new_expr->u.binary_op.op    = new_binary_op(BINARY_BIT_AND);
-        new_expr->u.binary_op.left  = expr;
-        new_expr->u.binary_op.right = right;
-        expr                        = new_expr;
+        expr->u.binary_op.left  = left;
+        expr->u.binary_op.right = parse_equality_expression();
+        left                    = expr;
     }
-    return expr;
+    return left;
 }
 
 //
@@ -884,17 +873,16 @@ Expr *parse_exclusive_or_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *expr = parse_and_expression();
+    Expr *left = parse_and_expression();
     while (current_token == TOKEN_CARET) {
+        Expr *expr           = new_expression(EXPR_BINARY_OP);
+        expr->u.binary_op.op = BINARY_BIT_XOR;
         advance_token();
-        Expr *right                 = parse_and_expression();
-        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
-        new_expr->u.binary_op.op    = new_binary_op(BINARY_BIT_XOR);
-        new_expr->u.binary_op.left  = expr;
-        new_expr->u.binary_op.right = right;
-        expr                        = new_expr;
+        expr->u.binary_op.left  = left;
+        expr->u.binary_op.right = parse_and_expression();
+        left                    = expr;
     }
-    return expr;
+    return left;
 }
 
 //
@@ -908,17 +896,16 @@ Expr *parse_inclusive_or_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *expr = parse_exclusive_or_expression();
+    Expr *left = parse_exclusive_or_expression();
     while (current_token == TOKEN_PIPE) {
+        Expr *expr           = new_expression(EXPR_BINARY_OP);
+        expr->u.binary_op.op = BINARY_BIT_OR;
         advance_token();
-        Expr *right                 = parse_exclusive_or_expression();
-        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
-        new_expr->u.binary_op.op    = new_binary_op(BINARY_BIT_OR);
-        new_expr->u.binary_op.left  = expr;
-        new_expr->u.binary_op.right = right;
-        expr                        = new_expr;
+        expr->u.binary_op.left  = left;
+        expr->u.binary_op.right = parse_exclusive_or_expression();
+        left                    = expr;
     }
-    return expr;
+    return left;
 }
 
 //
@@ -932,17 +919,16 @@ Expr *parse_logical_and_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *expr = parse_inclusive_or_expression();
+    Expr *left = parse_inclusive_or_expression();
     while (current_token == TOKEN_AND_OP) {
+        Expr *expr           = new_expression(EXPR_BINARY_OP);
+        expr->u.binary_op.op = BINARY_LOG_AND;
         advance_token();
-        Expr *right                 = parse_inclusive_or_expression();
-        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
-        new_expr->u.binary_op.op    = new_binary_op(BINARY_LOG_AND);
-        new_expr->u.binary_op.left  = expr;
-        new_expr->u.binary_op.right = right;
-        expr                        = new_expr;
+        expr->u.binary_op.left  = left;
+        expr->u.binary_op.right = parse_inclusive_or_expression();
+        left                    = expr;
     }
-    return expr;
+    return left;
 }
 
 //
@@ -956,17 +942,16 @@ Expr *parse_logical_or_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *expr = parse_logical_and_expression();
+    Expr *left = parse_logical_and_expression();
     while (current_token == TOKEN_OR_OP) {
+        Expr *expr           = new_expression(EXPR_BINARY_OP);
+        expr->u.binary_op.op = BINARY_LOG_OR;
         advance_token();
-        Expr *right                 = parse_logical_and_expression();
-        Expr *new_expr              = new_expression(EXPR_BINARY_OP);
-        new_expr->u.binary_op.op    = new_binary_op(BINARY_LOG_OR);
-        new_expr->u.binary_op.left  = expr;
-        new_expr->u.binary_op.right = right;
-        expr                        = new_expr;
+        expr->u.binary_op.left  = left;
+        expr->u.binary_op.right = parse_logical_and_expression();
+        left                    = expr;
     }
-    return expr;
+    return left;
 }
 
 //

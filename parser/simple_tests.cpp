@@ -44,7 +44,7 @@ TEST_F(ParserTest, ScanBinaryExpression)
     print_expression(stdout, expr, 0);
 
     EXPECT_EQ(EXPR_BINARY_OP, expr->kind);
-    EXPECT_EQ(BINARY_ADD, expr->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_ADD, expr->u.binary_op.op);
     EXPECT_EQ(EXPR_VAR, expr->u.binary_op.left->kind);
     EXPECT_STREQ("x", expr->u.binary_op.left->u.var);
     EXPECT_EQ(EXPR_VAR, expr->u.binary_op.right->kind);

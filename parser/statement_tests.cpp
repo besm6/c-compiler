@@ -189,7 +189,7 @@ TEST_F(ParserTest, ParseForStatement)
     EXPECT_EQ(EXPR_LITERAL, stmt->u.for_stmt.init->u.expr->u.assign.value->kind);
     EXPECT_EQ(0, stmt->u.for_stmt.init->u.expr->u.assign.value->u.literal->u.int_val);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.for_stmt.condition->kind);
-    EXPECT_EQ(BINARY_LT, stmt->u.for_stmt.condition->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_LT, stmt->u.for_stmt.condition->u.binary_op.op);
     EXPECT_STREQ("i", stmt->u.for_stmt.condition->u.binary_op.left->u.var);
     EXPECT_EQ(10, stmt->u.for_stmt.condition->u.binary_op.right->u.literal->u.int_val);
     EXPECT_EQ(EXPR_POST_INC, stmt->u.for_stmt.update->kind);
@@ -212,7 +212,7 @@ TEST_F(ParserTest, ParseForDeclStatement)
     EXPECT_EQ(TYPE_INT, stmt->u.for_stmt.init->u.decl->u.var.declarators->type->kind);
     EXPECT_STREQ("i", stmt->u.for_stmt.init->u.decl->u.var.declarators->name);
     EXPECT_EQ(EXPR_BINARY_OP, stmt->u.for_stmt.condition->kind);
-    EXPECT_EQ(BINARY_LT, stmt->u.for_stmt.condition->u.binary_op.op->kind);
+    EXPECT_EQ(BINARY_LT, stmt->u.for_stmt.condition->u.binary_op.op);
     EXPECT_STREQ("i", stmt->u.for_stmt.condition->u.binary_op.left->u.var);
     EXPECT_EQ(10, stmt->u.for_stmt.condition->u.binary_op.right->u.literal->u.int_val);
     EXPECT_EQ(EXPR_POST_INC, stmt->u.for_stmt.update->kind);

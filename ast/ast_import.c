@@ -24,7 +24,6 @@ InitItem *import_init_item(WFILE *input);
 Designator *import_designator(WFILE *input);
 Expr *import_expr(WFILE *input);
 Literal *import_literal(WFILE *input);
-BinaryOp *import_binary_op(WFILE *input);
 AssignOp *import_assign_op(WFILE *input);
 GenericAssoc *import_generic_assoc(WFILE *input);
 Stmt *import_stmt(WFILE *input);
@@ -504,7 +503,7 @@ Expr *import_expr(WFILE *input)
         expr->u.unary_op.expr = import_expr(input);
         break;
     case EXPR_BINARY_OP:
-        expr->u.binary_op.op    = import_binary_op(input);
+        expr->u.binary_op.op    = wgetw(input);
         expr->u.binary_op.left  = import_expr(input);
         expr->u.binary_op.right = import_expr(input);
         break;
@@ -616,20 +615,6 @@ Literal *import_literal(WFILE *input)
         break;
     }
     return lit;
-}
-
-BinaryOp *import_binary_op(WFILE *input)
-{
-    if (import_debug) {
-        printf("--- %s()\n", __func__);
-    }
-    size_t tag = wgetw(input);
-    check_input(input, "binary op tag");
-    if (tag < TAG_BINARYOP || tag > TAG_BINARYOP + BINARY_LOG_OR)
-        return NULL;
-    BinaryOpKind kind = (BinaryOpKind)(tag - TAG_BINARYOP);
-    BinaryOp *bop     = new_binary_op(kind);
-    return bop;
 }
 
 AssignOp *import_assign_op(WFILE *input)

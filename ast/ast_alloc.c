@@ -135,13 +135,6 @@ Literal *new_literal(LiteralKind kind)
     return l;
 }
 
-BinaryOp *new_binary_op(BinaryOpKind kind)
-{
-    BinaryOp *op = xmalloc(sizeof(BinaryOp), __func__, __FILE__, __LINE__);
-    op->kind     = kind;
-    return op;
-}
-
 AssignOp *new_assign_op(AssignOpKind kind)
 {
     AssignOp *op = xmalloc(sizeof(AssignOp), __func__, __FILE__, __LINE__);

@@ -537,11 +537,11 @@ static void export_unary_op(FILE *fd, UnaryOp kind, int level)
     }
 }
 
-static void export_binary_op(FILE *fd, const BinaryOp *op, int level)
+static void export_binary_op(FILE *fd, BinaryOp kind, int level)
 {
     print_indent(fd, level);
     fprintf(fd, "op: ");
-    switch (op->kind) {
+    switch (kind) {
     case BINARY_MUL:
         fprintf(fd, "mul\n");
         break;

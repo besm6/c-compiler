@@ -18,7 +18,6 @@ bool compare_init_item(const InitItem *a, const InitItem *b);
 bool compare_designator(const Designator *a, const Designator *b);
 bool compare_expr(const Expr *a, const Expr *b);
 bool compare_literal(const Literal *a, const Literal *b);
-bool compare_binary_op(const BinaryOp *a, const BinaryOp *b);
 bool compare_assign_op(const AssignOp *a, const AssignOp *b);
 bool compare_generic_assoc(const GenericAssoc *a, const GenericAssoc *b);
 bool compare_stmt(const Stmt *a, const Stmt *b);
@@ -302,7 +301,7 @@ bool compare_expr(const Expr *a, const Expr *b)
             return false;
         return compare_expr(a->u.unary_op.expr, b->u.unary_op.expr);
     case EXPR_BINARY_OP:
-        if (!compare_binary_op(a->u.binary_op.op, b->u.binary_op.op))
+        if (a->u.binary_op.op != b->u.binary_op.op)
             return false;
         if (!compare_expr(a->u.binary_op.left, b->u.binary_op.left))
             return false;
@@ -378,15 +377,6 @@ bool compare_literal(const Literal *a, const Literal *b)
         return compare_ident(a->u.enum_const, b->u.enum_const);
     }
     return true;
-}
-
-bool compare_binary_op(const BinaryOp *a, const BinaryOp *b)
-{
-    if (!a && !b)
-        return true;
-    if (!a || !b)
-        return false;
-    return a->kind == b->kind;
 }
 
 bool compare_assign_op(const AssignOp *a, const AssignOp *b)

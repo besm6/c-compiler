@@ -21,7 +21,6 @@ InitItem *clone_init_item(const InitItem *item);
 Designator *clone_designator(const Designator *design);
 Expr *clone_expression(const Expr *expr);
 Literal *clone_literal(const Literal *lit);
-BinaryOp *clone_binary_op(const BinaryOp *op);
 AssignOp *clone_assign_op(const AssignOp *op);
 GenericAssoc *clone_generic_assoc(const GenericAssoc *assoc);
 Stmt *clone_stmt(const Stmt *stmt);
@@ -293,7 +292,7 @@ Expr *clone_expression(const Expr *expr)
         result->u.unary_op.expr = clone_expression(expr->u.unary_op.expr);
         break;
     case EXPR_BINARY_OP:
-        result->u.binary_op.op    = clone_binary_op(expr->u.binary_op.op);
+        result->u.binary_op.op    = expr->u.binary_op.op;
         result->u.binary_op.left  = clone_expression(expr->u.binary_op.left);
         result->u.binary_op.right = clone_expression(expr->u.binary_op.right);
         break;
@@ -370,14 +369,6 @@ Literal *clone_literal(const Literal *lit)
         result->u.enum_const = lit->u.enum_const ? xstrdup(lit->u.enum_const) : NULL;
         break;
     }
-    return result;
-}
-
-BinaryOp *clone_binary_op(const BinaryOp *op)
-{
-    if (op == NULL)
-        return NULL;
-    BinaryOp *result = new_binary_op(op->kind);
     return result;
 }
 

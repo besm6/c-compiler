@@ -487,11 +487,11 @@ static void export_unary_op(FILE *fd, UnaryOp kind, int parent_id)
     fprintf(fd, "  n%d -> n%d [label=\"op\"];\n", parent_id, id);
 }
 
-static void export_binary_op(FILE *fd, const BinaryOp *op, int parent_id)
+static void export_binary_op(FILE *fd, BinaryOp kind, int parent_id)
 {
     int id = gen_node_id();
     fprintf(fd, "  n%d [label=\"BinaryOp: ", id);
-    switch (op->kind) {
+    switch (kind) {
     case BINARY_MUL:
         fprintf(fd, "mul");
         break;
