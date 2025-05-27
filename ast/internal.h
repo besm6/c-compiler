@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 #include <stdio.h>
+#include "ast.h"
 
 /* Forward declarations for recursive types */
 typedef struct Declarator Declarator;

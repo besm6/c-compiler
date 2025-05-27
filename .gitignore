@@ -1,4 +1,5 @@
 build
+*.cpp-
 *.c-
 *.h-
 *.log

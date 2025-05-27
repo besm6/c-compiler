@@ -136,30 +136,22 @@ static bool is_storage_class_specifier(int token)
            token == TOKEN_AUTO || token == TOKEN_REGISTER;
 }
 
-/* Append to linked list */
-static void append_list(void *head_ptr, void *node_ptr)
+//
+// Append to linked list.
+// The first field of a struct must be the *next pointer.
+//
+static void append_list(void *head, void *node)
 {
-    typedef struct List List;
-    struct List {
-        List *next; /* linked list */
-    };
-
-    if (!node_ptr)
+    if (!node)
         return;
+    *(void**)node = NULL;
 
-    List **head = (List **) head_ptr;
-    List *node = (List *) node_ptr;
-    if (*head == NULL) {
-        *head = node;
-    } else {
-        // Find tail.
-        List *current = *head;
-        while (current->next) {
-            current = current->next;
-        }
-        current->next = node;
+    // Find tail.
+    void **tail = (void**) head;
+    while (*tail) {
+        tail = (void**) *tail;
     }
-    node->next = NULL;
+    *tail = node;
 }
 
 // Checks if an expression is a constant expression according to C language rules.

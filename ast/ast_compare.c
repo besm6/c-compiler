@@ -1,9 +1,6 @@
-//#include <stdlib.h>
 #include <string.h>
 
 #include "ast.h"
-//#include "internal.h"
-//#include "xalloc.h"
 
 // Comparison functions
 bool compare_type(const Type *a, const Type *b);
