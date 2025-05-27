@@ -270,6 +270,9 @@ static void export_storage_class(FILE *fd, StorageClass kind, int parent_id)
     case STORAGE_CLASS_REGISTER:
         fprintf(fd, "register");
         break;
+    case STORAGE_CLASS_NONE:
+        fprintf(fd, "none");
+        break;
     }
     fprintf(fd, "\", shape=box];\n");
     fprintf(fd, "  n%d -> n%d [label=\"storage_class\"];\n", parent_id, id);

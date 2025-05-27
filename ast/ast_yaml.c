@@ -288,6 +288,9 @@ static void export_storage_class(FILE *fd, StorageClass kind, int level)
     case STORAGE_CLASS_REGISTER:
         fprintf(fd, "register\n");
         break;
+    case STORAGE_CLASS_NONE:
+        fprintf(fd, "none\n");
+        break;
     }
 }
 

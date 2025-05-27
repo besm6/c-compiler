@@ -587,6 +587,9 @@ static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
         case STORAGE_CLASS_REGISTER:
             fprintf(fd, "register\n");
             break;
+        case STORAGE_CLASS_NONE:
+            fprintf(fd, "none\n");
+            break;
         }
     }
     if (spec->qualifiers) {
