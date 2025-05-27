@@ -25,7 +25,6 @@ typedef struct InitItem InitItem;
 typedef struct Designator Designator;
 typedef struct Expr Expr;
 typedef struct Literal Literal;
-typedef struct UnaryOp UnaryOp;
 typedef struct BinaryOp BinaryOp;
 typedef struct AssignOp AssignOp;
 typedef struct GenericAssoc GenericAssoc;
@@ -251,6 +250,17 @@ typedef enum {
     EXPR_GENERIC
 } ExprKind;
 
+typedef enum {
+    UNARY_ADDRESS,
+    UNARY_DEREF,
+    UNARY_PLUS,
+    UNARY_NEG,
+    UNARY_BIT_NOT,
+    UNARY_LOG_NOT,
+    UNARY_PRE_INC,
+    UNARY_PRE_DEC
+} UnaryOp;
+
 struct Expr {
     Expr *next; /* linked list for argument lists */
     ExprKind kind;
@@ -258,7 +268,7 @@ struct Expr {
         Literal *literal;
         Ident var;
         struct {
-            UnaryOp *op;
+            UnaryOp op;
             Expr *expr;
         } unary_op;
         struct {
@@ -320,21 +330,6 @@ struct Literal {
         char *string_val;
         Ident enum_const;
     } u;
-};
-
-typedef enum {
-    UNARY_ADDRESS,
-    UNARY_DEREF,
-    UNARY_PLUS,
-    UNARY_NEG,
-    UNARY_BIT_NOT,
-    UNARY_LOG_NOT,
-    UNARY_PRE_INC,
-    UNARY_PRE_DEC
-} UnaryOpKind;
-
-struct UnaryOp {
-    UnaryOpKind kind;
 };
 
 typedef enum {

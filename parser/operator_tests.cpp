@@ -9,7 +9,7 @@ TEST_F(ParserTest, ParseUnaryAddress)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_UNARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(UNARY_ADDRESS, stmt->u.expr->u.unary_op.op->kind);
+    EXPECT_EQ(UNARY_ADDRESS, stmt->u.expr->u.unary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.unary_op.expr->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.unary_op.expr->u.var);
 }
@@ -23,7 +23,7 @@ TEST_F(ParserTest, ParseUnaryDeref)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_UNARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(UNARY_DEREF, stmt->u.expr->u.unary_op.op->kind);
+    EXPECT_EQ(UNARY_DEREF, stmt->u.expr->u.unary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.unary_op.expr->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.unary_op.expr->u.var);
 }
@@ -37,7 +37,7 @@ TEST_F(ParserTest, ParseUnaryPlus)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_UNARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(UNARY_PLUS, stmt->u.expr->u.unary_op.op->kind);
+    EXPECT_EQ(UNARY_PLUS, stmt->u.expr->u.unary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.unary_op.expr->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.unary_op.expr->u.var);
 }
@@ -51,7 +51,7 @@ TEST_F(ParserTest, ParseUnaryNeg)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_UNARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(UNARY_NEG, stmt->u.expr->u.unary_op.op->kind);
+    EXPECT_EQ(UNARY_NEG, stmt->u.expr->u.unary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.unary_op.expr->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.unary_op.expr->u.var);
 }
@@ -65,7 +65,7 @@ TEST_F(ParserTest, ParseUnaryBitNot)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_UNARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(UNARY_BIT_NOT, stmt->u.expr->u.unary_op.op->kind);
+    EXPECT_EQ(UNARY_BIT_NOT, stmt->u.expr->u.unary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.unary_op.expr->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.unary_op.expr->u.var);
 }
@@ -79,7 +79,7 @@ TEST_F(ParserTest, ParseUnaryLogNot)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_UNARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(UNARY_LOG_NOT, stmt->u.expr->u.unary_op.op->kind);
+    EXPECT_EQ(UNARY_LOG_NOT, stmt->u.expr->u.unary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.unary_op.expr->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.unary_op.expr->u.var);
 }
@@ -93,7 +93,7 @@ TEST_F(ParserTest, ParseUnaryPreInc)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_UNARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(UNARY_PRE_INC, stmt->u.expr->u.unary_op.op->kind);
+    EXPECT_EQ(UNARY_PRE_INC, stmt->u.expr->u.unary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.unary_op.expr->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.unary_op.expr->u.var);
 }
@@ -107,7 +107,7 @@ TEST_F(ParserTest, ParseUnaryPreDec)
 
     EXPECT_EQ(STMT_EXPR, stmt->kind);
     EXPECT_EQ(EXPR_UNARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(UNARY_PRE_DEC, stmt->u.expr->u.unary_op.op->kind);
+    EXPECT_EQ(UNARY_PRE_DEC, stmt->u.expr->u.unary_op.op);
     EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.unary_op.expr->kind);
     EXPECT_STREQ("x", stmt->u.expr->u.unary_op.expr->u.var);
 }

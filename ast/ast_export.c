@@ -22,7 +22,6 @@ void export_init_item(WFILE *fd, InitItem *item);
 void export_designator(WFILE *fd, Designator *desg);
 void export_expr(WFILE *fd, Expr *expr);
 void export_literal(WFILE *fd, const Literal *lit);
-void export_unary_op(WFILE *fd, const UnaryOp *uop);
 void export_binary_op(WFILE *fd, const BinaryOp *bop);
 void export_assign_op(WFILE *fd, const AssignOp *aop);
 void export_generic_assoc(WFILE *fd, GenericAssoc *gasc);
@@ -224,7 +223,7 @@ void export_decl_spec(WFILE *fd, DeclSpec *spec)
         export_type_qualifier(fd, q);
     }
     wputw(TAG_EOL, fd);
-    wputw(TAG_STORAGECLASS + spec->storage, fd);
+    wputw(spec->storage, fd);
     for (FunctionSpec *fs = spec->func_specs; fs; fs = fs->next) {
         export_function_spec(fd, fs);
     }
@@ -342,7 +341,7 @@ void export_expr(WFILE *fd, Expr *expr)
         wputstr(expr->u.var, fd);
         break;
     case EXPR_UNARY_OP:
-        export_unary_op(fd, expr->u.unary_op.op);
+        wputw(expr->u.unary_op.op, fd);
         export_expr(fd, expr->u.unary_op.expr);
         break;
     case EXPR_BINARY_OP:
@@ -437,16 +436,6 @@ void export_literal(WFILE *fd, const Literal *lit)
         wputstr(lit->u.enum_const, fd);
         break;
     }
-}
-
-void export_unary_op(WFILE *fd, const UnaryOp *uop)
-{
-    if (export_debug) {
-        printf("--- %s()\n", __func__);
-    }
-    if (!uop)
-        return;
-    wputw(TAG_UNARYOP + uop->kind, fd);
 }
 
 void export_binary_op(WFILE *fd, const BinaryOp *bop)

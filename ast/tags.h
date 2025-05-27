@@ -21,8 +21,6 @@ enum {
     TAG_PARAM          = 0x7061726d, // 'parm' - for struct Param
     TAG_PROGRAM        = 0x70726f67, // 'prog' - for struct Program
     TAG_STMT           = 0x73746d74, // 'stmt' - for struct Stmt
-    TAG_STORAGECLASS   = 0x73746f72, // 'stor' - for struct StorageClass
     TAG_TYPE           = 0x74797065, // 'type' - for struct Type
     TAG_TYPEQUALIFIER  = 0x7175616c, // 'qual' - for struct TypeQualifier
-    TAG_UNARYOP        = 0x756f7072, // 'uopr' - for struct UnaryOp
 };

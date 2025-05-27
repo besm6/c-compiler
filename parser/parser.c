@@ -172,15 +172,13 @@ static bool is_constant_expression(const Expr *expression)
 
     case EXPR_UNARY_OP: {
         /* Check which unary operations are allowed */
-        UnaryOpKind op_kind = expression->u.unary_op.op->kind;
-        const Expr *operand = expression->u.unary_op.expr;
-        switch (op_kind) {
+        switch (expression->u.unary_op.op) {
         case UNARY_PLUS:
         case UNARY_NEG:
         case UNARY_BIT_NOT:
         case UNARY_LOG_NOT:
             /* These operators are allowed if operand is constant */
-            return is_constant_expression(operand);
+            return is_constant_expression(expression->u.unary_op.expr);
         case UNARY_ADDRESS:
         case UNARY_DEREF:
         case UNARY_PRE_INC:
@@ -278,7 +276,7 @@ GenericAssoc *parse_generic_association();
 Expr *parse_postfix_expression();
 Expr *parse_argument_expression_list();
 Expr *parse_unary_expression();
-UnaryOp *parse_unary_operator();
+UnaryOp parse_unary_operator();
 Expr *parse_cast_expression();
 Expr *parse_multiplicative_expression();
 Expr *parse_additive_expression();
@@ -617,52 +615,45 @@ Expr *parse_unary_expression()
     }
     if (current_token == TOKEN_INC_OP) {
         advance_token();
-        Expr *expr                = parse_unary_expression();
-        Expr *new_expr            = new_expression(EXPR_UNARY_OP);
-        new_expr->u.unary_op.op   = new_unary_op(UNARY_PRE_INC);
-        new_expr->u.unary_op.expr = expr;
-        return new_expr;
+        Expr *result            = new_expression(EXPR_UNARY_OP);
+        result->u.unary_op.op   = UNARY_PRE_INC;
+        result->u.unary_op.expr = parse_unary_expression();
+        return result;
     } else if (current_token == TOKEN_DEC_OP) {
         advance_token();
-        Expr *expr                = parse_unary_expression();
-        Expr *new_expr            = new_expression(EXPR_UNARY_OP);
-        new_expr->u.unary_op.op   = new_unary_op(UNARY_PRE_DEC);
-        new_expr->u.unary_op.expr = expr;
-        return new_expr;
+        Expr *result            = new_expression(EXPR_UNARY_OP);
+        result->u.unary_op.op   = UNARY_PRE_DEC;
+        result->u.unary_op.expr = parse_unary_expression();
+        return result;
     } else if (current_token == TOKEN_AMPERSAND || current_token == TOKEN_STAR ||
                current_token == TOKEN_PLUS || current_token == TOKEN_MINUS ||
                current_token == TOKEN_TILDE || current_token == TOKEN_NOT) {
-        UnaryOp *op               = parse_unary_operator();
-        Expr *expr                = parse_cast_expression();
-        Expr *new_expr            = new_expression(EXPR_UNARY_OP);
-        new_expr->u.unary_op.op   = op;
-        new_expr->u.unary_op.expr = expr;
-        return new_expr;
+        Expr *result            = new_expression(EXPR_UNARY_OP);
+        result->u.unary_op.op   = parse_unary_operator();
+        result->u.unary_op.expr = parse_cast_expression();
+        return result;
     } else if (current_token == TOKEN_SIZEOF) {
         advance_token();
         if (current_token == TOKEN_LPAREN &&
             (is_type_specifier(next_token()) || is_type_qualifier(next_token()) ||
              next_token() == TOKEN_ATOMIC)) {
             expect_token(TOKEN_LPAREN);
-            Type *type = parse_type_name();
+            Expr *result          = new_expression(EXPR_SIZEOF_TYPE);
+            result->u.sizeof_type = parse_type_name();
             expect_token(TOKEN_RPAREN);
-            Expr *new_expr          = new_expression(EXPR_SIZEOF_TYPE);
-            new_expr->u.sizeof_type = type;
-            return new_expr;
+            return result;
         } else {
-            Expr *expr              = parse_unary_expression();
-            Expr *new_expr          = new_expression(EXPR_SIZEOF_EXPR);
-            new_expr->u.sizeof_expr = expr;
-            return new_expr;
+            Expr *result          = new_expression(EXPR_SIZEOF_EXPR);
+            result->u.sizeof_expr = parse_unary_expression();
+            return result;
         }
     } else if (current_token == TOKEN_ALIGNOF) {
         advance_token();
         expect_token(TOKEN_LPAREN);
-        Type *type = parse_type_name();
+        Expr *result       = new_expression(EXPR_ALIGNOF);
+        result->u.align_of = parse_type_name();
         expect_token(TOKEN_RPAREN);
-        Expr *new_expr       = new_expression(EXPR_ALIGNOF);
-        new_expr->u.align_of = type;
-        return new_expr;
+        return result;
     } else {
         return parse_postfix_expression();
     }
@@ -678,17 +669,17 @@ Expr *parse_unary_expression()
 //     | '!'
 //     ;
 //
-UnaryOp *parse_unary_operator()
+UnaryOp parse_unary_operator()
 {
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    UnaryOp *op = new_unary_op(current_token == TOKEN_AMPERSAND ? UNARY_ADDRESS
-                               : current_token == TOKEN_STAR    ? UNARY_DEREF
-                               : current_token == TOKEN_PLUS    ? UNARY_PLUS
-                               : current_token == TOKEN_MINUS   ? UNARY_NEG
-                               : current_token == TOKEN_TILDE   ? UNARY_BIT_NOT
-                                                                : UNARY_LOG_NOT);
+    UnaryOp op = current_token == TOKEN_AMPERSAND ? UNARY_ADDRESS
+               : current_token == TOKEN_STAR    ? UNARY_DEREF
+               : current_token == TOKEN_PLUS    ? UNARY_PLUS
+               : current_token == TOKEN_MINUS   ? UNARY_NEG
+               : current_token == TOKEN_TILDE   ? UNARY_BIT_NOT
+                                                : UNARY_LOG_NOT;
     advance_token();
     return op;
 }

@@ -374,7 +374,7 @@ void print_expression(FILE *fd, const Expr *expr, int indent)
         break;
     case EXPR_UNARY_OP:
         print_indent(fd, indent + 2);
-        fprintf(fd, "Operator: %s\n", unary_op_kind_str[expr->u.unary_op.op->kind]);
+        fprintf(fd, "Operator: %s\n", unary_op_kind_str[expr->u.unary_op.op]);
         print_expression(fd, expr->u.unary_op.expr, indent + 2);
         break;
     case EXPR_POST_INC:

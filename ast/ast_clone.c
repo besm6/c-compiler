@@ -21,7 +21,6 @@ InitItem *clone_init_item(const InitItem *item);
 Designator *clone_designator(const Designator *design);
 Expr *clone_expression(const Expr *expr);
 Literal *clone_literal(const Literal *lit);
-UnaryOp *clone_unary_op(const UnaryOp *op);
 BinaryOp *clone_binary_op(const BinaryOp *op);
 AssignOp *clone_assign_op(const AssignOp *op);
 GenericAssoc *clone_generic_assoc(const GenericAssoc *assoc);
@@ -290,7 +289,7 @@ Expr *clone_expression(const Expr *expr)
         result->u.var = expr->u.var ? xstrdup(expr->u.var) : NULL;
         break;
     case EXPR_UNARY_OP:
-        result->u.unary_op.op   = clone_unary_op(expr->u.unary_op.op);
+        result->u.unary_op.op   = expr->u.unary_op.op;
         result->u.unary_op.expr = clone_expression(expr->u.unary_op.expr);
         break;
     case EXPR_BINARY_OP:
@@ -371,14 +370,6 @@ Literal *clone_literal(const Literal *lit)
         result->u.enum_const = lit->u.enum_const ? xstrdup(lit->u.enum_const) : NULL;
         break;
     }
-    return result;
-}
-
-UnaryOp *clone_unary_op(const UnaryOp *op)
-{
-    if (op == NULL)
-        return NULL;
-    UnaryOp *result = new_unary_op(op->kind);
     return result;
 }
 

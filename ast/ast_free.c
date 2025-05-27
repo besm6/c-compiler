@@ -20,7 +20,6 @@ void free_init_item(InitItem *item);
 void free_designator(Designator *design);
 void free_expression(Expr *expr);
 void free_literal(Literal *lit);
-void free_unary_op(UnaryOp *op);
 void free_binary_op(BinaryOp *op);
 void free_assign_op(AssignOp *op);
 void free_generic_assoc(GenericAssoc *assoc);
@@ -247,7 +246,6 @@ void free_expression(Expr *expr)
             xfree(expr->u.var);
             break;
         case EXPR_UNARY_OP:
-            free_unary_op(expr->u.unary_op.op);
             free_expression(expr->u.unary_op.expr);
             break;
         case EXPR_BINARY_OP:
@@ -319,13 +317,6 @@ void free_literal(Literal *lit)
         break; /* No allocations for int, float, char */
     }
     xfree(lit);
-}
-
-void free_unary_op(UnaryOp *op)
-{
-    if (op == NULL)
-        return;
-    xfree(op);
 }
 
 void free_binary_op(BinaryOp *op)

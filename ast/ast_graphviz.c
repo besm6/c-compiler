@@ -453,11 +453,11 @@ static void export_literal(FILE *fd, const Literal *lit, int parent_id)
     fprintf(fd, "  n%d -> n%d [label=\"literal\"];\n", parent_id, id);
 }
 
-static void export_unary_op(FILE *fd, const UnaryOp *op, int parent_id)
+static void export_unary_op(FILE *fd, UnaryOp kind, int parent_id)
 {
     int id = gen_node_id();
     fprintf(fd, "  n%d [label=\"UnaryOp: ", id);
-    switch (op->kind) {
+    switch (kind) {
     case UNARY_ADDRESS:
         fprintf(fd, "address");
         break;

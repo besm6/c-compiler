@@ -16,7 +16,6 @@ Enumerator *import_enumerator(WFILE *input);
 Param *import_param(WFILE *input);
 Declaration *import_declaration(WFILE *input);
 DeclSpec *import_decl_spec(WFILE *input);
-StorageClass import_storage_class(WFILE *input);
 FunctionSpec *import_function_spec(WFILE *input);
 AlignmentSpec *import_alignment_spec(WFILE *input);
 InitDeclarator *import_init_declarator(WFILE *input);
@@ -25,7 +24,6 @@ InitItem *import_init_item(WFILE *input);
 Designator *import_designator(WFILE *input);
 Expr *import_expr(WFILE *input);
 Literal *import_literal(WFILE *input);
-UnaryOp *import_unary_op(WFILE *input);
 BinaryOp *import_binary_op(WFILE *input);
 AssignOp *import_assign_op(WFILE *input);
 GenericAssoc *import_generic_assoc(WFILE *input);
@@ -323,7 +321,7 @@ DeclSpec *import_decl_spec(WFILE *input)
             break;
         next_qual = &(*next_qual)->next;
     }
-    spec->storage             = import_storage_class(input);
+    spec->storage             = wgetw(input);
     FunctionSpec **next_fspec = &spec->func_specs;
     for (;;) {
         *next_fspec = import_function_spec(input);
@@ -333,20 +331,6 @@ DeclSpec *import_decl_spec(WFILE *input)
     }
     spec->align_spec = import_alignment_spec(input);
     return spec;
-}
-
-StorageClass import_storage_class(WFILE *input)
-{
-    if (import_debug) {
-        printf("--- %s()\n", __func__);
-    }
-    size_t tag = wgetw(input);
-    check_input(input, "storage class tag");
-    if (tag < TAG_STORAGECLASS || tag > TAG_STORAGECLASS + STORAGE_CLASS_REGISTER) {
-        fprintf(stderr, "Error: Expected TAG_STORAGECLASS, got 0x%zx\n", tag);
-        exit(1);
-    }
-    return (StorageClass)(tag - TAG_STORAGECLASS);
 }
 
 FunctionSpec *import_function_spec(WFILE *input)
@@ -516,7 +500,7 @@ Expr *import_expr(WFILE *input)
         check_input(input, "expr var name");
         break;
     case EXPR_UNARY_OP:
-        expr->u.unary_op.op   = import_unary_op(input);
+        expr->u.unary_op.op   = wgetw(input);
         expr->u.unary_op.expr = import_expr(input);
         break;
     case EXPR_BINARY_OP:
@@ -632,20 +616,6 @@ Literal *import_literal(WFILE *input)
         break;
     }
     return lit;
-}
-
-UnaryOp *import_unary_op(WFILE *input)
-{
-    if (import_debug) {
-        printf("--- %s()\n", __func__);
-    }
-    size_t tag = wgetw(input);
-    check_input(input, "unary op tag");
-    if (tag < TAG_UNARYOP || tag > TAG_UNARYOP + UNARY_PRE_DEC)
-        return NULL;
-    UnaryOpKind kind = (UnaryOpKind)(tag - TAG_UNARYOP);
-    UnaryOp *uop     = new_unary_op(kind);
-    return uop;
 }
 
 BinaryOp *import_binary_op(WFILE *input)

@@ -505,11 +505,11 @@ static void export_literal(FILE *fd, const Literal *lit, int level)
     }
 }
 
-static void export_unary_op(FILE *fd, const UnaryOp *op, int level)
+static void export_unary_op(FILE *fd, UnaryOp kind, int level)
 {
     print_indent(fd, level);
     fprintf(fd, "op: ");
-    switch (op->kind) {
+    switch (kind) {
     case UNARY_ADDRESS:
         fprintf(fd, "address\n");
         break;
