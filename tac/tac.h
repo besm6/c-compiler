@@ -232,8 +232,10 @@ typedef struct Tac_Val {
 typedef enum {
     TAC_CONST_INT,
     TAC_CONST_LONG,
+    TAC_CONST_LONG_LONG,
     TAC_CONST_UINT,
     TAC_CONST_ULONG,
+    TAC_CONST_ULONG_LONG,
     TAC_CONST_DOUBLE,
     TAC_CONST_CHAR,
     TAC_CONST_UCHAR
@@ -244,8 +246,10 @@ typedef struct Tac_Const {
     union {
         int int_val;
         long long_val;
+        long long long_long_val;
         unsigned int uint_val;
         unsigned long ulong_val;
+        unsigned long long ulong_long_val;
         double double_val;
         int char_val;
         unsigned char uchar_val;
@@ -259,10 +263,15 @@ typedef enum {
     TAC_TYPE_CHAR,
     TAC_TYPE_SCHAR,
     TAC_TYPE_UCHAR,
+    TAC_TYPE_SHORT,
     TAC_TYPE_INT,
     TAC_TYPE_LONG,
+    TAC_TYPE_LONG_LONG,
+    TAC_TYPE_USHORT,
     TAC_TYPE_UINT,
     TAC_TYPE_ULONG,
+    TAC_TYPE_ULONG_LONG,
+    TAC_TYPE_FLOAT,
     TAC_TYPE_DOUBLE,
     TAC_TYPE_VOID,
     TAC_TYPE_FUN_TYPE,
@@ -298,8 +307,10 @@ typedef struct Tac_Type {
 typedef enum {
     TAC_STATIC_INIT_INT,
     TAC_STATIC_INIT_LONG,
+    TAC_STATIC_INIT_LONG_LONG,
     TAC_STATIC_INIT_UINT,
     TAC_STATIC_INIT_ULONG,
+    TAC_STATIC_INIT_ULONG_LONG,
     TAC_STATIC_INIT_CHAR,
     TAC_STATIC_INIT_UCHAR,
     TAC_STATIC_INIT_DOUBLE,
@@ -314,8 +325,10 @@ typedef struct Tac_StaticInit {
     union {
         int int_val;
         long long_val;
+        long long long_long_val;
         unsigned int uint_val;
         unsigned long ulong_val;
+        unsigned long long ulong_long_val;
         int char_val;
         unsigned char uchar_val;
         double double_val;
