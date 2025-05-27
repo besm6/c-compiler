@@ -78,8 +78,6 @@ static const char *unary_op_kind_str[] = {
 };
 
 // Forward declarations
-void print_expression(FILE *fd, Expr *expr, int indent);
-void print_statement(FILE *fd, Stmt *stmt, int indent);
 static void print_declaration(FILE *fd, Declaration *decl, int indent);
 static void print_external_decl(FILE *fd, ExternalDecl *ext, int indent);
 static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent);
@@ -317,7 +315,7 @@ static void print_literal(FILE *fd, const Literal *lit, int indent)
 }
 
 // Print Initializer
-static void print_initializer(FILE *fd, Initializer *init, int indent)
+static void print_initializer(FILE *fd, const Initializer *init, int indent)
 {
     print_indent(fd, indent);
     if (!init) {
@@ -334,7 +332,7 @@ static void print_initializer(FILE *fd, Initializer *init, int indent)
 }
 
 // Print GenericAssoc
-static void print_generic_assoc(FILE *fd, GenericAssoc *assoc, int indent)
+static void print_generic_assoc(FILE *fd, const GenericAssoc *assoc, int indent)
 {
     print_indent(fd, indent);
     if (!assoc) {
@@ -351,7 +349,7 @@ static void print_generic_assoc(FILE *fd, GenericAssoc *assoc, int indent)
 }
 
 // Print Expr
-void print_expression(FILE *fd, Expr *expr, int indent)
+void print_expression(FILE *fd, const Expr *expr, int indent)
 {
     if (!expr) {
         print_indent(fd, indent);

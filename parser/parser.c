@@ -2047,7 +2047,6 @@ Declarator *parse_direct_declarator()
             expect_token(TOKEN_RBRACKET);
             suffix->u.array.qualifiers = qualifiers;
             suffix->u.array.size       = size;
-            append_list(&decl->suffixes, suffix);
         } else if (current_token == TOKEN_LPAREN) {
             advance_token();
             suffix = new_declarator_suffix(SUFFIX_FUNCTION);
