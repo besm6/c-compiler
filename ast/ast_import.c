@@ -16,7 +16,7 @@ Enumerator *import_enumerator(WFILE *input);
 Param *import_param(WFILE *input);
 Declaration *import_declaration(WFILE *input);
 DeclSpec *import_decl_spec(WFILE *input);
-StorageClass *import_storage_class(WFILE *input);
+StorageClass import_storage_class(WFILE *input);
 FunctionSpec *import_function_spec(WFILE *input);
 AlignmentSpec *import_alignment_spec(WFILE *input);
 InitDeclarator *import_init_declarator(WFILE *input);
@@ -335,18 +335,18 @@ DeclSpec *import_decl_spec(WFILE *input)
     return spec;
 }
 
-StorageClass *import_storage_class(WFILE *input)
+StorageClass import_storage_class(WFILE *input)
 {
     if (import_debug) {
         printf("--- %s()\n", __func__);
     }
     size_t tag = wgetw(input);
     check_input(input, "storage class tag");
-    if (tag < TAG_STORAGECLASS || tag > TAG_STORAGECLASS + STORAGE_CLASS_REGISTER)
-        return NULL;
-    StorageClassKind kind = (StorageClassKind)(tag - TAG_STORAGECLASS);
-    StorageClass *stor    = new_storage_class(kind);
-    return stor;
+    if (tag < TAG_STORAGECLASS || tag > TAG_STORAGECLASS + STORAGE_CLASS_REGISTER) {
+        fprintf(stderr, "Error: Expected TAG_STORAGECLASS, got 0x%zx\n", tag);
+        exit(1);
+    }
+    return (StorageClass)(tag - TAG_STORAGECLASS);
 }
 
 FunctionSpec *import_function_spec(WFILE *input)

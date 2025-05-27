@@ -354,7 +354,7 @@ TEST_F(ParserTest, ParseTypedef)
     // Check typedef T
     //
     Declaration *decl = ext->u.declaration;
-    EXPECT_EQ(STORAGE_CLASS_TYPEDEF, decl->u.var.specifiers->storage->kind);
+    EXPECT_EQ(STORAGE_CLASS_TYPEDEF, decl->u.var.specifiers->storage);
 
     InitDeclarator *init = decl->u.var.declarators;
     EXPECT_STREQ("T", init->name);
@@ -433,8 +433,7 @@ TEST_F(ParserTest, ParseStorageClassTypedef)
 {
     Declaration *decl = GetDeclaration("typedef int x;");
 
-    ASSERT_NE(nullptr, decl->u.var.specifiers->storage);
-    EXPECT_EQ(STORAGE_CLASS_TYPEDEF, decl->u.var.specifiers->storage->kind);
+    EXPECT_EQ(STORAGE_CLASS_TYPEDEF, decl->u.var.specifiers->storage);
     EXPECT_EQ(TYPE_INT, decl->u.var.declarators->type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->name);
 }
@@ -443,8 +442,7 @@ TEST_F(ParserTest, ParseStorageClassExtern)
 {
     Declaration *decl = GetDeclaration("extern int x;");
 
-    ASSERT_NE(nullptr, decl->u.var.specifiers->storage);
-    EXPECT_EQ(STORAGE_CLASS_EXTERN, decl->u.var.specifiers->storage->kind);
+    EXPECT_EQ(STORAGE_CLASS_EXTERN, decl->u.var.specifiers->storage);
     EXPECT_EQ(TYPE_INT, decl->u.var.declarators->type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->name);
 }
@@ -453,8 +451,7 @@ TEST_F(ParserTest, ParseStorageClassStatic)
 {
     Declaration *decl = GetDeclaration("static int x;");
 
-    ASSERT_NE(nullptr, decl->u.var.specifiers->storage);
-    EXPECT_EQ(STORAGE_CLASS_STATIC, decl->u.var.specifiers->storage->kind);
+    EXPECT_EQ(STORAGE_CLASS_STATIC, decl->u.var.specifiers->storage);
     EXPECT_EQ(TYPE_INT, decl->u.var.declarators->type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->name);
 }
@@ -463,8 +460,7 @@ TEST_F(ParserTest, ParseStorageClassThreadLocal)
 {
     Declaration *decl = GetDeclaration("_Thread_local int x;");
 
-    ASSERT_NE(nullptr, decl->u.var.specifiers->storage);
-    EXPECT_EQ(STORAGE_CLASS_THREAD_LOCAL, decl->u.var.specifiers->storage->kind);
+    EXPECT_EQ(STORAGE_CLASS_THREAD_LOCAL, decl->u.var.specifiers->storage);
     EXPECT_EQ(TYPE_INT, decl->u.var.declarators->type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->name);
 }
@@ -473,8 +469,7 @@ TEST_F(ParserTest, ParseStorageClassAuto)
 {
     Declaration *decl = GetDeclaration("auto int x;");
 
-    ASSERT_NE(nullptr, decl->u.var.specifiers->storage);
-    EXPECT_EQ(STORAGE_CLASS_AUTO, decl->u.var.specifiers->storage->kind);
+    EXPECT_EQ(STORAGE_CLASS_AUTO, decl->u.var.specifiers->storage);
     EXPECT_EQ(TYPE_INT, decl->u.var.declarators->type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->name);
 }
@@ -483,8 +478,7 @@ TEST_F(ParserTest, ParseStorageClassRegister)
 {
     Declaration *decl = GetDeclaration("register int x;");
 
-    ASSERT_NE(nullptr, decl->u.var.specifiers->storage);
-    EXPECT_EQ(STORAGE_CLASS_REGISTER, decl->u.var.specifiers->storage->kind);
+    EXPECT_EQ(STORAGE_CLASS_REGISTER, decl->u.var.specifiers->storage);
     EXPECT_EQ(TYPE_INT, decl->u.var.declarators->type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->name);
 }
@@ -637,6 +631,5 @@ TEST_F(ParserTest, ParseFunctionParameterRegister)
 
     DeclSpec *spec = params->specifiers;
     ASSERT_NE(spec, nullptr);
-    ASSERT_NE(spec->storage, nullptr);
-    EXPECT_EQ(spec->storage->kind, STORAGE_CLASS_REGISTER);
+    EXPECT_EQ(spec->storage, STORAGE_CLASS_REGISTER);
 }

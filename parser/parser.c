@@ -299,7 +299,7 @@ Declaration *parse_declaration();
 DeclSpec *parse_declaration_specifiers(Type **base_type);
 InitDeclarator *parse_init_declarator_list(Declarator *first, const Type *base_type);
 InitDeclarator *parse_init_declarator(Declarator *decl, const Type *base_type);
-StorageClass *parse_storage_class_specifier();
+StorageClass parse_storage_class_specifier();
 TypeSpec *parse_type_specifier();
 TypeSpec *parse_struct_or_union_specifier();
 int parse_struct_or_union();
@@ -1379,11 +1379,11 @@ Type *type_apply_suffixes(Type *type, const DeclaratorSuffix *suffixes)
 //
 // Is this a typedef?
 //
-static bool is_typedef(DeclSpec *specifiers)
+static bool is_typedef(const DeclSpec *specifiers)
 {
-    if (!specifiers || !specifiers->storage)
+    if (!specifiers)
         return false;
-    return specifiers->storage->kind == STORAGE_CLASS_TYPEDEF;
+    return specifiers->storage == STORAGE_CLASS_TYPEDEF;
 }
 
 //
@@ -1543,19 +1543,20 @@ InitDeclarator *parse_init_declarator(Declarator *decl, const Type *base_type)
 //     | REGISTER
 //     ;
 //
-StorageClass *parse_storage_class_specifier()
+StorageClass parse_storage_class_specifier()
 {
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    StorageClassKind kind = current_token == TOKEN_TYPEDEF        ? STORAGE_CLASS_TYPEDEF
-                            : current_token == TOKEN_EXTERN       ? STORAGE_CLASS_EXTERN
-                            : current_token == TOKEN_STATIC       ? STORAGE_CLASS_STATIC
-                            : current_token == TOKEN_THREAD_LOCAL ? STORAGE_CLASS_THREAD_LOCAL
-                            : current_token == TOKEN_AUTO         ? STORAGE_CLASS_AUTO
-                                                                  : STORAGE_CLASS_REGISTER;
+    StorageClass kind = current_token == TOKEN_TYPEDEF        ? STORAGE_CLASS_TYPEDEF
+                        : current_token == TOKEN_EXTERN       ? STORAGE_CLASS_EXTERN
+                        : current_token == TOKEN_STATIC       ? STORAGE_CLASS_STATIC
+                        : current_token == TOKEN_THREAD_LOCAL ? STORAGE_CLASS_THREAD_LOCAL
+                        : current_token == TOKEN_AUTO         ? STORAGE_CLASS_AUTO
+                        : current_token == TOKEN_REGISTER     ? STORAGE_CLASS_REGISTER
+                                                              : STORAGE_CLASS_NONE;
     advance_token();
-    return new_storage_class(kind);
+    return kind;
 }
 
 //

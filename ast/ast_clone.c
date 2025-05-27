@@ -13,7 +13,6 @@ Enumerator *clone_enumerator(const Enumerator *enumerator);
 Param *clone_param(const Param *param);
 Declaration *clone_declaration(const Declaration *decl);
 DeclSpec *clone_decl_spec(const DeclSpec *spec);
-StorageClass *clone_storage_class(const StorageClass *sc);
 FunctionSpec *clone_function_spec(const FunctionSpec *fs);
 AlignmentSpec *clone_alignment_spec(const AlignmentSpec *as);
 InitDeclarator *clone_init_declarator(const InitDeclarator *init_decl);
@@ -184,17 +183,9 @@ DeclSpec *clone_decl_spec(const DeclSpec *spec)
     if (result == NULL)
         return NULL;
     result->qualifiers = clone_type_qualifier(spec->qualifiers);
-    result->storage    = clone_storage_class(spec->storage);
+    result->storage    = spec->storage;
     result->func_specs = clone_function_spec(spec->func_specs);
     result->align_spec = clone_alignment_spec(spec->align_spec);
-    return result;
-}
-
-StorageClass *clone_storage_class(const StorageClass *sc)
-{
-    if (sc == NULL)
-        return NULL;
-    StorageClass *result = new_storage_class(sc->kind);
     return result;
 }
 

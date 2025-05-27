@@ -227,7 +227,7 @@ TEST_F(ParserTest, TypedefEnumField)
     //
     Declaration *decl = ext->u.declaration;
     EXPECT_EQ(DECL_VAR, decl->kind);
-    EXPECT_EQ(STORAGE_CLASS_TYPEDEF, decl->u.var.specifiers->storage->kind);
+    EXPECT_EQ(STORAGE_CLASS_TYPEDEF, decl->u.var.specifiers->storage);
 
     InitDeclarator *init = decl->u.var.declarators;
     ASSERT_NE(nullptr, init);

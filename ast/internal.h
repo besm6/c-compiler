@@ -99,7 +99,6 @@ Enumerator *new_enumerator(Ident name, Expr *value);
 Param *new_param(void);
 Declaration *new_declaration(DeclarationKind kind);
 DeclSpec *new_decl_spec(void);
-StorageClass *new_storage_class(StorageClassKind kind);
 TypeSpec *new_type_spec(TypeSpecKind kind);
 FunctionSpec *new_function_spec(FunctionSpecKind kind);
 AlignmentSpec *new_alignment_spec(AlignmentSpecKind kind);

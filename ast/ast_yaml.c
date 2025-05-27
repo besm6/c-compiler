@@ -263,13 +263,13 @@ static void export_type(FILE *fd, Type *type, int level)
     }
 }
 
-static void export_storage_class(FILE *fd, const StorageClass *sc, int level)
+static void export_storage_class(FILE *fd, StorageClass kind, int level)
 {
-    if (!sc)
+    if (!kind)
         return;
     print_indent(fd, level);
     fprintf(fd, "storage_class: ");
-    switch (sc->kind) {
+    switch (kind) {
     case STORAGE_CLASS_TYPEDEF:
         fprintf(fd, "typedef\n");
         break;

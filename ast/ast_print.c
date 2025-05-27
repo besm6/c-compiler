@@ -568,7 +568,7 @@ static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
     if (spec->storage) {
         print_indent(fd, indent + 2);
         fprintf(fd, "Storage: ");
-        switch (spec->storage->kind) {
+        switch (spec->storage) {
         case STORAGE_CLASS_TYPEDEF:
             fprintf(fd, "typedef\n");
             break;

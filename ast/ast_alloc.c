@@ -53,13 +53,6 @@ DeclSpec *new_decl_spec()
     return ds;
 }
 
-StorageClass *new_storage_class(StorageClassKind kind)
-{
-    StorageClass *sc = xmalloc(sizeof(StorageClass), __func__, __FILE__, __LINE__);
-    sc->kind         = kind;
-    return sc;
-}
-
 TypeSpec *new_type_spec(TypeSpecKind kind)
 {
     TypeSpec *ts = xmalloc(sizeof(TypeSpec), __func__, __FILE__, __LINE__);

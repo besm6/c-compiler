@@ -12,7 +12,6 @@ void free_enumerator(Enumerator *enumerator);
 void free_param(Param *param);
 void free_declaration(Declaration *decl);
 void free_decl_spec(DeclSpec *spec);
-void free_storage_class(StorageClass *sc);
 void free_function_spec(FunctionSpec *fs);
 void free_alignment_spec(AlignmentSpec *as);
 void free_init_declarator(InitDeclarator *init_decl);
@@ -158,17 +157,9 @@ void free_decl_spec(DeclSpec *spec)
     if (spec == NULL)
         return;
     free_type_qualifier(spec->qualifiers);
-    free_storage_class(spec->storage);
     free_function_spec(spec->func_specs);
     free_alignment_spec(spec->align_spec);
     xfree(spec);
-}
-
-void free_storage_class(StorageClass *sc)
-{
-    if (sc == NULL)
-        return;
-    xfree(sc);
 }
 
 void free_function_spec(FunctionSpec *fs)

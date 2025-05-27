@@ -14,7 +14,6 @@ void export_enumerator(WFILE *fd, Enumerator *enumr);
 void export_param(WFILE *fd, Param *param);
 void export_declaration(WFILE *fd, Declaration *decl);
 void export_decl_spec(WFILE *fd, DeclSpec *spec);
-void export_storage_class(WFILE *fd, const StorageClass *stor);
 void export_function_spec(WFILE *fd, const FunctionSpec *fspec);
 void export_alignment_spec(WFILE *fd, AlignmentSpec *aspec);
 void export_init_declarator(WFILE *fd, InitDeclarator *idecl);
@@ -225,21 +224,11 @@ void export_decl_spec(WFILE *fd, DeclSpec *spec)
         export_type_qualifier(fd, q);
     }
     wputw(TAG_EOL, fd);
-    export_storage_class(fd, spec->storage);
+    wputw(TAG_STORAGECLASS + spec->storage, fd);
     for (FunctionSpec *fs = spec->func_specs; fs; fs = fs->next) {
         export_function_spec(fd, fs);
     }
     export_alignment_spec(fd, spec->align_spec);
-}
-
-void export_storage_class(WFILE *fd, const StorageClass *stor)
-{
-    if (export_debug) {
-        printf("--- %s()\n", __func__);
-    }
-    if (!stor)
-        return;
-    wputw(TAG_STORAGECLASS + stor->kind, fd);
 }
 
 void export_function_spec(WFILE *fd, const FunctionSpec *fspec)

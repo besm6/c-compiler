@@ -17,7 +17,6 @@ typedef struct Enumerator Enumerator;
 typedef struct Param Param;
 typedef struct Declaration Declaration;
 typedef struct DeclSpec DeclSpec;
-typedef struct StorageClass StorageClass;
 typedef struct FunctionSpec FunctionSpec;
 typedef struct AlignmentSpec AlignmentSpec;
 typedef struct InitDeclarator InitDeclarator;
@@ -163,24 +162,21 @@ struct Declaration {
     } u;
 };
 
-struct DeclSpec {
-    TypeQualifier *qualifiers; // const, volatile, restrict, _Atomic
-    StorageClass *storage;     // extern, static, auto, register ...
-    FunctionSpec *func_specs;  // inline, _Noreturn
-    AlignmentSpec *align_spec; // _Alignas
-};
-
 typedef enum {
+    STORAGE_CLASS_NONE,
     STORAGE_CLASS_TYPEDEF,
     STORAGE_CLASS_EXTERN,
     STORAGE_CLASS_STATIC,
     STORAGE_CLASS_THREAD_LOCAL,
     STORAGE_CLASS_AUTO,
     STORAGE_CLASS_REGISTER
-} StorageClassKind;
+} StorageClass;
 
-struct StorageClass {
-    StorageClassKind kind;
+struct DeclSpec {
+    TypeQualifier *qualifiers; // const, volatile, restrict, _Atomic
+    StorageClass storage;      // extern, static, auto, register ...
+    FunctionSpec *func_specs;  // inline, _Noreturn
+    AlignmentSpec *align_spec; // _Alignas
 };
 
 typedef enum { FUNC_SPEC_INLINE, FUNC_SPEC_NORETURN } FunctionSpecKind;

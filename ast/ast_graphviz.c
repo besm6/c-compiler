@@ -245,13 +245,13 @@ static void export_type(FILE *fd, Type *type, int parent_id)
     }
 }
 
-static void export_storage_class(FILE *fd, const StorageClass *sc, int parent_id)
+static void export_storage_class(FILE *fd, StorageClass kind, int parent_id)
 {
-    if (!sc)
+    if (!kind)
         return;
     int id = gen_node_id();
     fprintf(fd, "  n%d [label=\"StorageClass: ", id);
-    switch (sc->kind) {
+    switch (kind) {
     case STORAGE_CLASS_TYPEDEF:
         fprintf(fd, "typedef");
         break;

@@ -10,7 +10,6 @@ bool compare_enumerator(const Enumerator *a, const Enumerator *b);
 bool compare_param(const Param *a, const Param *b);
 bool compare_declaration(const Declaration *a, const Declaration *b);
 bool compare_decl_spec(const DeclSpec *a, const DeclSpec *b);
-bool compare_storage_class(const StorageClass *a, const StorageClass *b);
 bool compare_function_spec(const FunctionSpec *a, const FunctionSpec *b);
 bool compare_alignment_spec(const AlignmentSpec *a, const AlignmentSpec *b);
 bool compare_init_declarator(const InitDeclarator *a, const InitDeclarator *b);
@@ -185,20 +184,11 @@ bool compare_decl_spec(const DeclSpec *a, const DeclSpec *b)
         return false;
     if (!compare_type_qualifier(a->qualifiers, b->qualifiers))
         return false;
-    if (!compare_storage_class(a->storage, b->storage))
+    if (a->storage != b->storage)
         return false;
     if (!compare_function_spec(a->func_specs, b->func_specs))
         return false;
     return compare_alignment_spec(a->align_spec, b->align_spec);
-}
-
-bool compare_storage_class(const StorageClass *a, const StorageClass *b)
-{
-    if (!a && !b)
-        return true;
-    if (!a || !b)
-        return false;
-    return a->kind == b->kind;
 }
 
 bool compare_function_spec(const FunctionSpec *a, const FunctionSpec *b)
