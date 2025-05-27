@@ -13,20 +13,26 @@ typedef struct Tac_Instruction Tac_Instruction;
 typedef struct Tac_Type Tac_Type;
 typedef struct Tac_StaticInit Tac_StaticInit;
 typedef struct Tac_TopLevel Tac_TopLevel;
-typedef struct Tac_Identifier Tac_Identifier;
+typedef struct Tac_Param Tac_Param;
 
-// Program: TopLevel* decls (linked list)
+//
+// Program: TopLevel* decls
+//
 typedef struct {
     Tac_TopLevel *decls; // Head of TopLevel linked list
 } Tac_Program;
 
+//
 // Identifier for identifier* sequences
-typedef struct Tac_Identifier {
-    struct Tac_Identifier *next; // First field
-    char *value;
-} Tac_Identifier;
+//
+typedef struct Tac_Param {
+    struct Tac_Param *next; // Linked list
+    char *name;
+} Tac_Param;
 
+//
 // TopLevel: Function | StaticVariable | StaticConstant
+//
 typedef enum {
     TAC_TOPLEVEL_FUNCTION,
     TAC_TOPLEVEL_STATIC_VARIABLE,
@@ -34,20 +40,20 @@ typedef enum {
 } Tac_TopLevelKind;
 
 typedef struct Tac_TopLevel {
-    struct Tac_TopLevel *next; // First field for linked list
+    struct Tac_TopLevel *next; // Linked list
     Tac_TopLevelKind kind;
     union {
         struct {
             char *name;
             bool global;
-            Tac_Identifier *params; // Head of identifier linked list
-            Tac_Instruction *body;  // Head of Instruction linked list
+            Tac_Param *params; // Linked list of identifiers
+            Tac_Instruction *body;  // Linked list of instructions
         } function;
         struct {
             char *name;
             bool global;
             Tac_Type *type;
-            Tac_StaticInit *init_list; // Head of StaticInit linked list
+            Tac_StaticInit *init_list; // Linked list of initializers
         } static_variable;
         struct {
             char *name;
@@ -57,7 +63,9 @@ typedef struct Tac_TopLevel {
     } u;
 } Tac_TopLevel;
 
+//
 // Instruction: Various kinds
+//
 typedef enum {
     TAC_INSTRUCTION_RETURN,
     TAC_INSTRUCTION_SIGN_EXTEND,
@@ -105,7 +113,7 @@ typedef enum {
 } Tac_BinaryOperator;
 
 typedef struct Tac_Instruction {
-    struct Tac_Instruction *next; // First field for linked list
+    struct Tac_Instruction *next; // Linked list
     Tac_InstructionKind kind;
     union {
         struct {
@@ -198,17 +206,19 @@ typedef struct Tac_Instruction {
         } label;
         struct {
             char *fun_name;
-            Tac_Val *args;
+            Tac_Val *args; // Linked list of values
             Tac_Val *dst;
-        } fun_call; // args is head of Val linked list
+        } fun_call;
     } u;
 } Tac_Instruction;
 
+//
 // Val: Constant | Var
+//
 typedef enum { TAC_VAL_CONSTANT, TAC_VAL_VAR } Tac_ValKind;
 
 typedef struct Tac_Val {
-    struct Tac_Val *next; // First field for linked list
+    struct Tac_Val *next; // Linked list
     Tac_ValKind kind;
     union {
         struct Tac_Const *constant;
@@ -216,7 +226,9 @@ typedef struct Tac_Val {
     } u;
 } Tac_Val;
 
+//
 // Const: Various constant types
+//
 typedef enum {
     TAC_CONST_INT,
     TAC_CONST_LONG,
@@ -240,7 +252,9 @@ typedef struct Tac_Const {
     } u;
 } Tac_Const;
 
+//
 // Type: Various type kinds
+//
 typedef enum {
     TAC_TYPE_CHAR,
     TAC_TYPE_SCHAR,
@@ -258,13 +272,13 @@ typedef enum {
 } Tac_TypeKind;
 
 typedef struct Tac_Type {
-    struct Tac_Type *next; // First field for linked list
+    struct Tac_Type *next; // Linked list
     Tac_TypeKind kind;
     union {
         struct {
-            Tac_Type *params;
+            Tac_Type *params; // Linked list of types
             Tac_Type *ret;
-        } fun_type; // params is head of Type linked list
+        } fun_type;
         struct {
             Tac_Type *referenced;
         } pointer;
@@ -278,7 +292,9 @@ typedef struct Tac_Type {
     } u;
 } Tac_Type;
 
+//
 // StaticInit: Various initialization kinds
+//
 typedef enum {
     TAC_STATIC_INIT_INT,
     TAC_STATIC_INIT_LONG,
@@ -293,7 +309,7 @@ typedef enum {
 } Tac_StaticInitKind;
 
 typedef struct Tac_StaticInit {
-    struct Tac_StaticInit *next; // First field for linked list
+    struct Tac_StaticInit *next; // Linked list
     Tac_StaticInitKind kind;
     union {
         int int_val;
