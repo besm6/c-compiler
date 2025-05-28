@@ -374,6 +374,17 @@ void print_tac_static_init(FILE *fd, Tac_StaticInit *init, int depth);
 void print_tac_instruction(FILE *fd, Tac_Instruction *instr, int depth);
 void print_tac_toplevel(FILE *fd, Tac_TopLevel *toplevel, int depth);
 
+//
+// Compare
+//
+bool compare_tac_const(const Tac_Const *a, const Tac_Const *b);
+bool compare_tac_val(const Tac_Val *a, const Tac_Val *b);
+bool compare_tac_type(const Tac_Type *a, const Tac_Type *b);
+bool compare_tac_param(const Tac_Param *a, const Tac_Param *b);
+bool compare_tac_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b);
+bool compare_tac_instruction(const Tac_Instruction *a, const Tac_Instruction *b);
+bool compare_tac_toplevel(const Tac_TopLevel *a, const Tac_TopLevel *b);
+
 #ifdef __cplusplus
 }
 #endif
