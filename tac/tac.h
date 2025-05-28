@@ -341,6 +341,28 @@ typedef struct Tac_StaticInit {
     } u;
 } Tac_StaticInit;
 
+//
+// Allocate
+//
+Tac_Val *new_tac_val(Tac_ValKind kind);
+Tac_Instruction *new_tac_instruction(Tac_InstructionKind kind);
+Tac_Type *new_tac_type(Tac_TypeKind kind);
+Tac_Const *new_tac_const(Tac_ConstKind kind);
+Tac_Param *new_tac_param(void);
+Tac_TopLevel *new_tac_toplevel(Tac_TopLevelKind kind);
+Tac_StaticInit *new_tac_static_init(Tac_StaticInitKind kind);
+
+//
+// Deallocate
+//
+void free_tac_const(Tac_Const *constant);
+void free_tac_val(Tac_Val *val);
+void free_tac_instruction(Tac_Instruction *instr);
+void free_tac_type(Tac_Type *type);
+void free_tac_param(Tac_Param *param);
+void free_tac_static_init(Tac_StaticInit *init);
+void free_tac_toplevel(Tac_TopLevel *toplevel);
+
 #ifdef __cplusplus
 }
 #endif

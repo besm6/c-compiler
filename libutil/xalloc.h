@@ -25,7 +25,7 @@
 extern "C" {
 #endif
 
-void *xmalloc(size_t size, const char *funcname, const char *filename, unsigned lineno);
+void *xalloc(size_t size, const char *funcname, const char *filename, unsigned lineno);
 void xfree(void *ptr);
 void xfree_all(void);
 char *xstrdup(const char *str);

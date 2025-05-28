@@ -48,7 +48,7 @@ static BlockHeader *head = NULL;
 //
 // Allocates memory like malloc, but adds a header and maintains a doubly linked list
 //
-void *xmalloc(size_t size, const char *funcname, const char *filename, unsigned lineno)
+void *xalloc(size_t size, const char *funcname, const char *filename, unsigned lineno)
 {
     /* Calculate total size: header + requested size */
     size_t total_size = sizeof(BlockHeader) + size;
@@ -150,7 +150,7 @@ char *xstrdup(const char *str)
 {
     if (!str)
         return NULL;
-    char *new_str = xmalloc(strlen(str) + 1, __func__, __FILE__, __LINE__);
+    char *new_str = xalloc(strlen(str) + 1, __func__, __FILE__, __LINE__);
     if (new_str)
         strcpy(new_str, str);
     return new_str;
