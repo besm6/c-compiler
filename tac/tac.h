@@ -363,6 +363,17 @@ void free_tac_param(Tac_Param *param);
 void free_tac_static_init(Tac_StaticInit *init);
 void free_tac_toplevel(Tac_TopLevel *toplevel);
 
+//
+// Print
+//
+void print_tac_const(FILE *fd, Tac_Const *constant, int depth);
+void print_tac_val(FILE *fd, Tac_Val *val, int depth);
+void print_tac_type(FILE *fd, Tac_Type *type, int depth);
+void print_tac_param(FILE *fd, Tac_Param *param, int depth);
+void print_tac_static_init(FILE *fd, Tac_StaticInit *init, int depth);
+void print_tac_instruction(FILE *fd, Tac_Instruction *instr, int depth);
+void print_tac_toplevel(FILE *fd, Tac_TopLevel *toplevel, int depth);
+
 #ifdef __cplusplus
 }
 #endif
