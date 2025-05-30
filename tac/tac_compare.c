@@ -286,3 +286,12 @@ bool compare_tac_toplevel(const Tac_TopLevel *a, const Tac_TopLevel *b)
     }
     return compare_tac_toplevel(a->next, b->next);
 }
+
+bool compare_tac_program(const Tac_Program *a, const Tac_Program *b)
+{
+    if (!a && !b)
+        return true;
+    if (!a || !b)
+        return false;
+    return compare_tac_toplevel(a->decls, b->decls);
+}

@@ -60,3 +60,9 @@ Tac_StaticInit *new_tac_static_init(Tac_StaticInitKind kind)
     init->kind = kind;
     return init;
 }
+
+Tac_Program *new_tac_program()
+{
+    Tac_Program *p = xalloc(sizeof(Tac_Program), __func__, __FILE__, __LINE__);
+    return p;
+}

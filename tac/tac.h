@@ -352,10 +352,12 @@ Tac_Const *new_tac_const(Tac_ConstKind kind);
 Tac_Param *new_tac_param(void);
 Tac_TopLevel *new_tac_toplevel(Tac_TopLevelKind kind);
 Tac_StaticInit *new_tac_static_init(Tac_StaticInitKind kind);
+Tac_Program *new_tac_program(void);
 
 //
 // Deallocate
 //
+void free_tac_program(Tac_Program *program);
 void free_tac_const(Tac_Const *constant);
 void free_tac_val(Tac_Val *val);
 void free_tac_instruction(Tac_Instruction *instr);
@@ -374,6 +376,7 @@ void print_tac_param(FILE *fd, const Tac_Param *param, int depth);
 void print_tac_static_init(FILE *fd, const Tac_StaticInit *init, int depth);
 void print_tac_instruction(FILE *fd, const Tac_Instruction *instr, int depth);
 void print_tac_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth);
+void print_tac_program(FILE *fd, const Tac_Program *program);
 
 //
 // Compare
@@ -385,6 +388,7 @@ bool compare_tac_param(const Tac_Param *a, const Tac_Param *b);
 bool compare_tac_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b);
 bool compare_tac_instruction(const Tac_Instruction *a, const Tac_Instruction *b);
 bool compare_tac_toplevel(const Tac_TopLevel *a, const Tac_TopLevel *b);
+bool compare_tac_program(const Tac_Program *a, const Tac_Program *b);
 
 #ifdef __cplusplus
 }

@@ -531,3 +531,14 @@ void print_tac_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth)
         print_tac_toplevel(fd, toplevel->next, depth + 2);
     }
 }
+
+// Main print function
+void print_tac_program(FILE *fd, const Tac_Program *program)
+{
+    if (!program) {
+        fprintf(fd, "Program: null\n");
+        return;
+    }
+    fprintf(fd, "Program:\n");
+    print_tac_toplevel(fd, program->decls, 2);
+}

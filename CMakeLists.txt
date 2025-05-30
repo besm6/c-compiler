@@ -52,6 +52,7 @@ add_subdirectory(ast)
 add_subdirectory(scanner)
 add_subdirectory(parser)
 add_subdirectory(tac)
+add_subdirectory(translator)
 
 #
 # 'cast' executable
@@ -60,3 +61,11 @@ add_executable(cast
     parser/main.c
 )
 target_link_libraries(cast parser scanner)
+
+#
+# 'tacker' executable
+#
+add_executable(tacker
+    translator/main.c
+)
+target_link_libraries(tacker translator)

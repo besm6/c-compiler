@@ -3,6 +3,14 @@
 #include "tac.h"
 #include "xalloc.h"
 
+void free_tac_program(Tac_Program *program)
+{
+    if (program == NULL)
+        return;
+    free_tac_toplevel(program->decls);
+    xfree(program);
+}
+
 // Free a Tac_Const and its contents
 void free_tac_const(Tac_Const *constant)
 {
