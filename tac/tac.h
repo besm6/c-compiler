@@ -5,6 +5,7 @@
 extern "C" {
 #endif
 
+#include <stdio.h>
 #include <stdbool.h>
 
 // Forward declarations
@@ -366,13 +367,13 @@ void free_tac_toplevel(Tac_TopLevel *toplevel);
 //
 // Print
 //
-void print_tac_const(FILE *fd, Tac_Const *constant, int depth);
-void print_tac_val(FILE *fd, Tac_Val *val, int depth);
-void print_tac_type(FILE *fd, Tac_Type *type, int depth);
-void print_tac_param(FILE *fd, Tac_Param *param, int depth);
-void print_tac_static_init(FILE *fd, Tac_StaticInit *init, int depth);
-void print_tac_instruction(FILE *fd, Tac_Instruction *instr, int depth);
-void print_tac_toplevel(FILE *fd, Tac_TopLevel *toplevel, int depth);
+void print_tac_const(FILE *fd, const Tac_Const *constant, int depth);
+void print_tac_val(FILE *fd, const Tac_Val *val, int depth);
+void print_tac_type(FILE *fd, const Tac_Type *type, int depth);
+void print_tac_param(FILE *fd, const Tac_Param *param, int depth);
+void print_tac_static_init(FILE *fd, const Tac_StaticInit *init, int depth);
+void print_tac_instruction(FILE *fd, const Tac_Instruction *instr, int depth);
+void print_tac_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth);
 
 //
 // Compare

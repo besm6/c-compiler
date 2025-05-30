@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <string.h>
 
 #include "tac.h"
@@ -14,7 +13,7 @@ static void print_indent(FILE *fd, int depth)
 }
 
 // Print a Tac_Const to a file
-void print_tac_const(FILE *fd, Tac_Const *constant, int depth)
+void print_tac_const(FILE *fd, const Tac_Const *constant, int depth)
 {
     if (!constant) {
         print_indent(fd, depth);
@@ -55,7 +54,7 @@ void print_tac_const(FILE *fd, Tac_Const *constant, int depth)
 }
 
 // Print a Tac_Val recursively to a file
-void print_tac_val(FILE *fd, Tac_Val *val, int depth)
+void print_tac_val(FILE *fd, const Tac_Val *val, int depth)
 {
     if (!val) {
         print_indent(fd, depth);
@@ -79,7 +78,7 @@ void print_tac_val(FILE *fd, Tac_Val *val, int depth)
 }
 
 // Print a Tac_Type recursively to a file
-void print_tac_type(FILE *fd, Tac_Type *type, int depth)
+void print_tac_type(FILE *fd, const Tac_Type *type, int depth)
 {
     if (!type) {
         print_indent(fd, depth);
@@ -173,7 +172,7 @@ void print_tac_type(FILE *fd, Tac_Type *type, int depth)
 }
 
 // Print a Tac_Param recursively to a file
-void print_tac_param(FILE *fd, Tac_Param *param, int depth)
+void print_tac_param(FILE *fd, const Tac_Param *param, int depth)
 {
     if (!param) {
         print_indent(fd, depth);
@@ -190,7 +189,7 @@ void print_tac_param(FILE *fd, Tac_Param *param, int depth)
 }
 
 // Print a Tac_StaticInit recursively to a file
-void print_tac_static_init(FILE *fd, Tac_StaticInit *init, int depth)
+void print_tac_static_init(FILE *fd, const Tac_StaticInit *init, int depth)
 {
     if (!init) {
         print_indent(fd, depth);
@@ -246,7 +245,7 @@ void print_tac_static_init(FILE *fd, Tac_StaticInit *init, int depth)
 }
 
 // Print a Tac_Instruction recursively to a file
-void print_tac_instruction(FILE *fd, Tac_Instruction *instr, int depth)
+void print_tac_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
 {
     if (!instr) {
         print_indent(fd, depth);
@@ -476,7 +475,7 @@ void print_tac_instruction(FILE *fd, Tac_Instruction *instr, int depth)
 }
 
 // Print a Tac_TopLevel recursively to a file
-void print_tac_toplevel(FILE *fd, Tac_TopLevel *toplevel, int depth)
+void print_tac_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth)
 {
     if (!toplevel) {
         print_indent(fd, depth);

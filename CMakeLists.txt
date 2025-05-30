@@ -51,6 +51,7 @@ add_subdirectory(libutil)
 add_subdirectory(ast)
 add_subdirectory(scanner)
 add_subdirectory(parser)
+add_subdirectory(tac)
 
 #
 # 'cast' executable
