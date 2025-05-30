@@ -42,23 +42,28 @@ static void check_input(const WFILE *input, const char *context)
     }
 }
 
+void ast_import_open(WFILE *input, int fileno)
+{
+    if (wdopen(input, fileno, "r") < 0) {
+        fprintf(stderr, "Error importing AST: cannot open file descriptor #%d\n", fileno);
+        exit(1);
+    }
+    lseek(fileno, 0L, SEEK_SET);
+    size_t tag = wgetw(input);
+    check_input(input, "program tag");
+    if (tag != TAG_PROGRAM) {
+        fprintf(stderr, "Error: Expected TAG_PROGRAM, got 0x%zx\n", tag);
+        exit(1);
+    }
+}
+
 Program *import_ast(int fileno)
 {
     if (import_debug) {
         printf("--- %s()\n", __func__);
     }
     WFILE input;
-    if (wdopen(&input, fileno, "r") < 0) {
-        fprintf(stderr, "Error importing AST: cannot open file descriptor #%d\n", fileno);
-        exit(1);
-    }
-    lseek(fileno, 0L, SEEK_SET);
-    size_t tag = wgetw(&input);
-    check_input(&input, "program tag");
-    if (tag != TAG_PROGRAM) {
-        fprintf(stderr, "Error: Expected TAG_PROGRAM, got 0x%zx\n", tag);
-        exit(1);
-    }
+    ast_import_open(&input, fileno);
     Program *program         = new_program();
     ExternalDecl **next_decl = &program->decls;
     for (;;) {

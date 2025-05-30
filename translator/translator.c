@@ -1,20 +1,30 @@
 
 #include "translator.h"
 #include "ast.h"
+#include "wio.h"
 
 // Enable debug output
 int translator_debug;
 
-/* Main parsing function */
-Tac_Program *translate(FILE *input)
+//
+// Translate AST from given file into TAC tree.
+//
+Tac_Program *translate(FILE *fd)
 {
     if (translator_debug) {
         printf("--- %s()\n", __func__);
     }
-    Program *ast = import_ast(fileno(input));
+    WFILE input;
+    ast_import_open(&input, fileno(fd));
+    for (;;) {
+        ExternalDecl *decl = import_external_decl(&input);
+        if (!decl)
+            break;
 
-    // TODO: translate AST into TAC.
-    print_program(stdout, ast);
-    free_program(ast);
+        // TODO: translate AST into TAC.
+        print_external_decl(stdout, decl, 0);
+        free_external_decl(decl);
+    }
+    wclose(&input);
     return NULL;
 }

@@ -93,6 +93,7 @@ static void export_param(FILE *fd, Param *param, int level)
         fprintf(fd, "type:\n");
         export_type(fd, param->type, level + 2);
         if (param->specifiers) {
+            print_indent(fd, level + 1);
             fprintf(fd, "specifiers:\n");
             export_decl_spec(fd, param->specifiers, level + 2);
         }

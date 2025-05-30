@@ -486,17 +486,23 @@ void export_ast(int fileno, Program *program);
 void export_yaml(FILE *fd, Program *program);
 void export_dot(FILE *fd, Program *program);
 
+typedef struct _wfile WFILE;
+void ast_import_open(WFILE *input, int fileno);
+ExternalDecl *import_external_decl(WFILE *input);
+
 void print_program(FILE *fd, Program *program);
 void print_expression(FILE *fd, const Expr *expr, int indent);
 void print_statement(FILE *fd, Stmt *stmt, int indent);
 void print_type(FILE *fd, const Type *type, int indent);
 void print_type_qualifiers(FILE *fd, TypeQualifier *qualifiers, int indent);
+void print_external_decl(FILE *fd, ExternalDecl *ext, int indent);
 extern const char *type_kind_str[];
 
 void free_program(Program* program);
 void free_expression(Expr *expr);
 void free_statement(Stmt *stmt);
 void free_type(Type *type);
+void free_external_decl(ExternalDecl *ext_decl);
 
 bool compare_program(const Program *a, const Program *b);
 

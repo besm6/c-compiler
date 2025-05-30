@@ -79,7 +79,6 @@ static const char *unary_op_kind_str[] = {
 
 // Forward declarations
 static void print_declaration(FILE *fd, Declaration *decl, int indent);
-static void print_external_decl(FILE *fd, ExternalDecl *ext, int indent);
 static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent);
 
 // Print Field structure
@@ -792,7 +791,7 @@ void print_statement(FILE *fd, Stmt *stmt, int indent)
 }
 
 // Print ExternalDecl
-static void print_external_decl(FILE *fd, ExternalDecl *ext, int indent)
+void print_external_decl(FILE *fd, ExternalDecl *ext, int indent)
 {
     if (!ext) {
         print_indent(fd, indent);
@@ -814,11 +813,6 @@ static void print_external_decl(FILE *fd, ExternalDecl *ext, int indent)
         print_declaration(fd, ext->u.declaration, indent + 4);
         break;
     }
-    if (ext->next) {
-        print_indent(fd, indent);
-        fprintf(fd, "Next ExternalDecl:\n");
-        print_external_decl(fd, ext->next, indent + 4);
-    }
 }
 
 // Main print function
@@ -829,5 +823,7 @@ void print_program(FILE *fd, Program *program)
         return;
     }
     fprintf(fd, "Program:\n");
-    print_external_decl(fd, program->decls, 2);
+    for (ExternalDecl *ext = program->decls; ext; ext = ext->next) {
+        print_external_decl(fd, ext, 2);
+    }
 }
