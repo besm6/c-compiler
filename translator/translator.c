@@ -1,30 +1,34 @@
-
 #include "translator.h"
-#include "ast.h"
-#include "wio.h"
-
-// Enable debug output
-int translator_debug;
 
 //
-// Translate AST from given file into TAC tree.
+// Resolve identifiers.
 //
-Tac_Program *translate(FILE *fd)
+void resolve(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
 {
-    if (translator_debug) {
-        printf("--- %s()\n", __func__);
-    }
-    WFILE input;
-    ast_import_open(&input, fileno(fd));
-    for (;;) {
-        ExternalDecl *decl = import_external_decl(&input);
-        if (!decl)
-            break;
+    //TODO
+}
 
-        // TODO: translate AST into TAC.
-        print_external_decl(stdout, decl, 0);
-        free_external_decl(decl);
-    }
-    wclose(&input);
+//
+// Typecheck definitions and uses of functions and variables.
+//
+void typecheck(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
+{
+    //TODO
+}
+
+//
+// Annotate loops and break/continue statements.
+//
+void label_loops(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
+{
+    //TODO
+}
+
+//
+// Convert the AST to TAC.
+//
+Tac_TopLevel *translate(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
+{
+    //TODO
     return NULL;
 }
