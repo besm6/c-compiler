@@ -67,17 +67,17 @@ bool compare_tac_type(const Tac_Type *a, const Tac_Type *b)
         return false;
     switch (a->kind) {
     case TAC_TYPE_FUN_TYPE:
-        if (!compare_tac_type(a->u.fun_type.params, b->u.fun_type.params))
+        if (!compare_tac_type(a->u.fun_type.param_types, b->u.fun_type.param_types))
             return false;
-        if (!compare_tac_type(a->u.fun_type.ret, b->u.fun_type.ret))
+        if (!compare_tac_type(a->u.fun_type.ret_type, b->u.fun_type.ret_type))
             return false;
         break;
     case TAC_TYPE_POINTER:
-        if (!compare_tac_type(a->u.pointer.referenced, b->u.pointer.referenced))
+        if (!compare_tac_type(a->u.pointer.target_type, b->u.pointer.target_type))
             return false;
         break;
     case TAC_TYPE_ARRAY:
-        if (!compare_tac_type(a->u.array.element, b->u.array.element))
+        if (!compare_tac_type(a->u.array.elem_type, b->u.array.elem_type))
             return false;
         if (a->u.array.size != b->u.array.size)
             return false;

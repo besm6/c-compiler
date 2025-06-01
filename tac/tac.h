@@ -286,14 +286,14 @@ typedef struct Tac_Type {
     Tac_TypeKind kind;
     union {
         struct {
-            Tac_Type *params; // Linked list of types
-            Tac_Type *ret;
+            Tac_Type *param_types; // Linked list of types
+            Tac_Type *ret_type;
         } fun_type;
         struct {
-            Tac_Type *referenced;
+            Tac_Type *target_type;
         } pointer;
         struct {
-            Tac_Type *element;
+            Tac_Type *elem_type;
             int size;
         } array;
         struct {

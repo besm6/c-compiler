@@ -146,18 +146,18 @@ void print_tac_type(FILE *fd, const Tac_Type *type, int depth)
     if (type->kind == TAC_TYPE_FUN_TYPE) {
         print_indent(fd, depth + 1);
         fprintf(fd, "Params:\n");
-        print_tac_type(fd, type->u.fun_type.params, depth + 2);
+        print_tac_type(fd, type->u.fun_type.param_types, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Return:\n");
-        print_tac_type(fd, type->u.fun_type.ret, depth + 2);
+        print_tac_type(fd, type->u.fun_type.ret_type, depth + 2);
     } else if (type->kind == TAC_TYPE_POINTER) {
         print_indent(fd, depth + 1);
         fprintf(fd, "Referenced:\n");
-        print_tac_type(fd, type->u.pointer.referenced, depth + 2);
+        print_tac_type(fd, type->u.pointer.target_type, depth + 2);
     } else if (type->kind == TAC_TYPE_ARRAY) {
         print_indent(fd, depth + 1);
         fprintf(fd, "Element:\n");
-        print_tac_type(fd, type->u.array.element, depth + 2);
+        print_tac_type(fd, type->u.array.elem_type, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Size: %d\n", type->u.array.size);
     } else if (type->kind == TAC_TYPE_STRUCTURE) {

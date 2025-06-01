@@ -128,14 +128,14 @@ void free_tac_type(Tac_Type *type)
         return;
     switch (type->kind) {
     case TAC_TYPE_FUN_TYPE:
-        free_tac_type(type->u.fun_type.params);
-        free_tac_type(type->u.fun_type.ret);
+        free_tac_type(type->u.fun_type.param_types);
+        free_tac_type(type->u.fun_type.ret_type);
         break;
     case TAC_TYPE_POINTER:
-        free_tac_type(type->u.pointer.referenced);
+        free_tac_type(type->u.pointer.target_type);
         break;
     case TAC_TYPE_ARRAY:
-        free_tac_type(type->u.array.element);
+        free_tac_type(type->u.array.elem_type);
         break;
     case TAC_TYPE_STRUCTURE:
         if (type->u.structure.tag) {
