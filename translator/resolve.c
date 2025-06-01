@@ -4,9 +4,7 @@
 
 #include "Unique_ids.h" // Assume this provides make_named_temporary
 #include "ast.h"
-
-// Simple hash table for StringMap
-#define HASH_TABLE_SIZE 1024
+#include "hash_table.h"
 
 typedef struct {
     char *key;
@@ -21,72 +19,28 @@ typedef struct {
     int struct_from_current_scope;
 } StructEntry;
 
-typedef struct HashNode {
-    char *key;
-    void *value;
-    struct HashNode *next;
-} HashNode;
-
-typedef struct {
-    HashNode *buckets[HASH_TABLE_SIZE];
-} HashTable;
-
 HashTable *type_table;
 HashTable *symbol_table;
 
-// Hash function
-unsigned int hash(const char *str)
+// Insert into type_table
+static void type_table_insert(const char *key, const char *unique_tag,
+                              int struct_from_current_scope)
 {
-    unsigned int hash = 5381;
-    int c;
-    while ((c = *str++))
-        hash = ((hash << 5) + hash) + c; // hash * 33 + c
-    return hash % HASH_TABLE_SIZE;
+    StructEntry *entry               = malloc(sizeof(StructEntry));
+    entry->unique_tag                = strdup(unique_tag);
+    entry->struct_from_current_scope = struct_from_current_scope;
+    hash_table_insert(type_table, key, entry);
 }
 
-// Hash table operations
-HashTable *create_hash_table()
+// Insert into symbol_table
+static void symbol_table_insert(const char *key, const char *unique_name, int from_current_scope,
+                                int has_linkage)
 {
-    HashTable *table = malloc(sizeof(HashTable));
-    memset(table->buckets, 0, sizeof(table->buckets));
-    return table;
-}
-
-void hash_table_insert(HashTable *table, const char *key, void *value)
-{
-    unsigned int index    = hash(key);
-    HashNode *node        = malloc(sizeof(HashNode));
-    node->key             = strdup(key);
-    node->value           = value;
-    node->next            = table->buckets[index];
-    table->buckets[index] = node;
-}
-
-void *hash_table_find(HashTable *table, const char *key)
-{
-    unsigned int index = hash(key);
-    HashNode *node     = table->buckets[index];
-    while (node) {
-        if (strcmp(node->key, key) == 0)
-            return node->value;
-        node = node->next;
-    }
-    return NULL;
-}
-
-void hash_table_free(HashTable *table)
-{
-    for (int i = 0; i < HASH_TABLE_SIZE; i++) {
-        HashNode *node = table->buckets[i];
-        while (node) {
-            HashNode *next = node->next;
-            free(node->key);
-            free(node->value); // Assumes value is dynamically allocated
-            free(node);
-            node = next;
-        }
-    }
-    free(table);
+    VarEntry *entry           = malloc(sizeof(VarEntry));
+    entry->unique_name        = strdup(unique_name);
+    entry->from_current_scope = from_current_scope;
+    entry->has_linkage        = has_linkage;
+    hash_table_insert(symbol_table, key, entry);
 }
 
 // Copy symbol table
@@ -354,14 +308,12 @@ void resolve_statement(Stmt *s)
                             fprintf(stderr, "Duplicate variable declaration %s\n", id->name);
                             exit(1);
                         }
-                        VarEntry *new_entry           = malloc(sizeof(VarEntry));
-                        new_entry->unique_name        = make_named_temporary(id->name);
-                        new_entry->from_current_scope = 1;
-                        new_entry->has_linkage =
-                            (decl->u.var.specifiers->storage == STORAGE_CLASS_EXTERN);
-                        hash_table_insert(symbol_table, id->name, new_entry);
+                        symbol_table_insert(
+                            id->name, make_named_temporary(id->name), 1,
+                            decl->u.var.specifiers->storage == STORAGE_CLASS_EXTERN);
                         free(id->name);
-                        id->name = strdup(new_entry->unique_name);
+                        id->name = strdup(
+                            ((VarEntry *)hash_table_find(symbol_table, id->name))->unique_name);
                         resolve_type(id->type);
                         if (id->init) {
                             resolve_initializer(id->init);
@@ -415,14 +367,11 @@ void resolve_statement(Stmt *s)
                         fprintf(stderr, "Duplicate variable declaration %s\n", id->name);
                         exit(1);
                     }
-                    VarEntry *new_entry           = malloc(sizeof(VarEntry));
-                    new_entry->unique_name        = make_named_temporary(id->name);
-                    new_entry->from_current_scope = 1;
-                    new_entry->has_linkage =
-                        (decl->u.var.specifiers->storage == STORAGE_CLASS_EXTERN);
-                    hash_table_insert(symbol_table, id->name, new_entry);
+                    symbol_table_insert(id->name, make_named_temporary(id->name), 1,
+                                        decl->u.var.specifiers->storage == STORAGE_CLASS_EXTERN);
                     free(id->name);
-                    id->name = strdup(new_entry->unique_name);
+                    id->name =
+                        strdup(((VarEntry *)hash_table_find(symbol_table, id->name))->unique_name);
                     resolve_type(id->type);
                     if (id->init) {
                         resolve_initializer(id->init);
@@ -462,7 +411,7 @@ void resolve_statement(Stmt *s)
         return;
     }
     default:
-        fprintf(stderr, "Unknown statement kind %d\n", s->kind);
+        fprintf(stderr, "Unknown statement kind %d\n", e->kind);
         exit(1);
     }
 }
@@ -475,11 +424,7 @@ void resolve_function_declaration(ExternalDecl *fd)
         fprintf(stderr, "Duplicate declaration %s\n", fd->u.function.name);
         exit(1);
     }
-    VarEntry *new_entry           = malloc(sizeof(VarEntry));
-    new_entry->unique_name        = strdup(fd->u.function.name);
-    new_entry->from_current_scope = 1;
-    new_entry->has_linkage        = 1;
-    hash_table_insert(symbol_table, fd->u.function.name, new_entry);
+    symbol_table_insert(fd->u.function.name, fd->u.function.name, 1, 1);
 
     resolve_type(fd->u.function.type);
 
@@ -493,13 +438,9 @@ void resolve_function_declaration(ExternalDecl *fd)
 
         Param *p = fd->u.function.type->u.function.params;
         while (p) {
-            VarEntry *param_entry           = malloc(sizeof(VarEntry));
-            param_entry->unique_name        = make_named_temporary(p->name);
-            param_entry->from_current_scope = 1;
-            param_entry->has_linkage        = 0;
-            hash_table_insert(symbol_table, p->name, param_entry);
+            symbol_table_insert(p->name, make_named_temporary(p->name), 1, 0);
             free(p->name);
-            p->name = strdup(param_entry->unique_name);
+            p->name = strdup(((VarEntry *)hash_table_find(symbol_table, p->name))->unique_name);
             resolve_type(p->type);
             p = p->next;
         }
@@ -522,11 +463,8 @@ void resolve_structure_declaration(Declaration *d)
     if (entry && entry->struct_from_current_scope) {
         unique_tag = strdup(entry->unique_tag);
     } else {
-        unique_tag                           = make_named_temporary(tag);
-        StructEntry *new_entry               = malloc(sizeof(StructEntry));
-        new_entry->unique_tag                = unique_tag;
-        new_entry->struct_from_current_scope = 1;
-        hash_table_insert(type_table, tag, new_entry);
+        unique_tag = make_named_temporary(tag);
+        type_table_insert(tag, unique_tag, 1);
     }
     free(d->u.var.specifiers->type->u.struct_t.name);
     d->u.var.specifiers->type->u.struct_t.name = unique_tag;
@@ -546,14 +484,10 @@ void resolve_global_declaration(ExternalDecl *decl)
         break;
     case EXTERNAL_DECL_DECLARATION:
         if (decl->u.declaration->kind == DECL_VAR) {
-            InitDeclarator *id        = decl->u.declaration->u.var.declarators;
-            VarEntry *entry           = malloc(sizeof(VarEntry));
-            entry->unique_name        = strdup(id->name);
-            entry->from_current_scope = 1;
-            entry->has_linkage        = 1;
-            hash_table_insert(symbol_table, id->name, entry);
+            InitDeclarator *id = decl->u.declaration->u.var.declarators;
+            symbol_table_insert(id->name, id->name, 1, 1);
             free(id->name);
-            id->name = strdup(entry->unique_name);
+            id->name = strdup(((VarEntry *)hash_table_find(symbol_table, id->name))->unique_name);
             resolve_type(id->type);
             if (id->init) {
                 resolve_initializer(id->init);
