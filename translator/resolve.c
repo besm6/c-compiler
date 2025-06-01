@@ -308,12 +308,13 @@ void resolve_statement(Stmt *s)
                             fprintf(stderr, "Duplicate variable declaration %s\n", id->name);
                             exit(1);
                         }
+                        char *unique_name = make_named_temporary(id->name);
                         symbol_table_insert(
-                            id->name, make_named_temporary(id->name), 1,
+                            id->name, unique_name, 1,
                             decl->u.var.specifiers->storage == STORAGE_CLASS_EXTERN);
                         free(id->name);
-                        id->name = strdup(
-                            ((VarEntry *)hash_table_find(symbol_table, id->name))->unique_name);
+                        id->name = strdup(unique_name);
+
                         resolve_type(id->type);
                         if (id->init) {
                             resolve_initializer(id->init);
@@ -367,11 +368,11 @@ void resolve_statement(Stmt *s)
                         fprintf(stderr, "Duplicate variable declaration %s\n", id->name);
                         exit(1);
                     }
-                    symbol_table_insert(id->name, make_named_temporary(id->name), 1,
+                    char *unique_name = make_named_temporary(id->name);
+                    symbol_table_insert(id->name, unique_name, 1,
                                         decl->u.var.specifiers->storage == STORAGE_CLASS_EXTERN);
                     free(id->name);
-                    id->name =
-                        strdup(((VarEntry *)hash_table_find(symbol_table, id->name))->unique_name);
+                    id->name = strdup(unique_name);
                     resolve_type(id->type);
                     if (id->init) {
                         resolve_initializer(id->init);
@@ -438,9 +439,10 @@ void resolve_function_declaration(ExternalDecl *fd)
 
         Param *p = fd->u.function.type->u.function.params;
         while (p) {
-            symbol_table_insert(p->name, make_named_temporary(p->name), 1, 0);
+            char *unique_name = make_named_temporary(id->name);
+            symbol_table_insert(p->name, unique_name, 1, 0);
             free(p->name);
-            p->name = strdup(((VarEntry *)hash_table_find(symbol_table, p->name))->unique_name);
+            p->name = strdup(unique_name);
             resolve_type(p->type);
             p = p->next;
         }
@@ -468,7 +470,8 @@ void resolve_structure_declaration(Declaration *d)
     }
     free(d->u.var.specifiers->type->u.struct_t.name);
     d->u.var.specifiers->type->u.struct_t.name = unique_tag;
-    Field *f                                   = d->u.var.specifiers->type->u.struct_t.fields;
+
+    Field *f = d->u.var.specifiers->type->u.struct_t.fields;
     while (f) {
         resolve_type(f->type);
         f = f->next;
@@ -486,8 +489,6 @@ void resolve_global_declaration(ExternalDecl *decl)
         if (decl->u.declaration->kind == DECL_VAR) {
             InitDeclarator *id = decl->u.declaration->u.var.declarators;
             symbol_table_insert(id->name, id->name, 1, 1);
-            free(id->name);
-            id->name = strdup(((VarEntry *)hash_table_find(symbol_table, id->name))->unique_name);
             resolve_type(id->type);
             if (id->init) {
                 resolve_initializer(id->init);
