@@ -208,6 +208,7 @@ struct Initializer {
         Expr *expr;
         InitItem *items;
     } u;
+    Type *type; // for typecheck
 };
 
 struct InitItem {
@@ -349,7 +350,7 @@ struct Expr {
             GenericAssoc *associations;
         } generic;
     } u;
-    Type *type; /* attributes */
+    Type *type; // for typecheck
 };
 
 typedef enum { LITERAL_INT, LITERAL_FLOAT, LITERAL_CHAR, LITERAL_STRING, LITERAL_ENUM } LiteralKind;
