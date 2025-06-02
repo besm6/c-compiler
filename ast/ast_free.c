@@ -204,6 +204,7 @@ void free_initializer(Initializer *init)
         free_init_item(init->u.items);
         break;
     }
+    free_type(init->type);
     xfree(init);
 }
 

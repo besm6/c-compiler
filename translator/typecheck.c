@@ -17,9 +17,11 @@ bool is_pointer(Type *t);
 bool is_complete_pointer(Type *t);
 bool is_signed(Type *t);
 Type *const_convert(Type *target, Literal *c);
-Type *new_char_type(void); // Helper for string literals
+Type *new_char_type(void);  // Helper for string literals
+Type *new_long_type(void);  // Helper for TYPE_LONG
+Type *new_ulong_type(void); // Helper for TYPE_LONG_LONG (unsigned)
 
-// Assume Rounding module functions
+// Assume Rounding module function
 int round_away_from_zero(int alignment, int size);
 
 // Forward declarations
@@ -27,6 +29,7 @@ void validate_type(Type *t);
 Expr *typecheck_and_convert(Expr *e);
 Expr *typecheck_scalar(Expr *e);
 Initializer *typecheck_init(Type *target_type, Initializer *init);
+StaticInitializer *static_init_helper(Type *var_type, Initializer *init);
 
 // Check if an expression is an lvalue
 bool is_lvalue(Expr *e)
@@ -159,22 +162,28 @@ void typecheck_struct_decl(Declaration *d)
 // Convert an expression to a target type
 Expr *convert_to(Expr *e, Type *target_type)
 {
-    Expr *cast = malloc(sizeof(Expr));
-    *cast      = (Expr){ .kind = EXPR_CAST, .u.cast = { target_type, e }, .type = target_type };
+    if (e->type->kind == target_type->kind)
+        return e; // Avoid unnecessary casts
+
+    Expr *cast = new_expression(EXPR_CAST);
+    cast.u.cast = { target_type, e };
+    cast.type = clone_type(target_type);
     return cast;
 }
 
 // Get common type for arithmetic operations
 Type *get_common_type(Type *t1, Type *t2)
 {
+    Type *int_type    = new_type(TYPE_INT);
+    Type *double_type = new_type(TYPE_DOUBLE);
     if (is_character(t1))
-        t1 = new_type(TYPE_INT);
+        t1 = int_type;
     if (is_character(t2))
-        t2 = new_type(TYPE_INT);
+        t2 = int_type;
     if (t1->kind == t2->kind)
         return t1;
     if (t1->kind == TYPE_DOUBLE || t2->kind == TYPE_DOUBLE)
-        return new_type(TYPE_DOUBLE);
+        return double_type;
     if (get_size(t1) == get_size(t2))
         return is_signed(t1) ? t2 : t1;
     return get_size(t1) > get_size(t2) ? t1 : t2;
@@ -188,6 +197,8 @@ bool is_zero_int(Literal *c)
         return c->u.int_val == 0;
     case LITERAL_CHAR:
         return c->u.char_val == 0;
+    case LITERAL_ENUM:
+        return false; // Conservative
     default:
         return false;
     }
@@ -202,16 +213,18 @@ bool is_null_pointer_constant(Expr *e)
 // Get common pointer type
 Type *get_common_pointer_type(Expr *e1, Expr *e2)
 {
-    if (e1->type->kind == e2->type->kind)
+    if (e1->type->kind == e2->type->kind &&
+        e1->type->u.pointer.target->kind == e2->type->u.pointer.target->kind)
         return e1->type;
     if (is_null_pointer_constant(e1))
         return e2->type;
     if (is_null_pointer_constant(e2))
         return e1->type;
+    Type *void_type = new_type(TYPE_VOID);
     if ((e1->type->kind == TYPE_POINTER && e1->type->u.pointer.target->kind == TYPE_VOID) ||
         (e2->type->kind == TYPE_POINTER && e2->type->u.pointer.target->kind == TYPE_VOID)) {
         Type *void_ptr             = new_type(TYPE_POINTER);
-        void_ptr->u.pointer.target = new_type(TYPE_VOID);
+        void_ptr->u.pointer.target = void_type;
         return void_ptr;
     }
     fprintf(stderr, "Incompatible pointer types\n");
@@ -221,7 +234,8 @@ Type *get_common_pointer_type(Expr *e1, Expr *e2)
 // Convert by assignment
 Expr *convert_by_assignment(Expr *e, Type *target_type)
 {
-    if (e->type->kind == target_type->kind)
+    if (e->type->kind == target_type->kind &&
+        e->type->u.pointer.target->kind == target_type->u.pointer.target->kind)
         return e;
     if (is_arithmetic(e->type) && is_arithmetic(target_type))
         return convert_to(e, target_type);
@@ -245,7 +259,7 @@ Expr *typecheck_var(Expr *e)
         fprintf(stderr, "Tried to use function name as variable\n");
         exit(1);
     }
-    e->type = sym->type;
+    e->type = clone_type(sym->type);
     return e;
 }
 
@@ -257,7 +271,7 @@ Expr *typecheck_const(Expr *e)
         e->type = new_type(TYPE_INT);
         break;
     case LITERAL_CHAR:
-        e->type = new_type(TYPE_CHAR);
+        e->type = new_char_type();
         break;
     case LITERAL_FLOAT:
         e->type = new_type(TYPE_DOUBLE);
@@ -265,10 +279,13 @@ Expr *typecheck_const(Expr *e)
     case LITERAL_STRING: {
         Type *array            = new_type(TYPE_ARRAY);
         array->u.array.element = new_char_type();
-        array->u.array.size    = (Expr *)strlen(e->u.literal->u.string_val) + 1;
+        array->u.array.size    = (Expr *)(size_t)(strlen(e->u.literal->u.string_val) + 1);
         e->type                = array;
         break;
     }
+    case LITERAL_ENUM:
+        e->type = new_type(TYPE_INT);
+        break;
     default:
         fprintf(stderr, "Unsupported literal kind %d\n", e->u.literal->kind);
         exit(1);
@@ -281,7 +298,7 @@ Expr *typecheck_string(Expr *e)
 {
     Type *array            = new_type(TYPE_ARRAY);
     array->u.array.element = new_char_type();
-    array->u.array.size    = (Expr *)strlen(e->u.literal->u.string_val) + 1;
+    array->u.array.size    = (Expr *)(size_t)(strlen(e->u.literal->u.string_val) + 1);
     e->type                = array;
     return e;
 }
@@ -289,6 +306,8 @@ Expr *typecheck_string(Expr *e)
 // Type-check an expression
 Expr *typecheck_exp(Expr *e)
 {
+    if (!e)
+        return NULL;
     switch (e->kind) {
     case EXPR_VAR:
         return typecheck_var(e);
@@ -303,7 +322,7 @@ Expr *typecheck_exp(Expr *e)
             exit(1);
         }
         if (e->u.cast.type->kind == TYPE_VOID) {
-            e->type        = e->u.cast.type;
+            e->type        = clone_type(e->u.cast.type);
             e->u.cast.expr = inner;
             return e;
         }
@@ -311,7 +330,7 @@ Expr *typecheck_exp(Expr *e)
             fprintf(stderr, "Can only cast scalar types\n");
             exit(1);
         }
-        e->type        = e->u.cast.type;
+        e->type        = clone_type(e->u.cast.type);
         e->u.cast.expr = inner;
         return e;
     }
@@ -331,7 +350,7 @@ Expr *typecheck_exp(Expr *e)
             }
             if (is_character(inner->type))
                 inner = convert_to(inner, new_type(TYPE_INT));
-            e->type            = inner->type;
+            e->type            = clone_type(inner->type);
             e->u.unary_op.expr = inner;
             return e;
         }
@@ -343,7 +362,7 @@ Expr *typecheck_exp(Expr *e)
             }
             if (is_character(inner->type))
                 inner = convert_to(inner, new_type(TYPE_INT));
-            e->type            = inner->type;
+            e->type            = clone_type(inner->type);
             e->u.unary_op.expr = inner;
             return e;
         }
@@ -357,7 +376,7 @@ Expr *typecheck_exp(Expr *e)
                 fprintf(stderr, "Can't dereference pointer to void\n");
                 exit(1);
             }
-            e->type            = inner->type->u.pointer.target;
+            e->type            = clone_type(inner->type->u.pointer.target);
             e->u.unary_op.expr = inner;
             return e;
         }
@@ -368,7 +387,7 @@ Expr *typecheck_exp(Expr *e)
                 exit(1);
             }
             Type *ptr             = new_type(TYPE_POINTER);
-            ptr->u.pointer.target = inner->type;
+            ptr->u.pointer.target = clone_type(inner->type);
             e->type               = ptr;
             e->u.unary_op.expr    = inner;
             return e;
@@ -397,13 +416,13 @@ Expr *typecheck_exp(Expr *e)
                 Type *common = get_common_type(e1->type, e2->type);
                 e1           = convert_to(e1, common);
                 e2           = convert_to(e2, common);
-                e->type      = common;
+                e->type      = clone_type(common);
             } else if (is_complete_pointer(e1->type) && is_integer(e2->type)) {
-                e2      = convert_to(e2, new_type(TYPE_LONG));
-                e->type = e1->type;
+                e2      = convert_to(e2, new_long_type());
+                e->type = clone_type(e1->type);
             } else if (is_complete_pointer(e2->type) && is_integer(e1->type)) {
-                e1      = convert_to(e1, new_type(TYPE_LONG));
-                e->type = e2->type;
+                e1      = convert_to(e1, new_long_type());
+                e->type = clone_type(e2->type);
             } else {
                 fprintf(stderr, "Invalid operands for addition\n");
                 exit(1);
@@ -419,12 +438,12 @@ Expr *typecheck_exp(Expr *e)
                 Type *common = get_common_type(e1->type, e2->type);
                 e1           = convert_to(e1, common);
                 e2           = convert_to(e2, common);
-                e->type      = common;
+                e->type      = clone_type(common);
             } else if (is_complete_pointer(e1->type) && is_integer(e2->type)) {
-                e2      = convert_to(e2, new_type(TYPE_LONG));
-                e->type = e1->type;
+                e2      = convert_to(e2, new_long_type());
+                e->type = clone_type(e1->type);
             } else if (is_complete_pointer(e1->type) && e1->type->kind == e2->type->kind) {
-                e->type = new_type(TYPE_LONG);
+                e->type = new_long_type();
             } else {
                 fprintf(stderr, "Invalid operands for subtraction\n");
                 exit(1);
@@ -449,7 +468,7 @@ Expr *typecheck_exp(Expr *e)
                 fprintf(stderr, "Can't apply %% to double\n");
                 exit(1);
             }
-            e->type              = common;
+            e->type              = clone_type(common);
             e->u.binary_op.left  = e1;
             e->u.binary_op.right = e2;
             return e;
@@ -501,7 +520,7 @@ Expr *typecheck_exp(Expr *e)
         }
         Expr *rhs          = typecheck_and_convert(e->u.assign.value);
         rhs                = convert_by_assignment(rhs, lhs->type);
-        e->type            = lhs->type;
+        e->type            = clone_type(lhs->type);
         e->u.assign.target = lhs;
         e->u.assign.value  = rhs;
         return e;
@@ -523,14 +542,19 @@ Expr *typecheck_exp(Expr *e)
             fprintf(stderr, "Invalid operands for conditional\n");
             exit(1);
         }
-        e->type             = result_type;
+        e->type             = clone_type(result_type);
         e->u.cond.condition = cond;
         e->u.cond.then_expr = convert_to(then_expr, result_type);
         e->u.cond.else_expr = convert_to(else_expr, result_type);
         return e;
     }
     case EXPR_CALL: {
-        Symbol *sym = symtab_get(e->u.call.func->u.var);
+        Expr *func = e->u.call.func;
+        if (func->kind != EXPR_VAR) {
+            fprintf(stderr, "Function call requires variable name\n");
+            exit(1);
+        }
+        Symbol *sym = symtab_get(func->u.var);
         if (sym->type->kind != TYPE_FUNCTION) {
             fprintf(stderr, "Tried to use variable as function name\n");
             exit(1);
@@ -545,12 +569,20 @@ Expr *typecheck_exp(Expr *e)
             fprintf(stderr, "Function called with wrong number of arguments\n");
             exit(1);
         }
-        Expr *arg = e->u.call.args;
-        for (Param *p = params; p && arg; p = p->next, arg = arg->next) {
-            arg = convert_by_assignment(typecheck_and_convert(arg), p->type);
+        Expr *arg = e->u.call.args, *prev = NULL, *new_args = NULL;
+        Param *p = params;
+        while (arg && p) {
+            Expr *new_arg = convert_by_assignment(typecheck_and_convert(arg), p->type);
+            if (!new_args)
+                new_args = new_arg;
+            if (prev)
+                prev->next = new_arg;
+            prev = new_arg;
+            arg  = arg->next;
+            p    = p->next;
         }
-        e->type        = sym->type->u.function.return_type;
-        e->u.call.args = e->u.call.args; // Already updated in place
+        e->type        = clone_type(sym->type->u.function.return_type);
+        e->u.call.args = new_args;
         return e;
     }
     case EXPR_SUBSCRIPT: {
@@ -559,15 +591,15 @@ Expr *typecheck_exp(Expr *e)
         Type *result_type;
         if (is_complete_pointer(ptr->type) && is_integer(index->type)) {
             result_type = ptr->type->u.pointer.target;
-            index       = convert_to(index, new_type(TYPE_LONG));
+            index       = convert_to(index, new_long_type());
         } else if (is_complete_pointer(index->type) && is_integer(ptr->type)) {
             result_type = index->type->u.pointer.target;
-            ptr         = convert_to(ptr, new_type(TYPE_LONG));
+            ptr         = convert_to(ptr, new_long_type());
         } else {
             fprintf(stderr, "Invalid types for subscript operation\n");
             exit(1);
         }
-        e->type              = result_type;
+        e->type              = clone_type(result_type);
         e->u.binary_op.left  = ptr;
         e->u.binary_op.right = index;
         return e;
@@ -578,7 +610,7 @@ Expr *typecheck_exp(Expr *e)
             fprintf(stderr, "Can't apply sizeof to incomplete type\n");
             exit(1);
         }
-        e->type          = new_type(TYPE_LONG);
+        e->type          = new_ulong_type();
         e->u.sizeof_expr = inner;
         return e;
     }
@@ -588,7 +620,7 @@ Expr *typecheck_exp(Expr *e)
             fprintf(stderr, "Can't apply sizeof to incomplete type\n");
             exit(1);
         }
-        e->type = new_type(TYPE_LONG);
+        e->type = new_ulong_type();
         return e;
     }
     case EXPR_FIELD_ACCESS: {
@@ -610,7 +642,7 @@ Expr *typecheck_exp(Expr *e)
                     e->u.field_access.field);
             exit(1);
         }
-        e->type                = member->type;
+        e->type                = clone_type(member->type);
         e->u.field_access.expr = strct;
         return e;
     }
@@ -634,7 +666,7 @@ Expr *typecheck_exp(Expr *e)
                     strct_ptr->type->u.pointer.target->u.struct_t.name, e->u.ptr_access.field);
             exit(1);
         }
-        e->type              = member->type;
+        e->type              = clone_type(member->type);
         e->u.ptr_access.expr = strct_ptr;
         return e;
     }
@@ -647,6 +679,8 @@ Expr *typecheck_exp(Expr *e)
 // Type-check and convert an expression
 Expr *typecheck_and_convert(Expr *e)
 {
+    if (!e)
+        return NULL;
     Expr *typed = typecheck_exp(e);
     if (typed->type->kind == TYPE_STRUCT && !is_complete(typed->type)) {
         fprintf(stderr, "Incomplete structure type not permitted\n");
@@ -654,7 +688,7 @@ Expr *typecheck_and_convert(Expr *e)
     }
     if (typed->type->kind == TYPE_ARRAY) {
         Type *ptr             = new_type(TYPE_POINTER);
-        ptr->u.pointer.target = typed->type->u.array.element;
+        ptr->u.pointer.target = clone_type(typed->type->u.array.element);
         typed->type           = ptr; // Modify in place
     }
     return typed;
@@ -675,57 +709,222 @@ Expr *typecheck_scalar(Expr *e)
 Initializer *make_zero_init(Type *t)
 {
     if (t->kind == TYPE_ARRAY) {
-        int size           = (int)t->u.array.size;
-        Initializer *items = NULL, **tail = &items;
-        for (int i = 0; i < size; i++) {
-            *tail  = malloc(sizeof(Initializer));
-            **tail = (Initializer){ .kind   = INITIALIZER_SINGLE,
-                                    .u.expr = make_zero_init(t->u.array.element) };
-            tail   = &(*tail)->u.items->next;
+        Initializer *init = new_initializer(INITIALIZER_COMPOUND);
+        init->type        = clone_type(t);
+
+        InitItem **tail = &init->u.items;
+        size_t size     = (size_t)t->u.array.size;
+        for (size_t i = 0; i < size; i++) {
+            InitItem *item    = new_init_item(NULL, make_zero_init(t->u.array.element));
+            *tail             = item;
+            tail              = &item->next;
         }
-        Initializer *init = malloc(sizeof(Initializer));
-        *init             = (Initializer){ .kind = INITIALIZER_COMPOUND, .u.items = items };
         return init;
     }
     if (t->kind == TYPE_STRUCT) {
+        Initializer *init = new_initializer(INITIALIZER_COMPOUND);
+        init->type        = clone_type(t);
+
+        InitItem **tail = &init->u.items;
         int count;
-        Type **members     = typetab_get_member_types(t->u.struct_t.name, &count);
-        Initializer *items = NULL, **tail = &items;
+        TypeMember *members = typetab_get_members(t->u.struct_t.name, &count);
         for (int i = 0; i < count; i++) {
-            *tail = malloc(sizeof(Initializer));
-            **tail =
-                (Initializer){ .kind = INITIALIZER_SINGLE, .u.expr = make_zero_init(members[i]) };
-            tail = &(*tail)->u.items->next;
+            InitItem *item    = new_init_item(NULL, make_zero_init(members[i].type));
+            *tail             = item;
+            tail              = &item->next;
         }
         free(members);
-        Initializer *init = malloc(sizeof(Initializer));
-        *init             = (Initializer){ .kind = INITIALIZER_COMPOUND, .u.items = items };
         return init;
     }
-    Expr *expr   = malloc(sizeof(Expr));
-    *expr        = (Expr){ .kind = EXPR_LITERAL, .type = t };
-    Literal *lit = malloc(sizeof(Literal));
+
+    Initializer *init  = new_initializer(INITIALIZER_SINGLE);
+    init->type         = clone_type(t);
+    init->u.expr       = new_expression(EXPR_LITERAL);
+    init->u.expr->type = clone_type(t);
     switch (t->kind) {
     case TYPE_CHAR:
-        lit->kind       = LITERAL_CHAR;
-        lit->u.char_val = 0;
+        init->u.expr->u.literal = new_literal(LITERAL_CHAR);
         break;
     case TYPE_INT:
-        lit->kind      = LITERAL_INT;
-        lit->u.int_val = 0;
+        init->u.expr->u.literal = new_literal(LITERAL_INT);
+        break;
+    case TYPE_LONG:
+        init->u.expr->u.literal = new_literal(LITERAL_INT); // Simplified
         break;
     case TYPE_DOUBLE:
-        lit->kind       = LITERAL_FLOAT;
-        lit->u.real_val = 0.0;
+        init->u.expr->u.literal = new_literal(LITERAL_FLOAT);
+        break;
+    case TYPE_POINTER:
+        init->u.expr->u.literal = new_literal(LITERAL_INT); // Null pointer
         break;
     default:
-        fprintf(stderr, "Unsupported type for zero init\n");
+        fprintf(stderr, "Unsupported type for zero init: %d\n", t->kind);
         exit(1);
     }
-    expr->u.literal   = lit;
-    Initializer *init = malloc(sizeof(Initializer));
-    *init             = (Initializer){ .kind = INITIALIZER_SINGLE, .u.expr = expr };
     return init;
+}
+
+// Convert an initializer to a StaticInitializer list
+StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
+{
+    if (!init) {
+        StaticInitializer *zero = malloc(sizeof(StaticInitializer));
+        zero->kind              = INIT_ZERO;
+        zero->u.zero_bytes      = get_size(var_type);
+        zero->next              = NULL;
+        return zero;
+    }
+    if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_SINGLE &&
+        init->u.expr->kind == EXPR_LITERAL && init->u.expr->u.literal->kind == LITERAL_STRING) {
+        if (!is_character(var_type->u.array.element)) {
+            fprintf(stderr, "Can't initialize array of non-character type with string literal\n");
+            exit(1);
+        }
+        char *s                              = init->u.expr->u.literal->u.string_val;
+        size_t len                           = strlen(s);
+        size_t array_size                    = (size_t)var_type->u.array.size;
+        StaticInitializer *result            = malloc(sizeof(StaticInitializer));
+        result->kind                         = INIT_STRING;
+        result->u.string_val.str             = strdup(s);
+        result->u.string_val.null_terminated = (array_size >= len + 1);
+        result->next                         = NULL;
+        if (array_size > len + 1) {
+            StaticInitializer *zero = malloc(sizeof(StaticInitializer));
+            zero->kind              = INIT_ZERO;
+            zero->u.zero_bytes = (array_size - (len + 1)) * get_size(var_type->u.array.element);
+            zero->next         = NULL;
+            result->next       = zero;
+        }
+        return result;
+    }
+    if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_SINGLE) {
+        fprintf(stderr, "Can't initialize array from scalar value\n");
+        exit(1);
+    }
+    if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
+        init->u.expr->kind == EXPR_LITERAL && init->u.expr->u.literal->kind == LITERAL_STRING) {
+        if (var_type->u.pointer.target->kind != TYPE_CHAR) {
+            fprintf(stderr, "String literal can only initialize char *\n");
+            exit(1);
+        }
+        char *s                   = init->u.expr->u.literal->u.string_val;
+        char *str_id              = symtab_add_string(s);
+        StaticInitializer *result = malloc(sizeof(StaticInitializer));
+        result->kind              = INIT_POINTER;
+        result->u.ptr_id          = strdup(str_id);
+        result->next              = NULL;
+        return result;
+    }
+    if (init->kind == INITIALIZER_SINGLE && init->u.expr->kind == EXPR_LITERAL) {
+        Literal *c = init->u.expr->u.literal;
+        if (is_zero_int(c)) {
+            StaticInitializer *zero = malloc(sizeof(StaticInitializer));
+            zero->kind              = INIT_ZERO;
+            zero->u.zero_bytes      = get_size(var_type);
+            zero->next              = NULL;
+            return zero;
+        }
+        if (is_arithmetic(var_type)) {
+            Type *converted_type      = const_convert(var_type, c);
+            StaticInitializer *result = malloc(sizeof(StaticInitializer));
+            result->next              = NULL;
+            switch (converted_type->kind) {
+            case TYPE_CHAR:
+                result->kind       = INIT_CHAR;
+                result->u.char_val = c->u.char_val;
+                break;
+            case TYPE_INT:
+                result->kind      = INIT_INT;
+                result->u.int_val = c->u.int_val;
+                break;
+            case TYPE_LONG:
+                result->kind       = INIT_LONG;
+                result->u.long_val = c->u.int_val; // Simplified
+                break;
+            case TYPE_DOUBLE:
+                result->kind         = INIT_DOUBLE;
+                result->u.double_val = c->u.real_val;
+                break;
+            default:
+                fprintf(stderr, "Unsupported constant type for initializer\n");
+                exit(1);
+            }
+            return result;
+        }
+        fprintf(stderr, "Invalid static initializer for type %d\n", var_type->kind);
+        exit(1);
+    }
+    if (var_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
+        TypeEntry *entry = typetab_find(var_type->u.struct_t.name);
+        int init_count   = 0;
+        for (InitItem *item = init->u.items; item; item = item->next)
+            init_count++;
+        if (init_count > entry->member_count) {
+            fprintf(stderr, "Too many elements in struct initializer\n");
+            exit(1);
+        }
+        StaticInitializer *result = NULL, **tail = &result;
+        int current_offset = 0;
+        for (int i = 0; i < init_count; i++) {
+            TypeMember *memb = &entry->members[i];
+            if (current_offset < memb->offset) {
+                StaticInitializer *zero = malloc(sizeof(StaticInitializer));
+                zero->kind              = INIT_ZERO;
+                zero->u.zero_bytes      = memb->offset - current_offset;
+                zero->next              = NULL;
+                *tail                   = zero;
+                tail                    = &zero->next;
+            }
+            StaticInitializer *member_init = static_init_helper(memb->type, init->u.items[i].init);
+            *tail                          = member_init;
+            while (*tail)
+                tail = &(*tail)->next;
+            current_offset = memb->offset + get_size(memb->type);
+        }
+        if (current_offset < entry->size) {
+            StaticInitializer *zero = malloc(sizeof(StaticInitializer));
+            zero->kind              = INIT_ZERO;
+            zero->u.zero_bytes      = entry->size - current_offset;
+            zero->next              = NULL;
+            *tail                   = zero;
+        }
+        return result;
+    }
+    if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
+        size_t array_size = (size_t)var_type->u.array.size;
+        int init_count    = 0;
+        for (InitItem *item = init->u.items; item; item = item->next)
+            init_count++;
+        if (init_count > (int)array_size) {
+            fprintf(stderr, "Too many values in static initializer\n");
+            exit(1);
+        }
+        StaticInitializer *result = NULL, **tail = &result;
+        for (int i = 0; i < init_count; i++) {
+            StaticInitializer *elem_init =
+                static_init_helper(var_type->u.array.element, init->u.items[i].init);
+            *tail = elem_init;
+            while (*tail)
+                tail = &(*tail)->next;
+        }
+        if (init_count < (int)array_size) {
+            StaticInitializer *zero = malloc(sizeof(StaticInitializer));
+            zero->kind              = INIT_ZERO;
+            zero->u.zero_bytes =
+                ((int)array_size - init_count) * get_size(var_type->u.array.element);
+            zero->next = NULL;
+            *tail      = zero;
+        }
+        return result;
+    }
+    fprintf(stderr, "Invalid static initializer for type %d\n", var_type->kind);
+    exit(1);
+}
+
+// Convert initializer to static initializer
+StaticInitializer *to_static_init(Type *var_type, Initializer *init)
+{
+    return static_init_helper(var_type, init);
 }
 
 // Type-check an initializer
@@ -733,14 +932,15 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
 {
     if (!init)
         return NULL;
+    init->type = clone_type(target_type);
     if (target_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_SINGLE &&
         init->u.expr->kind == EXPR_LITERAL && init->u.expr->u.literal->kind == LITERAL_STRING) {
         if (!is_character(target_type->u.array.element)) {
             fprintf(stderr, "Can't initialize non-character type with string literal\n");
             exit(1);
         }
-        int len = strlen(init->u.expr->u.literal->u.string_val);
-        if (len > (int)target_type->u.array.size) {
+        size_t len = strlen(init->u.expr->u.literal->u.string_val);
+        if (len > (size_t)target_type->u.array.size) {
             fprintf(stderr, "Too many characters in string literal\n");
             exit(1);
         }
@@ -749,8 +949,8 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
     }
     if (target_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
         int member_count;
-        Type **members = typetab_get_member_types(target_type->u.struct_t.name, &member_count);
-        int init_count = 0;
+        TypeMember *members = typetab_get_members(target_type->u.struct_t.name, &member_count);
+        int init_count      = 0;
         for (InitItem *item = init->u.items; item; item = item->next)
             init_count++;
         if (init_count > member_count) {
@@ -759,14 +959,20 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
         }
         InitItem *items = NULL, **tail = &items;
         for (int i = 0; i < init_count; i++) {
-            *tail  = malloc(sizeof(InitItem));
-            **tail = (InitItem){ .init = typecheck_init(members[i], init->u.items[i].init) };
-            tail   = &(*tail)->next;
+            InitItem *new_item    = malloc(sizeof(InitItem));
+            new_item->designators = NULL;
+            new_item->init        = typecheck_init(members[i].type, init->u.items[i].init);
+            new_item->next        = NULL;
+            *tail                 = new_item;
+            tail                  = &new_item->next;
         }
         for (int i = init_count; i < member_count; i++) {
-            *tail  = malloc(sizeof(InitItem));
-            **tail = (InitItem){ .init = make_zero_init(members[i]) };
-            tail   = &(*tail)->next;
+            InitItem *new_item    = malloc(sizeof(InitItem));
+            new_item->designators = NULL;
+            new_item->init        = make_zero_init(members[i].type);
+            new_item->next        = NULL;
+            *tail                 = new_item;
+            tail                  = &new_item->next;
         }
         free(members);
         init->u.items = items;
@@ -779,29 +985,35 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
         return init;
     }
     if (target_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
-        int init_count = 0;
+        size_t array_size = (size_t)target_type->u.array.size;
+        int init_count    = 0;
         for (InitItem *item = init->u.items; item; item = item->next)
             init_count++;
-        if (init_count > (int)target_type->u.array.size) {
+        if (init_count > (int)array_size) {
             fprintf(stderr, "Too many values in initializer\n");
             exit(1);
         }
         InitItem *items = NULL, **tail = &items;
         for (int i = 0; i < init_count; i++) {
-            *tail  = malloc(sizeof(InitItem));
-            **tail = (InitItem){ .init = typecheck_init(target_type->u.array.element,
-                                                        init->u.items[i].init) };
-            tail   = &(*tail)->next;
+            InitItem *new_item    = malloc(sizeof(InitItem));
+            new_item->designators = NULL;
+            new_item->init = typecheck_init(target_type->u.array.element, init->u.items[i].init);
+            new_item->next = NULL;
+            *tail          = new_item;
+            tail           = &new_item->next;
         }
-        for (int i = init_count; i < (int)target_type->u.array.size; i++) {
-            *tail  = malloc(sizeof(InitItem));
-            **tail = (InitItem){ .init = make_zero_init(target_type->u.array.element) };
-            tail   = &(*tail)->next;
+        for (int i = init_count; i < (int)array_size; i++) {
+            InitItem *new_item    = malloc(sizeof(InitItem));
+            new_item->designators = NULL;
+            new_item->init        = make_zero_init(target_type->u.array.element);
+            new_item->next        = NULL;
+            *tail                 = new_item;
+            tail                  = &new_item->next;
         }
         init->u.items = items;
         return init;
     }
-    fprintf(stderr, "Invalid initializer\n");
+    fprintf(stderr, "Can't initialize scalar value from compound initializer\n");
     exit(1);
 }
 
@@ -821,6 +1033,8 @@ DeclOrStmt *typecheck_block(Type *ret_type, DeclOrStmt *block)
 // Type-check a statement
 Stmt *typecheck_statement(Type *ret_type, Stmt *s)
 {
+    if (!s)
+        return NULL;
     switch (s->kind) {
     case STMT_RETURN: {
         if (s->u.expr) {
@@ -910,8 +1124,7 @@ Declaration *typecheck_local_var_decl(Declaration *d)
             exit(1);
         }
         if (!existing) {
-            // Assume static_init for extern is handled elsewhere
-            symtab_add_static_var(decl->name, var_type, true, INIT_NONE, NULL);
+            symtab_add_static_var(decl->name, clone_type(var_type), true, INIT_NONE, NULL);
         }
         return d;
     }
@@ -920,12 +1133,14 @@ Declaration *typecheck_local_var_decl(Declaration *d)
         exit(1);
     }
     if (d->u.var.specifiers->storage == STORAGE_CLASS_STATIC) {
-        // Static initializers not implemented (requires Initializers module)
-        symtab_add_static_var(decl->name, var_type, false, INIT_NONE, NULL);
+        StaticInitializer *static_init =
+            decl->init ? to_static_init(var_type, decl->init) : static_init_helper(var_type, NULL);
+        symtab_add_static_var(decl->name, clone_type(var_type), false, INIT_INITIALIZED,
+                              static_init);
         decl->init = NULL; // Drop initializer
         return d;
     }
-    symtab_add_automatic_var(decl->name, var_type);
+    symtab_add_automatic_var(decl->name, clone_type(var_type));
     decl->init = typecheck_init(var_type, decl->init);
     return d;
 }
@@ -941,20 +1156,32 @@ Declaration *typecheck_fn_decl(Declaration *d)
             fprintf(stderr, "A function cannot return an array\n");
             exit(1);
         }
-        for (Param *p = adjusted_type->u.function.params; p; p = p->next) {
+        Param *p = adjusted_type->u.function.params;
+        while (p) {
             if (p->type->kind == TYPE_ARRAY) {
                 Type *ptr             = new_type(TYPE_POINTER);
-                ptr->u.pointer.target = p->type->u.array.element;
+                ptr->u.pointer.target = clone_type(p->type->u.array.element);
                 p->type               = ptr;
             } else if (p->type->kind == TYPE_VOID) {
                 fprintf(stderr, "No void params allowed\n");
                 exit(1);
             }
+            p = p->next;
+        }
+    } else {
+        fprintf(stderr, "Function has non-function type\n");
+        exit(1);
+    }
+    bool has_body            = d->u.function.body != NULL;
+    Param *params            = adjusted_type->u.function.params;
+    bool all_params_complete = true;
+    for (Param *p = params; p; p = p->next) {
+        if (!is_complete(p->type)) {
+            all_params_complete = false;
+            break;
         }
     }
-    bool has_body = d->u.function.body != NULL;
-    if (has_body && (!is_complete(fun_type->u.function.return_type) ||
-                     !all_complete(fun_type->u.function.params))) {
+    if (has_body && (!is_complete(fun_type->u.function.return_type) || !all_params_complete)) {
         fprintf(stderr, "Can't define function with incomplete types\n");
         exit(1);
     }
@@ -982,10 +1209,10 @@ Declaration *typecheck_fn_decl(Declaration *d)
     }
     symtab_add_fun(d->u.function.name, adjusted_type, global, defined);
     if (has_body) {
-        Param *p = adjusted_type->u.function.params;
+        Param *p = params;
         for (Declaration *param = d->u.function.param_decls; param && p;
              param = param->next, p = p->next) {
-            symtab_add_automatic_var(param->u.var.declarators->name, p->type);
+            symtab_add_automatic_var(param->u.var.declarators->name, clone_type(p->type));
         }
         d->u.function.body =
             typecheck_statement(fun_type->u.function.return_type, d->u.function.body);
@@ -996,12 +1223,13 @@ Declaration *typecheck_fn_decl(Declaration *d)
 // Type-check a local declaration
 Declaration *typecheck_local_decl(Declaration *d)
 {
-    if (d->kind == DECL_VAR) {
+    switch (d->kind) {
+    case DECL_VAR:
         return typecheck_local_var_decl(d);
-    } else if (d->kind == DECL_STRUCT) {
+    case DECL_EMPTY:
         typecheck_struct_decl(d);
         return d;
-    } else {
+    default:
         fprintf(stderr, "Unsupported local declaration kind %d\n", d->kind);
         exit(1);
     }
@@ -1018,9 +1246,13 @@ Declaration *typecheck_file_scope_var_decl(Declaration *d)
     }
     validate_type(var_type);
     bool global = d->u.var.specifiers->storage != STORAGE_CLASS_STATIC;
-    // Static initializers not implemented
     InitKind init_kind =
         d->u.var.specifiers->storage == STORAGE_CLASS_EXTERN ? INIT_NONE : INIT_TENTATIVE;
+    StaticInitializer *init_list = NULL;
+    if (decl->init) {
+        init_kind = INIT_INITIALIZED;
+        init_list = to_static_init(var_type, decl->init);
+    }
     if (!is_complete(var_type) && init_kind != INIT_NONE) {
         fprintf(stderr, "Can't define a variable with incomplete type\n");
         exit(1);
@@ -1032,7 +1264,8 @@ Declaration *typecheck_file_scope_var_decl(Declaration *d)
             exit(1);
         }
         if (existing->kind == SYM_STATIC) {
-            if (existing->u.static_var.global != global) {
+            if (d->u.var.specifiers->storage != STORAGE_CLASS_EXTERN &&
+                existing->u.static_var.global != global) {
                 fprintf(stderr, "Conflicting variable linkage\n");
                 exit(1);
             }
@@ -1044,10 +1277,15 @@ Declaration *typecheck_file_scope_var_decl(Declaration *d)
             init_kind = existing->u.static_var.init_kind == INIT_INITIALIZED
                             ? existing->u.static_var.init_kind
                             : init_kind;
-            global    = existing->u.static_var.global;
+            init_list = existing->u.static_var.init_kind == INIT_INITIALIZED
+                            ? existing->u.static_var.init_list
+                            : init_list;
+            global    = d->u.var.specifiers->storage == STORAGE_CLASS_EXTERN
+                            ? existing->u.static_var.global
+                            : global;
         }
     }
-    symtab_add_static_var(decl->name, var_type, global, init_kind, NULL);
+    symtab_add_static_var(decl->name, clone_type(var_type), global, init_kind, init_list);
     decl->init = NULL; // Drop initializer
     return d;
 }
@@ -1056,7 +1294,14 @@ Declaration *typecheck_file_scope_var_decl(Declaration *d)
 ExternalDecl *typecheck_global_decl(ExternalDecl *d)
 {
     if (d->kind == EXTERNAL_DECL_FUNCTION) {
-        d->u.function = *typecheck_fn_decl((Declaration *)&d->u.function);
+        Declaration temp   = { .kind              = DECL_VAR,
+                               .u.var.specifiers  = d->u.function.specifiers,
+                               .u.var.declarators = &(InitDeclarator){ .type = d->u.function.type,
+                                                                       .name = d->u.function.name,
+                                                                       .init = NULL } };
+        Declaration *fn    = typecheck_fn_decl(&temp);
+        d->u.function.type = fn->u.var.declarators->type;
+        d->u.function.body = fn->u.function.body;
         return d;
     } else {
         d->u.declaration = typecheck_file_scope_var_decl(d->u.declaration);
