@@ -29,7 +29,7 @@ class StringMapTest : public ::testing::Test {
 protected:
     void SetUp() override { map_init(&map); }
 
-    void TearDown() override { map_free(&map); }
+    void TearDown() override { map_destroy(&map); }
 
     StringMap map;
 

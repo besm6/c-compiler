@@ -12,7 +12,7 @@
 //  2. Insert key-value pairs with `map_insert(&map, key, value)`.
 //  3. Retrieve values with `map_get(&map, key, &value)`.
 //  4. Remove entries with `map_remove_key(&map, key)`.
-//  5. Free the map with `map_free(&map)`.
+//  5. Free the map with `map_destroy(&map)`.
 //
 // Copyright (c) 2025 Serge Vakulenko
 //
@@ -82,7 +82,8 @@ void map_remove_level(StringMap *map, int level);
 //
 // Free: Recursively frees all nodes and their keys.
 //
-void map_free(StringMap *map);
+void map_destroy(StringMap *map);
+void map_destroy_free(StringMap *map, void (*func)(intptr_t value));
 
 //
 // Get the height of a node (0 for NULL)

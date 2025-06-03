@@ -103,7 +103,6 @@ protected:
 // Test symtab_init
 TEST_F(SymtabTest, InitEmptyTable)
 {
-    ASSERT_EQ(symtab_size(), 0u);
     ASSERT_EQ(symtab_get_opt("x"), nullptr);
 }
 
@@ -112,7 +111,6 @@ TEST_F(SymtabTest, DestroyEmptyTable)
 {
     symtab_destroy();
     symtab_init(); // Re-init to ensure no corruption
-    ASSERT_EQ(symtab_size(), 0u);
 }
 
 // Test symtab_add_automatic_var
@@ -125,8 +123,6 @@ TEST_F(SymtabTest, AddAutomaticVar)
     ASSERT_STREQ(sym->name, "x");
     ASSERT_TRUE(compare_type(sym->type, int_type));
     ASSERT_EQ(sym->kind, SYM_LOCAL);
-
-    ASSERT_EQ(symtab_size(), 1u);
 
     free_type(int_type);
 }
@@ -144,8 +140,6 @@ TEST_F(SymtabTest, AddAutomaticVarOverwrite)
     ASSERT_STREQ(sym->name, "x");
     ASSERT_TRUE(compare_type(sym->type, char_type));
     ASSERT_EQ(sym->kind, SYM_LOCAL);
-
-    ASSERT_EQ(symtab_size(), 1u);
 
     free_type(int_type);
     free_type(char_type);
@@ -170,8 +164,6 @@ TEST_F(SymtabTest, AddStaticVarWithInitializer)
     ASSERT_EQ(sym->u.static_var.init_kind, INIT_INITIALIZED);
     ASSERT_TRUE(compare_static_initializer(sym->u.static_var.init_list, init));
 
-    ASSERT_EQ(symtab_size(), 1u);
-
     free_type(int_type);
     free(init); // Assumes symtab makes a copy
 }
@@ -191,8 +183,6 @@ TEST_F(SymtabTest, AddStaticVarNoInitializer)
     ASSERT_EQ(sym->u.static_var.init_kind, INIT_TENTATIVE);
     ASSERT_EQ(sym->u.static_var.init_list, nullptr);
 
-    ASSERT_EQ(symtab_size(), 1u);
-
     free_type(int_type);
 }
 
@@ -211,8 +201,6 @@ TEST_F(SymtabTest, AddFunction)
     ASSERT_EQ(sym->kind, SYM_FUNC);
     ASSERT_TRUE(sym->u.func.global);
     ASSERT_TRUE(sym->u.func.defined);
-
-    ASSERT_EQ(symtab_size(), 1u);
 
     free_param(param);
     free_type(int_type);
@@ -234,8 +222,6 @@ TEST_F(SymtabTest, AddStringLiteral)
                                         .u.string_val = { (char *)str, true },
                                         .next         = NULL };
     ASSERT_TRUE(compare_static_initializer(sym->u.const_init, &expected_init));
-
-    ASSERT_EQ(symtab_size(), 1u);
 
     free_type(expected_type->u.array.element);
     free_type(expected_type);
@@ -280,45 +266,6 @@ TEST_F(SymtabTest, IsGlobal)
     free_type(int_type);
 }
 
-// Test symtab_iter
-TEST_F(SymtabTest, IterateSymbols)
-{
-    Type *int_type = new_int_type();
-
-    symtab_add_automatic_var("x", int_type);
-    symtab_add_static_var("y", int_type, true, INIT_NONE, NULL);
-
-    std::map<std::string, Symbol> collected;
-    SymtabIterator callback = [](char *name, Symbol *symbol, void *user_data) {
-        auto *map = static_cast<std::map<std::string, Symbol> *>(user_data);
-        map->emplace(name, *symbol);
-    };
-    symtab_iter(callback, &collected);
-
-    ASSERT_EQ(collected.size(), 2u);
-    ASSERT_TRUE(collected.find("x") != collected.end());
-    ASSERT_TRUE(collected.find("y") != collected.end());
-    ASSERT_EQ(collected["x"].kind, SYM_LOCAL);
-    ASSERT_EQ(collected["y"].kind, SYM_STATIC);
-
-    free_type(int_type);
-}
-
-// Test symtab_size
-TEST_F(SymtabTest, SizeMultipleSymbols)
-{
-    Type *int_type = new_int_type();
-
-    symtab_add_automatic_var("x", int_type);
-    symtab_add_static_var("y", int_type, true, INIT_NONE, NULL);
-    symtab_add_fun("f", new_function_type(int_type, NULL), true, false);
-
-    ASSERT_EQ(symtab_size(), 3u);
-
-    free_type(int_type);
-    free_type(new_function_type(int_type, NULL));
-}
-
 // Test symtab_add_string unique IDs
 TEST_F(SymtabTest, AddStringUniqueIDs)
 {
@@ -328,8 +275,6 @@ TEST_F(SymtabTest, AddStringUniqueIDs)
     ASSERT_STRNE(id1, id2);
     ASSERT_TRUE(symtab_get_opt(id1) != nullptr);
     ASSERT_TRUE(symtab_get_opt(id2) != nullptr);
-
-    ASSERT_EQ(symtab_size(), 2u);
 }
 
 int main(int argc, char **argv)

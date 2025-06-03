@@ -767,6 +767,18 @@ Initializer *make_zero_init(Type *t)
     return init;
 }
 
+//
+// Add a string literal
+// Precondition: s is a non-null string.
+// Postcondition: A Symbol with SYM_CONST, a unique name, type Array(Char, len(s)+1), and string
+// initializer is added. Returns: The unique name (owned by symtab) for the string literal.
+//
+char *add_string_symbol(char *s)
+{
+    //TODO
+    return NULL;
+}
+
 // Convert an initializer to a StaticInitializer list
 StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
 {
@@ -811,7 +823,7 @@ StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
             exit(1);
         }
         char *s                   = init->u.expr->u.literal->u.string_val;
-        char *str_id              = symtab_add_string(s);
+        char *str_id              = add_string_symbol(s);
         StaticInitializer *result = malloc(sizeof(StaticInitializer));
         result->kind              = INIT_POINTER;
         result->u.ptr_id          = strdup(str_id);

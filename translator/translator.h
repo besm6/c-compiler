@@ -1,8 +1,8 @@
 //
 // Internal types for translator.
 //
-#ifndef TACKER_H
-#define TACKER_H
+#ifndef TRANSLATOR_H
+#define TRANSLATOR_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -29,6 +29,9 @@ void label_loops(ExternalDecl *ast);
 // Convert the AST to TAC.
 Tac_TopLevel *translate(ExternalDecl *ast);
 
+// Error handling.
+void _Noreturn fatal_error(const char *message, ...);
+
 #ifdef GTEST_API_
 //TODO
 #endif
@@ -37,4 +40,4 @@ Tac_TopLevel *translate(ExternalDecl *ast);
 }
 #endif
 
-#endif /* TACKER_H */
+#endif /* TRANSLATOR_H */

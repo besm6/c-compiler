@@ -1,6 +1,52 @@
+//
+// Types for symbol table.
+//
+#ifndef SYMTAB_H
+#define SYMTAB_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stdint.h>
 #include <stdbool.h>
 
 #include "ast.h"
+
+// Enum for static initializer kinds
+typedef enum {
+    INIT_CHAR,
+    INIT_INT,
+    INIT_LONG,
+    INIT_UCHAR,
+    INIT_UINT,
+    INIT_ULONG,
+    INIT_DOUBLE,
+    INIT_STRING,
+    INIT_ZERO,
+    INIT_POINTER
+} StaticInitKind;
+
+// Structure for a (list of) static initializer(s)
+typedef struct StaticInitializer {
+    struct StaticInitializer *next; // Next initializer in list
+    StaticInitKind kind;
+    union {
+        int8_t char_val;    // INIT_CHAR
+        int32_t int_val;    // INIT_INT
+        int64_t long_val;   // INIT_LONG
+        uint8_t uchar_val;  // INIT_UCHAR
+        uint32_t uint_val;  // INIT_UINT
+        uint64_t ulong_val; // INIT_ULONG
+        double double_val;  // INIT_DOUBLE
+        struct {
+            char *str;
+            bool null_terminated;
+        } string_val;   // INIT_STRING
+        int zero_bytes; // INIT_ZERO
+        char *ptr_id;   // INIT_POINTER (string ID)
+    } u;
+} StaticInitializer;
 
 // Enum for symbol kinds (corresponding to identifier_attrs)
 typedef enum {
@@ -16,9 +62,6 @@ typedef enum {
     INIT_INITIALIZED, // Initial
     INIT_NONE         // NoInitializer
 } InitKind;
-
-// Forward declaration for StaticInitializer (list of static initializers)
-typedef struct StaticInitializer StaticInitializer;
 
 // Structure for a symbol entry
 typedef struct Symbol {
@@ -42,40 +85,6 @@ typedef struct Symbol {
         // No data needed for SYM_LOCAL
     } u;
 } Symbol;
-
-typedef enum {
-    INIT_CHAR,
-    INIT_INT,
-    INIT_LONG,
-    INIT_UCHAR,
-    INIT_UINT,
-    INIT_ULONG,
-    INIT_DOUBLE,
-    INIT_STRING,
-    INIT_ZERO,
-    INIT_POINTER
-} StaticInitKind;
-
-// Structure for a (list of) static initializer(s)
-typedef struct {
-    struct StaticInitializer *next; // Next initializer in list
-    StaticInitKind kind;
-    union {
-        int8_t char_val;    // INIT_CHAR
-        int32_t int_val;    // INIT_INT
-        int64_t long_val;   // INIT_LONG
-        uint8_t uchar_val;  // INIT_UCHAR
-        uint32_t uint_val;  // INIT_UINT
-        uint64_t ulong_val; // INIT_ULONG
-        double double_val;  // INIT_DOUBLE
-        struct {
-            char *str;
-            bool null_terminated;
-        } string_val;   // INIT_STRING
-        int zero_bytes; // INIT_ZERO
-        char *ptr_id;   // INIT_POINTER (string ID)
-    } u;
-} StaticInitializer;
 
 // Initialize the symbol table (create an empty table)
 void symtab_init(void);
@@ -102,37 +111,35 @@ void symtab_add_fun(char *name, Type *t, bool global, bool defined);
 // Precondition: name is a non-null string, t is a valid Type* (function type).
 // Postcondition: A Symbol with SYM_FUNC, name, t, global, and defined is added/replaced in symtab.
 
+// Add a const array (for string literal)
+void symtab_add_const(char *name, Type *t, StaticInitializer *init);
+// Precondition: name is a non-null string, t is type Array(Char, len(s)+1).
+// Postcondition: A Symbol with SYM_CONST, name, t, and string initializer is added.
+
 // Add a string literal
-char *symtab_add_string(char *s);
+//char *symtab_add_string(char *s);
 // Precondition: s is a non-null string.
 // Postcondition: A Symbol with SYM_CONST, a unique name, type Array(Char, len(s)+1), and string
 // initializer is added. Returns: The unique name (owned by symtab) for the string literal.
 
 // Get a symbol by name (fails if not found)
-Symbol *symtab_get(char *name);
+Symbol *symtab_get(const char *name);
 // Precondition: name is a non-null string.
 // Postcondition: Returns non-null Symbol* if found, else terminates with error.
 
 // Get a symbol by name (returns NULL if not found)
-Symbol *symtab_get_opt(char *name);
+Symbol *symtab_get_opt(const char *name);
 // Precondition: name is a non-null string.
 // Postcondition: Returns Symbol* if found, else NULL.
 
 // Check if a symbol has global linkage
-bool symtab_is_global(char *name);
+bool symtab_is_global(const char *name);
 // Precondition: name is a non-null string, exists in symtab.
 // Postcondition: Returns true if the symbol is global (SYM_FUNC or SYM_STATIC with global=true),
 // else false.
 
-// Iterator callback type for traversing symbols
-typedef void (*SymtabIterator)(char *name, Symbol *symbol, void *user_data);
-// Callback function to process a symbol during iteration.
+#ifdef __cplusplus
+}
+#endif
 
-// Iterate over all symbols
-void symtab_iter(SymtabIterator callback, void *user_data);
-// Precondition: callback is a valid function pointer.
-// Postcondition: callback is called for each (name, Symbol*) pair in symtab.
-
-// Get the number of symbols (for testing or debugging)
-size_t symtab_size(void);
-// Postcondition: Returns the number of symbols in the table.
+#endif /* SYMTAB_H */

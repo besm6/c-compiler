@@ -1,6 +1,5 @@
-#include "ast.h"
+#include <stdint.h>
 #include "string_map.h"
-#include "scanner.h" // for debug
 
 static StringMap nametab;
 
@@ -50,7 +49,7 @@ void nametab_purge(int level)
 //
 // Deallocate the symbol table.
 //
-void nametab_free()
+void nametab_destroy()
 {
-    map_free(&nametab);
+    map_destroy(&nametab);
 }

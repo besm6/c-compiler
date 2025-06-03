@@ -31,7 +31,7 @@ int nametab_find(const char *name);
 void nametab_define(const char *name, int token, int level);
 void nametab_remove(const char *name);
 void nametab_purge(int level);
-void nametab_free(void);
+void nametab_destroy(void);
 
 #ifdef GTEST_API_
 void advance_token(void);

@@ -308,17 +308,26 @@ void map_remove_level(StringMap *map, int level)
     map->root = rebalance_tree(map->root);
 }
 
-static void free_nodes(StringNode *node)
+static void free_nodes(StringNode *node, void (*dealloc)(intptr_t value))
 {
     if (!node)
         return;
-    free_nodes(node->left);
-    free_nodes(node->right);
+    free_nodes(node->left, dealloc);
+    free_nodes(node->right, dealloc);
+    if (dealloc) {
+        dealloc(node->value);
+    }
     xfree(node);
 }
 
 // Free the map and all its nodes
-void map_free(StringMap *map)
+void map_destroy(StringMap *map)
 {
-    free_nodes(map->root);
+    free_nodes(map->root, NULL);
+}
+
+// Free the map and all its nodes
+void map_destroy_free(StringMap *map, void (*dealloc)(intptr_t value))
+{
+    free_nodes(map->root, dealloc);
 }

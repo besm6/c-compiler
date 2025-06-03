@@ -3,7 +3,7 @@
 #
 add_library(translator STATIC
     translator.c
-#   symtab.c
+    symtab.c
 )
 target_include_directories(translator PUBLIC .)
 target_link_libraries(translator tac ast libutil)
