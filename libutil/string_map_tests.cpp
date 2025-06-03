@@ -74,8 +74,8 @@ TEST_F(StringMapTest, CreateStringMap)
 // Test inserting a new key-value pair
 TEST_F(StringMapTest, InsertNewKey)
 {
-    EXPECT_TRUE(map_insert(&map, "key1", 42, 0));
-    int value;
+    map_insert(&map, "key1", 42, 0);
+    intptr_t value;
     EXPECT_TRUE(map_get(&map, "key1", &value));
     EXPECT_EQ(value, 42);
 }
@@ -83,9 +83,9 @@ TEST_F(StringMapTest, InsertNewKey)
 // Test updating an existing key
 TEST_F(StringMapTest, UpdateExistingKey)
 {
-    EXPECT_TRUE(map_insert(&map, "key1", 42, 0));
-    EXPECT_TRUE(map_insert(&map, "key1", 100, 0));
-    int value;
+    map_insert(&map, "key1", 42, 0);
+    map_insert(&map, "key1", 100, 0);
+    intptr_t value;
     EXPECT_TRUE(map_get(&map, "key1", &value));
     EXPECT_EQ(value, 100);
 }
@@ -93,11 +93,11 @@ TEST_F(StringMapTest, UpdateExistingKey)
 // Test inserting multiple keys
 TEST_F(StringMapTest, InsertMultipleKeys)
 {
-    EXPECT_TRUE(map_insert(&map, "apple", 5, 0));
-    EXPECT_TRUE(map_insert(&map, "banana", 10, 0));
-    EXPECT_TRUE(map_insert(&map, "orange", 15, 0));
+    map_insert(&map, "apple", 5, 0);
+    map_insert(&map, "banana", 10, 0);
+    map_insert(&map, "orange", 15, 0);
 
-    int value;
+    intptr_t value;
     EXPECT_TRUE(map_get(&map, "apple", &value));
     EXPECT_EQ(value, 5);
     EXPECT_TRUE(map_get(&map, "banana", &value));
@@ -109,16 +109,16 @@ TEST_F(StringMapTest, InsertMultipleKeys)
 // Test getting non-existent key
 TEST_F(StringMapTest, GetNonExistentKey)
 {
-    int value;
+    intptr_t value;
     EXPECT_FALSE(map_get(&map, "nonexistent", &value));
 }
 
 // Test removing a key
 TEST_F(StringMapTest, RemoveKey)
 {
-    EXPECT_TRUE(map_insert(&map, "key1", 42, 0));
+    map_insert(&map, "key1", 42, 0);
     map_remove_key(&map, "key1");
-    int value;
+    intptr_t value;
     EXPECT_FALSE(map_get(&map, "key1", &value));
 }
 
@@ -131,9 +131,9 @@ TEST_F(StringMapTest, RemoveNonExistentKey)
 // Test null inputs
 TEST_F(StringMapTest, NullInputs)
 {
-    EXPECT_FALSE(map_insert(nullptr, "key1", 42, 0));
-    EXPECT_FALSE(map_insert(&map, nullptr, 42, 0));
-    int value;
+    map_insert(nullptr, "key1", 42, 0);
+    map_insert(&map, nullptr, 42, 0);
+    intptr_t value;
     EXPECT_FALSE(map_get(nullptr, "key1", &value));
     EXPECT_FALSE(map_get(&map, nullptr, &value));
     EXPECT_FALSE(map_get(&map, "key1", nullptr));
@@ -147,7 +147,7 @@ TEST_F(StringMapTest, BalanceAfterInsertions)
     // Insert keys in a way that may cause imbalance
     const char *keys[] = { "a", "b", "c", "d", "e" };
     for (int i = 0; i < 5; i++) {
-        EXPECT_TRUE(map_insert(&map, keys[i], i, 0));
+        map_insert(&map, keys[i], i, 0);
     }
 
     EXPECT_TRUE(is_balanced(map.root));
@@ -157,14 +157,14 @@ TEST_F(StringMapTest, BalanceAfterInsertions)
 TEST_F(StringMapTest, BalanceAfterDeletions)
 {
     // Insert multiple keys
-    EXPECT_TRUE(map_insert(&map, "apple", 5, 0));
-    EXPECT_TRUE(map_insert(&map, "banana", 10, 0));
-    EXPECT_TRUE(map_insert(&map, "orange", 15, 0));
-    EXPECT_TRUE(map_insert(&map, "grape", 20, 0));
+    map_insert(&map, "apple", 5, 0);
+    map_insert(&map, "banana", 10, 0);
+    map_insert(&map, "orange", 15, 0);
+    map_insert(&map, "grape", 20, 0);
 
     // Remove some keys
     map_remove_key(&map, "banana");
-    int value;
+    intptr_t value;
     EXPECT_FALSE(map_get(&map, "banana", &value));
     map_remove_key(&map, "orange");
     EXPECT_FALSE(map_get(&map, "orange", &value));

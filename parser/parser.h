@@ -28,7 +28,7 @@ Declarator *parse_declarator(void);
 // Name table
 //
 int nametab_find(const char *name);
-bool nametab_define(const char *name, int token, int level);
+void nametab_define(const char *name, int token, int level);
 void nametab_remove(const char *name);
 void nametab_purge(int level);
 void nametab_free(void);

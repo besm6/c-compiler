@@ -135,7 +135,7 @@ void map_init(StringMap *map)
 }
 
 // Create a new node
-static StringNode *create_node(const char *key, int value, int level)
+static StringNode *create_node(const char *key, intptr_t value, int level)
 {
     StringNode *node = (StringNode *)xalloc(sizeof(StringNode) + strlen(key), __func__, __FILE__, __LINE__);
     if (!node)
@@ -150,7 +150,7 @@ static StringNode *create_node(const char *key, int value, int level)
 }
 
 // Insert or update a key-value pair
-static StringNode *insert_node(StringNode *node, const char *key, int value, int level)
+static StringNode *insert_node(StringNode *node, const char *key, intptr_t value, int level)
 {
     if (!node) {
         return create_node(key, value, level);
@@ -170,33 +170,33 @@ static StringNode *insert_node(StringNode *node, const char *key, int value, int
     return rebalance(node);
 }
 
-int map_insert(StringMap *map, const char *key, int value, int level)
+void map_insert(StringMap *map, const char *key, intptr_t value, int level)
 {
     if (!map || !key)
-        return 0;
+        return;
     map->root = insert_node(map->root, key, value, level);
-    return map->root ? 1 : 0;
 }
 
 // Get value by key, returns 1 if found, 0 if not
-int map_get(StringMap *map, const char *key, int *value)
+bool map_get(StringMap *map, const char *key, intptr_t *value)
 {
     if (!map || !key || !value)
-        return 0;
+        return false;
 
     StringNode *current = map->root;
     while (current) {
         int cmp = strcmp(key, current->key);
         if (cmp == 0) {
             *value = current->value;
-            return 1;
-        } else if (cmp < 0) {
+            return true;
+        }
+        if (cmp < 0) {
             current = current->left;
         } else {
             current = current->right;
         }
     }
-    return 0;
+    return false;
 }
 
 // Helper function to find node with minimum key and its parent

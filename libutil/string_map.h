@@ -41,7 +41,7 @@ typedef struct StringNode {
     struct StringNode *left;
     struct StringNode *right;
     int height;
-    int value;
+    intptr_t value; // large enough to hold a pointer
     int level;
     char key[1]; // Dynamically sized
 } StringNode;
@@ -59,13 +59,13 @@ void map_init(StringMap *map);
 // Insert: Recursively inserts or updates a key-value pair,
 // then balances the tree on the way back up the recursion stack.
 //
-int map_insert(StringMap *map, const char *key, int value, int level);
+void map_insert(StringMap *map, const char *key, intptr_t value, int level);
 
 //
 // Get: Retrieves the value for a given key by traversing the tree
-// based on `strcmp`. Returns 1 if found, 0 if not.
+// based on `strcmp`. Returns true if found.
 //
-int map_get(StringMap *map, const char *key, int *value);
+bool map_get(StringMap *map, const char *key, intptr_t *value);
 
 //
 // Remove: Handles three cases: leaf node, node with one child,

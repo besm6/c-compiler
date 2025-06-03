@@ -1366,7 +1366,10 @@ static bool is_typedef(const DeclSpec *specifiers)
 static void define_typedef(InitDeclarator *decl)
 {
     for (; decl; decl = decl->next) {
-        if (!nametab_define(decl->name, TOKEN_TYPEDEF_NAME, scope_level)) {
+        int token = nametab_find(decl->name);
+        if (!token) {
+            nametab_define(decl->name, TOKEN_TYPEDEF_NAME, scope_level);
+        } else {
             fatal_error("Typedef %s redefined", decl->name);
         }
     }
@@ -1844,7 +1847,10 @@ Enumerator *parse_enumerator()
         advance_token();
         value = parse_constant_expression();
     }
-    if (!nametab_define(name, TOKEN_ENUMERATION_CONSTANT, scope_level)) {
+    int token = nametab_find(name);
+    if (!token) {
+        nametab_define(name, TOKEN_ENUMERATION_CONSTANT, scope_level);
+    } else {
         fatal_error("Enumerator %s redefined", name);
     }
     return new_enumerator(name, value);
