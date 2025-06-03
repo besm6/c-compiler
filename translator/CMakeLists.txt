@@ -9,11 +9,10 @@ target_include_directories(translator PUBLIC .)
 target_link_libraries(translator tac ast libutil)
 
 #
-# Tests for translator
+# Tests for symtab
 #
-#add_executable(translator-tests
-#   tac_type_tests.cpp
-#   tac_grammar_tests.cpp
-#)
-#target_link_libraries(translator-tests translator GTest::gtest_main)
-#gtest_discover_tests(translator-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+add_executable(symtab-tests
+   symtab_tests.cpp
+)
+target_link_libraries(symtab-tests translator GTest::gtest_main)
+gtest_discover_tests(symtab-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

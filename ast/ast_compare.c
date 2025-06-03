@@ -1,29 +1,7 @@
 #include <string.h>
 
 #include "ast.h"
-
-// Comparison functions
-bool compare_type(const Type *a, const Type *b);
-bool compare_type_qualifier(const TypeQualifier *a, const TypeQualifier *b);
-bool compare_field(const Field *a, const Field *b);
-bool compare_enumerator(const Enumerator *a, const Enumerator *b);
-bool compare_param(const Param *a, const Param *b);
-bool compare_declaration(const Declaration *a, const Declaration *b);
-bool compare_decl_spec(const DeclSpec *a, const DeclSpec *b);
-bool compare_function_spec(const FunctionSpec *a, const FunctionSpec *b);
-bool compare_alignment_spec(const AlignmentSpec *a, const AlignmentSpec *b);
-bool compare_init_declarator(const InitDeclarator *a, const InitDeclarator *b);
-bool compare_initializer(const Initializer *a, const Initializer *b);
-bool compare_init_item(const InitItem *a, const InitItem *b);
-bool compare_designator(const Designator *a, const Designator *b);
-bool compare_expr(const Expr *a, const Expr *b);
-bool compare_literal(const Literal *a, const Literal *b);
-bool compare_generic_assoc(const GenericAssoc *a, const GenericAssoc *b);
-bool compare_stmt(const Stmt *a, const Stmt *b);
-bool compare_decl_or_stmt(const DeclOrStmt *a, const DeclOrStmt *b);
-bool compare_for_init(const ForInit *a, const ForInit *b);
-bool compare_external_decl(const ExternalDecl *a, const ExternalDecl *b);
-bool compare_program(const Program *a, const Program *b);
+#include "internal.h"
 
 bool compare_ident(const char *a, const char *b)
 {

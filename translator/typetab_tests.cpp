@@ -17,7 +17,7 @@ extern void free_type(Type *t);
 TypeMember create_member(const char *name, Type *type, int offset)
 {
     TypeMember m;
-    m.name   = strdup(name);
+    m.name   = xstrdup(name);
     m.type   = type;
     m.offset = offset;
     return m;

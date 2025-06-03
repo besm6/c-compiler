@@ -121,10 +121,29 @@ Program *new_program(void);
 //
 // Deallocate
 //
-void free_declarator(Declarator *decl);
+void free_type(Type *type);
+void free_type_qualifier(TypeQualifier *qual);
+void free_field(Field *field);
+void free_enumerator(Enumerator *enumerator);
+void free_param(Param *param);
+void free_declaration(Declaration *decl);
 void free_decl_spec(DeclSpec *spec);
+void free_function_spec(FunctionSpec *fs);
+void free_alignment_spec(AlignmentSpec *as);
+void free_init_declarator(InitDeclarator *init_decl);
+void free_initializer(Initializer *init);
+void free_init_item(InitItem *item);
+void free_designator(Designator *design);
+void free_expression(Expr *expr);
+void free_literal(Literal *lit);
+void free_generic_assoc(GenericAssoc *assoc);
+void free_statement(Stmt *stmt);
+void free_decl_or_stmt(DeclOrStmt *ds);
+void free_for_init(ForInit *fi);
+void free_external_decl(ExternalDecl *ext_decl);
 void free_type_spec(TypeSpec *ts);
-void free_pointer(Pointer *pointer);
+void free_declarator(Declarator *decl);
+void free_pointer(Pointer *ptr);
 void free_declarator_suffix(DeclaratorSuffix *suffix);
 
 //
@@ -140,6 +159,31 @@ InitItem *clone_init_item(const InitItem *item);
 TypeSpec *clone_type_spec(const TypeSpec *ts);
 Field *clone_field(const Field *field);
 Enumerator *clone_enumerator(const Enumerator *enumerator);
+
+//
+// Compare
+//
+bool compare_type(const Type *a, const Type *b);
+bool compare_type_qualifier(const TypeQualifier *a, const TypeQualifier *b);
+bool compare_field(const Field *a, const Field *b);
+bool compare_enumerator(const Enumerator *a, const Enumerator *b);
+bool compare_param(const Param *a, const Param *b);
+bool compare_declaration(const Declaration *a, const Declaration *b);
+bool compare_decl_spec(const DeclSpec *a, const DeclSpec *b);
+bool compare_function_spec(const FunctionSpec *a, const FunctionSpec *b);
+bool compare_alignment_spec(const AlignmentSpec *a, const AlignmentSpec *b);
+bool compare_init_declarator(const InitDeclarator *a, const InitDeclarator *b);
+bool compare_initializer(const Initializer *a, const Initializer *b);
+bool compare_init_item(const InitItem *a, const InitItem *b);
+bool compare_designator(const Designator *a, const Designator *b);
+bool compare_expr(const Expr *a, const Expr *b);
+bool compare_literal(const Literal *a, const Literal *b);
+bool compare_generic_assoc(const GenericAssoc *a, const GenericAssoc *b);
+bool compare_stmt(const Stmt *a, const Stmt *b);
+bool compare_decl_or_stmt(const DeclOrStmt *a, const DeclOrStmt *b);
+bool compare_for_init(const ForInit *a, const ForInit *b);
+bool compare_external_decl(const ExternalDecl *a, const ExternalDecl *b);
+bool compare_program(const Program *a, const Program *b);
 
 #ifdef __cplusplus
 }

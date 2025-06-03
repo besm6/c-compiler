@@ -4,32 +4,6 @@
 #include "internal.h"
 #include "xalloc.h"
 
-/* Forward declarations for recursive free functions */
-void free_type(Type *type);
-void free_type_qualifier(TypeQualifier *qual);
-void free_field(Field *field);
-void free_enumerator(Enumerator *enumerator);
-void free_param(Param *param);
-void free_declaration(Declaration *decl);
-void free_decl_spec(DeclSpec *spec);
-void free_function_spec(FunctionSpec *fs);
-void free_alignment_spec(AlignmentSpec *as);
-void free_init_declarator(InitDeclarator *init_decl);
-void free_initializer(Initializer *init);
-void free_init_item(InitItem *item);
-void free_designator(Designator *design);
-void free_expression(Expr *expr);
-void free_literal(Literal *lit);
-void free_generic_assoc(GenericAssoc *assoc);
-void free_statement(Stmt *stmt);
-void free_decl_or_stmt(DeclOrStmt *ds);
-void free_for_init(ForInit *fi);
-void free_external_decl(ExternalDecl *ext_decl);
-void free_type_spec(TypeSpec *ts);
-void free_declarator(Declarator *decl);
-void free_pointer(Pointer *ptr);
-void free_declarator_suffix(DeclaratorSuffix *suffix);
-
 void free_program(Program *program)
 {
     if (program == NULL)

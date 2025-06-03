@@ -5,37 +5,36 @@
 #include <vector>
 
 #include "symtab.h"
+#include "internal.h"
+#include "xalloc.h"
 
-// Helper functions for type creation (assumed available)
-extern Type *new_int_type();
-extern Type *new_char_type();
-extern Type *new_array_type(Type *element, size_t size);
-extern Type *new_pointer_type(Type *target);
-extern Type *new_function_type(Type *return_type, Param *params);
-extern bool compare_type(const Type *a, const Type *b);
-extern void free_type(Type *t);
+// Helper functions for type creation
+Type *new_array_type(Type *element, size_t size)
+{
+    Type *array            = new_type(TYPE_ARRAY);
+    array->u.array.element = element;
+    array->u.array.size    = new_expression(EXPR_LITERAL);
+
+    array->u.array.size->u.literal            = new_literal(LITERAL_INT);
+    array->u.array.size->u.literal->u.int_val = size;
+    return array;
+}
+
+Type *new_function_type(Type *return_type, Param *params)
+{
+    Type *func                   = new_type(TYPE_FUNCTION);
+    func->u.function.return_type = return_type;
+    func->u.function.params      = params;
+    return func;
+}
 
 // Helper to create a parameter list
 Param *create_param(const char *name, Type *type)
 {
-    Param *p      = (Param *)malloc(sizeof(Param));
-    p->name       = strdup(name);
-    p->type       = type;
-    p->specifiers = NULL;
-    p->next       = NULL;
+    Param *p = new_param();
+    p->name  = xstrdup(name);
+    p->type  = type;
     return p;
-}
-
-// Helper to free a parameter list
-void free_param(Param *p)
-{
-    while (p) {
-        Param *next = p->next;
-        free(p->name);
-        // Type freed elsewhere
-        free(p);
-        p = next;
-    }
 }
 
 // Helper to compare StaticInitializer lists
@@ -116,7 +115,7 @@ TEST_F(SymtabTest, DestroyEmptyTable)
 // Test symtab_add_automatic_var
 TEST_F(SymtabTest, AddAutomaticVar)
 {
-    Type *int_type = new_int_type();
+    Type *int_type = new_type(TYPE_INT);
     symtab_add_automatic_var("x", int_type);
 
     Symbol *sym = symtab_get("x");
@@ -130,8 +129,8 @@ TEST_F(SymtabTest, AddAutomaticVar)
 // Test symtab_add_automatic_var overwrite
 TEST_F(SymtabTest, AddAutomaticVarOverwrite)
 {
-    Type *int_type  = new_int_type();
-    Type *char_type = new_char_type();
+    Type *int_type  = new_type(TYPE_INT);
+    Type *char_type = new_type(TYPE_CHAR);
 
     symtab_add_automatic_var("x", int_type);
     symtab_add_automatic_var("x", char_type);
@@ -148,11 +147,9 @@ TEST_F(SymtabTest, AddAutomaticVarOverwrite)
 // Test symtab_add_static_var
 TEST_F(SymtabTest, AddStaticVarWithInitializer)
 {
-    Type *int_type          = new_int_type();
-    StaticInitializer *init = (StaticInitializer *)malloc(sizeof(StaticInitializer));
-    init->kind              = INIT_INT;
+    Type *int_type          = new_type(TYPE_INT);
+    StaticInitializer *init = new_static_initializer(INIT_INT);
     init->u.int_val         = 42;
-    init->next              = NULL;
 
     symtab_add_static_var("x", int_type, true, INIT_INITIALIZED, init);
 
@@ -171,7 +168,7 @@ TEST_F(SymtabTest, AddStaticVarWithInitializer)
 // Test symtab_add_static_var with no initializer
 TEST_F(SymtabTest, AddStaticVarNoInitializer)
 {
-    Type *int_type = new_int_type();
+    Type *int_type = new_type(TYPE_INT);
 
     symtab_add_static_var("y", int_type, false, INIT_TENTATIVE, NULL);
 
@@ -189,7 +186,7 @@ TEST_F(SymtabTest, AddStaticVarNoInitializer)
 // Test symtab_add_fun
 TEST_F(SymtabTest, AddFunction)
 {
-    Type *int_type = new_int_type();
+    Type *int_type = new_type(TYPE_INT);
     Param *param   = create_param("a", int_type);
     Type *fun_type = new_function_type(int_type, param);
 
@@ -210,21 +207,22 @@ TEST_F(SymtabTest, AddFunction)
 // Test symtab_add_string
 TEST_F(SymtabTest, AddStringLiteral)
 {
-    const char *str = "hello";
-    char *str_id    = symtab_add_string((char *)str);
+    const char *str    = "hello";
+    const char *str_id = symtab_add_string(str);
 
     Symbol *sym = symtab_get(str_id);
     ASSERT_STREQ(sym->name, str_id);
-    Type *expected_type = new_array_type(new_char_type(), strlen(str) + 1);
+    Type *expected_type = new_array_type(new_type(TYPE_CHAR), strlen(str) + 1);
     ASSERT_TRUE(compare_type(sym->type, expected_type));
     ASSERT_EQ(sym->kind, SYM_CONST);
     StaticInitializer expected_init = { .kind         = INIT_STRING,
-                                        .u.string_val = { (char *)str, true },
+                                        .u.string_val = { xstrdup(str), true },
                                         .next         = NULL };
     ASSERT_TRUE(compare_static_initializer(sym->u.const_init, &expected_init));
 
     free_type(expected_type->u.array.element);
     free_type(expected_type);
+    xfree(expected_init.u.string_val.str);
     // str_id owned by symtab
 }
 
@@ -237,7 +235,7 @@ TEST_F(SymtabTest, GetNonExistentSymbol)
 // Test symtab_get_opt
 TEST_F(SymtabTest, GetOptExistentAndNonExistent)
 {
-    Type *int_type = new_int_type();
+    Type *int_type = new_type(TYPE_INT);
     symtab_add_automatic_var("x", int_type);
 
     Symbol *sym = symtab_get_opt("x");
@@ -253,7 +251,7 @@ TEST_F(SymtabTest, GetOptExistentAndNonExistent)
 // Test symtab_is_global
 TEST_F(SymtabTest, IsGlobal)
 {
-    Type *int_type = new_int_type();
+    Type *int_type = new_type(TYPE_INT);
 
     symtab_add_static_var("x", int_type, true, INIT_NONE, NULL);
     symtab_add_static_var("y", int_type, false, INIT_NONE, NULL);
@@ -269,16 +267,10 @@ TEST_F(SymtabTest, IsGlobal)
 // Test symtab_add_string unique IDs
 TEST_F(SymtabTest, AddStringUniqueIDs)
 {
-    char *id1 = symtab_add_string("str1");
-    char *id2 = symtab_add_string("str2");
+    const char *id1 = symtab_add_string("str1");
+    const char *id2 = symtab_add_string("str2");
 
     ASSERT_STRNE(id1, id2);
     ASSERT_TRUE(symtab_get_opt(id1) != nullptr);
     ASSERT_TRUE(symtab_get_opt(id2) != nullptr);
-}
-
-int main(int argc, char **argv)
-{
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
 }

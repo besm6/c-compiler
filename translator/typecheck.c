@@ -145,7 +145,7 @@ void typecheck_struct_decl(Declaration *d)
     for (Field *f = d->u.var.specifiers->type->u.struct_t.fields; f; f = f->next) {
         int member_alignment = get_alignment(f->type);
         int offset           = round_away_from_zero(member_alignment, current_size);
-        members[i].name      = strdup(f->name);
+        members[i].name      = xstrdup(f->name);
         members[i].type      = f->type;
         members[i].offset    = offset;
         current_alignment =
@@ -767,18 +767,6 @@ Initializer *make_zero_init(Type *t)
     return init;
 }
 
-//
-// Add a string literal
-// Precondition: s is a non-null string.
-// Postcondition: A Symbol with SYM_CONST, a unique name, type Array(Char, len(s)+1), and string
-// initializer is added. Returns: The unique name (owned by symtab) for the string literal.
-//
-char *add_string_symbol(char *s)
-{
-    //TODO
-    return NULL;
-}
-
 // Convert an initializer to a StaticInitializer list
 StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
 {
@@ -800,7 +788,7 @@ StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
         size_t array_size                    = (size_t)var_type->u.array.size;
         StaticInitializer *result            = malloc(sizeof(StaticInitializer));
         result->kind                         = INIT_STRING;
-        result->u.string_val.str             = strdup(s);
+        result->u.string_val.str             = xstrdup(s);
         result->u.string_val.null_terminated = (array_size >= len + 1);
         result->next                         = NULL;
         if (array_size > len + 1) {
@@ -822,11 +810,10 @@ StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
             fprintf(stderr, "String literal can only initialize char *\n");
             exit(1);
         }
-        char *s                   = init->u.expr->u.literal->u.string_val;
-        char *str_id              = add_string_symbol(s);
+        const char *str_id        = symtab_add_string(init->u.expr->u.literal->u.string_val);
         StaticInitializer *result = malloc(sizeof(StaticInitializer));
         result->kind              = INIT_POINTER;
-        result->u.ptr_id          = strdup(str_id);
+        result->u.ptr_id          = xstrdup(str_id);
         result->next              = NULL;
         return result;
     }
