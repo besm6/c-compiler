@@ -352,7 +352,7 @@ TEST_F(ParserTest, TypeEnum)
 TEST_F(ParserTest, TypeTypedef)
 {
     // Add typedef MyType to the symbol table.
-    symtab_define("MyType", TOKEN_TYPEDEF_NAME, 0);
+    nametab_define("MyType", TOKEN_TYPEDEF_NAME, 0);
 
     Type *type = TestType("MyType");
 
@@ -360,7 +360,7 @@ TEST_F(ParserTest, TypeTypedef)
     EXPECT_STREQ(type->u.enum_t.name, "MyType");
     EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
-    symtab_remove("MyType");
+    nametab_remove("MyType");
 }
 
 TEST_F(ParserTest, TypeConstStruct)

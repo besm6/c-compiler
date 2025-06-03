@@ -46,7 +46,7 @@ static int token_translation(int token)
 {
     // Check identifier type
     if (token == TOKEN_IDENTIFIER) {
-        token = symtab_find(get_yytext());
+        token = nametab_find(get_yytext());
         if (! token) {
             token = TOKEN_IDENTIFIER;
         }
@@ -1366,7 +1366,7 @@ static bool is_typedef(const DeclSpec *specifiers)
 static void define_typedef(InitDeclarator *decl)
 {
     for (; decl; decl = decl->next) {
-        if (!symtab_define(decl->name, TOKEN_TYPEDEF_NAME, scope_level)) {
+        if (!nametab_define(decl->name, TOKEN_TYPEDEF_NAME, scope_level)) {
             fatal_error("Typedef %s redefined", decl->name);
         }
     }
@@ -1844,7 +1844,7 @@ Enumerator *parse_enumerator()
         advance_token();
         value = parse_constant_expression();
     }
-    if (!symtab_define(name, TOKEN_ENUMERATION_CONSTANT, scope_level)) {
+    if (!nametab_define(name, TOKEN_ENUMERATION_CONSTANT, scope_level)) {
         fatal_error("Enumerator %s redefined", name);
     }
     return new_enumerator(name, value);
@@ -2602,7 +2602,7 @@ Stmt *parse_compound_statement()
     }
     expect_token(TOKEN_RBRACE);
     scope_level--;
-    symtab_purge(scope_level);
+    nametab_purge(scope_level);
 
     Stmt *stmt       = new_stmt(STMT_COMPOUND);
     stmt->u.compound = items;

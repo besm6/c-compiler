@@ -3,7 +3,7 @@
 #
 add_library(parser STATIC
     parser.c
-    symtab.c
+    nametab.c
 )
 target_include_directories(parser PUBLIC .)
 target_link_libraries(parser scanner ast libutil)

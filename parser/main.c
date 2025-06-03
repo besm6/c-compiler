@@ -215,7 +215,7 @@ void process_file(const Args *args)
         fclose(output_file);
     }
     free_program(program);
-    symtab_free();
+    nametab_free();
     if (args->debug) {
         xreport_lost_memory();
     }

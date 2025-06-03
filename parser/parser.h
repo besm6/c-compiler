@@ -25,13 +25,13 @@ Program *parse(FILE *input);
 Declarator *parse_declarator(void);
 
 //
-// Symbol table
+// Name table
 //
-int symtab_find(const char *name);
-bool symtab_define(const char *name, int token, int level);
-void symtab_remove(const char *name);
-void symtab_purge(int level);
-void symtab_free(void);
+int nametab_find(const char *name);
+bool nametab_define(const char *name, int token, int level);
+void nametab_remove(const char *name);
+void nametab_purge(int level);
+void nametab_free(void);
 
 #ifdef GTEST_API_
 void advance_token(void);

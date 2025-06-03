@@ -33,7 +33,7 @@ protected:
         fclose(input_file);
         if (program) {
             free_program(program);
-            symtab_free();
+            nametab_free();
         }
         xreport_lost_memory();
         EXPECT_EQ(xtotal_allocated_size(), 0);

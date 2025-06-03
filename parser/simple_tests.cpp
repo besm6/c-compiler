@@ -190,8 +190,8 @@ TEST_F(ParserTest, TypedefScope)
     ASSERT_NE(nullptr, program);
     print_program(stdout, program);
 
-    EXPECT_EQ(symtab_find("T"), TOKEN_TYPEDEF_NAME); // at level 0
-    EXPECT_EQ(symtab_find("Q"), 0);                  // at level 1
+    EXPECT_EQ(nametab_find("T"), TOKEN_TYPEDEF_NAME); // at level 0
+    EXPECT_EQ(nametab_find("Q"), 0);                  // at level 1
 }
 
 TEST_F(ParserTest, EnumScope)
@@ -200,8 +200,8 @@ TEST_F(ParserTest, EnumScope)
     ASSERT_NE(nullptr, program);
     print_program(stdout, program);
 
-    EXPECT_EQ(symtab_find("FOO"), TOKEN_ENUMERATION_CONSTANT); // at level 0
-    EXPECT_EQ(symtab_find("BAR"), 0);                          // at level 1
+    EXPECT_EQ(nametab_find("FOO"), TOKEN_ENUMERATION_CONSTANT); // at level 0
+    EXPECT_EQ(nametab_find("BAR"), 0);                          // at level 1
 }
 
 TEST_F(ParserTest, TypedefEnumField)
@@ -210,8 +210,8 @@ TEST_F(ParserTest, TypedefEnumField)
     ASSERT_NE(nullptr, program);
     print_program(stdout, program);
 
-    EXPECT_EQ(symtab_find("foo"), TOKEN_TYPEDEF_NAME);
-    EXPECT_EQ(symtab_find("qux"), TOKEN_ENUMERATION_CONSTANT);
+    EXPECT_EQ(nametab_find("foo"), TOKEN_TYPEDEF_NAME);
+    EXPECT_EQ(nametab_find("qux"), TOKEN_ENUMERATION_CONSTANT);
 
     ExternalDecl *ext = program->decls;
     ASSERT_NE(nullptr, ext);
