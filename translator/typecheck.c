@@ -162,7 +162,9 @@ void typecheck_struct_decl(Declaration *d)
 // Convert an expression to a target type
 Expr *convert_to(Expr *e, Type *target_type)
 {
-    if (e->type->kind == target_type->kind)
+    if (e->type->kind == target_type->kind &&
+        (!is_pointer(e->type) ||
+         e->type->u.pointer.target->kind == target_type->u.pointer.target->kind))
         return e; // Avoid unnecessary casts
 
     Expr *cast = new_expression(EXPR_CAST);
@@ -235,7 +237,8 @@ Type *get_common_pointer_type(Expr *e1, Expr *e2)
 Expr *convert_by_assignment(Expr *e, Type *target_type)
 {
     if (e->type->kind == target_type->kind &&
-        e->type->u.pointer.target->kind == target_type->u.pointer.target->kind)
+        (!is_pointer(e->type) ||
+         e->type->u.pointer.target->kind == target_type->u.pointer.target->kind))
         return e;
     if (is_arithmetic(e->type) && is_arithmetic(target_type))
         return convert_to(e, target_type);
@@ -1018,16 +1021,16 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
 }
 
 // Type-check a block
-DeclOrStmt *typecheck_block(Type *ret_type, DeclOrStmt *block)
+DeclOrStmt *typecheck_block(Type *ret_type)
 {
-    for (DeclOrStmt *item = block; item; item = item->next) {
-        if (item->kind == DECL_OR_STMT_STMT) {
-            item->u.stmt = typecheck_statement(ret_type, item->u.stmt);
+    for (DeclOrStmt *stmt = d->u.function.body->u.compound; stmt; stmt = stmt->next) {
+        if (stmt->kind == DECL_OR_STMT_STMT) {
+            stmt->u.stmt = typecheck_stmt(ret_type, stmt->u.stmt);
         } else {
-            item->u.decl = typecheck_local_decl(item->u.decl);
+            typecheck_decl(stmt->u.decl);
         }
     }
-    return block;
+    return d->u.function.body->u.compound;
 }
 
 // Type-check a statement
@@ -1036,7 +1039,7 @@ Stmt *typecheck_statement(Type *ret_type, Stmt *s)
     if (!s)
         return NULL;
     switch (s->kind) {
-    case STMT_RETURN: {
+    case STMT_RETURN:
         if (s->u.expr) {
             if (ret_type->kind == TYPE_VOID) {
                 fprintf(stderr, "Void function cannot return a value\n");
@@ -1044,11 +1047,8 @@ Stmt *typecheck_statement(Type *ret_type, Stmt *s)
             }
             s->u.expr = convert_by_assignment(typecheck_and_convert(s->u.expr), ret_type);
         } else if (ret_type->kind != TYPE_VOID) {
-            fprintf(stderr, "Non-void function must return a value\n");
-            exit(1);
+            return s;
         }
-        return s;
-    }
     case STMT_EXPR: {
         s->u.expr = typecheck_and_convert(s->u.expr);
         return s;
@@ -1081,7 +1081,7 @@ Stmt *typecheck_statement(Type *ret_type, Stmt *s)
                 fprintf(stderr, "Storage class not permitted in for loop header\n");
                 exit(1);
             }
-            s->u.for_stmt.init->u.decl = typecheck_local_decl(s->u.for_stmt.init->u.decl);
+            typecheck_local_decl(s->u.for_stmt.init->u.decl);
         } else {
             s->u.for_stmt.init->u.expr = s->u.for_stmt.init->u.expr
                                              ? typecheck_and_convert(s->u.for_stmt.init->u.expr)
@@ -1104,7 +1104,7 @@ Stmt *typecheck_statement(Type *ret_type, Stmt *s)
 }
 
 // Type-check a local variable declaration
-Declaration *typecheck_local_var_decl(Declaration *d)
+void typecheck_local_var_decl(Declaration *d)
 {
     Type *var_type       = d->u.var.specifiers->type;
     InitDeclarator *decl = d->u.var.declarators;
@@ -1126,7 +1126,7 @@ Declaration *typecheck_local_var_decl(Declaration *d)
         if (!existing) {
             symtab_add_static_var(decl->name, clone_type(var_type), true, INIT_NONE, NULL);
         }
-        return d;
+        return;
     }
     if (!is_complete(var_type)) {
         fprintf(stderr, "Cannot define a variable with incomplete type\n");
@@ -1138,15 +1138,14 @@ Declaration *typecheck_local_var_decl(Declaration *d)
         symtab_add_static_var(decl->name, clone_type(var_type), false, INIT_INITIALIZED,
                               static_init);
         decl->init = NULL; // Drop initializer
-        return d;
+        return;
     }
     symtab_add_automatic_var(decl->name, clone_type(var_type));
     decl->init = typecheck_init(var_type, decl->init);
-    return d;
 }
 
 // Type-check a function declaration
-Declaration *typecheck_fn_decl(Declaration *d)
+void typecheck_fn_decl(ExternalDecl *d)
 {
     Type *fun_type = d->u.function.type;
     validate_type(fun_type);
@@ -1217,18 +1216,19 @@ Declaration *typecheck_fn_decl(Declaration *d)
         d->u.function.body =
             typecheck_statement(fun_type->u.function.return_type, d->u.function.body);
     }
-    return d;
+    d->u.function.type = adjusted_type; // Update type in place
 }
 
 // Type-check a local declaration
-Declaration *typecheck_local_decl(Declaration *d)
+void typecheck_local_decl(Declaration *d)
 {
     switch (d->kind) {
     case DECL_VAR:
-        return typecheck_local_var_decl(d);
+        typecheck_local_var_decl(d);
+        break;
     case DECL_EMPTY:
         typecheck_struct_decl(d);
-        return d;
+        break;
     default:
         fprintf(stderr, "Unsupported local declaration kind %d\n", d->kind);
         exit(1);
@@ -1236,7 +1236,7 @@ Declaration *typecheck_local_decl(Declaration *d)
 }
 
 // Type-check a global variable declaration
-Declaration *typecheck_file_scope_var_decl(Declaration *d)
+void typecheck_file_scope_var_decl(Declaration *d)
 {
     Type *var_type       = d->u.var.specifiers->type;
     InitDeclarator *decl = d->u.var.declarators;
@@ -1287,35 +1287,24 @@ Declaration *typecheck_file_scope_var_decl(Declaration *d)
     }
     symtab_add_static_var(decl->name, clone_type(var_type), global, init_kind, init_list);
     decl->init = NULL; // Drop initializer
-    return d;
 }
 
 // Type-check a global declaration
-ExternalDecl *typecheck_global_decl(ExternalDecl *d)
+void typecheck_global_decl(ExternalDecl *d)
 {
     if (d->kind == EXTERNAL_DECL_FUNCTION) {
-        Declaration temp   = { .kind              = DECL_VAR,
-                               .u.var.specifiers  = d->u.function.specifiers,
-                               .u.var.declarators = &(InitDeclarator){ .type = d->u.function.type,
-                                                                       .name = d->u.function.name,
-                                                                       .init = NULL } };
-        Declaration *fn    = typecheck_fn_decl(&temp);
-        d->u.function.type = fn->u.var.declarators->type;
-        d->u.function.body = fn->u.function.body;
-        return d;
+        typecheck_fn_decl(d);
     } else {
-        d->u.declaration = typecheck_file_scope_var_decl(d->u.declaration);
-        return d;
+        typecheck_file_scope_var_decl(d->u.declaration);
     }
 }
 
 // Type-check a program
-Program *typecheck(Program *p)
+void typecheck(Program *p)
 {
     symtab_init();
     typetab_init();
     for (ExternalDecl *d = p->decls; d; d = d->next) {
-        d = typecheck_global_decl(d);
+        typecheck_global_decl(d);
     }
-    return p;
 }
