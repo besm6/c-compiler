@@ -11,10 +11,10 @@ protected:
 
     void TearDown() override { typetab_destroy(); }
 
-    // Helper to create a TypeMember
-    TypeMember *createTypeMember(const char *name, Type *type, int offset)
+    // Helper to create a FieldDef
+    FieldDef *createFieldDef(const char *name, Type *type, int offset)
     {
-        TypeMember *member = new TypeMember;
+        FieldDef *member = new FieldDef;
         member->name       = strdup(name);
         member->type       = type;
         member->offset     = offset;
@@ -30,11 +30,11 @@ protected:
         return type;
     }
 
-    // Helper to free a TypeMember list
-    void freeTypeMemberList(TypeMember *member)
+    // Helper to free a FieldDef list
+    void freeFieldDefList(FieldDef *member)
     {
         while (member) {
-            TypeMember *next = member->next;
+            FieldDef *next = member->next;
             free(member->name);
             free_type(member->type);
             delete member;
@@ -51,15 +51,15 @@ TEST_F(TypeTabTest, InitCreatesEmptyTable)
 }
 
 // Test typetab_add_struct_definition with a single member
-TEST_F(TypeTabTest, AddStructDefinitionSingleMember)
+TEST_F(TypeTabTest, AddFieldDefinitionSingleMember)
 {
     Type *intType      = createSimpleType(TYPE_INT);
-    TypeMember *member = createTypeMember("x", intType, 0);
+    FieldDef *member = createFieldDef("x", intType, 0);
 
     typetab_add_struct_definition(strdup("point"), 4, 4, member);
 
     EXPECT_TRUE(typetab_exists("point"));
-    TypeEntry *entry = typetab_find("point");
+    StructDef *entry = typetab_find("point");
     ASSERT_NE(entry, nullptr);
     EXPECT_STREQ(entry->tag, "point");
     EXPECT_EQ(entry->alignment, 4);
@@ -72,18 +72,18 @@ TEST_F(TypeTabTest, AddStructDefinitionSingleMember)
 }
 
 // Test typetab_add_struct_definition with multiple members
-TEST_F(TypeTabTest, AddStructDefinitionMultipleMembers)
+TEST_F(TypeTabTest, AddFieldDefinitionMultipleMembers)
 {
     Type *intType       = createSimpleType(TYPE_INT);
     Type *doubleType    = createSimpleType(TYPE_DOUBLE);
-    TypeMember *member1 = createTypeMember("x", intType, 0);
-    TypeMember *member2 = createTypeMember("y", doubleType, 8);
+    FieldDef *member1 = createFieldDef("x", intType, 0);
+    FieldDef *member2 = createFieldDef("y", doubleType, 8);
     member1->next       = member2;
 
     typetab_add_struct_definition(strdup("vector"), 8, 16, member1);
 
     EXPECT_TRUE(typetab_exists("vector"));
-    TypeEntry *entry = typetab_find("vector");
+    StructDef *entry = typetab_find("vector");
     ASSERT_NE(entry, nullptr);
     EXPECT_STREQ(entry->tag, "vector");
     EXPECT_EQ(entry->alignment, 8);
@@ -100,17 +100,17 @@ TEST_F(TypeTabTest, AddStructDefinitionMultipleMembers)
 }
 
 // Test replacing an existing struct definition
-TEST_F(TypeTabTest, ReplaceStructDefinition)
+TEST_F(TypeTabTest, ReplaceFieldDefinition)
 {
     Type *intType       = createSimpleType(TYPE_INT);
-    TypeMember *member1 = createTypeMember("x", intType, 0);
+    FieldDef *member1 = createFieldDef("x", intType, 0);
     typetab_add_struct_definition(strdup("point"), 4, 4, member1);
 
     Type *doubleType    = createSimpleType(TYPE_DOUBLE);
-    TypeMember *member2 = createTypeMember("y", doubleType, 0);
+    FieldDef *member2 = createFieldDef("y", doubleType, 0);
     typetab_add_struct_definition(strdup("point"), 8, 8, member2);
 
-    TypeEntry *entry = typetab_find("point");
+    StructDef *entry = typetab_find("point");
     ASSERT_NE(entry, nullptr);
     EXPECT_STREQ(entry->tag, "point");
     EXPECT_EQ(entry->alignment, 8);
@@ -140,7 +140,7 @@ TEST_F(TypeTabTest, FindNonExistentTag)
 TEST_F(TypeTabTest, DestroyFreesMemory)
 {
     Type *intType      = createSimpleType(TYPE_INT);
-    TypeMember *member = createTypeMember("x", intType, 0);
+    FieldDef *member = createFieldDef("x", intType, 0);
     typetab_add_struct_definition(strdup("point"), 4, 4, member);
 
     typetab_destroy();
@@ -154,7 +154,7 @@ TEST_F(TypeTabTest, AddStructWithNullMembers)
     typetab_add_struct_definition(strdup("empty"), 4, 0, nullptr);
 
     EXPECT_TRUE(typetab_exists("empty"));
-    TypeEntry *entry = typetab_find("empty");
+    StructDef *entry = typetab_find("empty");
     ASSERT_NE(entry, nullptr);
     EXPECT_STREQ(entry->tag, "empty");
     EXPECT_EQ(entry->alignment, 4);

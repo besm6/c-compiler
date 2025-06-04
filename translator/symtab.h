@@ -92,7 +92,7 @@ void symtab_init(void);
 
 // Destroy the symbol table (free all memory)
 void symtab_destroy(void);
-// Postcondition: All Symbol and StaticInitializer memory is freed, table is invalid.
+// Postcondition: All Symbol and StaticInitializer memory is freed, table is empty.
 
 // Add an automatic (local) variable
 void symtab_add_automatic_var(const char *name, const Type *t);

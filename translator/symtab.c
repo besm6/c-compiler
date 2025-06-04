@@ -88,7 +88,7 @@ void symtab_init()
 
 //
 // Destroy the symbol table (free all memory)
-// Postcondition: All Symbol and StaticInitializer memory is freed, table is invalid.
+// Postcondition: All Symbol and StaticInitializer memory is freed, table is empty.
 //
 void symtab_destroy()
 {
