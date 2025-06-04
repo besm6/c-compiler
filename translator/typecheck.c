@@ -91,7 +91,7 @@ void validate_type(Type *t)
 // Validate a struct definition
 void validate_struct_definition(char *tag, Field *members)
 {
-    if (typetab_mem(tag)) {
+    if (typetab_exists(tag)) {
         fprintf(stderr, "Structure %s was already declared\n", tag);
         exit(1);
     }

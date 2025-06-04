@@ -4,14 +4,10 @@
 #include <string>
 #include <vector>
 
+#include "translator.h"
 #include "typetab.h"
-
-// Helper functions for type creation (assumed available)
-extern Type *new_int_type();
-extern Type *new_double_type();
-extern Type *new_struct_type(const char *name);
-extern bool compare_type(const Type *a, const Type *b);
-extern void free_type(Type *t);
+#include "internal.h"
+#include "xalloc.h"
 
 // Helper to create a TypeMember
 TypeMember create_member(const char *name, Type *type, int offset)
@@ -71,7 +67,7 @@ TEST_F(TypetabTest, DestroyEmptyTable)
 // Test typetab_add_struct_definition
 TEST_F(TypetabTest, AddStructDefinition)
 {
-    Type *int_type       = new_int_type();
+    Type *int_type       = new_type(TYPE_INT);
     TypeMember members[] = { create_member("x", int_type, 0) };
 
     typetab_add_struct_definition("S", 4, 4, members, 1);
@@ -92,8 +88,8 @@ TEST_F(TypetabTest, AddStructDefinition)
 // Test typetab_add_struct_definition with multiple members
 TEST_F(TypetabTest, AddStructDefinitionMultipleMembers)
 {
-    Type *int_type       = new_int_type();
-    Type *double_type    = new_double_type();
+    Type *int_type       = new_type(TYPE_INT);
+    Type *double_type    = new_type(TYPE_DOUBLE);
     TypeMember members[] = { create_member("x", int_type, 0), create_member("y", double_type, 8) };
 
     typetab_add_struct_definition("Point", 8, 16, members, 2);
@@ -116,7 +112,7 @@ TEST_F(TypetabTest, AddStructDefinitionMultipleMembers)
 // Test typetab_add_struct_definition overwrite
 TEST_F(TypetabTest, AddStructDefinitionOverwrite)
 {
-    Type *int_type        = new_int_type();
+    Type *int_type        = new_type(TYPE_INT);
     TypeMember members1[] = { create_member("x", int_type, 0) };
     TypeMember members2[] = { create_member("y", int_type, 0) };
 
@@ -152,7 +148,7 @@ TEST_F(TypetabTest, AddEmptyStructDefinition)
 // Test typetab_mem
 TEST_F(TypetabTest, MemExistentAndNonExistent)
 {
-    Type *int_type       = new_int_type();
+    Type *int_type       = new_type(TYPE_INT);
     TypeMember members[] = { create_member("x", int_type, 0) };
 
     typetab_add_struct_definition("S", 4, 4, members, 1);
@@ -173,7 +169,7 @@ TEST_F(TypetabTest, FindNonExistent)
 // Test typetab_get_members
 TEST_F(TypetabTest, GetMembersSorted)
 {
-    Type *int_type       = new_int_type();
+    Type *int_type       = new_type(TYPE_INT);
     TypeMember members[] = { create_member("y", int_type, 8), // Out of order
                              create_member("x", int_type, 0) };
 
@@ -198,8 +194,8 @@ TEST_F(TypetabTest, GetMembersSorted)
 // Test typetab_get_member_types
 TEST_F(TypetabTest, GetMemberTypes)
 {
-    Type *int_type       = new_int_type();
-    Type *double_type    = new_double_type();
+    Type *int_type       = new_type(TYPE_INT);
+    Type *double_type    = new_type(TYPE_DOUBLE);
     TypeMember members[] = { create_member("x", int_type, 0), create_member("y", double_type, 8) };
 
     typetab_add_struct_definition("S", 8, 16, members, 2);
@@ -220,7 +216,7 @@ TEST_F(TypetabTest, GetMemberTypes)
 // Test typetab_size
 TEST_F(TypetabTest, SizeMultipleStructs)
 {
-    Type *int_type       = new_int_type();
+    Type *int_type       = new_type(TYPE_INT);
     TypeMember members[] = { create_member("x", int_type, 0) };
 
     typetab_add_struct_definition("S", 4, 4, members, 1);
@@ -230,10 +226,4 @@ TEST_F(TypetabTest, SizeMultipleStructs)
 
     free_member(&members[0]);
     free_type(int_type);
-}
-
-int main(int argc, char **argv)
-{
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
 }
