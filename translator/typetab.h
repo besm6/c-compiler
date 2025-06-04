@@ -28,17 +28,17 @@ void typetab_destroy(void);
 // Postcondition: All TypeEntry and TypeMember memory is freed, table is invalid.
 
 // Add a struct definition
-void typetab_add_struct_definition(char *tag, int alignment, int size, TypeMember *members);
+void typetab_add_struct_definition(const char *tag, int alignment, int size, TypeMember *members);
 // Precondition: tag is a non-null string, members is a valid list of elements or NULL.
 // Postcondition: A TypeEntry with tag, alignment, size, and copied members is added/replaced in typetab.
 
 // Check if a struct tag exists
-bool typetab_exists(char *tag);
+bool typetab_exists(const char *tag);
 // Precondition: tag is a non-null string.
 // Postcondition: Returns true if tag exists in typetab, else false.
 
 // Get a struct definition by tag (fails if not found)
-TypeEntry *typetab_find(char *tag);
+TypeEntry *typetab_find(const char *tag);
 // Precondition: tag is a non-null string.
 // Postcondition: Returns non-null TypeEntry* if found, else terminates with error.
 
