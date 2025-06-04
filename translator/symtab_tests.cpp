@@ -197,8 +197,8 @@ TEST_F(SymtabTest, AddStaticVarNoInitializer)
 TEST_F(SymtabTest, AddFunction)
 {
     Type *int_type = new_type(TYPE_INT);
-    Param *param   = create_param("a", int_type);
-    Type *fun_type = new_function_type(int_type, param);
+    Param *param   = create_param("a", clone_type(int_type));
+    const Type *fun_type = new_function_type(clone_type(int_type), param);
 
     symtab_add_fun("f", fun_type, true, true);
 
@@ -209,9 +209,7 @@ TEST_F(SymtabTest, AddFunction)
     ASSERT_TRUE(sym->u.func.global);
     ASSERT_TRUE(sym->u.func.defined);
 
-    free_param(param);
     free_type(int_type);
-    free_type(fun_type);
 }
 
 // Test symtab_add_string
@@ -239,7 +237,7 @@ TEST_F(SymtabTest, AddStringLiteral)
 // Test symtab_get
 TEST_F(SymtabTest, GetNonExistentSymbol)
 {
-    ASSERT_EXIT(symtab_get("x"), ::testing::ExitedWithCode(1), "Symbol x not found");
+    ASSERT_EXIT(symtab_get("x"), ::testing::ExitedWithCode(1), "Symbol 'x' not found");
 }
 
 // Test symtab_get_opt

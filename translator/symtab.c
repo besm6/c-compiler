@@ -54,6 +54,8 @@ void free_static_initializer(StaticInitializer *list)
 //
 void free_symbol(Symbol *sym)
 {
+    if (!sym)
+        return;
     switch (sym->kind) {
     case SYM_STATIC:
         free_static_initializer(sym->u.static_var.init_list);
