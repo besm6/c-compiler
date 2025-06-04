@@ -16,6 +16,7 @@ extern int translator_debug;
 extern int import_debug;
 extern int export_debug;
 extern int wio_debug;
+extern int xalloc_debug;
 
 // Resolve identifiers.
 void resolve(ExternalDecl *ast);

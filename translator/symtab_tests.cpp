@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "translator.h"
 #include "symtab.h"
 #include "internal.h"
 #include "xalloc.h"
@@ -95,8 +96,18 @@ bool compare_static_initializer(const StaticInitializer *a, const StaticInitiali
 // Test fixture for symtab tests
 class SymtabTest : public ::testing::Test {
 protected:
-    void SetUp() override { symtab_init(); }
-    void TearDown() override { symtab_destroy(); }
+    void SetUp() override
+    {
+        xalloc_debug = 1;
+        symtab_init();
+    }
+    void TearDown() override
+    {
+        symtab_destroy();
+        xreport_lost_memory();
+        EXPECT_EQ(xtotal_allocated_size(), 0);
+        xfree_all();
+    }
 };
 
 // Test symtab_init
@@ -113,7 +124,7 @@ TEST_F(SymtabTest, DestroyEmptyTable)
 }
 
 // Test symtab_add_automatic_var
-TEST_F(SymtabTest, AddAutomaticVar)
+TEST_F(SymtabTest, AddAutomaticVar1)
 {
     Type *int_type = new_type(TYPE_INT);
     symtab_add_automatic_var("x", int_type);
@@ -162,7 +173,6 @@ TEST_F(SymtabTest, AddStaticVarWithInitializer)
     ASSERT_TRUE(compare_static_initializer(sym->u.static_var.init_list, init));
 
     free_type(int_type);
-    free(init); // Assumes symtab makes a copy
 }
 
 // Test symtab_add_static_var with no initializer

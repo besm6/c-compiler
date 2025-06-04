@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 #include "ast.h"
+#include "internal.h"
 #include "string_map.h"
 #include "translator.h"
 #include "xalloc.h"
@@ -96,9 +97,9 @@ void symtab_destroy()
 // Precondition: name is a non-null string, t is a valid Type*.
 // Postcondition: A Symbol with SYM_LOCAL, name, and t is added/replaced in symtab.
 //
-void symtab_add_automatic_var(const char *name, Type *t)
+void symtab_add_automatic_var(const char *name, const Type *t)
 {
-    Symbol *sym = new_symbol(name, t, SYM_LOCAL);
+    Symbol *sym = new_symbol(name, clone_type(t), SYM_LOCAL);
 
     map_insert(&symtab, name, (intptr_t)sym, 0);
 }
@@ -109,10 +110,10 @@ void symtab_add_automatic_var(const char *name, Type *t)
 // INIT_INITIALIZED, else NULL. Postcondition: A Symbol with SYM_STATIC, name, t, global, and init
 // state is added/replaced in symtab.
 //
-void symtab_add_static_var(const char *name, Type *t, bool global, InitKind init_kind,
+void symtab_add_static_var(const char *name, const Type *t, bool global, InitKind init_kind,
                            StaticInitializer *init_list)
 {
-    Symbol *sym                 = new_symbol(name, t, SYM_STATIC);
+    Symbol *sym                 = new_symbol(name, clone_type(t), SYM_STATIC);
     sym->u.static_var.global    = global;
     sym->u.static_var.init_kind = init_kind;
     sym->u.static_var.init_list = init_list;
@@ -125,9 +126,9 @@ void symtab_add_static_var(const char *name, Type *t, bool global, InitKind init
 // Precondition: name is a non-null string, t is a valid Type* (function type).
 // Postcondition: A Symbol with SYM_FUNC, name, t, global, and defined is added/replaced in symtab.
 //
-void symtab_add_fun(const char *name, Type *t, bool global, bool defined)
+void symtab_add_fun(const char *name, const Type *t, bool global, bool defined)
 {
-    Symbol *sym         = new_symbol(name, t, SYM_FUNC);
+    Symbol *sym         = new_symbol(name, clone_type(t), SYM_FUNC);
     sym->u.func.global  = global;
     sym->u.func.defined = defined;
 
@@ -139,9 +140,9 @@ void symtab_add_fun(const char *name, Type *t, bool global, bool defined)
 // Precondition: name is a non-null string, t is type Array(Char, len(s)+1).
 // Postcondition: A Symbol with SYM_CONST, name, t, and string initializer is added.
 //
-void symtab_add_const(const char *name, Type *t, StaticInitializer *init)
+void symtab_add_const(const char *name, const Type *t, StaticInitializer *init)
 {
-    Symbol *sym       = new_symbol(name, t, SYM_CONST);
+    Symbol *sym       = new_symbol(name, clone_type(t), SYM_CONST);
     sym->u.const_init = init;
 
     map_insert(&symtab, name, (intptr_t)sym, 0);

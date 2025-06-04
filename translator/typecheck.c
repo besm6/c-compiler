@@ -1123,7 +1123,7 @@ void typecheck_local_var_decl(Declaration *d)
             exit(1);
         }
         if (!existing) {
-            symtab_add_static_var(decl->name, clone_type(var_type), true, INIT_NONE, NULL);
+            symtab_add_static_var(decl->name, var_type, true, INIT_NONE, NULL);
         }
         return;
     }
@@ -1134,12 +1134,12 @@ void typecheck_local_var_decl(Declaration *d)
     if (d->u.var.specifiers->storage == STORAGE_CLASS_STATIC) {
         StaticInitializer *static_init =
             decl->init ? to_static_init(var_type, decl->init) : static_init_helper(var_type, NULL);
-        symtab_add_static_var(decl->name, clone_type(var_type), false, INIT_INITIALIZED,
+        symtab_add_static_var(decl->name, var_type, false, INIT_INITIALIZED,
                               static_init);
         decl->init = NULL; // Drop initializer
         return;
     }
-    symtab_add_automatic_var(decl->name, clone_type(var_type));
+    symtab_add_automatic_var(decl->name, var_type);
     decl->init = typecheck_init(var_type, decl->init);
 }
 
@@ -1210,12 +1210,13 @@ void typecheck_fn_decl(ExternalDecl *d)
         Param *p = params;
         for (Declaration *param = d->u.function.param_decls; param && p;
              param = param->next, p = p->next) {
-            symtab_add_automatic_var(param->u.var.declarators->name, clone_type(p->type));
+            symtab_add_automatic_var(param->u.var.declarators->name, p->type);
         }
         d->u.function.body =
             typecheck_statement(fun_type->u.function.return_type, d->u.function.body);
     }
     d->u.function.type = adjusted_type; // Update type in place
+    //TODO: deallocate fun_type?
 }
 
 // Type-check a local declaration
@@ -1284,7 +1285,7 @@ void typecheck_file_scope_var_decl(Declaration *d)
                             : global;
         }
     }
-    symtab_add_static_var(decl->name, clone_type(var_type), global, init_kind, init_list);
+    symtab_add_static_var(decl->name, var_type, global, init_kind, init_list);
     decl->init = NULL; // Drop initializer
 }
 

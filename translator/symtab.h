@@ -95,24 +95,24 @@ void symtab_destroy(void);
 // Postcondition: All Symbol and StaticInitializer memory is freed, table is invalid.
 
 // Add an automatic (local) variable
-void symtab_add_automatic_var(const char *name, Type *t);
+void symtab_add_automatic_var(const char *name, const Type *t);
 // Precondition: name is a non-null string, t is a valid Type*.
 // Postcondition: A Symbol with SYM_LOCAL, name, and t is added/replaced in symtab.
 
 // Add a static variable
-void symtab_add_static_var(const char *name, Type *t, bool global, InitKind init_kind,
+void symtab_add_static_var(const char *name, const Type *t, bool global, InitKind init_kind,
                            StaticInitializer *init_list);
 // Precondition: name is a non-null string, t is a valid Type*, init_list is valid if init_kind ==
 // INIT_INITIALIZED, else NULL. Postcondition: A Symbol with SYM_STATIC, name, t, global, and init
 // state is added/replaced in symtab.
 
 // Add a function
-void symtab_add_fun(const char *name, Type *t, bool global, bool defined);
+void symtab_add_fun(const char *name, const Type *t, bool global, bool defined);
 // Precondition: name is a non-null string, t is a valid Type* (function type).
 // Postcondition: A Symbol with SYM_FUNC, name, t, global, and defined is added/replaced in symtab.
 
 // Add a const array (for string literal)
-void symtab_add_const(const char *name, Type *t, StaticInitializer *init);
+void symtab_add_const(const char *name, const Type *t, StaticInitializer *init);
 // Precondition: name is a non-null string, t is type Array(Char, len(s)+1).
 // Postcondition: A Symbol with SYM_CONST, name, t, and string initializer is added.
 

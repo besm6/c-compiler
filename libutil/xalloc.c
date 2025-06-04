@@ -28,6 +28,8 @@
 
 #include "xalloc.h"
 
+int xalloc_debug; // Enable manually for debug
+
 //
 // Structure for the header of each allocated block
 //
@@ -80,7 +82,11 @@ void *xalloc(size_t size, const char *funcname, const char *filename, unsigned l
     }
 
     /* Return pointer to user data (after header) */
-    return (void *)((char *)ptr + sizeof(BlockHeader));
+    ptr = (void *)((char *)ptr + sizeof(BlockHeader));
+    if (xalloc_debug) {
+        printf("--- %s %zu bytes, %p\n", __func__, size, ptr);
+    }
+    return ptr;
 }
 
 //
@@ -93,22 +99,40 @@ void xfree(void *ptr)
     }
 
     /* Get the header (before the user pointer) */
-    BlockHeader *header = (BlockHeader *)((char *)ptr - sizeof(BlockHeader));
+    BlockHeader *h = (BlockHeader *)((char *)ptr - sizeof(BlockHeader));
+    if (xalloc_debug) {
+        printf("--- %s %zu bytes, %p\n", __func__, h->requested_size, ptr);
+    }
 
     /* Remove from the doubly linked list */
-    if (header->prev != NULL) {
-        header->prev->next = header->next;
+    if (h->prev != NULL) {
+        if (h->prev->next != h) {
+            fprintf(stderr, "Damaged memory list in xfree()\n");
+            exit(1);
+        }
+        h->prev->next = h->next;
     } else {
         /* This is the head */
-        head = header->next;
+        if (head != h) {
+            fprintf(stderr, "Damaged memory head in xfree()\n");
+            exit(1);
+        }
+        head = h->next;
     }
 
-    if (header->next != NULL) {
-        header->next->prev = header->prev;
+    if (h->next != NULL) {
+        if (h->next->prev != h) {
+            fprintf(stderr, "Damaged memory list in xfree().\n");
+            exit(1);
+        }
+        h->next->prev = h->prev;
     }
+    // Just in case.
+    h->next = NULL;
+    h->prev = NULL;
 
     /* Free the entire block (header + user data) */
-    free(header);
+    free(h);
 }
 
 void xreport_lost_memory()
@@ -138,6 +162,9 @@ size_t xtotal_allocated_size()
 
 void xfree_all()
 {
+    if (xalloc_debug) {
+        printf("--- %s\n", __func__);
+    }
     while (head) {
         BlockHeader *next = head->next;
         free(head);

@@ -7,6 +7,7 @@
 #include "translator.h"
 #include "xalloc.h"
 #include "wio.h"
+#include "symtab.h"
 
 // Enable debug output
 int translator_debug;
@@ -265,7 +266,7 @@ void process_file(const Args *args)
     wclose(&input);
     close_output(args);
 
-    //TODO: symtab_free();
+    symtab_destroy();
     if (args->debug) {
         xreport_lost_memory();
     }
