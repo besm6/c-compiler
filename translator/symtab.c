@@ -1,6 +1,7 @@
 #include "symtab.h"
 
 #include <stdint.h>
+#include <string.h>
 
 #include "ast.h"
 #include "internal.h"
@@ -73,7 +74,7 @@ void free_symbol(Symbol *sym)
 
 static void symtab_destroy_callback(intptr_t ptr)
 {
-    free_symbol((Symbol*)ptr);
+    free_symbol((Symbol *)ptr);
 }
 
 //
@@ -138,28 +139,45 @@ void symtab_add_fun(const char *name, const Type *t, bool global, bool defined)
 }
 
 //
-// Add a const array (for string literal)
-// Precondition: name is a non-null string, t is type Array(Char, len(s)+1).
-// Postcondition: A Symbol with SYM_CONST, name, t, and string initializer is added.
-//
-void symtab_add_const(const char *name, const Type *t, StaticInitializer *init)
-{
-    Symbol *sym       = new_symbol(name, clone_type(t), SYM_CONST);
-    sym->u.const_init = init;
-
-    map_insert_free(&symtab, name, (intptr_t)sym, 0, symtab_destroy_callback);
-}
-
-//
 // Add a string literal
 // Precondition: s is a non-null string.
 // Postcondition: A Symbol with SYM_CONST, a unique name, type Array(Char, len(s)+1), and string
-// initializer is added. Returns: The unique name (owned by symtab) for the string literal.
+// initializer is added. Returns: The unique name (owned by caller) for the string literal.
 //
-const char *symtab_add_string(const char *s)
+char *symtab_add_string(const char *s)
 {
-    //TODO
-    return NULL;
+    if (!s) {
+        fatal_error("symtab_add_string: NULL string input");
+        return NULL; // cannot happen
+    }
+
+    // Generate unique identifier (e.g., _str0, _str1)
+    // TODO: move to a separate file unique.c
+    static int str_id = 0;
+    char name[32];
+    snprintf(name, sizeof(name), "_str%d", str_id++);
+
+    // Create array type: char[strlen(s) + 1]
+    Type *t            = new_type(TYPE_ARRAY);
+    t->u.array.element = new_type(TYPE_CHAR);
+    t->u.array.size    = new_expression(EXPR_LITERAL);
+
+    // Set array size
+    t->u.array.size->u.literal            = new_literal(LITERAL_INT);
+    t->u.array.size->u.literal->u.int_val = strlen(s) + 1;
+
+    // Create StaticInitializer
+    StaticInitializer *init            = new_static_initializer(INIT_STRING);
+    init->u.string_val.str             = xstrdup(s);
+    init->u.string_val.null_terminated = true;
+
+    // Add to symbol table
+    Symbol *sym       = new_symbol(name, t, SYM_CONST);
+    sym->u.const_init = init;
+    map_insert_free(&symtab, name, (intptr_t)sym, 0, symtab_destroy_callback);
+
+    // Return the unique name (owned by caller)
+    return xstrdup(name);
 }
 
 //

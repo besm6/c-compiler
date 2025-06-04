@@ -10,17 +10,6 @@
 #include "xalloc.h"
 
 // Helper functions for type creation
-Type *new_array_type(Type *element, size_t size)
-{
-    Type *array            = new_type(TYPE_ARRAY);
-    array->u.array.element = element;
-    array->u.array.size    = new_expression(EXPR_LITERAL);
-
-    array->u.array.size->u.literal            = new_literal(LITERAL_INT);
-    array->u.array.size->u.literal->u.int_val = size;
-    return array;
-}
-
 Type *new_function_type(Type *return_type, Param *params)
 {
     Type *func                   = new_type(TYPE_FUNCTION);
@@ -198,7 +187,7 @@ TEST_F(SymtabTest, AddFunction)
 {
     Type *int_type = new_type(TYPE_INT);
     Param *param   = create_param("a", clone_type(int_type));
-    const Type *fun_type = new_function_type(clone_type(int_type), param);
+    Type *fun_type = new_function_type(clone_type(int_type), param);
 
     symtab_add_fun("f", fun_type, true, true);
 
@@ -210,28 +199,42 @@ TEST_F(SymtabTest, AddFunction)
     ASSERT_TRUE(sym->u.func.defined);
 
     free_type(int_type);
+    free_type(fun_type);
 }
 
 // Test symtab_add_string
 TEST_F(SymtabTest, AddStringLiteral)
 {
-    const char *str    = "hello";
-    const char *str_id = symtab_add_string(str);
+    const char *str = "hello";
+    char *str_id    = symtab_add_string(str);
 
+    // Check symbol
     Symbol *sym = symtab_get(str_id);
-    ASSERT_STREQ(sym->name, str_id);
-    Type *expected_type = new_array_type(new_type(TYPE_CHAR), strlen(str) + 1);
-    ASSERT_TRUE(compare_type(sym->type, expected_type));
     ASSERT_EQ(sym->kind, SYM_CONST);
+    ASSERT_STREQ(sym->name, str_id);
+
+    // Check symbol type
+    ASSERT_NE(sym->type, nullptr);
+    EXPECT_EQ(sym->type->kind, TYPE_ARRAY);
+    ASSERT_NE(sym->type->u.array.element, nullptr);
+    EXPECT_EQ(sym->type->qualifiers, nullptr);
+    EXPECT_EQ(sym->type->u.array.element->kind, TYPE_CHAR);
+    EXPECT_EQ(sym->type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(sym->type->u.array.element->qualifiers, nullptr);
+    ASSERT_NE(sym->type->u.array.size, nullptr);
+    EXPECT_EQ(sym->type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(sym->type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(sym->type->u.array.size->u.literal->u.int_val, strlen(str) + 1);
+    EXPECT_EQ(sym->type->u.array.qualifiers, nullptr);
+
+    // Check initializer
     StaticInitializer expected_init = { .kind         = INIT_STRING,
                                         .u.string_val = { xstrdup(str), true },
                                         .next         = NULL };
     ASSERT_TRUE(compare_static_initializer(sym->u.const_init, &expected_init));
 
-    free_type(expected_type->u.array.element);
-    free_type(expected_type);
     xfree(expected_init.u.string_val.str);
-    // str_id owned by symtab
+    xfree(str_id);
 }
 
 // Test symtab_get
@@ -275,10 +278,12 @@ TEST_F(SymtabTest, IsGlobal)
 // Test symtab_add_string unique IDs
 TEST_F(SymtabTest, AddStringUniqueIDs)
 {
-    const char *id1 = symtab_add_string("str1");
-    const char *id2 = symtab_add_string("str2");
+    char *id1 = symtab_add_string("str1");
+    char *id2 = symtab_add_string("str2");
 
     ASSERT_STRNE(id1, id2);
     ASSERT_TRUE(symtab_get_opt(id1) != nullptr);
     ASSERT_TRUE(symtab_get_opt(id2) != nullptr);
+    xfree(id1);
+    xfree(id2);
 }

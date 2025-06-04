@@ -810,10 +810,10 @@ StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
             fprintf(stderr, "String literal can only initialize char *\n");
             exit(1);
         }
-        const char *str_id        = symtab_add_string(init->u.expr->u.literal->u.string_val);
+        char *str_id              = symtab_add_string(init->u.expr->u.literal->u.string_val);
         StaticInitializer *result = malloc(sizeof(StaticInitializer));
         result->kind              = INIT_POINTER;
-        result->u.ptr_id          = xstrdup(str_id);
+        result->u.ptr_id          = str_id; // owned by static initializer
         result->next              = NULL;
         return result;
     }
