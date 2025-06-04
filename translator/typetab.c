@@ -59,3 +59,48 @@ void typetab_destroy()
 {
     map_destroy_free(&typetab, typetab_destroy_callback);
 }
+
+//
+// Add a struct definition
+// Precondition: tag is a non-null string, members is a valid list of elements or NULL.
+// Postcondition: A StructDef with tag, alignment, size, and copied members is added/replaced in typetab.
+//
+void typetab_add_struct_definition(const char *tag, int alignment, int size, FieldDef *members)
+{
+    // Build new definition.
+    StructDef *def = xalloc(sizeof(StructDef), __func__, __FILE__, __LINE__);
+    def->tag       = xstrdup(tag);
+    def->alignment = alignment;
+    def->size      = size;
+    def->members  = members;
+
+    map_insert_free(&typetab, tag, (intptr_t)def, 0, typetab_destroy_callback);
+}
+
+//
+// Check if a struct tag exists
+// Precondition: tag is a non-null string.
+// Postcondition: Returns true if tag exists in typetab, else false.
+//
+bool typetab_exists(const char *tag)
+{
+    intptr_t value = 0;
+    if (!map_get(&typetab, tag, &value)) {
+        return false;
+    }
+    return true;
+}
+
+//
+// Get a struct definition by tag (fails if not found)
+// Precondition: tag is a non-null string.
+// Postcondition: Returns non-null StructDef* if found, else terminates with error.
+//
+StructDef *typetab_find(const char *tag)
+{
+    intptr_t value = 0;
+    if (!map_get(&typetab, tag, &value)) {
+        fatal_error("Struct or union '%s' not found", tag);
+    }
+    return (StructDef *)value;
+}
