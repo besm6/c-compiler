@@ -150,7 +150,8 @@ static StringNode *create_node(const char *key, intptr_t value, int level)
 }
 
 // Insert or update a key-value pair
-static StringNode *insert_node(StringNode *node, const char *key, intptr_t value, int level)
+static StringNode *insert_node(StringNode *node, const char *key, intptr_t value,
+                               int level, void (*dealloc)(intptr_t value))
 {
     if (!node) {
         return create_node(key, value, level);
@@ -158,13 +159,16 @@ static StringNode *insert_node(StringNode *node, const char *key, intptr_t value
 
     int cmp = strcmp(key, node->key);
     if (cmp == 0) {
+        if (dealloc) {
+            dealloc(node->value);
+        }
         node->value = value; // Update value
         node->level = level; // Update level
         return node;
     } else if (cmp < 0) {
-        node->left = insert_node(node->left, key, value, level);
+        node->left = insert_node(node->left, key, value, level, dealloc);
     } else {
-        node->right = insert_node(node->right, key, value, level);
+        node->right = insert_node(node->right, key, value, level, dealloc);
     }
 
     return rebalance(node);
@@ -174,7 +178,15 @@ void map_insert(StringMap *map, const char *key, intptr_t value, int level)
 {
     if (!map || !key)
         return;
-    map->root = insert_node(map->root, key, value, level);
+    map->root = insert_node(map->root, key, value, level, NULL);
+}
+
+void map_insert_free(StringMap *map, const char *key, intptr_t value,
+                     int level, void (*dealloc)(intptr_t value))
+{
+    if (!map || !key)
+        return;
+    map->root = insert_node(map->root, key, value, level, dealloc);
 }
 
 // Get value by key, returns 1 if found, 0 if not

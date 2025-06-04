@@ -60,6 +60,8 @@ void map_init(StringMap *map);
 // then balances the tree on the way back up the recursion stack.
 //
 void map_insert(StringMap *map, const char *key, intptr_t value, int level);
+void map_insert_free(StringMap *map, const char *key, intptr_t value,
+                     int level, void (*dealloc)(intptr_t value));
 
 //
 // Get: Retrieves the value for a given key by traversing the tree
@@ -83,7 +85,7 @@ void map_remove_level(StringMap *map, int level);
 // Free: Recursively frees all nodes and their keys.
 //
 void map_destroy(StringMap *map);
-void map_destroy_free(StringMap *map, void (*func)(intptr_t value));
+void map_destroy_free(StringMap *map, void (*dealloc)(intptr_t value));
 
 //
 // Get the height of a node (0 for NULL)

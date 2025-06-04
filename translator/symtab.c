@@ -101,7 +101,7 @@ void symtab_add_automatic_var(const char *name, const Type *t)
 {
     Symbol *sym = new_symbol(name, clone_type(t), SYM_LOCAL);
 
-    map_insert(&symtab, name, (intptr_t)sym, 0);
+    map_insert_free(&symtab, name, (intptr_t)sym, 0, symtab_destroy_callback);
 }
 
 //
@@ -118,7 +118,7 @@ void symtab_add_static_var(const char *name, const Type *t, bool global, InitKin
     sym->u.static_var.init_kind = init_kind;
     sym->u.static_var.init_list = init_list;
 
-    map_insert(&symtab, name, (intptr_t)sym, 0);
+    map_insert_free(&symtab, name, (intptr_t)sym, 0, symtab_destroy_callback);
 }
 
 //
@@ -132,7 +132,7 @@ void symtab_add_fun(const char *name, const Type *t, bool global, bool defined)
     sym->u.func.global  = global;
     sym->u.func.defined = defined;
 
-    map_insert(&symtab, name, (intptr_t)sym, 0);
+    map_insert_free(&symtab, name, (intptr_t)sym, 0, symtab_destroy_callback);
 }
 
 //
@@ -145,7 +145,7 @@ void symtab_add_const(const char *name, const Type *t, StaticInitializer *init)
     Symbol *sym       = new_symbol(name, clone_type(t), SYM_CONST);
     sym->u.const_init = init;
 
-    map_insert(&symtab, name, (intptr_t)sym, 0);
+    map_insert_free(&symtab, name, (intptr_t)sym, 0, symtab_destroy_callback);
 }
 
 //
