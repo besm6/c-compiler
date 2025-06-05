@@ -66,6 +66,7 @@ void map_insert_free(StringMap *map, const char *key, intptr_t value,
 //
 // Get: Retrieves the value for a given key by traversing the tree
 // based on `strcmp`. Returns true if found.
+// Value pointer can be NULL if value is not needed.
 //
 bool map_get(StringMap *map, const char *key, intptr_t *value);
 

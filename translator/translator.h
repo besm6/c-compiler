@@ -31,7 +31,7 @@ void label_loops(ExternalDecl *ast);
 Tac_TopLevel *translate(ExternalDecl *ast);
 
 // Error handling.
-void _Noreturn fatal_error(const char *message, ...);
+void _Noreturn fatal_error(const char *message, ...) __attribute__((noreturn));
 
 #ifdef GTEST_API_
 //TODO

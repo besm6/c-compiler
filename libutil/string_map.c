@@ -192,14 +192,16 @@ void map_insert_free(StringMap *map, const char *key, intptr_t value,
 // Get value by key, returns 1 if found, 0 if not
 bool map_get(StringMap *map, const char *key, intptr_t *value)
 {
-    if (!map || !key || !value)
+    if (!map || !key)
         return false;
 
     StringNode *current = map->root;
     while (current) {
         int cmp = strcmp(key, current->key);
         if (cmp == 0) {
-            *value = current->value;
+            if (value) {
+                *value = current->value;
+            }
             return true;
         }
         if (cmp < 0) {
