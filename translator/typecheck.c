@@ -5,30 +5,15 @@
 #include "translator.h"
 #include "symtab.h"
 #include "typetab.h"
+#include "type.h"
 #include "string_map.h"
 #include "xalloc.h"
 
-// Assume utility functions from Type_utils and Const_convert
-bool is_complete(Type *t);
-int get_size(Type *t);
-int get_alignment(Type *t);
-bool is_scalar(Type *t);
-bool is_arithmetic(Type *t);
-bool is_integer(Type *t);
-bool is_character(Type *t);
-bool is_pointer(Type *t);
-bool is_complete_pointer(Type *t);
-bool is_signed(Type *t);
+// Utility function for converting constants.
 TypeKind const_convert(const Type *target, const Literal *c);
-Type *new_char_type(void);  // Helper for string literals
-Type *new_long_type(void);  // Helper for TYPE_LONG
-Type *new_ulong_type(void); // Helper for TYPE_LONG_LONG (unsigned)
-
-// Assume Rounding module function
-int round_away_from_zero(int alignment, int size);
 
 // Forward declarations
-void validate_type(Type *t);
+void validate_type(const Type *t);
 Expr *typecheck_and_convert(Expr *e);
 Expr *typecheck_scalar(Expr *e);
 Initializer *typecheck_init(Type *target_type, Initializer *init);
@@ -36,8 +21,21 @@ StaticInitializer *static_init_helper(Type *var_type, Initializer *init);
 Stmt *typecheck_statement(Type *ret_type, Stmt *s);
 void typecheck_local_decl(Declaration *d);
 
+static int round_away_from_zero(int alignment, int size)
+{
+    if (size % alignment == 0) {
+        return size;
+    }
+
+    if (size < 0) {
+        return size - alignment - (size % alignment);
+    } else {
+        return size + alignment - (size % alignment);
+    }
+}
+
 // Check if an expression is an lvalue
-bool is_lvalue(Expr *e)
+bool is_lvalue(const Expr *e)
 {
     switch (e->kind) {
     case EXPR_VAR:
@@ -60,7 +58,7 @@ bool is_lvalue(Expr *e)
 }
 
 // Validate a type (recursive)
-void validate_type(Type *t)
+void validate_type(const Type *t)
 {
     if (!t)
         return;
@@ -95,7 +93,7 @@ void validate_type(Type *t)
 }
 
 // Validate a struct definition
-void validate_struct_definition(char *tag, Field *members)
+void validate_struct_definition(const char *tag, const Field *members)
 {
     if (typetab_exists(tag)) {
         fatal_error("Structure %s was already declared", tag);
@@ -104,7 +102,7 @@ void validate_struct_definition(char *tag, Field *members)
     // Check for duplicate member names
     StringMap names;
     map_init(&names);
-    for (Field *m = members; m; m = m->next) {
+    for (const Field *m = members; m; m = m->next) {
         if (m->type->kind == TYPE_FUNCTION) {
             fatal_error("Can't declare structure member with function type");
         }
@@ -121,7 +119,7 @@ void validate_struct_definition(char *tag, Field *members)
 }
 
 // Type-check a struct declaration
-void typecheck_struct_decl(Declaration *d)
+void typecheck_struct_decl(const Declaration *d)
 {
     if (!d->u.var.declarators)
         return; // Ignore forward declarations
@@ -149,7 +147,7 @@ void typecheck_struct_decl(Declaration *d)
 }
 
 // Convert an expression to a target type
-Expr *convert_to(Expr *e, Type *target_type)
+Expr *convert_to_type(Expr *e, const Type *target_type)
 {
     if (e->type->kind == target_type->kind &&
         (!is_pointer(e->type) ||
@@ -157,32 +155,44 @@ Expr *convert_to(Expr *e, Type *target_type)
         return e; // Avoid unnecessary casts
 
     Expr *cast = new_expression(EXPR_CAST);
-    cast->u.cast.type = target_type;
+    cast->u.cast.type = clone_type(target_type);
     cast->u.cast.expr = e;
     cast->type = clone_type(target_type);
     return cast;
 }
 
-// Get common type for arithmetic operations
-Type *get_common_type(Type *t1, Type *t2)
+Expr *convert_to_kind(Expr *e, TypeKind target_kind)
 {
-    Type *int_type    = new_type(TYPE_INT);
-    Type *double_type = new_type(TYPE_DOUBLE);
+    if (e->type->kind == target_kind)
+        return e; // Avoid unnecessary casts
+
+    Expr *cast = new_expression(EXPR_CAST);
+    cast->u.cast.type = new_type(target_kind);
+    cast->u.cast.expr = e;
+    cast->type = new_type(target_kind);
+    return cast;
+}
+
+// Get common type for arithmetic operations
+const Type *get_common_type(const Type *t1, const Type *t2)
+{
+    static const Type int_type    = { .kind = TYPE_INT };
+    static const Type double_type = { .kind = TYPE_DOUBLE };
     if (is_character(t1))
-        t1 = int_type;
+        t1 = &int_type;
     if (is_character(t2))
-        t2 = int_type;
+        t2 = &int_type;
     if (t1->kind == t2->kind)
         return t1;
     if (t1->kind == TYPE_DOUBLE || t2->kind == TYPE_DOUBLE)
-        return double_type;
+        return &double_type;
     if (get_size(t1) == get_size(t2))
         return is_signed(t1) ? t2 : t1;
     return get_size(t1) > get_size(t2) ? t1 : t2;
 }
 
 // Check if a constant is a zero integer
-bool is_zero_int(Literal *c)
+bool is_zero_int(const Literal *c)
 {
     switch (c->kind) {
     case LITERAL_INT:
@@ -197,13 +207,13 @@ bool is_zero_int(Literal *c)
 }
 
 // Check if an expression is a null pointer constant
-bool is_null_pointer_constant(Expr *e)
+bool is_null_pointer_constant(const Expr *e)
 {
     return e->kind == EXPR_LITERAL && is_zero_int(e->u.literal);
 }
 
 // Get common pointer type
-Type *get_common_pointer_type(Expr *e1, Expr *e2)
+Type *get_common_pointer_type(const Expr *e1, const Expr *e2)
 {
     if (e1->type->kind == e2->type->kind &&
         e1->type->u.pointer.target->kind == e2->type->u.pointer.target->kind)
@@ -223,21 +233,21 @@ Type *get_common_pointer_type(Expr *e1, Expr *e2)
 }
 
 // Convert by assignment
-Expr *convert_by_assignment(Expr *e, Type *target_type)
+Expr *convert_by_assignment(Expr *e, const Type *target_type)
 {
     if (e->type->kind == target_type->kind &&
         (!is_pointer(e->type) ||
          e->type->u.pointer.target->kind == target_type->u.pointer.target->kind))
         return e;
     if (is_arithmetic(e->type) && is_arithmetic(target_type))
-        return convert_to(e, target_type);
+        return convert_to_type(e, target_type);
     if (is_null_pointer_constant(e) && is_pointer(target_type))
-        return convert_to(e, target_type);
+        return convert_to_type(e, target_type);
     if ((target_type->kind == TYPE_POINTER && target_type->u.pointer.target->kind == TYPE_VOID &&
          is_pointer(e->type)) ||
         (is_pointer(target_type) && e->type->kind == TYPE_POINTER &&
          e->type->u.pointer.target->kind == TYPE_VOID)) {
-        return convert_to(e, target_type);
+        return convert_to_type(e, target_type);
     }
     fatal_error("Cannot convert type for assignment");
 }
@@ -262,14 +272,14 @@ Expr *typecheck_const(Expr *e)
         e->type = new_type(TYPE_INT);
         break;
     case LITERAL_CHAR:
-        e->type = new_char_type();
+        e->type = new_type(TYPE_CHAR);
         break;
     case LITERAL_FLOAT:
         e->type = new_type(TYPE_DOUBLE);
         break;
     case LITERAL_STRING: {
         Type *array            = new_type(TYPE_ARRAY);
-        array->u.array.element = new_char_type();
+        array->u.array.element = new_type(TYPE_CHAR);
         array->u.array.size    = (Expr *)(size_t)(strlen(e->u.literal->u.string_val) + 1);
         e->type                = array;
         break;
@@ -287,7 +297,7 @@ Expr *typecheck_const(Expr *e)
 Expr *typecheck_string(Expr *e)
 {
     Type *array            = new_type(TYPE_ARRAY);
-    array->u.array.element = new_char_type();
+    array->u.array.element = new_type(TYPE_CHAR);
     array->u.array.size    = (Expr *)(size_t)(strlen(e->u.literal->u.string_val) + 1);
     e->type                = array;
     return e;
@@ -336,7 +346,7 @@ Expr *typecheck_exp(Expr *e)
                 fatal_error("Bitwise complement only valid for integer types");
             }
             if (is_character(inner->type))
-                inner = convert_to(inner, new_type(TYPE_INT));
+                inner = convert_to_kind(inner, TYPE_INT);
             e->type            = clone_type(inner->type);
             e->u.unary_op.expr = inner;
             return e;
@@ -347,7 +357,7 @@ Expr *typecheck_exp(Expr *e)
                 fatal_error("Can only negate arithmetic types");
             }
             if (is_character(inner->type))
-                inner = convert_to(inner, new_type(TYPE_INT));
+                inner = convert_to_kind(inner, TYPE_INT);
             e->type            = clone_type(inner->type);
             e->u.unary_op.expr = inner;
             return e;
@@ -395,15 +405,15 @@ Expr *typecheck_exp(Expr *e)
             e1 = typecheck_and_convert(e1);
             e2 = typecheck_and_convert(e2);
             if (is_arithmetic(e1->type) && is_arithmetic(e2->type)) {
-                Type *common = get_common_type(e1->type, e2->type);
-                e1           = convert_to(e1, common);
-                e2           = convert_to(e2, common);
+                const Type *common = get_common_type(e1->type, e2->type);
+                e1           = convert_to_type(e1, common);
+                e2           = convert_to_type(e2, common);
                 e->type      = clone_type(common);
             } else if (is_complete_pointer(e1->type) && is_integer(e2->type)) {
-                e2      = convert_to(e2, new_long_type());
+                e2      = convert_to_kind(e2, TYPE_LONG);
                 e->type = clone_type(e1->type);
             } else if (is_complete_pointer(e2->type) && is_integer(e1->type)) {
-                e1      = convert_to(e1, new_long_type());
+                e1      = convert_to_kind(e1, TYPE_LONG);
                 e->type = clone_type(e2->type);
             } else {
                 fatal_error("Invalid operands for addition");
@@ -416,15 +426,15 @@ Expr *typecheck_exp(Expr *e)
             e1 = typecheck_and_convert(e1);
             e2 = typecheck_and_convert(e2);
             if (is_arithmetic(e1->type) && is_arithmetic(e2->type)) {
-                Type *common = get_common_type(e1->type, e2->type);
-                e1           = convert_to(e1, common);
-                e2           = convert_to(e2, common);
+                const Type *common = get_common_type(e1->type, e2->type);
+                e1           = convert_to_type(e1, common);
+                e2           = convert_to_type(e2, common);
                 e->type      = clone_type(common);
             } else if (is_complete_pointer(e1->type) && is_integer(e2->type)) {
-                e2      = convert_to(e2, new_long_type());
+                e2      = convert_to_kind(e2, TYPE_LONG);
                 e->type = clone_type(e1->type);
             } else if (is_complete_pointer(e1->type) && e1->type->kind == e2->type->kind) {
-                e->type = new_long_type();
+                e->type = new_type(TYPE_LONG);
             } else {
                 fatal_error("Invalid operands for subtraction");
             }
@@ -440,9 +450,9 @@ Expr *typecheck_exp(Expr *e)
             if (!is_arithmetic(e1->type) || !is_arithmetic(e2->type)) {
                 fatal_error("Can only multiply arithmetic types");
             }
-            Type *common = get_common_type(e1->type, e2->type);
-            e1           = convert_to(e1, common);
-            e2           = convert_to(e2, common);
+            const Type *common = get_common_type(e1->type, e2->type);
+            e1           = convert_to_type(e1, common);
+            e2           = convert_to_type(e2, common);
             if (e->u.binary_op.op == BINARY_MOD && common->kind == TYPE_DOUBLE) {
                 fatal_error("Can't apply %% to double");
             }
@@ -455,11 +465,11 @@ Expr *typecheck_exp(Expr *e)
         case BINARY_NE: {
             e1                   = typecheck_and_convert(e1);
             e2                   = typecheck_and_convert(e2);
-            Type *common         = is_pointer(e1->type) || is_pointer(e2->type)
+            const Type *common   = is_pointer(e1->type) || is_pointer(e2->type)
                                        ? get_common_pointer_type(e1, e2)
                                        : get_common_type(e1->type, e2->type);
-            e1                   = convert_to(e1, common);
-            e2                   = convert_to(e2, common);
+            e1                   = convert_to_type(e1, common);
+            e2                   = convert_to_type(e2, common);
             e->type              = new_type(TYPE_INT);
             e->u.binary_op.left  = e1;
             e->u.binary_op.right = e2;
@@ -471,14 +481,14 @@ Expr *typecheck_exp(Expr *e)
         case BINARY_GE: {
             e1           = typecheck_and_convert(e1);
             e2           = typecheck_and_convert(e2);
-            Type *common = is_arithmetic(e1->type) && is_arithmetic(e2->type)
+            const Type *common = is_arithmetic(e1->type) && is_arithmetic(e2->type)
                                ? get_common_type(e1->type, e2->type)
                                : (e1->type->kind == e2->type->kind ? e1->type : NULL);
             if (!common) {
                 fatal_error("Invalid types for comparison");
             }
-            e1                   = convert_to(e1, common);
-            e2                   = convert_to(e2, common);
+            e1                   = convert_to_type(e1, common);
+            e2                   = convert_to_type(e2, common);
             e->type              = new_type(TYPE_INT);
             e->u.binary_op.left  = e1;
             e->u.binary_op.right = e2;
@@ -504,7 +514,7 @@ Expr *typecheck_exp(Expr *e)
         Expr *cond      = typecheck_scalar(e->u.cond.condition);
         Expr *then_expr = typecheck_and_convert(e->u.cond.then_expr);
         Expr *else_expr = typecheck_and_convert(e->u.cond.else_expr);
-        Type *result_type;
+        const Type *result_type;
         if (then_expr->type->kind == TYPE_VOID && else_expr->type->kind == TYPE_VOID) {
             result_type = new_type(TYPE_VOID);
         } else if (is_pointer(then_expr->type) || is_pointer(else_expr->type)) {
@@ -518,8 +528,8 @@ Expr *typecheck_exp(Expr *e)
         }
         e->type             = clone_type(result_type);
         e->u.cond.condition = cond;
-        e->u.cond.then_expr = convert_to(then_expr, result_type);
-        e->u.cond.else_expr = convert_to(else_expr, result_type);
+        e->u.cond.then_expr = convert_to_type(then_expr, result_type);
+        e->u.cond.else_expr = convert_to_type(else_expr, result_type);
         return e;
     }
     case EXPR_CALL: {
@@ -562,10 +572,10 @@ Expr *typecheck_exp(Expr *e)
         const Type *result_type;
         if (is_complete_pointer(ptr->type) && is_integer(index->type)) {
             result_type = ptr->type->u.pointer.target;
-            index       = convert_to(index, new_long_type());
+            index       = convert_to_kind(index, TYPE_LONG);
         } else if (is_complete_pointer(index->type) && is_integer(ptr->type)) {
             result_type = index->type->u.pointer.target;
-            ptr         = convert_to(ptr, new_long_type());
+            ptr         = convert_to_kind(ptr, TYPE_LONG);
         } else {
             fatal_error("Invalid types for subscript operation");
         }
@@ -579,7 +589,7 @@ Expr *typecheck_exp(Expr *e)
         if (!is_complete(inner->type)) {
             fatal_error("Can't apply sizeof to incomplete type");
         }
-        e->type          = new_ulong_type();
+        e->type          = new_type(TYPE_ULONG);
         e->u.sizeof_expr = inner;
         return e;
     }
@@ -588,7 +598,7 @@ Expr *typecheck_exp(Expr *e)
         if (!is_complete(e->u.sizeof_type)) {
             fatal_error("Can't apply sizeof to incomplete type");
         }
-        e->type = new_ulong_type();
+        e->type = new_type(TYPE_ULONG);
         return e;
     }
     case EXPR_FIELD_ACCESS: {

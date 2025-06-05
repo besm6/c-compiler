@@ -115,17 +115,35 @@ static void export_type(FILE *fd, Type *type, int parent_id)
     case TYPE_CHAR:
         fprintf(fd, "char");
         break;
+    case TYPE_SCHAR:
+        fprintf(fd, "signed_char");
+        break;
+    case TYPE_UCHAR:
+        fprintf(fd, "unsigned_char");
+        break;
     case TYPE_SHORT:
         fprintf(fd, "short");
+        break;
+    case TYPE_USHORT:
+        fprintf(fd, "unsigned_short");
         break;
     case TYPE_INT:
         fprintf(fd, "int");
         break;
+    case TYPE_UINT:
+        fprintf(fd, "unsigned_int");
+        break;
     case TYPE_LONG:
         fprintf(fd, "long");
         break;
+    case TYPE_ULONG:
+        fprintf(fd, "unsigned_long");
+        break;
     case TYPE_LONG_LONG:
         fprintf(fd, "long_long");
+        break;
+    case TYPE_ULONG_LONG:
+        fprintf(fd, "unsigned_long_long");
         break;
     case TYPE_SIGNED:
         fprintf(fd, "signed");

@@ -27,14 +27,6 @@ void resolve(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
 }
 
 //
-// Typecheck definitions and uses of functions and variables.
-//
-void typecheck(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
-{
-    //TODO
-}
-
-//
 // Annotate loops and break/continue statements.
 //
 void label_loops(ExternalDecl *ast) // cppcheck-suppress constParameterPointer

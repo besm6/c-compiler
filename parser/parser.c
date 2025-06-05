@@ -234,6 +234,10 @@ static bool is_constant_expression(const Expr *expression)
         /* Compound literals are not constant (may involve runtime init) */
         return false;
 
+    case EXPR_SUBSCRIPT:
+        /* Array indexing is not constant */
+        return false;
+
     case EXPR_FIELD_ACCESS:
     case EXPR_PTR_ACCESS:
         /* Member access involves addresses, not constant */

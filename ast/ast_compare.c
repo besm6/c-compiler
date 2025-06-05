@@ -29,10 +29,16 @@ bool compare_type(const Type *a, const Type *b)
     case TYPE_SIGNED:
     case TYPE_UNSIGNED:
     case TYPE_CHAR:
+    case TYPE_SCHAR:
+    case TYPE_UCHAR:
     case TYPE_SHORT:
+    case TYPE_USHORT:
     case TYPE_INT:
+    case TYPE_UINT:
     case TYPE_LONG:
+    case TYPE_ULONG:
     case TYPE_LONG_LONG:
+    case TYPE_ULONG_LONG:
         return a->u.integer.signedness == b->u.integer.signedness;
     case TYPE_COMPLEX:
     case TYPE_IMAGINARY:

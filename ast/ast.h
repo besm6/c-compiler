@@ -40,10 +40,16 @@ typedef enum {
     TYPE_VOID,
     TYPE_BOOL,
     TYPE_CHAR,
+    TYPE_SCHAR,
+    TYPE_UCHAR,
     TYPE_SHORT,
+    TYPE_USHORT,
     TYPE_INT,
+    TYPE_UINT,
     TYPE_LONG,
+    TYPE_ULONG,
     TYPE_LONG_LONG,
+    TYPE_ULONG_LONG,
     TYPE_SIGNED,   // Internal for parser only
     TYPE_UNSIGNED, // Internal for parser only
     TYPE_FLOAT,
