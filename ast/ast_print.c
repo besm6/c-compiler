@@ -10,19 +10,26 @@ static void print_indent(FILE *fd, int indent)
 }
 
 // Enum-to-string mappings
-static const char *expr_kind_str[] = { [EXPR_VAR]         = "Variable",
-                                       [EXPR_LITERAL]     = "Literal",
-                                       [EXPR_BINARY_OP]   = "BinaryOp",
-                                       [EXPR_UNARY_OP]    = "UnaryOp",
-                                       [EXPR_POST_INC]    = "PostIncrement",
-                                       [EXPR_POST_DEC]    = "PostDecrement",
-                                       [EXPR_CALL]        = "Call",
-                                       [EXPR_CAST]        = "Cast",
-                                       [EXPR_COMPOUND]    = "Compound",
-                                       [EXPR_SIZEOF_EXPR] = "SizeofExpr",
-                                       [EXPR_SIZEOF_TYPE] = "SizeofType",
-                                       [EXPR_ALIGNOF]     = "Alignof",
-                                       [EXPR_GENERIC]     = "Generic" };
+static const char *expr_kind_str[] = {
+    [EXPR_LITERAL]      = "Literal",
+    [EXPR_VAR]          = "Var",
+    [EXPR_UNARY_OP]     = "UnaryOp",
+    [EXPR_BINARY_OP]    = "BinaryOp",
+    [EXPR_SUBSCRIPT]    = "Subscript",
+    [EXPR_ASSIGN]       = "Assign",
+    [EXPR_COND]         = "Cond",
+    [EXPR_CAST]         = "Cast",
+    [EXPR_CALL]         = "Call",
+    [EXPR_COMPOUND]     = "Compound",
+    [EXPR_FIELD_ACCESS] = "FieldAccess",
+    [EXPR_PTR_ACCESS]   = "PtrAccess",
+    [EXPR_POST_INC]     = "PostInc",
+    [EXPR_POST_DEC]     = "PostDec",
+    [EXPR_SIZEOF_EXPR]  = "SizeofExpr",
+    [EXPR_SIZEOF_TYPE]  = "SizeofType",
+    [EXPR_ALIGNOF]      = "Alignof",
+    [EXPR_GENERIC]      = "Generic",
+};
 
 static const char *stmt_kind_str[] = { [STMT_EXPR] = "Expression",  [STMT_IF] = "If",
                                        [STMT_SWITCH] = "Switch",    [STMT_WHILE] = "While",
@@ -393,8 +400,6 @@ void print_expression(FILE *fd, const Expr *expr, int indent)
         print_expression(fd, expr->u.cast.expr, indent + 2);
         break;
     case EXPR_COMPOUND:
-        print_indent(fd, indent + 2);
-        fprintf(fd, "Elements:\n");
         for (InitItem *init = expr->u.compound_literal.init; init; init = init->next) {
             print_initializer(fd, init->init, indent + 4);
         }
@@ -423,15 +428,11 @@ void print_expression(FILE *fd, const Expr *expr, int indent)
         print_expression(fd, expr->u.assign.value, indent + 2);
         break;
     case EXPR_COND:
-        print_indent(fd, indent + 2);
-        fprintf(fd, "Cond:\n");
         print_expression(fd, expr->u.cond.condition, indent + 2);
         print_expression(fd, expr->u.cond.then_expr, indent + 2);
         print_expression(fd, expr->u.cond.else_expr, indent + 2);
         break;
     case EXPR_SUBSCRIPT:
-        print_indent(fd, indent + 2);
-        fprintf(fd, "Subscript:\n");
         print_expression(fd, expr->u.subscript.left, indent + 2);
         print_expression(fd, expr->u.subscript.right, indent + 2);
         break;
