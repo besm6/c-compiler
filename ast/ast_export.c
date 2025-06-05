@@ -398,6 +398,10 @@ void export_expr(WFILE *fd, Expr *expr)
         }
         wputw(TAG_EOL, fd);
         break;
+    case EXPR_SUBSCRIPT:
+        export_expr(fd, expr->u.subscript.left);
+        export_expr(fd, expr->u.subscript.right);
+        break;
     case EXPR_FIELD_ACCESS:
         export_expr(fd, expr->u.field_access.expr);
         wputstr(expr->u.field_access.field, fd);

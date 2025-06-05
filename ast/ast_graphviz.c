@@ -651,6 +651,9 @@ static void export_expr(FILE *fd, Expr *expr, int parent_id)
     case EXPR_FIELD_ACCESS:
         fprintf(fd, "field_access");
         break;
+    case EXPR_SUBSCRIPT:
+        fprintf(fd, "subscript");
+        break;
     case EXPR_PTR_ACCESS:
         fprintf(fd, "ptr_access");
         break;
@@ -720,6 +723,10 @@ static void export_expr(FILE *fd, Expr *expr, int parent_id)
         if (expr->u.compound_literal.init) {
             export_init_declarator(fd, (InitDeclarator *)expr->u.compound_literal.init, id);
         }
+        break;
+    case EXPR_SUBSCRIPT:
+        export_expr(fd, expr->u.subscript.left, id);
+        export_expr(fd, expr->u.subscript.right, id);
         break;
     case EXPR_FIELD_ACCESS:
         export_expr(fd, expr->u.field_access.expr, id);

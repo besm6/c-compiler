@@ -317,6 +317,10 @@ Expr *clone_expression(const Expr *expr)
         result->u.compound_literal.type = clone_type(expr->u.compound_literal.type);
         result->u.compound_literal.init = clone_init_item(expr->u.compound_literal.init);
         break;
+    case EXPR_SUBSCRIPT:
+        result->u.subscript.left  = clone_expression(expr->u.subscript.left);
+        result->u.subscript.right = clone_expression(expr->u.subscript.right);
+        break;
     case EXPR_FIELD_ACCESS:
     case EXPR_PTR_ACCESS:
         result->u.field_access.expr = clone_expression(expr->u.field_access.expr);

@@ -529,10 +529,9 @@ Expr *parse_postfix_expression()
             advance_token();
             Expr *index = parse_expression();
             expect_token(TOKEN_RBRACKET);
-            Expr *new_expr              = new_expression(EXPR_BINARY_OP);
-            new_expr->u.binary_op.op    = BINARY_ADD;
-            new_expr->u.binary_op.left  = expr;
-            new_expr->u.binary_op.right = index;
+            Expr *new_expr              = new_expression(EXPR_SUBSCRIPT);
+            new_expr->u.subscript.left  = expr;
+            new_expr->u.subscript.right = index;
             expr                        = new_expr;
         } else if (current_token == TOKEN_LPAREN) {
             advance_token();

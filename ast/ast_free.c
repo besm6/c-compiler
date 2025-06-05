@@ -246,6 +246,10 @@ void free_expression(Expr *expr)
             free_type(expr->u.compound_literal.type);
             free_init_item(expr->u.compound_literal.init);
             break;
+        case EXPR_SUBSCRIPT:
+            free_expression(expr->u.subscript.left);
+            free_expression(expr->u.subscript.right);
+            break;
         case EXPR_FIELD_ACCESS:
         case EXPR_PTR_ACCESS:
             free_expression(expr->u.field_access.expr);

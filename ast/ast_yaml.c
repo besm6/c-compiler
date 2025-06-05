@@ -758,6 +758,15 @@ static void export_expr(FILE *fd, Expr *expr, int level)
             export_init_declarator(fd, (InitDeclarator *)expr->u.compound_literal.init, level + 2);
         }
         break;
+    case EXPR_SUBSCRIPT:
+        fprintf(fd, "subscript\n");
+        print_indent(fd, level + 1);
+        fprintf(fd, "left:\n");
+        export_expr(fd, expr->u.subscript.left, level + 2);
+        print_indent(fd, level + 1);
+        fprintf(fd, "right:\n");
+        export_expr(fd, expr->u.subscript.right, level + 2);
+        break;
     case EXPR_FIELD_ACCESS:
         fprintf(fd, "field_access\n");
         print_indent(fd, level + 1);

@@ -275,3 +275,15 @@ TEST_F(ParserTest, ParseEmptyReturnStatement)
     EXPECT_EQ(STMT_RETURN, stmt->kind);
     EXPECT_EQ(nullptr, stmt->u.expr);
 }
+
+// Test return statement: return x[7];
+TEST_F(ParserTest, ParseReturnArrayItemStatement)
+{
+//  DeclOrStmt *body = GetFunctionBody("int f() { return x[7]; }");
+    DeclOrStmt *body = GetFunctionBody("int f() { return x + 7; }");
+    EXPECT_EQ(body->kind, DECL_OR_STMT_STMT);
+    Stmt *stmt = body->u.stmt;
+
+    EXPECT_EQ(STMT_RETURN, stmt->kind);
+    EXPECT_EQ(nullptr, stmt->u.expr);
+}

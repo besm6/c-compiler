@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "translator.h"
 #include "symtab.h"
 #include "typetab.h"
+#include "string_map.h"
 
 // Assume utility functions from Type_utils and Const_convert
 bool is_complete(Type *t);
@@ -35,8 +37,6 @@ StaticInitializer *static_init_helper(Type *var_type, Initializer *init);
 bool is_lvalue(Expr *e)
 {
     switch (e->kind) {
-    case EXPR_DEREF:
-    case EXPR_SUBSCRIPT:
     case EXPR_VAR:
     case EXPR_FIELD_ACCESS:
     case EXPR_PTR_ACCESS:
@@ -46,6 +46,11 @@ bool is_lvalue(Expr *e)
             return false;
         }
         return is_lvalue(e->u.binary_op.left);
+    case EXPR_UNARY_OP:
+        if (e->u.unary_op.op == UNARY_DEREF) {
+            return true;
+        }
+        return false;
     default:
         return false;
     }
@@ -118,26 +123,26 @@ void typecheck_struct_decl(Declaration *d)
     if (!d->u.var.declarators)
         return; // Ignore forward declarations
 
-    validate_struct_definition(d->u.var.specifiers->type->u.struct_t.name,
-                               d->u.var.specifiers->type->u.struct_t.fields);
+    validate_struct_definition(d->u.var.declarators->type->u.struct_t.name,
+                               d->u.var.declarators->type->u.struct_t.fields);
 
     // Build member definitions
     FieldDef *members     = NULL;
     FieldDef **tail       = &members;
     int current_size      = 0;
     int current_alignment = 1;
-    for (Field *f = d->u.var.specifiers->type->u.struct_t.fields; f; f = f->next) {
+    for (Field *f = d->u.var.declarators->type->u.struct_t.fields; f; f = f->next) {
         int member_alignment = get_alignment(f->type);
         int offset           = round_away_from_zero(member_alignment, current_size);
 
         *tail = new_member(f->name, clone_type(f->type), offset);
-        tail = &tail->next;
+        tail = &(*tail)->next;
 
         current_alignment = current_alignment > member_alignment ? current_alignment : member_alignment;
         current_size      = offset + get_size(f->type);
     }
     int size = round_away_from_zero(current_alignment, current_size);
-    typetab_add_struct(d->u.var.specifiers->type->u.struct_t.name, current_alignment, size, members);
+    typetab_add_struct(d->u.var.declarators->type->u.struct_t.name, current_alignment, size, members);
 }
 
 // Convert an expression to a target type
@@ -149,8 +154,9 @@ Expr *convert_to(Expr *e, Type *target_type)
         return e; // Avoid unnecessary casts
 
     Expr *cast = new_expression(EXPR_CAST);
-    cast.u.cast = { target_type, e };
-    cast.type = clone_type(target_type);
+    cast->u.cast.type = target_type;
+    cast->u.cast.expr = e;
+    cast->type = clone_type(target_type);
     return cast;
 }
 

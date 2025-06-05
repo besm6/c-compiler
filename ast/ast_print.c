@@ -429,6 +429,12 @@ void print_expression(FILE *fd, const Expr *expr, int indent)
         print_expression(fd, expr->u.cond.then_expr, indent + 2);
         print_expression(fd, expr->u.cond.else_expr, indent + 2);
         break;
+    case EXPR_SUBSCRIPT:
+        print_indent(fd, indent + 2);
+        fprintf(fd, "Subscript:\n");
+        print_expression(fd, expr->u.subscript.left, indent + 2);
+        print_expression(fd, expr->u.subscript.right, indent + 2);
+        break;
     case EXPR_FIELD_ACCESS:
         print_indent(fd, indent + 2);
         fprintf(fd, "Field: .%s\n", expr->u.field_access.field);

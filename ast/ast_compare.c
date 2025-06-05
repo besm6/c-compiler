@@ -307,6 +307,10 @@ bool compare_expr(const Expr *a, const Expr *b)
         if (!compare_type(a->u.compound_literal.type, b->u.compound_literal.type))
             return false;
         return compare_init_item(a->u.compound_literal.init, b->u.compound_literal.init);
+    case EXPR_SUBSCRIPT:
+        if (!compare_expr(a->u.subscript.left, b->u.subscript.left))
+            return false;
+        return compare_expr(a->u.subscript.right, b->u.subscript.right);
     case EXPR_FIELD_ACCESS:
         if (!compare_expr(a->u.field_access.expr, b->u.field_access.expr))
             return false;

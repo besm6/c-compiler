@@ -234,6 +234,7 @@ typedef enum {
     EXPR_VAR,
     EXPR_UNARY_OP,
     EXPR_BINARY_OP,
+    EXPR_SUBSCRIPT,
     EXPR_ASSIGN,
     EXPR_COND,
     EXPR_CAST,
@@ -310,6 +311,10 @@ struct Expr {
             Expr *left;
             Expr *right;
         } binary_op;
+        struct {
+            Expr *left;
+            Expr *right;
+        } subscript;
         struct {
             AssignOp op;
             Expr *target;

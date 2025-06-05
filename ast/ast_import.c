@@ -545,6 +545,10 @@ Expr *import_expr(WFILE *input)
             next_item = &(*next_item)->next;
         }
         break;
+    case EXPR_SUBSCRIPT:
+        expr->u.subscript.left  = import_expr(input);
+        expr->u.subscript.right = import_expr(input);
+        break;
     case EXPR_FIELD_ACCESS:
         expr->u.field_access.expr  = import_expr(input);
         expr->u.field_access.field = wgetstr(input);
