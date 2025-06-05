@@ -90,6 +90,7 @@ protected:
         xalloc_debug = 1;
         symtab_init();
     }
+
     void TearDown() override
     {
         symtab_destroy();

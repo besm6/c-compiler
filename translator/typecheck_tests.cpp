@@ -219,7 +219,7 @@
 // - Empty (error occurs before any symbols).
 //
 // Expected Typetab:
-// - Empty (error occurs during typetab_add_struct_definition).
+// - Empty (error occurs during typetab_add_struct).
 //
 // Expected AST Type Fields:
 // - N/A (program terminates with error: "Structure S was already declared").

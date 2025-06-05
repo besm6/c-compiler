@@ -1,45 +1,25 @@
 #include <gtest/gtest.h>
 #include <string.h>
 
-#include "ast.h"
+#include "translator.h"
 #include "typetab.h"
+#include "xalloc.h"
 
 // Test fixture for TypeTab tests
 class TypeTabTest : public ::testing::Test {
 protected:
-    void SetUp() override { typetab_init(); }
-
-    void TearDown() override { typetab_destroy(); }
-
-    // Helper to create a FieldDef
-    FieldDef *createFieldDef(const char *name, Type *type, int offset)
+    void SetUp() override
     {
-        FieldDef *member = new FieldDef;
-        member->name       = strdup(name);
-        member->type       = type;
-        member->offset     = offset;
-        member->next       = nullptr;
-        return member;
+        xalloc_debug = 1;
+        typetab_init();
     }
 
-    // Helper to create a simple Type
-    Type *createSimpleType(TypeKind kind)
+    void TearDown() override
     {
-        Type *type       = new_type(kind);
-        type->qualifiers = nullptr;
-        return type;
-    }
-
-    // Helper to free a FieldDef list
-    void freeFieldDefList(FieldDef *member)
-    {
-        while (member) {
-            FieldDef *next = member->next;
-            free(member->name);
-            free_type(member->type);
-            delete member;
-            member = next;
-        }
+        typetab_destroy();
+        xreport_lost_memory();
+        EXPECT_EQ(xtotal_allocated_size(), 0);
+        xfree_all();
     }
 };
 
@@ -50,13 +30,13 @@ TEST_F(TypeTabTest, InitCreatesEmptyTable)
     EXPECT_FALSE(typetab_exists("any_tag"));
 }
 
-// Test typetab_add_struct_definition with a single member
+// Test typetab_add_struct with a single field
 TEST_F(TypeTabTest, AddFieldDefinitionSingleMember)
 {
-    Type *intType      = createSimpleType(TYPE_INT);
-    FieldDef *member = createFieldDef("x", intType, 0);
+    Type *intType   = new_type(TYPE_INT);
+    FieldDef *field = new_member("x", intType, 0);
 
-    typetab_add_struct_definition(strdup("point"), 4, 4, member);
+    typetab_add_struct("point", 4, 4, field);
 
     EXPECT_TRUE(typetab_exists("point"));
     StructDef *entry = typetab_find("point");
@@ -71,16 +51,16 @@ TEST_F(TypeTabTest, AddFieldDefinitionSingleMember)
     EXPECT_EQ(entry->members->next, nullptr);
 }
 
-// Test typetab_add_struct_definition with multiple members
+// Test typetab_add_struct with multiple fields
 TEST_F(TypeTabTest, AddFieldDefinitionMultipleMembers)
 {
-    Type *intType       = createSimpleType(TYPE_INT);
-    Type *doubleType    = createSimpleType(TYPE_DOUBLE);
-    FieldDef *member1 = createFieldDef("x", intType, 0);
-    FieldDef *member2 = createFieldDef("y", doubleType, 8);
-    member1->next       = member2;
+    Type *intType    = new_type(TYPE_INT);
+    Type *doubleType = new_type(TYPE_DOUBLE);
+    FieldDef *field1 = new_member("x", intType, 0);
+    FieldDef *field2 = new_member("y", doubleType, 8);
+    field1->next     = field2;
 
-    typetab_add_struct_definition(strdup("vector"), 8, 16, member1);
+    typetab_add_struct("vector", 8, 16, field1);
 
     EXPECT_TRUE(typetab_exists("vector"));
     StructDef *entry = typetab_find("vector");
@@ -102,13 +82,13 @@ TEST_F(TypeTabTest, AddFieldDefinitionMultipleMembers)
 // Test replacing an existing struct definition
 TEST_F(TypeTabTest, ReplaceFieldDefinition)
 {
-    Type *intType       = createSimpleType(TYPE_INT);
-    FieldDef *member1 = createFieldDef("x", intType, 0);
-    typetab_add_struct_definition(strdup("point"), 4, 4, member1);
+    Type *intType    = new_type(TYPE_INT);
+    FieldDef *field1 = new_member("x", intType, 0);
+    typetab_add_struct("point", 4, 4, field1);
 
-    Type *doubleType    = createSimpleType(TYPE_DOUBLE);
-    FieldDef *member2 = createFieldDef("y", doubleType, 0);
-    typetab_add_struct_definition(strdup("point"), 8, 8, member2);
+    Type *doubleType = new_type(TYPE_DOUBLE);
+    FieldDef *field2 = new_member("y", doubleType, 0);
+    typetab_add_struct("point", 8, 8, field2);
 
     StructDef *entry = typetab_find("point");
     ASSERT_NE(entry, nullptr);
@@ -139,19 +119,19 @@ TEST_F(TypeTabTest, FindNonExistentTag)
 // Test typetab_destroy
 TEST_F(TypeTabTest, DestroyFreesMemory)
 {
-    Type *intType      = createSimpleType(TYPE_INT);
-    FieldDef *member = createFieldDef("x", intType, 0);
-    typetab_add_struct_definition(strdup("point"), 4, 4, member);
+    Type *intType   = new_type(TYPE_INT);
+    FieldDef *field = new_member("x", intType, 0);
+    typetab_add_struct("point", 4, 4, field);
 
     typetab_destroy();
     typetab_init(); // Re-initialize to ensure table is usable
     EXPECT_FALSE(typetab_exists("point"));
 }
 
-// Test adding struct with NULL members
+// Test adding struct with NULL fields
 TEST_F(TypeTabTest, AddStructWithNullMembers)
 {
-    typetab_add_struct_definition(strdup("empty"), 4, 0, nullptr);
+    typetab_add_struct("empty", 4, 0, nullptr);
 
     EXPECT_TRUE(typetab_exists("empty"));
     StructDef *entry = typetab_find("empty");

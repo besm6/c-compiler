@@ -336,10 +336,12 @@ static void free_nodes(StringNode *node, void (*dealloc)(intptr_t value))
 void map_destroy(StringMap *map)
 {
     free_nodes(map->root, NULL);
+    map->root = NULL;
 }
 
 // Free the map and all its nodes
 void map_destroy_free(StringMap *map, void (*dealloc)(intptr_t value))
 {
     free_nodes(map->root, dealloc);
+    map->root = NULL;
 }

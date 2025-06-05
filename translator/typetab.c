@@ -11,9 +11,21 @@
 static StringMap typetab;
 
 //
+// Allocate a FieldDef
+//
+FieldDef *new_member(const char *name, Type *type, int offset)
+{
+    FieldDef *field = xalloc(sizeof(FieldDef), __func__, __FILE__, __LINE__);
+    field->name     = xstrdup(name);
+    field->type     = type;
+    field->offset   = offset;
+    return field;
+}
+
+//
 // Deallocate FieldDef.
 //
-void free_field_definition(FieldDef *def)
+void free_member(FieldDef *def)
 {
     while (def) {
         FieldDef *next = def->next;
@@ -28,10 +40,10 @@ void free_field_definition(FieldDef *def)
 //
 // Deallocate StructDef.
 //
-void free_struct_definition(StructDef *def)
+void free_struct(StructDef *def)
 {
     if (def) {
-        free_field_definition(def->members);
+        free_member(def->members);
         xfree(def->tag);
         xfree(def);
     }
@@ -39,7 +51,7 @@ void free_struct_definition(StructDef *def)
 
 static void typetab_destroy_callback(intptr_t ptr)
 {
-    free_struct_definition((StructDef *)ptr);
+    free_struct((StructDef *)ptr);
 }
 
 //
@@ -65,7 +77,7 @@ void typetab_destroy()
 // Precondition: tag is a non-null string, members is a valid list of elements or NULL.
 // Postcondition: A StructDef with tag, alignment, size, and copied members is added/replaced in typetab.
 //
-void typetab_add_struct_definition(const char *tag, int alignment, int size, FieldDef *members)
+void typetab_add_struct(const char *tag, int alignment, int size, FieldDef *members)
 {
     // Build new definition.
     StructDef *def = xalloc(sizeof(StructDef), __func__, __FILE__, __LINE__);

@@ -140,8 +140,8 @@ void typecheck_struct_decl(Declaration *d)
     int current_size = 0, current_alignment = 1, member_count = 0;
     for (Field *f = d->u.var.specifiers->type->u.struct_t.fields; f; f = f->next)
         member_count++;
-    TypeMember *members = malloc(member_count * sizeof(TypeMember));
-    int i               = 0;
+    FieldDef *members = malloc(member_count * sizeof(FieldDef));
+    int i             = 0;
     for (Field *f = d->u.var.specifiers->type->u.struct_t.fields; f; f = f->next) {
         int member_alignment = get_alignment(f->type);
         int offset           = round_away_from_zero(member_alignment, current_size);
@@ -154,8 +154,8 @@ void typecheck_struct_decl(Declaration *d)
         i++;
     }
     int size = round_away_from_zero(current_alignment, current_size);
-    typetab_add_struct_definition(d->u.var.specifiers->type->u.struct_t.name, current_alignment,
-                                  size, members, member_count);
+    typetab_add_struct(d->u.var.specifiers->type->u.struct_t.name, current_alignment,
+                       size, members, member_count);
     free(members); // typetab owns the copy
 }
 
@@ -632,8 +632,8 @@ Expr *typecheck_exp(Expr *e)
             fprintf(stderr, "Dot operator requires structure type\n");
             exit(1);
         }
-        TypeEntry *entry   = typetab_find(strct->type->u.struct_t.name);
-        TypeMember *member = NULL;
+        StructDef *entry = typetab_find(strct->type->u.struct_t.name);
+        FieldDef *member = NULL;
         for (int i = 0; i < entry->member_count; i++) {
             if (strcmp(entry->members[i].name, e->u.field_access.field) == 0) {
                 member = &entry->members[i];
@@ -656,8 +656,8 @@ Expr *typecheck_exp(Expr *e)
             fprintf(stderr, "Arrow operator requires pointer to structure\n");
             exit(1);
         }
-        TypeEntry *entry   = typetab_find(strct_ptr->type->u.pointer.target->u.struct_t.name);
-        TypeMember *member = NULL;
+        StructDef *entry = typetab_find(strct_ptr->type->u.pointer.target->u.struct_t.name);
+        FieldDef *member = NULL;
         for (int i = 0; i < entry->member_count; i++) {
             if (strcmp(entry->members[i].name, e->u.ptr_access.field) == 0) {
                 member = &entry->members[i];
@@ -730,7 +730,7 @@ Initializer *make_zero_init(Type *t)
 
         InitItem **tail = &init->u.items;
         int count;
-        TypeMember *members = typetab_get_members(t->u.struct_t.name, &count);
+        FieldDef *members = typetab_get_members(t->u.struct_t.name, &count);
         for (int i = 0; i < count; i++) {
             InitItem *item    = new_init_item(NULL, make_zero_init(members[i].type));
             *tail             = item;
@@ -857,7 +857,7 @@ StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
         exit(1);
     }
     if (var_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
-        TypeEntry *entry = typetab_find(var_type->u.struct_t.name);
+        StructDef *entry = typetab_find(var_type->u.struct_t.name);
         int init_count   = 0;
         for (InitItem *item = init->u.items; item; item = item->next)
             init_count++;
@@ -868,7 +868,7 @@ StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
         StaticInitializer *result = NULL, **tail = &result;
         int current_offset = 0;
         for (int i = 0; i < init_count; i++) {
-            TypeMember *memb = &entry->members[i];
+            FieldDef *memb = &entry->members[i];
             if (current_offset < memb->offset) {
                 StaticInitializer *zero = malloc(sizeof(StaticInitializer));
                 zero->kind              = INIT_ZERO;
@@ -951,7 +951,7 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
     }
     if (target_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
         int member_count;
-        TypeMember *members = typetab_get_members(target_type->u.struct_t.name, &member_count);
+        FieldDef *members   = typetab_get_members(target_type->u.struct_t.name, &member_count);
         int init_count      = 0;
         for (InitItem *item = init->u.items; item; item = item->next)
             init_count++;
