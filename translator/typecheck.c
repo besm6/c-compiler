@@ -6,6 +6,7 @@
 #include "symtab.h"
 #include "typetab.h"
 #include "string_map.h"
+#include "xalloc.h"
 
 // Assume utility functions from Type_utils and Const_convert
 bool is_complete(Type *t);
@@ -32,6 +33,8 @@ Expr *typecheck_and_convert(Expr *e);
 Expr *typecheck_scalar(Expr *e);
 Initializer *typecheck_init(Type *target_type, Initializer *init);
 StaticInitializer *static_init_helper(Type *var_type, Initializer *init);
+Stmt *typecheck_statement(Type *ret_type, Stmt *s);
+void typecheck_local_decl(Declaration *d);
 
 // Check if an expression is an lvalue
 bool is_lvalue(Expr *e)
@@ -554,8 +557,8 @@ Expr *typecheck_exp(Expr *e)
         return e;
     }
     case EXPR_SUBSCRIPT: {
-        Expr *ptr   = typecheck_and_convert(e->u.binary_op.left);
-        Expr *index = typecheck_and_convert(e->u.binary_op.right);
+        Expr *ptr   = typecheck_and_convert(e->u.subscript.left);
+        Expr *index = typecheck_and_convert(e->u.subscript.right);
         const Type *result_type;
         if (is_complete_pointer(ptr->type) && is_integer(index->type)) {
             result_type = ptr->type->u.pointer.target;
@@ -567,8 +570,8 @@ Expr *typecheck_exp(Expr *e)
             fatal_error("Invalid types for subscript operation");
         }
         e->type              = clone_type(result_type);
-        e->u.binary_op.left  = ptr;
-        e->u.binary_op.right = index;
+        e->u.subscript.left  = ptr;
+        e->u.subscript.right = index;
         return e;
     }
     case EXPR_SIZEOF_EXPR: {
@@ -593,11 +596,10 @@ Expr *typecheck_exp(Expr *e)
         if (strct->type->kind != TYPE_STRUCT) {
             fatal_error("Dot operator requires structure type");
         }
-        StructDef *entry = typetab_find(strct->type->u.struct_t.name);
-        const FieldDef *member = NULL;
-        for (int i = 0; i < entry->member_count; i++) {
-            if (strcmp(entry->members[i].name, e->u.field_access.field) == 0) {
-                member = &entry->members[i];
+        const StructDef *entry = typetab_find(strct->type->u.struct_t.name);
+        const FieldDef *member = entry->members;
+        for (; member; member = member->next) {
+            if (strcmp(member->name, e->u.field_access.field) == 0) {
                 break;
             }
         }
@@ -615,11 +617,10 @@ Expr *typecheck_exp(Expr *e)
             strct_ptr->type->u.pointer.target->kind != TYPE_STRUCT) {
             fatal_error("Arrow operator requires pointer to structure");
         }
-        StructDef *entry = typetab_find(strct_ptr->type->u.pointer.target->u.struct_t.name);
-        const FieldDef *member = NULL;
-        for (int i = 0; i < entry->member_count; i++) {
-            if (strcmp(entry->members[i].name, e->u.ptr_access.field) == 0) {
-                member = &entry->members[i];
+        const StructDef *entry = typetab_find(strct_ptr->type->u.pointer.target->u.struct_t.name);
+        const FieldDef *member = entry->members;
+        for (; member; member = member->next) {
+            if (strcmp(member->name, e->u.ptr_access.field) == 0) {
                 break;
             }
         }
@@ -732,7 +733,7 @@ StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
         if (!is_character(var_type->u.array.element)) {
             fatal_error("Can't initialize array of non-character type with string literal");
         }
-        char *s                              = init->u.expr->u.literal->u.string_val;
+        const char *s                        = init->u.expr->u.literal->u.string_val;
         size_t len                           = strlen(s);
         size_t array_size                    = (size_t)var_type->u.array.size;
         StaticInitializer *result            = new_static_initializer(INIT_STRING);
@@ -793,23 +794,20 @@ StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
     }
     if (var_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
         StructDef *entry = typetab_find(var_type->u.struct_t.name);
-        int init_count   = 0;
-        for (InitItem *item = init->u.items; item; item = item->next)
-            init_count++;
-        if (init_count > entry->member_count) {
-            fatal_error("Too many elements in struct initializer");
-        }
+        FieldDef *memb   = entry->members;
         StaticInitializer *result = NULL, **tail = &result;
         int current_offset = 0;
-        for (int i = 0; i < init_count; i++) {
-            FieldDef *memb = &entry->members[i];
+        for (InitItem *item = init->u.items; item; item = item->next, memb = memb->next) {
+            if (!memb) {
+                fatal_error("Too many elements in struct initializer");
+            }
             if (current_offset < memb->offset) {
                 StaticInitializer *zero = new_static_initializer(INIT_ZERO);
                 zero->u.zero_bytes      = memb->offset - current_offset;
                 *tail                   = zero;
                 tail                    = &zero->next;
             }
-            StaticInitializer *member_init = static_init_helper(memb->type, init->u.items[i].init);
+            StaticInitializer *member_init = static_init_helper(memb->type, item->init);
             *tail                          = member_init;
             while (*tail)
                 tail = &(*tail)->next;
@@ -926,16 +924,16 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
 }
 
 // Type-check a block
-DeclOrStmt *typecheck_block(Type *ret_type)
+DeclOrStmt *typecheck_block(Type *ret_type, DeclOrStmt *block)
 {
-    for (DeclOrStmt *stmt = d->u.function.body->u.compound; stmt; stmt = stmt->next) {
-        if (stmt->kind == DECL_OR_STMT_STMT) {
-            stmt->u.stmt = typecheck_stmt(ret_type, stmt->u.stmt);
+    for (DeclOrStmt *item = block; item; item = item->next) {
+        if (item->kind == DECL_OR_STMT_STMT) {
+            item->u.stmt = typecheck_statement(ret_type, item->u.stmt);
         } else {
-            typecheck_decl(stmt->u.decl);
+            typecheck_local_decl(item->u.decl);
         }
     }
-    return d->u.function.body->u.compound;
+    return block;
 }
 
 // Type-check a statement
@@ -1008,8 +1006,8 @@ Stmt *typecheck_statement(Type *ret_type, Stmt *s)
 // Type-check a local variable declaration
 void typecheck_local_var_decl(Declaration *d)
 {
-    Type *var_type       = d->u.var.specifiers->type;
     InitDeclarator *decl = d->u.var.declarators;
+    Type *var_type       = decl->type;
     if (var_type->kind == TYPE_VOID) {
         fatal_error("No void declarations");
     }
@@ -1129,8 +1127,8 @@ void typecheck_local_decl(Declaration *d)
 // Type-check a global variable declaration
 void typecheck_file_scope_var_decl(Declaration *d)
 {
-    Type *var_type       = d->u.var.specifiers->type;
     InitDeclarator *decl = d->u.var.declarators;
+    Type *var_type       = decl->type;
     if (var_type->kind == TYPE_VOID) {
         fatal_error("Void variables not allowed");
     }
@@ -1176,21 +1174,11 @@ void typecheck_file_scope_var_decl(Declaration *d)
 }
 
 // Type-check a global declaration
-void typecheck_global_decl(ExternalDecl *d)
+void typecheck(ExternalDecl *d)
 {
     if (d->kind == EXTERNAL_DECL_FUNCTION) {
         typecheck_fn_decl(d);
     } else {
         typecheck_file_scope_var_decl(d->u.declaration);
-    }
-}
-
-// Type-check a program
-void typecheck(Program *p)
-{
-    symtab_init();
-    typetab_init();
-    for (ExternalDecl *d = p->decls; d; d = d->next) {
-        typecheck_global_decl(d);
     }
 }

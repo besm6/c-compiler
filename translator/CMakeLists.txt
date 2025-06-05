@@ -5,7 +5,7 @@ add_library(translator STATIC
     translator.c
     symtab.c
     typetab.c
-#   typecheck.c
+    typecheck.c
 )
 target_include_directories(translator PUBLIC .)
 target_link_libraries(translator tac ast libutil)
