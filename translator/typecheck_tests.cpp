@@ -16,8 +16,71 @@
 // Test Case 9: Pointer to Struct and Arrow Operator
 // Test Case 10: Error - Invalid Assignment
 //
+#include <gtest/gtest.h>
 
-#if 0
+#include <cstdio>
+#include <cstring>
+#include <string>
+#include <vector>
+
+#include "translator.h"
+#include "parser.h"
+#include "scanner.h"
+#include "internal.h"
+#include "symtab.h"
+#include "typetab.h"
+#include "xalloc.h"
+#include <fcntl.h>
+
+// Test fixture
+class TypecheckTest : public ::testing::Test {
+    const std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    FILE *input_file{};
+
+public:
+    Program *program{};
+
+protected:
+    void SetUp() override
+    {
+        auto filename = test_name + ".c";
+        input_file = fopen(filename.c_str(), "w+");
+        ASSERT_NE(nullptr, input_file);
+    }
+
+    void TearDown() override
+    {
+        fclose(input_file);
+        if (program) {
+            free_program(program);
+            symtab_destroy();
+            typetab_destroy();
+        }
+        xreport_lost_memory();
+        EXPECT_EQ(xtotal_allocated_size(), 0);
+        xfree_all();
+    }
+
+    // Helper to create a temporary file with content
+    FILE *CreateTempFile(const char *content)
+    {
+        fwrite(content, 1, strlen(content), input_file);
+        rewind(input_file);
+        return input_file;
+    }
+
+    // Helper to get external declaration from program
+    ExternalDecl *GetExternalDecl(const char *content)
+    {
+        program = parse(CreateTempFile(content));
+        EXPECT_NE(nullptr, program);
+        print_program(stdout, program);
+
+        EXPECT_NE(nullptr, program->decls);
+        return program->decls;
+    }
+};
+
 //
 // Test Case 1: Simple Integer Variable Declaration and Expression
 // Tests a global variable declaration, integer addition, and function return.
@@ -45,7 +108,23 @@
 //   - Expr(EXPR_VAR, "x")->type: TYPE_INT
 //   - Expr(EXPR_LITERAL, 1)->type: TYPE_INT
 //
+TEST_F(TypecheckTest, TypecheckIntVarExpr)
+{
+    ExternalDecl *ast = GetExternalDecl(R"(
+        int x = 42;
+        int main() {
+            return x + 1;
+        }
+    )");
+    ASSERT_NE(ast, nullptr);
+    typecheck(ast);
+    print_program(stdout, program);
 
+    //TODO: check symtab
+    //TODO: check types in AST
+}
+
+#if 0
 //
 // Test Case 2: Struct Declaration and Member Access
 // Tests struct definition, initialization, and dot operator.

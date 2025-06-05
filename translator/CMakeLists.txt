@@ -27,3 +27,12 @@ add_executable(typetab-tests
 )
 target_link_libraries(typetab-tests translator GTest::gtest_main)
 gtest_discover_tests(typetab-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+
+#
+# Tests for typecheck
+#
+add_executable(typecheck-tests
+   typecheck_tests.cpp
+)
+target_link_libraries(typecheck-tests parser translator GTest::gtest_main)
+gtest_discover_tests(typecheck-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
