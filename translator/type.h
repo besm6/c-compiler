@@ -1,8 +1,10 @@
 //
 // Helpers for Type.
 //
-int get_size(const Type *t);
-int get_alignment(const Type *t);
+#include "ast.h"
+
+size_t get_size(const Type *t);
+size_t get_alignment(const Type *t);
 bool is_complete(const Type *t);
 bool is_scalar(const Type *t);
 bool is_arithmetic(const Type *t);
