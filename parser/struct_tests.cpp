@@ -32,7 +32,6 @@ TEST_F(ParserTest, NestedStructWithSimpleField)
     //
     ASSERT_NE(x->type, nullptr);
     EXPECT_EQ(x->type->kind, TYPE_INT);
-    EXPECT_EQ(x->type->u.integer.signedness, SIGNED_SIGNED);
 
     EXPECT_STREQ(x->name, "x");
     EXPECT_EQ(x->bitfield, nullptr);
@@ -58,7 +57,6 @@ TEST_F(ParserTest, NestedStructWithSimpleField)
     //
     ASSERT_NE(y->type, nullptr);
     EXPECT_EQ(y->type->kind, TYPE_INT);
-    EXPECT_EQ(y->type->u.integer.signedness, SIGNED_SIGNED);
 
     EXPECT_STREQ(y->name, "y");
     EXPECT_EQ(y->bitfield, nullptr);
@@ -95,7 +93,6 @@ TEST_F(ParserTest, StructWithPointerToItself)
     EXPECT_EQ(data->bitfield, nullptr);
     ASSERT_NE(data->type, nullptr);
     EXPECT_EQ(data->type->kind, TYPE_INT);
-    EXPECT_EQ(data->type->u.integer.signedness, SIGNED_SIGNED);
 
     //
     // Check field next

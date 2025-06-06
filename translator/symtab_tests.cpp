@@ -220,7 +220,6 @@ TEST_F(SymtabTest, AddStringLiteral)
     ASSERT_NE(sym->type->u.array.element, nullptr);
     EXPECT_EQ(sym->type->qualifiers, nullptr);
     EXPECT_EQ(sym->type->u.array.element->kind, TYPE_CHAR);
-    EXPECT_EQ(sym->type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(sym->type->u.array.element->qualifiers, nullptr);
     ASSERT_NE(sym->type->u.array.size, nullptr);
     EXPECT_EQ(sym->type->u.array.size->kind, EXPR_LITERAL);

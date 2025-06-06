@@ -199,14 +199,6 @@ static void export_type(FILE *fd, Type *type, int level)
         export_type_qualifier(fd, type->qualifiers, level + 1);
     }
     switch (type->kind) {
-    case TYPE_CHAR:
-    case TYPE_SHORT:
-    case TYPE_INT:
-    case TYPE_LONG:
-        print_indent(fd, level);
-        fprintf(fd, "signedness: %s\n",
-                type->u.integer.signedness == SIGNED_SIGNED ? "signed" : "unsigned");
-        break;
     case TYPE_COMPLEX:
     case TYPE_IMAGINARY:
         print_indent(fd, level);

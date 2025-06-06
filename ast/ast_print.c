@@ -177,20 +177,38 @@ void print_type(FILE *fd, const Type *type, int indent)
         fprintf(fd, "_Bool\n");
         break;
     case TYPE_CHAR:
-        fprintf(fd, "char (%s)\n",
-                type->u.integer.signedness == SIGNED_SIGNED ? "signed" : "unsigned");
+        fprintf(fd, "char\n");
+        break;
+    case TYPE_SCHAR:
+        fprintf(fd, "char (signed)\n");
+        break;
+    case TYPE_UCHAR:
+        fprintf(fd, "char (unsigned)\n");
         break;
     case TYPE_SHORT:
-        fprintf(fd, "short (%s)\n",
-                type->u.integer.signedness == SIGNED_SIGNED ? "signed" : "unsigned");
+        fprintf(fd, "short (signed)\n");
+        break;
+    case TYPE_USHORT:
+        fprintf(fd, "short (unsigned)\n");
         break;
     case TYPE_INT:
-        fprintf(fd, "int (%s)\n",
-                type->u.integer.signedness == SIGNED_SIGNED ? "signed" : "unsigned");
+        fprintf(fd, "int (signed)\n");
+        break;
+    case TYPE_UINT:
+        fprintf(fd, "int (unsigned)\n");
         break;
     case TYPE_LONG:
-            fprintf(fd, "long (%s)\n", type->u.integer.signedness == SIGNED_SIGNED ?  "signed" : "unsigned");
-            break;
+        fprintf(fd, "long (signed)\n");
+        break;
+    case TYPE_ULONG:
+        fprintf(fd, "long (unsigned)\n");
+        break;
+    case TYPE_LONG_LONG:
+        fprintf(fd, "long long (signed)\n");
+        break;
+    case TYPE_ULONG_LONG:
+        fprintf(fd, "long long (unsigned)\n");
+        break;
     case TYPE_FLOAT:
         fprintf(fd, "float\n");
         break;

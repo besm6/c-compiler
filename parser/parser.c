@@ -1096,9 +1096,11 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
         fatal_error("Empty type specifier list");
     }
 
+    enum { SIGNED_SIGNED, SIGNED_UNSIGNED };
+
     /* State for tracking type specifiers */
     TypeKind base_kind     = -1; /* Unset */
-    Signedness signedness  = -1; /* Unset */
+    int signedness         = -1; /* Unset */
     int int_count          = 0;  /* For int */
     int long_count         = 0;  /* For long, long long */
     bool is_complex        = false;
@@ -1269,8 +1271,7 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
             if (signedness == -1) {
                 fatal_error("No valid type specifier provided");
             }
-            // Signed/unsigned defaults to int.
-            base_kind = TYPE_INT;
+            base_kind = (signedness == SIGNED_SIGNED) ? TYPE_INT : TYPE_UINT;
         }
         if (is_complex && is_imaginary) {
             fatal_error("_Complex and _Imaginary cannot combine");
@@ -1288,6 +1289,37 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
             }
         }
 
+        // Update base type for signedness.
+        switch (signedness) {
+        case SIGNED_SIGNED:
+            if (base_kind == TYPE_CHAR)
+                base_kind = TYPE_SCHAR;
+            break;
+        case SIGNED_UNSIGNED:
+            switch (base_kind) {
+            case TYPE_CHAR:
+                base_kind = TYPE_UCHAR;
+                break;
+            case TYPE_SHORT:
+                base_kind = TYPE_USHORT;
+                break;
+            case TYPE_INT:
+                base_kind = TYPE_UINT;
+                break;
+            case TYPE_LONG:
+                base_kind = TYPE_ULONG;
+                break;
+            case TYPE_LONG_LONG:
+                base_kind = TYPE_ULONG_LONG;
+                break;
+            default:
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+
         /* Create Type based on base_kind */
         if (is_complex) {
             result                 = new_type(TYPE_COMPLEX, __func__, __FILE__, __LINE__);
@@ -1297,13 +1329,6 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
             result->u.complex.base = new_type(base_kind, __func__, __FILE__, __LINE__);
         } else {
             result = new_type(base_kind, __func__, __FILE__, __LINE__);
-            if (base_kind == TYPE_CHAR || base_kind == TYPE_SHORT || base_kind == TYPE_INT ||
-                base_kind == TYPE_LONG) {
-                if (signedness == -1) {
-                    signedness = SIGNED_SIGNED; // Default
-                }
-                result->u.integer.signedness = signedness;
-            }
         }
     }
     return result;
@@ -1597,12 +1622,10 @@ TypeSpec *parse_type_specifier()
     } else if (current_token == TOKEN_SIGNED) {
         ts                               = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic                      = new_type(TYPE_SIGNED, __func__, __FILE__, __LINE__);
-        ts->u.basic->u.integer.signedness = SIGNED_SIGNED;
         advance_token();
     } else if (current_token == TOKEN_UNSIGNED) {
         ts                               = new_type_spec(TYPE_SPEC_BASIC);
         ts->u.basic                      = new_type(TYPE_UNSIGNED, __func__, __FILE__, __LINE__);
-        ts->u.basic->u.integer.signedness = SIGNED_UNSIGNED;
         advance_token();
     } else if (current_token == TOKEN_BOOL) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);

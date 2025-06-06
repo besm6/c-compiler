@@ -20,6 +20,8 @@ bool compare_type(const Type *a, const Type *b)
         return false;
     if (a->kind != b->kind)
         return false;
+    if (!compare_type_qualifier(a->qualifiers, b->qualifiers))
+        return false;
     switch (a->kind) {
     case TYPE_VOID:
     case TYPE_BOOL:
@@ -39,7 +41,7 @@ bool compare_type(const Type *a, const Type *b)
     case TYPE_ULONG:
     case TYPE_LONG_LONG:
     case TYPE_ULONG_LONG:
-        return a->u.integer.signedness == b->u.integer.signedness;
+        return true;
     case TYPE_COMPLEX:
     case TYPE_IMAGINARY:
         return compare_type(a->u.complex.base, b->u.complex.base);
@@ -75,7 +77,6 @@ bool compare_type(const Type *a, const Type *b)
     case TYPE_ATOMIC:
         return compare_type(a->u.atomic.base, b->u.atomic.base);
     }
-    return compare_type_qualifier(a->qualifiers, b->qualifiers);
 }
 
 bool compare_type_qualifier(const TypeQualifier *a, const TypeQualifier *b)

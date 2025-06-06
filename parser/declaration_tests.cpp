@@ -194,7 +194,6 @@ TEST_F(ParserTest, ParseTypeSigned)
     Type *base_type = decl->u.var.declarators->type;
     ASSERT_NE(nullptr, base_type);
     EXPECT_EQ(TYPE_INT, base_type->kind);
-    EXPECT_EQ(SIGNED_SIGNED, base_type->u.integer.signedness);
 
     InitDeclarator *declarator = decl->u.var.declarators;
     ASSERT_NE(nullptr, declarator);
@@ -205,8 +204,7 @@ TEST_F(ParserTest, ParseTypeUnsigned)
 {
     Declaration *decl = GetDeclaration("unsigned x;");
 
-    EXPECT_EQ(TYPE_INT, decl->u.var.declarators->type->kind);
-    EXPECT_EQ(SIGNED_UNSIGNED, decl->u.var.declarators->type->u.integer.signedness);
+    EXPECT_EQ(TYPE_UINT, decl->u.var.declarators->type->kind);
     EXPECT_STREQ("x", decl->u.var.declarators->name);
 }
 
@@ -252,7 +250,6 @@ TEST_F(ParserTest, ParseTypeStruct)
 
     ASSERT_NE(field->type, nullptr);
     EXPECT_EQ(field->type->kind, TYPE_INT);
-    EXPECT_EQ(field->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_STREQ(field->name, "x");
 
     InitDeclarator *init_decl = decl->u.var.declarators;
@@ -280,7 +277,6 @@ TEST_F(ParserTest, ParseTypeAnonymousStruct)
 
     ASSERT_NE(field->type, nullptr);
     EXPECT_EQ(field->type->kind, TYPE_INT);
-    EXPECT_EQ(field->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_STREQ(field->name, "x");
 
     InitDeclarator *init_decl = decl->u.var.declarators;
@@ -309,7 +305,6 @@ TEST_F(ParserTest, ParseTypeUnion)
 
     ASSERT_NE(field->type, nullptr);
     EXPECT_EQ(field->type->kind, TYPE_INT);
-    EXPECT_EQ(field->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_STREQ(field->name, "x");
 
     InitDeclarator *init_decl = decl->u.var.declarators;
@@ -359,7 +354,6 @@ TEST_F(ParserTest, ParseTypedef)
     InitDeclarator *init = decl->u.var.declarators;
     EXPECT_STREQ("T", init->name);
     EXPECT_EQ(TYPE_INT, init->type->kind);
-    EXPECT_EQ(SIGNED_SIGNED, init->type->u.integer.signedness);
 
     //
     // Check variable x
@@ -386,7 +380,6 @@ TEST_F(ParserTest, ParseTypeAtomic)
     Type *base = decl->u.var.declarators->type->u.atomic.base;
     ASSERT_NE(nullptr, base);
     EXPECT_EQ(TYPE_INT, base->kind);
-    EXPECT_EQ(SIGNED_SIGNED, base->u.integer.signedness);
 }
 
 TEST_F(ParserTest, ParseTypeQualifierConst)
@@ -591,7 +584,6 @@ TEST_F(ParserTest, ParseFunctionDeclarationWithArgs)
     ret = type->u.pointer.target->u.function.return_type;
     ASSERT_NE(nullptr, ret);
     EXPECT_EQ(TYPE_INT, ret->kind);
-    EXPECT_EQ(SIGNED_SIGNED, ret->u.integer.signedness);
 
     param1 = type->u.pointer.target->u.function.params;
     ASSERT_NE(nullptr, param1);
@@ -608,7 +600,6 @@ TEST_F(ParserTest, ParseFunctionDeclarationWithArgs)
     EXPECT_EQ(nullptr, param2->specifiers);
     ASSERT_NE(nullptr, param2->type);
     EXPECT_EQ(TYPE_INT, param2->type->kind);
-    EXPECT_EQ(SIGNED_SIGNED, param2->type->u.integer.signedness);
 }
 
 TEST_F(ParserTest, ParseFunctionParameterRegister)
@@ -626,7 +617,6 @@ TEST_F(ParserTest, ParseFunctionParameterRegister)
     Param *params = type->u.function.params;
     ASSERT_NE(params, nullptr);
     EXPECT_EQ(TYPE_INT, params->type->kind);
-    EXPECT_EQ(params->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_STREQ("x", params->name);
 
     DeclSpec *spec = params->specifiers;

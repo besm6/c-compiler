@@ -67,14 +67,9 @@ typedef enum {
     TYPE_ATOMIC
 } TypeKind;
 
-typedef enum { SIGNED_SIGNED, SIGNED_UNSIGNED } Signedness;
-
 struct Type {
     TypeKind kind;
     union {
-        struct {
-            Signedness signedness;
-        } integer; /* for Char, Short, Int, Long */
         struct {
             Type *base;
         } complex; /* for Complex, Imaginary */

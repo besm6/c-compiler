@@ -44,7 +44,6 @@ TEST_F(ParserTest, TypeChar)
     Type *type = TestType("char");
 
     EXPECT_EQ(type->kind, TYPE_CHAR);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
@@ -54,7 +53,6 @@ TEST_F(ParserTest, TypeInt)
     Type *type = TestType("int");
 
     EXPECT_EQ(type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
@@ -64,7 +62,6 @@ TEST_F(ParserTest, TypeShort)
     Type *type = TestType("short");
 
     EXPECT_EQ(type->kind, TYPE_SHORT);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
@@ -74,7 +71,6 @@ TEST_F(ParserTest, TypeLong)
     Type *type = TestType("long");
 
     EXPECT_EQ(type->kind, TYPE_LONG);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
@@ -102,7 +98,6 @@ TEST_F(ParserTest, TypeSigned)
     Type *type = TestType("signed");
 
     EXPECT_EQ(type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
@@ -111,8 +106,7 @@ TEST_F(ParserTest, TypeUnsigned)
 {
     Type *type = TestType("unsigned");
 
-    EXPECT_EQ(type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_UNSIGNED);
+    EXPECT_EQ(type->kind, TYPE_UINT);
     EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
@@ -167,8 +161,7 @@ TEST_F(ParserTest, TypeUnsignedInt)
 {
     Type *type = TestType("unsigned int");
 
-    EXPECT_EQ(type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_UNSIGNED);
+    EXPECT_EQ(type->kind, TYPE_UINT);
     EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
@@ -177,8 +170,7 @@ TEST_F(ParserTest, TypeSignedChar)
 {
     Type *type = TestType("signed char");
 
-    EXPECT_EQ(type->kind, TYPE_CHAR);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
+    EXPECT_EQ(type->kind, TYPE_SCHAR);
     EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
@@ -188,7 +180,6 @@ TEST_F(ParserTest, TypeLongInt)
     Type *type = TestType("long int");
 
     EXPECT_EQ(type->kind, TYPE_LONG);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->qualifiers, nullptr);
     free_type(type);
 }
@@ -211,7 +202,6 @@ TEST_F(ParserTest, TypeConstInt)
     Type *type = TestType("const int");
 
     EXPECT_EQ(type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
     ASSERT_NE(type->qualifiers, nullptr);
     EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_CONST);
     EXPECT_EQ(type->qualifiers->next, nullptr);
@@ -223,7 +213,6 @@ TEST_F(ParserTest, TypeVolatileChar)
     Type *type = TestType("volatile char");
 
     EXPECT_EQ(type->kind, TYPE_CHAR);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
     ASSERT_NE(type->qualifiers, nullptr);
     EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_VOLATILE);
     EXPECT_EQ(type->qualifiers->next, nullptr);
@@ -256,8 +245,7 @@ TEST_F(ParserTest, TypeConstUnsignedInt)
 {
     Type *type = TestType("const unsigned int");
 
-    EXPECT_EQ(type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_UNSIGNED);
+    EXPECT_EQ(type->kind, TYPE_UINT);
     ASSERT_NE(type->qualifiers, nullptr);
     EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_CONST);
     EXPECT_EQ(type->qualifiers->next, nullptr);
@@ -269,7 +257,6 @@ TEST_F(ParserTest, TypeVolatileLongLong)
     Type *type = TestType("volatile long long");
 
     EXPECT_EQ(type->kind, TYPE_LONG_LONG);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
     ASSERT_NE(type->qualifiers, nullptr);
     EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_VOLATILE);
     EXPECT_EQ(type->qualifiers->next, nullptr);
@@ -281,7 +268,6 @@ TEST_F(ParserTest, TypeConstRestrictInt)
     Type *type = TestType("const restrict int");
 
     EXPECT_EQ(type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_SIGNED);
     ASSERT_NE(type->qualifiers, nullptr);
     EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_CONST);
     ASSERT_NE(type->qualifiers->next, nullptr);
@@ -294,8 +280,7 @@ TEST_F(ParserTest, TypeConstVolatileUnsignedChar)
 {
     Type *type = TestType("const volatile unsigned char");
 
-    EXPECT_EQ(type->kind, TYPE_CHAR);
-    EXPECT_EQ(type->u.integer.signedness, SIGNED_UNSIGNED);
+    EXPECT_EQ(type->kind, TYPE_UCHAR);
     ASSERT_NE(type->qualifiers, nullptr);
     EXPECT_EQ(type->qualifiers->kind, TYPE_QUALIFIER_CONST);
     ASSERT_NE(type->qualifiers->next, nullptr);
@@ -418,7 +403,6 @@ TEST_F(ParserTest, TypeAtomicPtr)
     ASSERT_NE(type->u.atomic.base, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.atomic.base->kind, TYPE_INT);
-    EXPECT_EQ(type->u.atomic.base->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.atomic.base->qualifiers, nullptr);
     free_type(type);
 }
@@ -449,7 +433,6 @@ TEST_F(ParserTest, TypeIntPtr)
     ASSERT_NE(type->u.pointer.target, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
-    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
     free_type(type);
@@ -463,7 +446,6 @@ TEST_F(ParserTest, TypeCharPtr)
     ASSERT_NE(type->u.pointer.target, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->kind, TYPE_CHAR);
-    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
     free_type(type);
@@ -490,7 +472,6 @@ TEST_F(ParserTest, TypeConstIntPtr)
     ASSERT_NE(type->u.pointer.target, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
-    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     ASSERT_NE(type->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->qualifiers->kind, TYPE_QUALIFIER_CONST);
     EXPECT_EQ(type->u.pointer.target->qualifiers->next, nullptr);
@@ -506,7 +487,6 @@ TEST_F(ParserTest, TypeIntPtrConst)
     ASSERT_NE(type->u.pointer.target, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
-    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
     ASSERT_NE(type->u.pointer.qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.qualifiers->kind, TYPE_QUALIFIER_CONST);
@@ -522,7 +502,6 @@ TEST_F(ParserTest, TypeVolatileCharPtr)
     ASSERT_NE(type->u.pointer.target, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->kind, TYPE_CHAR);
-    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     ASSERT_NE(type->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->qualifiers->kind, TYPE_QUALIFIER_VOLATILE);
     EXPECT_EQ(type->u.pointer.target->qualifiers->next, nullptr);
@@ -538,7 +517,6 @@ TEST_F(ParserTest, TypeIntPtrVolatile)
     ASSERT_NE(type->u.pointer.target, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
-    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
     ASSERT_NE(type->u.pointer.qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.qualifiers->kind, TYPE_QUALIFIER_VOLATILE);
@@ -554,7 +532,6 @@ TEST_F(ParserTest, TypeConstRestrictIntPtr)
     ASSERT_NE(type->u.pointer.target, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
-    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     ASSERT_NE(type->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->qualifiers->kind, TYPE_QUALIFIER_CONST);
     ASSERT_NE(type->u.pointer.target->qualifiers->next, nullptr);
@@ -575,7 +552,6 @@ TEST_F(ParserTest, TypeIntPtrPtr)
     EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->u.pointer.target->kind, TYPE_INT);
-    EXPECT_EQ(type->u.pointer.target->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.pointer.target->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->u.pointer.qualifiers, nullptr);
     free_type(type);
@@ -602,8 +578,7 @@ TEST_F(ParserTest, TypeUnsignedLongPtr)
     EXPECT_EQ(type->kind, TYPE_POINTER);
     ASSERT_NE(type->u.pointer.target, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
-    EXPECT_EQ(type->u.pointer.target->kind, TYPE_LONG);
-    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_UNSIGNED);
+    EXPECT_EQ(type->u.pointer.target->kind, TYPE_ULONG);
     EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
     free_type(type);
@@ -617,7 +592,6 @@ TEST_F(ParserTest, TypeIntPtrConstVolatile)
     ASSERT_NE(type->u.pointer.target, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
-    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
     ASSERT_NE(type->u.pointer.qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.qualifiers->kind, TYPE_QUALIFIER_CONST);
@@ -650,7 +624,6 @@ TEST_F(ParserTest, TypeIntArray)
     ASSERT_NE(type->u.array.element, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
-    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.array.element->qualifiers, nullptr);
     EXPECT_EQ(type->u.array.size, nullptr);
     EXPECT_EQ(type->u.array.qualifiers, nullptr);
@@ -665,7 +638,6 @@ TEST_F(ParserTest, TypeCharArray5)
     ASSERT_NE(type->u.array.element, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.array.element->kind, TYPE_CHAR);
-    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.array.element->qualifiers, nullptr);
     ASSERT_NE(type->u.array.size, nullptr);
     EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
@@ -700,7 +672,6 @@ TEST_F(ParserTest, TypeConstIntArray)
     ASSERT_NE(type->u.array.element, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
-    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
     ASSERT_NE(type->u.array.element->qualifiers, nullptr);
     EXPECT_EQ(type->u.array.element->qualifiers->kind, TYPE_QUALIFIER_CONST);
     EXPECT_EQ(type->u.array.element->qualifiers->next, nullptr);
@@ -717,7 +688,6 @@ TEST_F(ParserTest, TypeIntArrayConst5)
     ASSERT_NE(type->u.array.element, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
-    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.array.element->qualifiers, nullptr);
     ASSERT_NE(type->u.array.size, nullptr);
     EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
@@ -737,7 +707,6 @@ TEST_F(ParserTest, TypeIntArrayStatic10)
     ASSERT_NE(type->u.array.element, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
-    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.array.element->qualifiers, nullptr);
     ASSERT_NE(type->u.array.size, nullptr);
     EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
@@ -756,7 +725,6 @@ TEST_F(ParserTest, TypeIntArrayConstStatic5)
     ASSERT_NE(type->u.array.element, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
-    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.array.element->qualifiers, nullptr);
     ASSERT_NE(type->u.array.size, nullptr);
     EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
@@ -796,7 +764,6 @@ TEST_F(ParserTest, TypeConstIntArrayStar)
     ASSERT_NE(type->u.array.element, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
-    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
     ASSERT_NE(type->u.array.element->qualifiers, nullptr);
     EXPECT_EQ(type->u.array.element->qualifiers->kind, TYPE_QUALIFIER_CONST);
     EXPECT_EQ(type->u.array.element->qualifiers->next, nullptr);
@@ -813,7 +780,6 @@ TEST_F(ParserTest, TypeConstIntArrayN)
     ASSERT_NE(type->u.array.element, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.array.element->kind, TYPE_INT);
-    EXPECT_EQ(type->u.array.element->u.integer.signedness, SIGNED_SIGNED);
     ASSERT_NE(type->u.array.element->qualifiers, nullptr);
     EXPECT_EQ(type->u.array.element->qualifiers->kind, TYPE_QUALIFIER_CONST);
     EXPECT_EQ(type->u.array.element->qualifiers->next, nullptr);
@@ -844,7 +810,6 @@ TEST_F(ParserTest, TypeIntFunc)
     ASSERT_NE(type->u.function.return_type, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.function.return_type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.function.return_type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.function.return_type->qualifiers, nullptr);
     EXPECT_EQ(type->u.function.params, nullptr);
     EXPECT_FALSE(type->u.function.variadic);
@@ -867,7 +832,6 @@ TEST_F(ParserTest, TypeVoidFuncInt)
     EXPECT_EQ(type->u.function.params->name, nullptr);
     ASSERT_NE(type->u.function.params->type, nullptr);
     EXPECT_EQ(type->u.function.params->type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.function.params->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.function.params->type->qualifiers, nullptr);
     free_type(type);
 }
@@ -901,7 +865,6 @@ TEST_F(ParserTest, TypeCharFuncCharPtrInt)
 
     ASSERT_NE(type->u.function.return_type, nullptr);
     EXPECT_EQ(type->u.function.return_type->kind, TYPE_CHAR);
-    EXPECT_EQ(type->u.function.return_type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.function.return_type->qualifiers, nullptr);
 
     EXPECT_FALSE(type->u.function.variadic);
@@ -919,14 +882,12 @@ TEST_F(ParserTest, TypeCharFuncCharPtrInt)
     ASSERT_NE(p1->type->u.pointer.target, nullptr);
     EXPECT_EQ(p1->type->qualifiers, nullptr);
     EXPECT_EQ(p1->type->u.pointer.target->kind, TYPE_CHAR);
-    EXPECT_EQ(p1->type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(p1->type->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(p1->type->u.pointer.qualifiers, nullptr);
 
     EXPECT_EQ(p2->name, nullptr);
     ASSERT_NE(p2->type, nullptr);
     EXPECT_EQ(p2->type->kind, TYPE_INT);
-    EXPECT_EQ(p2->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(p2->type->qualifiers, nullptr);
     free_type(type);
 }
@@ -967,7 +928,6 @@ TEST_F(ParserTest, TypeConstIntFuncDoubleChar)
 
     ASSERT_NE(type->u.function.return_type, nullptr);
     EXPECT_EQ(type->u.function.return_type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.function.return_type->u.integer.signedness, SIGNED_SIGNED);
     ASSERT_NE(type->u.function.return_type->qualifiers, nullptr);
     EXPECT_EQ(type->u.function.return_type->qualifiers->kind, TYPE_QUALIFIER_CONST);
     EXPECT_EQ(type->u.function.return_type->qualifiers->next, nullptr);
@@ -989,7 +949,6 @@ TEST_F(ParserTest, TypeConstIntFuncDoubleChar)
     EXPECT_EQ(p2->name, nullptr);
     ASSERT_NE(p2->type, nullptr);
     EXPECT_EQ(p2->type->kind, TYPE_CHAR);
-    EXPECT_EQ(p2->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(p2->type->qualifiers, nullptr);
     free_type(type);
 }
@@ -1009,7 +968,6 @@ TEST_F(ParserTest, TypeIntParensPtrFuncInt)
 
     ASSERT_NE(type->u.pointer.target->u.function.return_type, nullptr);
     EXPECT_EQ(type->u.pointer.target->u.function.return_type->kind, TYPE_INT);
-    EXPECT_EQ(type->u.pointer.target->u.function.return_type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.pointer.target->u.function.return_type->qualifiers, nullptr);
 
     EXPECT_FALSE(type->u.pointer.target->u.function.variadic);
@@ -1022,7 +980,6 @@ TEST_F(ParserTest, TypeIntParensPtrFuncInt)
     EXPECT_EQ(p1->name, nullptr);
     ASSERT_NE(p1->type, nullptr);
     EXPECT_EQ(p1->type->kind, TYPE_INT);
-    EXPECT_EQ(p1->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(p1->type->qualifiers, nullptr);
     free_type(type);
 }
@@ -1057,7 +1014,6 @@ TEST_F(ParserTest, TypeVoidParensPtrFuncCharPtr)
     ASSERT_NE(p1->type->u.pointer.target, nullptr);
     EXPECT_EQ(p1->type->qualifiers, nullptr);
     EXPECT_EQ(p1->type->u.pointer.target->kind, TYPE_CHAR);
-    EXPECT_EQ(p1->type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(p1->type->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(p1->type->u.pointer.qualifiers, nullptr);
     free_type(type);
@@ -1095,7 +1051,6 @@ TEST_F(ParserTest, TypeIntPtrArray)
     EXPECT_EQ(element->qualifiers, nullptr);
     ASSERT_NE(element->u.pointer.target, nullptr);
     EXPECT_EQ(element->u.pointer.target->kind, TYPE_INT);
-    EXPECT_EQ(element->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(element->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(element->u.pointer.qualifiers, nullptr);
     free_type(type);
@@ -1128,7 +1083,6 @@ TEST_F(ParserTest, TypeIntArrayArray5)
     Type *item = element->u.array.element;
     ASSERT_NE(item, nullptr);
     EXPECT_EQ(item->kind, TYPE_INT);
-    EXPECT_EQ(item->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(item->qualifiers, nullptr);
     free_type(type);
 }
@@ -1155,7 +1109,6 @@ TEST_F(ParserTest, TypeCharPtrArray3)
     EXPECT_EQ(element->qualifiers, nullptr);
     ASSERT_NE(element->u.pointer.target, nullptr);
     EXPECT_EQ(element->u.pointer.target->kind, TYPE_CHAR);
-    EXPECT_EQ(element->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(element->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(element->u.pointer.qualifiers, nullptr);
     free_type(type);
@@ -1188,7 +1141,6 @@ TEST_F(ParserTest, TypeIntParensPtrArray5)
 
     EXPECT_EQ(element->kind, TYPE_INT);
     EXPECT_EQ(element->qualifiers, nullptr);
-    EXPECT_EQ(element->u.integer.signedness, SIGNED_SIGNED);
     free_type(type);
 }
 
@@ -1229,7 +1181,6 @@ TEST_F(ParserTest, TypeVoidParensPtrArrayFuncInt)
     EXPECT_EQ(p1->name, nullptr);
     ASSERT_NE(p1->type, nullptr);
     EXPECT_EQ(p1->type->kind, TYPE_INT);
-    EXPECT_EQ(p1->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(p1->type->qualifiers, nullptr);
     free_type(type);
 }
@@ -1263,7 +1214,6 @@ TEST_F(ParserTest, TypeIntParensPtrArray3FuncChar)
 
     ASSERT_NE(element->u.pointer.target->u.function.return_type, nullptr);
     EXPECT_EQ(element->u.pointer.target->u.function.return_type->kind, TYPE_INT);
-    EXPECT_EQ(element->u.pointer.target->u.function.return_type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(element->u.pointer.target->u.function.return_type->qualifiers, nullptr);
 
     EXPECT_FALSE(element->u.pointer.target->u.function.variadic);
@@ -1277,7 +1227,6 @@ TEST_F(ParserTest, TypeIntParensPtrArray3FuncChar)
     EXPECT_EQ(p1->name, nullptr);
     ASSERT_NE(p1->type, nullptr);
     EXPECT_EQ(p1->type->kind, TYPE_CHAR);
-    EXPECT_EQ(p1->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(p1->type->qualifiers, nullptr);
     free_type(type);
 }
@@ -1312,7 +1261,6 @@ TEST_F(ParserTest, TypeIntPtrPtrArray5)
     EXPECT_EQ(target->u.pointer.qualifiers, nullptr);
 
     EXPECT_EQ(target->u.pointer.target->kind, TYPE_INT);
-    EXPECT_EQ(target->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(target->u.pointer.target->qualifiers, nullptr);
     free_type(type);
 }
@@ -1384,7 +1332,6 @@ TEST_F(ParserTest, TypeIntParensPtrParensPtrArray5FuncInt)
 
     ASSERT_NE(element->u.pointer.target->u.function.return_type, nullptr);
     EXPECT_EQ(element->u.pointer.target->u.function.return_type->kind, TYPE_INT);
-    EXPECT_EQ(element->u.pointer.target->u.function.return_type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(element->u.pointer.target->u.function.return_type->qualifiers, nullptr);
 
     EXPECT_FALSE(element->u.pointer.target->u.function.variadic);
@@ -1398,7 +1345,6 @@ TEST_F(ParserTest, TypeIntParensPtrParensPtrArray5FuncInt)
     EXPECT_EQ(p1->name, nullptr);
     ASSERT_NE(p1->type, nullptr);
     EXPECT_EQ(p1->type->kind, TYPE_INT);
-    EXPECT_EQ(p1->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(p1->type->qualifiers, nullptr);
     free_type(type);
 }
@@ -1431,7 +1377,6 @@ TEST_F(ParserTest, TypeConstIntPtrConstArray3)
     Type *target = element->u.pointer.target;
     ASSERT_NE(target, nullptr);
     EXPECT_EQ(target->kind, TYPE_INT);
-    EXPECT_EQ(target->u.integer.signedness, SIGNED_SIGNED);
 
     ASSERT_NE(target->qualifiers, nullptr);
     EXPECT_EQ(target->qualifiers->kind, TYPE_QUALIFIER_CONST);
@@ -1458,7 +1403,6 @@ TEST_F(ParserTest, TypeIntParensPtr)
     ASSERT_NE(type->u.pointer.target, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->kind, TYPE_INT);
-    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(type->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.qualifiers, nullptr);
     free_type(type);
@@ -1472,7 +1416,6 @@ TEST_F(ParserTest, TypeConstCharParensPtrConst)
     ASSERT_NE(type->u.pointer.target, nullptr);
     EXPECT_EQ(type->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->kind, TYPE_CHAR);
-    EXPECT_EQ(type->u.pointer.target->u.integer.signedness, SIGNED_SIGNED);
 
     ASSERT_NE(type->u.pointer.target->qualifiers, nullptr);
     EXPECT_EQ(type->u.pointer.target->qualifiers->kind, TYPE_QUALIFIER_CONST);
@@ -1547,7 +1490,6 @@ TEST_F(ParserTest, TypeVoidParensPtrParensPtrFuncInt)
     EXPECT_EQ(p1->name, nullptr);
     ASSERT_NE(p1->type, nullptr);
     EXPECT_EQ(p1->type->kind, TYPE_INT);
-    EXPECT_EQ(p1->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(p1->type->qualifiers, nullptr);
     free_type(type);
 }
@@ -1582,8 +1524,7 @@ TEST_F(ParserTest, TypeUnsignedIntParensPtrParensPtrArray5)
     EXPECT_EQ(element->u.pointer.qualifiers, nullptr);
 
     ASSERT_NE(element->u.pointer.target, nullptr);
-    EXPECT_EQ(element->u.pointer.target->kind, TYPE_INT);
-    EXPECT_EQ(element->u.pointer.target->u.integer.signedness, SIGNED_UNSIGNED);
+    EXPECT_EQ(element->u.pointer.target->kind, TYPE_UINT);
     EXPECT_EQ(element->u.pointer.target->qualifiers, nullptr);
     free_type(type);
 }
@@ -1619,7 +1560,6 @@ TEST_F(ParserTest, TypeConstStructParensPtrFuncInt)
     EXPECT_EQ(p1->name, nullptr);
     ASSERT_NE(p1->type, nullptr);
     EXPECT_EQ(p1->type->kind, TYPE_INT);
-    EXPECT_EQ(p1->type->u.integer.signedness, SIGNED_SIGNED);
     EXPECT_EQ(p1->type->qualifiers, nullptr);
     free_type(type);
 }

@@ -85,9 +85,6 @@ Type *clone_type(const Type *type, const char *funcname, const char *filename, u
     case TYPE_ATOMIC:
         result->u.atomic.base = clone_type(type->u.atomic.base, __func__, __FILE__, __LINE__);
         break;
-    case TYPE_INT:
-        result->u.integer.signedness = type->u.integer.signedness;
-        break;
     default:
         break; /* No nested fields for basic types */
     }

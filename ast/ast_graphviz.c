@@ -198,12 +198,22 @@ static void export_type(FILE *fd, Type *type, int parent_id)
     }
     switch (type->kind) {
     case TYPE_CHAR:
+        fprintf(fd, "  n%d [label=\"Char\", shape=box];\n", gen_node_id());
+        fprintf(fd, "  n%d -> n%d;\n", id, node_id - 1);
+        break;
+    case TYPE_SCHAR:
     case TYPE_SHORT:
     case TYPE_INT:
     case TYPE_LONG:
-        fprintf(fd, "  n%d [label=\"Signedness: %s\", shape=box];\n", gen_node_id(),
-                type->u.integer.signedness == SIGNED_SIGNED ? "signed" : "unsigned");
-        fprintf(fd, "  n%d -> n%d [label=\"signedness\"];\n", id, node_id - 1);
+        fprintf(fd, "  n%d [label=\"Signed\", shape=box];\n", gen_node_id());
+        fprintf(fd, "  n%d -> n%d [label=\"signed\"];\n", id, node_id - 1);
+        break;
+    case TYPE_UCHAR:
+    case TYPE_USHORT:
+    case TYPE_UINT:
+    case TYPE_ULONG:
+        fprintf(fd, "  n%d [label=\"Unsigned\", shape=box];\n", gen_node_id());
+        fprintf(fd, "  n%d -> n%d [label=\"unsigned\"];\n", id, node_id - 1);
         break;
     case TYPE_COMPLEX:
     case TYPE_IMAGINARY:

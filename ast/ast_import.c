@@ -103,9 +103,6 @@ Type *import_type(WFILE *input)
     case TYPE_ULONG_LONG:
     case TYPE_SIGNED:
     case TYPE_UNSIGNED:
-        type->u.integer.signedness = (Signedness)wgetw(input);
-        check_input(input, "type signedness");
-        break;
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:

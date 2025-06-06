@@ -9,7 +9,6 @@ Type *new_type(TypeKind kind, const char *funcname, const char *filename, unsign
 {
     Type *t                 = xalloc(sizeof(Type), funcname, filename, lineno);
     t->kind                 = kind;
-    t->u.integer.signedness = SIGNED_SIGNED; /* Default */
     return t;
 }
 

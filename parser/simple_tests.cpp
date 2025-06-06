@@ -235,7 +235,6 @@ TEST_F(ParserTest, TypedefEnumField)
     EXPECT_EQ(nullptr, init->init);
     ASSERT_NE(nullptr, init->type);
     EXPECT_EQ(TYPE_INT, init->type->kind);
-    EXPECT_EQ(SIGNED_SIGNED, init->type->u.integer.signedness);
 
     //
     // Check enum qux

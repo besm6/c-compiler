@@ -74,8 +74,6 @@ void export_type(WFILE *fd, Type *type)
     case TYPE_ULONG_LONG:
     case TYPE_SIGNED:
     case TYPE_UNSIGNED:
-        wputw((size_t)type->u.integer.signedness, fd);
-        break;
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
