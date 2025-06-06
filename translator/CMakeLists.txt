@@ -7,6 +7,7 @@ add_library(translator STATIC
     typetab.c
     typecheck.c
     type_utils.c
+    const_convert.c
 )
 target_include_directories(translator PUBLIC .)
 target_link_libraries(translator tac ast libutil)

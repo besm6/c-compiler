@@ -5,20 +5,16 @@
 #include "translator.h"
 #include "symtab.h"
 #include "typetab.h"
-#include "type.h"
 #include "string_map.h"
 #include "xalloc.h"
-
-// Utility function for converting constants.
-TypeKind const_convert(const Type *target, const Literal *c);
 
 // Forward declarations
 void validate_type(const Type *t);
 Expr *typecheck_and_convert(Expr *e);
 Expr *typecheck_scalar(Expr *e);
-Initializer *typecheck_init(Type *target_type, Initializer *init);
-StaticInitializer *static_init_helper(Type *var_type, Initializer *init);
-Stmt *typecheck_statement(Type *ret_type, Stmt *s);
+Initializer *typecheck_init(const Type *target_type, Initializer *init);
+StaticInitializer *static_init_helper(const Type *var_type, const Initializer *init);
+Stmt *typecheck_statement(const Type *ret_type, Stmt *s);
 void typecheck_local_decl(Declaration *d);
 
 static int round_away_from_zero(int alignment, int size)
@@ -731,7 +727,7 @@ Initializer *make_zero_init(Type *t)
 }
 
 // Convert an initializer to a StaticInitializer list
-StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
+StaticInitializer *static_init_helper(const Type *var_type, const Initializer *init)
 {
     if (!init) {
         StaticInitializer *zero = new_static_initializer(INIT_ZERO);
@@ -770,37 +766,16 @@ StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
         return result;
     }
     if (init->kind == INITIALIZER_SINGLE && init->u.expr->kind == EXPR_LITERAL) {
-        Literal *c = init->u.expr->u.literal;
-        if (is_zero_int(c)) {
+        const Literal *lit = init->u.expr->u.literal;
+        if (is_zero_int(lit)) {
             StaticInitializer *zero = new_static_initializer(INIT_ZERO);
             zero->u.zero_bytes      = get_size(var_type);
             return zero;
         }
-        if (is_arithmetic(var_type)) {
-            StaticInitializer *result  = new_static_initializer(0);
-            switch (const_convert(var_type, c)) {
-            case TYPE_CHAR:
-                result->kind       = INIT_CHAR;
-                result->u.char_val = c->u.char_val;
-                break;
-            case TYPE_INT:
-                result->kind      = INIT_INT;
-                result->u.int_val = c->u.int_val;
-                break;
-            case TYPE_LONG:
-                result->kind       = INIT_LONG;
-                result->u.long_val = c->u.int_val; // Simplified
-                break;
-            case TYPE_DOUBLE:
-                result->kind         = INIT_DOUBLE;
-                result->u.double_val = c->u.real_val;
-                break;
-            default:
-                fatal_error("Unsupported constant type for initializer");
-            }
-            return result;
+        if (!is_arithmetic(var_type)) {
+            fatal_error("Invalid static initializer for type %d", var_type->kind);
         }
-        fatal_error("Invalid static initializer for type %d", var_type->kind);
+        return new_static_initializer_from_literal(var_type, lit);
     }
     if (var_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
         StructDef *entry = typetab_find(var_type->u.struct_t.name);
@@ -858,13 +833,13 @@ StaticInitializer *static_init_helper(Type *var_type, Initializer *init)
 }
 
 // Convert initializer to static initializer
-StaticInitializer *to_static_init(Type *var_type, Initializer *init)
+StaticInitializer *to_static_init(const Type *var_type, const Initializer *init)
 {
     return static_init_helper(var_type, init);
 }
 
 // Type-check an initializer
-Initializer *typecheck_init(Type *target_type, Initializer *init)
+Initializer *typecheck_init(const Type *target_type, Initializer *init)
 {
     if (!init)
         return NULL;
@@ -934,7 +909,7 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
 }
 
 // Type-check a block
-DeclOrStmt *typecheck_block(Type *ret_type, DeclOrStmt *block)
+DeclOrStmt *typecheck_block(const Type *ret_type, DeclOrStmt *block)
 {
     for (DeclOrStmt *item = block; item; item = item->next) {
         if (item->kind == DECL_OR_STMT_STMT) {
@@ -947,7 +922,7 @@ DeclOrStmt *typecheck_block(Type *ret_type, DeclOrStmt *block)
 }
 
 // Type-check a statement
-Stmt *typecheck_statement(Type *ret_type, Stmt *s)
+Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
 {
     if (!s)
         return NULL;
@@ -1017,7 +992,7 @@ Stmt *typecheck_statement(Type *ret_type, Stmt *s)
 void typecheck_local_var_decl(Declaration *d)
 {
     InitDeclarator *decl = d->u.var.declarators;
-    Type *var_type       = decl->type;
+    const Type *var_type = decl->type;
     if (var_type->kind == TYPE_VOID) {
         fatal_error("No void declarations");
     }
@@ -1053,7 +1028,7 @@ void typecheck_local_var_decl(Declaration *d)
 // Type-check a function declaration
 void typecheck_fn_decl(ExternalDecl *d)
 {
-    Type *fun_type = d->u.function.type;
+    const Type *fun_type = d->u.function.type;
     validate_type(fun_type);
     Type *adjusted_type = clone_type(fun_type);
     if (fun_type->kind == TYPE_FUNCTION) {
@@ -1138,7 +1113,7 @@ void typecheck_local_decl(Declaration *d)
 void typecheck_file_scope_var_decl(Declaration *d)
 {
     InitDeclarator *decl = d->u.var.declarators;
-    Type *var_type       = decl->type;
+    const Type *var_type = decl->type;
     if (var_type->kind == TYPE_VOID) {
         fatal_error("Void variables not allowed");
     }

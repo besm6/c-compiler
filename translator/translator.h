@@ -33,6 +33,20 @@ Tac_TopLevel *translate(ExternalDecl *ast);
 // Error handling.
 void _Noreturn fatal_error(const char *message, ...) __attribute__((noreturn));
 
+//
+// Helpers for Type.
+//
+size_t get_size(const Type *t);
+size_t get_alignment(const Type *t);
+bool is_complete(const Type *t);
+bool is_scalar(const Type *t);
+bool is_arithmetic(const Type *t);
+bool is_integer(const Type *t);
+bool is_character(const Type *t);
+bool is_pointer(const Type *t);
+bool is_complete_pointer(const Type *t);
+bool is_signed(const Type *t);
+
 #ifdef GTEST_API_
 //TODO
 #endif

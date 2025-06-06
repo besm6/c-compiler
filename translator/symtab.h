@@ -141,6 +141,9 @@ StaticInitializer *new_static_initializer(StaticInitKind kind);
 void free_symbol(Symbol *sym);
 void free_static_initializer(StaticInitializer *list);
 
+// Convert literal to given arithmetic type and return as StaticInitializer.
+StaticInitializer *new_static_initializer_from_literal(const Type *type, const Literal *lit);
+
 #ifdef __cplusplus
 }
 #endif

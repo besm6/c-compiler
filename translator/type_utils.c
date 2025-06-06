@@ -1,7 +1,6 @@
 //
 // Helpers for Type.
 //
-#include "type.h"
 #include "typetab.h"
 #include "translator.h"
 
