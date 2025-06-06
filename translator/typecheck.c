@@ -964,7 +964,8 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
     }
     case STMT_FOR: {
         if (s->u.for_stmt.init->kind == FOR_INIT_DECL) {
-            if (s->u.for_stmt.init->u.decl->u.var.specifiers->storage != STORAGE_CLASS_NONE) {
+            if (s->u.for_stmt.init->u.decl->u.var.specifiers &&
+                s->u.for_stmt.init->u.decl->u.var.specifiers->storage != STORAGE_CLASS_NONE) {
                 fatal_error("Storage class not permitted in for loop header");
             }
             typecheck_local_decl(s->u.for_stmt.init->u.decl);
@@ -997,7 +998,7 @@ void typecheck_local_var_decl(Declaration *d)
         fatal_error("No void declarations");
     }
     validate_type(var_type);
-    if (d->u.var.specifiers->storage == STORAGE_CLASS_EXTERN) {
+    if (d->u.var.specifiers && d->u.var.specifiers->storage == STORAGE_CLASS_EXTERN) {
         if (decl->init) {
             fatal_error("Initializer on local extern declaration");
         }
@@ -1013,7 +1014,7 @@ void typecheck_local_var_decl(Declaration *d)
     if (!is_complete(var_type)) {
         fatal_error("Cannot define a variable with incomplete type");
     }
-    if (d->u.var.specifiers->storage == STORAGE_CLASS_STATIC) {
+    if (d->u.var.specifiers && d->u.var.specifiers->storage == STORAGE_CLASS_STATIC) {
         StaticInitializer *static_init =
             decl->init ? to_static_init(var_type, decl->init) : static_init_helper(var_type, NULL);
         symtab_add_static_var(decl->name, var_type, false, INIT_INITIALIZED,
@@ -1118,9 +1119,10 @@ void typecheck_file_scope_var_decl(Declaration *d)
         fatal_error("Void variables not allowed");
     }
     validate_type(var_type);
-    bool global = d->u.var.specifiers->storage != STORAGE_CLASS_STATIC;
-    InitKind init_kind =
-        d->u.var.specifiers->storage == STORAGE_CLASS_EXTERN ? INIT_NONE : INIT_TENTATIVE;
+
+    StorageClass storage = d->u.var.specifiers ? d->u.var.specifiers->storage : STORAGE_CLASS_NONE;
+    bool global = storage != STORAGE_CLASS_STATIC;
+    InitKind init_kind = (storage == STORAGE_CLASS_EXTERN) ? INIT_NONE : INIT_TENTATIVE;
     StaticInitializer *init_list = NULL;
     if (decl->init) {
         init_kind = INIT_INITIALIZED;
@@ -1135,8 +1137,7 @@ void typecheck_file_scope_var_decl(Declaration *d)
             fatal_error("Variable %s redeclared with different type", decl->name);
         }
         if (existing->kind == SYM_STATIC) {
-            if (d->u.var.specifiers->storage != STORAGE_CLASS_EXTERN &&
-                existing->u.static_var.global != global) {
+            if (storage != STORAGE_CLASS_EXTERN && existing->u.static_var.global != global) {
                 fatal_error("Conflicting variable linkage");
             }
             if (existing->u.static_var.init_kind == INIT_INITIALIZED &&
@@ -1149,7 +1150,7 @@ void typecheck_file_scope_var_decl(Declaration *d)
             init_list = existing->u.static_var.init_kind == INIT_INITIALIZED
                             ? existing->u.static_var.init_list
                             : init_list;
-            global    = d->u.var.specifiers->storage == STORAGE_CLASS_EXTERN
+            global    = storage == STORAGE_CLASS_EXTERN
                             ? existing->u.static_var.global
                             : global;
         }
