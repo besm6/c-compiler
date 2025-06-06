@@ -22,7 +22,8 @@ extern int xalloc_debug;
 void resolve(ExternalDecl *ast);
 
 // Typecheck definitions and uses of functions adn variables.
-void typecheck(ExternalDecl *ast);
+void typecheck_program(Program *p);
+void typecheck_global_decl(ExternalDecl *d);
 
 // Annotate loops and break/continue statements.
 void label_loops(ExternalDecl *ast);

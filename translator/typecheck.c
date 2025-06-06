@@ -13,12 +13,15 @@ void validate_type(const Type *t);
 Expr *typecheck_and_convert(Expr *e);
 Expr *typecheck_scalar(Expr *e);
 Initializer *typecheck_init(const Type *target_type, Initializer *init);
-StaticInitializer *static_init_helper(const Type *var_type, const Initializer *init);
+StaticInitializer *to_static_init(const Type *var_type, const Initializer *init);
 Stmt *typecheck_statement(const Type *ret_type, Stmt *s);
 void typecheck_local_decl(Declaration *d);
 
 static int round_away_from_zero(int alignment, int size)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (size % alignment == 0) {
         return size;
     }
@@ -33,6 +36,9 @@ static int round_away_from_zero(int alignment, int size)
 // Check if an expression is an lvalue
 bool is_lvalue(const Expr *e)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     switch (e->kind) {
     case EXPR_VAR:
     case EXPR_FIELD_ACCESS:
@@ -56,6 +62,10 @@ bool is_lvalue(const Expr *e)
 // Validate a type (recursive)
 void validate_type(const Type *t)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+        print_type(stdout, t, 4);
+    }
     if (!t)
         return;
     switch (t->kind) {
@@ -70,7 +80,7 @@ void validate_type(const Type *t)
         break;
     case TYPE_FUNCTION:
         validate_type(t->u.function.return_type);
-        for (Param *p = t->u.function.params; p; p = p->next) {
+        for (const Param *p = t->u.function.params; p; p = p->next) {
             validate_type(p->type);
         }
         break;
@@ -91,6 +101,9 @@ void validate_type(const Type *t)
 // Validate a struct definition
 void validate_struct_definition(const char *tag, const Field *members)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (typetab_exists(tag)) {
         fatal_error("Structure %s was already declared", tag);
     }
@@ -117,6 +130,9 @@ void validate_struct_definition(const char *tag, const Field *members)
 // Type-check a struct declaration
 void typecheck_struct_decl(const Declaration *d)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!d->u.var.declarators)
         return; // Ignore forward declarations
 
@@ -145,6 +161,9 @@ void typecheck_struct_decl(const Declaration *d)
 // Convert an expression to a target type
 Expr *convert_to_type(Expr *e, const Type *target_type)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (e->type->kind == target_type->kind &&
         (!is_pointer(e->type) ||
          e->type->u.pointer.target->kind == target_type->u.pointer.target->kind))
@@ -159,6 +178,9 @@ Expr *convert_to_type(Expr *e, const Type *target_type)
 
 Expr *convert_to_kind(Expr *e, TypeKind target_kind)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (e->type->kind == target_kind)
         return e; // Avoid unnecessary casts
 
@@ -172,6 +194,9 @@ Expr *convert_to_kind(Expr *e, TypeKind target_kind)
 // Get common type for arithmetic operations
 const Type *get_common_type(const Type *t1, const Type *t2)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     static const Type int_type    = { .kind = TYPE_INT };
     static const Type double_type = { .kind = TYPE_DOUBLE };
     if (is_character(t1))
@@ -190,6 +215,9 @@ const Type *get_common_type(const Type *t1, const Type *t2)
 // Check if a constant is a zero integer
 bool is_zero_int(const Literal *c)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     switch (c->kind) {
     case LITERAL_INT:
         return c->u.int_val == 0;
@@ -205,12 +233,18 @@ bool is_zero_int(const Literal *c)
 // Check if an expression is a null pointer constant
 bool is_null_pointer_constant(const Expr *e)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     return e->kind == EXPR_LITERAL && is_zero_int(e->u.literal);
 }
 
 // Get common pointer type
 Type *get_common_pointer_type(const Expr *e1, const Expr *e2)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (e1->type->kind == e2->type->kind &&
         e1->type->u.pointer.target->kind == e2->type->u.pointer.target->kind)
         return e1->type;
@@ -231,6 +265,9 @@ Type *get_common_pointer_type(const Expr *e1, const Expr *e2)
 // Convert by assignment
 Expr *convert_by_assignment(Expr *e, const Type *target_type)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (e->type->kind == target_type->kind &&
         (!is_pointer(e->type) ||
          e->type->u.pointer.target->kind == target_type->u.pointer.target->kind))
@@ -251,6 +288,9 @@ Expr *convert_by_assignment(Expr *e, const Type *target_type)
 // Type-check a variable
 Expr *typecheck_var(Expr *e)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     const Symbol *sym = symtab_get(e->u.var);
 
     if (sym->type->kind == TYPE_FUNCTION) {
@@ -263,6 +303,9 @@ Expr *typecheck_var(Expr *e)
 // Type-check a constant
 Expr *typecheck_const(Expr *e)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     switch (e->u.literal->kind) {
     case LITERAL_INT:
         e->type = new_type(TYPE_INT);
@@ -292,6 +335,9 @@ Expr *typecheck_const(Expr *e)
 // Type-check a string literal
 Expr *typecheck_string(Expr *e)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     Type *array            = new_type(TYPE_ARRAY);
     array->u.array.element = new_type(TYPE_CHAR);
     array->u.array.size    = (Expr *)(size_t)(strlen(e->u.literal->u.string_val) + 1);
@@ -302,6 +348,9 @@ Expr *typecheck_string(Expr *e)
 // Type-check an expression
 Expr *typecheck_exp(Expr *e)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!e)
         return NULL;
     switch (e->kind) {
@@ -646,6 +695,9 @@ Expr *typecheck_exp(Expr *e)
 // Type-check and convert an expression
 Expr *typecheck_and_convert(Expr *e)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!e)
         return NULL;
     Expr *typed = typecheck_exp(e);
@@ -663,6 +715,9 @@ Expr *typecheck_and_convert(Expr *e)
 // Type-check a scalar expression
 Expr *typecheck_scalar(Expr *e)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     Expr *typed = typecheck_and_convert(e);
     if (!is_scalar(typed->type)) {
         fatal_error("A scalar operand is required");
@@ -673,6 +728,9 @@ Expr *typecheck_scalar(Expr *e)
 // Create a zero initializer
 Initializer *make_zero_init(Type *t)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (t->kind == TYPE_ARRAY) {
         Initializer *init = new_initializer(INITIALIZER_COMPOUND);
         init->type        = clone_type(t);
@@ -727,8 +785,11 @@ Initializer *make_zero_init(Type *t)
 }
 
 // Convert an initializer to a StaticInitializer list
-StaticInitializer *static_init_helper(const Type *var_type, const Initializer *init)
+StaticInitializer *to_static_init(const Type *var_type, const Initializer *init)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!init) {
         StaticInitializer *zero = new_static_initializer(INIT_ZERO);
         zero->u.zero_bytes      = get_size(var_type);
@@ -741,7 +802,7 @@ StaticInitializer *static_init_helper(const Type *var_type, const Initializer *i
         }
         const char *s                        = init->u.expr->u.literal->u.string_val;
         size_t len                           = strlen(s);
-        size_t array_size                    = (size_t)var_type->u.array.size;
+        size_t array_size                    = (size_t)var_type->u.array.size; // TODO
         StaticInitializer *result            = new_static_initializer(INIT_STRING);
         result->u.string_val.str             = xstrdup(s);
         result->u.string_val.null_terminated = (array_size >= len + 1);
@@ -792,7 +853,7 @@ StaticInitializer *static_init_helper(const Type *var_type, const Initializer *i
                 *tail                   = zero;
                 tail                    = &zero->next;
             }
-            StaticInitializer *member_init = static_init_helper(memb->type, item->init);
+            StaticInitializer *member_init = to_static_init(memb->type, item->init);
             *tail                          = member_init;
             while (*tail)
                 tail = &(*tail)->next;
@@ -806,7 +867,7 @@ StaticInitializer *static_init_helper(const Type *var_type, const Initializer *i
         return result;
     }
     if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
-        size_t array_size = (size_t)var_type->u.array.size;
+        size_t array_size = (size_t)var_type->u.array.size; // TODO
         int init_count    = 0;
         for (InitItem *item = init->u.items; item; item = item->next)
             init_count++;
@@ -815,8 +876,7 @@ StaticInitializer *static_init_helper(const Type *var_type, const Initializer *i
         }
         StaticInitializer *result = NULL, **tail = &result;
         for (int i = 0; i < init_count; i++) {
-            StaticInitializer *elem_init =
-                static_init_helper(var_type->u.array.element, init->u.items[i].init);
+            StaticInitializer *elem_init = to_static_init(var_type->u.array.element, init->u.items[i].init);
             *tail = elem_init;
             while (*tail)
                 tail = &(*tail)->next;
@@ -832,15 +892,12 @@ StaticInitializer *static_init_helper(const Type *var_type, const Initializer *i
     fatal_error("Invalid static initializer for type %d", var_type->kind);
 }
 
-// Convert initializer to static initializer
-StaticInitializer *to_static_init(const Type *var_type, const Initializer *init)
-{
-    return static_init_helper(var_type, init);
-}
-
 // Type-check an initializer
 Initializer *typecheck_init(const Type *target_type, Initializer *init)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!init)
         return NULL;
     init->type = clone_type(target_type);
@@ -881,10 +938,11 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
         Expr *expr   = typecheck_and_convert(init->u.expr);
         expr         = convert_by_assignment(expr, target_type);
         init->u.expr = expr;
+        // TODO: lost initializer?
         return init;
     }
     if (target_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
-        size_t array_size = (size_t)target_type->u.array.size;
+        size_t array_size = (size_t)target_type->u.array.size; // TODO
         int init_count    = 0;
         for (InitItem *item = init->u.items; item; item = item->next)
             init_count++;
@@ -911,6 +969,9 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
 // Type-check a block
 DeclOrStmt *typecheck_block(const Type *ret_type, DeclOrStmt *block)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     for (DeclOrStmt *item = block; item; item = item->next) {
         if (item->kind == DECL_OR_STMT_STMT) {
             item->u.stmt = typecheck_statement(ret_type, item->u.stmt);
@@ -921,9 +982,27 @@ DeclOrStmt *typecheck_block(const Type *ret_type, DeclOrStmt *block)
     return block;
 }
 
+static bool has_storage(const DeclSpec *spec)
+{
+    return spec && (spec->storage != STORAGE_CLASS_NONE);
+}
+
+static bool is_extern(const DeclSpec *spec)
+{
+    return spec && (spec->storage == STORAGE_CLASS_EXTERN);
+}
+
+static bool is_static(const DeclSpec *spec)
+{
+    return spec && (spec->storage == STORAGE_CLASS_STATIC);
+}
+
 // Type-check a statement
 Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     if (!s)
         return NULL;
     switch (s->kind) {
@@ -964,8 +1043,7 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
     }
     case STMT_FOR: {
         if (s->u.for_stmt.init->kind == FOR_INIT_DECL) {
-            if (s->u.for_stmt.init->u.decl->u.var.specifiers &&
-                s->u.for_stmt.init->u.decl->u.var.specifiers->storage != STORAGE_CLASS_NONE) {
+            if (has_storage(s->u.for_stmt.init->u.decl->u.var.specifiers)) {
                 fatal_error("Storage class not permitted in for loop header");
             }
             typecheck_local_decl(s->u.for_stmt.init->u.decl);
@@ -992,13 +1070,16 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
 // Type-check a local variable declaration
 void typecheck_local_var_decl(Declaration *d)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     InitDeclarator *decl = d->u.var.declarators;
     const Type *var_type = decl->type;
     if (var_type->kind == TYPE_VOID) {
         fatal_error("No void declarations");
     }
     validate_type(var_type);
-    if (d->u.var.specifiers && d->u.var.specifiers->storage == STORAGE_CLASS_EXTERN) {
+    if (is_extern(d->u.var.specifiers)) {
         if (decl->init) {
             fatal_error("Initializer on local extern declaration");
         }
@@ -1014,12 +1095,13 @@ void typecheck_local_var_decl(Declaration *d)
     if (!is_complete(var_type)) {
         fatal_error("Cannot define a variable with incomplete type");
     }
-    if (d->u.var.specifiers && d->u.var.specifiers->storage == STORAGE_CLASS_STATIC) {
-        StaticInitializer *static_init =
-            decl->init ? to_static_init(var_type, decl->init) : static_init_helper(var_type, NULL);
+    if (is_static(d->u.var.specifiers)) {
+        StaticInitializer *static_init = to_static_init(var_type, decl->init);
         symtab_add_static_var(decl->name, var_type, false, INIT_INITIALIZED,
                               static_init);
-        decl->init = NULL; // Drop initializer
+        // Drop initializer
+        free_initializer(decl->init);
+        decl->init = NULL;
         return;
     }
     symtab_add_automatic_var(decl->name, var_type);
@@ -1029,6 +1111,9 @@ void typecheck_local_var_decl(Declaration *d)
 // Type-check a function declaration
 void typecheck_fn_decl(ExternalDecl *d)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     const Type *fun_type = d->u.function.type;
     validate_type(fun_type);
     Type *adjusted_type = clone_type(fun_type);
@@ -1062,7 +1147,7 @@ void typecheck_fn_decl(ExternalDecl *d)
     if (has_body && (!is_complete(fun_type->u.function.return_type) || !all_params_complete)) {
         fatal_error("Can't define function with incomplete types");
     }
-    bool global      = d->u.function.specifiers->storage != STORAGE_CLASS_STATIC;
+    bool global      = !is_static(d->u.function.specifiers);
     Symbol *existing = symtab_get_opt(d->u.function.name);
     bool defined     = has_body;
     if (existing) {
@@ -1073,8 +1158,7 @@ void typecheck_fn_decl(ExternalDecl *d)
             if (existing->u.func.defined && has_body) {
                 fatal_error("Defined function %s twice", d->u.function.name);
             }
-            if (existing->u.func.global &&
-                d->u.function.specifiers->storage == STORAGE_CLASS_STATIC) {
+            if (existing->u.func.global && is_static(d->u.function.specifiers)) {
                 fatal_error("Static function declaration follows non-static");
             }
             defined = has_body || existing->u.func.defined;
@@ -1098,6 +1182,9 @@ void typecheck_fn_decl(ExternalDecl *d)
 // Type-check a local declaration
 void typecheck_local_decl(Declaration *d)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     switch (d->kind) {
     case DECL_VAR:
         typecheck_local_var_decl(d);
@@ -1113,6 +1200,9 @@ void typecheck_local_decl(Declaration *d)
 // Type-check a global variable declaration
 void typecheck_file_scope_var_decl(Declaration *d)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
     InitDeclarator *decl = d->u.var.declarators;
     const Type *var_type = decl->type;
     if (var_type->kind == TYPE_VOID) {
@@ -1120,9 +1210,8 @@ void typecheck_file_scope_var_decl(Declaration *d)
     }
     validate_type(var_type);
 
-    StorageClass storage = d->u.var.specifiers ? d->u.var.specifiers->storage : STORAGE_CLASS_NONE;
-    bool global = storage != STORAGE_CLASS_STATIC;
-    InitKind init_kind = (storage == STORAGE_CLASS_EXTERN) ? INIT_NONE : INIT_TENTATIVE;
+    bool global = !is_static(d->u.var.specifiers);
+    InitKind init_kind = is_extern(d->u.var.specifiers) ? INIT_NONE : INIT_TENTATIVE;
     StaticInitializer *init_list = NULL;
     if (decl->init) {
         init_kind = INIT_INITIALIZED;
@@ -1137,7 +1226,7 @@ void typecheck_file_scope_var_decl(Declaration *d)
             fatal_error("Variable %s redeclared with different type", decl->name);
         }
         if (existing->kind == SYM_STATIC) {
-            if (storage != STORAGE_CLASS_EXTERN && existing->u.static_var.global != global) {
+            if (!is_extern(d->u.var.specifiers) && existing->u.static_var.global != global) {
                 fatal_error("Conflicting variable linkage");
             }
             if (existing->u.static_var.init_kind == INIT_INITIALIZED &&
@@ -1150,21 +1239,40 @@ void typecheck_file_scope_var_decl(Declaration *d)
             init_list = existing->u.static_var.init_kind == INIT_INITIALIZED
                             ? existing->u.static_var.init_list
                             : init_list;
-            global    = storage == STORAGE_CLASS_EXTERN
+            global    = is_extern(d->u.var.specifiers)
                             ? existing->u.static_var.global
                             : global;
         }
     }
     symtab_add_static_var(decl->name, var_type, global, init_kind, init_list);
-    decl->init = NULL; // Drop initializer
+
+    // Drop initializer
+    free_initializer(decl->init);
+    decl->init = NULL;
 }
 
 // Type-check a global declaration
-void typecheck(ExternalDecl *d)
+void typecheck_global_decl(ExternalDecl *d)
 {
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+        print_external_decl(stdout, d, 4);
+    }
     if (d->kind == EXTERNAL_DECL_FUNCTION) {
         typecheck_fn_decl(d);
     } else {
         typecheck_file_scope_var_decl(d->u.declaration);
+    }
+    if (translator_debug) {
+        printf("--- result:\n");
+        print_external_decl(stdout, d, 4);
+    }
+}
+
+// Type-check a program
+void typecheck_program(Program *p)
+{
+    for (ExternalDecl *d = p->decls; d; d = d->next) {
+        typecheck_global_decl(d);
     }
 }

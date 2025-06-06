@@ -247,7 +247,7 @@ void process_file(const Args *args)
         resolve(ast);
 
         // Typecheck definitions and uses of functions and variables.
-        typecheck(ast);
+        typecheck_global_decl(ast);
 
         // Annotate loops and break/continue statements.
         label_loops(ast);

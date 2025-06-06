@@ -370,6 +370,9 @@ void print_expression(FILE *fd, const Expr *expr, int indent)
     }
     print_indent(fd, indent);
     fprintf(fd, "Expr (%s):\n", expr_kind_str[expr->kind]);
+    if (expr->type) {
+        print_type(fd, expr->type, indent + 2);
+    }
     switch (expr->kind) {
     case EXPR_VAR:
         print_indent(fd, indent + 2);

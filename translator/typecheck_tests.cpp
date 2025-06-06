@@ -46,6 +46,7 @@ protected:
         auto filename = test_name + ".c";
         input_file = fopen(filename.c_str(), "w+");
         ASSERT_NE(nullptr, input_file);
+        translator_debug = 1;
     }
 
     void TearDown() override
@@ -70,12 +71,17 @@ protected:
     }
 
     // Helper to get external declaration from program
-    ExternalDecl *GetExternalDecl(const char *content)
+    void ParseProgram(const char *content)
     {
         program = parse(CreateTempFile(content));
         EXPECT_NE(nullptr, program);
-        print_program(stdout, program);
+        //print_program(stdout, program);
+    }
 
+    // Helper to get external declaration from program
+    ExternalDecl *GetExternalDecl(const char *content)
+    {
+        ParseProgram(content);
         EXPECT_NE(nullptr, program->decls);
         return program->decls;
     }
@@ -110,18 +116,78 @@ protected:
 //
 TEST_F(TypecheckTest, TypecheckIntVarExpr)
 {
-    ExternalDecl *ast = GetExternalDecl(R"(
+    ParseProgram(R"(
         int x = 42;
         int main() {
             return x + 1;
         }
     )");
-    ASSERT_NE(ast, nullptr);
-    typecheck(ast);
-    print_program(stdout, program);
+    typecheck_program(program);
 
-    //TODO: check symtab
-    //TODO: check types in AST
+    // Check symbol x.
+    const Symbol *x = symtab_get("x");
+    ASSERT_NE(x, nullptr);
+    EXPECT_STREQ(x->name, "x");
+    EXPECT_EQ(x->kind, SYM_STATIC);
+    EXPECT_TRUE(x->u.static_var.global);
+    EXPECT_EQ(x->u.static_var.init_kind, INIT_INITIALIZED);
+
+    ASSERT_NE(x->type, nullptr);
+    EXPECT_EQ(x->type->kind, TYPE_INT);
+
+    StaticInitializer *init = x->u.static_var.init_list;
+    ASSERT_NE(init, nullptr);
+    EXPECT_EQ(init->kind, INIT_INT);
+    EXPECT_EQ(init->u.int_val, 42);
+    EXPECT_EQ(init->next, nullptr);
+
+    // Check symbol main.
+    const Symbol *main = symtab_get("main");
+    ASSERT_NE(main, nullptr);
+    EXPECT_STREQ(main->name, "main");
+    EXPECT_EQ(main->kind, SYM_FUNC);
+    EXPECT_TRUE(main->u.func.defined);
+    EXPECT_TRUE(main->u.func.global);
+
+    ASSERT_NE(main->type, nullptr);
+    EXPECT_EQ(main->type->kind, TYPE_FUNCTION);
+    EXPECT_EQ(main->type->u.function.params, nullptr);
+    EXPECT_FALSE(main->type->u.function.variadic);
+
+    const Type *type = main->type->u.function.return_type;
+    ASSERT_NE(type, nullptr);
+    EXPECT_EQ(type->kind, TYPE_INT);
+
+    // Check types in AST.
+    ExternalDecl *ext0 = program->decls;
+    ExternalDecl *ext1 = ext0->next;
+    ASSERT_NE(ext0, nullptr);
+    ASSERT_NE(ext1, nullptr);
+    EXPECT_EQ(ext1->next, nullptr);
+    EXPECT_EQ(ext0->kind, EXTERNAL_DECL_DECLARATION);
+    EXPECT_EQ(ext1->kind, EXTERNAL_DECL_FUNCTION);
+
+    // Program->decls[0] (var x):
+    Declaration *decl0 = ext0->u.declaration;
+    EXPECT_EQ(decl0->kind, DECL_VAR);
+    EXPECT_EQ(decl0->u.var.declarators->type->kind, TYPE_INT);
+    EXPECT_STREQ(decl0->u.var.declarators->name, "x");
+    EXPECT_EQ(decl0->u.var.declarators->init, nullptr);
+
+    // Program->decls[1] (function main):
+    EXPECT_EQ(ext1->u.function.type->kind, TYPE_FUNCTION);
+    EXPECT_EQ(ext1->u.function.body->kind, STMT_COMPOUND);
+    EXPECT_EQ(ext1->u.function.body->u.compound->kind, DECL_OR_STMT_STMT);
+
+    Stmt *stmt = ext1->u.function.body->u.compound->u.stmt;
+    EXPECT_EQ(stmt->kind, STMT_RETURN);
+
+    Expr *expr = stmt->u.expr;
+    EXPECT_EQ(expr->type->kind, TYPE_INT);
+    EXPECT_EQ(expr->kind, EXPR_BINARY_OP);
+    EXPECT_EQ(expr->u.binary_op.op, BINARY_ADD);
+    EXPECT_EQ(expr->u.binary_op.left->type->kind, TYPE_INT);
+    EXPECT_EQ(expr->u.binary_op.right->type->kind, TYPE_INT);
 }
 
 #if 0

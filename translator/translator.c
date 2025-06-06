@@ -2,6 +2,9 @@
 #include <stdarg.h>
 #include <stdlib.h>
 
+// Enable debug output
+int translator_debug;
+
 //
 // Error handling
 //
