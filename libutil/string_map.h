@@ -92,3 +92,8 @@ void map_destroy_free(StringMap *map, void (*dealloc)(intptr_t value));
 // Get the height of a node (0 for NULL)
 //
 int map_node_height(StringNode *node);
+
+//
+// Iterate and invoke callback for each node.
+//
+void map_iterate(StringMap *map, void (*func)(intptr_t value, void *arg), void *arg);

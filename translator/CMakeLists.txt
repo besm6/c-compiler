@@ -4,6 +4,7 @@
 add_library(translator STATIC
     translator.c
     symtab.c
+    symtab_print.c
     typetab.c
     typecheck.c
     type_utils.c

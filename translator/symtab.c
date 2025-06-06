@@ -9,7 +9,7 @@
 #include "translator.h"
 #include "xalloc.h"
 
-static StringMap symtab;
+StringMap symtab;
 
 //
 // Build new symbol.

@@ -49,6 +49,9 @@ StructDef *typetab_find(const char *tag);
 // Precondition: tag is a non-null string.
 // Postcondition: Returns non-null StructDef* if found, else terminates with error.
 
+// Print all types.
+void typetab_print(void);
+
 // Allocate a FieldDef
 FieldDef *new_member(const char *name, Type *type, int offset);
 

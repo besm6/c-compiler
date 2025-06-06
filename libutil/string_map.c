@@ -347,3 +347,20 @@ void map_destroy_free(StringMap *map, void (*dealloc)(intptr_t value))
     free_nodes(map->root, dealloc);
     map->root = NULL;
 }
+
+static void iterate_nodes(StringNode *node, void (*func)(intptr_t value, void *arg), void *arg)
+{
+    if (!node)
+        return;
+    iterate_nodes(node->left, func, arg);
+    func(node->value, arg);
+    iterate_nodes(node->right, func, arg);
+}
+
+//
+// Iterate and invoke callback for each node.
+//
+void map_iterate(StringMap *map, void (*func)(intptr_t value, void *arg), void *arg)
+{
+    iterate_nodes(map->root, func, arg);
+}

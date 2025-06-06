@@ -116,3 +116,11 @@ StructDef *typetab_find(const char *tag)
     }
     return (StructDef *)value;
 }
+
+//
+// Print all types.
+//
+void typetab_print()
+{
+    //TODO
+}

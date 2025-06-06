@@ -133,6 +133,9 @@ bool symtab_is_global(const char *name);
 // Postcondition: Returns true if the symbol is global (SYM_FUNC or SYM_STATIC with global=true),
 // else false.
 
+// Print all symbols.
+void symtab_print(void);
+
 //
 // Allocation, deallocation.
 //

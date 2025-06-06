@@ -54,9 +54,11 @@ protected:
         fclose(input_file);
         if (program) {
             free_program(program);
-            symtab_destroy();
-            typetab_destroy();
         }
+        symtab_print();
+        typetab_print();
+        symtab_destroy();
+        typetab_destroy();
         xreport_lost_memory();
         EXPECT_EQ(xtotal_allocated_size(), 0);
         xfree_all();
