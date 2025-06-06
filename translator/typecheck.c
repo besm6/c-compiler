@@ -148,7 +148,7 @@ void typecheck_struct_decl(const Declaration *d)
         int member_alignment = get_alignment(f->type);
         int offset           = round_away_from_zero(member_alignment, current_size);
 
-        *tail = new_member(f->name, clone_type(f->type), offset);
+        *tail = new_member(f->name, clone_type(f->type, __func__, __FILE__, __LINE__), offset);
         tail = &(*tail)->next;
 
         current_alignment = current_alignment > member_alignment ? current_alignment : member_alignment;
@@ -170,9 +170,9 @@ Expr *convert_to_type(Expr *e, const Type *target_type)
         return e; // Avoid unnecessary casts
 
     Expr *cast = new_expression(EXPR_CAST);
-    cast->u.cast.type = clone_type(target_type);
+    cast->u.cast.type = clone_type(target_type, __func__, __FILE__, __LINE__);
     cast->u.cast.expr = e;
-    cast->type = clone_type(target_type);
+    cast->type = clone_type(target_type, __func__, __FILE__, __LINE__);
     return cast;
 }
 
@@ -185,9 +185,9 @@ Expr *convert_to_kind(Expr *e, TypeKind target_kind)
         return e; // Avoid unnecessary casts
 
     Expr *cast = new_expression(EXPR_CAST);
-    cast->u.cast.type = new_type(target_kind);
+    cast->u.cast.type = new_type(target_kind, __func__, __FILE__, __LINE__);
     cast->u.cast.expr = e;
-    cast->type = new_type(target_kind);
+    cast->type = new_type(target_kind, __func__, __FILE__, __LINE__);
     return cast;
 }
 
@@ -252,10 +252,10 @@ Type *get_common_pointer_type(const Expr *e1, const Expr *e2)
         return e2->type;
     if (is_null_pointer_constant(e2))
         return e1->type;
-    Type *void_type = new_type(TYPE_VOID);
+    Type *void_type = new_type(TYPE_VOID, __func__, __FILE__, __LINE__);
     if ((e1->type->kind == TYPE_POINTER && e1->type->u.pointer.target->kind == TYPE_VOID) ||
         (e2->type->kind == TYPE_POINTER && e2->type->u.pointer.target->kind == TYPE_VOID)) {
-        Type *void_ptr             = new_type(TYPE_POINTER);
+        Type *void_ptr             = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
         void_ptr->u.pointer.target = void_type;
         return void_ptr;
     }
@@ -296,7 +296,7 @@ Expr *typecheck_var(Expr *e)
     if (sym->type->kind == TYPE_FUNCTION) {
         fatal_error("Tried to use function name as variable");
     }
-    e->type = clone_type(sym->type);
+    e->type = clone_type(sym->type, __func__, __FILE__, __LINE__);
     return e;
 }
 
@@ -306,25 +306,26 @@ Expr *typecheck_const(Expr *e)
     if (translator_debug) {
         printf("--- %s()\n", __func__);
     }
+    free_type(e->type);
     switch (e->u.literal->kind) {
     case LITERAL_INT:
-        e->type = new_type(TYPE_INT);
+        e->type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
         break;
     case LITERAL_CHAR:
-        e->type = new_type(TYPE_CHAR);
+        e->type = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
         break;
     case LITERAL_FLOAT:
-        e->type = new_type(TYPE_DOUBLE);
+        e->type = new_type(TYPE_DOUBLE, __func__, __FILE__, __LINE__);
         break;
     case LITERAL_STRING: {
-        Type *array            = new_type(TYPE_ARRAY);
-        array->u.array.element = new_type(TYPE_CHAR);
+        Type *array            = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
+        array->u.array.element = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
         array->u.array.size    = (Expr *)(size_t)(strlen(e->u.literal->u.string_val) + 1);
         e->type                = array;
         break;
     }
     case LITERAL_ENUM:
-        e->type = new_type(TYPE_INT);
+        e->type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
         break;
     default:
         fatal_error("Unsupported literal kind %d", e->u.literal->kind);
@@ -338,10 +339,11 @@ Expr *typecheck_string(Expr *e)
     if (translator_debug) {
         printf("--- %s()\n", __func__);
     }
-    Type *array            = new_type(TYPE_ARRAY);
-    array->u.array.element = new_type(TYPE_CHAR);
+    Type *array            = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
+    array->u.array.element = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
     array->u.array.size    = (Expr *)(size_t)(strlen(e->u.literal->u.string_val) + 1);
-    e->type                = array;
+    free_type(e->type);
+    e->type = array;
     return e;
 }
 
@@ -366,14 +368,14 @@ Expr *typecheck_exp(Expr *e)
             fatal_error("Cannot cast between pointer and double");
         }
         if (e->u.cast.type->kind == TYPE_VOID) {
-            e->type        = clone_type(e->u.cast.type);
+            e->type        = clone_type(e->u.cast.type, __func__, __FILE__, __LINE__);
             e->u.cast.expr = inner;
             return e;
         }
         if (!is_scalar(e->u.cast.type) || !is_scalar(inner->type)) {
             fatal_error("Can only cast scalar types");
         }
-        e->type        = clone_type(e->u.cast.type);
+        e->type        = clone_type(e->u.cast.type, __func__, __FILE__, __LINE__);
         e->u.cast.expr = inner;
         return e;
     }
@@ -381,7 +383,7 @@ Expr *typecheck_exp(Expr *e)
         switch (e->u.unary_op.op) {
         case UNARY_LOG_NOT: {
             Expr *inner        = typecheck_scalar(e->u.unary_op.expr);
-            e->type            = new_type(TYPE_INT);
+            e->type            = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
             e->u.unary_op.expr = inner;
             return e;
         }
@@ -392,7 +394,7 @@ Expr *typecheck_exp(Expr *e)
             }
             if (is_character(inner->type))
                 inner = convert_to_kind(inner, TYPE_INT);
-            e->type            = clone_type(inner->type);
+            e->type            = clone_type(inner->type, __func__, __FILE__, __LINE__);
             e->u.unary_op.expr = inner;
             return e;
         }
@@ -403,7 +405,7 @@ Expr *typecheck_exp(Expr *e)
             }
             if (is_character(inner->type))
                 inner = convert_to_kind(inner, TYPE_INT);
-            e->type            = clone_type(inner->type);
+            e->type            = clone_type(inner->type, __func__, __FILE__, __LINE__);
             e->u.unary_op.expr = inner;
             return e;
         }
@@ -415,7 +417,7 @@ Expr *typecheck_exp(Expr *e)
             if (inner->type->u.pointer.target->kind == TYPE_VOID) {
                 fatal_error("Can't dereference pointer to void");
             }
-            e->type            = clone_type(inner->type->u.pointer.target);
+            e->type            = clone_type(inner->type->u.pointer.target, __func__, __FILE__, __LINE__);
             e->u.unary_op.expr = inner;
             return e;
         }
@@ -424,8 +426,8 @@ Expr *typecheck_exp(Expr *e)
             if (!is_lvalue(inner)) {
                 fatal_error("Cannot take address of non-lvalue");
             }
-            Type *ptr             = new_type(TYPE_POINTER);
-            ptr->u.pointer.target = clone_type(inner->type);
+            Type *ptr             = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
+            ptr->u.pointer.target = clone_type(inner->type, __func__, __FILE__, __LINE__);
             e->type               = ptr;
             e->u.unary_op.expr    = inner;
             return e;
@@ -441,7 +443,7 @@ Expr *typecheck_exp(Expr *e)
         case BINARY_LOG_OR: {
             e1                   = typecheck_scalar(e1);
             e2                   = typecheck_scalar(e2);
-            e->type              = new_type(TYPE_INT);
+            e->type              = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
             e->u.binary_op.left  = e1;
             e->u.binary_op.right = e2;
             return e;
@@ -453,13 +455,13 @@ Expr *typecheck_exp(Expr *e)
                 const Type *common = get_common_type(e1->type, e2->type);
                 e1           = convert_to_type(e1, common);
                 e2           = convert_to_type(e2, common);
-                e->type      = clone_type(common);
+                e->type      = clone_type(common, __func__, __FILE__, __LINE__);
             } else if (is_complete_pointer(e1->type) && is_integer(e2->type)) {
                 e2      = convert_to_kind(e2, TYPE_LONG);
-                e->type = clone_type(e1->type);
+                e->type = clone_type(e1->type, __func__, __FILE__, __LINE__);
             } else if (is_complete_pointer(e2->type) && is_integer(e1->type)) {
                 e1      = convert_to_kind(e1, TYPE_LONG);
-                e->type = clone_type(e2->type);
+                e->type = clone_type(e2->type, __func__, __FILE__, __LINE__);
             } else {
                 fatal_error("Invalid operands for addition");
             }
@@ -474,12 +476,12 @@ Expr *typecheck_exp(Expr *e)
                 const Type *common = get_common_type(e1->type, e2->type);
                 e1           = convert_to_type(e1, common);
                 e2           = convert_to_type(e2, common);
-                e->type      = clone_type(common);
+                e->type      = clone_type(common, __func__, __FILE__, __LINE__);
             } else if (is_complete_pointer(e1->type) && is_integer(e2->type)) {
                 e2      = convert_to_kind(e2, TYPE_LONG);
-                e->type = clone_type(e1->type);
+                e->type = clone_type(e1->type, __func__, __FILE__, __LINE__);
             } else if (is_complete_pointer(e1->type) && e1->type->kind == e2->type->kind) {
-                e->type = new_type(TYPE_LONG);
+                e->type = new_type(TYPE_LONG, __func__, __FILE__, __LINE__);
             } else {
                 fatal_error("Invalid operands for subtraction");
             }
@@ -501,7 +503,7 @@ Expr *typecheck_exp(Expr *e)
             if (e->u.binary_op.op == BINARY_MOD && common->kind == TYPE_DOUBLE) {
                 fatal_error("Can't apply %% to double");
             }
-            e->type              = clone_type(common);
+            e->type              = clone_type(common, __func__, __FILE__, __LINE__);
             e->u.binary_op.left  = e1;
             e->u.binary_op.right = e2;
             return e;
@@ -515,7 +517,7 @@ Expr *typecheck_exp(Expr *e)
                                        : get_common_type(e1->type, e2->type);
             e1                   = convert_to_type(e1, common);
             e2                   = convert_to_type(e2, common);
-            e->type              = new_type(TYPE_INT);
+            e->type              = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
             e->u.binary_op.left  = e1;
             e->u.binary_op.right = e2;
             return e;
@@ -534,7 +536,7 @@ Expr *typecheck_exp(Expr *e)
             }
             e1                   = convert_to_type(e1, common);
             e2                   = convert_to_type(e2, common);
-            e->type              = new_type(TYPE_INT);
+            e->type              = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
             e->u.binary_op.left  = e1;
             e->u.binary_op.right = e2;
             return e;
@@ -550,7 +552,7 @@ Expr *typecheck_exp(Expr *e)
         }
         Expr *rhs          = typecheck_and_convert(e->u.assign.value);
         rhs                = convert_by_assignment(rhs, lhs->type);
-        e->type            = clone_type(lhs->type);
+        e->type            = clone_type(lhs->type, __func__, __FILE__, __LINE__);
         e->u.assign.target = lhs;
         e->u.assign.value  = rhs;
         return e;
@@ -561,7 +563,7 @@ Expr *typecheck_exp(Expr *e)
         Expr *else_expr = typecheck_and_convert(e->u.cond.else_expr);
         const Type *result_type;
         if (then_expr->type->kind == TYPE_VOID && else_expr->type->kind == TYPE_VOID) {
-            result_type = new_type(TYPE_VOID);
+            result_type = new_type(TYPE_VOID, __func__, __FILE__, __LINE__);
         } else if (is_pointer(then_expr->type) || is_pointer(else_expr->type)) {
             result_type = get_common_pointer_type(then_expr, else_expr);
         } else if (is_arithmetic(then_expr->type) && is_arithmetic(else_expr->type)) {
@@ -571,7 +573,7 @@ Expr *typecheck_exp(Expr *e)
         } else {
             fatal_error("Invalid operands for conditional");
         }
-        e->type             = clone_type(result_type);
+        e->type             = clone_type(result_type, __func__, __FILE__, __LINE__);
         e->u.cond.condition = cond;
         e->u.cond.then_expr = convert_to_type(then_expr, result_type);
         e->u.cond.else_expr = convert_to_type(else_expr, result_type);
@@ -607,7 +609,7 @@ Expr *typecheck_exp(Expr *e)
             arg  = arg->next;
             p    = p->next;
         }
-        e->type        = clone_type(sym->type->u.function.return_type);
+        e->type        = clone_type(sym->type->u.function.return_type, __func__, __FILE__, __LINE__);
         e->u.call.args = new_args;
         return e;
     }
@@ -624,7 +626,7 @@ Expr *typecheck_exp(Expr *e)
         } else {
             fatal_error("Invalid types for subscript operation");
         }
-        e->type              = clone_type(result_type);
+        e->type              = clone_type(result_type, __func__, __FILE__, __LINE__);
         e->u.subscript.left  = ptr;
         e->u.subscript.right = index;
         return e;
@@ -634,7 +636,7 @@ Expr *typecheck_exp(Expr *e)
         if (!is_complete(inner->type)) {
             fatal_error("Can't apply sizeof to incomplete type");
         }
-        e->type          = new_type(TYPE_ULONG);
+        e->type          = new_type(TYPE_ULONG, __func__, __FILE__, __LINE__);
         e->u.sizeof_expr = inner;
         return e;
     }
@@ -643,7 +645,7 @@ Expr *typecheck_exp(Expr *e)
         if (!is_complete(e->u.sizeof_type)) {
             fatal_error("Can't apply sizeof to incomplete type");
         }
-        e->type = new_type(TYPE_ULONG);
+        e->type = new_type(TYPE_ULONG, __func__, __FILE__, __LINE__);
         return e;
     }
     case EXPR_FIELD_ACCESS: {
@@ -662,7 +664,7 @@ Expr *typecheck_exp(Expr *e)
             fatal_error("Struct %s has no member %s", strct->type->u.struct_t.name,
                     e->u.field_access.field);
         }
-        e->type                = clone_type(member->type);
+        e->type                = clone_type(member->type, __func__, __FILE__, __LINE__);
         e->u.field_access.expr = strct;
         return e;
     }
@@ -683,7 +685,7 @@ Expr *typecheck_exp(Expr *e)
             fatal_error("Struct %s has no member %s",
                     strct_ptr->type->u.pointer.target->u.struct_t.name, e->u.ptr_access.field);
         }
-        e->type              = clone_type(member->type);
+        e->type              = clone_type(member->type, __func__, __FILE__, __LINE__);
         e->u.ptr_access.expr = strct_ptr;
         return e;
     }
@@ -705,9 +707,10 @@ Expr *typecheck_and_convert(Expr *e)
         fatal_error("Incomplete structure type not permitted");
     }
     if (typed->type->kind == TYPE_ARRAY) {
-        Type *ptr             = new_type(TYPE_POINTER);
-        ptr->u.pointer.target = clone_type(typed->type->u.array.element);
-        typed->type           = ptr; // Modify in place
+        Type *ptr             = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
+        ptr->u.pointer.target = clone_type(typed->type->u.array.element, __func__, __FILE__, __LINE__);
+        free_type(typed->type);
+        typed->type  = ptr; // Modify in place
     }
     return typed;
 }
@@ -733,7 +736,7 @@ Initializer *make_zero_init(Type *t)
     }
     if (t->kind == TYPE_ARRAY) {
         Initializer *init = new_initializer(INITIALIZER_COMPOUND);
-        init->type        = clone_type(t);
+        init->type        = clone_type(t, __func__, __FILE__, __LINE__);
 
         InitItem **tail = &init->u.items;
         size_t size     = (size_t)t->u.array.size;
@@ -746,7 +749,7 @@ Initializer *make_zero_init(Type *t)
     }
     if (t->kind == TYPE_STRUCT) {
         Initializer *init = new_initializer(INITIALIZER_COMPOUND);
-        init->type        = clone_type(t);
+        init->type        = clone_type(t, __func__, __FILE__, __LINE__);
 
         InitItem **tail   = &init->u.items;
         FieldDef *members = typetab_find(t->u.struct_t.name)->members;
@@ -759,9 +762,9 @@ Initializer *make_zero_init(Type *t)
     }
 
     Initializer *init  = new_initializer(INITIALIZER_SINGLE);
-    init->type         = clone_type(t);
+    init->type         = clone_type(t, __func__, __FILE__, __LINE__);
     init->u.expr       = new_expression(EXPR_LITERAL);
-    init->u.expr->type = clone_type(t);
+    init->u.expr->type = clone_type(t, __func__, __FILE__, __LINE__);
     switch (t->kind) {
     case TYPE_CHAR:
         init->u.expr->u.literal = new_literal(LITERAL_CHAR);
@@ -900,7 +903,7 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
     }
     if (!init)
         return NULL;
-    init->type = clone_type(target_type);
+    init->type = clone_type(target_type, __func__, __FILE__, __LINE__);
     if (target_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_SINGLE &&
         init->u.expr->kind == EXPR_LITERAL && init->u.expr->u.literal->kind == LITERAL_STRING) {
         if (!is_character(target_type->u.array.element)) {
@@ -938,7 +941,6 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
         Expr *expr   = typecheck_and_convert(init->u.expr);
         expr         = convert_by_assignment(expr, target_type);
         init->u.expr = expr;
-        // TODO: lost initializer?
         return init;
     }
     if (target_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
@@ -1116,7 +1118,7 @@ void typecheck_fn_decl(ExternalDecl *d)
     }
     const Type *fun_type = d->u.function.type;
     validate_type(fun_type);
-    Type *adjusted_type = clone_type(fun_type);
+    Type *adjusted_type = clone_type(fun_type, __func__, __FILE__, __LINE__);
     if (fun_type->kind == TYPE_FUNCTION) {
         if (fun_type->u.function.return_type->kind == TYPE_ARRAY) {
             fatal_error("A function cannot return an array");
@@ -1124,8 +1126,8 @@ void typecheck_fn_decl(ExternalDecl *d)
         Param *p = adjusted_type->u.function.params;
         while (p) {
             if (p->type->kind == TYPE_ARRAY) {
-                Type *ptr             = new_type(TYPE_POINTER);
-                ptr->u.pointer.target = clone_type(p->type->u.array.element);
+                Type *ptr             = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
+                ptr->u.pointer.target = clone_type(p->type->u.array.element, __func__, __FILE__, __LINE__);
                 p->type               = ptr;
             } else if (p->type->kind == TYPE_VOID) {
                 fatal_error("No void params allowed");
@@ -1175,8 +1177,8 @@ void typecheck_fn_decl(ExternalDecl *d)
         d->u.function.body =
             typecheck_statement(fun_type->u.function.return_type, d->u.function.body);
     }
+    free_type(d->u.function.type);
     d->u.function.type = adjusted_type; // Update type in place
-    //TODO: deallocate fun_type?
 }
 
 // Type-check a local declaration

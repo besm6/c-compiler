@@ -1246,23 +1246,23 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
     Type *result = NULL;
 
     if (struct_spec) {
-        result                    = new_type(TYPE_STRUCT);
+        result                    = new_type(TYPE_STRUCT, __func__, __FILE__, __LINE__);
         result->u.struct_t.name   = xstrdup(struct_spec->u.struct_spec.name);
         result->u.struct_t.fields = clone_field(struct_spec->u.struct_spec.fields);
     } else if (union_spec) {
-        result                    = new_type(TYPE_UNION);
+        result                    = new_type(TYPE_UNION, __func__, __FILE__, __LINE__);
         result->u.struct_t.name   = xstrdup(union_spec->u.struct_spec.name);
         result->u.struct_t.fields = clone_field(union_spec->u.struct_spec.fields);
     } else if (enum_spec) {
-        result                       = new_type(TYPE_ENUM);
+        result                       = new_type(TYPE_ENUM, __func__, __FILE__, __LINE__);
         result->u.enum_t.name        = xstrdup(enum_spec->u.enum_spec.name);
         result->u.enum_t.enumerators = clone_enumerator(enum_spec->u.enum_spec.enumerators);
     } else if (typedef_spec) {
-        result                      = new_type(TYPE_TYPEDEF_NAME);
+        result                      = new_type(TYPE_TYPEDEF_NAME, __func__, __FILE__, __LINE__);
         result->u.typedef_name.name = xstrdup(typedef_spec->u.typedef_name.name);
     } else if (atomic_spec) {
-        result                = new_type(TYPE_ATOMIC);
-        result->u.atomic.base = clone_type(atomic_spec->u.atomic.type);
+        result                = new_type(TYPE_ATOMIC, __func__, __FILE__, __LINE__);
+        result->u.atomic.base = clone_type(atomic_spec->u.atomic.type, __func__, __FILE__, __LINE__);
     } else {
         /* Handle basic types */
         if (base_kind == -1) {
@@ -1290,13 +1290,13 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
 
         /* Create Type based on base_kind */
         if (is_complex) {
-            result                 = new_type(TYPE_COMPLEX);
-            result->u.complex.base = new_type(base_kind);
+            result                 = new_type(TYPE_COMPLEX, __func__, __FILE__, __LINE__);
+            result->u.complex.base = new_type(base_kind, __func__, __FILE__, __LINE__);
         } else if (is_imaginary) {
-            result                 = new_type(TYPE_IMAGINARY);
-            result->u.complex.base = new_type(base_kind);
+            result                 = new_type(TYPE_IMAGINARY, __func__, __FILE__, __LINE__);
+            result->u.complex.base = new_type(base_kind, __func__, __FILE__, __LINE__);
         } else {
-            result = new_type(base_kind);
+            result = new_type(base_kind, __func__, __FILE__, __LINE__);
             if (base_kind == TYPE_CHAR || base_kind == TYPE_SHORT || base_kind == TYPE_INT ||
                 base_kind == TYPE_LONG) {
                 if (signedness == -1) {
@@ -1312,7 +1312,7 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
 Type *type_apply_pointers(Type *type, const Pointer *pointers)
 {
     for (const Pointer *p = pointers; p; p = p->next) {
-        Type *ptr                 = new_type(TYPE_POINTER);
+        Type *ptr                 = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
         ptr->u.pointer.target     = type;
         ptr->u.pointer.qualifiers = clone_type_qualifier(p->qualifiers);
         ptr->qualifiers           = NULL;
@@ -1326,7 +1326,7 @@ Type *type_apply_suffixes(Type *type, const DeclaratorSuffix *suffixes)
     for (const DeclaratorSuffix *s = suffixes; s; s = s->next) {
         switch (s->kind) {
         case SUFFIX_ARRAY: {
-            Type *array               = new_type(TYPE_ARRAY);
+            Type *array               = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
             array->u.array.element    = type;
             array->u.array.size       = clone_expression(s->u.array.size);
             array->u.array.qualifiers = clone_type_qualifier(s->u.array.qualifiers);
@@ -1336,7 +1336,7 @@ Type *type_apply_suffixes(Type *type, const DeclaratorSuffix *suffixes)
             break;
         }
         case SUFFIX_FUNCTION: {
-            Type *func                   = new_type(TYPE_FUNCTION);
+            Type *func                   = new_type(TYPE_FUNCTION, __func__, __FILE__, __LINE__);
             func->u.function.return_type = type;
             func->u.function.params      = clone_param(s->u.function.params);
             func->u.function.variadic    = s->u.function.variadic;
@@ -1508,7 +1508,7 @@ InitDeclarator *parse_init_declarator(Declarator *decl, const Type *base_type)
         advance_token();
         init_decl->init = parse_initializer();
     }
-    init_decl->type = type_apply_suffixes(type_apply_pointers(clone_type(base_type), decl->pointers), decl->suffixes);
+    init_decl->type = type_apply_suffixes(type_apply_pointers(clone_type(base_type, __func__, __FILE__, __LINE__), decl->pointers), decl->suffixes);
     free_declarator(decl);
     return init_decl;
 }
@@ -1568,53 +1568,53 @@ TypeSpec *parse_type_specifier()
     TypeSpec *ts;
     if (current_token == TOKEN_VOID) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic = new_type(TYPE_VOID);
+        ts->u.basic = new_type(TYPE_VOID, __func__, __FILE__, __LINE__);
         advance_token();
     } else if (current_token == TOKEN_CHAR) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic = new_type(TYPE_CHAR);
+        ts->u.basic = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
         advance_token();
     } else if (current_token == TOKEN_SHORT) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic = new_type(TYPE_SHORT);
+        ts->u.basic = new_type(TYPE_SHORT, __func__, __FILE__, __LINE__);
         advance_token();
     } else if (current_token == TOKEN_INT) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic = new_type(TYPE_INT);
+        ts->u.basic = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
         advance_token();
     } else if (current_token == TOKEN_LONG) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic = new_type(TYPE_LONG);
+        ts->u.basic = new_type(TYPE_LONG, __func__, __FILE__, __LINE__);
         advance_token();
     } else if (current_token == TOKEN_FLOAT) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic = new_type(TYPE_FLOAT);
+        ts->u.basic = new_type(TYPE_FLOAT, __func__, __FILE__, __LINE__);
         advance_token();
     } else if (current_token == TOKEN_DOUBLE) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic = new_type(TYPE_DOUBLE);
+        ts->u.basic = new_type(TYPE_DOUBLE, __func__, __FILE__, __LINE__);
         advance_token();
     } else if (current_token == TOKEN_SIGNED) {
         ts                               = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic                      = new_type(TYPE_SIGNED);
+        ts->u.basic                      = new_type(TYPE_SIGNED, __func__, __FILE__, __LINE__);
         ts->u.basic->u.integer.signedness = SIGNED_SIGNED;
         advance_token();
     } else if (current_token == TOKEN_UNSIGNED) {
         ts                               = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic                      = new_type(TYPE_UNSIGNED);
+        ts->u.basic                      = new_type(TYPE_UNSIGNED, __func__, __FILE__, __LINE__);
         ts->u.basic->u.integer.signedness = SIGNED_UNSIGNED;
         advance_token();
     } else if (current_token == TOKEN_BOOL) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic = new_type(TYPE_BOOL);
+        ts->u.basic = new_type(TYPE_BOOL, __func__, __FILE__, __LINE__);
         advance_token();
     } else if (current_token == TOKEN_COMPLEX) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic = new_type(TYPE_COMPLEX);
+        ts->u.basic = new_type(TYPE_COMPLEX, __func__, __FILE__, __LINE__);
         advance_token();
     } else if (current_token == TOKEN_IMAGINARY) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic = new_type(TYPE_IMAGINARY);
+        ts->u.basic = new_type(TYPE_IMAGINARY, __func__, __FILE__, __LINE__);
         advance_token();
     } else if (current_token == TOKEN_ATOMIC && next_token() == TOKEN_LPAREN) {
         ts                = new_type_spec(TYPE_SPEC_ATOMIC);
@@ -1714,7 +1714,7 @@ Field *parse_struct_declaration()
     Field *fields = NULL, **fields_tail = &fields;
     for (;;) {
         Field *field = new_field();
-        field->type = clone_type(base_type);
+        field->type = clone_type(base_type, __func__, __FILE__, __LINE__);
 
         if (current_token != TOKEN_COLON && current_token != TOKEN_SEMICOLON) {
             Declarator *declarator = parse_declarator();

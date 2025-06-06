@@ -6,7 +6,7 @@
 #include "xalloc.h"
 
 /* Forward declarations for recursive clone functions */
-Type *clone_type(const Type *type);
+Type *clone_type(const Type *type, const char *funcname, const char *filename, unsigned lineno);
 TypeQualifier *clone_type_qualifier(const TypeQualifier *qual);
 Field *clone_field(const Field *field);
 Enumerator *clone_enumerator(const Enumerator *enumerator);
@@ -42,30 +42,30 @@ Program *clone_program(const Program *program)
     return result;
 }
 
-Type *clone_type(const Type *type)
+Type *clone_type(const Type *type, const char *funcname, const char *filename, unsigned lineno)
 {
     if (type == NULL)
         return NULL;
-    Type *result = new_type(type->kind);
+    Type *result = new_type(type->kind, funcname, filename, lineno);
     if (result == NULL)
         return NULL;
     switch (type->kind) {
     case TYPE_COMPLEX:
     case TYPE_IMAGINARY:
-        result->u.complex.base = clone_type(type->u.complex.base);
+        result->u.complex.base = clone_type(type->u.complex.base, __func__, __FILE__, __LINE__);
         break;
     case TYPE_POINTER:
-        result->u.pointer.target     = clone_type(type->u.pointer.target);
+        result->u.pointer.target     = clone_type(type->u.pointer.target, __func__, __FILE__, __LINE__);
         result->u.pointer.qualifiers = clone_type_qualifier(type->u.pointer.qualifiers);
         break;
     case TYPE_ARRAY:
-        result->u.array.element    = clone_type(type->u.array.element);
+        result->u.array.element    = clone_type(type->u.array.element, __func__, __FILE__, __LINE__);
         result->u.array.size       = clone_expression(type->u.array.size);
         result->u.array.qualifiers = clone_type_qualifier(type->u.array.qualifiers);
         result->u.array.is_static  = type->u.array.is_static;
         break;
     case TYPE_FUNCTION:
-        result->u.function.return_type = clone_type(type->u.function.return_type);
+        result->u.function.return_type = clone_type(type->u.function.return_type, __func__, __FILE__, __LINE__);
         result->u.function.params      = clone_param(type->u.function.params);
         result->u.function.variadic    = type->u.function.variadic;
         break;
@@ -83,7 +83,7 @@ Type *clone_type(const Type *type)
             type->u.typedef_name.name ? xstrdup(type->u.typedef_name.name) : NULL;
         break;
     case TYPE_ATOMIC:
-        result->u.atomic.base = clone_type(type->u.atomic.base);
+        result->u.atomic.base = clone_type(type->u.atomic.base, __func__, __FILE__, __LINE__);
         break;
     case TYPE_INT:
         result->u.integer.signedness = type->u.integer.signedness;
@@ -113,7 +113,7 @@ Field *clone_field(const Field *field)
     Field *result = new_field();
     if (result == NULL)
         return NULL;
-    result->type     = clone_type(field->type);
+    result->type     = clone_type(field->type, __func__, __FILE__, __LINE__);
     result->name     = field->name ? xstrdup(field->name) : NULL;
     result->bitfield = clone_expression(field->bitfield);
     result->next     = clone_field(field->next);
@@ -140,7 +140,7 @@ Param *clone_param(const Param *param)
     if (result == NULL)
         return NULL;
     result->name = param->name ? xstrdup(param->name) : NULL;
-    result->type = clone_type(param->type);
+    result->type = clone_type(param->type, __func__, __FILE__, __LINE__);
     result->next = clone_param(param->next);
     result->specifiers = clone_decl_spec(param->specifiers);
     return result;
@@ -165,7 +165,7 @@ Declaration *clone_declaration(const Declaration *decl)
         break;
     case DECL_EMPTY:
         result->u.empty.specifiers = clone_decl_spec(decl->u.empty.specifiers);
-        result->u.empty.type       = clone_type(decl->u.empty.type);
+        result->u.empty.type       = clone_type(decl->u.empty.type, __func__, __FILE__, __LINE__);
         break;
     }
     result->next = clone_declaration(decl->next);
@@ -205,7 +205,7 @@ AlignmentSpec *clone_alignment_spec(const AlignmentSpec *as)
     if (result == NULL)
         return NULL;
     if (as->kind == ALIGN_SPEC_TYPE) {
-        result->u.type = clone_type(as->u.type);
+        result->u.type = clone_type(as->u.type, __func__, __FILE__, __LINE__);
     } else {
         result->u.expr = clone_expression(as->u.expr);
     }
@@ -219,7 +219,7 @@ InitDeclarator *clone_init_declarator(const InitDeclarator *init_decl)
     InitDeclarator *result = new_init_declarator();
     if (result == NULL)
         return NULL;
-    result->type = clone_type(init_decl->type);
+    result->type = clone_type(init_decl->type, __func__, __FILE__, __LINE__);
     result->name = init_decl->name ? xstrdup(init_decl->name) : NULL;
     result->init = clone_initializer(init_decl->init);
     result->next = clone_init_declarator(init_decl->next);
@@ -306,7 +306,7 @@ Expr *clone_expression(const Expr *expr)
         result->u.cond.else_expr = clone_expression(expr->u.cond.else_expr);
         break;
     case EXPR_CAST:
-        result->u.cast.type = clone_type(expr->u.cast.type);
+        result->u.cast.type = clone_type(expr->u.cast.type, __func__, __FILE__, __LINE__);
         result->u.cast.expr = clone_expression(expr->u.cast.expr);
         break;
     case EXPR_CALL:
@@ -314,7 +314,7 @@ Expr *clone_expression(const Expr *expr)
         result->u.call.args = clone_expression(expr->u.call.args);
         break;
     case EXPR_COMPOUND:
-        result->u.compound_literal.type = clone_type(expr->u.compound_literal.type);
+        result->u.compound_literal.type = clone_type(expr->u.compound_literal.type, __func__, __FILE__, __LINE__);
         result->u.compound_literal.init = clone_init_item(expr->u.compound_literal.init);
         break;
     case EXPR_SUBSCRIPT:
@@ -336,14 +336,14 @@ Expr *clone_expression(const Expr *expr)
         break;
     case EXPR_SIZEOF_TYPE:
     case EXPR_ALIGNOF:
-        result->u.sizeof_type = clone_type(expr->u.sizeof_type);
+        result->u.sizeof_type = clone_type(expr->u.sizeof_type, __func__, __FILE__, __LINE__);
         break;
     case EXPR_GENERIC:
         result->u.generic.controlling_expr = clone_expression(expr->u.generic.controlling_expr);
         result->u.generic.associations     = clone_generic_assoc(expr->u.generic.associations);
         break;
     }
-    result->type = clone_type(expr->type);
+    result->type = clone_type(expr->type, __func__, __FILE__, __LINE__);
     result->next = clone_expression(expr->next);
     return result;
 }
@@ -383,7 +383,7 @@ GenericAssoc *clone_generic_assoc(const GenericAssoc *assoc)
     if (result == NULL)
         return NULL;
     if (assoc->kind == GENERIC_ASSOC_TYPE) {
-        result->u.type_assoc.type = clone_type(assoc->u.type_assoc.type);
+        result->u.type_assoc.type = clone_type(assoc->u.type_assoc.type, __func__, __FILE__, __LINE__);
         result->u.type_assoc.expr = clone_expression(assoc->u.type_assoc.expr);
     } else {
         result->u.default_assoc = clone_expression(assoc->u.default_assoc);
@@ -492,7 +492,7 @@ ExternalDecl *clone_external_decl(const ExternalDecl *ext_decl)
     if (result == NULL)
         return NULL;
     if (ext_decl->kind == EXTERNAL_DECL_FUNCTION) {
-        result->u.function.type = clone_type(ext_decl->u.function.type);
+        result->u.function.type = clone_type(ext_decl->u.function.type, __func__, __FILE__, __LINE__);
         result->u.function.name =
             ext_decl->u.function.name ? xstrdup(ext_decl->u.function.name) : NULL;
         result->u.function.specifiers  = clone_decl_spec(ext_decl->u.function.specifiers);
@@ -514,7 +514,7 @@ TypeSpec *clone_type_spec(const TypeSpec *ts)
         return NULL;
     switch (ts->kind) {
     case TYPE_SPEC_BASIC:
-        result->u.basic = clone_type(ts->u.basic);
+        result->u.basic = clone_type(ts->u.basic, __func__, __FILE__, __LINE__);
         break;
     case TYPE_SPEC_STRUCT:
     case TYPE_SPEC_UNION:
@@ -530,7 +530,7 @@ TypeSpec *clone_type_spec(const TypeSpec *ts)
             ts->u.typedef_name.name ? xstrdup(ts->u.typedef_name.name) : NULL;
         break;
     case TYPE_SPEC_ATOMIC:
-        result->u.atomic.type = clone_type(ts->u.atomic.type);
+        result->u.atomic.type = clone_type(ts->u.atomic.type, __func__, __FILE__, __LINE__);
         break;
     }
     result->qualifiers = clone_type_qualifier(ts->qualifiers);

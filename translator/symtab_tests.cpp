@@ -12,7 +12,7 @@
 // Helper functions for type creation
 Type *new_function_type(Type *return_type, Param *params)
 {
-    Type *func                   = new_type(TYPE_FUNCTION);
+    Type *func                   = new_type(TYPE_FUNCTION, __func__, __FILE__, __LINE__);
     func->u.function.return_type = return_type;
     func->u.function.params      = params;
     return func;
@@ -116,7 +116,7 @@ TEST_F(SymtabTest, DestroyEmptyTable)
 // Test symtab_add_automatic_var
 TEST_F(SymtabTest, AddAutomaticVar1)
 {
-    Type *int_type = new_type(TYPE_INT);
+    Type *int_type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     symtab_add_automatic_var("x", int_type);
 
     Symbol *sym = symtab_get("x");
@@ -130,8 +130,8 @@ TEST_F(SymtabTest, AddAutomaticVar1)
 // Test symtab_add_automatic_var overwrite
 TEST_F(SymtabTest, AddAutomaticVarOverwrite)
 {
-    Type *int_type  = new_type(TYPE_INT);
-    Type *char_type = new_type(TYPE_CHAR);
+    Type *int_type  = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    Type *char_type = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
 
     symtab_add_automatic_var("x", int_type);
     symtab_add_automatic_var("x", char_type);
@@ -148,7 +148,7 @@ TEST_F(SymtabTest, AddAutomaticVarOverwrite)
 // Test symtab_add_static_var
 TEST_F(SymtabTest, AddStaticVarWithInitializer)
 {
-    Type *int_type          = new_type(TYPE_INT);
+    Type *int_type          = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     StaticInitializer *init = new_static_initializer(INIT_INT);
     init->u.int_val         = 42;
 
@@ -168,7 +168,7 @@ TEST_F(SymtabTest, AddStaticVarWithInitializer)
 // Test symtab_add_static_var with no initializer
 TEST_F(SymtabTest, AddStaticVarNoInitializer)
 {
-    Type *int_type = new_type(TYPE_INT);
+    Type *int_type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
 
     symtab_add_static_var("y", int_type, false, INIT_TENTATIVE, NULL);
 
@@ -186,9 +186,9 @@ TEST_F(SymtabTest, AddStaticVarNoInitializer)
 // Test symtab_add_fun
 TEST_F(SymtabTest, AddFunction)
 {
-    Type *int_type = new_type(TYPE_INT);
-    Param *param   = create_param("a", clone_type(int_type));
-    Type *fun_type = new_function_type(clone_type(int_type), param);
+    Type *int_type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    Param *param   = create_param("a", clone_type(int_type, __func__, __FILE__, __LINE__));
+    Type *fun_type = new_function_type(clone_type(int_type, __func__, __FILE__, __LINE__), param);
 
     symtab_add_fun("f", fun_type, true, true);
 
@@ -247,7 +247,7 @@ TEST_F(SymtabTest, GetNonExistentSymbol)
 // Test symtab_get_opt
 TEST_F(SymtabTest, GetOptExistentAndNonExistent)
 {
-    Type *int_type = new_type(TYPE_INT);
+    Type *int_type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     symtab_add_automatic_var("x", int_type);
 
     Symbol *sym = symtab_get_opt("x");
@@ -263,7 +263,7 @@ TEST_F(SymtabTest, GetOptExistentAndNonExistent)
 // Test symtab_is_global
 TEST_F(SymtabTest, IsGlobal)
 {
-    Type *int_type = new_type(TYPE_INT);
+    Type *int_type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
 
     symtab_add_static_var("x", int_type, true, INIT_NONE, NULL);
     symtab_add_static_var("y", int_type, false, INIT_NONE, NULL);

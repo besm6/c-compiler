@@ -496,7 +496,7 @@ struct ExternalDecl {
 //
 // Allocate
 //
-Type *new_type(TypeKind kind);
+Type *new_type(TypeKind kind, const char *funcname, const char *filename, unsigned lineno);
 TypeQualifier *new_type_qualifier(TypeQualifierKind kind);
 Field *new_field(void);
 Enumerator *new_enumerator(Ident name, Expr *value);
@@ -546,7 +546,7 @@ void free_program(Program* program);
 //
 // Clone
 //
-Type *clone_type(const Type *type);
+Type *clone_type(const Type *type, const char *funcname, const char *filename, unsigned lineno);
 TypeQualifier *clone_type_qualifier(const TypeQualifier *qualifier);
 Param *clone_param(const Param *param);
 Expr *clone_expression(const Expr *expression);

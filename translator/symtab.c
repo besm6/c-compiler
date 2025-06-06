@@ -106,7 +106,7 @@ void symtab_destroy()
 //
 void symtab_add_automatic_var(const char *name, const Type *t)
 {
-    Symbol *sym = new_symbol(name, clone_type(t), SYM_LOCAL);
+    Symbol *sym = new_symbol(name, clone_type(t, __func__, __FILE__, __LINE__), SYM_LOCAL);
 
     map_insert_free(&symtab, name, (intptr_t)sym, 0, symtab_destroy_callback);
 }
@@ -120,7 +120,7 @@ void symtab_add_automatic_var(const char *name, const Type *t)
 void symtab_add_static_var(const char *name, const Type *t, bool global, InitKind init_kind,
                            StaticInitializer *init_list)
 {
-    Symbol *sym                 = new_symbol(name, clone_type(t), SYM_STATIC);
+    Symbol *sym                 = new_symbol(name, clone_type(t, __func__, __FILE__, __LINE__), SYM_STATIC);
     sym->u.static_var.global    = global;
     sym->u.static_var.init_kind = init_kind;
     sym->u.static_var.init_list = init_list;
@@ -135,7 +135,7 @@ void symtab_add_static_var(const char *name, const Type *t, bool global, InitKin
 //
 void symtab_add_fun(const char *name, const Type *t, bool global, bool defined)
 {
-    Symbol *sym         = new_symbol(name, clone_type(t), SYM_FUNC);
+    Symbol *sym         = new_symbol(name, clone_type(t, __func__, __FILE__, __LINE__), SYM_FUNC);
     sym->u.func.global  = global;
     sym->u.func.defined = defined;
 
@@ -162,8 +162,8 @@ char *symtab_add_string(const char *s)
     snprintf(name, sizeof(name), "_str%d", str_id++);
 
     // Create array type: char[strlen(s) + 1]
-    Type *t            = new_type(TYPE_ARRAY);
-    t->u.array.element = new_type(TYPE_CHAR);
+    Type *t            = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
+    t->u.array.element = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
     t->u.array.size    = new_expression(EXPR_LITERAL);
 
     // Set array size

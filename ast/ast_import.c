@@ -86,7 +86,7 @@ Type *import_type(WFILE *input)
     if (tag < TAG_TYPE || tag > TAG_TYPE + TYPE_ATOMIC)
         return NULL;
     TypeKind kind = (TypeKind)(tag - TAG_TYPE);
-    Type *type    = new_type(kind);
+    Type *type    = new_type(kind, __func__, __FILE__, __LINE__);
     switch (kind) {
     case TYPE_VOID:
     case TYPE_BOOL:

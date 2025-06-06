@@ -33,7 +33,7 @@ TEST_F(TypeTabTest, InitCreatesEmptyTable)
 // Test typetab_add_struct with a single field
 TEST_F(TypeTabTest, AddFieldDefinitionSingleMember)
 {
-    Type *intType   = new_type(TYPE_INT);
+    Type *intType   = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     FieldDef *field = new_member("x", intType, 0);
 
     typetab_add_struct("point", 4, 4, field);
@@ -54,8 +54,8 @@ TEST_F(TypeTabTest, AddFieldDefinitionSingleMember)
 // Test typetab_add_struct with multiple fields
 TEST_F(TypeTabTest, AddFieldDefinitionMultipleMembers)
 {
-    Type *intType    = new_type(TYPE_INT);
-    Type *doubleType = new_type(TYPE_DOUBLE);
+    Type *intType    = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    Type *doubleType = new_type(TYPE_DOUBLE, __func__, __FILE__, __LINE__);
     FieldDef *field1 = new_member("x", intType, 0);
     FieldDef *field2 = new_member("y", doubleType, 8);
     field1->next     = field2;
@@ -82,11 +82,11 @@ TEST_F(TypeTabTest, AddFieldDefinitionMultipleMembers)
 // Test replacing an existing struct definition
 TEST_F(TypeTabTest, ReplaceFieldDefinition)
 {
-    Type *intType    = new_type(TYPE_INT);
+    Type *intType    = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     FieldDef *field1 = new_member("x", intType, 0);
     typetab_add_struct("point", 4, 4, field1);
 
-    Type *doubleType = new_type(TYPE_DOUBLE);
+    Type *doubleType = new_type(TYPE_DOUBLE, __func__, __FILE__, __LINE__);
     FieldDef *field2 = new_member("y", doubleType, 0);
     typetab_add_struct("point", 8, 8, field2);
 
@@ -119,7 +119,7 @@ TEST_F(TypeTabTest, FindNonExistentTag)
 // Test typetab_destroy
 TEST_F(TypeTabTest, DestroyFreesMemory)
 {
-    Type *intType   = new_type(TYPE_INT);
+    Type *intType   = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     FieldDef *field = new_member("x", intType, 0);
     typetab_add_struct("point", 4, 4, field);
 
