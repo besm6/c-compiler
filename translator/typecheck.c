@@ -33,6 +33,36 @@ static int round_away_from_zero(int alignment, int size)
     }
 }
 
+static size_t get_array_size(const Type *t)
+{
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
+    if (t->kind != TYPE_ARRAY) {
+        fatal_error("get_array_size: Array is expected");
+    }
+    if (!t->u.array.size) {
+        fatal_error("get_array_size: No size in u.array");
+    }
+    if (t->u.array.size->kind != EXPR_LITERAL) {
+        fatal_error("get_array_size: No size in u.array");
+    }
+    if (!t->u.array.size->u.literal) {
+        fatal_error("get_array_size: No literal in size");
+    }
+    if (t->u.array.size->u.literal->kind != LITERAL_INT) {
+        fatal_error("get_array_size: Non-integer size");
+    }
+    return t->u.array.size->u.literal->u.int_val;
+}
+
+static void set_array_size(Type *t, size_t size)
+{
+    t->u.array.size                       = new_expression(EXPR_LITERAL);
+    t->u.array.size->u.literal            = new_literal(LITERAL_INT);
+    t->u.array.size->u.literal->u.int_val = size;
+}
+
 // Check if an expression is an lvalue
 bool is_lvalue(const Expr *e)
 {
@@ -252,6 +282,7 @@ Type *get_common_pointer_type(const Expr *e1, const Expr *e2)
         return e2->type;
     if (is_null_pointer_constant(e2))
         return e1->type;
+
     Type *void_type = new_type(TYPE_VOID, __func__, __FILE__, __LINE__);
     if ((e1->type->kind == TYPE_POINTER && e1->type->u.pointer.target->kind == TYPE_VOID) ||
         (e2->type->kind == TYPE_POINTER && e2->type->u.pointer.target->kind == TYPE_VOID)) {
@@ -301,6 +332,20 @@ Expr *typecheck_var(Expr *e)
     return e;
 }
 
+// Type-check a string literal
+Expr *typecheck_string(Expr *e)
+{
+    if (translator_debug) {
+        printf("--- %s()\n", __func__);
+    }
+    Type *array            = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
+    array->u.array.element = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
+    set_array_size(array, strlen(e->u.literal->u.string_val) + 1);
+    free_type(e->type);
+    e->type = array;
+    return e;
+}
+
 // Type-check a constant
 Expr *typecheck_const(Expr *e)
 {
@@ -319,10 +364,7 @@ Expr *typecheck_const(Expr *e)
         e->type = new_type(TYPE_DOUBLE, __func__, __FILE__, __LINE__);
         break;
     case LITERAL_STRING: {
-        Type *array            = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
-        array->u.array.element = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
-        array->u.array.size    = (Expr *)(size_t)(strlen(e->u.literal->u.string_val) + 1);
-        e->type                = array;
+        e = typecheck_string(e);
         break;
     }
     case LITERAL_ENUM:
@@ -331,20 +373,6 @@ Expr *typecheck_const(Expr *e)
     default:
         fatal_error("Unsupported literal kind %d", e->u.literal->kind);
     }
-    return e;
-}
-
-// Type-check a string literal
-Expr *typecheck_string(Expr *e)
-{
-    if (translator_debug) {
-        printf("--- %s()\n", __func__);
-    }
-    Type *array            = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
-    array->u.array.element = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
-    array->u.array.size    = (Expr *)(size_t)(strlen(e->u.literal->u.string_val) + 1);
-    free_type(e->type);
-    e->type = array;
     return e;
 }
 
@@ -360,7 +388,7 @@ Expr *typecheck_exp(Expr *e)
     case EXPR_VAR:
         return typecheck_var(e);
     case EXPR_LITERAL:
-        return e->u.literal->kind == LITERAL_STRING ? typecheck_string(e) : typecheck_const(e);
+        return typecheck_const(e);
     case EXPR_CAST: {
         validate_type(e->u.cast.type);
         Expr *inner = typecheck_and_convert(e->u.cast.expr);
@@ -761,7 +789,7 @@ Initializer *make_zero_init(Type *t)
         init->type        = clone_type(t, __func__, __FILE__, __LINE__);
 
         InitItem **tail = &init->u.items;
-        size_t size     = (size_t)t->u.array.size;
+        size_t size     = get_array_size(t);
         for (size_t i = 0; i < size; i++) {
             InitItem *item    = new_init_item(NULL, make_zero_init(t->u.array.element));
             *tail             = item;
@@ -827,7 +855,7 @@ StaticInitializer *to_static_init(const Type *var_type, const Initializer *init)
         }
         const char *s                        = init->u.expr->u.literal->u.string_val;
         size_t len                           = strlen(s);
-        size_t array_size                    = (size_t)var_type->u.array.size; // TODO
+        size_t array_size                    = get_array_size(var_type);
         StaticInitializer *result            = new_static_initializer(INIT_STRING);
         result->u.string_val.str             = xstrdup(s);
         result->u.string_val.null_terminated = (array_size >= len + 1);
@@ -892,16 +920,14 @@ StaticInitializer *to_static_init(const Type *var_type, const Initializer *init)
         return result;
     }
     if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
-        size_t array_size = (size_t)var_type->u.array.size; // TODO
+        size_t array_size = get_array_size(var_type);
         int init_count    = 0;
-        for (InitItem *item = init->u.items; item; item = item->next)
-            init_count++;
-        if (init_count > (int)array_size) {
-            fatal_error("Too many values in static initializer");
-        }
         StaticInitializer *result = NULL, **tail = &result;
-        for (int i = 0; i < init_count; i++) {
-            StaticInitializer *elem_init = to_static_init(var_type->u.array.element, init->u.items[i].init);
+        for (InitItem *item = init->u.items; item; item = item->next, init_count++) {
+            if (init_count > (int)array_size) {
+                fatal_error("Too many values in array initializer");
+            }
+            StaticInitializer *elem_init = to_static_init(var_type->u.array.element, item->init);
             *tail = elem_init;
             while (*tail)
                 tail = &(*tail)->next;
@@ -933,7 +959,7 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
             fatal_error("Can't initialize non-character type with string literal");
         }
         size_t len = strlen(init->u.expr->u.literal->u.string_val);
-        if (len > (size_t)target_type->u.array.size) {
+        if (len > get_array_size(target_type)) {
             fatal_error("Too many characters in string literal");
         }
         init->u.expr = typecheck_string(init->u.expr);
@@ -967,16 +993,14 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
         return init;
     }
     if (target_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
-        size_t array_size = (size_t)target_type->u.array.size; // TODO
+        size_t array_size = get_array_size(target_type);
         int init_count    = 0;
-        for (InitItem *item = init->u.items; item; item = item->next)
-            init_count++;
-        if (init_count > (int)array_size) {
-            fatal_error("Too many values in initializer");
-        }
         InitItem *items = NULL, **tail = &items;
-        for (int i = 0; i < init_count; i++) {
-            InitItem *new_item = new_init_item(NULL, typecheck_init(target_type->u.array.element, init->u.items[i].init));
+        for (InitItem *item = init->u.items; item; item = item->next, init_count++) {
+            if (init_count > (int)array_size) {
+                fatal_error("Too many values in array initializer");
+            }
+            InitItem *new_item = new_init_item(NULL, typecheck_init(target_type->u.array.element, item->init));
             *tail              = new_item;
             tail               = &new_item->next;
         }
