@@ -6,6 +6,7 @@ add_library(translator STATIC
     symtab.c
     symtab_print.c
     typetab.c
+    typetab_print.c
     typecheck.c
     type_utils.c
     const_convert.c
