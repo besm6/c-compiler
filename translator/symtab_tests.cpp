@@ -228,12 +228,13 @@ TEST_F(SymtabTest, AddStringLiteral)
     EXPECT_EQ(sym->type->u.array.qualifiers, nullptr);
 
     // Check initializer
-    StaticInitializer expected_init = { .kind         = INIT_STRING,
-                                        .u.string_val = { xstrdup(str), true },
-                                        .next         = NULL };
-    ASSERT_TRUE(compare_static_initializer(sym->u.const_init, &expected_init));
+    StaticInitializer *init = sym->u.const_init;
+    ASSERT_NE(init, nullptr);
+    EXPECT_EQ(init->kind, INIT_STRING);
+    EXPECT_TRUE(init->u.string_val.null_terminated);
+    EXPECT_STREQ(init->u.string_val.str, str);
+    EXPECT_EQ(init->next, nullptr);
 
-    xfree(expected_init.u.string_val.str);
     xfree(str_id);
 }
 

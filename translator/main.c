@@ -2,15 +2,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <fcntl.h>
 
 #include "translator.h"
 #include "xalloc.h"
 #include "wio.h"
 #include "symtab.h"
-
-// Enable debug output
-int translator_debug;
 
 static int input_fd;
 static FILE *output_file;

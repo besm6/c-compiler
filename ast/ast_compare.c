@@ -23,24 +23,7 @@ bool compare_type(const Type *a, const Type *b)
     if (!compare_type_qualifier(a->qualifiers, b->qualifiers))
         return false;
     switch (a->kind) {
-    case TYPE_VOID:
-    case TYPE_BOOL:
-    case TYPE_FLOAT:
-    case TYPE_DOUBLE:
-    case TYPE_LONG_DOUBLE:
-    case TYPE_SIGNED:
-    case TYPE_UNSIGNED:
-    case TYPE_CHAR:
-    case TYPE_SCHAR:
-    case TYPE_UCHAR:
-    case TYPE_SHORT:
-    case TYPE_USHORT:
-    case TYPE_INT:
-    case TYPE_UINT:
-    case TYPE_LONG:
-    case TYPE_ULONG:
-    case TYPE_LONG_LONG:
-    case TYPE_ULONG_LONG:
+    default:
         return true;
     case TYPE_COMPLEX:
     case TYPE_IMAGINARY:

@@ -21,6 +21,8 @@ int64_t literal_to_int64(const Literal *lit)
         fatal_error("literal_to_int64: Cannot convert string %s", lit->u.string_val);
     case LITERAL_ENUM:
         fatal_error("literal_to_int64: Cannot convert enum %d", lit->u.enum_const);
+    default:
+        fatal_error("literal_to_int64: Unknown kind %d", lit->kind);
     }
 }
 
@@ -40,6 +42,8 @@ uint64_t literal_to_uint64(const Literal *lit)
         fatal_error("literal_to_uint64: Cannot convert string %s", lit->u.string_val);
     case LITERAL_ENUM:
         fatal_error("literal_to_uint64: Cannot convert enum %d", lit->u.enum_const);
+    default:
+        fatal_error("literal_to_uint64: Unknown kind %d", lit->kind);
     }
 }
 
@@ -59,6 +63,8 @@ double literal_to_double(const Literal *lit)
         fatal_error("literal_to_double: Cannot convert string %s", lit->u.string_val);
     case LITERAL_ENUM:
         fatal_error("literal_to_double: Cannot convert enum %d", lit->u.enum_const);
+    default:
+        fatal_error("literal_to_double: Unknown kind %d", lit->kind);
     }
 }
 

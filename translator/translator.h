@@ -32,7 +32,7 @@ void label_loops(ExternalDecl *ast);
 Tac_TopLevel *translate(ExternalDecl *ast);
 
 // Error handling.
-void _Noreturn fatal_error(const char *message, ...) __attribute__((noreturn));
+void fatal_error(const char *message, ...) __attribute__((noreturn));
 
 //
 // Helpers for Type.
