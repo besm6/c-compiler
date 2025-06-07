@@ -842,182 +842,253 @@ Initializer *make_zero_init(Type *t)
     return init;
 }
 
-// Convert an initializer to a StaticInitializer list
+// Convert an initializer to a StaticInitializer list for global variables
 StaticInitializer *to_static_init(const Type *var_type, const Initializer *init)
 {
     if (translator_debug) {
         printf("--- %s()\n", __func__);
     }
+
+    // Handle null initializer: initialize with zeros
     if (!init) {
-        StaticInitializer *zero = new_static_initializer(INIT_ZERO);
-        zero->u.zero_bytes      = get_size(var_type);
-        return zero;
+        StaticInitializer *zero_init = new_static_initializer(INIT_ZERO);
+        zero_init->u.zero_bytes      = get_size(var_type);
+        return zero_init;
     }
+
+    // Handle array initialized with a string literal
     if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_SINGLE &&
         init->u.expr->kind == EXPR_LITERAL && init->u.expr->u.literal->kind == LITERAL_STRING) {
-        if (!is_character(var_type->u.array.element)) {
-            fatal_error("Can't initialize array of non-character type with string literal");
+        const Type *element_type = var_type->u.array.element;
+        if (element_type->kind != TYPE_CHAR && element_type->kind != TYPE_SCHAR &&
+            element_type->kind != TYPE_UCHAR) {
+            fatal_error("String literal can only initialize character array");
         }
-        const char *s                        = init->u.expr->u.literal->u.string_val;
-        size_t len                           = strlen(s);
-        size_t array_size                    = get_array_size(var_type);
-        StaticInitializer *result            = new_static_initializer(INIT_STRING);
-        result->u.string_val.str             = xstrdup(s);
-        result->u.string_val.null_terminated = (array_size >= len + 1);
-        if (array_size > len + 1) {
-            StaticInitializer *zero = new_static_initializer(INIT_ZERO);
-            zero->u.zero_bytes      = (array_size - (len + 1)) * get_size(var_type->u.array.element);
-            result->next            = zero;
+        const char *string_val = init->u.expr->u.literal->u.string_val;
+        size_t string_length   = strlen(string_val);
+        size_t array_size;
+        if (!var_type->u.array.size) {
+            // Array size is not specified - use string size.
+            array_size = string_length + 1;
+        } else {
+            array_size = get_array_size(var_type);
+            if (string_length > array_size) {
+                fatal_error("String literal too long for array");
+            }
         }
-        return result;
+
+        StaticInitializer *string_init            = new_static_initializer(INIT_STRING);
+        string_init->u.string_val.str             = xstrdup(string_val);
+        string_init->u.string_val.null_terminated = (array_size >= string_length + 1);
+        if (array_size > string_length + 1) {
+            StaticInitializer *zero_padding = new_static_initializer(INIT_ZERO);
+            zero_padding->u.zero_bytes =
+                (array_size - (string_length + 1)) * get_size(element_type);
+            string_init->next = zero_padding;
+        }
+        return string_init;
     }
-    if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_SINGLE) {
-        fatal_error("Can't initialize array from scalar value");
-    }
+
+    // Handle pointer initialized with a string literal
     if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
         init->u.expr->kind == EXPR_LITERAL && init->u.expr->u.literal->kind == LITERAL_STRING) {
         if (var_type->u.pointer.target->kind != TYPE_CHAR) {
-            fatal_error("String literal can only initialize char *");
+            fatal_error("String literal can only initialize pointer to char");
         }
-        char *str_id              = symtab_add_string(init->u.expr->u.literal->u.string_val);
-        StaticInitializer *result = new_static_initializer(INIT_POINTER);
-        result->u.ptr_id          = str_id; // owned by static initializer
-        return result;
+        const char *string_val          = init->u.expr->u.literal->u.string_val;
+        char *string_id                 = symtab_add_string(string_val);
+        StaticInitializer *pointer_init = new_static_initializer(INIT_POINTER);
+        pointer_init->u.ptr_id          = string_id;
+        return pointer_init;
     }
+
+    // Handle scalar initialized with a literal
     if (init->kind == INITIALIZER_SINGLE && init->u.expr->kind == EXPR_LITERAL) {
-        const Literal *lit = init->u.expr->u.literal;
-        if (is_zero_int(lit)) {
-            StaticInitializer *zero = new_static_initializer(INIT_ZERO);
-            zero->u.zero_bytes      = get_size(var_type);
-            return zero;
+        const Literal *literal = init->u.expr->u.literal;
+        if (is_zero_int(literal)) {
+            StaticInitializer *zero_init = new_static_initializer(INIT_ZERO);
+            zero_init->u.zero_bytes      = get_size(var_type);
+            return zero_init;
         }
-        if (!is_arithmetic(var_type)) {
-            fatal_error("Invalid static initializer for type %d", var_type->kind);
+        if (var_type->kind != TYPE_CHAR && var_type->kind != TYPE_INT &&
+            var_type->kind != TYPE_LONG && var_type->kind != TYPE_DOUBLE) {
+            fatal_error("Static initializer requires arithmetic type");
         }
-        return new_static_initializer_from_literal(var_type, lit);
+        return new_static_initializer_from_literal(var_type, literal);
     }
+
+    // Handle array with compound initializer
+    if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
+        size_t array_size             = get_array_size(var_type);
+        const Type *element_type      = var_type->u.array.element;
+        StaticInitializer *array_init = NULL;
+        StaticInitializer **current   = &array_init;
+        int element_count             = 0;
+
+        for (InitItem *item = init->u.items; item; item = item->next) {
+            if (element_count >= (int)array_size) {
+                fatal_error("Too many elements in array initializer");
+            }
+            StaticInitializer *element_init = to_static_init(element_type, item->init);
+            *current                        = element_init;
+            while (*current) {
+                current = &(*current)->next;
+            }
+            element_count++;
+        }
+
+        if (element_count < (int)array_size) {
+            StaticInitializer *zero_padding = new_static_initializer(INIT_ZERO);
+            zero_padding->u.zero_bytes = ((int)array_size - element_count) * get_size(element_type);
+            *current                   = zero_padding;
+        }
+        return array_init;
+    }
+
+    // Handle struct with compound initializer
     if (var_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
-        StructDef *entry = typetab_find(var_type->u.struct_t.name);
-        FieldDef *memb   = entry->members;
-        StaticInitializer *result = NULL, **tail = &result;
-        int current_offset = 0;
-        for (InitItem *item = init->u.items; item; item = item->next, memb = memb->next) {
-            if (!memb) {
+        StructDef *struct_def          = typetab_find(var_type->u.struct_t.name);
+        FieldDef *field                = struct_def->members;
+        StaticInitializer *struct_init = NULL;
+        StaticInitializer **current    = &struct_init;
+        int current_offset             = 0;
+
+        for (InitItem *item = init->u.items; item; item = item->next) {
+            if (!field) {
                 fatal_error("Too many elements in struct initializer");
             }
-            if (current_offset < memb->offset) {
-                StaticInitializer *zero = new_static_initializer(INIT_ZERO);
-                zero->u.zero_bytes      = memb->offset - current_offset;
-                *tail                   = zero;
-                tail                    = &zero->next;
+            if (current_offset < field->offset) {
+                StaticInitializer *zero_padding = new_static_initializer(INIT_ZERO);
+                zero_padding->u.zero_bytes      = field->offset - current_offset;
+                *current                        = zero_padding;
+                current                         = &zero_padding->next;
             }
-            StaticInitializer *member_init = to_static_init(memb->type, item->init);
-            *tail                          = member_init;
-            while (*tail)
-                tail = &(*tail)->next;
-            current_offset = memb->offset + get_size(memb->type);
-        }
-        if (current_offset < entry->size) {
-            StaticInitializer *zero = new_static_initializer(INIT_ZERO);
-            zero->u.zero_bytes      = entry->size - current_offset;
-            *tail                   = zero;
-        }
-        return result;
-    }
-    if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
-        size_t array_size = get_array_size(var_type);
-        int init_count    = 0;
-        StaticInitializer *result = NULL, **tail = &result;
-        for (InitItem *item = init->u.items; item; item = item->next, init_count++) {
-            if (init_count > (int)array_size) {
-                fatal_error("Too many values in array initializer");
+            StaticInitializer *field_init = to_static_init(field->type, item->init);
+            *current                      = field_init;
+            while (*current) {
+                current = &(*current)->next;
             }
-            StaticInitializer *elem_init = to_static_init(var_type->u.array.element, item->init);
-            *tail = elem_init;
-            while (*tail)
-                tail = &(*tail)->next;
+            current_offset = field->offset + get_size(field->type);
+            field          = field->next;
         }
-        if (init_count < (int)array_size) {
-            StaticInitializer *zero = new_static_initializer(INIT_ZERO);
-            zero->u.zero_bytes =
-                ((int)array_size - init_count) * get_size(var_type->u.array.element);
-            *tail      = zero;
+
+        if (current_offset < struct_def->size) {
+            StaticInitializer *zero_padding = new_static_initializer(INIT_ZERO);
+            zero_padding->u.zero_bytes      = struct_def->size - current_offset;
+            *current                        = zero_padding;
         }
-        return result;
+        return struct_init;
     }
-    fatal_error("Invalid static initializer for type %d", var_type->kind);
+
+    // Handle invalid cases
+    if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_SINGLE) {
+        fatal_error("Cannot initialize array with scalar value");
+    }
+    fatal_error("Unsupported initializer for type %s", type_kind_str[var_type->kind]);
 }
 
-// Type-check an initializer
+// Type-check an initializer against a target type
 Initializer *typecheck_init(const Type *target_type, Initializer *init)
 {
     if (translator_debug) {
         printf("--- %s()\n", __func__);
     }
-    if (!init)
+
+    // Handle null initializer
+    if (!init) {
         return NULL;
+    }
+
+    // Update initializer type
     free_type(init->type);
     init->type = clone_type(target_type, __func__, __FILE__, __LINE__);
+
+    // Handle array initialized with a string literal
     if (target_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_SINGLE &&
         init->u.expr->kind == EXPR_LITERAL && init->u.expr->u.literal->kind == LITERAL_STRING) {
-        if (!is_character(target_type->u.array.element)) {
-            fatal_error("Can't initialize non-character type with string literal");
+        const Type *element_type = target_type->u.array.element;
+        if (element_type->kind != TYPE_CHAR && element_type->kind != TYPE_SCHAR &&
+            element_type->kind != TYPE_UCHAR) {
+            fatal_error("String literal can only initialize character array");
         }
-        size_t len = strlen(init->u.expr->u.literal->u.string_val);
-        if (len > get_array_size(target_type)) {
-            fatal_error("Too many characters in string literal");
+        if (target_type->u.array.size) {
+            const char *string_val = init->u.expr->u.literal->u.string_val;
+            size_t string_length   = strlen(string_val);
+            size_t array_size      = get_array_size(target_type);
+            if (string_length > array_size) {
+                fatal_error("String literal too long for array");
+            }
         }
         init->u.expr = typecheck_string(init->u.expr);
         return init;
     }
-    if (target_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
-        FieldDef *members = typetab_find(target_type->u.struct_t.name)->members;
-        InitItem *items = NULL, **tail = &items;
 
-        for (InitItem *old = init->u.items; old; old = old->next, members = members->next) {
-            if (!members) {
-                fatal_error("Too many elements in structure initializer");
-            }
-            InitItem *new_item = new_init_item(NULL, typecheck_init(members->type, old->init));
-            *tail              = new_item;
-            tail               = &new_item->next;
-        }
-        for (; members; members = members->next) {
-            InitItem *new_item = new_init_item(NULL, make_zero_init(members->type));
-            *tail              = new_item;
-            tail               = &new_item->next;
-        }
-        free_init_item(init->u.items);
-        init->u.items = items;
-        return init;
-    }
+    // Handle scalar initialized with a single expression
     if (init->kind == INITIALIZER_SINGLE) {
-        Expr *expr   = typecheck_and_convert(init->u.expr);
-        expr         = convert_by_assignment(expr, target_type);
-        init->u.expr = expr;
+        Expr *expression = typecheck_and_convert(init->u.expr);
+        expression       = convert_by_assignment(expression, target_type);
+        init->u.expr     = expression;
         return init;
     }
+
+    // Handle array with compound initializer
     if (target_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
-        size_t array_size = get_array_size(target_type);
-        int init_count    = 0;
-        InitItem *items = NULL, **tail = &items;
-        for (InitItem *item = init->u.items; item; item = item->next, init_count++) {
-            if (init_count > (int)array_size) {
-                fatal_error("Too many values in array initializer");
+        size_t array_size   = get_array_size(target_type);
+        Type *element_type  = target_type->u.array.element;
+        InitItem *new_items = NULL;
+        InitItem **current  = &new_items;
+        int element_count   = 0;
+
+        for (InitItem *item = init->u.items; item; item = item->next) {
+            if (element_count >= (int)array_size) {
+                fatal_error("Too many elements in array initializer");
             }
-            InitItem *new_item = new_init_item(NULL, typecheck_init(target_type->u.array.element, item->init));
-            *tail              = new_item;
-            tail               = &new_item->next;
+            InitItem *new_item = new_init_item(NULL, typecheck_init(element_type, item->init));
+            *current           = new_item;
+            current            = &new_item->next;
+            element_count++;
         }
-        for (int i = init_count; i < (int)array_size; i++) {
-            InitItem *new_item = new_init_item(NULL, make_zero_init(target_type->u.array.element));
-            *tail              = new_item;
-            tail               = &new_item->next;
+
+        for (int i = element_count; i < (int)array_size; i++) {
+            InitItem *zero_item = new_init_item(NULL, make_zero_init(element_type));
+            *current            = zero_item;
+            current             = &zero_item->next;
         }
-        init->u.items = items;
+
+        free_init_item(init->u.items);
+        init->u.items = new_items;
         return init;
     }
-    fatal_error("Can't initialize scalar value from compound initializer");
+
+    // Handle struct with compound initializer
+    if (target_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
+        StructDef *struct_def = typetab_find(target_type->u.struct_t.name);
+        FieldDef *field       = struct_def->members;
+        InitItem *new_items   = NULL;
+        InitItem **current    = &new_items;
+
+        for (InitItem *item = init->u.items; item; item = item->next) {
+            if (!field) {
+                fatal_error("Too many elements in struct initializer");
+            }
+            InitItem *new_item = new_init_item(NULL, typecheck_init(field->type, item->init));
+            *current           = new_item;
+            current            = &new_item->next;
+            field              = field->next;
+        }
+
+        for (; field; field = field->next) {
+            InitItem *zero_item = new_init_item(NULL, make_zero_init(field->type));
+            *current            = zero_item;
+            current             = &zero_item->next;
+        }
+
+        free_init_item(init->u.items);
+        init->u.items = new_items;
+        return init;
+    }
+
+    fatal_error("Cannot initialize scalar type with compound initializer");
 }
 
 // Type-check a block
