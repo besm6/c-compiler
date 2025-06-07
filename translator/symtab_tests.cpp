@@ -27,61 +27,6 @@ Param *create_param(const char *name, Type *type)
     return p;
 }
 
-// Helper to compare StaticInitializer lists
-bool compare_static_initializer(const StaticInitializer *a, const StaticInitializer *b)
-{
-    while (a && b) {
-        if (a->kind != b->kind)
-            return false;
-        switch (a->kind) {
-        case INIT_CHAR:
-            if (a->u.char_val != b->u.char_val)
-                return false;
-            break;
-        case INIT_INT:
-            if (a->u.int_val != b->u.int_val)
-                return false;
-            break;
-        case INIT_LONG:
-            if (a->u.long_val != b->u.long_val)
-                return false;
-            break;
-        case INIT_UCHAR:
-            if (a->u.uchar_val != b->u.uchar_val)
-                return false;
-            break;
-        case INIT_UINT:
-            if (a->u.uint_val != b->u.uint_val)
-                return false;
-            break;
-        case INIT_ULONG:
-            if (a->u.ulong_val != b->u.ulong_val)
-                return false;
-            break;
-        case INIT_DOUBLE:
-            if (a->u.double_val != b->u.double_val)
-                return false;
-            break;
-        case INIT_STRING:
-            if (strcmp(a->u.string_val.str, b->u.string_val.str) != 0 ||
-                a->u.string_val.null_terminated != b->u.string_val.null_terminated)
-                return false;
-            break;
-        case INIT_ZERO:
-            if (a->u.zero_bytes != b->u.zero_bytes)
-                return false;
-            break;
-        case INIT_POINTER:
-            if (strcmp(a->u.ptr_id, b->u.ptr_id) != 0)
-                return false;
-            break;
-        }
-        a = a->next;
-        b = b->next;
-    }
-    return a == NULL && b == NULL;
-}
-
 // Test fixture for symtab tests
 class SymtabTest : public ::testing::Test {
 protected:
@@ -160,7 +105,13 @@ TEST_F(SymtabTest, AddStaticVarWithInitializer)
     ASSERT_EQ(sym->kind, SYM_STATIC);
     ASSERT_TRUE(sym->u.static_var.global);
     ASSERT_EQ(sym->u.static_var.init_kind, INIT_INITIALIZED);
-    ASSERT_TRUE(compare_static_initializer(sym->u.static_var.init_list, init));
+
+    // Check initializer
+    StaticInitializer *check = sym->u.static_var.init_list;
+    ASSERT_NE(check, nullptr);
+    EXPECT_EQ(check->kind, INIT_INT);
+    EXPECT_EQ(check->u.int_val, 42);
+    EXPECT_EQ(check->next, nullptr);
 
     free_type(int_type);
 }
