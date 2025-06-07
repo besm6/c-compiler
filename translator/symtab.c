@@ -17,7 +17,7 @@ StringMap symtab;
 Symbol *new_symbol(const char *name, Type *t, SymbolKind kind)
 {
     if (translator_debug) {
-        printf("--- %s() name = %s\n", __func__, name);
+        printf("--- %s() %s\n", __func__, name);
         print_type(stdout, t, 4);
     }
     Symbol *sym = xalloc(sizeof(Symbol), __func__, __FILE__, __LINE__);

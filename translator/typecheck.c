@@ -163,21 +163,26 @@ void typecheck_struct_decl(const Declaration *d)
     if (translator_debug) {
         printf("--- %s()\n", __func__);
     }
-    if (!d->u.var.declarators)
+    if (!d->u.empty.type)
+        return;
+    TypeKind kind = d->u.empty.type->kind;
+    if (kind != TYPE_STRUCT && kind != TYPE_UNION)
         return; // Ignore forward declarations
 
-    validate_struct_definition(d->u.var.declarators->type->u.struct_t.name,
-                               d->u.var.declarators->type->u.struct_t.fields);
+    validate_struct_definition(d->u.empty.type->u.struct_t.name,
+                               d->u.empty.type->u.struct_t.fields);
 
     // Build member definitions
     FieldDef *members     = NULL;
     FieldDef **tail       = &members;
     int current_size      = 0;
     int current_alignment = 1;
-    for (Field *f = d->u.var.declarators->type->u.struct_t.fields; f; f = f->next) {
+    for (Field *f = d->u.empty.type->u.struct_t.fields; f; f = f->next) {
         int member_alignment = get_alignment(f->type);
-        int offset           = round_away_from_zero(member_alignment, current_size);
-
+        int offset           = 0;
+        if (kind == TYPE_STRUCT) {
+            offset = round_away_from_zero(member_alignment, current_size);
+        }
         *tail = new_member(f->name, clone_type(f->type, __func__, __FILE__, __LINE__), offset);
         tail = &(*tail)->next;
 
@@ -185,7 +190,7 @@ void typecheck_struct_decl(const Declaration *d)
         current_size      = offset + get_size(f->type);
     }
     int size = round_away_from_zero(current_alignment, current_size);
-    typetab_add_struct(d->u.var.declarators->type->u.struct_t.name, current_alignment, size, members);
+    typetab_add_struct(d->u.empty.type->u.struct_t.name, current_alignment, size, members);
 }
 
 // Convert an expression to a target type
@@ -1251,6 +1256,7 @@ void typecheck_file_scope_var_decl(Declaration *d)
 {
     if (translator_debug) {
         printf("--- %s()\n", __func__);
+        print_declaration(stdout, d, 4);
     }
     InitDeclarator *decl = d->u.var.declarators;
     const Type *var_type = decl->type;
@@ -1307,14 +1313,31 @@ void typecheck_global_decl(ExternalDecl *d)
         printf("--- %s()\n", __func__);
         print_external_decl(stdout, d, 4);
     }
-    if (d->kind == EXTERNAL_DECL_FUNCTION) {
+    switch (d->kind) {
+    case EXTERNAL_DECL_FUNCTION:
         typecheck_fn_decl(d);
-    } else {
-        typecheck_file_scope_var_decl(d->u.declaration);
-    }
-    if (translator_debug) {
-        printf("--- result:\n");
-        print_external_decl(stdout, d, 4);
+        if (translator_debug) {
+            printf("--- result:\n");
+            print_external_decl(stdout, d, 4);
+        }
+        break;
+    case EXTERNAL_DECL_DECLARATION:
+        switch (d->u.declaration->kind) {
+        case DECL_VAR:
+            typecheck_file_scope_var_decl(d->u.declaration);
+            break;
+        case DECL_EMPTY:
+            typecheck_struct_decl(d->u.declaration);
+            break;
+        case DECL_STATIC_ASSERT:
+            //TODO: implement static assert.
+            break;
+        }
+        if (translator_debug) {
+            printf("--- result:\n");
+            print_declaration(stdout, d->u.declaration, 4);
+        }
+        break;
     }
 }
 

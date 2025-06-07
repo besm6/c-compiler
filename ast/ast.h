@@ -596,6 +596,7 @@ void print_expression(FILE *fd, const Expr *expr, int indent);
 void print_statement(FILE *fd, Stmt *stmt, int indent);
 void print_type(FILE *fd, const Type *type, int indent);
 void print_type_qualifiers(FILE *fd, TypeQualifier *qualifiers, int indent);
+void print_declaration(FILE *fd, Declaration *decl, int indent);
 void print_external_decl(FILE *fd, ExternalDecl *ext, int indent);
 extern const char *type_kind_str[];
 

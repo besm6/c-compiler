@@ -91,7 +91,6 @@ static const char *unary_op_kind_str[] = {
 };
 
 // Forward declarations
-static void print_declaration(FILE *fd, Declaration *decl, int indent);
 static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent);
 
 // Print Field structure
@@ -675,7 +674,7 @@ static void print_init_declarator(FILE *fd, InitDeclarator *id, int indent)
 }
 
 // Print Declaration
-static void print_declaration(FILE *fd, Declaration *decl, int indent)
+void print_declaration(FILE *fd, Declaration *decl, int indent)
 {
     if (!decl) {
         print_indent(fd, indent);

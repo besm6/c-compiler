@@ -8,7 +8,7 @@
 #include "translator.h"
 #include "xalloc.h"
 
-static StringMap typetab;
+StringMap typetab;
 
 //
 // Allocate a FieldDef
@@ -79,6 +79,9 @@ void typetab_destroy()
 //
 void typetab_add_struct(const char *tag, int alignment, int size, FieldDef *members)
 {
+    if (translator_debug) {
+        printf("--- %s() %s\n", __func__, tag);
+    }
     // Build new definition.
     StructDef *def = xalloc(sizeof(StructDef), __func__, __FILE__, __LINE__);
     def->tag       = xstrdup(tag);
@@ -115,12 +118,4 @@ StructDef *typetab_find(const char *tag)
         fatal_error("Struct or union '%s' not found", tag);
     }
     return (StructDef *)value;
-}
-
-//
-// Print all types.
-//
-void typetab_print()
-{
-    //TODO
 }
