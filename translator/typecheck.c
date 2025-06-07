@@ -42,10 +42,10 @@ static size_t get_array_size(const Type *t)
         fatal_error("get_array_size: Array is expected");
     }
     if (!t->u.array.size) {
-        fatal_error("get_array_size: No size in u.array");
+        return 0;
     }
     if (t->u.array.size->kind != EXPR_LITERAL) {
-        fatal_error("get_array_size: No size in u.array");
+        fatal_error("get_array_size: Size is not a literal");
     }
     if (!t->u.array.size->u.literal) {
         fatal_error("get_array_size: No literal in size");
