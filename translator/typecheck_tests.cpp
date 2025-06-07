@@ -92,10 +92,6 @@ protected:
 //
 // Test Case 1: Simple Integer Variable Declaration and Expression
 // Tests a global variable declaration, integer addition, and function return.
-//      int x = 42;
-//      int main() {
-//          return x + 1;
-//      }
 //
 // Expected Symtab:
 // - x: {name="x", type=TYPE_INT, kind=SYM_STATIC, u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list={kind=INIT_INT, u.int_val=42, next=NULL}}}
@@ -192,18 +188,9 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
     EXPECT_EQ(expr->u.binary_op.right->type->kind, TYPE_INT);
 }
 
-#if 0
 //
 // Test Case 2: Struct Declaration and Member Access
 // Tests struct definition, initialization, and dot operator.
-//      struct Point {
-//          int x;
-//          double y;
-//      };
-//      struct Point p = {1, 2.0};
-//      double get_y() {
-//          return p.y;
-//      }
 //
 // Expected Symtab:
 // - p: {name="p", type=TYPE_STRUCT("Point"), kind=SYM_STATIC, u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list=[{kind=INIT_INT, u.int_val=1}, {kind=INIT_ZERO, u.zero_bytes=4}, {kind=INIT_DOUBLE, u.double_val=2.0}]}}
@@ -228,14 +215,25 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
 //   - Expr(EXPR_FIELD_ACCESS, "y")->type: TYPE_DOUBLE
 //   - Expr(EXPR_VAR, "p")->type: TYPE_STRUCT("Point")
 //
+TEST_F(TypecheckTest, TypecheckStructDeclMemberAccess)
+{
+    ParseProgram(R"(
+        struct Point {
+            int x;
+            double y;
+        };
+        struct Point p = {1, 2.0};
+        double get_y() {
+            return p.y;
+        }
+    )");
+    typecheck_program(program);
+    //TODO
+}
 
 //
 // Test Case 3: Array and String Literal Initialization
 // Tests array initialization with a string literal and subscript operation.
-//      char str[] = "hello";
-//      int main() {
-//          return str[0];
-//      }
 //
 // Expected Symtab:
 // - _str0: {name="_str0", type=TYPE_ARRAY(element=TYPE_CHAR, size=6), kind=SYM_CONST, u.const_init={kind=INIT_STRING, u.string_val={str="hello", null_terminated=true}, next=NULL}}
@@ -257,15 +255,21 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
 //   - Expr(EXPR_VAR, "str")->type: TYPE_POINTER(target=TYPE_CHAR) (array-to-pointer)
 //   - Expr(EXPR_LITERAL, 0)->type: TYPE_LONG (index converted to long)
 //
+TEST_F(TypecheckTest, TypecheckArrayStringLiteralInit)
+{
+    ParseProgram(R"(
+        char str[] = "hello";
+        int main() {
+            return str[0];
+        }
+    )");
+    typecheck_program(program);
+    //TODO
+}
 
 //
 // Test Case 4: Pointer Arithmetic and Dereference
 // Tests array-to-pointer conversion, pointer initialization, and dereference.
-//      int arr[5] = {1, 2, 3, 4, 5};
-//      int *ptr = arr;
-//      int main() {
-//          return *(ptr + 1);
-//      }
 //
 // Expected Symtab:
 // - arr: {name="arr", type=TYPE_ARRAY(element=TYPE_INT, size=5), kind=SYM_STATIC, u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list=[{kind=INIT_INT, u.int_val=1}, {kind=INIT_INT, u.int_val=2}, {kind=INIT_INT, u.int_val=3}, {kind=INIT_INT, u.int_val=4}, {kind=INIT_INT, u.int_val=5}]}}
@@ -293,16 +297,22 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
 //   - Expr(EXPR_VAR, "ptr")->type: TYPE_POINTER(target=TYPE_INT)
 //   - Expr(EXPR_LITERAL, 1)->type: TYPE_LONG
 //
+TEST_F(TypecheckTest, PointerArithmeticDereference)
+{
+    ParseProgram(R"(
+        int arr[5] = {1, 2, 3, 4, 5};
+        int *ptr = arr;
+        int main() {
+            return *(ptr + 1);
+        }
+    )");
+    typecheck_program(program);
+    //TODO
+}
 
 //
 // Test Case 5: Function Call with Parameters
 // Tests function declaration, parameter passing, and arithmetic promotion.
-//      int add(int a, double b) {
-//          return a + b;
-//      }
-//      int main() {
-//          return add(1, 2.0);
-//      }
 //
 // Expected Symtab:
 // - add: {name="add", type=TYPE_FUNCTION(return_type=TYPE_INT, params=[TYPE_INT, TYPE_DOUBLE]), kind=SYM_FUNC, u.func={defined=true, global=true}}
@@ -327,14 +337,23 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
 //   - Expr(EXPR_LITERAL, 1)->type: TYPE_INT
 //   - Expr(EXPR_LITERAL, 2.0)->type: TYPE_DOUBLE
 //
+TEST_F(TypecheckTest, FunctionCallWithParameters)
+{
+    ParseProgram(R"(
+        int add(int a, double b) {
+            return a + b;
+        }
+        int main() {
+            return add(1, 2.0);
+        }
+    )");
+    typecheck_program(program);
+    //TODO
+}
 
 //
 // Test Case 6: Conditional Expression
 // Tests local variable, conditional expression, and common type resolution.
-//      int main() {
-//          int x = 1;
-//          return x ? 10 : 20;
-//      }
 //
 // Expected Symtab:
 // - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC, u.func={defined=true, global=true}}
@@ -355,12 +374,21 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
 //   - Expr(EXPR_LITERAL, 10)->type: TYPE_INT
 //   - Expr(EXPR_LITERAL, 20)->type: TYPE_INT
 //
+TEST_F(TypecheckTest, ConditionalExpression)
+{
+    ParseProgram(R"(
+        int main() {
+            int x = 1;
+            return x ? 10 : 20;
+        }
+    )");
+    typecheck_program(program);
+    //TODO
+}
 
 //
 // Test Case 7: Error - Duplicate Struct Declaration
 // Tests error handling for duplicate struct definitions.
-//      struct S { int x; };
-//      struct S { int y; };
 //
 // Expected Symtab:
 // - Empty (error occurs before any symbols).
@@ -371,12 +399,19 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
 // Expected AST Type Fields:
 // - N/A (program terminates with error: "Structure S was already declared").
 //
+TEST_F(TypecheckTest, DuplicateStructDeclaration)
+{
+    ParseProgram(R"(
+        struct S { int x; };
+        struct S { int y; };
+    )");
+    typecheck_program(program);
+    //TODO
+}
 
 //
 // Test Case 8: Static Variable with Compound Initializer
 // Tests static variable with struct initializer.
-//      struct S { int x; int y; };
-//      static struct S s = {1, 2};
 //
 // Expected Symtab:
 // - s: {name="s", type=TYPE_STRUCT("S"), kind=SYM_STATIC, u.static_var={global=false, init_kind=INIT_INITIALIZED, init_list=[{kind=INIT_INT, u.int_val=1}, {kind=INIT_INT, u.int_val=2}]}}
@@ -395,16 +430,19 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
 //   - Initializer->u.items[1]->init->type: TYPE_INT (for 2)
 //   - Initializer->u.items[1]->init->u.expr->type: TYPE_INT
 //
+TEST_F(TypecheckTest, StaticVariableCompoundInitializer)
+{
+    ParseProgram(R"(
+        struct S { int x; int y; };
+        static struct S s = {1, 2};
+    )");
+    typecheck_program(program);
+    //TODO
+}
 
 //
 // Test Case 9: Pointer to Struct and Arrow Operator
 // Tests struct pointer, address-of operator, and arrow operator.
-//      struct S { int x; };
-//      struct S s = {42};
-//      int main() {
-//          struct S *p = &s;
-//          return p->x;
-//      }
 //
 // Expected Symtab:
 // - s: {name="s", type=TYPE_STRUCT("S"), kind=SYM_STATIC, u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list={kind=INIT_INT, u.int_val=42}}}
@@ -433,14 +471,23 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
 //   - Expr(EXPR_PTR_ACCESS, "x")->type: TYPE_INT
 //   - Expr(EXPR_VAR, "p")->type: TYPE_POINTER(target=TYPE_STRUCT("S"))
 //
+TEST_F(TypecheckTest, PointerStructArrowOperator)
+{
+    ParseProgram(R"(
+        struct S { int x; };
+        struct S s = {42};
+        int main() {
+            struct S *p = &s;
+            return p->x;
+        }
+    )");
+    typecheck_program(program);
+    //TODO
+}
 
 //
 // Test Case 10: Error - Invalid Assignment
 // Tests error handling for type mismatch in assignment.
-//      int main() {
-//          int x = 1;
-//          x = "string";
-//      }
 //
 // Expected Symtab:
 // - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC, u.func={defined=true, global=true}}
@@ -452,4 +499,14 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
 // Expected AST Type Fields:
 // - N/A (terminates with error: "Cannot convert type for assignment" in convert_by_assignment).
 //
-#endif
+TEST_F(TypecheckTest, InvalidAssignment)
+{
+    ParseProgram(R"(
+        int main() {
+            int x = 1;
+            x = "string";
+        }
+    )");
+    typecheck_program(program);
+    //TODO
+}
