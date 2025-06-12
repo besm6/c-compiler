@@ -1,4 +1,5 @@
 #include <string.h>
+#include <inttypes.h>
 
 #include "tac.h"
 
@@ -199,39 +200,35 @@ void print_tac_static_init(FILE *fd, const Tac_StaticInit *init, int depth)
     print_indent(fd, depth);
     fprintf(fd, "StaticInit: ");
     switch (init->kind) {
-    case TAC_STATIC_INIT_INT:
-        fprintf(fd, "int %d\n", init->u.int_val);
+    case TAC_STATIC_INIT_I8:
+        fprintf(fd, "i8 %d\n", init->u.char_val);
         break;
-    case TAC_STATIC_INIT_LONG:
-        fprintf(fd, "long %ld\n", init->u.long_val);
+    case TAC_STATIC_INIT_I32:
+        fprintf(fd, "i32 %d\n", init->u.int_val);
         break;
-    case TAC_STATIC_INIT_LONG_LONG:
-        fprintf(fd, "long long %lld\n", init->u.long_long_val);
+    case TAC_STATIC_INIT_I64:
+        fprintf(fd, "i64 %" PRId64 "\n", init->u.long_val);
         break;
-    case TAC_STATIC_INIT_UINT:
-        fprintf(fd, "uint %u\n", init->u.uint_val);
+    case TAC_STATIC_INIT_U8:
+        fprintf(fd, "u8 %u\n", init->u.uchar_val);
         break;
-    case TAC_STATIC_INIT_ULONG:
-        fprintf(fd, "ulong %lu\n", init->u.ulong_val);
+    case TAC_STATIC_INIT_U32:
+        fprintf(fd, "u32 %u\n", init->u.uint_val);
         break;
-    case TAC_STATIC_INIT_ULONG_LONG:
-        fprintf(fd, "ulong long %llu\n", init->u.ulong_long_val);
-        break;
-    case TAC_STATIC_INIT_CHAR:
-        fprintf(fd, "char %d\n", init->u.char_val);
-        break;
-    case TAC_STATIC_INIT_UCHAR:
-        fprintf(fd, "uchar %u\n", init->u.uchar_val);
+    case TAC_STATIC_INIT_U64:
+        fprintf(fd, "u64 %" PRIu64 "\n", init->u.ulong_val);
         break;
     case TAC_STATIC_INIT_DOUBLE:
-        fprintf(fd, "double %f\n", init->u.double_val);
+        fprintf(fd, "f64 %a\n", init->u.double_val);
         break;
     case TAC_STATIC_INIT_ZERO:
         fprintf(fd, "zero %d bytes\n", init->u.zero_bytes);
         break;
     case TAC_STATIC_INIT_STRING:
-        fprintf(fd, "string \"%s\" (null-terminated: %d)\n",
-                init->u.string.val ? init->u.string.val : "(null)", init->u.string.null_terminated);
+        fprintf(fd, "string \"%s", init->u.string.val);
+        if (init->u.string.null_terminated)
+            fprintf(fd, "\\0");
+        fprintf(fd, "\"\n");
         break;
     case TAC_STATIC_INIT_POINTER:
         fprintf(fd, "pointer %s\n", init->u.pointer_name ? init->u.pointer_name : "(null)");

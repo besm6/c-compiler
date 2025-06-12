@@ -1,8 +1,8 @@
 //
 // Helpers for Type.
 //
-#include "typetab.h"
 #include "translator.h"
+#include "typetab.h"
 
 //
 // Get size in bytes for a given type.
@@ -86,7 +86,8 @@ bool is_signed(const Type *t)
     case TYPE_VOID:
     case TYPE_STRUCT:
     default:
-        fatal_error("is_signed: Signedness doesn't make sense for non-integral type %s", type_kind_str[t->kind]);
+        fatal_error("is_signed: Signedness doesn't make sense for non-integral type %s",
+                    type_kind_str[t->kind]);
     }
     return false; // Unreachable
 }

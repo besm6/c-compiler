@@ -28,33 +28,6 @@ Symbol *new_symbol(const char *name, Type *t, SymbolKind kind)
 }
 
 //
-// Build new StaticInitializer.
-//
-StaticInitializer *new_static_initializer(StaticInitKind kind)
-{
-    StaticInitializer *init = xalloc(sizeof(StaticInitializer), __func__, __FILE__, __LINE__);
-    init->kind              = kind;
-    return init;
-}
-
-//
-// Deallocate StaticInitializer list.
-//
-void free_static_initializer(StaticInitializer *list)
-{
-    while (list != NULL) {
-        StaticInitializer *next = list->next;
-        if (list->kind == INIT_STRING) {
-            xfree(list->u.string_val.str);
-        } else if (list->kind == INIT_POINTER) {
-            xfree(list->u.ptr_id);
-        }
-        xfree(list);
-        list = next;
-    }
-}
-
-//
 // Deallocate symbol.
 //
 void free_symbol(Symbol *sym)
@@ -63,10 +36,10 @@ void free_symbol(Symbol *sym)
         return;
     switch (sym->kind) {
     case SYM_STATIC:
-        free_static_initializer(sym->u.static_var.init_list);
+        free_tac_static_init(sym->u.static_var.init_list);
         break;
     case SYM_CONST:
-        free_static_initializer(sym->u.const_init);
+        free_tac_static_init(sym->u.const_init);
         break;
     default:
         break;
@@ -92,7 +65,7 @@ void symtab_init()
 
 //
 // Destroy the symbol table (free all memory)
-// Postcondition: All Symbol and StaticInitializer memory is freed, table is empty.
+// Postcondition: All Symbol and Tac_StaticInit memory is freed, table is empty.
 //
 void symtab_destroy()
 {
@@ -118,9 +91,9 @@ void symtab_add_automatic_var(const char *name, const Type *t)
 // state is added/replaced in symtab.
 //
 void symtab_add_static_var(const char *name, const Type *t, bool global, InitKind init_kind,
-                           StaticInitializer *init_list)
+                           Tac_StaticInit *init_list)
 {
-    Symbol *sym                 = new_symbol(name, clone_type(t, __func__, __FILE__, __LINE__), SYM_STATIC);
+    Symbol *sym = new_symbol(name, clone_type(t, __func__, __FILE__, __LINE__), SYM_STATIC);
     sym->u.static_var.global    = global;
     sym->u.static_var.init_kind = init_kind;
     sym->u.static_var.init_list = init_list;
@@ -170,10 +143,10 @@ char *symtab_add_string(const char *s)
     t->u.array.size->u.literal            = new_literal(LITERAL_INT);
     t->u.array.size->u.literal->u.int_val = strlen(s) + 1;
 
-    // Create StaticInitializer
-    StaticInitializer *init            = new_static_initializer(INIT_STRING);
-    init->u.string_val.str             = xstrdup(s);
-    init->u.string_val.null_terminated = true;
+    // Create Tac_StaticInit
+    Tac_StaticInit *init           = new_tac_static_init(TAC_STATIC_INIT_STRING);
+    init->u.string.val             = xstrdup(s);
+    init->u.string.null_terminated = true;
 
     // Add to symbol table
     Symbol *sym       = new_symbol(name, t, SYM_CONST);

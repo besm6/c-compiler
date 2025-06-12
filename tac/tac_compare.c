@@ -118,22 +118,18 @@ bool compare_tac_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b)
     if (a->kind != b->kind)
         return false;
     switch (a->kind) {
-    case TAC_STATIC_INIT_INT:
-        return a->u.int_val == b->u.int_val;
-    case TAC_STATIC_INIT_LONG:
-        return a->u.long_val == b->u.long_val;
-    case TAC_STATIC_INIT_LONG_LONG:
-        return a->u.long_long_val == b->u.long_long_val;
-    case TAC_STATIC_INIT_UINT:
-        return a->u.uint_val == b->u.uint_val;
-    case TAC_STATIC_INIT_ULONG:
-        return a->u.ulong_val == b->u.ulong_val;
-    case TAC_STATIC_INIT_ULONG_LONG:
-        return a->u.ulong_long_val == b->u.ulong_long_val;
-    case TAC_STATIC_INIT_CHAR:
+    case TAC_STATIC_INIT_I8:
         return a->u.char_val == b->u.char_val;
-    case TAC_STATIC_INIT_UCHAR:
+    case TAC_STATIC_INIT_I32:
+        return a->u.int_val == b->u.int_val;
+    case TAC_STATIC_INIT_I64:
+        return a->u.long_val == b->u.long_val;
+    case TAC_STATIC_INIT_U8:
         return a->u.uchar_val == b->u.uchar_val;
+    case TAC_STATIC_INIT_U32:
+        return a->u.uint_val == b->u.uint_val;
+    case TAC_STATIC_INIT_U64:
+        return a->u.ulong_val == b->u.ulong_val;
     case TAC_STATIC_INIT_DOUBLE:
         return a->u.double_val == b->u.double_val;
     case TAC_STATIC_INIT_ZERO:

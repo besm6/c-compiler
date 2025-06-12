@@ -37,7 +37,8 @@ void typetab_destroy(void);
 // Add a struct definition
 void typetab_add_struct(const char *tag, int alignment, int size, FieldDef *members);
 // Precondition: tag is a non-null string, members is a valid list of elements or NULL.
-// Postcondition: A StructDef with tag, alignment, size, and copied members is added/replaced in typetab.
+// Postcondition: A StructDef with tag, alignment, size, and copied members is added/replaced in
+// typetab.
 
 // Check if a struct tag exists
 bool typetab_exists(const char *tag);

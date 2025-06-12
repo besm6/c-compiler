@@ -4,9 +4,9 @@
 #include <string>
 #include <vector>
 
-#include "translator.h"
-#include "symtab.h"
 #include "internal.h"
+#include "symtab.h"
+#include "translator.h"
 #include "xalloc.h"
 
 // Helper functions for type creation
@@ -93,9 +93,9 @@ TEST_F(SymtabTest, AddAutomaticVarOverwrite)
 // Test symtab_add_static_var
 TEST_F(SymtabTest, AddStaticVarWithInitializer)
 {
-    Type *int_type          = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    StaticInitializer *init = new_static_initializer(INIT_INT);
-    init->u.int_val         = 42;
+    Type *int_type       = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    Tac_StaticInit *init = new_tac_static_init(TAC_STATIC_INIT_I32);
+    init->u.int_val      = 42;
 
     symtab_add_static_var("x", int_type, true, INIT_INITIALIZED, init);
 
@@ -107,9 +107,9 @@ TEST_F(SymtabTest, AddStaticVarWithInitializer)
     ASSERT_EQ(sym->u.static_var.init_kind, INIT_INITIALIZED);
 
     // Check initializer
-    StaticInitializer *check = sym->u.static_var.init_list;
+    Tac_StaticInit *check = sym->u.static_var.init_list;
     ASSERT_NE(check, nullptr);
-    EXPECT_EQ(check->kind, INIT_INT);
+    EXPECT_EQ(check->kind, TAC_STATIC_INIT_I32);
     EXPECT_EQ(check->u.int_val, 42);
     EXPECT_EQ(check->next, nullptr);
 
@@ -179,11 +179,11 @@ TEST_F(SymtabTest, AddStringLiteral)
     EXPECT_EQ(sym->type->u.array.qualifiers, nullptr);
 
     // Check initializer
-    StaticInitializer *init = sym->u.const_init;
+    Tac_StaticInit *init = sym->u.const_init;
     ASSERT_NE(init, nullptr);
-    EXPECT_EQ(init->kind, INIT_STRING);
-    EXPECT_TRUE(init->u.string_val.null_terminated);
-    EXPECT_STREQ(init->u.string_val.str, str);
+    EXPECT_EQ(init->kind, TAC_STATIC_INIT_STRING);
+    EXPECT_TRUE(init->u.string.null_terminated);
+    EXPECT_STREQ(init->u.string.val, str);
     EXPECT_EQ(init->next, nullptr);
 
     xfree(str_id);

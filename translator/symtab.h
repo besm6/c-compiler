@@ -8,45 +8,10 @@
 extern "C" {
 #endif
 
-#include <stdint.h>
 #include <stdbool.h>
 
 #include "ast.h"
-
-// Enum for static initializer kinds
-typedef enum {
-    INIT_CHAR,
-    INIT_INT,
-    INIT_LONG,
-    INIT_UCHAR,
-    INIT_UINT,
-    INIT_ULONG,
-    INIT_DOUBLE,
-    INIT_STRING,
-    INIT_ZERO,
-    INIT_POINTER
-} StaticInitKind;
-
-// Structure for a (list of) static initializer(s)
-typedef struct StaticInitializer {
-    struct StaticInitializer *next; // Next initializer in list
-    StaticInitKind kind;
-    union {
-        int8_t char_val;    // INIT_CHAR
-        int32_t int_val;    // INIT_INT
-        int64_t long_val;   // INIT_LONG
-        uint8_t uchar_val;  // INIT_UCHAR
-        uint32_t uint_val;  // INIT_UINT
-        uint64_t ulong_val; // INIT_ULONG
-        double double_val;  // INIT_DOUBLE
-        struct {
-            char *str;
-            bool null_terminated;
-        } string_val;   // INIT_STRING
-        int zero_bytes; // INIT_ZERO
-        char *ptr_id;   // INIT_POINTER (string ID)
-    } u;
-} StaticInitializer;
+#include "tac.h"
 
 // Enum for symbol kinds (corresponding to identifier_attrs)
 typedef enum {
@@ -75,13 +40,13 @@ typedef struct Symbol {
         } func;           // For SYM_FUNC
 
         struct {
-            bool global;                  // True if variable has global linkage
-            InitKind init_kind;           // Initialization state
-            StaticInitializer *init_list; // For INIT_INITIALIZED
+            bool global;               // True if variable has global linkage
+            InitKind init_kind;        // Initialization state
+            Tac_StaticInit *init_list; // For INIT_INITIALIZED
             // No data needed for INIT_TENTATIVE or INIT_NONE
         } static_var; // For SYM_STATIC
 
-        StaticInitializer *const_init; // For SYM_CONST (string literals)
+        Tac_StaticInit *const_init; // For SYM_CONST (string literals)
         // No data needed for SYM_LOCAL
     } u;
 } Symbol;
@@ -92,7 +57,7 @@ void symtab_init(void);
 
 // Destroy the symbol table (free all memory)
 void symtab_destroy(void);
-// Postcondition: All Symbol and StaticInitializer memory is freed, table is empty.
+// Postcondition: All Symbol and Tac_StaticInit memory is freed, table is empty.
 
 // Add an automatic (local) variable
 void symtab_add_automatic_var(const char *name, const Type *t);
@@ -101,7 +66,7 @@ void symtab_add_automatic_var(const char *name, const Type *t);
 
 // Add a static variable
 void symtab_add_static_var(const char *name, const Type *t, bool global, InitKind init_kind,
-                           StaticInitializer *init_list);
+                           Tac_StaticInit *init_list);
 // Precondition: name is a non-null string, t is a valid Type*, init_list is valid if init_kind ==
 // INIT_INITIALIZED, else NULL. Postcondition: A Symbol with SYM_STATIC, name, t, global, and init
 // state is added/replaced in symtab.
@@ -140,12 +105,10 @@ void symtab_print(void);
 // Allocation, deallocation.
 //
 Symbol *new_symbol(const char *name, Type *t, SymbolKind kind);
-StaticInitializer *new_static_initializer(StaticInitKind kind);
 void free_symbol(Symbol *sym);
-void free_static_initializer(StaticInitializer *list);
 
-// Convert literal to given arithmetic type and return as StaticInitializer.
-StaticInitializer *new_static_initializer_from_literal(const Type *type, const Literal *lit);
+// Convert literal to given arithmetic type and return as Tac_StaticInit.
+Tac_StaticInit *new_static_init_from_literal(const Type *type, const Literal *lit);
 
 #ifdef __cplusplus
 }

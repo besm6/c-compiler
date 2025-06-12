@@ -1,14 +1,14 @@
+#include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <fcntl.h>
 
-#include "translator.h"
-#include "xalloc.h"
-#include "wio.h"
 #include "symtab.h"
+#include "translator.h"
+#include "wio.h"
+#include "xalloc.h"
 
 static int input_fd;
 static FILE *output_file;
@@ -105,7 +105,7 @@ static int parse_args(int argc, char *argv[], Args *args)
         { "tac", no_argument, 0, 't' },     //
         { "yaml", no_argument, 0, 'y' },    //
         { "dot", no_argument, 0, 'd' },     //
-        { },                                //
+        {},                                 //
     };
 
     int opt;
@@ -203,13 +203,13 @@ static void emit_tac_toplevel(const Args *args, const Tac_TopLevel *tac)
     switch (args->format) {
     default:
     case FORMAT_TAC:
-        //TODO: export_tac(output_fd, tac);
+        // TODO: export_tac(output_fd, tac);
         break;
     case FORMAT_YAML:
-        //TODO: export_yaml(output_file, tac);
+        // TODO: export_yaml(output_file, tac);
         break;
     case FORMAT_DOT:
-        //TODO: export_dot(output_file, tac);
+        // TODO: export_dot(output_file, tac);
         break;
     }
 }
@@ -226,9 +226,9 @@ void process_file(const Args *args)
         printf("Debug: Format = %d, Input = %s, Output = %s\n", args->format, args->input_file,
                args->output_file);
         translator_debug = 1;
-        import_debug = 1;
-        export_debug = 1;
-        wio_debug = 1;
+        import_debug     = 1;
+        export_debug     = 1;
+        wio_debug        = 1;
     }
     open_input_output(args);
 

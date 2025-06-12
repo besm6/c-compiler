@@ -1,7 +1,7 @@
 #include "typetab.h"
 
 #include <stdint.h>
-//#include <string.h>
+// #include <string.h>
 
 #include "ast.h"
 #include "string_map.h"
@@ -75,7 +75,8 @@ void typetab_destroy()
 //
 // Add a struct definition
 // Precondition: tag is a non-null string, members is a valid list of elements or NULL.
-// Postcondition: A StructDef with tag, alignment, size, and copied members is added/replaced in typetab.
+// Postcondition: A StructDef with tag, alignment, size, and copied members is added/replaced in
+// typetab.
 //
 void typetab_add_struct(const char *tag, int alignment, int size, FieldDef *members)
 {
@@ -87,7 +88,7 @@ void typetab_add_struct(const char *tag, int alignment, int size, FieldDef *memb
     def->tag       = xstrdup(tag);
     def->alignment = alignment;
     def->size      = size;
-    def->members  = members;
+    def->members   = members;
 
     map_insert_free(&typetab, tag, (intptr_t)def, 0, typetab_destroy_callback);
 }

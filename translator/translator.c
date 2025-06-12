@@ -1,4 +1,5 @@
 #include "translator.h"
+
 #include <stdarg.h>
 #include <stdlib.h>
 
@@ -26,7 +27,7 @@ void _Noreturn fatal_error(const char *message, ...)
 //
 void resolve(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
 {
-    //TODO
+    // TODO
 }
 
 //
@@ -34,7 +35,7 @@ void resolve(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
 //
 void label_loops(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
 {
-    //TODO
+    // TODO
 }
 
 //
@@ -42,6 +43,6 @@ void label_loops(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
 //
 Tac_TopLevel *translate(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
 {
-    //TODO
+    // TODO
     return NULL;
 }

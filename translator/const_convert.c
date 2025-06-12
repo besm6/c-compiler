@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "translator.h"
 #include "symtab.h"
+#include "translator.h"
 
 //
 // Convert literal to int64
@@ -69,60 +69,60 @@ double literal_to_double(const Literal *lit)
 }
 
 //
-// Convert literal to given arithmetic type and return as StaticInitializer.
+// Convert literal to given arithmetic type and return as Tac_StaticInit.
 //
-StaticInitializer *new_static_initializer_from_literal(const Type *target_type, const Literal *lit)
+Tac_StaticInit *new_static_init_from_literal(const Type *target_type, const Literal *lit)
 {
     if (!is_arithmetic(target_type)) {
         fatal_error("Invalid static initializer for type %d", target_type->kind);
     }
 
-    StaticInitializer *result = NULL;
+    Tac_StaticInit *result = NULL;
     switch (target_type->kind) {
     case TYPE_BOOL:
-        result = new_static_initializer(INIT_INT);
+        result            = new_tac_static_init(TAC_STATIC_INIT_I32);
         result->u.int_val = (literal_to_int64(lit) != 0);
         break;
 
     case TYPE_CHAR:
     case TYPE_SCHAR:
-        result = new_static_initializer(INIT_CHAR);
+        result             = new_tac_static_init(TAC_STATIC_INIT_I8);
         result->u.char_val = (int8_t)literal_to_int64(lit);
         break;
 
     case TYPE_UCHAR:
-        result = new_static_initializer(INIT_UCHAR);
+        result              = new_tac_static_init(TAC_STATIC_INIT_U8);
         result->u.uchar_val = (uint8_t)literal_to_int64(lit);
         break;
 
     case TYPE_SHORT:
     case TYPE_INT:
-        result = new_static_initializer(INIT_INT);
+        result            = new_tac_static_init(TAC_STATIC_INIT_I32);
         result->u.int_val = (int32_t)literal_to_int64(lit);
         break;
 
     case TYPE_USHORT:
     case TYPE_UINT:
-        result = new_static_initializer(INIT_UINT);
+        result             = new_tac_static_init(TAC_STATIC_INIT_U32);
         result->u.uint_val = (uint32_t)literal_to_int64(lit);
         break;
 
     case TYPE_LONG:
     case TYPE_LONG_LONG:
-        result = new_static_initializer(INIT_LONG);
+        result             = new_tac_static_init(TAC_STATIC_INIT_I64);
         result->u.long_val = literal_to_int64(lit);
         break;
 
     case TYPE_ULONG:
     case TYPE_ULONG_LONG:
-        result = new_static_initializer(INIT_ULONG);
+        result              = new_tac_static_init(TAC_STATIC_INIT_U64);
         result->u.ulong_val = literal_to_uint64(lit);
         break;
 
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        result = new_static_initializer(INIT_DOUBLE);
+        result               = new_tac_static_init(TAC_STATIC_INIT_DOUBLE);
         result->u.double_val = literal_to_double(lit);
         break;
     default:

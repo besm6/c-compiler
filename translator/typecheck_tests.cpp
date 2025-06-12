@@ -16,6 +16,7 @@
 // Test Case 9: Pointer to Struct and Arrow Operator
 // Test Case 10: Error - Invalid Assignment
 //
+#include <fcntl.h>
 #include <gtest/gtest.h>
 
 #include <cstdio>
@@ -23,14 +24,13 @@
 #include <string>
 #include <vector>
 
-#include "translator.h"
+#include "internal.h"
 #include "parser.h"
 #include "scanner.h"
-#include "internal.h"
 #include "symtab.h"
+#include "translator.h"
 #include "typetab.h"
 #include "xalloc.h"
-#include <fcntl.h>
 
 // Test fixture
 class TypecheckTest : public ::testing::Test {
@@ -44,7 +44,7 @@ protected:
     void SetUp() override
     {
         auto filename = test_name + ".c";
-        input_file = fopen(filename.c_str(), "w+");
+        input_file    = fopen(filename.c_str(), "w+");
         ASSERT_NE(nullptr, input_file);
         translator_debug = 1;
     }
@@ -77,7 +77,7 @@ protected:
     {
         program = parse(CreateTempFile(content));
         EXPECT_NE(nullptr, program);
-        //print_program(stdout, program);
+        // print_program(stdout, program);
     }
 
     // Helper to get external declaration from program
@@ -94,8 +94,10 @@ protected:
 // Tests a global variable declaration, integer addition, and function return.
 //
 // Expected Symtab:
-// - x: {name="x", type=TYPE_INT, kind=SYM_STATIC, u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list={kind=INIT_INT, u.int_val=42, next=NULL}}}
-// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC, u.func={defined=true, global=true}}
+// - x: {name="x", type=TYPE_INT, kind=SYM_STATIC, u.static_var={global=true,
+// init_kind=INIT_INITIALIZED, init_list={kind=TAC_STATIC_INIT_I32, u.int_val=42, next=NULL}}}
+// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC,
+// u.func={defined=true, global=true}}
 //
 // Expected Typetab:
 // - Empty (no structs).
@@ -133,9 +135,9 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
     ASSERT_NE(x->type, nullptr);
     EXPECT_EQ(x->type->kind, TYPE_INT);
 
-    StaticInitializer *init = x->u.static_var.init_list;
+    Tac_StaticInit *init = x->u.static_var.init_list;
     ASSERT_NE(init, nullptr);
-    EXPECT_EQ(init->kind, INIT_INT);
+    EXPECT_EQ(init->kind, TAC_STATIC_INIT_I32);
     EXPECT_EQ(init->u.int_val, 42);
     EXPECT_EQ(init->next, nullptr);
 
@@ -193,11 +195,15 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
 // Tests struct definition, initialization, and dot operator.
 //
 // Expected Symtab:
-// - p: {name="p", type=TYPE_STRUCT("Point"), kind=SYM_STATIC, u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list=[{kind=INIT_INT, u.int_val=1}, {kind=INIT_ZERO, u.zero_bytes=4}, {kind=INIT_DOUBLE, u.double_val=2.0}]}}
-// - get_y: {name="get_y", type=TYPE_FUNCTION(return_type=TYPE_DOUBLE, params=NULL), kind=SYM_FUNC, u.func={defined=true, global=true}}
+// - p: {name="p", type=TYPE_STRUCT("Point"), kind=SYM_STATIC, u.static_var={global=true,
+// init_kind=INIT_INITIALIZED, init_list=[{kind=TAC_STATIC_INIT_I32, u.int_val=1}, {kind=TAC_STATIC_INIT_ZERO,
+// u.zero_bytes=4}, {kind=TAC_STATIC_INIT_DOUBLE, u.double_val=2.0}]}}
+// - get_y: {name="get_y", type=TYPE_FUNCTION(return_type=TYPE_DOUBLE, params=NULL), kind=SYM_FUNC,
+// u.func={defined=true, global=true}}
 //
 // Expected Typetab:
-// - Point: {tag="Point", alignment=8, size=16, members=[{name="x", type=TYPE_INT, offset=0}, {name="y", type=TYPE_DOUBLE, offset=8}], member_count=2}
+// - Point: {tag="Point", alignment=8, size=16, members=[{name="x", type=TYPE_INT, offset=0},
+// {name="y", type=TYPE_DOUBLE, offset=8}], member_count=2}
 //
 // Expected AST Type Fields:
 // - Program->decls[0] (struct Point):
@@ -229,7 +235,7 @@ TEST_F(TypecheckTest, TypecheckStructDeclMemberAccess)
     )");
     typecheck_program(program);
 
-    //TODO: check symtab, typetab, AST
+    // TODO: check symtab, typetab, AST
 }
 
 //
@@ -237,9 +243,13 @@ TEST_F(TypecheckTest, TypecheckStructDeclMemberAccess)
 // Tests array initialization with a string literal and subscript operation.
 //
 // Expected Symtab:
-// - _str0: {name="_str0", type=TYPE_ARRAY(element=TYPE_CHAR, size=6), kind=SYM_CONST, u.const_init={kind=INIT_STRING, u.string_val={str="hello", null_terminated=true}, next=NULL}}
-// - str: {name="str", type=TYPE_ARRAY(element=TYPE_CHAR, size=6), kind=SYM_STATIC, u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list={kind=INIT_STRING, u.string_val={str="hello", null_terminated=true}, next=NULL}}}
-// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC, u.func={defined=true, global=true}}
+// - _str0: {name="_str0", type=TYPE_ARRAY(element=TYPE_CHAR, size=6), kind=SYM_CONST,
+// u.const_init={kind=TAC_STATIC_INIT_STRING, u.string_val={str="hello", null_terminated=true}, next=NULL}}
+// - str: {name="str", type=TYPE_ARRAY(element=TYPE_CHAR, size=6), kind=SYM_STATIC,
+// u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list={kind=TAC_STATIC_INIT_STRING,
+// u.string_val={str="hello", null_terminated=true}, next=NULL}}}
+// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC,
+// u.func={defined=true, global=true}}
 //
 // Expected Typetab:
 // - Empty.
@@ -266,7 +276,7 @@ TEST_F(TypecheckTest, TypecheckArrayStringLiteralInit)
     )");
     typecheck_program(program);
 
-    //TODO: check symtab, AST
+    // TODO: check symtab, AST
 }
 
 //
@@ -274,9 +284,15 @@ TEST_F(TypecheckTest, TypecheckArrayStringLiteralInit)
 // Tests array-to-pointer conversion, pointer initialization, and dereference.
 //
 // Expected Symtab:
-// - arr: {name="arr", type=TYPE_ARRAY(element=TYPE_INT, size=5), kind=SYM_STATIC, u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list=[{kind=INIT_INT, u.int_val=1}, {kind=INIT_INT, u.int_val=2}, {kind=INIT_INT, u.int_val=3}, {kind=INIT_INT, u.int_val=4}, {kind=INIT_INT, u.int_val=5}]}}
-// - ptr: {name="ptr", type=TYPE_POINTER(target=TYPE_INT), kind=SYM_STATIC, u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list={kind=INIT_POINTER, u.ptr_id="arr", next=NULL}}}
-// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC, u.func={defined=true, global=true}}
+// - arr: {name="arr", type=TYPE_ARRAY(element=TYPE_INT, size=5), kind=SYM_STATIC,
+// u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list=[{kind=TAC_STATIC_INIT_I32, u.int_val=1},
+// {kind=TAC_STATIC_INIT_I32, u.int_val=2}, {kind=TAC_STATIC_INIT_I32, u.int_val=3}, {kind=TAC_STATIC_INIT_I32, u.int_val=4},
+// {kind=TAC_STATIC_INIT_I32, u.int_val=5}]}}
+// - ptr: {name="ptr", type=TYPE_POINTER(target=TYPE_INT), kind=SYM_STATIC,
+// u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list={kind=TAC_STATIC_INIT_POINTER,
+// u.ptr_id="arr", next=NULL}}}
+// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC,
+// u.func={defined=true, global=true}}
 //
 // Expected Typetab:
 // - Empty.
@@ -310,7 +326,7 @@ TEST_F(TypecheckTest, PointerArithmeticDereference)
     )");
     typecheck_program(program);
 
-    //TODO: check symtab, AST
+    // TODO: check symtab, AST
 }
 
 //
@@ -318,15 +334,18 @@ TEST_F(TypecheckTest, PointerArithmeticDereference)
 // Tests function declaration, parameter passing, and arithmetic promotion.
 //
 // Expected Symtab:
-// - add: {name="add", type=TYPE_FUNCTION(return_type=TYPE_INT, params=[TYPE_INT, TYPE_DOUBLE]), kind=SYM_FUNC, u.func={defined=true, global=true}}
-// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC, u.func={defined=true, global=true}}
+// - add: {name="add", type=TYPE_FUNCTION(return_type=TYPE_INT, params=[TYPE_INT, TYPE_DOUBLE]),
+// kind=SYM_FUNC, u.func={defined=true, global=true}}
+// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC,
+// u.func={defined=true, global=true}}
 //
 // Expected Typetab:
 // - Empty.
 //
 // Expected AST Type Fields:
 // - Program->decls[0] (function add):
-//   - ExternalDecl->u.function.type: TYPE_FUNCTION(return_type=TYPE_INT, params=[TYPE_INT, TYPE_DOUBLE])
+//   - ExternalDecl->u.function.type: TYPE_FUNCTION(return_type=TYPE_INT, params=[TYPE_INT,
+//   TYPE_DOUBLE])
 //   - Stmt(STMT_RETURN)->u.expr->type: TYPE_INT
 //   - Expr(EXPR_BINARY_OP, ADD)->type: TYPE_DOUBLE (common type)
 //   - Expr(EXPR_VAR, "a")->type: TYPE_INT
@@ -336,7 +355,8 @@ TEST_F(TypecheckTest, PointerArithmeticDereference)
 //   - ExternalDecl->u.function.type: TYPE_FUNCTION(return_type=TYPE_INT, params=NULL)
 //   - Stmt(STMT_RETURN)->u.expr->type: TYPE_INT (for add(1, 2.0))
 //   - Expr(EXPR_CALL)->type: TYPE_INT
-//   - Expr(EXPR_VAR, "add")->type: TYPE_FUNCTION(return_type=TYPE_INT, params=[TYPE_INT, TYPE_DOUBLE])
+//   - Expr(EXPR_VAR, "add")->type: TYPE_FUNCTION(return_type=TYPE_INT, params=[TYPE_INT,
+//   TYPE_DOUBLE])
 //   - Expr(EXPR_LITERAL, 1)->type: TYPE_INT
 //   - Expr(EXPR_LITERAL, 2.0)->type: TYPE_DOUBLE
 //
@@ -352,7 +372,7 @@ TEST_F(TypecheckTest, FunctionCallWithParameters)
     )");
     typecheck_program(program);
 
-    //TODO: check symtab, AST
+    // TODO: check symtab, AST
 }
 
 //
@@ -360,7 +380,8 @@ TEST_F(TypecheckTest, FunctionCallWithParameters)
 // Tests local variable, conditional expression, and common type resolution.
 //
 // Expected Symtab:
-// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC, u.func={defined=true, global=true}}
+// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC,
+// u.func={defined=true, global=true}}
 // - x: {name="x", type=TYPE_INT, kind=SYM_LOCAL, u={}}
 //
 // Expected Typetab:
@@ -388,7 +409,7 @@ TEST_F(TypecheckTest, ConditionalExpression)
     )");
     typecheck_program(program);
 
-    //TODO: check symtab, AST
+    // TODO: check symtab, AST
 }
 
 //
@@ -410,7 +431,8 @@ TEST_F(TypecheckTest, DuplicateStructDeclaration)
         struct S { int x; };
         struct S { int y; };
     )");
-    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "Structure S was already declared");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Structure S was already declared");
 }
 
 //
@@ -418,10 +440,13 @@ TEST_F(TypecheckTest, DuplicateStructDeclaration)
 // Tests static variable with struct initializer.
 //
 // Expected Symtab:
-// - s: {name="s", type=TYPE_STRUCT("S"), kind=SYM_STATIC, u.static_var={global=false, init_kind=INIT_INITIALIZED, init_list=[{kind=INIT_INT, u.int_val=1}, {kind=INIT_INT, u.int_val=2}]}}
+// - s: {name="s", type=TYPE_STRUCT("S"), kind=SYM_STATIC, u.static_var={global=false,
+// init_kind=INIT_INITIALIZED, init_list=[{kind=TAC_STATIC_INIT_I32, u.int_val=1}, {kind=TAC_STATIC_INIT_I32,
+// u.int_val=2}]}}
 //
 // Expected Typetab:
-// - S: {tag="S", alignment=4, size=8, members=[{name="x", type=TYPE_INT, offset=0}, {name="y", type=TYPE_INT, offset=4}], member_count=2}
+// - S: {tag="S", alignment=4, size=8, members=[{name="x", type=TYPE_INT, offset=0}, {name="y",
+// type=TYPE_INT, offset=4}], member_count=2}
 //
 // Expected AST Type Fields:
 // - Program->decls[0] (struct S):
@@ -442,7 +467,7 @@ TEST_F(TypecheckTest, StaticVariableCompoundInitializer)
     )");
     typecheck_program(program);
 
-    //TODO: check symtab, typetab, AST
+    // TODO: check symtab, typetab, AST
 }
 
 //
@@ -450,12 +475,15 @@ TEST_F(TypecheckTest, StaticVariableCompoundInitializer)
 // Tests struct pointer, address-of operator, and arrow operator.
 //
 // Expected Symtab:
-// - s: {name="s", type=TYPE_STRUCT("S"), kind=SYM_STATIC, u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list={kind=INIT_INT, u.int_val=42}}}
+// - s: {name="s", type=TYPE_STRUCT("S"), kind=SYM_STATIC, u.static_var={global=true,
+// init_kind=INIT_INITIALIZED, init_list={kind=TAC_STATIC_INIT_I32, u.int_val=42}}}
 // - p: {name="p", type=TYPE_POINTER(target=TYPE_STRUCT("S")), kind=SYM_LOCAL, u={}}
-// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC, u.func={defined=true, global=true}}
+// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC,
+// u.func={defined=true, global=true}}
 //
 // Expected Typetab:
-// - S: {tag="S", alignment=4, size=4, members=[{name="x", type=TYPE_INT, offset=0}], member_count=1}
+// - S: {tag="S", alignment=4, size=4, members=[{name="x", type=TYPE_INT, offset=0}],
+// member_count=1}
 //
 // Expected AST Type Fields:
 // - Program->decls[0] (struct S):
@@ -488,7 +516,7 @@ TEST_F(TypecheckTest, PointerStructArrowOperator)
     )");
     typecheck_program(program);
 
-    //TODO: check symtab, typetab, AST
+    // TODO: check symtab, typetab, AST
 }
 
 //
@@ -496,7 +524,8 @@ TEST_F(TypecheckTest, PointerStructArrowOperator)
 // Tests error handling for type mismatch in assignment.
 //
 // Expected Symtab:
-// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC, u.func={defined=true, global=true}}
+// - main: {name="main", type=TYPE_FUNCTION(return_type=TYPE_INT, params=NULL), kind=SYM_FUNC,
+// u.func={defined=true, global=true}}
 // - x: {name="x", type=TYPE_INT, kind=SYM_LOCAL, u={}}
 //
 // Expected Typetab:
@@ -513,7 +542,8 @@ TEST_F(TypecheckTest, InvalidAssignment)
             x = "string";
         }
     )");
-    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "Cannot convert type for assignment");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Cannot convert type for assignment");
 
-    //TODO: check symtab
+    // TODO: check symtab
 }

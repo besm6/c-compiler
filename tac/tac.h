@@ -7,6 +7,7 @@ extern "C" {
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 // Forward declarations
 typedef struct Tac_Val Tac_Val;
@@ -306,14 +307,12 @@ typedef struct Tac_Type {
 // StaticInit: Various initialization kinds
 //
 typedef enum {
-    TAC_STATIC_INIT_INT,
-    TAC_STATIC_INIT_LONG,
-    TAC_STATIC_INIT_LONG_LONG,
-    TAC_STATIC_INIT_UINT,
-    TAC_STATIC_INIT_ULONG,
-    TAC_STATIC_INIT_ULONG_LONG,
-    TAC_STATIC_INIT_CHAR,
-    TAC_STATIC_INIT_UCHAR,
+    TAC_STATIC_INIT_I8,
+    TAC_STATIC_INIT_I32,
+    TAC_STATIC_INIT_I64,
+    TAC_STATIC_INIT_U8,
+    TAC_STATIC_INIT_U32,
+    TAC_STATIC_INIT_U64,
     TAC_STATIC_INIT_DOUBLE,
     TAC_STATIC_INIT_ZERO,
     TAC_STATIC_INIT_STRING,
@@ -324,21 +323,19 @@ typedef struct Tac_StaticInit {
     struct Tac_StaticInit *next; // Linked list
     Tac_StaticInitKind kind;
     union {
-        int int_val;
-        long long_val;
-        long long long_long_val;
-        unsigned int uint_val;
-        unsigned long ulong_val;
-        unsigned long long ulong_long_val;
-        int char_val;
-        unsigned char uchar_val;
-        double double_val;
-        int zero_bytes;
+        int8_t char_val;    // INIT_I8
+        int32_t int_val;    // INIT_I32
+        int64_t long_val;   // INIT_I64
+        uint8_t uchar_val;  // INIT_U8
+        uint32_t uint_val;  // INIT_U32
+        uint64_t ulong_val; // INIT_U64
+        double double_val;  // INIT_DOUBLE
+        int zero_bytes;     // INIT_ZERO
         struct {
             char *val;
             bool null_terminated;
-        } string;
-        char *pointer_name;
+        } string;           // INIT_STRING
+        char *pointer_name; // INIT_POINTER (name of array)
     } u;
 } Tac_StaticInit;
 

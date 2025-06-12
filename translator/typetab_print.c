@@ -1,8 +1,7 @@
-#include "typetab.h"
-
 #include <inttypes.h>
 
 #include "string_map.h"
+#include "typetab.h"
 
 extern StringMap typetab;
 

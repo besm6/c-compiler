@@ -8,8 +8,8 @@
 extern "C" {
 #endif
 
-#include "tac.h"
 #include "ast.h"
+#include "tac.h"
 
 // Enable debug output
 extern int translator_debug;
@@ -49,7 +49,7 @@ bool is_complete_pointer(const Type *t);
 bool is_signed(const Type *t);
 
 #ifdef GTEST_API_
-//TODO
+// TODO
 #endif
 
 #ifdef __cplusplus
