@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "symtab.h"
+#include "typetab.h"
 #include "translator.h"
 #include "wio.h"
 #include "xalloc.h"
@@ -234,6 +235,8 @@ void process_file(const Args *args)
 
     WFILE input;
     ast_import_open(&input, input_fd);
+    symtab_init();
+    typetab_init();
     for (;;) {
         ExternalDecl *ast = import_external_decl(&input);
         if (!ast)
@@ -265,6 +268,7 @@ void process_file(const Args *args)
     close_output(args);
 
     symtab_destroy();
+    typetab_destroy();
     if (args->debug) {
         xreport_lost_memory();
     }

@@ -78,7 +78,7 @@ void typetab_destroy()
 // Postcondition: A StructDef with tag, alignment, size, and copied members is added/replaced in
 // typetab.
 //
-void typetab_add_struct(const char *tag, int alignment, int size, FieldDef *members)
+void typetab_add_struct(const char *tag, int alignment, int size, FieldDef *members, int level)
 {
     if (translator_debug) {
         printf("--- %s() %s\n", __func__, tag);
@@ -90,7 +90,7 @@ void typetab_add_struct(const char *tag, int alignment, int size, FieldDef *memb
     def->size      = size;
     def->members   = members;
 
-    map_insert_free(&typetab, tag, (intptr_t)def, 0, typetab_destroy_callback);
+    map_insert_free(&typetab, tag, (intptr_t)def, level, typetab_destroy_callback);
 }
 
 //
@@ -119,4 +119,12 @@ StructDef *typetab_find(const char *tag)
         fatal_error("Struct or union '%s' not found", tag);
     }
     return (StructDef *)value;
+}
+
+//
+// Remove names from the tree, which exceed given level.
+//
+void typetab_purge(int level)
+{
+    map_remove_level(&typetab, level);
 }

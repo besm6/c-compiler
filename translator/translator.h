@@ -11,6 +11,9 @@ extern "C" {
 #include "ast.h"
 #include "tac.h"
 
+// Level of scope for nested compound operators.
+extern int scope_level;
+
 // Enable debug output
 extern int translator_debug;
 extern int import_debug;
@@ -34,6 +37,9 @@ Tac_TopLevel *translate(ExternalDecl *ast);
 // Error handling.
 void fatal_error(const char *message, ...) __attribute__((noreturn));
 
+// Convert literal to given arithmetic type and return as Tac_StaticInit.
+Tac_StaticInit *new_static_init_from_literal(const Type *type, const Literal *lit);
+
 //
 // Helpers for Type.
 //
@@ -47,6 +53,7 @@ bool is_character(const Type *t);
 bool is_pointer(const Type *t);
 bool is_complete_pointer(const Type *t);
 bool is_signed(const Type *t);
+int round_away_from_zero(int alignment, int size);
 
 #ifdef GTEST_API_
 // TODO

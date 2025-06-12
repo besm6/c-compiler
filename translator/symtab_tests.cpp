@@ -62,7 +62,7 @@ TEST_F(SymtabTest, DestroyEmptyTable)
 TEST_F(SymtabTest, AddAutomaticVar1)
 {
     Type *int_type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    symtab_add_automatic_var("x", int_type);
+    symtab_add_automatic_var_type("x", int_type, 0);
 
     Symbol *sym = symtab_get("x");
     ASSERT_STREQ(sym->name, "x");
@@ -78,8 +78,8 @@ TEST_F(SymtabTest, AddAutomaticVarOverwrite)
     Type *int_type  = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     Type *char_type = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
 
-    symtab_add_automatic_var("x", int_type);
-    symtab_add_automatic_var("x", char_type);
+    symtab_add_automatic_var_type("x", int_type, 0);
+    symtab_add_automatic_var_type("x", char_type, 0);
 
     Symbol *sym = symtab_get("x");
     ASSERT_STREQ(sym->name, "x");
@@ -199,7 +199,7 @@ TEST_F(SymtabTest, GetNonExistentSymbol)
 TEST_F(SymtabTest, GetOptExistentAndNonExistent)
 {
     Type *int_type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    symtab_add_automatic_var("x", int_type);
+    symtab_add_automatic_var_type("x", int_type, 0);
 
     Symbol *sym = symtab_get_opt("x");
     ASSERT_NE(sym, nullptr);
@@ -218,7 +218,7 @@ TEST_F(SymtabTest, IsGlobal)
 
     symtab_add_static_var("x", int_type, true, INIT_NONE, NULL);
     symtab_add_static_var("y", int_type, false, INIT_NONE, NULL);
-    symtab_add_automatic_var("z", int_type);
+    symtab_add_automatic_var_type("z", int_type, 0);
 
     ASSERT_TRUE(symtab_is_global("x"));
     ASSERT_FALSE(symtab_is_global("y"));

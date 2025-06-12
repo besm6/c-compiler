@@ -6,6 +6,9 @@
 // Enable debug output
 int translator_debug;
 
+// Level of scope for nested compound operators.
+int scope_level;
+
 //
 // Error handling
 //
@@ -20,14 +23,6 @@ void _Noreturn fatal_error(const char *message, ...)
 
     fprintf(stderr, "\n");
     exit(1);
-}
-
-//
-// Resolve identifiers.
-//
-void resolve(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
-{
-    // TODO
 }
 
 //

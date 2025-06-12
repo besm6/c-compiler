@@ -75,13 +75,26 @@ void symtab_destroy()
 //
 // Add an automatic (local) variable
 // Precondition: name is a non-null string, t is a valid Type*.
+// Postcondition: A Symbol with SYM_LOCAL, name, and linkage is added/replaced in symtab.
+//
+void symtab_add_automatic_var_linkage(const char *name, bool has_linkage, int level)
+{
+    Symbol *sym = new_symbol(name, NULL, SYM_LOCAL);
+
+    sym->has_linkage = has_linkage;
+    map_insert_free(&symtab, name, (intptr_t)sym, level, symtab_destroy_callback);
+}
+
+//
+// Add an automatic (local) variable
+// Precondition: name is a non-null string, t is a valid Type*.
 // Postcondition: A Symbol with SYM_LOCAL, name, and t is added/replaced in symtab.
 //
-void symtab_add_automatic_var(const char *name, const Type *t)
+void symtab_add_automatic_var_type(const char *name, const Type *t, int level)
 {
     Symbol *sym = new_symbol(name, clone_type(t, __func__, __FILE__, __LINE__), SYM_LOCAL);
 
-    map_insert_free(&symtab, name, (intptr_t)sym, 0, symtab_destroy_callback);
+    map_insert_free(&symtab, name, (intptr_t)sym, level, symtab_destroy_callback);
 }
 
 //
@@ -205,4 +218,12 @@ bool symtab_is_global(const char *name)
     default:
         return false;
     }
+}
+
+//
+// Remove names from the tree, which exceed given level.
+//
+void symtab_purge(int level)
+{
+    map_remove_level(&symtab, level);
 }

@@ -36,7 +36,7 @@ TEST_F(TypeTabTest, AddFieldDefinitionSingleMember)
     Type *intType   = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     FieldDef *field = new_member("x", intType, 0);
 
-    typetab_add_struct("point", 4, 4, field);
+    typetab_add_struct("point", 4, 4, field, 0);
 
     EXPECT_TRUE(typetab_exists("point"));
     StructDef *entry = typetab_find("point");
@@ -60,7 +60,7 @@ TEST_F(TypeTabTest, AddFieldDefinitionMultipleMembers)
     FieldDef *field2 = new_member("y", doubleType, 8);
     field1->next     = field2;
 
-    typetab_add_struct("vector", 8, 16, field1);
+    typetab_add_struct("vector", 8, 16, field1, 0);
 
     EXPECT_TRUE(typetab_exists("vector"));
     StructDef *entry = typetab_find("vector");
@@ -84,11 +84,11 @@ TEST_F(TypeTabTest, ReplaceFieldDefinition)
 {
     Type *intType    = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     FieldDef *field1 = new_member("x", intType, 0);
-    typetab_add_struct("point", 4, 4, field1);
+    typetab_add_struct("point", 4, 4, field1, 0);
 
     Type *doubleType = new_type(TYPE_DOUBLE, __func__, __FILE__, __LINE__);
     FieldDef *field2 = new_member("y", doubleType, 0);
-    typetab_add_struct("point", 8, 8, field2);
+    typetab_add_struct("point", 8, 8, field2, 0);
 
     StructDef *entry = typetab_find("point");
     ASSERT_NE(entry, nullptr);
@@ -121,7 +121,7 @@ TEST_F(TypeTabTest, DestroyFreesMemory)
 {
     Type *intType   = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     FieldDef *field = new_member("x", intType, 0);
-    typetab_add_struct("point", 4, 4, field);
+    typetab_add_struct("point", 4, 4, field, 0);
 
     typetab_destroy();
     typetab_init(); // Re-initialize to ensure table is usable
@@ -131,7 +131,7 @@ TEST_F(TypeTabTest, DestroyFreesMemory)
 // Test adding struct with NULL fields
 TEST_F(TypeTabTest, AddStructWithNullMembers)
 {
-    typetab_add_struct("empty", 4, 0, nullptr);
+    typetab_add_struct("empty", 4, 0, nullptr, 0);
 
     EXPECT_TRUE(typetab_exists("empty"));
     StructDef *entry = typetab_find("empty");

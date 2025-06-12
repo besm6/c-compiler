@@ -10,6 +10,7 @@ add_library(translator STATIC
     typecheck.c
     type_utils.c
     const_convert.c
+    resolve.c
 )
 target_include_directories(translator PUBLIC .)
 target_link_libraries(translator tac ast libutil)

@@ -17,7 +17,7 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init);
 Stmt *typecheck_statement(const Type *ret_type, Stmt *s);
 void typecheck_local_decl(Declaration *d);
 
-static int round_away_from_zero(int alignment, int size)
+int round_away_from_zero(int alignment, int size)
 {
     if (translator_debug) {
         printf("--- %s()\n", __func__);
@@ -191,7 +191,7 @@ void typecheck_struct_decl(const Declaration *d)
         current_size = offset + get_size(f->type);
     }
     int size = round_away_from_zero(current_alignment, current_size);
-    typetab_add_struct(d->u.empty.type->u.struct_t.name, current_alignment, size, members);
+    typetab_add_struct(d->u.empty.type->u.struct_t.name, current_alignment, size, members, scope_level);
 }
 
 // Convert an expression to a target type
@@ -1245,7 +1245,7 @@ void typecheck_local_var_decl(Declaration *d)
         decl->init = NULL;
         return;
     }
-    symtab_add_automatic_var(decl->name, var_type);
+    symtab_add_automatic_var_type(decl->name, var_type, scope_level);
     decl->init = typecheck_init(var_type, decl->init);
 }
 
@@ -1313,7 +1313,7 @@ void typecheck_fn_decl(ExternalDecl *d)
             fatal_error("Function parameters in K&R style are not supported");
         }
         for (Param *p = params; p; p = p->next) {
-            symtab_add_automatic_var(p->name, p->type);
+            symtab_add_automatic_var_type(p->name, p->type, scope_level);
         }
         d->u.function.body =
             typecheck_statement(fun_type->u.function.return_type, d->u.function.body);
