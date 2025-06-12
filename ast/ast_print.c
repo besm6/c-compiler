@@ -591,8 +591,6 @@ void print_type_spec(FILE *fd, const TypeSpec *spec, int indent)
 static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
 {
     if (!spec) {
-        print_indent(fd, indent);
-        fprintf(fd, "DeclSpec: null\n");
         return;
     }
     print_indent(fd, indent);

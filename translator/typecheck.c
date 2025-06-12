@@ -1307,10 +1307,11 @@ void typecheck_fn_decl(ExternalDecl *d)
     }
     symtab_add_fun(d->u.function.name, adjusted_type, global, defined);
     if (has_body) {
-        Param *p = params;
-        for (Declaration *param = d->u.function.param_decls; param && p;
-             param = param->next, p = p->next) {
-            symtab_add_automatic_var(param->u.var.declarators->name, p->type);
+        if (d->u.function.param_decls) {
+            fatal_error("Function parameters in K&R style are not supported");
+        }
+        for (Param *p = params; p; p = p->next) {
+            symtab_add_automatic_var(p->name, p->type);
         }
         d->u.function.body =
             typecheck_statement(fun_type->u.function.return_type, d->u.function.body);
