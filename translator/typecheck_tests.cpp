@@ -228,7 +228,8 @@ TEST_F(TypecheckTest, TypecheckStructDeclMemberAccess)
         }
     )");
     typecheck_program(program);
-    //TODO
+
+    //TODO: check symtab, typetab, AST
 }
 
 //
@@ -264,7 +265,8 @@ TEST_F(TypecheckTest, TypecheckArrayStringLiteralInit)
         }
     )");
     typecheck_program(program);
-    //TODO
+
+    //TODO: check symtab, AST
 }
 
 //
@@ -307,7 +309,8 @@ TEST_F(TypecheckTest, PointerArithmeticDereference)
         }
     )");
     typecheck_program(program);
-    //TODO
+
+    //TODO: check symtab, AST
 }
 
 //
@@ -348,7 +351,8 @@ TEST_F(TypecheckTest, FunctionCallWithParameters)
         }
     )");
     typecheck_program(program);
-    //TODO
+
+    //TODO: check symtab, AST
 }
 
 //
@@ -383,7 +387,8 @@ TEST_F(TypecheckTest, ConditionalExpression)
         }
     )");
     typecheck_program(program);
-    //TODO
+
+    //TODO: check symtab, AST
 }
 
 //
@@ -405,8 +410,7 @@ TEST_F(TypecheckTest, DuplicateStructDeclaration)
         struct S { int x; };
         struct S { int y; };
     )");
-    typecheck_program(program);
-    //TODO
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "Structure S was already declared");
 }
 
 //
@@ -437,7 +441,8 @@ TEST_F(TypecheckTest, StaticVariableCompoundInitializer)
         static struct S s = {1, 2};
     )");
     typecheck_program(program);
-    //TODO
+
+    //TODO: check symtab, typetab, AST
 }
 
 //
@@ -482,7 +487,8 @@ TEST_F(TypecheckTest, PointerStructArrowOperator)
         }
     )");
     typecheck_program(program);
-    //TODO
+
+    //TODO: check symtab, typetab, AST
 }
 
 //
@@ -507,6 +513,7 @@ TEST_F(TypecheckTest, InvalidAssignment)
             x = "string";
         }
     )");
-    typecheck_program(program);
-    //TODO
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "Cannot convert type for assignment");
+
+    //TODO: check symtab
 }
