@@ -902,6 +902,21 @@ StaticInitializer *to_static_init(const Type *var_type, const Initializer *init)
         return pointer_init;
     }
 
+    // Handle pointer initialized with array name
+    if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
+        init->u.expr->kind == EXPR_VAR) {
+        const Symbol *sym = symtab_get(init->u.expr->u.var);
+        if (sym->type->kind != TYPE_ARRAY) {
+            fatal_error("Pointer can be only initialized by array");
+        }
+        if (!compare_type(var_type->u.pointer.target, sym->type->u.array.element)) {
+            fatal_error("Initialization of pointer with incompatible array");
+        }
+        StaticInitializer *pointer_init = new_static_initializer(INIT_POINTER);
+        pointer_init->u.ptr_id          = xstrdup(init->u.expr->u.var);
+        return pointer_init;
+    }
+
     // Handle scalar initialized with a literal
     if (init->kind == INITIALIZER_SINGLE && init->u.expr->kind == EXPR_LITERAL) {
         const Literal *literal = init->u.expr->u.literal;

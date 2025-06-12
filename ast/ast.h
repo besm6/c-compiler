@@ -598,6 +598,7 @@ void print_type(FILE *fd, const Type *type, int indent);
 void print_type_qualifiers(FILE *fd, TypeQualifier *qualifiers, int indent);
 void print_declaration(FILE *fd, Declaration *decl, int indent);
 void print_external_decl(FILE *fd, ExternalDecl *ext, int indent);
+void print_initializer(FILE *fd, const Initializer *init, int indent);
 extern const char *type_kind_str[];
 
 #ifdef __cplusplus

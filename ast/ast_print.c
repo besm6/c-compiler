@@ -344,7 +344,7 @@ static void print_literal(FILE *fd, const Literal *lit, int indent)
 }
 
 // Print Initializer
-static void print_initializer(FILE *fd, const Initializer *init, int indent)
+void print_initializer(FILE *fd, const Initializer *init, int indent)
 {
     print_indent(fd, indent);
     if (!init) {
