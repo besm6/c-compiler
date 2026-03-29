@@ -91,7 +91,7 @@ static const char *unary_op_kind_str[] = {
 };
 
 // Forward declarations
-static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent);
+static void print_decl_spec(FILE *fd, const DeclSpec *spec, int indent);
 
 // Print Field structure
 void print_field(FILE *fd, Field *field, int indent)
@@ -128,13 +128,13 @@ void print_param(FILE *fd, Param *params, int indent)
 }
 
 // Print TypeQualifier list
-void print_type_qualifiers(FILE *fd, TypeQualifier *qualifiers, int indent)
+void print_type_qualifiers(FILE *fd, const TypeQualifier *qualifiers, int indent)
 {
     if (!qualifiers)
         return;
     print_indent(fd, indent);
     fprintf(fd, "Qualifiers:\n");
-    for (TypeQualifier *q = qualifiers; q; q = q->next) {
+    for (const TypeQualifier *q = qualifiers; q; q = q->next) {
         print_indent(fd, indent + 2);
         switch (q->kind) {
         case TYPE_QUALIFIER_CONST:
@@ -417,7 +417,7 @@ void print_expression(FILE *fd, const Expr *expr, int indent)
         print_expression(fd, expr->u.call.func, indent + 2);
         print_indent(fd, indent + 2);
         fprintf(fd, "Arguments:\n");
-        for (Expr *arg = expr->u.call.args; arg; arg = arg->next) {
+        for (const Expr *arg = expr->u.call.args; arg; arg = arg->next) {
             print_expression(fd, arg, indent + 4);
         }
         break;
@@ -426,7 +426,7 @@ void print_expression(FILE *fd, const Expr *expr, int indent)
         print_expression(fd, expr->u.cast.expr, indent + 2);
         break;
     case EXPR_COMPOUND:
-        for (InitItem *init = expr->u.compound_literal.init; init; init = init->next) {
+        for (const InitItem *init = expr->u.compound_literal.init; init; init = init->next) {
             print_initializer(fd, init->init, indent + 4);
         }
         break;
@@ -443,7 +443,7 @@ void print_expression(FILE *fd, const Expr *expr, int indent)
         print_expression(fd, expr->u.generic.controlling_expr, indent + 2);
         print_indent(fd, indent + 2);
         fprintf(fd, "Associations:\n");
-        for (GenericAssoc *assoc = expr->u.generic.associations; assoc; assoc = assoc->next) {
+        for (const GenericAssoc *assoc = expr->u.generic.associations; assoc; assoc = assoc->next) {
             print_generic_assoc(fd, assoc, indent + 4);
         }
         break;
@@ -481,7 +481,7 @@ void print_expression(FILE *fd, const Expr *expr, int indent)
 }
 
 // Print Pointer
-void print_pointer(FILE *fd, Pointer *pointer, int indent)
+void print_pointer(FILE *fd, const Pointer *pointer, int indent)
 {
     print_indent(fd, indent);
     fprintf(fd, "Pointer\n");
@@ -515,7 +515,7 @@ void print_declarator_suffix(FILE *fd, DeclaratorSuffix *suffix, int indent)
         fprintf(fd, "Pointer\n");
         print_indent(fd, indent + 2);
         fprintf(fd, "Indirections:\n");
-        for (Pointer *pointer = suffix->u.pointer.pointers; pointer; pointer = pointer->next) {
+        for (const Pointer *pointer = suffix->u.pointer.pointers; pointer; pointer = pointer->next) {
             print_pointer(fd, pointer, indent + 4);
         }
         print_declarator_suffix(fd, suffix->u.pointer.suffix, indent + 2);
@@ -532,7 +532,7 @@ void print_declarator(FILE *fd, Declarator *decl, int indent)
         return;
     }
     fprintf(fd, "Declarator: %s\n", decl->name ? decl->name : "(abstract)");
-    for (Pointer *pointer = decl->pointers; pointer; pointer = pointer->next) {
+    for (const Pointer *pointer = decl->pointers; pointer; pointer = pointer->next) {
         print_pointer(fd, pointer, indent + 4);
     }
     for (DeclaratorSuffix *suffix = decl->suffixes; suffix; suffix = suffix->next) {
@@ -569,7 +569,7 @@ void print_type_spec(FILE *fd, const TypeSpec *spec, int indent)
         fprintf(fd, "enum %s\n",
                 spec->u.enum_spec.name ? spec->u.enum_spec.name
                                                    : "(anonymous)");
-        for (Enumerator *e = spec->u.enum_spec.enumerators; e; e = e->next) {
+        for (const Enumerator *e = spec->u.enum_spec.enumerators; e; e = e->next) {
             print_indent(fd, indent + 4);
             fprintf(fd, "Enumerator: \"%s\"\n", e->name);
             if (e->value) {
@@ -588,7 +588,7 @@ void print_type_spec(FILE *fd, const TypeSpec *spec, int indent)
 }
 
 // Print DeclSpec
-static void print_decl_spec(FILE *fd, DeclSpec *spec, int indent)
+static void print_decl_spec(FILE *fd, const DeclSpec *spec, int indent)
 {
     if (!spec) {
         return;

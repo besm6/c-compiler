@@ -190,12 +190,12 @@ void map_insert_free(StringMap *map, const char *key, intptr_t value,
 }
 
 // Get value by key, returns 1 if found, 0 if not
-bool map_get(StringMap *map, const char *key, intptr_t *value)
+bool map_get(const StringMap *map, const char *key, intptr_t *value)
 {
     if (!map || !key)
         return false;
 
-    StringNode *current = map->root;
+    const StringNode *current = map->root;
     while (current) {
         int cmp = strcmp(key, current->key);
         if (cmp == 0) {
@@ -348,7 +348,8 @@ void map_destroy_free(StringMap *map, void (*dealloc)(intptr_t value))
     map->root = NULL;
 }
 
-static void iterate_nodes(StringNode *node, void (*func)(intptr_t value, void *arg), void *arg)
+static void iterate_nodes(StringNode *node, void (*func)(intptr_t value, const void *arg),
+                          const void *arg)
 {
     if (!node)
         return;
@@ -360,7 +361,7 @@ static void iterate_nodes(StringNode *node, void (*func)(intptr_t value, void *a
 //
 // Iterate and invoke callback for each node.
 //
-void map_iterate(StringMap *map, void (*func)(intptr_t value, void *arg), void *arg)
+void map_iterate(StringMap *map, void (*func)(intptr_t value, const void *arg), const void *arg)
 {
     iterate_nodes(map->root, func, arg);
 }

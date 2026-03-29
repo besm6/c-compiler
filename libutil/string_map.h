@@ -69,7 +69,7 @@ void map_insert_free(StringMap *map, const char *key, intptr_t value,
 // based on `strcmp`. Returns true if found.
 // Value pointer can be NULL if value is not needed.
 //
-bool map_get(StringMap *map, const char *key, intptr_t *value);
+bool map_get(const StringMap *map, const char *key, intptr_t *value);
 
 //
 // Remove: Handles three cases: leaf node, node with one child,
@@ -97,4 +97,4 @@ int map_node_height(StringNode *node);
 //
 // Iterate and invoke callback for each node.
 //
-void map_iterate(StringMap *map, void (*func)(intptr_t value, void *arg), void *arg);
+void map_iterate(StringMap *map, void (*func)(intptr_t value, const void *arg), const void *arg);

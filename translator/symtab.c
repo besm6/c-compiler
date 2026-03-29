@@ -92,6 +92,7 @@ void symtab_add_automatic_var_linkage(const char *name, bool has_linkage, int le
 //
 void symtab_add_automatic_var_type(const char *name, const Type *t, int level)
 {
+    // cppcheck-suppress constVariablePointer
     Symbol *sym = new_symbol(name, clone_type(t, __func__, __FILE__, __LINE__), SYM_LOCAL);
 
     map_insert_free(&symtab, name, (intptr_t)sym, level, symtab_destroy_callback);

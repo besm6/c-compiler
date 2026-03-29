@@ -27,7 +27,7 @@ protected:
     }
 
     // Helper function to get next token
-    int GetNextToken() { return yylex(); }
+    static int GetNextToken() { return yylex(); }
 
     // Helper function to get current lexeme
     std::string GetLexeme() { return std::string(get_yytext()); }

@@ -84,7 +84,7 @@ void export_type(WFILE *fd, Type *type)
         break;
     case TYPE_POINTER:
         export_type(fd, type->u.pointer.target);
-        for (TypeQualifier *q = type->u.pointer.qualifiers; q; q = q->next) {
+        for (const TypeQualifier *q = type->u.pointer.qualifiers; q; q = q->next) {
             export_type_qualifier(fd, q);
         }
         wputw(TAG_EOL, fd);
@@ -92,7 +92,7 @@ void export_type(WFILE *fd, Type *type)
     case TYPE_ARRAY:
         export_type(fd, type->u.array.element);
         export_expr(fd, type->u.array.size);
-        for (TypeQualifier *q = type->u.array.qualifiers; q; q = q->next) {
+        for (const TypeQualifier *q = type->u.array.qualifiers; q; q = q->next) {
             export_type_qualifier(fd, q);
         }
         wputw(TAG_EOL, fd);
@@ -128,7 +128,7 @@ void export_type(WFILE *fd, Type *type)
         export_type(fd, type->u.atomic.base);
         break;
     }
-    for (TypeQualifier *q = type->qualifiers; q; q = q->next) {
+    for (const TypeQualifier *q = type->qualifiers; q; q = q->next) {
         export_type_qualifier(fd, q);
     }
     wputw(TAG_EOL, fd);
@@ -229,12 +229,12 @@ void export_decl_spec(WFILE *fd, DeclSpec *spec)
         return;
     }
     wputw(TAG_DECLSPEC, fd);
-    for (TypeQualifier *q = spec->qualifiers; q; q = q->next) {
+    for (const TypeQualifier *q = spec->qualifiers; q; q = q->next) {
         export_type_qualifier(fd, q);
     }
     wputw(TAG_EOL, fd);
     wputw(spec->storage, fd);
-    for (FunctionSpec *fs = spec->func_specs; fs; fs = fs->next) {
+    for (const FunctionSpec *fs = spec->func_specs; fs; fs = fs->next) {
         export_function_spec(fd, fs);
     }
     wputw(TAG_EOL, fd);

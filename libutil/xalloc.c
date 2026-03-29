@@ -140,7 +140,7 @@ void xreport_lost_memory()
     if (head) {
         printf("Lost memory:\n");
     }
-    for (BlockHeader *h = head; h; h = h->next) {
+    for (const BlockHeader *h = head; h; h = h->next) {
         const char *filename = strrchr(h->filename, '/');
         if (!filename)
             filename = h->filename;
@@ -154,7 +154,7 @@ void xreport_lost_memory()
 size_t xtotal_allocated_size()
 {
     size_t total = 0;
-    for (BlockHeader *h = head; h; h = h->next) {
+    for (const BlockHeader *h = head; h; h = h->next) {
         total += h->requested_size;
     }
     return total;

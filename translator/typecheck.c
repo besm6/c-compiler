@@ -177,7 +177,7 @@ void typecheck_struct_decl(const Declaration *d)
     FieldDef **tail       = &members;
     int current_size      = 0;
     int current_alignment = 1;
-    for (Field *f = d->u.empty.type->u.struct_t.fields; f; f = f->next) {
+    for (const Field *f = d->u.empty.type->u.struct_t.fields; f; f = f->next) {
         int member_alignment = get_alignment(f->type);
         int offset           = 0;
         if (kind == TYPE_STRUCT) {
@@ -638,17 +638,17 @@ Expr *typecheck_exp(Expr *e)
         if (sym->type->kind != TYPE_FUNCTION) {
             fatal_error("Tried to use variable as function name");
         }
-        Param *params   = sym->type->u.function.params;
+        const Param *params = sym->type->u.function.params;
         int param_count = 0, arg_count = 0;
-        for (Param *p = params; p; p = p->next)
+        for (const Param *p = params; p; p = p->next)
             param_count++;
-        for (Expr *a = e->u.call.args; a; a = a->next)
+        for (const Expr *a = e->u.call.args; a; a = a->next)
             arg_count++;
         if (param_count != arg_count) {
             fatal_error("Function called with wrong number of arguments");
         }
         Expr *arg = e->u.call.args, *prev = NULL, *new_args = NULL;
-        Param *p = params;
+        const Param *p = params;
         while (arg && p) {
             Expr *new_arg = convert_by_assignment(typecheck_and_convert(arg), p->type);
             if (!new_args)
@@ -942,7 +942,7 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
         Tac_StaticInit **current   = &array_init;
         int element_count          = 0;
 
-        for (InitItem *item = init->u.items; item; item = item->next) {
+        for (const InitItem *item = init->u.items; item; item = item->next) {
             if (element_count >= (int)array_size) {
                 fatal_error("Too many elements in array initializer");
             }
@@ -964,13 +964,13 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
 
     // Handle struct with compound initializer
     if (var_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
-        StructDef *struct_def       = typetab_find(var_type->u.struct_t.name);
-        FieldDef *field             = struct_def->members;
+        const StructDef *struct_def = typetab_find(var_type->u.struct_t.name);
+        const FieldDef *field       = struct_def->members;
         Tac_StaticInit *struct_init = NULL;
         Tac_StaticInit **current    = &struct_init;
         int current_offset          = 0;
 
-        for (InitItem *item = init->u.items; item; item = item->next) {
+        for (const InitItem *item = init->u.items; item; item = item->next) {
             if (!field) {
                 fatal_error("Too many elements in struct initializer");
             }
@@ -1056,7 +1056,7 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
         InitItem **current  = &new_items;
         int element_count   = 0;
 
-        for (InitItem *item = init->u.items; item; item = item->next) {
+        for (const InitItem *item = init->u.items; item; item = item->next) {
             if (element_count >= (int)array_size) {
                 fatal_error("Too many elements in array initializer");
             }
@@ -1079,12 +1079,12 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
 
     // Handle struct with compound initializer
     if (target_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
-        StructDef *struct_def = typetab_find(target_type->u.struct_t.name);
-        FieldDef *field       = struct_def->members;
+        const StructDef *struct_def = typetab_find(target_type->u.struct_t.name);
+        const FieldDef *field       = struct_def->members;
         InitItem *new_items   = NULL;
         InitItem **current    = &new_items;
 
-        for (InitItem *item = init->u.items; item; item = item->next) {
+        for (const InitItem *item = init->u.items; item; item = item->next) {
             if (!field) {
                 fatal_error("Too many elements in struct initializer");
             }
@@ -1278,9 +1278,9 @@ void typecheck_fn_decl(ExternalDecl *d)
         fatal_error("Function has non-function type");
     }
     bool has_body            = d->u.function.body != NULL;
-    Param *params            = adjusted_type->u.function.params;
+    const Param *params      = adjusted_type->u.function.params;
     bool all_params_complete = true;
-    for (Param *p = params; p; p = p->next) {
+    for (const Param *p = params; p; p = p->next) {
         if (!is_complete(p->type)) {
             all_params_complete = false;
             break;
@@ -1312,7 +1312,7 @@ void typecheck_fn_decl(ExternalDecl *d)
         if (d->u.function.param_decls) {
             fatal_error("Function parameters in K&R style are not supported");
         }
-        for (Param *p = params; p; p = p->next) {
+        for (const Param *p = params; p; p = p->next) {
             symtab_add_automatic_var_type(p->name, p->type, scope_level);
         }
         d->u.function.body =

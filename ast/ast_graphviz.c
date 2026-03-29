@@ -26,7 +26,7 @@ static void export_ident(FILE *fd, Ident ident, int parent_id, const char *label
     fprintf(fd, "  n%d -> n%d;\n", parent_id, id);
 }
 
-static void export_type_qualifier(FILE *fd, TypeQualifier *qual, int parent_id)
+static void export_type_qualifier(FILE *fd, const TypeQualifier *qual, int parent_id)
 {
     while (qual) {
         int id = gen_node_id();
@@ -306,7 +306,7 @@ static void export_storage_class(FILE *fd, StorageClass kind, int parent_id)
     fprintf(fd, "  n%d -> n%d [label=\"storage_class\"];\n", parent_id, id);
 }
 
-static void export_function_spec(FILE *fd, FunctionSpec *fs, int parent_id)
+static void export_function_spec(FILE *fd, const FunctionSpec *fs, int parent_id)
 {
     while (fs) {
         int id = gen_node_id();

@@ -27,7 +27,7 @@ static void export_ident(FILE *fd, Ident ident, int level)
     }
 }
 
-static void export_type_qualifier(FILE *fd, TypeQualifier *qual, int level)
+static void export_type_qualifier(FILE *fd, const TypeQualifier *qual, int level)
 {
     while (qual) {
         print_indent(fd, level);
@@ -305,7 +305,7 @@ static void export_storage_class(FILE *fd, StorageClass kind, int level)
     }
 }
 
-static void export_function_spec(FILE *fd, FunctionSpec *fs, int level)
+static void export_function_spec(FILE *fd, const FunctionSpec *fs, int level)
 {
     while (fs) {
         print_indent(fd, level);
