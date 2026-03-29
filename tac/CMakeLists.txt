@@ -8,9 +8,9 @@ add_library(tac STATIC
     tac_compare.c
 # TODO:
 #   tac_yaml.c
-#   tac_graphviz.c
-#   tac_export.c
-#   tac_import.c
+#   tac_import.c    
+    tac_export.c
+    tac_graphviz.c
 )
 target_include_directories(tac PUBLIC .)
 target_link_libraries(tac libutil)

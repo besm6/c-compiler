@@ -144,7 +144,10 @@ GenericAssoc *new_generic_assoc(GenericAssocKind kind)
 Stmt *new_stmt(StmtKind kind)
 {
     Stmt *s = xalloc(sizeof(Stmt), __func__, __FILE__, __LINE__);
-    s->kind = kind;
+    s->kind                 = kind;
+    s->loop_end_label       = NULL;
+    s->loop_continue_label  = NULL;
+    s->branch_target_label  = NULL;
     return s;
 }
 

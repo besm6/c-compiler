@@ -431,8 +431,8 @@ void resolve(ExternalDecl *decl)
         case DECL_VAR: {
             //typecheck_file_scope_var_decl(decl->u.declaration);
             InitDeclarator *id = decl->u.declaration->u.var.declarators;
-
             //TODO: symbol_table_insert(id->name, id->name, 1, 1);
+
             resolve_type(id->type);
             if (id->init) {
                 resolve_initializer(id->init);
@@ -444,7 +444,7 @@ void resolve(ExternalDecl *decl)
             resolve_struct_decl(decl->u.declaration);
             break;
         case DECL_STATIC_ASSERT:
-            // TODO: implement static assert.
+            resolve_expr(decl->u.declaration->u.static_assrt.condition);
             break;
         }
         break;

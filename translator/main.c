@@ -5,7 +5,12 @@
 #include <string.h>
 #include <unistd.h>
 
+#ifndef STDOUT_FILENO
+#define STDOUT_FILENO 1
+#endif
+
 #include "symtab.h"
+#include "tac_export.h"
 #include "typetab.h"
 #include "translator.h"
 #include "wio.h"
@@ -199,18 +204,20 @@ static void close_output(const Args *args)
     }
 }
 
-static void emit_tac_toplevel(const Args *args, const Tac_TopLevel *tac)
+static void emit_tac_toplevel(const Args *args, WFILE *tac_out, const Tac_TopLevel *tac)
 {
     switch (args->format) {
     default:
     case FORMAT_TAC:
-        // TODO: export_tac(output_fd, tac);
+        tac_export_toplevel(tac_out, tac);
         break;
     case FORMAT_YAML:
-        // TODO: export_yaml(output_file, tac);
+        print_tac_toplevel(output_file, tac, 0);
+        fflush(output_file);
         break;
     case FORMAT_DOT:
-        // TODO: export_dot(output_file, tac);
+        tac_fprint_dot(output_file, tac);
+        fflush(output_file);
         break;
     }
 }
@@ -235,6 +242,25 @@ void process_file(const Args *args)
 
     WFILE input;
     ast_import_open(&input, input_fd);
+
+    WFILE tac_out;
+    int   tac_out_ready = 0;
+    if (args->format == FORMAT_TAC && output_file != stdout) {
+        if (wdopen(&tac_out, fileno(output_file), "w") < 0) {
+            fprintf(stderr, "Cannot open TAC binary output\n");
+            exit(1);
+        }
+        tac_export_begin_stream(&tac_out);
+        tac_out_ready = 1;
+    } else if (args->format == FORMAT_TAC && output_file == stdout) {
+        if (wdopen(&tac_out, STDOUT_FILENO, "w") < 0) {
+            fprintf(stderr, "Cannot open TAC binary stdout\n");
+            exit(1);
+        }
+        tac_export_begin_stream(&tac_out);
+        tac_out_ready = 1;
+    }
+
     symtab_init();
     typetab_init();
     for (;;) {
@@ -260,11 +286,15 @@ void process_file(const Args *args)
             if (args->debug) {
                 print_tac_toplevel(stdout, tac, 0);
             }
-            emit_tac_toplevel(args, tac);
+            emit_tac_toplevel(args, tac_out_ready ? &tac_out : NULL, tac);
             free_tac_toplevel(tac);
         }
     }
     wclose(&input);
+    if (tac_out_ready) {
+        tac_export_end_stream(&tac_out);
+        wclose(&tac_out);
+    }
     close_output(args);
 
     symtab_destroy();

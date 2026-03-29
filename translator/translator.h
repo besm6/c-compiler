@@ -55,10 +55,6 @@ bool is_complete_pointer(const Type *t);
 bool is_signed(const Type *t);
 int round_away_from_zero(int alignment, int size);
 
-#ifdef GTEST_API_
-// TODO
-#endif
-
 #ifdef __cplusplus
 }
 #endif

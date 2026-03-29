@@ -381,29 +381,36 @@ bool compare_stmt(const Stmt *a, const Stmt *b)
         return false;
     if (a->kind != b->kind)
         return false;
+    bool body_ok;
     switch (a->kind) {
     case STMT_EXPR:
-        return compare_expr(a->u.expr, b->u.expr);
+        body_ok = compare_expr(a->u.expr, b->u.expr);
+        break;
     case STMT_COMPOUND:
-        return compare_decl_or_stmt(a->u.compound, b->u.compound);
+        body_ok = compare_decl_or_stmt(a->u.compound, b->u.compound);
+        break;
     case STMT_IF:
         if (!compare_expr(a->u.if_stmt.condition, b->u.if_stmt.condition))
             return false;
         if (!compare_stmt(a->u.if_stmt.then_stmt, b->u.if_stmt.then_stmt))
             return false;
-        return compare_stmt(a->u.if_stmt.else_stmt, b->u.if_stmt.else_stmt);
+        body_ok = compare_stmt(a->u.if_stmt.else_stmt, b->u.if_stmt.else_stmt);
+        break;
     case STMT_SWITCH:
         if (!compare_expr(a->u.switch_stmt.expr, b->u.switch_stmt.expr))
             return false;
-        return compare_stmt(a->u.switch_stmt.body, b->u.switch_stmt.body);
+        body_ok = compare_stmt(a->u.switch_stmt.body, b->u.switch_stmt.body);
+        break;
     case STMT_WHILE:
         if (!compare_expr(a->u.while_stmt.condition, b->u.while_stmt.condition))
             return false;
-        return compare_stmt(a->u.while_stmt.body, b->u.while_stmt.body);
+        body_ok = compare_stmt(a->u.while_stmt.body, b->u.while_stmt.body);
+        break;
     case STMT_DO_WHILE:
         if (!compare_stmt(a->u.do_while.body, b->u.do_while.body))
             return false;
-        return compare_expr(a->u.do_while.condition, b->u.do_while.condition);
+        body_ok = compare_expr(a->u.do_while.condition, b->u.do_while.condition);
+        break;
     case STMT_FOR:
         if (!compare_for_init(a->u.for_stmt.init, b->u.for_stmt.init))
             return false;
@@ -411,26 +418,42 @@ bool compare_stmt(const Stmt *a, const Stmt *b)
             return false;
         if (!compare_expr(a->u.for_stmt.update, b->u.for_stmt.update))
             return false;
-        return compare_stmt(a->u.for_stmt.body, b->u.for_stmt.body);
+        body_ok = compare_stmt(a->u.for_stmt.body, b->u.for_stmt.body);
+        break;
     case STMT_GOTO:
-        return compare_ident(a->u.goto_label, b->u.goto_label);
+        body_ok = compare_ident(a->u.goto_label, b->u.goto_label);
+        break;
     case STMT_CONTINUE:
     case STMT_BREAK:
-        return true;
+        body_ok = true;
+        break;
     case STMT_RETURN:
-        return compare_expr(a->u.expr, b->u.expr);
+        body_ok = compare_expr(a->u.expr, b->u.expr);
+        break;
     case STMT_LABELED:
         if (!compare_ident(a->u.labeled.label, b->u.labeled.label))
             return false;
-        return compare_stmt(a->u.labeled.stmt, b->u.labeled.stmt);
+        body_ok = compare_stmt(a->u.labeled.stmt, b->u.labeled.stmt);
+        break;
     case STMT_CASE:
         if (!compare_expr(a->u.case_stmt.expr, b->u.case_stmt.expr))
             return false;
-        return compare_stmt(a->u.case_stmt.stmt, b->u.case_stmt.stmt);
+        body_ok = compare_stmt(a->u.case_stmt.stmt, b->u.case_stmt.stmt);
+        break;
     case STMT_DEFAULT:
-        return compare_stmt(a->u.default_stmt, b->u.default_stmt);
+        body_ok = compare_stmt(a->u.default_stmt, b->u.default_stmt);
+        break;
+    default:
+        body_ok = true;
+        break;
     }
-    return true;
+    if (!body_ok)
+        return false;
+    if (!compare_ident(a->loop_end_label, b->loop_end_label))
+        return false;
+    if (!compare_ident(a->loop_continue_label, b->loop_continue_label))
+        return false;
+    return compare_ident(a->branch_target_label, b->branch_target_label);
 }
 
 bool compare_decl_or_stmt(const DeclOrStmt *a, const DeclOrStmt *b)

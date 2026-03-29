@@ -55,7 +55,7 @@ TEST_F(ParserTest, ParseStaticAssertDeclaration)
     EXPECT_EQ(EXPR_LITERAL, decl->u.static_assrt.condition->kind);
     EXPECT_EQ(LITERAL_INT, decl->u.static_assrt.condition->u.literal->kind);
     EXPECT_EQ(1, decl->u.static_assrt.condition->u.literal->u.int_val);
-    EXPECT_STREQ("\"msg\"", decl->u.static_assrt.message); // TODO: strip quotes
+    EXPECT_STREQ("msg", decl->u.static_assrt.message);
 }
 
 TEST_F(ParserTest, ParseFunctionDefinitionNoParams)

@@ -479,11 +479,48 @@ int f() {
 
     EXPECT_EQ(STMT_RETURN, stmt->kind);
 
-    EXPECT_EQ(EXPR_BINARY_OP, stmt->u.expr->kind);
-    EXPECT_EQ(BINARY_ADD, stmt->u.expr->u.binary_op.op);
-    //TODO:
-    //EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.left->kind);
-    //EXPECT_STREQ("x", stmt->u.expr->u.binary_op.left->u.var);
-    //EXPECT_EQ(EXPR_VAR, stmt->u.expr->u.binary_op.right->kind);
-    //EXPECT_STREQ("y", stmt->u.expr->u.binary_op.right->u.var);
+    Expr *ret = stmt->u.expr;
+    EXPECT_EQ(EXPR_BINARY_OP, ret->kind);
+    EXPECT_EQ(BINARY_ADD, ret->u.binary_op.op);
+
+    /* return ((foo)-1) + ((bar)-2) + ((qux)-3);
+     *  = (((foo)-1) + ((bar)-2)) + ((qux)-3)  (left-associative +)
+     * Only (foo) is a type-name cast; (bar) and (qux) are parenthesized
+     * primary expressions, so the last two terms are subtractions. */
+
+    Expr *outer_add = ret->u.binary_op.left;
+    Expr *last_term  = ret->u.binary_op.right;
+    EXPECT_EQ(EXPR_BINARY_OP, outer_add->kind);
+    EXPECT_EQ(BINARY_ADD, outer_add->u.binary_op.op);
+
+    Expr *cast_foo = outer_add->u.binary_op.left;
+    Expr *bar_sub2 = outer_add->u.binary_op.right;
+
+    EXPECT_EQ(EXPR_CAST, cast_foo->kind);
+    ASSERT_NE(nullptr, cast_foo->u.cast.type);
+    EXPECT_EQ(TYPE_TYPEDEF_NAME, cast_foo->u.cast.type->kind);
+    EXPECT_STREQ("foo", cast_foo->u.cast.type->u.typedef_name.name);
+    Expr *neg_one = cast_foo->u.cast.expr;
+    EXPECT_EQ(EXPR_UNARY_OP, neg_one->kind);
+    EXPECT_EQ(UNARY_NEG, neg_one->u.unary_op.op);
+    EXPECT_EQ(EXPR_LITERAL, neg_one->u.unary_op.expr->kind);
+    EXPECT_EQ(LITERAL_INT, neg_one->u.unary_op.expr->u.literal->kind);
+    EXPECT_EQ(1, neg_one->u.unary_op.expr->u.literal->u.int_val);
+
+    EXPECT_EQ(EXPR_BINARY_OP, bar_sub2->kind);
+    EXPECT_EQ(BINARY_SUB, bar_sub2->u.binary_op.op);
+    EXPECT_EQ(EXPR_VAR, bar_sub2->u.binary_op.left->kind);
+    EXPECT_STREQ("bar", bar_sub2->u.binary_op.left->u.var);
+    EXPECT_EQ(EXPR_LITERAL, bar_sub2->u.binary_op.right->kind);
+    EXPECT_EQ(LITERAL_INT, bar_sub2->u.binary_op.right->u.literal->kind);
+    EXPECT_EQ(2, bar_sub2->u.binary_op.right->u.literal->u.int_val);
+
+    EXPECT_EQ(EXPR_BINARY_OP, last_term->kind);
+    EXPECT_EQ(BINARY_SUB, last_term->u.binary_op.op);
+    EXPECT_EQ(EXPR_LITERAL, last_term->u.binary_op.left->kind);
+    EXPECT_EQ(LITERAL_ENUM, last_term->u.binary_op.left->u.literal->kind);
+    EXPECT_STREQ("qux", last_term->u.binary_op.left->u.literal->u.enum_const);
+    EXPECT_EQ(EXPR_LITERAL, last_term->u.binary_op.right->kind);
+    EXPECT_EQ(LITERAL_INT, last_term->u.binary_op.right->u.literal->kind);
+    EXPECT_EQ(3, last_term->u.binary_op.right->u.literal->u.int_val);
 }

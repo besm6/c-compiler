@@ -1416,9 +1416,13 @@ void typecheck_global_decl(ExternalDecl *d)
         case DECL_EMPTY:
             typecheck_struct_decl(d->u.declaration);
             break;
-        case DECL_STATIC_ASSERT:
-            // TODO: implement static assert.
+        case DECL_STATIC_ASSERT: {
+            const Expr *e = typecheck_and_convert(d->u.declaration->u.static_assrt.condition);
+            if (!is_scalar(e->type)) {
+                fatal_error("_Static_assert condition must have scalar type");
+            }
             break;
+        }
         }
         if (translator_debug) {
             printf("--- result:\n");

@@ -364,6 +364,9 @@ void free_statement(Stmt *stmt)
         free_statement(stmt->u.default_stmt);
         break;
     }
+    xfree(stmt->loop_end_label);
+    xfree(stmt->loop_continue_label);
+    xfree(stmt->branch_target_label);
     xfree(stmt);
 }
 

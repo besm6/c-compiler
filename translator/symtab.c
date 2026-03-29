@@ -6,6 +6,7 @@
 #include "ast.h"
 #include "internal.h"
 #include "string_map.h"
+#include "unique.h"
 #include "translator.h"
 #include "xalloc.h"
 
@@ -142,11 +143,7 @@ char *symtab_add_string(const char *s)
         return NULL; // cannot happen
     }
 
-    // Generate unique identifier (e.g., _str0, _str1)
-    // TODO: move to a separate file unique.c
-    static int str_id = 0;
-    char name[32];
-    snprintf(name, sizeof(name), "_str%d", str_id++);
+    char *name = unique_string_literal_name();
 
     // Create array type: char[strlen(s) + 1]
     Type *t            = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
@@ -167,8 +164,9 @@ char *symtab_add_string(const char *s)
     sym->u.const_init = init;
     map_insert_free(&symtab, name, (intptr_t)sym, 0, symtab_destroy_callback);
 
-    // Return the unique name (owned by caller)
-    return xstrdup(name);
+    char *ret = xstrdup(name);
+    xfree(name);
+    return ret;
 }
 
 //

@@ -19,6 +19,18 @@ int parser_debug;
 
 static int scope_level;
 
+static char *strip_string_literal_lexeme(const char *lex)
+{
+    size_t n = strlen(lex);
+    if (n >= 2 && lex[0] == '"' && lex[n - 1] == '"') {
+        char *s = xalloc(n - 1, __func__, __FILE__, __LINE__);
+        memcpy(s, lex + 1, n - 2);
+        s[n - 2] = '\0';
+        return s;
+    }
+    return xstrdup(lex);
+}
+
 /* Error handling */
 static void _Noreturn fatal_error(const char *message, ...)
 {
@@ -406,12 +418,39 @@ Expr *parse_constant()
                                   : current_token == TOKEN_F_CONSTANT ? LITERAL_FLOAT
                                                                       : LITERAL_ENUM);
     switch (current_token) {
-    case TOKEN_I_CONSTANT:
-        expr->u.literal->u.int_val = strtoul(current_lexeme, NULL, 0); // TODO: suffixes
+    case TOKEN_I_CONSTANT: {
+        char *end = NULL;
+        unsigned long v = strtoul(current_lexeme, &end, 0);
+        if (end) {
+            while (*end) {
+                if (*end == 'u' || *end == 'U') {
+                    end++;
+                    continue;
+                }
+                if (*end == 'l' || *end == 'L') {
+                    end++;
+                    if (*end == 'l' || *end == 'L') {
+                        end++;
+                    }
+                    continue;
+                }
+                break;
+            }
+        }
+        expr->u.literal->u.int_val = (int)v;
         break;
-    case TOKEN_F_CONSTANT:
-        expr->u.literal->u.real_val = strtod(current_lexeme, NULL); // TODO: suffixes
+    }
+    case TOKEN_F_CONSTANT: {
+        char *end = NULL;
+        double v = strtod(current_lexeme, &end);
+        if (end) {
+            while (*end && (*end == 'f' || *end == 'F' || *end == 'l' || *end == 'L')) {
+                end++;
+            }
+        }
+        expr->u.literal->u.real_val = v;
         break;
+    }
     case TOKEN_ENUMERATION_CONSTANT:
         expr->u.literal->u.enum_const = xstrdup(current_lexeme);
         break;
@@ -1720,7 +1759,8 @@ Field *parse_struct_declaration()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_STATIC_ASSERT) {
-        parse_static_assert_declaration(); // TODO: implement static assert as a special kind of Field
+        parse_static_assert_declaration();
+        /* TODO: implement static assert as a special kind of Field */
         return NULL;
     }
 
@@ -2528,7 +2568,7 @@ Declaration *parse_static_assert_declaration()
     expect_token(TOKEN_LPAREN);
     Expr *condition = parse_constant_expression();
     expect_token(TOKEN_COMMA);
-    char *message = xstrdup(current_lexeme);
+    char *message = strip_string_literal_lexeme(current_lexeme);
     expect_token(TOKEN_STRING_LITERAL);
     expect_token(TOKEN_RPAREN);
     expect_token(TOKEN_SEMICOLON);

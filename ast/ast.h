@@ -443,6 +443,10 @@ struct Stmt {
         } case_stmt;
         Stmt *default_stmt;
     } u;
+    /* Assigned by label_loops() in translator; not serialized to .ast files. */
+    char *loop_end_label;
+    char *loop_continue_label;
+    char *branch_target_label;
 };
 
 typedef enum { DECL_OR_STMT_DECL, DECL_OR_STMT_STMT } DeclOrStmtKind;

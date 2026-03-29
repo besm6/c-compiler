@@ -356,7 +356,10 @@ void print_initializer(FILE *fd, const Initializer *init, int indent)
         print_expression(fd, init->u.expr, indent + 2);
     } else {
         print_indent(fd, indent + 2);
-        fprintf(fd, "List: (not implemented)\n");
+        fprintf(fd, "Compound:\n");
+        for (const InitItem *item = init->u.items; item; item = item->next) {
+            print_initializer(fd, item->init, indent + 4);
+        }
     }
 }
 

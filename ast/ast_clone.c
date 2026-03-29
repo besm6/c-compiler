@@ -447,6 +447,9 @@ Stmt *clone_stmt(const Stmt *stmt)
         result->u.default_stmt = clone_stmt(stmt->u.default_stmt);
         break;
     }
+    result->loop_end_label      = stmt->loop_end_label ? xstrdup(stmt->loop_end_label) : NULL;
+    result->loop_continue_label = stmt->loop_continue_label ? xstrdup(stmt->loop_continue_label) : NULL;
+    result->branch_target_label = stmt->branch_target_label ? xstrdup(stmt->branch_target_label) : NULL;
     return result;
 }
 

@@ -376,6 +376,11 @@ void print_tac_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth);
 void print_tac_program(FILE *fd, const Tac_Program *program);
 
 //
+// Graphviz (instruction-level sketch)
+//
+void tac_fprint_dot(FILE *fd, const Tac_TopLevel *toplevel);
+
+//
 // Compare
 //
 bool compare_tac_const(const Tac_Const *a, const Tac_Const *b);

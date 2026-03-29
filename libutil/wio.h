@@ -1,6 +1,8 @@
 //
 // Word-oriented buffered I/O interface.
 //
+#pragma once
+
 #include <stddef.h>
 
 #ifdef __cplusplus
