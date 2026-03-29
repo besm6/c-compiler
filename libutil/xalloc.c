@@ -178,7 +178,6 @@ char *xstrdup(const char *str)
     if (!str)
         return NULL;
     char *new_str = xalloc(strlen(str) + 1, __func__, __FILE__, __LINE__);
-    if (new_str)
-        strcpy(new_str, str);
+    strcpy(new_str, str);
     return new_str;
 }
