@@ -2,7 +2,7 @@
 
 A C compiler project aimed at the [BESM-6](https://en.wikipedia.org/wiki/BESM-6) mainframe. The long-term idea is a self-hosting toolchain that can help build systems such as the [Unix v7 port for BESM-6](https://github.com/besm6/v7besm) and work with the [Dubna monitor](https://github.com/besm6/dubna).
 
-**This repository is unfinished.** The frontend (lexing, parsing, AST) is in active use; semantic analysis runs in `tacker`; three-address code is produced for a subset of the language and can be exported, while a full TAC pipeline and machine backend remain work in progress. For file-by-file detail, build options, and tests, see [docs/TECHNICAL.md](docs/TECHNICAL.md).
+**This repository is unfinished.** The frontend (lexing, parsing, AST) is in active use; semantic analysis runs in `tacker`; three-address code is produced for a subset of the language and can be exported, while a full TAC pipeline and machine backend remain work in progress. For file-by-file detail, build options, and tests, see [docs/TECHNICAL.md](docs/TECHNICAL.md). Planned work and estimates are tracked in [TODO.md](TODO.md).
 
 ## Goals
 
@@ -101,6 +101,7 @@ For debug logging, verbose mode, and full `tacker` behavior, see [docs/TECHNICAL
 |----------|---------|
 | [docs/TECHNICAL.md](docs/TECHNICAL.md) | Repository layout, components, build system, tests, ASDL vs C code, development notes, references |
 | [grammar/README.md](grammar/README.md) | Notes on the C11 grammar artifacts in `grammar/` |
+| [TODO.md](TODO.md) | Work plan |
 
 ## License
 
