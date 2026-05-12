@@ -95,24 +95,19 @@ or also full namespace rules. The `map_remove_level` leak fix alone is **Small**
 
 ---
 
-## 4. Finish `label_loops()` and unit tests (`translator/translator.c`)
+## ~~4. Finish `label_loops()` and unit tests~~ ✅ Done
 
-**Current behavior:** `label_loops()` is **implemented** (not a stub): it assigns
-`loop_end_label` / `loop_continue_label` on loops and `switch`, and fills
-`branch_target_label` for `break` / `continue`. `translate_gen.c` checks for missing
-labels (e.g. `while`).
+**Completed work:**
 
-**Remaining work:**
-
-- **Automated tests:** There is no dedicated translator test for loop/switch labeling in
-  the active test tree (older `translator/attic/resolve_*` tests exist but are not the
-  main harness). Add tests that build a small AST or parse a snippet, run `label_loops`,
-  and assert labels on `Stmt` nodes.
-- Edge cases: `break` in `switch`, nested loops/switches, invalid `continue` outside a
-  loop (already `fatal_error`), `default` / `case` nesting.
-
-**Effort:** **Small** (~1–2 days) for tests + small fixes if gaps appear; update
-`docs/TECHNICAL.md` where it still calls `label_loops` a stub.
+- Added `LabelLoopsTest` fixture to `translator/typecheck_tests.cpp` (12 tests) covering
+  all loop kinds (`while`, `for`, `do-while`, `switch`), `break`/`continue` target
+  resolution, nested loops, `continue`-skips-switch semantics, and fatal-error cases for
+  `break`/`continue` outside any loop or switch.
+- Added minimal pass-through cases for `STMT_SWITCH`, `STMT_CASE`, `STMT_DEFAULT`,
+  `STMT_LABELED`, and `STMT_GOTO` in `typecheck_statement()` (`typecheck.c`) so the
+  pipeline can recurse into switch bodies before `label_loops` runs. No semantic
+  validation added (that is task 7).
+- Updated `docs/TECHNICAL.md` to remove two stale "stub" references to `label_loops`.
 
 ---
 
@@ -180,10 +175,9 @@ lowering to compare dispatch value against case constants and jump.
 
 ## Suggested order
 
-1. Task **4** (tests + doc accuracy) — low risk, locks in behavior.
-2. Fix `map_remove_level` dealloc bug (task **3** prerequisite) — small, eliminates a
+1. Fix `map_remove_level` dealloc bug (task **3** prerequisite) — small, eliminates a
    known leak before adding more scoped symbols.
-3. Task **2** — reduce resolve/typecheck duplication before adding typedef/switch widely.
-4. Task **6** (`typedef`) — unblocks many real headers.
-5. Task **3** (scoping) as needed for correctness vs. real code.
-6. Task **7** then **5** for TAC (switch depends on solid lowering infrastructure).
+2. Task **2** — reduce resolve/typecheck duplication before adding typedef/switch widely.
+3. Task **6** (`typedef`) — unblocks many real headers.
+4. Task **3** (scoping) as needed for correctness vs. real code.
+5. Task **7** then **5** for TAC (switch depends on solid lowering infrastructure).

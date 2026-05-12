@@ -55,7 +55,7 @@ cast input.c -                 # stdout
 **Current limitations:**
 
 - `translate()` in `translator/translator.c` is a stub: it returns `NULL`, so no TAC is produced for normal runs.
-- `label_loops()` is a stub.
+- `label_loops()` assigns break/continue target labels on loop and switch statements.
 - `emit_tac_toplevel()` in `translator/main.c` only contains `TODO` comments for binary, YAML, and DOT export, so **no TAC is written** to the output file even if translation existed.
 - The `tac` library does not yet build `tac_export.c`, `tac_import.c`, `tac_yaml.c`, or `tac_graphviz.c` (they are commented out in `tac/CMakeLists.txt`).
 
@@ -106,7 +106,7 @@ A stray file `clone_tests.cpp-` in `ast/` is not part of the CMake build.
 
 | File | Role |
 |------|------|
-| `translator.h`, `translator.c` | `fatal_error`, `label_loops` (stub), `translate` (stub) |
+| `translator.h`, `translator.c` | `fatal_error`, `label_loops`, `translate` (stub) |
 | `resolve.c` | Identifier and type resolution |
 | `typecheck.c` | Type checking and related transforms |
 | `symtab.c`, `symtab_print.c` | Symbol table |

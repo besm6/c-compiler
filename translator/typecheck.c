@@ -1203,7 +1203,25 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
     }
     case STMT_BREAK:
     case STMT_CONTINUE:
+    case STMT_GOTO:
         return s;
+    case STMT_SWITCH: {
+        s->u.switch_stmt.expr = typecheck_scalar(s->u.switch_stmt.expr);
+        s->u.switch_stmt.body = typecheck_statement(ret_type, s->u.switch_stmt.body);
+        return s;
+    }
+    case STMT_CASE: {
+        s->u.case_stmt.stmt = typecheck_statement(ret_type, s->u.case_stmt.stmt);
+        return s;
+    }
+    case STMT_DEFAULT: {
+        s->u.default_stmt = typecheck_statement(ret_type, s->u.default_stmt);
+        return s;
+    }
+    case STMT_LABELED: {
+        s->u.labeled.stmt = typecheck_statement(ret_type, s->u.labeled.stmt);
+        return s;
+    }
     default:
         fatal_error("Unsupported statement kind %d", s->kind);
     }
