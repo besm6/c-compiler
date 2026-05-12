@@ -124,6 +124,7 @@ void symtab_add_static_var(const char *name, const Type *t, bool global, InitKin
 void symtab_add_fun(const char *name, const Type *t, bool global, bool defined)
 {
     Symbol *sym         = new_symbol(name, clone_type(t, __func__, __FILE__, __LINE__), SYM_FUNC);
+    sym->has_linkage    = true;
     sym->u.func.global  = global;
     sym->u.func.defined = defined;
 

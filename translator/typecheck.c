@@ -1262,7 +1262,13 @@ void typecheck_fn_decl(ExternalDecl *d)
         if (fun_type->u.function.return_type->kind == TYPE_ARRAY) {
             fatal_error("A function cannot return an array");
         }
+        // In C, f(void) is represented as a single unnamed void param — it means no parameters.
         Param *p = adjusted_type->u.function.params;
+        if (p && !p->next && p->type->kind == TYPE_VOID && !p->name) {
+            free_param(p);
+            adjusted_type->u.function.params = NULL;
+            p = NULL;
+        }
         while (p) {
             if (p->type->kind == TYPE_ARRAY) {
                 Type *ptr = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
@@ -1347,50 +1353,67 @@ void typecheck_file_scope_var_decl(Declaration *d)
         printf("--- %s()\n", __func__);
         print_declaration(stdout, d, 4);
     }
-    InitDeclarator *decl = d->u.var.declarators;
-    const Type *var_type = decl->type;
-    if (var_type->kind == TYPE_VOID) {
-        fatal_error("Void variables not allowed");
-    }
-    validate_type(var_type);
+    bool global = !is_static(d->u.var.specifiers);
+    for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
+        const Type *var_type = decl->type;
 
-    bool global               = !is_static(d->u.var.specifiers);
-    InitKind init_kind        = is_extern(d->u.var.specifiers) ? INIT_NONE : INIT_TENTATIVE;
-    Tac_StaticInit *init_list = NULL;
-    if (decl->init) {
-        init_kind = INIT_INITIALIZED;
-        init_list = to_static_init(var_type, decl->init);
-    }
-    if (!is_complete(var_type) && init_kind != INIT_NONE) {
-        fatal_error("Can't define a variable with incomplete type");
-    }
-    Symbol *existing = symtab_get_opt(decl->name);
-    if (existing) {
-        if (existing->type->kind != var_type->kind) {
-            fatal_error("Variable %s redeclared with different type", decl->name);
+        // A function prototype at file scope (e.g. "int f(int);") arrives here
+        // as a DECL_VAR with a function type. Register it as SYM_FUNC so that
+        // resolve() can find it when it later processes the definition, and so
+        // has_linkage is set correctly to allow the redeclaration.
+        if (var_type->kind == TYPE_FUNCTION) {
+            validate_type(var_type);
+            Symbol *existing = symtab_get_opt(decl->name);
+            bool defined = existing && existing->kind == SYM_FUNC && existing->u.func.defined;
+            bool fn_global = (existing && existing->kind == SYM_FUNC)
+                                 ? existing->u.func.global
+                                 : global;
+            symtab_add_fun(decl->name, var_type, fn_global, defined);
+            continue;
         }
-        if (existing->kind == SYM_STATIC) {
-            if (!is_extern(d->u.var.specifiers) && existing->u.static_var.global != global) {
-                fatal_error("Conflicting variable linkage");
-            }
-            if (existing->u.static_var.init_kind == INIT_INITIALIZED &&
-                init_kind == INIT_INITIALIZED) {
-                fatal_error("Conflicting global variable definition");
-            }
-            init_kind = existing->u.static_var.init_kind == INIT_INITIALIZED
-                            ? existing->u.static_var.init_kind
-                            : init_kind;
-            init_list = existing->u.static_var.init_kind == INIT_INITIALIZED
-                            ? existing->u.static_var.init_list
-                            : init_list;
-            global    = is_extern(d->u.var.specifiers) ? existing->u.static_var.global : global;
-        }
-    }
-    symtab_add_static_var(decl->name, var_type, global, init_kind, init_list);
 
-    // Drop initializer
-    free_initializer(decl->init);
-    decl->init = NULL;
+        if (var_type->kind == TYPE_VOID) {
+            fatal_error("Void variables not allowed");
+        }
+        validate_type(var_type);
+
+        InitKind init_kind        = is_extern(d->u.var.specifiers) ? INIT_NONE : INIT_TENTATIVE;
+        Tac_StaticInit *init_list = NULL;
+        if (decl->init) {
+            init_kind = INIT_INITIALIZED;
+            init_list = to_static_init(var_type, decl->init);
+        }
+        if (!is_complete(var_type) && init_kind != INIT_NONE) {
+            fatal_error("Can't define a variable with incomplete type");
+        }
+        Symbol *existing = symtab_get_opt(decl->name);
+        if (existing) {
+            if (existing->type->kind != var_type->kind) {
+                fatal_error("Variable %s redeclared with different type", decl->name);
+            }
+            if (existing->kind == SYM_STATIC) {
+                if (!is_extern(d->u.var.specifiers) && existing->u.static_var.global != global) {
+                    fatal_error("Conflicting variable linkage");
+                }
+                if (existing->u.static_var.init_kind == INIT_INITIALIZED &&
+                    init_kind == INIT_INITIALIZED) {
+                    fatal_error("Conflicting global variable definition");
+                }
+                init_kind = existing->u.static_var.init_kind == INIT_INITIALIZED
+                                ? existing->u.static_var.init_kind
+                                : init_kind;
+                init_list = existing->u.static_var.init_kind == INIT_INITIALIZED
+                                ? existing->u.static_var.init_list
+                                : init_list;
+                global    = is_extern(d->u.var.specifiers) ? existing->u.static_var.global : global;
+            }
+        }
+        symtab_add_static_var(decl->name, var_type, global, init_kind, init_list);
+
+        // Drop initializer
+        free_initializer(decl->init);
+        decl->init = NULL;
+    }
 }
 
 // Type-check a global declaration

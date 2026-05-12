@@ -11,15 +11,25 @@ make debug        # build with Debug flags
 make clean        # remove ./build/
 ```
 
-Run a single test binary directly:
+Run a single test binary directly (translator tests live in a subdirectory):
 ```sh
 ./build/parser-tests
-./build/typecheck-tests
+./build/translator/typecheck-tests
+./build/translator/symtab-tests
+./build/translator/typetab-tests
 ```
 
 Run a specific GoogleTest case:
 ```sh
 ./build/parser-tests --gtest_filter="*ExprTest*"
+./build/translator/typecheck-tests --gtest_filter="PipelineTest.*"
+```
+
+**Run tests from the build directory** to avoid polluting the source tree with temporary
+files that GoogleTest writes during test discovery:
+```sh
+cd build/translator && ./typecheck-tests
+ctest --test-dir build -R "Typecheck|Pipeline"
 ```
 
 Static analysis (requires cppcheck):
@@ -32,10 +42,13 @@ Try the compiler tools:
 ./build/cast input.c               # parse → binary AST to stdout
 ./build/cast input.c --yaml        # parse → YAML AST
 ./build/cast input.c --dot         # parse → Graphviz DOT
-./build/cast input.c | ./build/tacker          # parse → typecheck → binary TAC
-./build/cast input.c | ./build/tacker --yaml   # → YAML TAC
 ./build/cast -D input.c            # debug: parser trace + AST dump + leak report
-./build/tacker -D                  # debug: translator trace
+
+# tacker requires a filename — write AST to a file first, then pass it:
+./build/cast input.c > /tmp/input.ast
+./build/tacker /tmp/input.ast           # → binary TAC to stdout
+./build/tacker --yaml /tmp/input.ast    # → YAML TAC
+./build/tacker -D /tmp/input.ast        # debug: translator trace
 ```
 
 Compiler flags in use: `-Wall -Werror -Wshadow` — all warnings are errors.
@@ -60,7 +73,7 @@ Source (.c)
 |---|---|---|
 | Lexer | `scanner/` | Complete |
 | Parser | `parser/` | Complete for C11 subset |
-| Name resolution | `translator/resolve.c` | Mostly complete |
+| Name resolution | `translator/resolve.c` | Complete |
 | Type checking | `translator/typecheck.c` | Mostly complete |
 | Loop labeling | `translator/translator.c` | Complete |
 | AST → TAC lowering | `translator/translate_gen.c` | Partial |
@@ -81,7 +94,13 @@ Source (.c)
 - **`xalloc` (`libutil/xalloc`)**: All allocations go through `xalloc`/`xfree`. In debug builds, `xalloc_report()` prints leak totals.
 - **Two-pass semantics**: `resolve()` binds names, then `typecheck_global_decl()` type-checks. TODO.md tracks merging them into one pass.
 - **Scope tracking**: `scope_level` is incremented on block entry and `symtab_purge(scope_level)` + decrement on exit.
+- **Known bug — `map_remove_level` dealloc**: `map_remove_level()` in `string_map.c` frees AVL node structs but does **not** call the dealloc callback on `node->value`. As a result, `symtab_purge()` leaks `Symbol` pointers for block-scope entries (e.g. named function params added by `resolve()` at scope level 1 and purged on exit). See TODO.md item 3.
 - **Partial TAC lowering**: `translate_gen.c` calls `fatal_error()` on unimplemented constructs. Many `Expr` and `Stmt` kinds are not yet handled.
+
+### AST quirks
+
+- **Function prototypes vs. definitions**: Only function *definitions* (with a body) parse as `EXTERNAL_DECL_FUNCTION`. A bare prototype such as `int f(int);` parses as `EXTERNAL_DECL_DECLARATION` / `DECL_VAR` with a `TYPE_FUNCTION` declarator type. The typecheck pass (`typecheck_file_scope_var_decl`) detects `TYPE_FUNCTION` and registers it via `symtab_add_fun()`.
+- **`f(void)` sentinel**: The parser represents a `(void)` parameter list as a single `Param` node with `TYPE_VOID` and a NULL name (not as an empty list). `typecheck_fn_decl()` strips this sentinel before param processing. `resolve_function_declaration()` skips params with a NULL name when adding to symtab.
 
 ### Serialization pipeline
 

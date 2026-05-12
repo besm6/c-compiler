@@ -357,14 +357,19 @@ void resolve_function_declaration(ExternalDecl *fd)
         fatal_error("Duplicate declaration %s", fd->u.function.name);
     }
     resolve_type(fd->u.function.type);
-    symtab_add_fun(fd->u.function.name, fd->u.function.type, 1, fd->u.function.body != NULL);
+    // Insert a placeholder so that recursive calls inside the body resolve.
+    // has_linkage=true allows redeclarations; defined=false so typecheck_fn_decl
+    // remains the sole authority on whether the function has a definition.
+    symtab_add_fun(fd->u.function.name, fd->u.function.type, 1, false);
 
     if (fd->u.function.body) {
         Param *p = fd->u.function.type->u.function.params;
         scope_increment();
         while (p) {
             resolve_type(p->type);
-            symtab_add_automatic_var_type(p->name, p->type, scope_level);
+            if (p->name) {
+                symtab_add_automatic_var_type(p->name, p->type, scope_level);
+            }
             p = p->next;
         }
         resolve_statement(fd->u.function.body);
@@ -381,40 +386,11 @@ void resolve_struct_decl(Declaration *d)
         return;
     TypeKind kind = d->u.empty.type->kind;
     if (kind != TYPE_STRUCT && kind != TYPE_UNION)
-        return; // Ignore forward declarations
-
-    const char *tag        = d->u.empty.type->u.struct_t.name;
-    const StructDef *entry = typetab_find(tag);
-    if (entry) {
-        fatal_error("Re-declared structure type %s", tag);
-    }
-
-    //validate_struct_definition(tag, d->u.empty.type->u.struct_t.fields);
-
-    // Build member definitions
-    FieldDef *members     = NULL;
-    FieldDef **tail       = &members;
-    int current_size      = 0;
-    int current_alignment = 1;
-    for (Field *f = d->u.empty.type->u.struct_t.fields; f; f = f->next) {
+        return;
+    // Only validate that member types are declared; layout and typetab registration
+    // are done authoritatively in typecheck_struct_decl().
+    for (Field *f = d->u.empty.type->u.struct_t.fields; f; f = f->next)
         resolve_type(f->type);
-
-        int member_alignment = get_alignment(f->type);
-        int offset           = 0;
-        if (kind == TYPE_STRUCT) {
-            offset = round_away_from_zero(member_alignment, current_size);
-        }
-        *tail = new_member(f->name, clone_type(f->type, __func__, __FILE__, __LINE__), offset);
-        tail  = &(*tail)->next;
-
-        if (current_alignment < member_alignment) {
-            current_alignment = member_alignment;
-        }
-        current_size = offset + get_size(f->type);
-    }
-    int size = round_away_from_zero(current_alignment, current_size);
-
-    typetab_add_struct(tag, current_alignment, size, members, scope_level);
 }
 
 //
@@ -429,13 +405,18 @@ void resolve(ExternalDecl *decl)
     case EXTERNAL_DECL_DECLARATION:
         switch (decl->u.declaration->kind) {
         case DECL_VAR: {
-            //typecheck_file_scope_var_decl(decl->u.declaration);
+            // Symtab insertion for file-scope variables is delegated to
+            // typecheck_file_scope_var_decl(), which handles the full linkage
+            // and redeclaration rules. The per-declaration pipeline (resolve
+            // then typecheck) ensures each prior variable is in symtab before
+            // the next declaration's resolve runs.
             InitDeclarator *id = decl->u.declaration->u.var.declarators;
-            //TODO: symbol_table_insert(id->name, id->name, 1, 1);
-
-            resolve_type(id->type);
-            if (id->init) {
-                resolve_initializer(id->init);
+            while (id) {
+                resolve_type(id->type);
+                if (id->init) {
+                    resolve_initializer(id->init);
+                }
+                id = id->next;
             }
             break;
         }

@@ -235,7 +235,49 @@ TEST_F(TypecheckTest, TypecheckStructDeclMemberAccess)
     )");
     typecheck_program(program);
 
-    // TODO: check symtab, typetab, AST
+    // typetab: Point with int x@0, double y@8, size=16, align=8
+    const StructDef *pt = typetab_find("Point");
+    ASSERT_NE(pt, nullptr);
+    EXPECT_EQ(pt->alignment, 8);
+    EXPECT_EQ(pt->size, 16);
+    ASSERT_NE(pt->members, nullptr);
+    EXPECT_STREQ(pt->members->name, "x");
+    EXPECT_EQ(pt->members->type->kind, TYPE_INT);
+    EXPECT_EQ(pt->members->offset, 0);
+    ASSERT_NE(pt->members->next, nullptr);
+    EXPECT_STREQ(pt->members->next->name, "y");
+    EXPECT_EQ(pt->members->next->type->kind, TYPE_DOUBLE);
+    EXPECT_EQ(pt->members->next->offset, 8);
+    EXPECT_EQ(pt->members->next->next, nullptr);
+
+    // symtab: p
+    const Symbol *p = symtab_get("p");
+    ASSERT_NE(p, nullptr);
+    EXPECT_EQ(p->kind, SYM_STATIC);
+    EXPECT_TRUE(p->u.static_var.global);
+    EXPECT_EQ(p->u.static_var.init_kind, INIT_INITIALIZED);
+    ASSERT_NE(p->type, nullptr);
+    EXPECT_EQ(p->type->kind, TYPE_STRUCT);
+
+    // symtab: get_y
+    const Symbol *get_y = symtab_get("get_y");
+    ASSERT_NE(get_y, nullptr);
+    EXPECT_EQ(get_y->kind, SYM_FUNC);
+    EXPECT_TRUE(get_y->u.func.defined);
+    EXPECT_TRUE(get_y->u.func.global);
+    ASSERT_NE(get_y->type, nullptr);
+    EXPECT_EQ(get_y->type->u.function.return_type->kind, TYPE_DOUBLE);
+
+    // AST: field access p.y has type TYPE_DOUBLE
+    ExternalDecl *ext2 = program->decls->next->next;
+    ASSERT_NE(ext2, nullptr);
+    EXPECT_EQ(ext2->kind, EXTERNAL_DECL_FUNCTION);
+    Stmt *ret = ext2->u.function.body->u.compound->u.stmt;
+    EXPECT_EQ(ret->kind, STMT_RETURN);
+    Expr *field = ret->u.expr;
+    EXPECT_EQ(field->kind, EXPR_FIELD_ACCESS);
+    ASSERT_NE(field->type, nullptr);
+    EXPECT_EQ(field->type->kind, TYPE_DOUBLE);
 }
 
 //
@@ -467,7 +509,35 @@ TEST_F(TypecheckTest, StaticVariableCompoundInitializer)
     )");
     typecheck_program(program);
 
-    // TODO: check symtab, typetab, AST
+    // typetab: S with int x@0, int y@4, size=8, align=4
+    const StructDef *sd = typetab_find("S");
+    ASSERT_NE(sd, nullptr);
+    EXPECT_EQ(sd->alignment, 4);
+    EXPECT_EQ(sd->size, 8);
+    ASSERT_NE(sd->members, nullptr);
+    EXPECT_STREQ(sd->members->name, "x");
+    EXPECT_EQ(sd->members->offset, 0);
+    ASSERT_NE(sd->members->next, nullptr);
+    EXPECT_STREQ(sd->members->next->name, "y");
+    EXPECT_EQ(sd->members->next->offset, 4);
+
+    // symtab: s — static (not global), initialized
+    const Symbol *s = symtab_get("s");
+    ASSERT_NE(s, nullptr);
+    EXPECT_EQ(s->kind, SYM_STATIC);
+    EXPECT_FALSE(s->u.static_var.global);
+    EXPECT_EQ(s->u.static_var.init_kind, INIT_INITIALIZED);
+    ASSERT_NE(s->type, nullptr);
+    EXPECT_EQ(s->type->kind, TYPE_STRUCT);
+
+    Tac_StaticInit *init = s->u.static_var.init_list;
+    ASSERT_NE(init, nullptr);
+    EXPECT_EQ(init->kind, TAC_STATIC_INIT_I32);
+    EXPECT_EQ(init->u.int_val, 1);
+    ASSERT_NE(init->next, nullptr);
+    EXPECT_EQ(init->next->kind, TAC_STATIC_INIT_I32);
+    EXPECT_EQ(init->next->u.int_val, 2);
+    EXPECT_EQ(init->next->next, nullptr);
 }
 
 //
@@ -516,7 +586,46 @@ TEST_F(TypecheckTest, PointerStructArrowOperator)
     )");
     typecheck_program(program);
 
-    // TODO: check symtab, typetab, AST
+    // typetab: S with int x@0, size=4, align=4
+    const StructDef *sd = typetab_find("S");
+    ASSERT_NE(sd, nullptr);
+    EXPECT_EQ(sd->alignment, 4);
+    EXPECT_EQ(sd->size, 4);
+    ASSERT_NE(sd->members, nullptr);
+    EXPECT_STREQ(sd->members->name, "x");
+    EXPECT_EQ(sd->members->offset, 0);
+    EXPECT_EQ(sd->members->next, nullptr);
+
+    // symtab: s
+    const Symbol *s = symtab_get("s");
+    ASSERT_NE(s, nullptr);
+    EXPECT_EQ(s->kind, SYM_STATIC);
+    EXPECT_TRUE(s->u.static_var.global);
+    EXPECT_EQ(s->u.static_var.init_kind, INIT_INITIALIZED);
+    Tac_StaticInit *init = s->u.static_var.init_list;
+    ASSERT_NE(init, nullptr);
+    EXPECT_EQ(init->kind, TAC_STATIC_INIT_I32);
+    EXPECT_EQ(init->u.int_val, 42);
+
+    // symtab: main
+    const Symbol *main_sym = symtab_get("main");
+    ASSERT_NE(main_sym, nullptr);
+    EXPECT_EQ(main_sym->kind, SYM_FUNC);
+    EXPECT_TRUE(main_sym->u.func.defined);
+
+    // AST: arrow expression p->x has type TYPE_INT
+    ExternalDecl *ext2 = program->decls->next->next;
+    ASSERT_NE(ext2, nullptr);
+    EXPECT_EQ(ext2->kind, EXTERNAL_DECL_FUNCTION);
+    DeclOrStmt *ds = ext2->u.function.body->u.compound;
+    ASSERT_NE(ds, nullptr);          // first: decl for p
+    ASSERT_NE(ds->next, nullptr);    // second: return stmt
+    Stmt *ret = ds->next->u.stmt;
+    EXPECT_EQ(ret->kind, STMT_RETURN);
+    Expr *arrow = ret->u.expr;
+    EXPECT_EQ(arrow->kind, EXPR_PTR_ACCESS);
+    ASSERT_NE(arrow->type, nullptr);
+    EXPECT_EQ(arrow->type->kind, TYPE_INT);
 }
 
 //
@@ -544,6 +653,120 @@ TEST_F(TypecheckTest, InvalidAssignment)
     )");
     ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
                 "Cannot convert type for assignment");
+}
 
-    // TODO: check symtab
+// ---------------------------------------------------------------------------
+// PipelineTest — mirrors the tacker main loop: per-decl resolve then typecheck
+// ---------------------------------------------------------------------------
+
+class PipelineTest : public TypecheckTest {
+protected:
+    void RunPipeline(const char *src)
+    {
+        ParseProgram(src);
+        for (ExternalDecl *d = program->decls; d; d = d->next) {
+            resolve(d);
+            typecheck_global_decl(d);
+        }
+    }
+};
+
+// Struct definition through the full pipeline.
+// Verifies that resolve_struct_decl() no longer double-registers in typetab
+// (which previously caused typecheck_struct_decl() to fatal on typetab_exists).
+TEST_F(PipelineTest, StructDecl)
+{
+    RunPipeline("struct S { int x; double y; };");
+
+    const StructDef *sd = typetab_find("S");
+    ASSERT_NE(sd, nullptr);
+    EXPECT_EQ(sd->alignment, 8);
+    EXPECT_EQ(sd->size, 16);
+    ASSERT_NE(sd->members, nullptr);
+    EXPECT_STREQ(sd->members->name, "x");
+    EXPECT_EQ(sd->members->type->kind, TYPE_INT);
+    EXPECT_EQ(sd->members->offset, 0);
+    ASSERT_NE(sd->members->next, nullptr);
+    EXPECT_STREQ(sd->members->next->name, "y");
+    EXPECT_EQ(sd->members->next->type->kind, TYPE_DOUBLE);
+    EXPECT_EQ(sd->members->next->offset, 8);
+    EXPECT_EQ(sd->members->next->next, nullptr);
+}
+
+// Struct definition followed by a variable of that struct type.
+TEST_F(PipelineTest, StructUsedInVar)
+{
+    RunPipeline("struct S { int x; }; struct S s;");
+
+    EXPECT_TRUE(typetab_exists("S"));
+
+    const Symbol *s = symtab_get("s");
+    ASSERT_NE(s, nullptr);
+    EXPECT_EQ(s->kind, SYM_STATIC);
+    EXPECT_TRUE(s->u.static_var.global);
+    EXPECT_EQ(s->u.static_var.init_kind, INIT_TENTATIVE);
+    ASSERT_NE(s->type, nullptr);
+    EXPECT_EQ(s->type->kind, TYPE_STRUCT);
+}
+
+// Function prototype followed by definition.
+// Verifies that symtab_add_fun() sets has_linkage so the second resolve pass
+// does not fatal with "Duplicate declaration".
+// Uses a no-parameter function to avoid param symbols being purged from
+// symtab (which would trigger a pre-existing map_remove_level leak).
+TEST_F(PipelineTest, FunctionPrototypeThenDefinition)
+{
+    RunPipeline("int f(void); int f(void) { return 1; }");
+
+    const Symbol *f = symtab_get("f");
+    ASSERT_NE(f, nullptr);
+    EXPECT_EQ(f->kind, SYM_FUNC);
+    EXPECT_TRUE(f->u.func.defined);
+    EXPECT_TRUE(f->u.func.global);
+    ASSERT_NE(f->type, nullptr);
+    EXPECT_EQ(f->type->kind, TYPE_FUNCTION);
+}
+
+// File-scope declaration with multiple declarators.
+// Verifies that both resolve() and typecheck_file_scope_var_decl() loop over
+// all InitDeclarators, not just the first.
+TEST_F(PipelineTest, FileVarMultipleDeclarators)
+{
+    RunPipeline("int x = 1, y = 2;");
+
+    const Symbol *x = symtab_get("x");
+    ASSERT_NE(x, nullptr);
+    EXPECT_EQ(x->kind, SYM_STATIC);
+    EXPECT_TRUE(x->u.static_var.global);
+    EXPECT_EQ(x->u.static_var.init_kind, INIT_INITIALIZED);
+    ASSERT_NE(x->u.static_var.init_list, nullptr);
+    EXPECT_EQ(x->u.static_var.init_list->kind, TAC_STATIC_INIT_I32);
+    EXPECT_EQ(x->u.static_var.init_list->u.int_val, 1);
+
+    const Symbol *y = symtab_get("y");
+    ASSERT_NE(y, nullptr);
+    EXPECT_EQ(y->kind, SYM_STATIC);
+    EXPECT_TRUE(y->u.static_var.global);
+    EXPECT_EQ(y->u.static_var.init_kind, INIT_INITIALIZED);
+    ASSERT_NE(y->u.static_var.init_list, nullptr);
+    EXPECT_EQ(y->u.static_var.init_list->kind, TAC_STATIC_INIT_I32);
+    EXPECT_EQ(y->u.static_var.init_list->u.int_val, 2);
+}
+
+// Static and extern file-scope variables: linkage and init_kind.
+TEST_F(PipelineTest, StaticAndExternVars)
+{
+    RunPipeline("static int a; extern int b;");
+
+    const Symbol *a = symtab_get("a");
+    ASSERT_NE(a, nullptr);
+    EXPECT_EQ(a->kind, SYM_STATIC);
+    EXPECT_FALSE(a->u.static_var.global);
+    EXPECT_EQ(a->u.static_var.init_kind, INIT_TENTATIVE);
+
+    const Symbol *b = symtab_get("b");
+    ASSERT_NE(b, nullptr);
+    EXPECT_EQ(b->kind, SYM_STATIC);
+    EXPECT_TRUE(b->u.static_var.global);
+    EXPECT_EQ(b->u.static_var.init_kind, INIT_NONE);
 }
