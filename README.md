@@ -20,6 +20,8 @@ A C compiler project aimed at the [BESM-6](https://en.wikipedia.org/wiki/BESM-6)
 | **TAC** | `tac/` builds **alloc/print/free/compare** plus **`tac_export`** (binary stream) and **`tac_graphviz`**. **`tac_import`** and **YAML TAC export** are not built yet (see `tac/CMakeLists.txt`). Lowering lives in **`translator/translate_gen.c`**. |
 | **Preprocessor, assembler, BESM-6 code generation** | **Not in this repo** at this stage. |
 
+**Note:** This compiler intentionally rejects identifier shadowing — a name declared in an inner block that duplicates any name in an enclosing scope is a compile error.
+
 If you only want to try the project: build it, run `cast` on a small `.c` file, and open the YAML or DOT output. You can also feed the `.ast` into `tacker` to exercise analysis and TAC emission on supported code. See [Getting started](#getting-started) below.
 
 ## How the pieces fit together (architecture)
