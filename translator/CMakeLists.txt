@@ -5,8 +5,8 @@ add_library(translator STATIC
     translate.c
     symtab.c
     symtab_print.c
-    typetab.c
-    typetab_print.c
+    structtab.c
+    structtab_print.c
     typecheck.c
     type_utils.c
     const_convert.c
@@ -24,13 +24,13 @@ target_link_libraries(symtab-tests translator GTest::gtest_main)
 gtest_discover_tests(symtab-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
 
 #
-# Tests for typetab
+# Tests for structtab
 #
-add_executable(typetab-tests
-   typetab_tests.cpp
+add_executable(structtab-tests
+   structtab_tests.cpp
 )
-target_link_libraries(typetab-tests translator GTest::gtest_main)
-gtest_discover_tests(typetab-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+target_link_libraries(structtab-tests translator GTest::gtest_main)
+gtest_discover_tests(structtab-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
 
 #
 # Tests for typecheck

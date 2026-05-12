@@ -1,14 +1,13 @@
-#include "typetab.h"
+#include "structtab.h"
 
 #include <stdint.h>
-// #include <string.h>
 
 #include "ast.h"
 #include "string_map.h"
 #include "translate.h"
 #include "xalloc.h"
 
-StringMap typetab;
+StringMap structtab;
 
 //
 // Allocate a FieldDef
@@ -49,7 +48,7 @@ void free_struct(StructDef *def)
     }
 }
 
-static void typetab_destroy_callback(intptr_t ptr)
+static void structtab_destroy_callback(intptr_t ptr)
 {
     free_struct((StructDef *)ptr);
 }
@@ -58,7 +57,7 @@ static void typetab_destroy_callback(intptr_t ptr)
 // Initialize the type table (create an empty table)
 // Postcondition: StructDef table is empty and ready for use.
 //
-void typetab_init()
+void structtab_init()
 {
     // Empty.
 }
@@ -67,18 +66,18 @@ void typetab_init()
 // Destroy the type table (free all memory)
 // Postcondition: All StructDef and FieldDef memory is freed, table is empty.
 //
-void typetab_destroy()
+void structtab_destroy()
 {
-    map_destroy_free(&typetab, typetab_destroy_callback);
+    map_destroy_free(&structtab, structtab_destroy_callback);
 }
 
 //
 // Add a struct definition
 // Precondition: tag is a non-null string, members is a valid list of elements or NULL.
 // Postcondition: A StructDef with tag, alignment, size, and copied members is added/replaced in
-// typetab.
+// structtab.
 //
-void typetab_add_struct(const char *tag, int alignment, int size, FieldDef *members, int level)
+void structtab_add_struct(const char *tag, int alignment, int size, FieldDef *members, int level)
 {
     if (translator_debug) {
         printf("--- %s() %s\n", __func__, tag);
@@ -90,18 +89,18 @@ void typetab_add_struct(const char *tag, int alignment, int size, FieldDef *memb
     def->size      = size;
     def->members   = members;
 
-    map_insert_free(&typetab, tag, (intptr_t)def, level, typetab_destroy_callback);
+    map_insert_free(&structtab, tag, (intptr_t)def, level, structtab_destroy_callback);
 }
 
 //
 // Check if a struct tag exists
 // Precondition: tag is a non-null string.
-// Postcondition: Returns true if tag exists in typetab, else false.
+// Postcondition: Returns true if tag exists in structtab, else false.
 //
-bool typetab_exists(const char *tag)
+bool structtab_exists(const char *tag)
 {
     intptr_t value = 0;
-    if (!map_get(&typetab, tag, &value)) {
+    if (!map_get(&structtab, tag, &value)) {
         return false;
     }
     return true;
@@ -112,10 +111,10 @@ bool typetab_exists(const char *tag)
 // Precondition: tag is a non-null string.
 // Postcondition: Returns non-null StructDef* if found, else terminates with error.
 //
-StructDef *typetab_find(const char *tag)
+StructDef *structtab_find(const char *tag)
 {
     intptr_t value = 0;
-    if (!map_get(&typetab, tag, &value)) {
+    if (!map_get(&structtab, tag, &value)) {
         fatal_error("Struct or union '%s' not found", tag);
     }
     return (StructDef *)value;
@@ -124,7 +123,7 @@ StructDef *typetab_find(const char *tag)
 //
 // Remove names from the tree, which exceed given level.
 //
-void typetab_purge(int level)
+void structtab_purge(int level)
 {
-    map_remove_level_free(&typetab, level, typetab_destroy_callback);
+    map_remove_level_free(&structtab, level, structtab_destroy_callback);
 }

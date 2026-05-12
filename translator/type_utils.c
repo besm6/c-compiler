@@ -2,7 +2,7 @@
 // Helpers for Type.
 //
 #include "translate.h"
-#include "typetab.h"
+#include "structtab.h"
 
 //
 // Get size in bytes for a given type.
@@ -31,7 +31,7 @@ size_t get_size(const Type *t)
         }
         return t->u.array.size->u.literal->u.int_val * get_size(t->u.array.element);
     case TYPE_STRUCT:
-        return typetab_find(t->u.struct_t.name)->size;
+        return structtab_find(t->u.struct_t.name)->size;
     case TYPE_FUNCTION:
     case TYPE_VOID:
     default:
@@ -58,7 +58,7 @@ size_t get_alignment(const Type *t)
     case TYPE_ARRAY:
         return get_alignment(t->u.array.element);
     case TYPE_STRUCT:
-        return typetab_find(t->u.struct_t.name)->alignment;
+        return structtab_find(t->u.struct_t.name)->alignment;
     case TYPE_FUNCTION:
     case TYPE_VOID:
     default:
@@ -187,7 +187,7 @@ bool is_complete(const Type *t)
     case TYPE_VOID:
         return false;
     case TYPE_STRUCT:
-        return typetab_exists(t->u.struct_t.name);
+        return structtab_exists(t->u.struct_t.name);
     default:
         return true;
     }

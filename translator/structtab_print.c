@@ -1,9 +1,9 @@
 #include <inttypes.h>
 
 #include "string_map.h"
-#include "typetab.h"
+#include "structtab.h"
 
-extern StringMap typetab;
+extern StringMap structtab;
 
 //
 // Print struct/union.
@@ -17,7 +17,7 @@ void print_struct(const StructDef *def)
     }
 }
 
-static void typetab_print_callback(intptr_t ptr, const void *arg)
+static void structtab_print_callback(intptr_t ptr, const void *arg)
 {
     print_struct((const StructDef *)ptr);
 }
@@ -25,7 +25,7 @@ static void typetab_print_callback(intptr_t ptr, const void *arg)
 //
 // Print all structs.
 //
-void typetab_print()
+void structtab_print()
 {
-    map_iterate(&typetab, typetab_print_callback, NULL);
+    map_iterate(&structtab, structtab_print_callback, NULL);
 }

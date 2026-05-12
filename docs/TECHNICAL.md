@@ -14,7 +14,7 @@ c-compiler/
 ├── scanner/             # Hand-written lexer
 ├── scripts/             # googletest.xml (cppcheck), validate_asdl.py
 ├── tac/                 # TAC IR: alloc, print, free, compare (export/import TODO in CMake)
-├── translator/          # resolve, typecheck, symtab, typetab; tacker driver
+├── translator/          # resolve, typecheck, symtab, structtab; tacker driver
 ├── translator/attic/    # Older experiments (not linked by CMake)
 ├── CMakeLists.txt       # Root CMake project (project name: c-scanner)
 ├── Makefile             # Convenience: mkdir build, cmake, make test
@@ -110,12 +110,12 @@ A stray file `clone_tests.cpp-` in `ast/` is not part of the CMake build.
 | `resolve.c` | Identifier and type resolution |
 | `typecheck.c` | Type checking and related transforms |
 | `symtab.c`, `symtab_print.c` | Symbol table |
-| `typetab.c`, `typetab_print.c` | Type table |
+| `structtab.c`, `structtab_print.c` | Type table |
 | `type_utils.c` | Type helpers |
 | `const_convert.c` | Constant conversions |
 | `main.c` | `tacker` entry |
 
-Tests: `symtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`. The file `const_convert_tests.cpp` exists but is **not** registered in `translator/CMakeLists.txt`.
+Tests: `symtab_tests.cpp`, `structtab_tests.cpp`, `typecheck_tests.cpp`. The file `const_convert_tests.cpp` exists but is **not** registered in `translator/CMakeLists.txt`.
 
 The `translator/attic/` directory holds older experiments (e.g. alternate TAC generation); it is not linked into the main libraries.
 
@@ -186,7 +186,7 @@ Test executables and their sources:
 | `libutil-tests` | `libutil/string_map_tests.cpp` |
 | `wio-tests` | `libutil/wio_tests.cpp` |
 | `symtab-tests` | `translator/symtab_tests.cpp` |
-| `typetab-tests` | `translator/typetab_tests.cpp` |
+| `structtab-tests` | `translator/structtab_tests.cpp` |
 | `typecheck-tests` | `translator/typecheck_tests.cpp` |
 
 Disabled or unwired: `parser/negative_tests.cpp` (commented out in CMake); `translator/const_convert_tests.cpp` (not in CMake); `ast/clone_tests.cpp-` (not a valid registered test file).

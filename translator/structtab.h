@@ -1,8 +1,8 @@
 //
 // Definitions of struct and union.
 //
-#ifndef TYPETAB_H
-#define TYPETAB_H
+#ifndef STRUCTTAB_H
+#define STRUCTTAB_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -27,34 +27,34 @@ typedef struct {
 } StructDef;
 
 // Initialize the type table (create an empty table)
-void typetab_init(void);
+void structtab_init(void);
 // Postcondition: Type table is empty and ready for use.
 
 // Destroy the type table (free all memory)
-void typetab_destroy(void);
+void structtab_destroy(void);
 // Postcondition: All StructDef and FieldDef memory is freed, table is empty.
 
 // Add a struct definition
-void typetab_add_struct(const char *tag, int alignment, int size, FieldDef *members, int scope_level);
+void structtab_add_struct(const char *tag, int alignment, int size, FieldDef *members, int scope_level);
 // Precondition: tag is a non-null string, members is a valid list of elements or NULL.
 // Postcondition: A StructDef with tag, alignment, size, and copied members is added/replaced in
-// typetab.
+// structtab.
 
 // Check if a struct tag exists
-bool typetab_exists(const char *tag);
+bool structtab_exists(const char *tag);
 // Precondition: tag is a non-null string.
-// Postcondition: Returns true if tag exists in typetab, else false.
+// Postcondition: Returns true if tag exists in structtab, else false.
 
 // Get a struct definition by tag (fails if not found)
-StructDef *typetab_find(const char *tag);
+StructDef *structtab_find(const char *tag);
 // Precondition: tag is a non-null string.
 // Postcondition: Returns non-null StructDef* if found, else terminates with error.
 
 // Remove names, which exceed given level.
-void typetab_purge(int level);
+void structtab_purge(int level);
 
 // Print all types.
-void typetab_print(void);
+void structtab_print(void);
 
 // Allocate a FieldDef
 FieldDef *new_member(const char *name, Type *type, int offset);
@@ -63,4 +63,4 @@ FieldDef *new_member(const char *name, Type *type, int offset);
 }
 #endif
 
-#endif /* TYPETAB_H */
+#endif /* STRUCTTAB_H */

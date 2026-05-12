@@ -1,6 +1,6 @@
 //
 // Below is a list of unit tests, each with a C code snippet,
-// expected `symtab`, `typetab`, and AST type annotations.
+// expected `symtab`, `structtab`, and AST type annotations.
 // The tests are designed to cover scalar expressions, arithmetic
 // promotions, pointers, arrays, structs, functions, initializers,
 // and error conditions.
@@ -29,7 +29,7 @@
 #include "scanner.h"
 #include "symtab.h"
 #include "translate.h"
-#include "typetab.h"
+#include "structtab.h"
 #include "xalloc.h"
 
 // Test fixture
@@ -56,9 +56,9 @@ protected:
             free_program(program);
         }
         symtab_print();
-        typetab_print();
+        structtab_print();
         symtab_destroy();
-        typetab_destroy();
+        structtab_destroy();
         xreport_lost_memory();
         EXPECT_EQ(xtotal_allocated_size(), 0);
         xfree_all();
@@ -235,8 +235,8 @@ TEST_F(TypecheckTest, TypecheckStructDeclMemberAccess)
     )");
     typecheck_program(program);
 
-    // typetab: Point with int x@0, double y@8, size=16, align=8
-    const StructDef *pt = typetab_find("Point");
+    // structtab: Point with int x@0, double y@8, size=16, align=8
+    const StructDef *pt = structtab_find("Point");
     ASSERT_NE(pt, nullptr);
     EXPECT_EQ(pt->alignment, 8);
     EXPECT_EQ(pt->size, 16);
@@ -462,7 +462,7 @@ TEST_F(TypecheckTest, ConditionalExpression)
 // - Empty (error occurs before any symbols).
 //
 // Expected Typetab:
-// - Empty (error occurs during typetab_add_struct).
+// - Empty (error occurs during structtab_add_struct).
 //
 // Expected AST Type Fields:
 // - N/A (program terminates with error: "Structure S was already declared").
@@ -509,8 +509,8 @@ TEST_F(TypecheckTest, StaticVariableCompoundInitializer)
     )");
     typecheck_program(program);
 
-    // typetab: S with int x@0, int y@4, size=8, align=4
-    const StructDef *sd = typetab_find("S");
+    // structtab: S with int x@0, int y@4, size=8, align=4
+    const StructDef *sd = structtab_find("S");
     ASSERT_NE(sd, nullptr);
     EXPECT_EQ(sd->alignment, 4);
     EXPECT_EQ(sd->size, 8);
@@ -586,8 +586,8 @@ TEST_F(TypecheckTest, PointerStructArrowOperator)
     )");
     typecheck_program(program);
 
-    // typetab: S with int x@0, size=4, align=4
-    const StructDef *sd = typetab_find("S");
+    // structtab: S with int x@0, size=4, align=4
+    const StructDef *sd = structtab_find("S");
     ASSERT_NE(sd, nullptr);
     EXPECT_EQ(sd->alignment, 4);
     EXPECT_EQ(sd->size, 4);
@@ -671,12 +671,12 @@ protected:
 };
 
 // Struct definition through the full pipeline.
-// Verifies that struct registration does not double-register in typetab.
+// Verifies that struct registration does not double-register in structtab.
 TEST_F(PipelineTest, StructDecl)
 {
     RunPipeline("struct S { int x; double y; };");
 
-    const StructDef *sd = typetab_find("S");
+    const StructDef *sd = structtab_find("S");
     ASSERT_NE(sd, nullptr);
     EXPECT_EQ(sd->alignment, 8);
     EXPECT_EQ(sd->size, 16);
@@ -696,7 +696,7 @@ TEST_F(PipelineTest, StructUsedInVar)
 {
     RunPipeline("struct S { int x; }; struct S s;");
 
-    EXPECT_TRUE(typetab_exists("S"));
+    EXPECT_TRUE(structtab_exists("S"));
 
     const Symbol *s = symtab_get("s");
     ASSERT_NE(s, nullptr);

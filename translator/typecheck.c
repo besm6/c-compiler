@@ -5,7 +5,7 @@
 #include "string_map.h"
 #include "symtab.h"
 #include "translate.h"
-#include "typetab.h"
+#include "structtab.h"
 #include "xalloc.h"
 
 // Forward declarations
@@ -22,7 +22,7 @@ static void scope_decrement(void)
 {
     scope_level--;
     symtab_purge(scope_level);
-    typetab_purge(scope_level);
+    structtab_purge(scope_level);
 }
 
 int round_away_from_zero(int alignment, int size)
@@ -142,7 +142,7 @@ void validate_struct_definition(const char *tag, const Field *members)
     if (translator_debug) {
         printf("--- %s()\n", __func__);
     }
-    if (typetab_exists(tag)) {
+    if (structtab_exists(tag)) {
         fatal_error("Structure %s was already declared", tag);
     }
 
@@ -199,7 +199,7 @@ void typecheck_struct_decl(const Declaration *d)
         current_size = offset + get_size(f->type);
     }
     int size = round_away_from_zero(current_alignment, current_size);
-    typetab_add_struct(d->u.empty.type->u.struct_t.name, current_alignment, size, members, scope_level);
+    structtab_add_struct(d->u.empty.type->u.struct_t.name, current_alignment, size, members, scope_level);
 }
 
 // Convert an expression to a target type
@@ -715,7 +715,7 @@ Expr *typecheck_exp(Expr *e)
         if (strct->type->kind != TYPE_STRUCT) {
             fatal_error("Dot operator requires structure type");
         }
-        const StructDef *entry = typetab_find(strct->type->u.struct_t.name);
+        const StructDef *entry = structtab_find(strct->type->u.struct_t.name);
         const FieldDef *member = entry->members;
         for (; member; member = member->next) {
             if (strcmp(member->name, e->u.field_access.field) == 0) {
@@ -737,7 +737,7 @@ Expr *typecheck_exp(Expr *e)
             strct_ptr->type->u.pointer.target->kind != TYPE_STRUCT) {
             fatal_error("Arrow operator requires pointer to structure");
         }
-        const StructDef *entry = typetab_find(strct_ptr->type->u.pointer.target->u.struct_t.name);
+        const StructDef *entry = structtab_find(strct_ptr->type->u.pointer.target->u.struct_t.name);
         const FieldDef *member = entry->members;
         for (; member; member = member->next) {
             if (strcmp(member->name, e->u.ptr_access.field) == 0) {
@@ -817,7 +817,7 @@ Initializer *make_zero_init(Type *t)
         init->type        = clone_type(t, __func__, __FILE__, __LINE__);
 
         InitItem **tail   = &init->u.items;
-        FieldDef *members = typetab_find(t->u.struct_t.name)->members;
+        FieldDef *members = structtab_find(t->u.struct_t.name)->members;
         for (; members; members = members->next) {
             InitItem *item = new_init_item(NULL, make_zero_init(members->type));
             *tail          = item;
@@ -972,7 +972,7 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
 
     // Handle struct with compound initializer
     if (var_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
-        const StructDef *struct_def = typetab_find(var_type->u.struct_t.name);
+        const StructDef *struct_def = structtab_find(var_type->u.struct_t.name);
         const FieldDef *field       = struct_def->members;
         Tac_StaticInit *struct_init = NULL;
         Tac_StaticInit **current    = &struct_init;
@@ -1087,7 +1087,7 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
 
     // Handle struct with compound initializer
     if (target_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
-        const StructDef *struct_def = typetab_find(target_type->u.struct_t.name);
+        const StructDef *struct_def = structtab_find(target_type->u.struct_t.name);
         const FieldDef *field       = struct_def->members;
         InitItem *new_items   = NULL;
         InitItem **current    = &new_items;

@@ -11,7 +11,7 @@
 
 #include "symtab.h"
 #include "tac_export.h"
-#include "typetab.h"
+#include "structtab.h"
 #include "translate.h"
 #include "wio.h"
 #include "xalloc.h"
@@ -262,7 +262,7 @@ void process_file(const Args *args)
     }
 
     symtab_init();
-    typetab_init();
+    structtab_init();
     for (;;) {
         ExternalDecl *ast = import_external_decl(&input);
         if (!ast)
@@ -295,7 +295,7 @@ void process_file(const Args *args)
     close_output(args);
 
     symtab_destroy();
-    typetab_destroy();
+    structtab_destroy();
     if (args->debug) {
         xreport_lost_memory();
     }

@@ -2,44 +2,44 @@
 #include <string.h>
 
 #include "translate.h"
-#include "typetab.h"
+#include "structtab.h"
 #include "xalloc.h"
 
-// Test fixture for TypeTab tests
-class TypeTabTest : public ::testing::Test {
+// Test fixture for StructTab tests
+class StructTabTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
         xalloc_debug = 1;
-        typetab_init();
+        structtab_init();
     }
 
     void TearDown() override
     {
-        typetab_destroy();
+        structtab_destroy();
         xreport_lost_memory();
         EXPECT_EQ(xtotal_allocated_size(), 0);
         xfree_all();
     }
 };
 
-// Test typetab_init
-TEST_F(TypeTabTest, InitCreatesEmptyTable)
+// Test structtab_init
+TEST_F(StructTabTest, InitCreatesEmptyTable)
 {
     // Table should be empty after init (already called in SetUp)
-    EXPECT_FALSE(typetab_exists("any_tag"));
+    EXPECT_FALSE(structtab_exists("any_tag"));
 }
 
-// Test typetab_add_struct with a single field
-TEST_F(TypeTabTest, AddFieldDefinitionSingleMember)
+// Test structtab_add_struct with a single field
+TEST_F(StructTabTest, AddFieldDefinitionSingleMember)
 {
     Type *intType   = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     FieldDef *field = new_member("x", intType, 0);
 
-    typetab_add_struct("point", 4, 4, field, 0);
+    structtab_add_struct("point", 4, 4, field, 0);
 
-    EXPECT_TRUE(typetab_exists("point"));
-    StructDef *entry = typetab_find("point");
+    EXPECT_TRUE(structtab_exists("point"));
+    StructDef *entry = structtab_find("point");
     ASSERT_NE(entry, nullptr);
     EXPECT_STREQ(entry->tag, "point");
     EXPECT_EQ(entry->alignment, 4);
@@ -51,8 +51,8 @@ TEST_F(TypeTabTest, AddFieldDefinitionSingleMember)
     EXPECT_EQ(entry->members->next, nullptr);
 }
 
-// Test typetab_add_struct with multiple fields
-TEST_F(TypeTabTest, AddFieldDefinitionMultipleMembers)
+// Test structtab_add_struct with multiple fields
+TEST_F(StructTabTest, AddFieldDefinitionMultipleMembers)
 {
     Type *intType    = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     Type *doubleType = new_type(TYPE_DOUBLE, __func__, __FILE__, __LINE__);
@@ -60,10 +60,10 @@ TEST_F(TypeTabTest, AddFieldDefinitionMultipleMembers)
     FieldDef *field2 = new_member("y", doubleType, 8);
     field1->next     = field2;
 
-    typetab_add_struct("vector", 8, 16, field1, 0);
+    structtab_add_struct("vector", 8, 16, field1, 0);
 
-    EXPECT_TRUE(typetab_exists("vector"));
-    StructDef *entry = typetab_find("vector");
+    EXPECT_TRUE(structtab_exists("vector"));
+    StructDef *entry = structtab_find("vector");
     ASSERT_NE(entry, nullptr);
     EXPECT_STREQ(entry->tag, "vector");
     EXPECT_EQ(entry->alignment, 8);
@@ -80,17 +80,17 @@ TEST_F(TypeTabTest, AddFieldDefinitionMultipleMembers)
 }
 
 // Test replacing an existing struct definition
-TEST_F(TypeTabTest, ReplaceFieldDefinition)
+TEST_F(StructTabTest, ReplaceFieldDefinition)
 {
     Type *intType    = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     FieldDef *field1 = new_member("x", intType, 0);
-    typetab_add_struct("point", 4, 4, field1, 0);
+    structtab_add_struct("point", 4, 4, field1, 0);
 
     Type *doubleType = new_type(TYPE_DOUBLE, __func__, __FILE__, __LINE__);
     FieldDef *field2 = new_member("y", doubleType, 0);
-    typetab_add_struct("point", 8, 8, field2, 0);
+    structtab_add_struct("point", 8, 8, field2, 0);
 
-    StructDef *entry = typetab_find("point");
+    StructDef *entry = structtab_find("point");
     ASSERT_NE(entry, nullptr);
     EXPECT_STREQ(entry->tag, "point");
     EXPECT_EQ(entry->alignment, 8);
@@ -102,39 +102,39 @@ TEST_F(TypeTabTest, ReplaceFieldDefinition)
     EXPECT_EQ(entry->members->next, nullptr);
 }
 
-// Test typetab_exists
-TEST_F(TypeTabTest, ExistsReturnsFalseForNonExistent)
+// Test structtab_exists
+TEST_F(StructTabTest, ExistsReturnsFalseForNonExistent)
 {
-    EXPECT_FALSE(typetab_exists("nonexistent"));
+    EXPECT_FALSE(structtab_exists("nonexistent"));
 }
 
-// Test typetab_find fails on non-existent tag
-TEST_F(TypeTabTest, FindNonExistentTag)
+// Test structtab_find fails on non-existent tag
+TEST_F(StructTabTest, FindNonExistentTag)
 {
-    // Since typetab_find terminates on error, we can't directly test it without
-    // mocking or handling the termination. Instead, we rely on typetab_exists.
-    EXPECT_FALSE(typetab_exists("nonexistent"));
+    // Since structtab_find terminates on error, we can't directly test it without
+    // mocking or handling the termination. Instead, we rely on structtab_exists.
+    EXPECT_FALSE(structtab_exists("nonexistent"));
 }
 
-// Test typetab_destroy
-TEST_F(TypeTabTest, DestroyFreesMemory)
+// Test structtab_destroy
+TEST_F(StructTabTest, DestroyFreesMemory)
 {
     Type *intType   = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     FieldDef *field = new_member("x", intType, 0);
-    typetab_add_struct("point", 4, 4, field, 0);
+    structtab_add_struct("point", 4, 4, field, 0);
 
-    typetab_destroy();
-    typetab_init(); // Re-initialize to ensure table is usable
-    EXPECT_FALSE(typetab_exists("point"));
+    structtab_destroy();
+    structtab_init(); // Re-initialize to ensure table is usable
+    EXPECT_FALSE(structtab_exists("point"));
 }
 
 // Test adding struct with NULL fields
-TEST_F(TypeTabTest, AddStructWithNullMembers)
+TEST_F(StructTabTest, AddStructWithNullMembers)
 {
-    typetab_add_struct("empty", 4, 0, nullptr, 0);
+    structtab_add_struct("empty", 4, 0, nullptr, 0);
 
-    EXPECT_TRUE(typetab_exists("empty"));
-    StructDef *entry = typetab_find("empty");
+    EXPECT_TRUE(structtab_exists("empty"));
+    StructDef *entry = structtab_find("empty");
     ASSERT_NE(entry, nullptr);
     EXPECT_STREQ(entry->tag, "empty");
     EXPECT_EQ(entry->alignment, 4);

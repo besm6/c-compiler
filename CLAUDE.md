@@ -17,7 +17,7 @@ Run a single test binary directly (translator tests live in a subdirectory):
 ./build/parser-tests
 ./build/translator/typecheck-tests
 ./build/translator/symtab-tests
-./build/translator/typetab-tests
+./build/translator/structtab-tests
 ```
 
 Run a specific GoogleTest case:
@@ -86,7 +86,7 @@ Source (.c)
 - **`ExternalDecl`**, **`Declaration`**, **`Stmt`**, **`Expr`**, **`Type`**: Core AST nodes. Defined in `ast/ast.h`, spec in `ast/ast.asdl`.
 - **`Tac_Instruction`**, **`Tac_Value`**, **`Tac_Type`**: TAC IR nodes. Defined in `tac/tac.h`, spec in `tac/tacky.asdl`.
 - **`symtab`** (`translator/symtab.c/h`): Scoped identifier → `Symbol` map. `symtab_purge(level)` removes block-scope entries on block exit.
-- **`typetab`** (`translator/typetab.c/h`): Struct/union/enum registration.
+- **`structtab`** (`translator/structtab.c/h`): Struct/union/enum registration.
 
 ### Important design decisions
 
@@ -114,7 +114,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `ast/clone_tests.cpp` → `ast-tests`
 - `scanner/tests.cpp` → `scanner-tests`
 - `parser/simple_tests.cpp`, `statement_tests.cpp`, … (8 files) → `parser-tests`
-- `translator/symtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp` → 3 separate executables
+- `translator/symtab_tests.cpp`, `structtab_tests.cpp`, `typecheck_tests.cpp` → 3 separate executables
 - `libutil/string_map_tests.cpp`, `wio_tests.cpp` → `libutil-tests`, `wio-tests`
 
 Two test files are disabled in CMake (known failures): `parser/negative_tests.cpp` and `translator/const_convert_tests.cpp`.

@@ -7,10 +7,10 @@ Development tasks for the `tacker` pipeline (`typecheck_global_decl` → `label_
 ## 1. Scope level for locals and function parameters
 
 **Current behavior:** `scope_level` in `typecheck.c` is already used: `symtab_purge` /
-`typetab_purge` on leaving compound statements and `for` blocks; parameters use
+`structtab_purge` on leaving compound statements and `for` blocks; parameters use
 `symtab_add_automatic_var_type(..., scope_level)` after `scope_increment()` inside
 `typecheck_fn_decl()`. The `map_remove_level` dealloc bug has been fixed:
-`symtab_purge` and `typetab_purge` now call `map_remove_level_free`, which invokes the
+`symtab_purge` and `structtab_purge` now call `map_remove_level_free`, which invokes the
 registered callback on each evicted node's value.
 
 **Gaps vs typical C:**
@@ -26,7 +26,7 @@ registered callback on each evicted node's value.
 - Decide target: full C11 scoping (shadowing, tag namespaces) vs incremental fixes.
 - Extend `string_map` level semantics or symbol lookup so inner scopes can shadow outer
   bindings where required.
-- Optionally align **struct tags** with block scope rules in concert with `typetab_purge`.
+- Optionally align **struct tags** with block scope rules in concert with `structtab_purge`.
 
 **Effort:** **Medium to large** (~3–10 days) depending on whether you only fix shadowing
 or also full namespace rules.
@@ -64,8 +64,8 @@ unknown kinds as `fatal_error("Unsupported type kind")`.
 
 **Concrete work:**
 
-- A scoped map from typedef name → `Type` (could extend `typetab` or add a dedicated
-  table with `typetab_purge`-style scope levels).
+- A scoped map from typedef name → `Type` (could extend `structtab` or add a dedicated
+  table with `structtab_purge`-style scope levels).
 - On typedef declarations: register aliases when walking declarations (similar to how
   structs are registered).
 - In `validate_type` / size and alignment helpers: resolve `TYPE_TYPEDEF_NAME` to the

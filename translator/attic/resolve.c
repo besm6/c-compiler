@@ -4,7 +4,7 @@
 
 #include "translate.h"
 #include "symtab.h"
-#include "typetab.h"
+#include "structtab.h"
 
 // Forward declarations
 void resolve_expr(Expr *e);
@@ -19,7 +19,7 @@ void resolve_type(Type *t)
         return;
     switch (t->kind) {
     case TYPE_STRUCT: {
-        const StructDef *entry = typetab_find(t->u.struct_t.name);
+        const StructDef *entry = structtab_find(t->u.struct_t.name);
         if (!entry) {
             fatal_error("Undeclared structure type %s", t->u.struct_t.name);
         }
@@ -251,7 +251,7 @@ static void scope_decrement()
 {
     scope_level--;
     symtab_purge(scope_level);
-    typetab_purge(scope_level);
+    structtab_purge(scope_level);
 }
 
 //
@@ -387,7 +387,7 @@ void resolve_struct_decl(Declaration *d)
     TypeKind kind = d->u.empty.type->kind;
     if (kind != TYPE_STRUCT && kind != TYPE_UNION)
         return;
-    // Only validate that member types are declared; layout and typetab registration
+    // Only validate that member types are declared; layout and structtab registration
     // are done authoritatively in typecheck_struct_decl().
     for (Field *f = d->u.empty.type->u.struct_t.fields; f; f = f->next)
         resolve_type(f->type);
