@@ -21,10 +21,7 @@ extern int export_debug;
 extern int wio_debug;
 extern int xalloc_debug;
 
-// Resolve identifiers.
-void resolve(ExternalDecl *ast);
-
-// Typecheck definitions and uses of functions adn variables.
+// Typecheck definitions and uses of functions and variables.
 void typecheck_program(Program *p);
 void typecheck_global_decl(ExternalDecl *d);
 

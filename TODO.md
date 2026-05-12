@@ -1,51 +1,15 @@
 # What to do next
 
-Development tasks for the `tacker` pipeline (`resolve` → `typecheck_global_decl` → `label_loops` → `translate`). Effort is **rough engineering time** for someone familiar with the tree (order-of-magnitude; actual time varies with review and test depth).
+Development tasks for the `tacker` pipeline (`typecheck_global_decl` → `label_loops` → `translate`). Effort is **rough engineering time** for someone familiar with the tree (order-of-magnitude; actual time varies with review and test depth).
 
 ---
 
-## 1. Merge `resolve()` with typecheck (`translator/typecheck.c`)
+## 1. Scope level for locals and function parameters
 
-**Current behavior:** Two passes over the same AST: `resolve()` then
-`typecheck_global_decl()`. The concrete duplication bugs that caused crashes have been
-fixed (see below), but the passes are still separate.
-
-**Fixed previously (no longer blocking):**
-
-- **Struct double-registration crash** — `resolve_struct_decl()` previously called
-  `typetab_add_struct()`, then `typecheck_struct_decl()` called `validate_struct_definition()`
-  which called `typetab_exists()` → always fataled "Structure X was already declared".
-  Fixed: `resolve_struct_decl()` now only validates member types; `typecheck_struct_decl()`
-  remains the sole registrar.
-- **`has_linkage` not set on functions** — `symtab_add_fun()` never set
-  `sym->has_linkage = true`, so a prototype followed by a definition crashed with
-  "Duplicate declaration". Fixed.
-- **`f(void)` void sentinel** — the parser represents `f(void)` as a single unnamed
-  `Param` with `TYPE_VOID`. `typecheck_fn_decl()` now strips it (treating the function
-  as having no parameters) instead of fataling. `resolve_function_declaration()` now
-  skips unnamed params when calling `symtab_add_automatic_var_type`.
-- **resolve_function_declaration() placeholder** — previously inserted `defined=true`;
-  changed to `defined=false` so `typecheck_fn_decl()` is the sole authority on whether
-  a function has a definition (prevents "Defined function X twice").
-
-**Remaining work:**
-
-- Single traversal that performs name resolution and type checking where dependencies
-  allow (or a clearly ordered single function per construct).
-- After merge, drop redundant walks or share helpers between former `resolve_*` and
-  `typecheck_*` entry points.
-
-**Effort:** **Large** (~1–2 weeks): refactor + parity tests against current
-`typecheck_tests.cpp` behavior.
-
----
-
-## 2. Scope level for locals and function parameters
-
-**Current behavior:** `scope_level` in `translator.c` is already used: `symtab_purge` /
+**Current behavior:** `scope_level` in `typecheck.c` is already used: `symtab_purge` /
 `typetab_purge` on leaving compound statements and `for` blocks; parameters use
 `symtab_add_automatic_var_type(..., scope_level)` after `scope_increment()` inside
-`resolve_function_declaration()`. The `map_remove_level` dealloc bug has been fixed:
+`typecheck_fn_decl()`. The `map_remove_level` dealloc bug has been fixed:
 `symtab_purge` and `typetab_purge` now call `map_remove_level_free`, which invokes the
 registered callback on each evicted node's value.
 
@@ -55,7 +19,7 @@ registered callback on each evicted node's value.
   inner blocks cannot reuse an identifier from an outer scope in the way C allows.
 - **Typedef** names and ordinary identifiers share the same resolution story only after
   parser `nametab`; the translator has **no** `TYPE_TYPEDEF_NAME` handling in
-  `resolve_type` / `validate_type` yet (see task 4).
+  `validate_type` yet (see task 3).
 
 **Concrete work:**
 
@@ -69,7 +33,7 @@ or also full namespace rules.
 
 ---
 
-## 3. Finish AST → TAC lowering (`translator/translate_gen.c`)
+## 2. Finish AST → TAC lowering (`translator/translate_gen.c`)
 
 **Current behavior:** Documented as an **initial subset**. `gen_expr` supports literals,
 `EXPR_VAR`, unary/binary ops only; many expression kinds `fatal_error`. `gen_stmt`
@@ -92,12 +56,11 @@ ops) plus tests in the style of `typecheck_tests` or golden TAC output.
 
 ---
 
-## 4. Implement `typedef` in the translator
+## 3. Implement `typedef` in the translator
 
 **Current behavior:** The **parser** handles `typedef` and `TYPE_TYPEDEF_NAME` /
-`TYPE_SPEC_TYPEDEF_NAME` in the AST. The **translator** does not: `resolve_type` has no
-`TYPE_TYPEDEF_NAME` case; `validate_type` treats unknown kinds as
-`fatal_error("Unsupported type kind")`.
+`TYPE_SPEC_TYPEDEF_NAME` in the AST. The **translator** does not: `validate_type` treats
+unknown kinds as `fatal_error("Unsupported type kind")`.
 
 **Concrete work:**
 
@@ -105,14 +68,14 @@ ops) plus tests in the style of `typecheck_tests` or golden TAC output.
   table with `typetab_purge`-style scope levels).
 - On typedef declarations: register aliases when walking declarations (similar to how
   structs are registered).
-- In `resolve_type` / `validate_type` / size and alignment helpers: resolve
-  `TYPE_TYPEDEF_NAME` to the underlying type.
+- In `validate_type` / size and alignment helpers: resolve `TYPE_TYPEDEF_NAME` to the
+  underlying type.
 
 **Effort:** **Medium** (~3–6 days) including scope and tests.
 
 ---
 
-## 5. Implement `switch` (semantic + TAC)
+## 4. Implement `switch` (semantic + TAC)
 
 **Current behavior:** Parser and AST support `switch` / `case` / `default`.
 `label_loops()` sets a break target for `switch`. `translate_gen.c` treats `STMT_SWITCH`,
@@ -133,7 +96,6 @@ lowering to compare dispatch value against case constants and jump.
 
 ## Suggested order
 
-1. Task **1** — reduce resolve/typecheck duplication before adding typedef/switch widely.
-2. Task **4** (`typedef`) — unblocks many real headers.
-3. Task **2** (scoping) as needed for correctness vs. real code.
-4. Task **5** then **3** for TAC (switch depends on solid lowering infrastructure).
+1. Task **3** (`typedef`) — unblocks many real headers.
+2. Task **1** (scoping) as needed for correctness vs. real code.
+3. Task **4** then **2** for TAC (switch depends on solid lowering infrastructure).

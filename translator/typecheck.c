@@ -17,6 +17,14 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init);
 Stmt *typecheck_statement(const Type *ret_type, Stmt *s);
 void typecheck_local_decl(Declaration *d);
 
+static void scope_increment(void) { scope_level++; }
+static void scope_decrement(void)
+{
+    scope_level--;
+    symtab_purge(scope_level);
+    typetab_purge(scope_level);
+}
+
 int round_away_from_zero(int alignment, int size)
 {
     if (translator_debug) {
@@ -1170,7 +1178,9 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
         return s;
     }
     case STMT_COMPOUND: {
+        scope_increment();
         s->u.compound = typecheck_block(ret_type, s->u.compound);
+        scope_decrement();
         return s;
     }
     case STMT_WHILE: {
@@ -1184,6 +1194,7 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
         return s;
     }
     case STMT_FOR: {
+        scope_increment();
         if (s->u.for_stmt.init->kind == FOR_INIT_DECL) {
             if (has_storage(s->u.for_stmt.init->u.decl->u.var.specifiers)) {
                 fatal_error("Storage class not permitted in for loop header");
@@ -1199,6 +1210,7 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
         s->u.for_stmt.update =
             s->u.for_stmt.update ? typecheck_and_convert(s->u.for_stmt.update) : NULL;
         s->u.for_stmt.body = typecheck_statement(ret_type, s->u.for_stmt.body);
+        scope_decrement();
         return s;
     }
     case STMT_BREAK:
@@ -1262,6 +1274,10 @@ void typecheck_local_var_decl(Declaration *d)
         free_initializer(decl->init);
         decl->init = NULL;
         return;
+    }
+    const Symbol *dup = symtab_get_opt(decl->name);
+    if (dup && !dup->has_linkage) {
+        fatal_error("Duplicate variable declaration %s", decl->name);
     }
     symtab_add_automatic_var_type(decl->name, var_type, scope_level);
     decl->init = typecheck_init(var_type, decl->init);
@@ -1336,11 +1352,13 @@ void typecheck_fn_decl(ExternalDecl *d)
         if (d->u.function.param_decls) {
             fatal_error("Function parameters in K&R style are not supported");
         }
+        scope_increment();
         for (const Param *p = params; p; p = p->next) {
             symtab_add_automatic_var_type(p->name, p->type, scope_level);
         }
         d->u.function.body =
             typecheck_statement(fun_type->u.function.return_type, d->u.function.body);
+        scope_decrement();
     }
     free_type(d->u.function.type);
     d->u.function.type = adjusted_type; // Update type in place

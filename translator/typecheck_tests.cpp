@@ -656,7 +656,7 @@ TEST_F(TypecheckTest, InvalidAssignment)
 }
 
 // ---------------------------------------------------------------------------
-// PipelineTest — mirrors the tacker main loop: per-decl resolve then typecheck
+// PipelineTest — mirrors the tacker main loop: per-decl typecheck
 // ---------------------------------------------------------------------------
 
 class PipelineTest : public TypecheckTest {
@@ -665,15 +665,13 @@ protected:
     {
         ParseProgram(src);
         for (ExternalDecl *d = program->decls; d; d = d->next) {
-            resolve(d);
             typecheck_global_decl(d);
         }
     }
 };
 
 // Struct definition through the full pipeline.
-// Verifies that resolve_struct_decl() no longer double-registers in typetab
-// (which previously caused typecheck_struct_decl() to fatal on typetab_exists).
+// Verifies that struct registration does not double-register in typetab.
 TEST_F(PipelineTest, StructDecl)
 {
     RunPipeline("struct S { int x; double y; };");
@@ -710,10 +708,8 @@ TEST_F(PipelineTest, StructUsedInVar)
 }
 
 // Function prototype followed by definition.
-// Verifies that symtab_add_fun() sets has_linkage so the second resolve pass
+// Verifies that symtab_add_fun() sets has_linkage so the redeclaration
 // does not fatal with "Duplicate declaration".
-// Uses a no-parameter function to avoid param symbols being purged from
-// symtab (which would trigger a pre-existing map_remove_level leak).
 TEST_F(PipelineTest, FunctionPrototypeThenDefinition)
 {
     RunPipeline("int f(void); int f(void) { return 1; }");
@@ -728,8 +724,7 @@ TEST_F(PipelineTest, FunctionPrototypeThenDefinition)
 }
 
 // File-scope declaration with multiple declarators.
-// Verifies that both resolve() and typecheck_file_scope_var_decl() loop over
-// all InitDeclarators, not just the first.
+// Verifies that typecheck_file_scope_var_decl() loops over all InitDeclarators.
 TEST_F(PipelineTest, FileVarMultipleDeclarators)
 {
     RunPipeline("int x = 1, y = 2;");
@@ -772,7 +767,7 @@ TEST_F(PipelineTest, StaticAndExternVars)
 }
 
 // ---------------------------------------------------------------------------
-// LabelLoopsTest — full pipeline: resolve + typecheck + label_loops
+// LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------
 
 class LabelLoopsTest : public PipelineTest {
@@ -781,7 +776,6 @@ protected:
     {
         ParseProgram(src);
         for (ExternalDecl *d = program->decls; d; d = d->next) {
-            resolve(d);
             typecheck_global_decl(d);
             label_loops(d);
         }
@@ -943,4 +937,43 @@ TEST_F(LabelLoopsTest, ContinueOutsideLoop)
     ASSERT_EXIT(RunLabelLoops("int f(void) { continue; }"),
                 ::testing::ExitedWithCode(1),
                 "continue statement not inside loop");
+}
+
+// ---------------------------------------------------------------------------
+// TackerPipelineTest — full pipeline including translate() and per-decl free,
+// mirroring tacker's main.c loop. Used to catch memory bugs that only appear
+// when translate() is part of the pipeline.
+// ---------------------------------------------------------------------------
+
+class TackerPipelineTest : public TypecheckTest {
+protected:
+    // Run the complete tacker pipeline on each declaration.
+    // Declarations are freed individually (as in tacker's main.c), so
+    // program->decls is detached here and must not be freed by TearDown.
+    void RunTackerPipeline(const char *src)
+    {
+        ParseProgram(src);
+        ExternalDecl *decls = program->decls;
+        program->decls      = nullptr;
+        while (decls) {
+            ExternalDecl *next = decls->next;
+            decls->next        = nullptr;
+            typecheck_global_decl(decls);
+            label_loops(decls);
+            Tac_TopLevel *tac = translate(decls);
+            free_external_decl(decls);
+            if (tac)
+                free_tac_toplevel(tac);
+            decls = next;
+        }
+    }
+};
+
+// After translate() + free_external_decl(), TearDown's symtab_destroy() must
+// not double-free any type that was also freed via free_external_decl(). When
+// this bug is present, xfree() detects "Damaged memory head" and calls exit(1)
+// before TearDown's xtotal_allocated_size() == 0 assertion is reached.
+TEST_F(TackerPipelineTest, DISABLED_FunctionBodyFreedCleanly)
+{
+    RunTackerPipeline("int f(void) { return 1; }");
 }

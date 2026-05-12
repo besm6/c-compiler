@@ -270,9 +270,6 @@ void process_file(const Args *args)
 
         print_external_decl(stdout, ast, 0);
 
-        // Resolve identifiers.
-        resolve(ast);
-
         // Typecheck definitions and uses of functions and variables.
         typecheck_global_decl(ast);
 
