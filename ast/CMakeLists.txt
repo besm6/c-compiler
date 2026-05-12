@@ -14,3 +14,12 @@ add_library(ast STATIC
 )
 target_include_directories(ast PUBLIC .)
 target_link_libraries(ast libutil)
+
+#
+# Tests for AST
+#
+add_executable(ast-tests
+    clone_tests.cpp
+)
+target_link_libraries(ast-tests ast libutil GTest::gtest_main)
+gtest_discover_tests(ast-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

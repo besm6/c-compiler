@@ -13,6 +13,7 @@ make clean        # remove ./build/
 
 Run a single test binary directly (translator tests live in a subdirectory):
 ```sh
+./build/ast/ast-tests
 ./build/parser-tests
 ./build/translator/typecheck-tests
 ./build/translator/symtab-tests
@@ -109,6 +110,8 @@ Binary AST flows between tools via stdout/stdin using `wio`. `ast_export.c` writ
 ## Tests
 
 Tests are GoogleTest (C++17). Source lives alongside the module it tests:
+
+- `ast/clone_tests.cpp` → `ast-tests`
 - `scanner/tests.cpp` → `scanner-tests`
 - `parser/simple_tests.cpp`, `statement_tests.cpp`, … (8 files) → `parser-tests`
 - `translator/symtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp` → 3 separate executables
