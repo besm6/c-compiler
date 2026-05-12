@@ -12,7 +12,7 @@
 #include "symtab.h"
 #include "tac_export.h"
 #include "typetab.h"
-#include "translator.h"
+#include "translate.h"
 #include "wio.h"
 #include "xalloc.h"
 

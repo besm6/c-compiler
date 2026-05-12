@@ -7,7 +7,7 @@
 #include "internal.h"
 #include "string_map.h"
 #include "unique.h"
-#include "translator.h"
+#include "translate.h"
 #include "xalloc.h"
 
 StringMap symtab;

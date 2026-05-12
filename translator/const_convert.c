@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #include "symtab.h"
-#include "translator.h"
+#include "translate.h"
 
 //
 // Convert literal to int64

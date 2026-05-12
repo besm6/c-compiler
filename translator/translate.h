@@ -1,8 +1,8 @@
 //
 // Internal types for translator.
 //
-#ifndef TRANSLATOR_H
-#define TRANSLATOR_H
+#ifndef TRANSLATE_H
+#define TRANSLATE_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -56,4 +56,4 @@ int round_away_from_zero(int alignment, int size);
 }
 #endif
 
-#endif /* TRANSLATOR_H */
+#endif /* TRANSLATE_H */

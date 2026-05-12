@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "translator.h"
+#include "translate.h"
 #include "symtab.h"
 #include "typetab.h"
 

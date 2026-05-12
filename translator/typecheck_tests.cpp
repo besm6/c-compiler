@@ -28,7 +28,7 @@
 #include "parser.h"
 #include "scanner.h"
 #include "symtab.h"
-#include "translator.h"
+#include "translate.h"
 #include "typetab.h"
 #include "xalloc.h"
 

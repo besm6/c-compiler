@@ -5,7 +5,7 @@
 
 #include "ast.h"
 #include "string_map.h"
-#include "translator.h"
+#include "translate.h"
 #include "xalloc.h"
 
 StringMap typetab;

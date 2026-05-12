@@ -6,7 +6,7 @@
 
 #include "internal.h"
 #include "symtab.h"
-#include "translator.h"
+#include "translate.h"
 #include "xalloc.h"
 
 // Helper functions for type creation

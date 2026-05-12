@@ -2,8 +2,7 @@
 # Translator library
 #
 add_library(translator STATIC
-    translator.c
-    translate_gen.c
+    translate.c
     symtab.c
     symtab_print.c
     typetab.c
