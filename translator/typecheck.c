@@ -6,6 +6,7 @@
 #include "symtab.h"
 #include "translate.h"
 #include "structtab.h"
+#include "typetab.h"
 #include "xalloc.h"
 
 // Forward declarations
@@ -23,6 +24,7 @@ static void scope_decrement(void)
     scope_level--;
     symtab_purge(scope_level);
     structtab_purge(scope_level);
+    typetab_purge(scope_level);
 }
 
 int round_away_from_zero(int alignment, int size)
@@ -130,6 +132,12 @@ void validate_type(const Type *t)
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_STRUCT:
+        break;
+    case TYPE_TYPEDEF_NAME:
+        if (!typetab_exists(t->u.typedef_name.name)) {
+            fatal_error("Unknown typedef name '%s'", t->u.typedef_name.name);
+        }
+        validate_type(typetab_resolve(t->u.typedef_name.name));
         break;
     default:
         fatal_error("Unsupported type kind %d", t->kind);
@@ -1245,6 +1253,13 @@ void typecheck_local_var_decl(Declaration *d)
     if (translator_debug) {
         printf("--- %s()\n", __func__);
     }
+    if (d->u.var.specifiers &&
+        d->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF) {
+        const InitDeclarator *decl = d->u.var.declarators;
+        validate_type(decl->type);
+        typetab_add(decl->name, decl->type, scope_level);
+        return;
+    }
     InitDeclarator *decl = d->u.var.declarators;
     const Type *var_type = decl->type;
     if (var_type->kind == TYPE_VOID) {
@@ -1388,6 +1403,14 @@ void typecheck_file_scope_var_decl(Declaration *d)
     if (translator_debug) {
         printf("--- %s()\n", __func__);
         print_declaration(stdout, d, 4);
+    }
+    if (d->u.var.specifiers &&
+        d->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF) {
+        for (const InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
+            validate_type(decl->type);
+            typetab_add(decl->name, decl->type, scope_level);
+        }
+        return;
     }
     bool global = !is_static(d->u.var.specifiers);
     for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {

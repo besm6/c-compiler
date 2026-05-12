@@ -18,6 +18,7 @@ Run a single test binary directly (translator tests live in a subdirectory):
 ./build/translator/typecheck-tests
 ./build/translator/symtab-tests
 ./build/translator/structtab-tests
+./build/translator/typetab-tests
 ```
 
 Run a specific GoogleTest case:
@@ -86,7 +87,8 @@ Source (.c)
 - **`ExternalDecl`**, **`Declaration`**, **`Stmt`**, **`Expr`**, **`Type`**: Core AST nodes. Defined in `ast/ast.h`, spec in `ast/ast.asdl`.
 - **`Tac_Instruction`**, **`Tac_Value`**, **`Tac_Type`**: TAC IR nodes. Defined in `tac/tac.h`, spec in `tac/tacky.asdl`.
 - **`symtab`** (`translator/symtab.c/h`): Scoped identifier → `Symbol` map. `symtab_purge(level)` removes block-scope entries on block exit.
-- **`structtab`** (`translator/structtab.c/h`): Struct/union/enum registration.
+- **`structtab`** (`translator/structtab.c/h`): Struct/union/enum tag → `StructDef` map. Scoped; `structtab_purge(level)` on block exit.
+- **`typetab`** (`translator/typetab.c/h`): Typedef name → `TypeDef` (`name` + cloned `Type*`) map. Scoped; `typetab_purge(level)` on block exit. `typetab_resolve(name)` returns the underlying `Type*`.
 
 ### Important design decisions
 
@@ -94,8 +96,8 @@ Source (.c)
 - **Word I/O (`libutil/wio`)**: AST and TAC binary streams use `size_t`-wide words for portability. Use `wio` for all IR serialization.
 - **`xalloc` (`libutil/xalloc`)**: All allocations go through `xalloc`/`xfree`. In debug builds, `xalloc_report()` prints leak totals.
 - **Two-pass semantics**: `resolve()` binds names, then `typecheck_global_decl()` type-checks. TODO.md tracks merging them into one pass.
-- **Scope tracking**: `scope_level` is incremented on block entry and `symtab_purge(scope_level)` + decrement on exit.
-- **Known bug — `map_remove_level` dealloc**: `map_remove_level()` in `string_map.c` frees AVL node structs but does **not** call the dealloc callback on `node->value`. As a result, `symtab_purge()` leaks `Symbol` pointers for block-scope entries (e.g. named function params added by `resolve()` at scope level 1 and purged on exit). See TODO.md item 3.
+- **Scope tracking**: `scope_level` is incremented on block entry; `scope_decrement()` decrements it and calls `symtab_purge`, `structtab_purge`, and `typetab_purge` — all backed by `map_remove_level_free`, which fires the dealloc callback on every evicted value.
+- **`typedef` handling**: `STORAGE_CLASS_TYPEDEF` declarations are intercepted in `typecheck_local_var_decl` / `typecheck_file_scope_var_decl` and registered in `typetab`. `validate_type` resolves `TYPE_TYPEDEF_NAME` recursively. All type-utility helpers (`get_size`, `get_alignment`, `is_complete`, `is_signed`, `is_arithmetic`, `is_scalar`, `is_integer`, `is_character`) resolve typedef names transparently before dispatching.
 - **Partial TAC lowering**: `translate_gen.c` calls `fatal_error()` on unimplemented constructs. Many `Expr` and `Stmt` kinds are not yet handled.
 
 ### AST quirks
@@ -114,7 +116,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `ast/clone_tests.cpp` → `ast-tests`
 - `scanner/tests.cpp` → `scanner-tests`
 - `parser/simple_tests.cpp`, `statement_tests.cpp`, … (8 files) → `parser-tests`
-- `translator/symtab_tests.cpp`, `structtab_tests.cpp`, `typecheck_tests.cpp` → 3 separate executables
+- `translator/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp` → 4 separate executables
 - `libutil/string_map_tests.cpp`, `wio_tests.cpp` → `libutil-tests`, `wio-tests`
 
 Two test files are disabled in CMake (known failures): `parser/negative_tests.cpp` and `translator/const_convert_tests.cpp`.
@@ -123,6 +125,6 @@ Two test files are disabled in CMake (known failures): `parser/negative_tests.cp
 
 - [README.md](README.md) — goals, getting started, component overview
 - [docs/TECHNICAL.md](docs/TECHNICAL.md) — detailed reference: repo layout, ASDL, build system, development notes
-- [TODO.md](TODO.md) — work plan with 7 major tasks and effort estimates
+- [TODO.md](TODO.md) — work plan with effort estimates
 - [grammar/README.md](grammar/README.md) — C11 grammar coverage notes
 - [grammar/c11.y](grammar/c11.y), [grammar/c11.l](grammar/c11.l) — reference grammar (not used for code generation)

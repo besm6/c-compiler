@@ -16,7 +16,7 @@ A C compiler project aimed at the [BESM-6](https://en.wikipedia.org/wiki/BESM-6)
 |------|--------|
 | **Build** | CMake-based build; optional `Makefile` wrapper. Unit tests via GoogleTest. |
 | **`cast`** | Reads C source and writes an abstract syntax tree (AST): binary `.ast`, or `--yaml` / `--dot` for inspection and graphs. |
-| **`tacker`** | Reads a binary AST stream and, per top-level declaration, runs **resolve → typecheck → `label_loops` → `translate` → emit**. Output can be **binary TAC** (default), **YAML-like listing** via the TAC pretty-printer, or **Graphviz DOT** (`tac_graphviz`). Coverage is still **partial**: only constructs handled by `translate_gen.c` lower to TAC; the rest may yield no TAC for that declaration. |
+| **`tacker`** | Reads a binary AST stream and, per top-level declaration, runs **resolve → typecheck → `label_loops` → `translate` → emit**. Output can be **binary TAC** (default), **YAML-like listing** via the TAC pretty-printer, or **Graphviz DOT** (`tac_graphviz`). Semantic analysis now handles `typedef` (scoped `typetab`, transparent resolution through `TYPE_TYPEDEF_NAME`). Coverage is still **partial**: only constructs handled by `translate_gen.c` lower to TAC; the rest may yield no TAC for that declaration. |
 | **TAC** | `tac/` builds **alloc/print/free/compare** plus **`tac_export`** (binary stream) and **`tac_graphviz`**. **`tac_import`** and **YAML TAC export** are not built yet (see `tac/CMakeLists.txt`). Lowering lives in **`translator/translate_gen.c`**. |
 | **Preprocessor, assembler, BESM-6 code generation** | **Not in this repo** at this stage. |
 

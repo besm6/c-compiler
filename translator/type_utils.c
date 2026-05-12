@@ -3,6 +3,7 @@
 //
 #include "translate.h"
 #include "structtab.h"
+#include "typetab.h"
 
 //
 // Get size in bytes for a given type.
@@ -32,6 +33,8 @@ size_t get_size(const Type *t)
         return t->u.array.size->u.literal->u.int_val * get_size(t->u.array.element);
     case TYPE_STRUCT:
         return structtab_find(t->u.struct_t.name)->size;
+    case TYPE_TYPEDEF_NAME:
+        return get_size(typetab_resolve(t->u.typedef_name.name));
     case TYPE_FUNCTION:
     case TYPE_VOID:
     default:
@@ -59,6 +62,8 @@ size_t get_alignment(const Type *t)
         return get_alignment(t->u.array.element);
     case TYPE_STRUCT:
         return structtab_find(t->u.struct_t.name)->alignment;
+    case TYPE_TYPEDEF_NAME:
+        return get_alignment(typetab_resolve(t->u.typedef_name.name));
     case TYPE_FUNCTION:
     case TYPE_VOID:
     default:
@@ -80,6 +85,8 @@ bool is_signed(const Type *t)
     case TYPE_UCHAR:
     case TYPE_POINTER:
         return false;
+    case TYPE_TYPEDEF_NAME:
+        return is_signed(typetab_resolve(t->u.typedef_name.name));
     case TYPE_DOUBLE:
     case TYPE_FUNCTION:
     case TYPE_ARRAY:
@@ -108,6 +115,8 @@ bool is_integer(const Type *t)
     case TYPE_LONG:
     case TYPE_ULONG:
         return true;
+    case TYPE_TYPEDEF_NAME:
+        return is_integer(typetab_resolve(t->u.typedef_name.name));
     case TYPE_DOUBLE:
     case TYPE_ARRAY:
     case TYPE_POINTER:
@@ -131,6 +140,8 @@ bool is_character(const Type *t)
     case TYPE_SCHAR:
     case TYPE_UCHAR:
         return true;
+    case TYPE_TYPEDEF_NAME:
+        return is_character(typetab_resolve(t->u.typedef_name.name));
     default:
         return false;
     }
@@ -148,6 +159,8 @@ bool is_arithmetic(const Type *t)
     case TYPE_SCHAR:
     case TYPE_DOUBLE:
         return true;
+    case TYPE_TYPEDEF_NAME:
+        return is_arithmetic(typetab_resolve(t->u.typedef_name.name));
     case TYPE_FUNCTION:
     case TYPE_POINTER:
     case TYPE_ARRAY:
@@ -176,6 +189,8 @@ bool is_scalar(const Type *t)
     case TYPE_DOUBLE:
     case TYPE_POINTER:
         return true;
+    case TYPE_TYPEDEF_NAME:
+        return is_scalar(typetab_resolve(t->u.typedef_name.name));
     default:
         return false;
     }
@@ -188,6 +203,8 @@ bool is_complete(const Type *t)
         return false;
     case TYPE_STRUCT:
         return structtab_exists(t->u.struct_t.name);
+    case TYPE_TYPEDEF_NAME:
+        return is_complete(typetab_resolve(t->u.typedef_name.name));
     default:
         return true;
     }

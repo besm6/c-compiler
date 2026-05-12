@@ -17,9 +17,6 @@ registered callback on each evicted node's value.
 
 - **Duplicate names in the same scope** are rejected with `fatal_error` (no shadowing);
   inner blocks cannot reuse an identifier from an outer scope in the way C allows.
-- **Typedef** names and ordinary identifiers share the same resolution story only after
-  parser `nametab`; the translator has **no** `TYPE_TYPEDEF_NAME` handling in
-  `validate_type` yet (see task 3).
 
 **Concrete work:**
 
@@ -56,26 +53,7 @@ ops) plus tests in the style of `typecheck_tests` or golden TAC output.
 
 ---
 
-## 3. Implement `typedef` in the translator
-
-**Current behavior:** The **parser** handles `typedef` and `TYPE_TYPEDEF_NAME` /
-`TYPE_SPEC_TYPEDEF_NAME` in the AST. The **translator** does not: `validate_type` treats
-unknown kinds as `fatal_error("Unsupported type kind")`.
-
-**Concrete work:**
-
-- A scoped map from typedef name → `Type` (could extend `structtab` or add a dedicated
-  table with `structtab_purge`-style scope levels).
-- On typedef declarations: register aliases when walking declarations (similar to how
-  structs are registered).
-- In `validate_type` / size and alignment helpers: resolve `TYPE_TYPEDEF_NAME` to the
-  underlying type.
-
-**Effort:** **Medium** (~3–6 days) including scope and tests.
-
----
-
-## 4. Implement `switch` (semantic + TAC)
+## 3. Implement `switch` (semantic + TAC)
 
 **Current behavior:** Parser and AST support `switch` / `case` / `default`.
 `label_loops()` sets a break target for `switch`. `translate_gen.c` treats `STMT_SWITCH`,
@@ -96,6 +74,5 @@ lowering to compare dispatch value against case constants and jump.
 
 ## Suggested order
 
-1. Task **3** (`typedef`) — unblocks many real headers.
-2. Task **1** (scoping) as needed for correctness vs. real code.
-3. Task **4** then **2** for TAC (switch depends on solid lowering infrastructure).
+1. Task **1** (scoping) as needed for correctness vs. real code.
+2. Task **3** then **2** for TAC (switch depends on solid lowering infrastructure).
