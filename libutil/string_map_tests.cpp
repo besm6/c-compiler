@@ -267,3 +267,26 @@ TEST_F(StringMapTest, CondLargeTreeMixedRemovals)
     EXPECT_TRUE(is_balanced(map.root));
     EXPECT_TRUE(is_bst(map.root, NULL, NULL));
 }
+
+// Test that map_remove_level_free invokes the dealloc callback for every removed node
+TEST_F(StringMapTest, CondRemoveFreeCallsCb)
+{
+    static int freed_count;
+    freed_count = 0;
+    auto cb     = [](intptr_t) { freed_count++; };
+
+    // Three entries at level 1 (will be removed), two at level 0 (kept)
+    map_insert_free(&map, "apple", 10, 1, cb);
+    map_insert_free(&map, "banana", 20, 1, cb);
+    map_insert_free(&map, "cherry", 30, 1, cb);
+    map_insert_free(&map, "date", 40, 0, cb);
+    map_insert_free(&map, "elderberry", 50, 0, cb);
+
+    freed_count = 0; // reset — inserts may fire cb on duplicate (none here)
+    map_remove_level_free(&map, 0, cb);
+
+    EXPECT_EQ(freed_count, 3);
+    EXPECT_EQ(count_nodes(map.root), 2);
+    EXPECT_TRUE(is_balanced(map.root));
+    EXPECT_TRUE(is_bst(map.root, NULL, NULL));
+}

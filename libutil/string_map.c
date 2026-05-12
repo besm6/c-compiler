@@ -280,19 +280,29 @@ static StringNode *remove_node(StringNode *node, const char *key)
 }
 
 // Helper function for node removal by level
-static StringNode *remove_node_level(StringNode *node, int level)
+static StringNode *remove_node_level(StringNode *node, int level,
+                                     void (*dealloc)(intptr_t value))
 {
     if (!node) {
         return NULL;
     }
 
     // Post-order traversal: process left and right subtrees first
-    node->left  = remove_node_level(node->left, level);
-    node->right = remove_node_level(node->right, level);
+    node->left  = remove_node_level(node->left, level, dealloc);
+    node->right = remove_node_level(node->right, level, dealloc);
 
     // Check level for current node
     if (node->level > level) {
-        node = remove_single_node(node);
+        if (dealloc) {
+            // Save value before remove_single_node() frees the node struct.
+            // In the two-children case the successor is promoted in-place,
+            // so node->value is gone after the call.
+            intptr_t saved_value = node->value;
+            node                 = remove_single_node(node);
+            dealloc(saved_value);
+        } else {
+            node = remove_single_node(node);
+        }
         if (!node) {
             return NULL; // Node was removed and had no children
         }
@@ -316,7 +326,19 @@ void map_remove_level(StringMap *map, int level)
         return;
     }
     // Phase 1: Remove nodes without balancing
-    map->root = remove_node_level(map->root, level);
+    map->root = remove_node_level(map->root, level, NULL);
+
+    // Phase 2: Rebalance the entire tree
+    map->root = rebalance_tree(map->root);
+}
+
+void map_remove_level_free(StringMap *map, int level, void (*dealloc)(intptr_t value))
+{
+    if (!map) {
+        return;
+    }
+    // Phase 1: Remove nodes without balancing, invoking dealloc on each value
+    map->root = remove_node_level(map->root, level, dealloc);
 
     // Phase 2: Rebalance the entire tree
     map->root = rebalance_tree(map->root);

@@ -227,6 +227,20 @@ TEST_F(SymtabTest, IsGlobal)
     free_type(int_type);
 }
 
+// Test that symtab_purge frees Symbol memory for block-scope entries.
+// TearDown asserts xtotal_allocated_size() == 0, so any leaked Symbol
+// would cause the test to fail even without an explicit EXPECT here.
+TEST_F(SymtabTest, PurgeFreesLocalSymbols)
+{
+    Type *int_type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    symtab_add_automatic_var_type("n", int_type, 1);
+    free_type(int_type);
+
+    symtab_purge(0); // purges entries with level > 0
+
+    EXPECT_EQ(symtab_get_opt("n"), nullptr);
+}
+
 // Test symtab_add_string unique IDs
 TEST_F(SymtabTest, AddStringUniqueIDs)
 {

@@ -225,5 +225,5 @@ bool symtab_is_global(const char *name)
 //
 void symtab_purge(int level)
 {
-    map_remove_level(&symtab, level);
+    map_remove_level_free(&symtab, level, symtab_destroy_callback);
 }

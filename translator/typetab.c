@@ -126,5 +126,5 @@ StructDef *typetab_find(const char *tag)
 //
 void typetab_purge(int level)
 {
-    map_remove_level(&typetab, level);
+    map_remove_level_free(&typetab, level, typetab_destroy_callback);
 }

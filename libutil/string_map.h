@@ -79,9 +79,10 @@ bool map_get(const StringMap *map, const char *key, intptr_t *value);
 void map_remove_key(StringMap *map, const char *key);
 
 //
-// Remove beyond level Remove nodes which exceed given level.
+// Remove beyond level: remove nodes which exceed given level.
 //
 void map_remove_level(StringMap *map, int level);
+void map_remove_level_free(StringMap *map, int level, void (*dealloc)(intptr_t value));
 
 //
 // Free: Recursively frees all nodes and their keys.

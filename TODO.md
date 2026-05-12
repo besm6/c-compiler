@@ -4,32 +4,13 @@ Development tasks for the `tacker` pipeline (`resolve` → `typecheck_global_dec
 
 ---
 
-## ~~1. Finish `resolve()` for file-scope variables~~ ✅ Done
-
-**Completed work:**
-
-- Fixed file-scope `DECL_VAR` to loop over **all** `InitDeclarator` nodes in both
-  `resolve()` (`resolve.c`) and `typecheck_file_scope_var_decl()` (`typecheck.c`).
-  Previously only the first declarator was processed; `int x = 1, y = 2;` silently
-  ignored `y`.
-- Added a **function-type branch** in `typecheck_file_scope_var_decl()`: a file-scope
-  declarator with `TYPE_FUNCTION` (i.e., a function prototype written as a bare
-  declaration such as `int f(int);`) is now registered via `symtab_add_fun()` instead
-  of `symtab_add_static_var()`, so `has_linkage` is set correctly and the subsequent
-  function definition is not rejected as a duplicate.
-- Symtab insertion for file-scope variables remains in `typecheck_file_scope_var_decl()`
-  (handles linkage, redeclaration, and TAC init correctly); `resolve()` only runs
-  `resolve_type()` + `resolve_initializer()` per declarator.
-
----
-
-## 2. Merge `resolve()` with typecheck (`translator/typecheck.c`)
+## 1. Merge `resolve()` with typecheck (`translator/typecheck.c`)
 
 **Current behavior:** Two passes over the same AST: `resolve()` then
 `typecheck_global_decl()`. The concrete duplication bugs that caused crashes have been
 fixed (see below), but the passes are still separate.
 
-**Fixed in this session (no longer blocking):**
+**Fixed previously (no longer blocking):**
 
 - **Struct double-registration crash** — `resolve_struct_decl()` previously called
   `typetab_add_struct()`, then `typecheck_struct_decl()` called `validate_struct_definition()`
@@ -59,19 +40,14 @@ fixed (see below), but the passes are still separate.
 
 ---
 
-## 3. Scope level for locals and function parameters
+## 2. Scope level for locals and function parameters
 
 **Current behavior:** `scope_level` in `translator.c` is already used: `symtab_purge` /
 `typetab_purge` on leaving compound statements and `for` blocks; parameters use
 `symtab_add_automatic_var_type(..., scope_level)` after `scope_increment()` inside
-`resolve_function_declaration()`.
-
-**Known pre-existing bug:** `map_remove_level()` in `string_map.c` frees the AVL node
-structs but does **not** call the dealloc callback on `node->value`, leaking `Symbol`
-pointers when `symtab_purge()` removes block-scope entries. This is observable: a
-function like `int f(int n) { return n; }` leaks the `Symbol` for `n` because it is
-added at scope level 1 by `resolve()` and purged (without being freed) on scope exit,
-then re-added at level 0 by `typecheck_fn_decl()` (which is freed by `symtab_destroy`).
+`resolve_function_declaration()`. The `map_remove_level` dealloc bug has been fixed:
+`symtab_purge` and `typetab_purge` now call `map_remove_level_free`, which invokes the
+registered callback on each evicted node's value.
 
 **Gaps vs typical C:**
 
@@ -79,39 +55,21 @@ then re-added at level 0 by `typecheck_fn_decl()` (which is freed by `symtab_des
   inner blocks cannot reuse an identifier from an outer scope in the way C allows.
 - **Typedef** names and ordinary identifiers share the same resolution story only after
   parser `nametab`; the translator has **no** `TYPE_TYPEDEF_NAME` handling in
-  `resolve_type` / `validate_type` yet (see task 6).
+  `resolve_type` / `validate_type` yet (see task 4).
 
 **Concrete work:**
 
-- Fix the `map_remove_level()` dealloc callback bug in `string_map.c` (call the
-  registered callback on `node->value` before freeing the node).
 - Decide target: full C11 scoping (shadowing, tag namespaces) vs incremental fixes.
 - Extend `string_map` level semantics or symbol lookup so inner scopes can shadow outer
   bindings where required.
 - Optionally align **struct tags** with block scope rules in concert with `typetab_purge`.
 
 **Effort:** **Medium to large** (~3–10 days) depending on whether you only fix shadowing
-or also full namespace rules. The `map_remove_level` leak fix alone is **Small** (~1 day).
+or also full namespace rules.
 
 ---
 
-## ~~4. Finish `label_loops()` and unit tests~~ ✅ Done
-
-**Completed work:**
-
-- Added `LabelLoopsTest` fixture to `translator/typecheck_tests.cpp` (12 tests) covering
-  all loop kinds (`while`, `for`, `do-while`, `switch`), `break`/`continue` target
-  resolution, nested loops, `continue`-skips-switch semantics, and fatal-error cases for
-  `break`/`continue` outside any loop or switch.
-- Added minimal pass-through cases for `STMT_SWITCH`, `STMT_CASE`, `STMT_DEFAULT`,
-  `STMT_LABELED`, and `STMT_GOTO` in `typecheck_statement()` (`typecheck.c`) so the
-  pipeline can recurse into switch bodies before `label_loops` runs. No semantic
-  validation added (that is task 7).
-- Updated `docs/TECHNICAL.md` to remove two stale "stub" references to `label_loops`.
-
----
-
-## 5. Finish AST → TAC lowering (`translator/translate_gen.c`)
+## 3. Finish AST → TAC lowering (`translator/translate_gen.c`)
 
 **Current behavior:** Documented as an **initial subset**. `gen_expr` supports literals,
 `EXPR_VAR`, unary/binary ops only; many expression kinds `fatal_error`. `gen_stmt`
@@ -124,7 +82,7 @@ only emits TAC for **function definitions** with a body (no file-scope variable 
 - Expressions: assignment, calls, casts, lvalues (fields, `*`, etc.) as needed by real
   code.
 - Statements: locals (stack/slots), `for` with declaration init, `switch` lowering
-  (task 7).
+  (task 5).
 - Optional: non-function top-level (static init, string constants) if the backend needs
   them.
 
@@ -134,7 +92,7 @@ ops) plus tests in the style of `typecheck_tests` or golden TAC output.
 
 ---
 
-## 6. Implement `typedef` in the translator
+## 4. Implement `typedef` in the translator
 
 **Current behavior:** The **parser** handles `typedef` and `TYPE_TYPEDEF_NAME` /
 `TYPE_SPEC_TYPEDEF_NAME` in the AST. The **translator** does not: `resolve_type` has no
@@ -154,7 +112,7 @@ ops) plus tests in the style of `typecheck_tests` or golden TAC output.
 
 ---
 
-## 7. Implement `switch` (semantic + TAC)
+## 5. Implement `switch` (semantic + TAC)
 
 **Current behavior:** Parser and AST support `switch` / `case` / `default`.
 `label_loops()` sets a break target for `switch`. `translate_gen.c` treats `STMT_SWITCH`,
@@ -175,9 +133,7 @@ lowering to compare dispatch value against case constants and jump.
 
 ## Suggested order
 
-1. Fix `map_remove_level` dealloc bug (task **3** prerequisite) — small, eliminates a
-   known leak before adding more scoped symbols.
-2. Task **2** — reduce resolve/typecheck duplication before adding typedef/switch widely.
-3. Task **6** (`typedef`) — unblocks many real headers.
-4. Task **3** (scoping) as needed for correctness vs. real code.
-5. Task **7** then **5** for TAC (switch depends on solid lowering infrastructure).
+1. Task **1** — reduce resolve/typecheck duplication before adding typedef/switch widely.
+2. Task **4** (`typedef`) — unblocks many real headers.
+3. Task **2** (scoping) as needed for correctness vs. real code.
+4. Task **5** then **3** for TAC (switch depends on solid lowering infrastructure).
