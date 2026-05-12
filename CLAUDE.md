@@ -78,7 +78,7 @@ Source (.c)
 | Name resolution | `translator/resolve.c` | Complete |
 | Type checking | `translator/typecheck.c` | Mostly complete |
 | Loop labeling | `translator/translator.c` | Complete |
-| AST → TAC lowering | `translator/translate_gen.c` | Partial |
+| AST → TAC lowering | `translator/translate.c` | Partial |
 | BESM-6 code gen | — | Not started |
 
 ### Key data structures
@@ -99,7 +99,8 @@ Source (.c)
 - **Two-pass semantics**: `resolve()` binds names, then `typecheck_global_decl()` type-checks. TODO.md tracks merging them into one pass.
 - **Scope tracking**: `scope_level` is incremented on block entry; `scope_decrement()` decrements it and calls `symtab_purge`, `structtab_purge`, and `typetab_purge` — all backed by `map_remove_level_free`, which fires the dealloc callback on every evicted value.
 - **`typedef` handling**: `STORAGE_CLASS_TYPEDEF` declarations are intercepted in `typecheck_local_var_decl` / `typecheck_file_scope_var_decl` and registered in `typetab`. `validate_type` resolves `TYPE_TYPEDEF_NAME` recursively. All type-utility helpers (`get_size`, `get_alignment`, `is_complete`, `is_signed`, `is_arithmetic`, `is_scalar`, `is_integer`, `is_character`) resolve typedef names transparently before dispatching.
-- **Partial TAC lowering**: `translate_gen.c` calls `fatal_error()` on unimplemented constructs. Many `Expr` and `Stmt` kinds are not yet handled.
+- **`switch` semantic validation**: `STMT_SWITCH` requires an integer controlling expression; narrower types (char, short) are promoted to `int` via `convert_to_kind`. `STMT_CASE` requires a constant integer expression evaluated by `try_eval_const_int` (handles literals, casts, and unary `−`/`+`/`~`); duplicates are detected via a `SwitchCtx` stack (`current_switch` in `typecheck.c`). `STMT_DEFAULT` rejects multiple defaults. Case/default labels outside any switch are also rejected.
+- **Partial TAC lowering**: `translate.c` calls `fatal_error()` on unimplemented constructs. Many `Expr` and `Stmt` kinds are not yet handled.
 
 ### AST quirks
 

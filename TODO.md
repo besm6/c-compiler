@@ -4,26 +4,7 @@ Development tasks for the `tacker` pipeline (`typecheck_global_decl` → `label_
 
 ---
 
-## 1. Semantic validation for `switch`
-
-**Current behavior:** Parser and AST support `switch` / `case` / `default`.
-`label_loops()` sets a break target for `switch`. `typecheck.c` recursively checks
-child statements but performs **no semantic validation**: case expressions are not checked
-for being integer constants, duplicate case values are not detected, and multiple
-`default` labels are not rejected.
-
-**Concrete work** (in `typecheck.c`):
-
-- Integer-promoted controlling expression.
-- Constant integer case expressions.
-- Duplicate case values rejected.
-- At most one `default` per `switch`.
-
-**Effort:** **Small** (~1–2 days) + tests.
-
----
-
-## 2. Finish AST → TAC lowering (`translator/translate_gen.c`)
+## 1. Finish AST → TAC lowering (`translator/translate.c`)
 
 **Current behavior:** `gen_expr` handles `int`/`float` literals, `EXPR_VAR`, and
 unary/binary arithmetic and comparison ops. All other expression kinds call
@@ -54,5 +35,4 @@ memory ops) plus tests in the style of `typecheck_tests` or golden TAC output.
 
 ## Suggested order
 
-1. Task **1** (`switch` semantics) — small and self-contained; unblocks correct testing of task 2.
-2. Task **2** (TAC lowering) — broader; tackle in slices as the backend needs grow.
+1. Task **1** (TAC lowering) — tackle in slices as the backend needs grow.

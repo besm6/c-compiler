@@ -1155,6 +1155,47 @@ static bool is_static(const DeclSpec *spec)
     return spec && (spec->storage == STORAGE_CLASS_STATIC);
 }
 
+typedef struct SwitchCtx {
+    StringMap seen_cases; /* key = "%ld" formatted case value */
+    bool seen_default;
+    struct SwitchCtx *outer;
+} SwitchCtx;
+
+static SwitchCtx *current_switch = NULL;
+
+static bool try_eval_const_int(const Expr *e, long *out)
+{
+    switch (e->kind) {
+    case EXPR_LITERAL:
+        switch (e->u.literal->kind) {
+        case LITERAL_INT:  *out = e->u.literal->u.int_val;                   return true;
+        case LITERAL_CHAR: *out = (unsigned char)e->u.literal->u.char_val;   return true;
+        default:           return false;
+        }
+    case EXPR_CAST: {
+        long inner;
+        if (try_eval_const_int(e->u.cast.expr, &inner)) {
+            *out = inner;
+            return true;
+        }
+        return false;
+    }
+    case EXPR_UNARY_OP: {
+        long inner;
+        if (!try_eval_const_int(e->u.unary_op.expr, &inner))
+            return false;
+        switch (e->u.unary_op.op) {
+        case UNARY_NEG:     *out = -inner; return true;
+        case UNARY_PLUS:    *out =  inner; return true;
+        case UNARY_BIT_NOT: *out = ~inner; return true;
+        default:            return false;
+        }
+    }
+    default:
+        return false;
+    }
+}
+
 // Type-check a statement
 Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
 {
@@ -1226,15 +1267,58 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
     case STMT_GOTO:
         return s;
     case STMT_SWITCH: {
-        s->u.switch_stmt.expr = typecheck_scalar(s->u.switch_stmt.expr);
+        /* C11 §6.8.4.2 p1: controlling expression must be integer type. */
+        Expr *ctrl = typecheck_and_convert(s->u.switch_stmt.expr);
+        if (!is_integer(ctrl->type)) {
+            fatal_error("Switch controlling expression must be of integer type");
+        }
+        /* Integer promotion: types narrower than int → int. */
+        TypeKind k = ctrl->type->kind;
+        if (k == TYPE_CHAR || k == TYPE_SCHAR || k == TYPE_UCHAR ||
+            k == TYPE_SHORT || k == TYPE_USHORT) {
+            ctrl = convert_to_kind(ctrl, TYPE_INT);
+        }
+        s->u.switch_stmt.expr = ctrl;
+        /* Push a fresh context for case/default validation. */
+        SwitchCtx ctx = { .seen_default = false, .outer = current_switch };
+        map_init(&ctx.seen_cases);
+        current_switch = &ctx;
         s->u.switch_stmt.body = typecheck_statement(ret_type, s->u.switch_stmt.body);
+        current_switch = ctx.outer;
+        map_destroy(&ctx.seen_cases);
         return s;
     }
     case STMT_CASE: {
+        if (!current_switch) {
+            fatal_error("Case label outside switch statement");
+        }
+        /* C11 §6.8.4.2 p3: case expression must be integer constant. */
+        Expr *ce = typecheck_and_convert(s->u.case_stmt.expr);
+        if (!is_integer(ce->type)) {
+            fatal_error("Case expression must be of integer type");
+        }
+        long val;
+        if (!try_eval_const_int(ce, &val)) {
+            fatal_error("Case expression is not a constant integer");
+        }
+        char key[32];
+        snprintf(key, sizeof(key), "%ld", val);
+        if (map_get(&current_switch->seen_cases, key, NULL)) {
+            fatal_error("Duplicate case value %ld in switch", val);
+        }
+        map_insert(&current_switch->seen_cases, key, 0, 0);
+        s->u.case_stmt.expr = ce;
         s->u.case_stmt.stmt = typecheck_statement(ret_type, s->u.case_stmt.stmt);
         return s;
     }
     case STMT_DEFAULT: {
+        if (!current_switch) {
+            fatal_error("Default label outside switch statement");
+        }
+        if (current_switch->seen_default) {
+            fatal_error("Multiple default labels in one switch");
+        }
+        current_switch->seen_default = true;
         s->u.default_stmt = typecheck_statement(ret_type, s->u.default_stmt);
         return s;
     }
