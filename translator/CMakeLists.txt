@@ -51,3 +51,12 @@ add_executable(typecheck-tests
 )
 target_link_libraries(typecheck-tests parser translator GTest::gtest_main)
 gtest_discover_tests(typecheck-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+
+#
+# Tests for translate (local variable declarations, TAC YAML output)
+#
+add_executable(translate-tests
+   translate_tests.cpp
+)
+target_link_libraries(translate-tests parser translator GTest::gtest_main)
+gtest_discover_tests(translate-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

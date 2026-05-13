@@ -17,7 +17,7 @@ A C compiler project aimed at the [BESM-6](https://en.wikipedia.org/wiki/BESM-6)
 | **Build** | CMake-based build; optional `Makefile` wrapper. Unit tests via GoogleTest. |
 | **`cast`** | Reads C source and writes an abstract syntax tree (AST): binary `.ast`, or `--yaml` / `--dot` for inspection and graphs. |
 | **`tacker`** | Reads a binary AST stream and, per top-level declaration, runs **resolve → typecheck → `label_loops` → `translate` → emit**. Output can be **binary TAC** (default), **YAML-like listing** via the TAC pretty-printer, or **Graphviz DOT** (`tac_graphviz`). Semantic analysis handles `typedef` (scoped `typetab`) and full `switch` validation (integer controlling expression with integer promotion; constant integer case values; duplicate-case and multiple-default rejection). Coverage is still **partial**: only constructs handled by `translate.c` lower to TAC; the rest may yield no TAC for that declaration. |
-| **TAC** | `tac/` builds **alloc/print/free/compare** plus **`tac_export`** (binary stream) and **`tac_graphviz`**. **`tac_import`** and **YAML TAC export** are not built yet (see `tac/CMakeLists.txt`). Lowering lives in **`translator/translate.c`**. |
+| **TAC** | `tac/` builds **alloc/print/free/compare**, **`tac_export`** and **`tac_import`** (binary stream), **`tac_export_yaml`** (YAML listing), and **`tac_graphviz`** (DOT graph). Lowering lives in **`translator/translate.c`**. |
 | **Preprocessor, assembler, BESM-6 code generation** | **Not in this repo** at this stage. |
 
 **Note:** This compiler intentionally rejects identifier shadowing — a name declared in an inner block that duplicates any name in an enclosing scope is a compile error.
@@ -34,7 +34,7 @@ A compiler is usually described as a pipeline. You can think of it like an assem
 4. **Intermediate code** (here, *three-address code*, TAC) is a machine-neutral form that is easier to optimize and translate than raw C syntax.
 5. **Backend** (not present yet) would turn TAC into BESM-6 assembly or object code.
 
-Stages 1–3 are largely in place for parsing and checking. Stage 4 is **in progress**: AST is lowered to TAC for a growing subset of the language (`translate`), and TAC can be emitted as **binary**, a **pretty-printed listing** (`--yaml`), or **DOT** (`--dot`); binary **import** and dedicated YAML TAC I/O are still TODO. Stage 5 is future work.
+Stages 1–3 are largely in place for parsing and checking. Stage 4 is **in progress**: AST is lowered to TAC for a growing subset of the language (`translate`), and TAC can be emitted as **binary** or re-imported, listed as **YAML** (`--yaml`), or rendered as **DOT** (`--dot`). Stage 5 is future work.
 
 ```mermaid
 flowchart LR

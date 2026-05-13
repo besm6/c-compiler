@@ -160,7 +160,9 @@ static Tac_Val *gen_unary(TacCtx *ctx, UnaryOp op, Expr *inner)
     in->u.unary.src     = src;
     in->u.unary.dst     = vd;
     tac_append(ctx, in);
-    return vd;
+    // Return a fresh val so callers can store it in a second instruction
+    // without aliasing vd (which is already owned by this instruction).
+    return val_var(vd->u.var_name);
 }
 
 static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
@@ -170,12 +172,14 @@ static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
     Tac_Val *vd = new_var_val(ctx);
 
     Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-    in->u.binary.op       = map_binary_op(op);
-    in->u.binary.src1     = vl;
-    in->u.binary.src2     = vr;
-    in->u.binary.dst      = vd;
+    in->u.binary.op   = map_binary_op(op);
+    in->u.binary.src1 = vl;
+    in->u.binary.src2 = vr;
+    in->u.binary.dst  = vd;
     tac_append(ctx, in);
-    return vd;
+    // Return a fresh val so callers can store it in a second instruction
+    // without aliasing vd (which is already owned by this instruction).
+    return val_var(vd->u.var_name);
 }
 
 static Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
@@ -220,6 +224,21 @@ static void emit_label(TacCtx *ctx, const char *name)
     tac_append(ctx, l);
 }
 
+static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
+{
+    if (decl->kind != DECL_VAR)
+        return;
+    for (InitDeclarator *id = decl->u.var.declarators; id; id = id->next) {
+        if (id->init && id->init->kind == INITIALIZER_SINGLE) {
+            Tac_Val         *src = gen_expr(ctx, id->init->u.expr);
+            Tac_Instruction *in  = tac_new_instruction(TAC_INSTRUCTION_COPY);
+            in->u.copy.src       = src;
+            in->u.copy.dst       = val_var(id->name);
+            tac_append(ctx, in);
+        }
+    }
+}
+
 static void gen_stmt(TacCtx *ctx, Stmt *stmt)
 {
     if (!stmt) {
@@ -229,9 +248,10 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
     case STMT_COMPOUND: {
         for (DeclOrStmt *ds = stmt->u.compound; ds; ds = ds->next) {
             if (ds->kind == DECL_OR_STMT_DECL) {
-                fatal_error("Local declarations not yet lowered to TAC");
+                gen_local_decl(ctx, ds->u.decl);
+            } else {
+                gen_stmt(ctx, ds->u.stmt);
             }
-            gen_stmt(ctx, ds->u.stmt);
         }
         break;
     }
@@ -247,13 +267,13 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
         break;
     }
     case STMT_IF: {
-        Tac_Val *cond   = gen_expr(ctx, stmt->u.if_stmt.condition);
-        char          *else_l = new_temp(ctx);
-        const char    *end_l  = new_temp(ctx);
+        Tac_Val *cond  = gen_expr(ctx, stmt->u.if_stmt.condition);
+        char    *else_l = new_temp(ctx);
+        char    *end_l  = new_temp(ctx);
 
-        Tac_Instruction *jz = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
+        Tac_Instruction *jz          = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
         jz->u.jump_if_zero.condition = cond;
-        jz->u.jump_if_zero.target    = else_l;
+        jz->u.jump_if_zero.target    = else_l; // instruction takes ownership
         tac_append(ctx, jz);
         gen_stmt(ctx, stmt->u.if_stmt.then_stmt);
         emit_jump(ctx, end_l);
@@ -262,6 +282,7 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
             gen_stmt(ctx, stmt->u.if_stmt.else_stmt);
         }
         emit_label(ctx, end_l);
+        xfree(end_l); // emit_jump and emit_label each xstrdup; free the original
         break;
     }
     case STMT_WHILE: {
@@ -311,10 +332,10 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
                     gen_expr(ctx, stmt->u.for_stmt.init->u.expr);
                 }
             } else {
-                fatal_error("for-init declaration not supported in TAC yet");
+                gen_local_decl(ctx, stmt->u.for_stmt.init->u.decl);
             }
         }
-        const char *test_lab = new_temp(ctx);
+        char *test_lab = new_temp(ctx);
         emit_label(ctx, test_lab);
         if (stmt->u.for_stmt.condition) {
             Tac_Val *cond = gen_expr(ctx, stmt->u.for_stmt.condition);
@@ -329,6 +350,7 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
             gen_expr(ctx, stmt->u.for_stmt.update);
         }
         emit_jump(ctx, test_lab);
+        xfree(test_lab); // emit_label and emit_jump each xstrdup; free the original
         emit_label(ctx, bl);
         break;
     }

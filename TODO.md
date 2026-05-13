@@ -8,28 +8,7 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 1. Local variable declarations
-
-**Current behavior:** `STMT_COMPOUND` calls `fatal_error` on any `DECL_OR_STMT_DECL`
-child (line 232). `STMT_FOR` with `FOR_INIT_DECL` also calls `fatal_error` (line 314).
-
-**Concrete work:**
-
-- In the `STMT_COMPOUND` case, handle `DECL_OR_STMT_DECL` nodes: walk each
-  `InitDeclarator`; if it carries an initializer, evaluate the init expression and emit
-  a `TAC_INSTRUCTION_COPY` into the declared variable name. Variables with no initializer
-  need no instruction — the name is used directly in subsequent expressions.
-- In the `STMT_FOR` case, handle `FOR_INIT_DECL`: run the same local-decl logic before
-  emitting the test label.
-- Scope tracking already works: `scope_level` / `scope_decrement()` purge the symbol
-  tables on block exit. TAC variables are function-scoped; no lifetime instructions are
-  needed at this level.
-
-**Effort:** Small (1–2 days including tests).
-
----
-
-## 2. Assignment expressions
+## 1. Assignment expressions
 
 **Current behavior:** `EXPR_ASSIGN` calls `fatal_error`.
 
@@ -50,7 +29,7 @@ child (line 232). `STMT_FOR` with `FOR_INIT_DECL` also calls `fatal_error` (line
 
 ---
 
-## 3. Small cleanups: char/enum/string literals, `UNARY_PLUS`, `goto`, labeled-statement fix
+## 2. Small cleanups: char/enum/string literals, `UNARY_PLUS`, `goto`, labeled-statement fix
 
 **Current behavior:** Six small independent gaps that block real test inputs.
 
@@ -76,7 +55,7 @@ child (line 232). `STMT_FOR` with `FOR_INIT_DECL` also calls `fatal_error` (line
 
 ---
 
-## 4. Ternary conditional `?:`
+## 3. Ternary conditional `?:`
 
 **Current behavior:** `EXPR_COND` calls `fatal_error`.
 
@@ -103,7 +82,7 @@ Return `t.dst`.
 
 ---
 
-## 5. Short-circuit `&&` and `||`
+## 4. Short-circuit `&&` and `||`
 
 **Current behavior:** `BINARY_LOG_AND` and `BINARY_LOG_OR` hit `map_binary_op`'s
 `default` branch and call `fatal_error`. They cannot share the `gen_binary` path because
@@ -133,7 +112,7 @@ set result to 1 at `true_label`. Both branches write to the same destination tem
 
 ---
 
-## 6. Function calls
+## 5. Function calls
 
 **Current behavior:** `EXPR_CALL` calls `fatal_error`. `TAC_INSTRUCTION_FUN_CALL` exists
 in the IR but is never emitted.
@@ -158,7 +137,7 @@ argument `Expr*`).
 
 ---
 
-## 7. Type casts and numeric conversions
+## 6. Type casts and numeric conversions
 
 **Current behavior:** `EXPR_CAST` calls `fatal_error`. The TAC instructions
 `SIGN_EXTEND`, `TRUNCATE`, `ZERO_EXTEND`, `DOUBLE_TO_INT`, `DOUBLE_TO_UINT`,
@@ -185,7 +164,7 @@ argument `Expr*`).
 
 ---
 
-## 8. Pre/post increment and decrement
+## 7. Pre/post increment and decrement
 
 **Current behavior:** `UNARY_PRE_INC` and `UNARY_PRE_DEC` hit `map_unary_op`'s
 `default` and call `fatal_error`. `EXPR_POST_INC` and `EXPR_POST_DEC` call `fatal_error`.
@@ -213,7 +192,7 @@ argument `Expr*`).
 
 ---
 
-## 9. `switch`/`case`/`default` lowering
+## 8. `switch`/`case`/`default` lowering
 
 **Current behavior:** `STMT_SWITCH`, `STMT_CASE`, and `STMT_DEFAULT` all call
 `fatal_error`. The semantic validation (type checking, duplicate-case detection) is
@@ -248,7 +227,7 @@ optimisation can follow later.
 
 ---
 
-## 10. Pointers, arrays, and struct field access
+## 9. Pointers, arrays, and struct field access
 
 **Current behavior:** `UNARY_ADDRESS`, `UNARY_DEREF`, `EXPR_SUBSCRIPT`,
 `EXPR_FIELD_ACCESS`, and `EXPR_PTR_ACCESS` all call `fatal_error`. The TAC instructions

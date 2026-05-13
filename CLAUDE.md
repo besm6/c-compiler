@@ -16,6 +16,7 @@ Run a single test binary directly (translator tests live in a subdirectory):
 ./build/ast/ast-tests
 ./build/parser-tests
 ./build/translator/typecheck-tests
+./build/translator/translate-tests
 ./build/translator/symtab-tests
 ./build/translator/structtab-tests
 ./build/translator/typetab-tests
@@ -77,7 +78,7 @@ Source (.c)
 | Parser | `parser/` | Complete for C11 subset |
 | Name resolution | `translator/resolve.c` | Complete |
 | Type checking | `translator/typecheck.c` | Mostly complete |
-| Loop labeling | `translator/translator.c` | Complete |
+| Loop labeling | `translator/translate.c` | Complete |
 | AST → TAC lowering | `translator/translate.c` | Partial |
 | BESM-6 code gen | — | Not started |
 
@@ -118,7 +119,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `ast/clone_tests.cpp` → `ast-tests`
 - `scanner/tests.cpp` → `scanner-tests`
 - `parser/simple_tests.cpp`, `statement_tests.cpp`, … (8 files) → `parser-tests`
-- `translator/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp` → 4 separate executables
+- `translator/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `translate_tests.cpp` → 5 separate executables
 - `libutil/string_map_tests.cpp`, `wio_tests.cpp` → `libutil-tests`, `wio-tests`
 
 Two test files are disabled in CMake (known failures): `parser/negative_tests.cpp` and `translator/const_convert_tests.cpp`.
