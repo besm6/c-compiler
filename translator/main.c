@@ -11,6 +11,7 @@
 
 #include "symtab.h"
 #include "tac_export.h"
+#include "tac_yaml.h"
 #include "structtab.h"
 #include "translate.h"
 #include "wio.h"
@@ -212,7 +213,7 @@ static void emit_tac_toplevel(const Args *args, WFILE *tac_out, const Tac_TopLev
         tac_export_toplevel(tac_out, tac);
         break;
     case FORMAT_YAML:
-        //TODO: tac_export_yaml(output_file, tac, 0);
+        tac_export_yaml(output_file, tac);
         fflush(output_file);
         break;
     case FORMAT_DOT:

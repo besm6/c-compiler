@@ -24,10 +24,9 @@ void tac_free_val(Tac_Val *val)
 {
     if (!val)
         return;
-    if (val->kind == TAC_VAL_CONSTANT && val->u.constant) {
+    if (val->kind == TAC_VAL_CONSTANT) {
         tac_free_const(val->u.constant);
-    }
-    if (val->u.var_name) {
+    } else if (val->u.var_name) {
         xfree(val->u.var_name);
     }
     tac_free_val(val->next);
