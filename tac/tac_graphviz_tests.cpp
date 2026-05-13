@@ -31,7 +31,7 @@ protected:
         long len = ftell(f);
         rewind(f);
         std::string result(static_cast<size_t>(len), '\0');
-        fread(&result[0], 1, static_cast<size_t>(len), f);
+        EXPECT_TRUE(fread(&result[0], 1, static_cast<size_t>(len), f));
         fclose(f);
         return result;
     }
@@ -44,7 +44,7 @@ protected:
         long len = ftell(f);
         rewind(f);
         std::string result(static_cast<size_t>(len), '\0');
-        fread(&result[0], 1, static_cast<size_t>(len), f);
+        EXPECT_TRUE(fread(&result[0], 1, static_cast<size_t>(len), f));
         fclose(f);
         return result;
     }

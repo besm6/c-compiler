@@ -63,7 +63,7 @@ protected:
                 long len = ftell(f);
                 rewind(f);
                 std::string yaml(static_cast<size_t>(len), '\0');
-                fread(&yaml[0], 1, static_cast<size_t>(len), f);
+                EXPECT_TRUE(fread(&yaml[0], 1, static_cast<size_t>(len), f));
                 fclose(f);
                 result += yaml;
                 tac_free_toplevel(tac);
