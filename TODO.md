@@ -8,33 +8,79 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 1. Small cleanups: char/enum/string literals, `UNARY_PLUS`, `goto`, labeled-statement fix
+## 1. Enum constant literals: `LITERAL_ENUM`
 
-**Current behavior:** Six small independent gaps that block real test inputs.
+**Current behavior:** Same `fatal_error("Unsupported literal in TAC lowering")` for
+`LITERAL_ENUM`.
+
+**AST node:** `e->u.literal->u.enum_const` — `Ident` (the constant's name, e.g.
+`"RED"`).
 
 **Concrete work:**
 
-1. `LITERAL_CHAR` — emit `val_int(e->u.literal->u.char_val)`.
-2. `LITERAL_ENUM` — look up the enum constant in `symtab` to get its integer value;
-   emit `val_int(value)`.
-3. `UNARY_PLUS` — it is a mathematical no-op; return `gen_expr(ctx, inner)` directly
-   without emitting any instruction (add a case before `map_unary_op` is called).
-4. `STMT_GOTO` — emit `emit_jump(ctx, stmt->u.goto_label)`.
-5. `STMT_LABELED` — currently drops the label silently; add
-   `emit_label(ctx, stmt->u.labeled.label)` **before** the recursive `gen_stmt`. This
-   is a latent bug: `goto` targets are unreachable without it.
-6. `LITERAL_STRING` — string literals need a static-storage `Tac_TopLevel`
-   (`TAC_TOPLEVEL_STATIC_CONSTANT` with `TAC_STATIC_INIT_STRING`). Allocate a unique
-   name (e.g., `.str.0`), thread a side-channel static-constant list through `TacCtx`,
-   emit the constant there, return a `TAC_INSTRUCTION_GET_ADDRESS` result pointing to
-   it. This is the most complex piece here; it can be deferred with a clear
-   `fatal_error("string literals not yet lowered")` if needed.
+1. Call `symtab_get_opt(e->u.literal->u.enum_const)` to retrieve the `Symbol*`.
+   Enum constants are registered as `SYM_CONST` by `typecheck.c` during enum-type
+   processing. Assert `sym != NULL` and `sym->kind == SYM_CONST`.
+2. Read the stored integer value from `sym->u.const_val`.
+3. Return `val_int(sym->u.const_val)`.
 
-**Effort:** Trivial to small (half a day for items 1–5; one extra day for item 6).
+Before starting, verify in `typecheck.c` that `sym->u.const_val` is the correct field
+name for enum-constant integer values (search for the `SYM_CONST` registration site).
+
+**Effort:** Trivial (< 1 hour; includes a quick grep to confirm the symtab field name).
 
 ---
 
-## 2. Ternary conditional `?:`
+## 2. String literals: `LITERAL_STRING`
+
+**Current behavior:** Same `fatal_error("Unsupported literal in TAC lowering")` for
+`LITERAL_STRING`.
+
+**AST node:** `e->u.literal->u.string_val` — `char*`, the raw string content.
+
+**Design:** A string literal is a static object. Its data must live in a
+`TAC_TOPLEVEL_STATIC_CONSTANT` node (with `TAC_STATIC_INIT_STRING`) at the program
+top-level, not inside the function body. The expression itself produces a pointer to
+that storage via `TAC_INSTRUCTION_GET_ADDRESS`.
+
+**Concrete work:**
+
+1. **Extend `TacCtx`** (defined near the top of `translate.c`) with two new fields:
+
+   ```c
+   Tac_TopLevel *static_constants;   // head of accumulated string-constant list
+   int           string_id;          // counter for unique names: .str.0, .str.1, …
+   ```
+
+2. **On each `LITERAL_STRING`:**
+   - Generate a unique name: `snprintf(buf, …, ".str.%d", ctx->string_id++)`.
+   - Optionally call `symtab_add_string()` (already in `symtab.c`) to register the
+     name so later passes can see it.
+   - Build a `Tac_TopLevel` node with kind `TAC_TOPLEVEL_STATIC_CONSTANT`,
+     setting `name` to the generated name and `init` to a
+     `TAC_STATIC_INIT_STRING` node containing the string content.
+   - Prepend (or append) the node to `ctx->static_constants`.
+   - Emit `TAC_INSTRUCTION_GET_ADDRESS` with `val_var(name)` as source and a fresh
+     temp (`new_temp()`) as destination.
+   - Return the destination temp.
+
+3. **In `translate_function()`** (or wherever the function's `TacCtx` is finalized),
+   splice `ctx->static_constants` into the `Tac_Program`'s top-level list so they are
+   serialized with the rest of the program.
+
+**Helpers available:** `symtab_add_string()`, `new_temp()`, `val_var()`, `tac_append()`,
+`tac_new_instruction()`.
+
+**Deferral option:** If this task is postponed, replace the generic message with
+`fatal_error("string literals not yet lowered")` so the error is self-describing.
+
+**Effort:** Small (half a day — the one-liner cases above are trivial; most of the
+work is plumbing `static_constants` through `TacCtx` and splicing the list into the
+output).
+
+---
+
+## 3. Ternary conditional `?:`
 
 **Current behavior:** `EXPR_COND` calls `fatal_error`.
 
@@ -61,7 +107,7 @@ Return `t.dst`.
 
 ---
 
-## 3. Short-circuit `&&` and `||`
+## 4. Short-circuit `&&` and `||`
 
 **Current behavior:** `BINARY_LOG_AND` and `BINARY_LOG_OR` hit `map_binary_op`'s
 `default` branch and call `fatal_error`. They cannot share the `gen_binary` path because
@@ -91,7 +137,7 @@ set result to 1 at `true_label`. Both branches write to the same destination tem
 
 ---
 
-## 4. Function calls
+## 5. Function calls
 
 **Current behavior:** `EXPR_CALL` calls `fatal_error`. `TAC_INSTRUCTION_FUN_CALL` exists
 in the IR but is never emitted.
@@ -116,7 +162,7 @@ argument `Expr*`).
 
 ---
 
-## 5. Type casts and numeric conversions
+## 6. Type casts and numeric conversions
 
 **Current behavior:** `EXPR_CAST` calls `fatal_error`. The TAC instructions
 `SIGN_EXTEND`, `TRUNCATE`, `ZERO_EXTEND`, `DOUBLE_TO_INT`, `DOUBLE_TO_UINT`,
@@ -143,7 +189,7 @@ argument `Expr*`).
 
 ---
 
-## 6. Pre/post increment and decrement
+## 7. Pre/post increment and decrement
 
 **Current behavior:** `UNARY_PRE_INC` and `UNARY_PRE_DEC` hit `map_unary_op`'s
 `default` and call `fatal_error`. `EXPR_POST_INC` and `EXPR_POST_DEC` call `fatal_error`.
@@ -163,15 +209,15 @@ argument `Expr*`).
   2. `COPY x ← t.new`
   3. Return `t.new`
 - Decrement variants use `SUBTRACT` in place of `ADD`.
-- Pointer operands need `ADD_PTR` with scale = `sizeof(*ptr)` — defer to task 8 using
-  the `lvalue_name` helper from task 1, which will `fatal_error` on non-variable operands
-  until then.
+- Pointer operands need `ADD_PTR` with scale = `sizeof(*ptr)` — defer to task 9 using
+  the `lvalue_name` helper (already in translate.c), which will `fatal_error` on
+  non-variable operands until then.
 
 **Effort:** Small (half a day including tests).
 
 ---
 
-## 7. `switch`/`case`/`default` lowering
+## 8. `switch`/`case`/`default` lowering
 
 **Current behavior:** `STMT_SWITCH`, `STMT_CASE`, and `STMT_DEFAULT` all call
 `fatal_error`. The semantic validation (type checking, duplicate-case detection) is
@@ -206,7 +252,7 @@ optimisation can follow later.
 
 ---
 
-## 8. Pointers, arrays, and struct field access
+## 9. Pointers, arrays, and struct field access
 
 **Current behavior:** `UNARY_ADDRESS`, `UNARY_DEREF`, `EXPR_SUBSCRIPT`,
 `EXPR_FIELD_ACCESS`, and `EXPR_PTR_ACCESS` all call `fatal_error`. The TAC instructions
@@ -239,7 +285,7 @@ Rename the current `gen_expr` to `gen_rval` and replace callers.
    then `ADD_PTR` with the field offset.
 5. `EXPR_PTR_ACCESS` (`p->f`): evaluate `p` with `gen_rval`, then apply the same
    field-offset logic via `LOAD` + offset.
-6. Revisit tasks 1 and 7: expand `lvalue_name` into a full `gen_lval`, and emit `STORE`
+6. Revisit tasks 2 and 8: expand `lvalue_name` into a full `gen_lval`, and emit `STORE`
    (instead of `COPY`) when the assignment or inc/dec target resolves to a pointer.
 
 **Effort:** Large (1–2 weeks; struct layout, pointer arithmetic, and lvalue plumbing

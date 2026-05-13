@@ -453,10 +453,11 @@ Expr *typecheck_exp(Expr *e)
             e->u.unary_op.expr = inner;
             return e;
         }
+        case UNARY_PLUS:
         case UNARY_NEG: {
             Expr *inner = typecheck_and_convert(e->u.unary_op.expr);
             if (!is_arithmetic(inner->type)) {
-                fatal_error("Can only negate arithmetic types");
+                fatal_error("Can only apply unary +/- to arithmetic types");
             }
             if (is_character(inner->type))
                 inner = convert_to_kind(inner, TYPE_INT);

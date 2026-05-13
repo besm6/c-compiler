@@ -202,6 +202,124 @@ TEST_F(TranslateTest, LocalVarUsedInBinaryExpr)
 }
 
 // ---------------------------------------------------------------------------
+// Char literals — task #1
+// ---------------------------------------------------------------------------
+
+TEST_F(TranslateTest, CharLiteralReturnedDirectly)
+{
+    std::string yaml = CompileToYaml("int f(void) { return 'A'; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 65
+)");
+}
+
+// ---------------------------------------------------------------------------
+// Unary plus — task #3
+// ---------------------------------------------------------------------------
+
+// Unary + is a no-op: it must not emit any instruction.
+TEST_F(TranslateTest, UnaryPlusNoOp)
+{
+    std::string yaml = CompileToYaml("int f(void) { return +42; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 42
+)");
+}
+
+// ---------------------------------------------------------------------------
+// goto statement — task #4
+// ---------------------------------------------------------------------------
+
+TEST_F(TranslateTest, GotoEmitsJump)
+{
+    std::string yaml = CompileToYaml(
+        "int f(void) { goto end; end: return 0; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: jump
+      target: end
+    - instruction:
+      kind: label
+      name: end
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+)");
+}
+
+// ---------------------------------------------------------------------------
+// Labeled statement — task #5
+// ---------------------------------------------------------------------------
+
+TEST_F(TranslateTest, LabeledStatementEmitsLabel)
+{
+    std::string yaml = CompileToYaml(
+        "int f(void) { int x = 1; loop: x = 2; return x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst:
+        kind: var
+        name: x
+    - instruction:
+      kind: label
+      name: loop
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 2
+      dst:
+        kind: var
+        name: x
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: x
+)");
+}
+
+// ---------------------------------------------------------------------------
 // Assignment expressions — task #2
 // ---------------------------------------------------------------------------
 

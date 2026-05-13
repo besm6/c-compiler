@@ -219,12 +219,16 @@ static Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             return val_int(e->u.literal->u.int_val);
         case LITERAL_FLOAT:
             return val_double(e->u.literal->u.real_val);
+        case LITERAL_CHAR:
+            return val_int(e->u.literal->u.char_val);
         default:
             fatal_error("Unsupported literal in TAC lowering");
         }
     case EXPR_VAR:
         return val_var(e->u.var);
     case EXPR_UNARY_OP:
+        if (e->u.unary_op.op == UNARY_PLUS)
+            return gen_expr(ctx, e->u.unary_op.expr);
         return gen_unary(ctx, e->u.unary_op.op, e->u.unary_op.expr);
     case EXPR_BINARY_OP:
         return gen_binary(ctx, e->u.binary_op.op, e->u.binary_op.left, e->u.binary_op.right);
@@ -419,8 +423,10 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
         break;
     }
     case STMT_GOTO:
-        fatal_error("goto not yet lowered to TAC");
+        emit_jump(ctx, stmt->u.goto_label);
+        break;
     case STMT_LABELED:
+        emit_label(ctx, stmt->u.labeled.label);
         gen_stmt(ctx, stmt->u.labeled.stmt);
         break;
     case STMT_CASE:
