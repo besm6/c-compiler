@@ -23,3 +23,12 @@ add_executable(tac-yaml-tests
 )
 target_link_libraries(tac-yaml-tests tac GTest::gtest_main)
 gtest_discover_tests(tac-yaml-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+
+#
+# Tests for tac_graphviz
+#
+add_executable(tac-dot-tests
+    tac_graphviz_tests.cpp
+)
+target_link_libraries(tac-dot-tests tac GTest::gtest_main)
+gtest_discover_tests(tac-dot-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
