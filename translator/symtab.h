@@ -17,7 +17,8 @@ extern "C" {
 typedef enum {
     SYM_FUNC,   // FunAttr
     SYM_STATIC, // StaticAttr
-    SYM_CONST,  // ConstAttr
+    SYM_CONST,  // string literal — const_init
+    SYM_ENUM,   // enum constant  — enum_val
     SYM_LOCAL   // LocalAttr
 } SymbolKind;
 
@@ -48,6 +49,7 @@ typedef struct Symbol {
         } static_var; // For SYM_STATIC
 
         Tac_StaticInit *const_init; // For SYM_CONST (string literals)
+        int enum_val;               // For SYM_ENUM (enum constants)
         // No data needed for SYM_LOCAL
     } u;
 } Symbol;
@@ -84,9 +86,11 @@ void symtab_add_fun(const char *name, const Type *t, bool global, bool defined);
 
 // Add a string literal
 char *symtab_add_string(const char *s);
-// Precondition: s is a non-null string.
-// Postcondition: A Symbol with SYM_CONST, a unique name, type Array(Char, len(s)+1), and string
-// initializer is added. Returns: The unique name (owned by caller) for the string literal.
+
+// Add an enum constant
+void symtab_add_enum_const(const char *name, int val, int scope_level);
+// Precondition: name is a non-null string.
+// Postcondition: A Symbol with SYM_ENUM, name, type int, and integer value is added.
 
 // Get a symbol by name (fails if not found)
 Symbol *symtab_get(const char *name);

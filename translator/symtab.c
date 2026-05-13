@@ -42,6 +42,8 @@ void free_symbol(Symbol *sym)
     case SYM_CONST:
         tac_free_static_init(sym->u.const_init);
         break;
+    case SYM_ENUM:
+        break;
     default:
         break;
     }
@@ -161,13 +163,26 @@ char *symtab_add_string(const char *s)
     init->u.string.null_terminated = true;
 
     // Add to symbol table
-    Symbol *sym       = new_symbol(name, t, SYM_CONST);
-    sym->u.const_init = init;
+    Symbol *sym        = new_symbol(name, t, SYM_CONST);
+    sym->u.const_init  = init;
     map_insert_free(&symtab, name, (intptr_t)sym, 0, symtab_destroy_callback);
 
     char *ret = xstrdup(name);
     xfree(name);
     return ret;
+}
+
+//
+// Add an enum constant
+// Precondition: name is a non-null string.
+// Postcondition: A Symbol with SYM_ENUM, name, type int, and integer value is added.
+//
+void symtab_add_enum_const(const char *name, int val, int scope_level)
+{
+    Type   *t   = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    Symbol *sym = new_symbol(name, t, SYM_ENUM);
+    sym->u.enum_val = val;
+    map_insert_free(&symtab, name, (intptr_t)sym, scope_level, symtab_destroy_callback);
 }
 
 //

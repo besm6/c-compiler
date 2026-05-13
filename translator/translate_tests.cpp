@@ -31,6 +31,7 @@ protected:
         }
         symtab_destroy();
         structtab_destroy();
+        nametab_destroy();
         xreport_lost_memory();
         EXPECT_EQ(xtotal_allocated_size(), 0);
         xfree_all();
@@ -490,6 +491,70 @@ TEST_F(TranslateTest, CompoundAssignBitwiseOr)
       src:
         kind: var
         name: x
+)");
+}
+
+// ---------------------------------------------------------------------------
+// Enum constant literals — task #1
+// ---------------------------------------------------------------------------
+
+// Enumerators without explicit values start at 0 and auto-increment.
+TEST_F(TranslateTest, EnumConstDefaultValues)
+{
+    std::string yaml = CompileToYaml(
+        "enum Color { RED, GREEN }; int f(void) { return GREEN; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+)");
+}
+
+// An explicit initializer overrides the auto-increment.
+TEST_F(TranslateTest, EnumConstExplicitValue)
+{
+    std::string yaml = CompileToYaml(
+        "enum Color { RED = 5, GREEN }; int f(void) { return RED; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 5
+)");
+}
+
+// Enum declared inside a function body is scoped to that body.
+TEST_F(TranslateTest, EnumConstLocalDecl)
+{
+    std::string yaml = CompileToYaml(
+        "int f(void) { enum Dir { UP = 10, DOWN }; return DOWN; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 11
 )");
 }
 

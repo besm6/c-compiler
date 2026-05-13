@@ -12,6 +12,7 @@
 // Forward declarations
 void validate_type(const Type *t);
 Expr *typecheck_and_convert(Expr *e);
+static bool try_eval_const_int(const Expr *e, long *out);
 Expr *typecheck_scalar(Expr *e);
 Initializer *typecheck_init(const Type *target_type, Initializer *init);
 Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init);
@@ -132,6 +133,7 @@ void validate_type(const Type *t)
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_STRUCT:
+    case TYPE_ENUM:
         break;
     case TYPE_TYPEDEF_NAME:
         if (!typetab_exists(t->u.typedef_name.name)) {
@@ -173,6 +175,23 @@ void validate_struct_definition(const char *tag, const Field *members)
     map_destroy(&names);
 }
 
+// Register enum constants for an enum type definition.
+static void typecheck_enum_decl(const Type *enum_type)
+{
+    long next_val = 0;
+    for (const Enumerator *e = enum_type->u.enum_t.enumerators; e; e = e->next) {
+        long val;
+        if (e->value) {
+            if (!try_eval_const_int(e->value, &val))
+                fatal_error("Enum constant '%s' has non-constant initializer", e->name);
+        } else {
+            val = next_val;
+        }
+        next_val = val + 1;
+        symtab_add_enum_const(e->name, (int)val, scope_level);
+    }
+}
+
 // Type-check a struct declaration
 void typecheck_struct_decl(const Declaration *d)
 {
@@ -182,6 +201,11 @@ void typecheck_struct_decl(const Declaration *d)
     if (!d->u.empty.type)
         return;
     TypeKind kind = d->u.empty.type->kind;
+    if (kind == TYPE_ENUM) {
+        if (d->u.empty.type->u.enum_t.enumerators)
+            typecheck_enum_decl(d->u.empty.type);
+        return;
+    }
     if (kind != TYPE_STRUCT && kind != TYPE_UNION)
         return; // Ignore forward declarations
 
@@ -389,9 +413,15 @@ Expr *typecheck_const(Expr *e)
         e = typecheck_string(e);
         break;
     }
-    case LITERAL_ENUM:
+    case LITERAL_ENUM: {
+        const Symbol *sym = symtab_get(e->u.literal->u.enum_const);
+        int val = sym->u.enum_val;
+        xfree(e->u.literal->u.enum_const);
+        e->u.literal->kind = LITERAL_INT;
+        e->u.literal->u.int_val = val;
         e->type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
         break;
+    }
     default:
         fatal_error("Unsupported literal kind %d", e->u.literal->kind);
     }

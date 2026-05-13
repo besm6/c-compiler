@@ -41,6 +41,9 @@ void print_symbol(const Symbol *sym)
         printf(" string\n");
         tac_print_static_init(stdout, sym->u.const_init, 8);
         break;
+    case SYM_ENUM:
+        printf(" enum %d\n", sym->u.enum_val);
+        break;
     case SYM_LOCAL:
         printf(" local\n");
         break;

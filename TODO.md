@@ -8,30 +8,7 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 1. Enum constant literals: `LITERAL_ENUM`
-
-**Current behavior:** Same `fatal_error("Unsupported literal in TAC lowering")` for
-`LITERAL_ENUM`.
-
-**AST node:** `e->u.literal->u.enum_const` — `Ident` (the constant's name, e.g.
-`"RED"`).
-
-**Concrete work:**
-
-1. Call `symtab_get_opt(e->u.literal->u.enum_const)` to retrieve the `Symbol*`.
-   Enum constants are registered as `SYM_CONST` by `typecheck.c` during enum-type
-   processing. Assert `sym != NULL` and `sym->kind == SYM_CONST`.
-2. Read the stored integer value from `sym->u.const_val`.
-3. Return `val_int(sym->u.const_val)`.
-
-Before starting, verify in `typecheck.c` that `sym->u.const_val` is the correct field
-name for enum-constant integer values (search for the `SYM_CONST` registration site).
-
-**Effort:** Trivial (< 1 hour; includes a quick grep to confirm the symtab field name).
-
----
-
-## 2. String literals: `LITERAL_STRING`
+## 1. String literals: `LITERAL_STRING`
 
 **Current behavior:** Same `fatal_error("Unsupported literal in TAC lowering")` for
 `LITERAL_STRING`.
