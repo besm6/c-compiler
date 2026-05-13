@@ -33,13 +33,13 @@ void print_symbol(const Symbol *sym)
             break;
         case INIT_INITIALIZED:
             printf(" initialized\n");
-            print_tac_static_init(stdout, sym->u.static_var.init_list, 8);
+            tac_print_static_init(stdout, sym->u.static_var.init_list, 8);
             break;
         }
         break;
     case SYM_CONST:
         printf(" string\n");
-        print_tac_static_init(stdout, sym->u.const_init, 8);
+        tac_print_static_init(stdout, sym->u.const_init, 8);
         break;
     case SYM_LOCAL:
         printf(" local\n");

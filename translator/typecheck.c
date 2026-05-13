@@ -869,7 +869,7 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
 
     // Handle null initializer: initialize with zeros
     if (!init) {
-        Tac_StaticInit *zero_init = new_tac_static_init(TAC_STATIC_INIT_ZERO);
+        Tac_StaticInit *zero_init = tac_new_static_init(TAC_STATIC_INIT_ZERO);
         zero_init->u.zero_bytes   = get_size(var_type);
         return zero_init;
     }
@@ -895,11 +895,11 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
             }
         }
 
-        Tac_StaticInit *string_init           = new_tac_static_init(TAC_STATIC_INIT_STRING);
+        Tac_StaticInit *string_init           = tac_new_static_init(TAC_STATIC_INIT_STRING);
         string_init->u.string.val             = xstrdup(string_val);
         string_init->u.string.null_terminated = (array_size >= string_length + 1);
         if (array_size > string_length + 1) {
-            Tac_StaticInit *zero_padding = new_tac_static_init(TAC_STATIC_INIT_ZERO);
+            Tac_StaticInit *zero_padding = tac_new_static_init(TAC_STATIC_INIT_ZERO);
             zero_padding->u.zero_bytes =
                 (array_size - (string_length + 1)) * get_size(element_type);
             string_init->next = zero_padding;
@@ -915,7 +915,7 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
         }
         const char *string_val       = init->u.expr->u.literal->u.string_val;
         char *string_id              = symtab_add_string(string_val);
-        Tac_StaticInit *pointer_init = new_tac_static_init(TAC_STATIC_INIT_POINTER);
+        Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
         pointer_init->u.pointer_name = string_id;
         return pointer_init;
     }
@@ -930,7 +930,7 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
         if (!compare_type(var_type->u.pointer.target, sym->type->u.array.element)) {
             fatal_error("Initialization of pointer with incompatible array");
         }
-        Tac_StaticInit *pointer_init = new_tac_static_init(TAC_STATIC_INIT_POINTER);
+        Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
         pointer_init->u.pointer_name = xstrdup(init->u.expr->u.var);
         return pointer_init;
     }
@@ -939,7 +939,7 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
     if (init->kind == INITIALIZER_SINGLE && init->u.expr->kind == EXPR_LITERAL) {
         const Literal *literal = init->u.expr->u.literal;
         if (is_zero_int(literal)) {
-            Tac_StaticInit *zero_init = new_tac_static_init(TAC_STATIC_INIT_ZERO);
+            Tac_StaticInit *zero_init = tac_new_static_init(TAC_STATIC_INIT_ZERO);
             zero_init->u.zero_bytes   = get_size(var_type);
             return zero_init;
         }
@@ -971,7 +971,7 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
         }
 
         if (element_count < (int)array_size) {
-            Tac_StaticInit *zero_padding = new_tac_static_init(TAC_STATIC_INIT_ZERO);
+            Tac_StaticInit *zero_padding = tac_new_static_init(TAC_STATIC_INIT_ZERO);
             zero_padding->u.zero_bytes = ((int)array_size - element_count) * get_size(element_type);
             *current                   = zero_padding;
         }
@@ -991,7 +991,7 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
                 fatal_error("Too many elements in struct initializer");
             }
             if (current_offset < field->offset) {
-                Tac_StaticInit *zero_padding = new_tac_static_init(TAC_STATIC_INIT_ZERO);
+                Tac_StaticInit *zero_padding = tac_new_static_init(TAC_STATIC_INIT_ZERO);
                 zero_padding->u.zero_bytes   = field->offset - current_offset;
                 *current                     = zero_padding;
                 current                      = &zero_padding->next;
@@ -1006,7 +1006,7 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
         }
 
         if (current_offset < struct_def->size) {
-            Tac_StaticInit *zero_padding = new_tac_static_init(TAC_STATIC_INIT_ZERO);
+            Tac_StaticInit *zero_padding = tac_new_static_init(TAC_STATIC_INIT_ZERO);
             zero_padding->u.zero_bytes   = struct_def->size - current_offset;
             *current                     = zero_padding;
         }

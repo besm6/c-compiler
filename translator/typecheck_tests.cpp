@@ -1062,7 +1062,7 @@ protected:
             Tac_TopLevel *tac = translate(decls);
             free_external_decl(decls);
             if (tac)
-                free_tac_toplevel(tac);
+                tac_free_toplevel(tac);
             decls = next;
         }
     }

@@ -80,49 +80,49 @@ Tac_StaticInit *new_static_init_from_literal(const Type *target_type, const Lite
     Tac_StaticInit *result = NULL;
     switch (target_type->kind) {
     case TYPE_BOOL:
-        result            = new_tac_static_init(TAC_STATIC_INIT_I32);
+        result            = tac_new_static_init(TAC_STATIC_INIT_I32);
         result->u.int_val = (literal_to_int64(lit) != 0);
         break;
 
     case TYPE_CHAR:
     case TYPE_SCHAR:
-        result             = new_tac_static_init(TAC_STATIC_INIT_I8);
+        result             = tac_new_static_init(TAC_STATIC_INIT_I8);
         result->u.char_val = (int8_t)literal_to_int64(lit);
         break;
 
     case TYPE_UCHAR:
-        result              = new_tac_static_init(TAC_STATIC_INIT_U8);
+        result              = tac_new_static_init(TAC_STATIC_INIT_U8);
         result->u.uchar_val = (uint8_t)literal_to_int64(lit);
         break;
 
     case TYPE_SHORT:
     case TYPE_INT:
-        result            = new_tac_static_init(TAC_STATIC_INIT_I32);
+        result            = tac_new_static_init(TAC_STATIC_INIT_I32);
         result->u.int_val = (int32_t)literal_to_int64(lit);
         break;
 
     case TYPE_USHORT:
     case TYPE_UINT:
-        result             = new_tac_static_init(TAC_STATIC_INIT_U32);
+        result             = tac_new_static_init(TAC_STATIC_INIT_U32);
         result->u.uint_val = (uint32_t)literal_to_int64(lit);
         break;
 
     case TYPE_LONG:
     case TYPE_LONG_LONG:
-        result             = new_tac_static_init(TAC_STATIC_INIT_I64);
+        result             = tac_new_static_init(TAC_STATIC_INIT_I64);
         result->u.long_val = literal_to_int64(lit);
         break;
 
     case TYPE_ULONG:
     case TYPE_ULONG_LONG:
-        result              = new_tac_static_init(TAC_STATIC_INIT_U64);
+        result              = tac_new_static_init(TAC_STATIC_INIT_U64);
         result->u.ulong_val = literal_to_uint64(lit);
         break;
 
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
-        result               = new_tac_static_init(TAC_STATIC_INIT_DOUBLE);
+        result               = tac_new_static_init(TAC_STATIC_INIT_DOUBLE);
         result->u.double_val = literal_to_double(lit);
         break;
     default:

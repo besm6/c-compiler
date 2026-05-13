@@ -11,9 +11,9 @@ extern "C" int yyparse(void);
 extern "C" void yyerror(const char *s);
 
 // External TAC functions
-extern "C" Tac_Type *new_tac_type(Tac_TypeKind kind);
-extern "C" bool compare_tac_type(const Tac_Type *a, const Tac_Type *b);
-extern "C" void free_tac_type(Tac_Type *type);
+extern "C" Tac_Type *tac_new_type(Tac_TypeKind kind);
+extern "C" bool tac_compare_type(const Tac_Type *a, const Tac_Type *b);
+extern "C" void tac_free_type(Tac_Type *type);
 
 // Global for parsed result
 Tac_Type *parsed_type = nullptr;
@@ -176,7 +176,7 @@ protected:
     void TearDown() override
     {
         if (parsed_type) {
-            free_tac_type(parsed_type);
+            tac_free_type(parsed_type);
             parsed_type = nullptr;
         }
         input_buffer.clear();
@@ -194,12 +194,12 @@ protected:
     }
 
     // Helper to create a basic type
-    Tac_Type *CreateBasicType(Tac_TypeKind kind) { return new_tac_type(kind); }
+    Tac_Type *CreateBasicType(Tac_TypeKind kind) { return tac_new_type(kind); }
 
     // Helper to create a pointer type
     Tac_Type *CreatePointerType(Tac_Type *referenced)
     {
-        Tac_Type *type             = new_tac_type(TAC_TYPE_POINTER);
+        Tac_Type *type             = tac_new_type(TAC_TYPE_POINTER);
         type->u.pointer.referenced = referenced;
         return type;
     }
@@ -207,7 +207,7 @@ protected:
     // Helper to create an array type
     Tac_Type *CreateArrayType(Tac_Type *element, int size)
     {
-        Tac_Type *type        = new_tac_type(TAC_TYPE_ARRAY);
+        Tac_Type *type        = tac_new_type(TAC_TYPE_ARRAY);
         type->u.array.element = element;
         type->u.array.size    = size;
         return type;
@@ -216,7 +216,7 @@ protected:
     // Helper to create a structure type
     Tac_Type *CreateStructType(const char *tag)
     {
-        Tac_Type *type        = new_tac_type(TAC_TYPE_STRUCTURE);
+        Tac_Type *type        = tac_new_type(TAC_TYPE_STRUCTURE);
         type->u.structure.tag = strdup(tag);
         return type;
     }
@@ -224,7 +224,7 @@ protected:
     // Helper to create a function type
     Tac_Type *CreateFunType(Tac_Type *params, Tac_Type *ret)
     {
-        Tac_Type *type          = new_tac_type(TAC_TYPE_FUN_TYPE);
+        Tac_Type *type          = tac_new_type(TAC_TYPE_FUN_TYPE);
         type->u.fun_type.params = params;
         type->u.fun_type.ret    = ret;
         return type;
@@ -236,32 +236,32 @@ TEST_F(TacTypeParserTest, BasicTypeInt)
 {
     EXPECT_TRUE(Parse("int"));
     Tac_Type *expected = CreateBasicType(TAC_TYPE_INT);
-    EXPECT_TRUE(compare_tac_type(parsed_type, expected));
-    free_tac_type(expected);
+    EXPECT_TRUE(tac_compare_type(parsed_type, expected));
+    tac_free_type(expected);
 }
 
 TEST_F(TacTypeParserTest, BasicTypeUnsignedChar)
 {
     EXPECT_TRUE(Parse("unsigned char"));
     Tac_Type *expected = CreateBasicType(TAC_TYPE_UCHAR);
-    EXPECT_TRUE(compare_tac_type(parsed_type, expected));
-    free_tac_type(expected);
+    EXPECT_TRUE(tac_compare_type(parsed_type, expected));
+    tac_free_type(expected);
 }
 
 TEST_F(TacTypeParserTest, BasicTypeLongLong)
 {
     EXPECT_TRUE(Parse("long long"));
     Tac_Type *expected = CreateBasicType(TAC_TYPE_LONG_LONG);
-    EXPECT_TRUE(compare_tac_type(parsed_type, expected));
-    free_tac_type(expected);
+    EXPECT_TRUE(tac_compare_type(parsed_type, expected));
+    tac_free_type(expected);
 }
 
 TEST_F(TacTypeParserTest, BasicTypeVoid)
 {
     EXPECT_TRUE(Parse("void"));
     Tac_Type *expected = CreateBasicType(TAC_TYPE_VOID);
-    EXPECT_TRUE(compare_tac_type(parsed_type, expected));
-    free_tac_type(expected);
+    EXPECT_TRUE(tac_compare_type(parsed_type, expected));
+    tac_free_type(expected);
 }
 
 // Test pointer types
@@ -269,16 +269,16 @@ TEST_F(TacTypeParserTest, PointerToInt)
 {
     EXPECT_TRUE(Parse("*int"));
     Tac_Type *expected = CreatePointerType(CreateBasicType(TAC_TYPE_INT));
-    EXPECT_TRUE(compare_tac_type(parsed_type, expected));
-    free_tac_type(expected);
+    EXPECT_TRUE(tac_compare_type(parsed_type, expected));
+    tac_free_type(expected);
 }
 
 TEST_F(TacTypeParserTest, DoublePointerToDouble)
 {
     EXPECT_TRUE(Parse("**double"));
     Tac_Type *expected = CreatePointerType(CreatePointerType(CreateBasicType(TAC_TYPE_DOUBLE)));
-    EXPECT_TRUE(compare_tac_type(parsed_type, expected));
-    free_tac_type(expected);
+    EXPECT_TRUE(tac_compare_type(parsed_type, expected));
+    tac_free_type(expected);
 }
 
 // Test array types
@@ -286,24 +286,24 @@ TEST_F(TacTypeParserTest, ArrayOfInt)
 {
     EXPECT_TRUE(Parse("int[5]"));
     Tac_Type *expected = CreateArrayType(CreateBasicType(TAC_TYPE_INT), 5);
-    EXPECT_TRUE(compare_tac_type(parsed_type, expected));
-    free_tac_type(expected);
+    EXPECT_TRUE(tac_compare_type(parsed_type, expected));
+    tac_free_type(expected);
 }
 
 TEST_F(TacTypeParserTest, ArrayOfPointerToChar)
 {
     EXPECT_TRUE(Parse("*char[10]"));
     Tac_Type *expected = CreateArrayType(CreatePointerType(CreateBasicType(TAC_TYPE_CHAR)), 10);
-    EXPECT_TRUE(compare_tac_type(parsed_type, expected));
-    free_tac_type(expected);
+    EXPECT_TRUE(tac_compare_type(parsed_type, expected));
+    tac_free_type(expected);
 }
 
 TEST_F(TacTypeParserTest, ZeroSizedArray)
 {
     EXPECT_TRUE(Parse("float[0]"));
     Tac_Type *expected = CreateArrayType(CreateBasicType(TAC_TYPE_FLOAT), 0);
-    EXPECT_TRUE(compare_tac_type(parsed_type, expected));
-    free_tac_type(expected);
+    EXPECT_TRUE(tac_compare_type(parsed_type, expected));
+    tac_free_type(expected);
 }
 
 // Test structure types
@@ -311,8 +311,8 @@ TEST_F(TacTypeParserTest, StructType)
 {
     EXPECT_TRUE(Parse("struct mystruct"));
     Tac_Type *expected = CreateStructType("mystruct");
-    EXPECT_TRUE(compare_tac_type(parsed_type, expected));
-    free_tac_type(expected);
+    EXPECT_TRUE(tac_compare_type(parsed_type, expected));
+    tac_free_type(expected);
 }
 
 // Test function types
@@ -320,8 +320,8 @@ TEST_F(TacTypeParserTest, FunctionNoParams)
 {
     EXPECT_TRUE(Parse("fun() -> void"));
     Tac_Type *expected = CreateFunType(nullptr, CreateBasicType(TAC_TYPE_VOID));
-    EXPECT_TRUE(compare_tac_type(parsed_type, expected));
-    free_tac_type(expected);
+    EXPECT_TRUE(tac_compare_type(parsed_type, expected));
+    tac_free_type(expected);
 }
 
 TEST_F(TacTypeParserTest, FunctionSingleParam)
@@ -329,8 +329,8 @@ TEST_F(TacTypeParserTest, FunctionSingleParam)
     EXPECT_TRUE(Parse("fun(int) -> double"));
     Tac_Type *expected =
         CreateFunType(CreateBasicType(TAC_TYPE_INT), CreateBasicType(TAC_TYPE_DOUBLE));
-    EXPECT_TRUE(compare_tac_type(parsed_type, expected));
-    free_tac_type(expected);
+    EXPECT_TRUE(tac_compare_type(parsed_type, expected));
+    tac_free_type(expected);
 }
 
 TEST_F(TacTypeParserTest, FunctionMultipleParams)
@@ -343,8 +343,8 @@ TEST_F(TacTypeParserTest, FunctionMultipleParams)
     param2->next       = param3;
     Tac_Type *expected = CreateFunType(param1, CreatePointerType(CreateBasicType(TAC_TYPE_VOID)));
     EXPECT_TRUE(Parse("fun(char, *int, double[3]) -> *void"));
-    EXPECT_TRUE(compare_tac_type(parsed_type, expected));
-    free_tac_type(expected);
+    EXPECT_TRUE(tac_compare_type(parsed_type, expected));
+    tac_free_type(expected);
 }
 
 // Test invalid inputs

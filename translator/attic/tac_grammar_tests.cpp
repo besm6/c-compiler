@@ -12,36 +12,36 @@ extern "C" void yyerror(const char *s);
 extern "C" Tac_Program *parsed_program;
 
 // External TAC functions
-extern "C" Tac_Program *new_tac_program(void);
-extern "C" Tac_Type *new_tac_type(Tac_TypeKind kind);
-extern "C" Tac_Instruction *new_tac_instruction(Tac_InstructionKind kind);
-extern "C" Tac_Val *new_tac_val(Tac_ValKind kind);
-extern "C" Tac_Const *new_tac_const(Tac_ConstKind kind);
-extern "C" Tac_Param *new_tac_param(void);
-extern "C" Tac_TopLevel *new_tac_toplevel(Tac_TopLevelKind kind);
-extern "C" Tac_StaticInit *new_tac_static_init(Tac_StaticInitKind kind);
-extern "C" bool compare_tac_program(const Tac_Program *a, const Tac_Program *b);
-extern "C" bool compare_tac_toplevel(const Tac_TopLevel *a, const Tac_TopLevel *b);
-extern "C" bool compare_tac_param(const Tac_Param *a, const Tac_Param *b);
-extern "C" bool compare_tac_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b);
-extern "C" bool compare_tac_type(const Tac_Type *a, const Tac_Type *b);
-extern "C" bool compare_tac_instruction(const Tac_Instruction *a, const Tac_Instruction *b);
-extern "C" bool compare_tac_val(const Tac_Val *a, const Tac_Val *b);
-extern "C" bool compare_tac_const(const Tac_Const *a, const Tac_Const *b);
-extern "C" void free_tac_type(Tac_Type *type);
-extern "C" void free_tac_instruction(Tac_Instruction *instr);
-extern "C" void free_tac_val(Tac_Val *val);
-extern "C" void free_tac_const(Tac_Const *constant);
-extern "C" void free_tac_param(Tac_Param *param);
-extern "C" void free_tac_static_init(Tac_StaticInit *init);
-extern "C" void free_tac_toplevel(Tac_TopLevel *toplevel);
+extern "C" Tac_Program *tac_new_program(void);
+extern "C" Tac_Type *tac_new_type(Tac_TypeKind kind);
+extern "C" Tac_Instruction *tac_new_instruction(Tac_InstructionKind kind);
+extern "C" Tac_Val *tac_new_val(Tac_ValKind kind);
+extern "C" Tac_Const *tac_new_const(Tac_ConstKind kind);
+extern "C" Tac_Param *tac_new_param(void);
+extern "C" Tac_TopLevel *tac_new_toplevel(Tac_TopLevelKind kind);
+extern "C" Tac_StaticInit *tac_new_static_init(Tac_StaticInitKind kind);
+extern "C" bool tac_compare_program(const Tac_Program *a, const Tac_Program *b);
+extern "C" bool tac_compare_toplevel(const Tac_TopLevel *a, const Tac_TopLevel *b);
+extern "C" bool tac_compare_param(const Tac_Param *a, const Tac_Param *b);
+extern "C" bool tac_compare_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b);
+extern "C" bool tac_compare_type(const Tac_Type *a, const Tac_Type *b);
+extern "C" bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b);
+extern "C" bool tac_compare_val(const Tac_Val *a, const Tac_Val *b);
+extern "C" bool tac_compare_const(const Tac_Const *a, const Tac_Const *b);
+extern "C" void tac_free_type(Tac_Type *type);
+extern "C" void tac_free_instruction(Tac_Instruction *instr);
+extern "C" void tac_free_val(Tac_Val *val);
+extern "C" void tac_free_const(Tac_Const *constant);
+extern "C" void tac_free_param(Tac_Param *param);
+extern "C" void tac_free_static_init(Tac_StaticInit *init);
+extern "C" void tac_free_toplevel(Tac_TopLevel *toplevel);
 
-// Define free_tac_program if not provided
-extern "C" void free_tac_program(Tac_Program *prog)
+// Define tac_free_program if not provided
+extern "C" void tac_free_program(Tac_Program *prog)
 {
     if (!prog)
         return;
-    free_tac_toplevel(prog->decls);
+    tac_free_toplevel(prog->decls);
     free(prog);
 }
 
@@ -278,7 +278,7 @@ protected:
     void TearDown() override
     {
         if (parsed_program) {
-            free_tac_program(parsed_program);
+            tac_free_program(parsed_program);
             parsed_program = nullptr;
         }
         input_buffer.clear();
@@ -296,12 +296,12 @@ protected:
     }
 
     // Helper to create a basic type
-    Tac_Type *CreateBasicType(Tac_TypeKind kind) { return new_tac_type(kind); }
+    Tac_Type *CreateBasicType(Tac_TypeKind kind) { return tac_new_type(kind); }
 
     // Helper to create a pointer type
     Tac_Type *CreatePointerType(Tac_Type *referenced)
     {
-        Tac_Type *type             = new_tac_type(TAC_TYPE_POINTER);
+        Tac_Type *type             = tac_new_type(TAC_TYPE_POINTER);
         type->u.pointer.referenced = referenced;
         return type;
     }
@@ -309,7 +309,7 @@ protected:
     // Helper to create an array type
     Tac_Type *CreateArrayType(Tac_Type *element, int size)
     {
-        Tac_Type *type        = new_tac_type(TAC_TYPE_ARRAY);
+        Tac_Type *type        = tac_new_type(TAC_TYPE_ARRAY);
         type->u.array.element = element;
         type->u.array.size    = size;
         return type;
@@ -318,7 +318,7 @@ protected:
     // Helper to create a function type
     Tac_Type *CreateFunType(Tac_Type *params, Tac_Type *ret)
     {
-        Tac_Type *type          = new_tac_type(TAC_TYPE_FUN_TYPE);
+        Tac_Type *type          = tac_new_type(TAC_TYPE_FUN_TYPE);
         type->u.fun_type.params = params;
         type->u.fun_type.ret    = ret;
         return type;
@@ -327,7 +327,7 @@ protected:
     // Helper to create a structure type
     Tac_Type *CreateStructType(const char *tag)
     {
-        Tac_Type *type        = new_tac_type(TAC_TYPE_STRUCTURE);
+        Tac_Type *type        = tac_new_type(TAC_TYPE_STRUCTURE);
         type->u.structure.tag = strdup(tag);
         return type;
     }
@@ -335,7 +335,7 @@ protected:
     // Helper to create a variable value
     Tac_Val *CreateVar(const char *name)
     {
-        Tac_Val *val    = new_tac_val(TAC_VAL_VAR);
+        Tac_Val *val    = tac_new_val(TAC_VAL_VAR);
         val->u.var_name = strdup(name);
         return val;
     }
@@ -343,9 +343,9 @@ protected:
     // Helper to create an integer constant value
     Tac_Val *CreateIntConst(int val)
     {
-        Tac_Const *c  = new_tac_const(TAC_CONST_INT);
+        Tac_Const *c  = tac_new_const(TAC_CONST_INT);
         c->u.int_val  = val;
-        Tac_Val *v    = new_tac_val(TAC_VAL_CONSTANT);
+        Tac_Val *v    = tac_new_val(TAC_VAL_CONSTANT);
         v->u.constant = c;
         return v;
     }
@@ -353,9 +353,9 @@ protected:
     // Helper to create a double constant value
     Tac_Val *CreateDoubleConst(double val)
     {
-        Tac_Const *c    = new_tac_const(TAC_CONST_DOUBLE);
+        Tac_Const *c    = tac_new_const(TAC_CONST_DOUBLE);
         c->u.double_val = val;
-        Tac_Val *v      = new_tac_val(TAC_VAL_CONSTANT);
+        Tac_Val *v      = tac_new_val(TAC_VAL_CONSTANT);
         v->u.constant   = c;
         return v;
     }
@@ -363,13 +363,13 @@ protected:
     // Helper to create an instruction
     Tac_Instruction *CreateInstruction(Tac_InstructionKind kind)
     {
-        return new_tac_instruction(kind);
+        return tac_new_instruction(kind);
     }
 
     // Helper to create a parameter
     Tac_Param *CreateParam(const char *name)
     {
-        Tac_Param *param = new_tac_param();
+        Tac_Param *param = tac_new_param();
         param->name      = strdup(name);
         return param;
     }
@@ -377,35 +377,35 @@ protected:
     // Helper to create a static initializer
     Tac_StaticInit *CreateStaticInitInt(int val)
     {
-        Tac_StaticInit *init = new_tac_static_init(TAC_STATIC_INIT_INT);
+        Tac_StaticInit *init = tac_new_static_init(TAC_STATIC_INIT_INT);
         init->u.int_val      = val;
         return init;
     }
 
     Tac_StaticInit *CreateStaticInitDouble(double val)
     {
-        Tac_StaticInit *init = new_tac_static_init(TAC_STATIC_INIT_DOUBLE);
+        Tac_StaticInit *init = tac_new_static_init(TAC_STATIC_INIT_DOUBLE);
         init->u.double_val   = val;
         return init;
     }
 
     Tac_StaticInit *CreateStaticInitChar(int val)
     {
-        Tac_StaticInit *init = new_tac_static_init(TAC_STATIC_INIT_CHAR);
+        Tac_StaticInit *init = tac_new_static_init(TAC_STATIC_INIT_CHAR);
         init->u.char_val     = val;
         return init;
     }
 
     Tac_StaticInit *CreateStaticInitZero(int bytes)
     {
-        Tac_StaticInit *init = new_tac_static_init(TAC_STATIC_INIT_ZERO);
+        Tac_StaticInit *init = tac_new_static_init(TAC_STATIC_INIT_ZERO);
         init->u.zero_bytes   = bytes;
         return init;
     }
 
     Tac_StaticInit *CreateStaticInitString(const char *val, bool null_term)
     {
-        Tac_StaticInit *init           = new_tac_static_init(TAC_STATIC_INIT_STRING);
+        Tac_StaticInit *init           = tac_new_static_init(TAC_STATIC_INIT_STRING);
         init->u.string.val             = strdup(val);
         init->u.string.null_terminated = null_term;
         return init;
@@ -413,7 +413,7 @@ protected:
 
     Tac_StaticInit *CreateStaticInitPointer(const char *name)
     {
-        Tac_StaticInit *init = new_tac_static_init(TAC_STATIC_INIT_POINTER);
+        Tac_StaticInit *init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
         init->u.pointer_name = strdup(name);
         return init;
     }
@@ -422,7 +422,7 @@ protected:
     Tac_TopLevel *CreateFunction(const char *name, bool global, Tac_Param *params,
                                  Tac_Instruction *body)
     {
-        Tac_TopLevel *tl      = new_tac_toplevel(TAC_TOPLEVEL_FUNCTION);
+        Tac_TopLevel *tl      = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
         tl->u.function.name   = strdup(name);
         tl->u.function.global = global;
         tl->u.function.params = params;
@@ -433,7 +433,7 @@ protected:
     Tac_TopLevel *CreateStaticVar(const char *name, bool global, Tac_Type *type,
                                   Tac_StaticInit *init_list)
     {
-        Tac_TopLevel *tl                = new_tac_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+        Tac_TopLevel *tl                = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
         tl->u.static_variable.name      = strdup(name);
         tl->u.static_variable.global    = global;
         tl->u.static_variable.type      = type;
@@ -443,7 +443,7 @@ protected:
 
     Tac_TopLevel *CreateStaticConst(const char *name, Tac_Type *type, Tac_StaticInit *init)
     {
-        Tac_TopLevel *tl           = new_tac_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
+        Tac_TopLevel *tl           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
         tl->u.static_constant.name = strdup(name);
         tl->u.static_constant.type = type;
         tl->u.static_constant.init = init;
@@ -455,28 +455,28 @@ protected:
 TEST_F(TacParserTest, EmptyProgram)
 {
     EXPECT_TRUE(Parse(""));
-    Tac_Program *expected = new_tac_program();
-    EXPECT_TRUE(compare_tac_program(parsed_program, expected));
-    free_tac_program(expected);
+    Tac_Program *expected = tac_new_program();
+    EXPECT_TRUE(tac_compare_program(parsed_program, expected));
+    tac_free_program(expected);
 }
 
 // Test function with no parameters
 TEST_F(TacParserTest, FunctionNoParams)
 {
     EXPECT_TRUE(Parse("function main() { return 0; }"));
-    Tac_Program *expected  = new_tac_program();
+    Tac_Program *expected  = tac_new_program();
     Tac_Instruction *instr = CreateInstruction(TAC_INSTRUCTION_RETURN);
     instr->u.return_.src   = CreateIntConst(0);
     expected->decls        = CreateFunction("main", false, nullptr, instr);
-    EXPECT_TRUE(compare_tac_program(parsed_program, expected));
-    free_tac_program(expected);
+    EXPECT_TRUE(tac_compare_program(parsed_program, expected));
+    tac_free_program(expected);
 }
 
 // Test global function with parameters
 TEST_F(TacParserTest, GlobalFunctionWithParams)
 {
     EXPECT_TRUE(Parse("function global add(x, y) { binary add t1, x, y; return t1; }"));
-    Tac_Program *expected   = new_tac_program();
+    Tac_Program *expected   = tac_new_program();
     Tac_Param *param1       = CreateParam("x");
     Tac_Param *param2       = CreateParam("y");
     param1->next            = param2;
@@ -489,26 +489,26 @@ TEST_F(TacParserTest, GlobalFunctionWithParams)
     instr2->u.return_.src   = CreateVar("t1");
     instr1->next            = instr2;
     expected->decls         = CreateFunction("add", true, param1, instr1);
-    EXPECT_TRUE(compare_tac_program(parsed_program, expected));
-    free_tac_program(expected);
+    EXPECT_TRUE(tac_compare_program(parsed_program, expected));
+    tac_free_program(expected);
 }
 
 // Test static variable
 TEST_F(TacParserTest, StaticVariable)
 {
     EXPECT_TRUE(Parse("static int x = 42;"));
-    Tac_Program *expected = new_tac_program();
+    Tac_Program *expected = tac_new_program();
     Tac_StaticInit *init  = CreateStaticInitInt(42);
     expected->decls       = CreateStaticVar("x", false, CreateBasicType(TAC_TYPE_INT), init);
-    EXPECT_TRUE(compare_tac_program(parsed_program, expected));
-    free_tac_program(expected);
+    EXPECT_TRUE(tac_compare_program(parsed_program, expected));
+    tac_free_program(expected);
 }
 
 // Test global static variable with init list
 TEST_F(TacParserTest, GlobalStaticVariableWithInitList)
 {
     EXPECT_TRUE(Parse("static global *int arr = 1, zero(4), \"text\";"));
-    Tac_Program *expected = new_tac_program();
+    Tac_Program *expected = tac_new_program();
     Tac_StaticInit *init1 = CreateStaticInitInt(1);
     Tac_StaticInit *init2 = CreateStaticInitZero(4);
     Tac_StaticInit *init3 = CreateStaticInitString("text", true);
@@ -516,26 +516,26 @@ TEST_F(TacParserTest, GlobalStaticVariableWithInitList)
     init2->next           = init3;
     expected->decls =
         CreateStaticVar("arr", true, CreatePointerType(CreateBasicType(TAC_TYPE_INT)), init1);
-    EXPECT_TRUE(compare_tac_program(parsed_program, expected));
-    free_tac_program(expected);
+    EXPECT_TRUE(tac_compare_program(parsed_program, expected));
+    tac_free_program(expected);
 }
 
 // Test static constant
 TEST_F(TacParserTest, StaticConstant)
 {
     EXPECT_TRUE(Parse("const double pi = 3.14;"));
-    Tac_Program *expected = new_tac_program();
+    Tac_Program *expected = tac_new_program();
     Tac_StaticInit *init  = CreateStaticInitDouble(3.14);
     expected->decls       = CreateStaticConst("pi", CreateBasicType(TAC_TYPE_DOUBLE), init);
-    EXPECT_TRUE(compare_tac_program(parsed_program, expected));
-    free_tac_program(expected);
+    EXPECT_TRUE(tac_compare_program(parsed_program, expected));
+    tac_free_program(expected);
 }
 
 // Test multiple top-level declarations
 TEST_F(TacParserTest, MultipleTopLevel)
 {
     EXPECT_TRUE(Parse("function main() { return 0; } static int x = 42; const char c = 'a';"));
-    Tac_Program *expected  = new_tac_program();
+    Tac_Program *expected  = tac_new_program();
     Tac_Instruction *instr = CreateInstruction(TAC_INSTRUCTION_RETURN);
     instr->u.return_.src   = CreateIntConst(0);
     Tac_TopLevel *tl1      = CreateFunction("main", false, nullptr, instr);
@@ -546,8 +546,8 @@ TEST_F(TacParserTest, MultipleTopLevel)
     tl1->next       = tl2;
     tl2->next       = tl3;
     expected->decls = tl1;
-    EXPECT_TRUE(compare_tac_program(parsed_program, expected));
-    free_tac_program(expected);
+    EXPECT_TRUE(tac_compare_program(parsed_program, expected));
+    tac_free_program(expected);
 }
 
 // Test function with complex instructions
@@ -556,7 +556,7 @@ TEST_F(TacParserTest, ComplexFunction)
     EXPECT_TRUE(
         Parse("function foo(a) { copy t1, a; fun_call bar, (t1, 3.14), t2; jump_if_zero t2, L1; "
               "label L1; }"));
-    Tac_Program *expected            = new_tac_program();
+    Tac_Program *expected            = tac_new_program();
     Tac_Param *param                 = CreateParam("a");
     Tac_Instruction *instr1          = CreateInstruction(TAC_INSTRUCTION_COPY);
     instr1->u.copy.dst               = CreateVar("t1");
@@ -575,45 +575,45 @@ TEST_F(TacParserTest, ComplexFunction)
     instr2->next                     = instr3;
     instr3->next                     = instr4;
     expected->decls                  = CreateFunction("foo", false, param, instr1);
-    EXPECT_TRUE(compare_tac_program(parsed_program, expected));
-    free_tac_program(expected);
+    EXPECT_TRUE(tac_compare_program(parsed_program, expected));
+    tac_free_program(expected);
 }
 
 // Test static init with pointer
 TEST_F(TacParserTest, StaticInitPointer)
 {
     EXPECT_TRUE(Parse("static *int p = &func;"));
-    Tac_Program *expected = new_tac_program();
+    Tac_Program *expected = tac_new_program();
     Tac_StaticInit *init  = CreateStaticInitPointer("func");
     expected->decls =
         CreateStaticVar("p", false, CreatePointerType(CreateBasicType(TAC_TYPE_INT)), init);
-    EXPECT_TRUE(compare_tac_program(parsed_program, expected));
-    free_tac_program(expected);
+    EXPECT_TRUE(tac_compare_program(parsed_program, expected));
+    tac_free_program(expected);
 }
 
 // Test complex type
 TEST_F(TacParserTest, ComplexType)
 {
     EXPECT_TRUE(Parse("static fun(int, *double) -> char f = &g;"));
-    Tac_Program *expected = new_tac_program();
+    Tac_Program *expected = tac_new_program();
     Tac_Type *param1      = CreateBasicType(TAC_TYPE_INT);
     Tac_Type *param2      = CreatePointerType(CreateBasicType(TAC_TYPE_DOUBLE));
     param1->next          = param2;
     Tac_Type *type        = CreateFunType(param1, CreateBasicType(TAC_TYPE_CHAR));
     Tac_StaticInit *init  = CreateStaticInitPointer("g");
     expected->decls       = CreateStaticVar("f", false, type, init);
-    EXPECT_TRUE(compare_tac_program(parsed_program, expected));
-    free_tac_program(expected);
+    EXPECT_TRUE(tac_compare_program(parsed_program, expected));
+    tac_free_program(expected);
 }
 
 // Test empty instruction list
 TEST_F(TacParserTest, EmptyInstructionList)
 {
     EXPECT_TRUE(Parse("function empty() { }"));
-    Tac_Program *expected = new_tac_program();
+    Tac_Program *expected = tac_new_program();
     expected->decls       = CreateFunction("empty", false, nullptr, nullptr);
-    EXPECT_TRUE(compare_tac_program(parsed_program, expected));
-    free_tac_program(expected);
+    EXPECT_TRUE(tac_compare_program(parsed_program, expected));
+    tac_free_program(expected);
 }
 
 // Test invalid inputs

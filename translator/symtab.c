@@ -37,10 +37,10 @@ void free_symbol(Symbol *sym)
         return;
     switch (sym->kind) {
     case SYM_STATIC:
-        free_tac_static_init(sym->u.static_var.init_list);
+        tac_free_static_init(sym->u.static_var.init_list);
         break;
     case SYM_CONST:
-        free_tac_static_init(sym->u.const_init);
+        tac_free_static_init(sym->u.const_init);
         break;
     default:
         break;
@@ -156,7 +156,7 @@ char *symtab_add_string(const char *s)
     t->u.array.size->u.literal->u.int_val = strlen(s) + 1;
 
     // Create Tac_StaticInit
-    Tac_StaticInit *init           = new_tac_static_init(TAC_STATIC_INIT_STRING);
+    Tac_StaticInit *init           = tac_new_static_init(TAC_STATIC_INIT_STRING);
     init->u.string.val             = xstrdup(s);
     init->u.string.null_terminated = true;
 

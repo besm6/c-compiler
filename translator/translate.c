@@ -117,8 +117,8 @@ static Tac_UnaryOperator map_unary_op(UnaryOp op)
 
 static Tac_Val *val_int(int v)
 {
-    Tac_Val *tv         = new_tac_val(TAC_VAL_CONSTANT);
-    Tac_Const *c        = new_tac_const(TAC_CONST_INT);
+    Tac_Val *tv         = tac_new_val(TAC_VAL_CONSTANT);
+    Tac_Const *c        = tac_new_const(TAC_CONST_INT);
     c->u.int_val        = v;
     tv->u.constant      = c;
     return tv;
@@ -126,8 +126,8 @@ static Tac_Val *val_int(int v)
 
 static Tac_Val *val_double(double v)
 {
-    Tac_Val *tv    = new_tac_val(TAC_VAL_CONSTANT);
-    Tac_Const *c   = new_tac_const(TAC_CONST_DOUBLE);
+    Tac_Val *tv    = tac_new_val(TAC_VAL_CONSTANT);
+    Tac_Const *c   = tac_new_const(TAC_CONST_DOUBLE);
     c->u.double_val = v;
     tv->u.constant = c;
     return tv;
@@ -135,7 +135,7 @@ static Tac_Val *val_double(double v)
 
 static Tac_Val *val_var(const char *name)
 {
-    Tac_Val *tv    = new_tac_val(TAC_VAL_VAR);
+    Tac_Val *tv    = tac_new_val(TAC_VAL_VAR);
     tv->u.var_name = xstrdup(name);
     return tv;
 }
@@ -143,7 +143,7 @@ static Tac_Val *val_var(const char *name)
 static Tac_Val *new_var_val(TacCtx *ctx)
 {
     char    *d = new_temp(ctx);
-    Tac_Val *v = new_tac_val(TAC_VAL_VAR);
+    Tac_Val *v = tac_new_val(TAC_VAL_VAR);
     v->u.var_name = d;
     return v;
 }
@@ -155,7 +155,7 @@ static Tac_Val *gen_unary(TacCtx *ctx, UnaryOp op, Expr *inner)
     Tac_Val *src = gen_expr(ctx, inner);
     Tac_Val *vd  = new_var_val(ctx);
 
-    Tac_Instruction *in = new_tac_instruction(TAC_INSTRUCTION_UNARY);
+    Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_UNARY);
     in->u.unary.op      = map_unary_op(op);
     in->u.unary.src     = src;
     in->u.unary.dst     = vd;
@@ -169,7 +169,7 @@ static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
     Tac_Val *vr = gen_expr(ctx, r);
     Tac_Val *vd = new_var_val(ctx);
 
-    Tac_Instruction *in = new_tac_instruction(TAC_INSTRUCTION_BINARY);
+    Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_BINARY);
     in->u.binary.op       = map_binary_op(op);
     in->u.binary.src1     = vl;
     in->u.binary.src2     = vr;
@@ -208,14 +208,14 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt);
 
 static void emit_jump(TacCtx *ctx, const char *target)
 {
-    Tac_Instruction *j = new_tac_instruction(TAC_INSTRUCTION_JUMP);
+    Tac_Instruction *j = tac_new_instruction(TAC_INSTRUCTION_JUMP);
     j->u.jump.target   = xstrdup(target);
     tac_append(ctx, j);
 }
 
 static void emit_label(TacCtx *ctx, const char *name)
 {
-    Tac_Instruction *l = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+    Tac_Instruction *l = tac_new_instruction(TAC_INSTRUCTION_LABEL);
     l->u.label.name    = xstrdup(name);
     tac_append(ctx, l);
 }
@@ -241,7 +241,7 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
         }
         break;
     case STMT_RETURN: {
-        Tac_Instruction *in = new_tac_instruction(TAC_INSTRUCTION_RETURN);
+        Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_RETURN);
         in->u.return_.src     = stmt->u.expr ? gen_expr(ctx, stmt->u.expr) : NULL;
         tac_append(ctx, in);
         break;
@@ -251,7 +251,7 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
         char          *else_l = new_temp(ctx);
         const char    *end_l  = new_temp(ctx);
 
-        Tac_Instruction *jz = new_tac_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
+        Tac_Instruction *jz = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
         jz->u.jump_if_zero.condition = cond;
         jz->u.jump_if_zero.target    = else_l;
         tac_append(ctx, jz);
@@ -272,7 +272,7 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
         }
         emit_label(ctx, cl);
         Tac_Val *cond = gen_expr(ctx, stmt->u.while_stmt.condition);
-        Tac_Instruction *jz = new_tac_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
+        Tac_Instruction *jz = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
         jz->u.jump_if_zero.condition = cond;
         jz->u.jump_if_zero.target    = xstrdup(bl);
         tac_append(ctx, jz);
@@ -292,7 +292,7 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
         gen_stmt(ctx, stmt->u.do_while.body);
         emit_label(ctx, cl);
         Tac_Val *cond = gen_expr(ctx, stmt->u.do_while.condition);
-        Tac_Instruction *jnz = new_tac_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
+        Tac_Instruction *jnz = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
         jnz->u.jump_if_not_zero.condition = cond;
         jnz->u.jump_if_not_zero.target    = loop_top;
         tac_append(ctx, jnz);
@@ -318,7 +318,7 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
         emit_label(ctx, test_lab);
         if (stmt->u.for_stmt.condition) {
             Tac_Val *cond = gen_expr(ctx, stmt->u.for_stmt.condition);
-            Tac_Instruction *jz = new_tac_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
+            Tac_Instruction *jz = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
             jz->u.jump_if_zero.condition = cond;
             jz->u.jump_if_zero.target    = xstrdup(bl);
             tac_append(ctx, jz);
@@ -369,7 +369,7 @@ static Tac_Param *params_from_type(const Type *fun_type)
     Tac_Param *head = NULL;
     Tac_Param **tail = &head;
     for (const Param *p = fun_type->u.function.params; p; p = p->next) {
-        Tac_Param *tp = new_tac_param();
+        Tac_Param *tp = tac_new_param();
         tp->name      = p->name ? xstrdup(p->name) : xstrdup("");
         *tail         = tp;
         tail          = &tp->next;
@@ -392,7 +392,7 @@ static Tac_TopLevel *translate_external_decl(ExternalDecl *ast)
 
     gen_stmt(&ctx, ast->u.function.body);
 
-    Tac_TopLevel *tl  = new_tac_toplevel(TAC_TOPLEVEL_FUNCTION);
+    Tac_TopLevel *tl  = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
     tl->u.function.name   = xstrdup(ast->u.function.name);
     tl->u.function.global = true;
     tl->u.function.params = params_from_type(ast->u.function.type);

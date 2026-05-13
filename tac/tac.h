@@ -342,55 +342,55 @@ typedef struct Tac_StaticInit {
 //
 // Allocate
 //
-Tac_Val *new_tac_val(Tac_ValKind kind);
-Tac_Instruction *new_tac_instruction(Tac_InstructionKind kind);
-Tac_Type *new_tac_type(Tac_TypeKind kind);
-Tac_Const *new_tac_const(Tac_ConstKind kind);
-Tac_Param *new_tac_param(void);
-Tac_TopLevel *new_tac_toplevel(Tac_TopLevelKind kind);
-Tac_StaticInit *new_tac_static_init(Tac_StaticInitKind kind);
-Tac_Program *new_tac_program(void);
+Tac_Val *tac_new_val(Tac_ValKind kind);
+Tac_Instruction *tac_new_instruction(Tac_InstructionKind kind);
+Tac_Type *tac_new_type(Tac_TypeKind kind);
+Tac_Const *tac_new_const(Tac_ConstKind kind);
+Tac_Param *tac_new_param(void);
+Tac_TopLevel *tac_new_toplevel(Tac_TopLevelKind kind);
+Tac_StaticInit *tac_new_static_init(Tac_StaticInitKind kind);
+Tac_Program *tac_new_program(void);
 
 //
 // Deallocate
 //
-void free_tac_program(Tac_Program *program);
-void free_tac_const(Tac_Const *constant);
-void free_tac_val(Tac_Val *val);
-void free_tac_instruction(Tac_Instruction *instr);
-void free_tac_type(Tac_Type *type);
-void free_tac_param(Tac_Param *param);
-void free_tac_static_init(Tac_StaticInit *init);
-void free_tac_toplevel(Tac_TopLevel *toplevel);
+void tac_free_program(Tac_Program *program);
+void tac_free_const(Tac_Const *constant);
+void tac_free_val(Tac_Val *val);
+void tac_free_instruction(Tac_Instruction *instr);
+void tac_free_type(Tac_Type *type);
+void tac_free_param(Tac_Param *param);
+void tac_free_static_init(Tac_StaticInit *init);
+void tac_free_toplevel(Tac_TopLevel *toplevel);
 
 //
 // Print
 //
-void print_tac_const(FILE *fd, const Tac_Const *constant, int depth);
-void print_tac_val(FILE *fd, const Tac_Val *val, int depth);
-void print_tac_type(FILE *fd, const Tac_Type *type, int depth);
-void print_tac_param(FILE *fd, const Tac_Param *param, int depth);
-void print_tac_static_init(FILE *fd, const Tac_StaticInit *init, int depth);
-void print_tac_instruction(FILE *fd, const Tac_Instruction *instr, int depth);
-void print_tac_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth);
-void print_tac_program(FILE *fd, const Tac_Program *program);
+void tac_print_const(FILE *fd, const Tac_Const *constant, int depth);
+void tac_print_val(FILE *fd, const Tac_Val *val, int depth);
+void tac_print_type(FILE *fd, const Tac_Type *type, int depth);
+void tac_print_param(FILE *fd, const Tac_Param *param, int depth);
+void tac_print_static_init(FILE *fd, const Tac_StaticInit *init, int depth);
+void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth);
+void tac_print_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth);
+void tac_print_program(FILE *fd, const Tac_Program *program);
 
 //
 // Graphviz (instruction-level sketch)
 //
-void tac_fprint_dot(FILE *fd, const Tac_TopLevel *toplevel);
+void tac_export_dot(FILE *fd, const Tac_TopLevel *toplevel);
 
 //
 // Compare
 //
-bool compare_tac_const(const Tac_Const *a, const Tac_Const *b);
-bool compare_tac_val(const Tac_Val *a, const Tac_Val *b);
-bool compare_tac_type(const Tac_Type *a, const Tac_Type *b);
-bool compare_tac_param(const Tac_Param *a, const Tac_Param *b);
-bool compare_tac_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b);
-bool compare_tac_instruction(const Tac_Instruction *a, const Tac_Instruction *b);
-bool compare_tac_toplevel(const Tac_TopLevel *a, const Tac_TopLevel *b);
-bool compare_tac_program(const Tac_Program *a, const Tac_Program *b);
+bool tac_compare_const(const Tac_Const *a, const Tac_Const *b);
+bool tac_compare_val(const Tac_Val *a, const Tac_Val *b);
+bool tac_compare_type(const Tac_Type *a, const Tac_Type *b);
+bool tac_compare_param(const Tac_Param *a, const Tac_Param *b);
+bool tac_compare_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b);
+bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b);
+bool tac_compare_toplevel(const Tac_TopLevel *a, const Tac_TopLevel *b);
+bool tac_compare_program(const Tac_Program *a, const Tac_Program *b);
 
 #ifdef __cplusplus
 }

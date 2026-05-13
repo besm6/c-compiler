@@ -14,7 +14,7 @@ static void print_indent(FILE *fd, int depth)
 }
 
 // Print a Tac_Const to a file
-void print_tac_const(FILE *fd, const Tac_Const *constant, int depth)
+void tac_print_const(FILE *fd, const Tac_Const *constant, int depth)
 {
     if (!constant) {
         print_indent(fd, depth);
@@ -55,7 +55,7 @@ void print_tac_const(FILE *fd, const Tac_Const *constant, int depth)
 }
 
 // Print a Tac_Val recursively to a file
-void print_tac_val(FILE *fd, const Tac_Val *val, int depth)
+void tac_print_val(FILE *fd, const Tac_Val *val, int depth)
 {
     if (!val) {
         print_indent(fd, depth);
@@ -67,19 +67,19 @@ void print_tac_val(FILE *fd, const Tac_Val *val, int depth)
     print_indent(fd, depth + 1);
     if (val->kind == TAC_VAL_CONSTANT) {
         fprintf(fd, "Constant:\n");
-        print_tac_const(fd, val->u.constant, depth + 2);
+        tac_print_const(fd, val->u.constant, depth + 2);
     } else {
         fprintf(fd, "Var: %s\n", val->u.var_name ? val->u.var_name : "(null)");
     }
     if (val->next) {
         print_indent(fd, depth + 1);
         fprintf(fd, "Next:\n");
-        print_tac_val(fd, val->next, depth + 2);
+        tac_print_val(fd, val->next, depth + 2);
     }
 }
 
 // Print a Tac_Type recursively to a file
-void print_tac_type(FILE *fd, const Tac_Type *type, int depth)
+void tac_print_type(FILE *fd, const Tac_Type *type, int depth)
 {
     if (!type) {
         print_indent(fd, depth);
@@ -147,18 +147,18 @@ void print_tac_type(FILE *fd, const Tac_Type *type, int depth)
     if (type->kind == TAC_TYPE_FUN_TYPE) {
         print_indent(fd, depth + 1);
         fprintf(fd, "Params:\n");
-        print_tac_type(fd, type->u.fun_type.param_types, depth + 2);
+        tac_print_type(fd, type->u.fun_type.param_types, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Return:\n");
-        print_tac_type(fd, type->u.fun_type.ret_type, depth + 2);
+        tac_print_type(fd, type->u.fun_type.ret_type, depth + 2);
     } else if (type->kind == TAC_TYPE_POINTER) {
         print_indent(fd, depth + 1);
         fprintf(fd, "Referenced:\n");
-        print_tac_type(fd, type->u.pointer.target_type, depth + 2);
+        tac_print_type(fd, type->u.pointer.target_type, depth + 2);
     } else if (type->kind == TAC_TYPE_ARRAY) {
         print_indent(fd, depth + 1);
         fprintf(fd, "Element:\n");
-        print_tac_type(fd, type->u.array.elem_type, depth + 2);
+        tac_print_type(fd, type->u.array.elem_type, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Size: %d\n", type->u.array.size);
     } else if (type->kind == TAC_TYPE_STRUCTURE) {
@@ -168,12 +168,12 @@ void print_tac_type(FILE *fd, const Tac_Type *type, int depth)
     if (type->next) {
         print_indent(fd, depth + 1);
         fprintf(fd, "Next:\n");
-        print_tac_type(fd, type->next, depth + 2);
+        tac_print_type(fd, type->next, depth + 2);
     }
 }
 
 // Print a Tac_Param recursively to a file
-void print_tac_param(FILE *fd, const Tac_Param *param, int depth)
+void tac_print_param(FILE *fd, const Tac_Param *param, int depth)
 {
     if (!param) {
         print_indent(fd, depth);
@@ -185,12 +185,12 @@ void print_tac_param(FILE *fd, const Tac_Param *param, int depth)
     if (param->next) {
         print_indent(fd, depth + 1);
         fprintf(fd, "Next:\n");
-        print_tac_param(fd, param->next, depth + 2);
+        tac_print_param(fd, param->next, depth + 2);
     }
 }
 
 // Print a Tac_StaticInit recursively to a file
-void print_tac_static_init(FILE *fd, const Tac_StaticInit *init, int depth)
+void tac_print_static_init(FILE *fd, const Tac_StaticInit *init, int depth)
 {
     if (!init) {
         print_indent(fd, depth);
@@ -237,12 +237,12 @@ void print_tac_static_init(FILE *fd, const Tac_StaticInit *init, int depth)
     if (init->next) {
         print_indent(fd, depth + 1);
         fprintf(fd, "Next:\n");
-        print_tac_static_init(fd, init->next, depth + 2);
+        tac_print_static_init(fd, init->next, depth + 2);
     }
 }
 
 // Print a Tac_Instruction recursively to a file
-void print_tac_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
+void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
 {
     if (!instr) {
         print_indent(fd, depth);
@@ -342,7 +342,7 @@ void print_tac_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
     case TAC_INSTRUCTION_RETURN:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src:\n");
-        print_tac_val(fd, instr->u.return_.src, depth + 2);
+        tac_print_val(fd, instr->u.return_.src, depth + 2);
         break;
     case TAC_INSTRUCTION_SIGN_EXTEND:
     case TAC_INSTRUCTION_TRUNCATE:
@@ -353,72 +353,72 @@ void print_tac_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
     case TAC_INSTRUCTION_UINT_TO_DOUBLE:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src:\n");
-        print_tac_val(fd, instr->u.sign_extend.src, depth + 2);
+        tac_print_val(fd, instr->u.sign_extend.src, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
-        print_tac_val(fd, instr->u.sign_extend.dst, depth + 2);
+        tac_print_val(fd, instr->u.sign_extend.dst, depth + 2);
         break;
     case TAC_INSTRUCTION_UNARY:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src:\n");
-        print_tac_val(fd, instr->u.unary.src, depth + 2);
+        tac_print_val(fd, instr->u.unary.src, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
-        print_tac_val(fd, instr->u.unary.dst, depth + 2);
+        tac_print_val(fd, instr->u.unary.dst, depth + 2);
         break;
     case TAC_INSTRUCTION_BINARY:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src1:\n");
-        print_tac_val(fd, instr->u.binary.src1, depth + 2);
+        tac_print_val(fd, instr->u.binary.src1, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Src2:\n");
-        print_tac_val(fd, instr->u.binary.src2, depth + 2);
+        tac_print_val(fd, instr->u.binary.src2, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
-        print_tac_val(fd, instr->u.binary.dst, depth + 2);
+        tac_print_val(fd, instr->u.binary.dst, depth + 2);
         break;
     case TAC_INSTRUCTION_COPY:
     case TAC_INSTRUCTION_GET_ADDRESS:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src:\n");
-        print_tac_val(fd, instr->u.copy.src, depth + 2);
+        tac_print_val(fd, instr->u.copy.src, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
-        print_tac_val(fd, instr->u.copy.dst, depth + 2);
+        tac_print_val(fd, instr->u.copy.dst, depth + 2);
         break;
     case TAC_INSTRUCTION_LOAD:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src_ptr:\n");
-        print_tac_val(fd, instr->u.load.src_ptr, depth + 2);
+        tac_print_val(fd, instr->u.load.src_ptr, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
-        print_tac_val(fd, instr->u.load.dst, depth + 2);
+        tac_print_val(fd, instr->u.load.dst, depth + 2);
         break;
     case TAC_INSTRUCTION_STORE:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src:\n");
-        print_tac_val(fd, instr->u.store.src, depth + 2);
+        tac_print_val(fd, instr->u.store.src, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst_ptr:\n");
-        print_tac_val(fd, instr->u.store.dst_ptr, depth + 2);
+        tac_print_val(fd, instr->u.store.dst_ptr, depth + 2);
         break;
     case TAC_INSTRUCTION_ADD_PTR:
         print_indent(fd, depth + 1);
         fprintf(fd, "Ptr:\n");
-        print_tac_val(fd, instr->u.add_ptr.ptr, depth + 2);
+        tac_print_val(fd, instr->u.add_ptr.ptr, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Index:\n");
-        print_tac_val(fd, instr->u.add_ptr.index, depth + 2);
+        tac_print_val(fd, instr->u.add_ptr.index, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Scale: %d\n", instr->u.add_ptr.scale);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
-        print_tac_val(fd, instr->u.add_ptr.dst, depth + 2);
+        tac_print_val(fd, instr->u.add_ptr.dst, depth + 2);
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src:\n");
-        print_tac_val(fd, instr->u.copy_to_offset.src, depth + 2);
+        tac_print_val(fd, instr->u.copy_to_offset.src, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst: %s\n",
                 instr->u.copy_to_offset.dst ? instr->u.copy_to_offset.dst : "(null)");
@@ -433,7 +433,7 @@ void print_tac_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
         fprintf(fd, "Offset: %d\n", instr->u.copy_from_offset.offset);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
-        print_tac_val(fd, instr->u.copy_from_offset.dst, depth + 2);
+        tac_print_val(fd, instr->u.copy_from_offset.dst, depth + 2);
         break;
     case TAC_INSTRUCTION_JUMP:
         print_indent(fd, depth + 1);
@@ -443,7 +443,7 @@ void print_tac_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
     case TAC_INSTRUCTION_JUMP_IF_NOT_ZERO:
         print_indent(fd, depth + 1);
         fprintf(fd, "Condition:\n");
-        print_tac_val(fd, instr->u.jump_if_zero.condition, depth + 2);
+        tac_print_val(fd, instr->u.jump_if_zero.condition, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Target: %s\n",
                 instr->u.jump_if_zero.target ? instr->u.jump_if_zero.target : "(null)");
@@ -458,21 +458,21 @@ void print_tac_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
                 instr->u.fun_call.fun_name ? instr->u.fun_call.fun_name : "(null)");
         print_indent(fd, depth + 1);
         fprintf(fd, "Args:\n");
-        print_tac_val(fd, instr->u.fun_call.args, depth + 2);
+        tac_print_val(fd, instr->u.fun_call.args, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
-        print_tac_val(fd, instr->u.fun_call.dst, depth + 2);
+        tac_print_val(fd, instr->u.fun_call.dst, depth + 2);
         break;
     }
     if (instr->next) {
         print_indent(fd, depth + 1);
         fprintf(fd, "Next:\n");
-        print_tac_instruction(fd, instr->next, depth + 2);
+        tac_print_instruction(fd, instr->next, depth + 2);
     }
 }
 
 // Print a Tac_TopLevel recursively to a file
-void print_tac_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth)
+void tac_print_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth)
 {
     if (!toplevel) {
         print_indent(fd, depth);
@@ -492,10 +492,10 @@ void print_tac_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth)
         fprintf(fd, "Global: %d\n", toplevel->u.function.global);
         print_indent(fd, depth + 1);
         fprintf(fd, "Params:\n");
-        print_tac_param(fd, toplevel->u.function.params, depth + 2);
+        tac_print_param(fd, toplevel->u.function.params, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Body:\n");
-        print_tac_instruction(fd, toplevel->u.function.body, depth + 2);
+        tac_print_instruction(fd, toplevel->u.function.body, depth + 2);
         break;
     case TAC_TOPLEVEL_STATIC_VARIABLE:
         print_indent(fd, depth + 1);
@@ -505,10 +505,10 @@ void print_tac_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth)
         fprintf(fd, "Global: %d\n", toplevel->u.static_variable.global);
         print_indent(fd, depth + 1);
         fprintf(fd, "Type:\n");
-        print_tac_type(fd, toplevel->u.static_variable.type, depth + 2);
+        tac_print_type(fd, toplevel->u.static_variable.type, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Init_list:\n");
-        print_tac_static_init(fd, toplevel->u.static_variable.init_list, depth + 2);
+        tac_print_static_init(fd, toplevel->u.static_variable.init_list, depth + 2);
         break;
     case TAC_TOPLEVEL_STATIC_CONSTANT:
         print_indent(fd, depth + 1);
@@ -516,26 +516,26 @@ void print_tac_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth)
                 toplevel->u.static_constant.name ? toplevel->u.static_constant.name : "(null)");
         print_indent(fd, depth + 1);
         fprintf(fd, "Type:\n");
-        print_tac_type(fd, toplevel->u.static_constant.type, depth + 2);
+        tac_print_type(fd, toplevel->u.static_constant.type, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Init:\n");
-        print_tac_static_init(fd, toplevel->u.static_constant.init, depth + 2);
+        tac_print_static_init(fd, toplevel->u.static_constant.init, depth + 2);
         break;
     }
     if (toplevel->next) {
         print_indent(fd, depth + 1);
         fprintf(fd, "Next:\n");
-        print_tac_toplevel(fd, toplevel->next, depth + 2);
+        tac_print_toplevel(fd, toplevel->next, depth + 2);
     }
 }
 
 // Main print function
-void print_tac_program(FILE *fd, const Tac_Program *program)
+void tac_print_program(FILE *fd, const Tac_Program *program)
 {
     if (!program) {
         fprintf(fd, "Program: null\n");
         return;
     }
     fprintf(fd, "Program:\n");
-    print_tac_toplevel(fd, program->decls, 2);
+    tac_print_toplevel(fd, program->decls, 2);
 }

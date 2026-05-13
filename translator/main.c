@@ -212,11 +212,11 @@ static void emit_tac_toplevel(const Args *args, WFILE *tac_out, const Tac_TopLev
         tac_export_toplevel(tac_out, tac);
         break;
     case FORMAT_YAML:
-        print_tac_toplevel(output_file, tac, 0);
+        //TODO: tac_export_yaml(output_file, tac, 0);
         fflush(output_file);
         break;
     case FORMAT_DOT:
-        tac_fprint_dot(output_file, tac);
+        tac_export_dot(output_file, tac);
         fflush(output_file);
         break;
     }
@@ -281,10 +281,10 @@ void process_file(const Args *args)
         free_external_decl(ast);
         if (tac) {
             if (args->debug) {
-                print_tac_toplevel(stdout, tac, 0);
+                tac_print_toplevel(stdout, tac, 0);
             }
             emit_tac_toplevel(args, tac_out_ready ? &tac_out : NULL, tac);
-            free_tac_toplevel(tac);
+            tac_free_toplevel(tac);
         }
     }
     wclose(&input);

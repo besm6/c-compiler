@@ -2,7 +2,7 @@
 
 #include "tac.h"
 
-void tac_fprint_dot(FILE *fd, const Tac_TopLevel *tl)
+void tac_export_dot(FILE *fd, const Tac_TopLevel *tl)
 {
     if (!tl || tl->kind != TAC_TOPLEVEL_FUNCTION) {
         fprintf(fd, "digraph TAC { empty [label=\"no function\"]; }\n");

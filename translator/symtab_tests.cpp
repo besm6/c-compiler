@@ -94,7 +94,7 @@ TEST_F(SymtabTest, AddAutomaticVarOverwrite)
 TEST_F(SymtabTest, AddStaticVarWithInitializer)
 {
     Type *int_type       = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    Tac_StaticInit *init = new_tac_static_init(TAC_STATIC_INIT_I32);
+    Tac_StaticInit *init = tac_new_static_init(TAC_STATIC_INIT_I32);
     init->u.int_val      = 42;
 
     symtab_add_static_var("x", int_type, true, INIT_INITIALIZED, init);

@@ -6,14 +6,14 @@
 #include "tac.h"
 
 // Assume these allocation routines exist
-extern Tac_Val *new_tac_val(Tac_ValKind kind);
-extern Tac_Instruction *new_tac_instruction(Tac_InstructionKind kind);
-extern Tac_Type *new_tac_type(Tac_TypeKind kind);
-extern Tac_Const *new_tac_const(Tac_ConstKind kind);
-extern Tac_Param *new_tac_param(void);
-extern Tac_TopLevel *new_tac_toplevel(Tac_TopLevelKind kind);
-extern Tac_StaticInit *new_tac_static_init(Tac_StaticInitKind kind);
-extern Tac_Field *new_tac_field(void);
+extern Tac_Val *tac_new_val(Tac_ValKind kind);
+extern Tac_Instruction *tac_new_instruction(Tac_InstructionKind kind);
+extern Tac_Type *tac_new_type(Tac_TypeKind kind);
+extern Tac_Const *tac_new_const(Tac_ConstKind kind);
+extern Tac_Param *tac_new_param(void);
+extern Tac_TopLevel *tac_new_toplevel(Tac_TopLevelKind kind);
+extern Tac_StaticInit *tac_new_static_init(Tac_StaticInitKind kind);
+extern Tac_Field *tac_new_field(void);
 
 // Simple symbol table for tracking global and local variables, functions, structs, and unions
 typedef struct {
@@ -66,7 +66,7 @@ void init_tac_gen_context(TacGenContext *ctx)
 }
 
 // Free context
-void free_tac_gen_context(TacGenContext *ctx)
+void tac_free_gen_context(TacGenContext *ctx)
 {
     for (int i = 0; i < ctx->global_table->count; i++) {
         free(ctx->global_table->symbols[i].name);
@@ -191,7 +191,7 @@ void append_instruction(TacGenContext *ctx, Tac_Instruction *instr)
 // Convert AST Type to TAC Type
 Tac_Type *convert_type(Type *ast_type)
 {
-    Tac_Type *tac_type = new_tac_type(TAC_TYPE_VOID); // Default
+    Tac_Type *tac_type = tac_new_type(TAC_TYPE_VOID); // Default
     switch (ast_type->kind) {
     case TYPE_INT:
         tac_type->kind =
@@ -250,7 +250,7 @@ Tac_Type *convert_type(Type *ast_type)
             malloc(tac_type->u.struct_type.field_count * sizeof(Tac_Field *));
         int i = 0;
         for (Field *field = ast_type->u.struct_type.fields; field; field = field->next) {
-            Tac_Field *tac_field = new_tac_field();
+            Tac_Field *tac_field = tac_new_field();
             tac_field->name      = field->name ? strdup(field->name) : NULL;
             tac_field->type      = convert_type(field->type);
             tac_field->bit_width = field->bitfield && field->bitfield->kind == EXPR_LITERAL &&
@@ -278,7 +278,7 @@ Tac_Type *convert_type(Type *ast_type)
             malloc(tac_type->u.union_type.field_count * sizeof(Tac_Field *));
         int i = 0;
         for (Field *field = ast_type->u.union_type.fields; field; field = field->next) {
-            Tac_Field *tac_field = new_tac_field();
+            Tac_Field *tac_field = tac_new_field();
             tac_field->name      = field->name ? strdup(field->name) : NULL;
             tac_field->type      = convert_type(field->type);
             tac_field->bit_width = field->bitfield && field->bitfield->kind == EXPR_LITERAL &&
@@ -304,7 +304,7 @@ Tac_Param *convert_params(Declaration *param_decls)
         return NULL;
 
     for (InitDeclarator *id = param_decls->u.var.declarators; id; id = id->next) {
-        Tac_Param *tac_param = new_tac_param();
+        Tac_Param *tac_param = tac_new_param();
         tac_param->name      = id->name ? strdup(id->name) : NULL;
         tac_param->type      = convert_type(id->type);
         tac_param->next      = NULL;
@@ -326,8 +326,8 @@ Tac_Val *gen_init_expr(TacGenContext *ctx, Expr *expr)
         return NULL;
     switch (expr->kind) {
     case EXPR_LITERAL: {
-        Tac_Val *val    = new_tac_val(TAC_VAL_CONSTANT);
-        val->u.constant = new_tac_const(TAC_CONST_INT); // Default
+        Tac_Val *val    = tac_new_val(TAC_VAL_CONSTANT);
+        val->u.constant = tac_new_const(TAC_CONST_INT); // Default
         switch (expr->u.literal->kind) {
         case LITERAL_INT:
             val->u.constant->kind      = TAC_CONST_INT;
@@ -351,7 +351,7 @@ Tac_Val *gen_init_expr(TacGenContext *ctx, Expr *expr)
         return val;
     }
     case EXPR_VAR: {
-        Tac_Val *val    = new_tac_val(TAC_VAL_VAR);
+        Tac_Val *val    = tac_new_val(TAC_VAL_VAR);
         val->u.var_name = strdup(expr->u.var);
         return val;
     }
@@ -370,13 +370,13 @@ void gen_initializer(TacGenContext *ctx, Initializer *init, Tac_Type *type, char
     if (init->kind == INITIALIZER_SINGLE) {
         Tac_Val *value = gen_init_expr(ctx, init->u.expr);
         if (is_local) {
-            Tac_Instruction *instr        = new_tac_instruction(TAC_INSTRUCTION_COPY);
+            Tac_Instruction *instr        = tac_new_instruction(TAC_INSTRUCTION_COPY);
             instr->u.copy.src             = value;
-            instr->u.copy.dst             = new_tac_val(TAC_VAL_VAR);
+            instr->u.copy.dst             = tac_new_val(TAC_VAL_VAR);
             instr->u.copy.dst->u.var_name = strdup(var_name);
             append_instruction(ctx, instr);
         } else {
-            Tac_StaticInit *static_init = new_tac_static_init(TAC_STATIC_INIT_SINGLE);
+            Tac_StaticInit *static_init = tac_new_static_init(TAC_STATIC_INIT_SINGLE);
             static_init->u.single.value = value;
             // Return static_init for global variables
             // Note: This function returns void, so we store it externally if needed
@@ -387,15 +387,15 @@ void gen_initializer(TacGenContext *ctx, Initializer *init, Tac_Type *type, char
             for (InitItem *item = init->u.items; item; item = item->next) {
                 if (is_local) {
                     Tac_Val *value                     = gen_init_expr(ctx, item->init->u.expr);
-                    Tac_Instruction *instr             = new_tac_instruction(TAC_INSTRUCTION_STORE);
+                    Tac_Instruction *instr             = tac_new_instruction(TAC_INSTRUCTION_STORE);
                     instr->u.store.src                 = value;
-                    instr->u.store.dst_ptr             = new_tac_val(TAC_VAL_VAR);
+                    instr->u.store.dst_ptr             = tac_new_val(TAC_VAL_VAR);
                     instr->u.store.dst_ptr->u.var_name = new_temp(ctx);
-                    Tac_Instruction *add_ptr = new_tac_instruction(TAC_INSTRUCTION_ADD_PTR);
-                    add_ptr->u.add_ptr.ptr   = new_tac_val(TAC_VAL_VAR);
+                    Tac_Instruction *add_ptr = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
+                    add_ptr->u.add_ptr.ptr   = tac_new_val(TAC_VAL_VAR);
                     add_ptr->u.add_ptr.ptr->u.var_name              = strdup(var_name);
-                    add_ptr->u.add_ptr.index                        = new_tac_val(TAC_VAL_CONSTANT);
-                    add_ptr->u.add_ptr.index->u.constant            = new_tac_const(TAC_CONST_INT);
+                    add_ptr->u.add_ptr.index                        = tac_new_val(TAC_VAL_CONSTANT);
+                    add_ptr->u.add_ptr.index->u.constant            = tac_new_const(TAC_CONST_INT);
                     add_ptr->u.add_ptr.index->u.constant->u.int_val = offset;
                     add_ptr->u.add_ptr.scale = get_element_size(type->u.array.element);
                     add_ptr->u.add_ptr.dst   = instr->u.store.dst_ptr;
@@ -403,7 +403,7 @@ void gen_initializer(TacGenContext *ctx, Initializer *init, Tac_Type *type, char
                     append_instruction(ctx, instr);
                     offset++;
                 } else {
-                    Tac_StaticInit *static_init   = new_tac_static_init(TAC_STATIC_INIT_COMPOUND);
+                    Tac_StaticInit *static_init   = tac_new_static_init(TAC_STATIC_INIT_COMPOUND);
                     static_init->u.compound.count = 0;
                     for (InitItem *item = init->u.items; item; item = item->next) {
                         static_init->u.compound.count++;
@@ -439,23 +439,23 @@ void gen_initializer(TacGenContext *ctx, Initializer *init, Tac_Type *type, char
                     }
                     Tac_Val *value = gen_init_expr(ctx, item->init->u.expr);
                     if (fields[field_index]->bit_width >= 0) {
-                        Tac_Instruction *instr = new_tac_instruction(TAC_INSTRUCTION_BITFIELD_SET);
+                        Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_BITFIELD_SET);
                         instr->u.bitfield_set.src             = value;
-                        instr->u.bitfield_set.dst             = new_tac_val(TAC_VAL_VAR);
+                        instr->u.bitfield_set.dst             = tac_new_val(TAC_VAL_VAR);
                         instr->u.bitfield_set.dst->u.var_name = strdup(var_name);
                         instr->u.bitfield_set.offset          = field_offset;
                         instr->u.bitfield_set.width           = fields[field_index]->bit_width;
                         append_instruction(ctx, instr);
                     } else {
-                        Tac_Instruction *instr = new_tac_instruction(TAC_INSTRUCTION_STORE);
+                        Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_STORE);
                         instr->u.store.src     = value;
-                        instr->u.store.dst_ptr = new_tac_val(TAC_VAL_VAR);
+                        instr->u.store.dst_ptr = tac_new_val(TAC_VAL_VAR);
                         instr->u.store.dst_ptr->u.var_name = new_temp(ctx);
-                        Tac_Instruction *add_ptr = new_tac_instruction(TAC_INSTRUCTION_ADD_PTR);
-                        add_ptr->u.add_ptr.ptr   = new_tac_val(TAC_VAL_VAR);
+                        Tac_Instruction *add_ptr = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
+                        add_ptr->u.add_ptr.ptr   = tac_new_val(TAC_VAL_VAR);
                         add_ptr->u.add_ptr.ptr->u.var_name   = strdup(var_name);
-                        add_ptr->u.add_ptr.index             = new_tac_val(TAC_VAL_CONSTANT);
-                        add_ptr->u.add_ptr.index->u.constant = new_tac_const(TAC_CONST_INT);
+                        add_ptr->u.add_ptr.index             = tac_new_val(TAC_VAL_CONSTANT);
+                        add_ptr->u.add_ptr.index->u.constant = tac_new_const(TAC_CONST_INT);
                         add_ptr->u.add_ptr.index->u.constant->u.int_val = field_offset;
                         add_ptr->u.add_ptr.scale                        = 1; // Byte offset
                         add_ptr->u.add_ptr.dst                          = instr->u.store.dst_ptr;
@@ -466,7 +466,7 @@ void gen_initializer(TacGenContext *ctx, Initializer *init, Tac_Type *type, char
                     item_index++;
                 }
             } else {
-                Tac_StaticInit *static_init   = new_tac_static_init(TAC_STATIC_INIT_COMPOUND);
+                Tac_StaticInit *static_init   = tac_new_static_init(TAC_STATIC_INIT_COMPOUND);
                 static_init->u.compound.count = field_count;
                 static_init->u.compound.inits = malloc(field_count * sizeof(Tac_StaticInit *));
                 for (int i = 0; i < field_count; i++) {
@@ -498,22 +498,22 @@ void gen_initializer(TacGenContext *ctx, Initializer *init, Tac_Type *type, char
                 if (is_local) {
                     Tac_Val *value         = gen_init_expr(ctx, first_item->init->u.expr);
                     Tac_Instruction *instr = first_field->bit_width >= 0
-                                                 ? new_tac_instruction(TAC_INSTRUCTION_BITFIELD_SET)
-                                                 : new_tac_instruction(TAC_INSTRUCTION_STORE);
+                                                 ? tac_new_instruction(TAC_INSTRUCTION_BITFIELD_SET)
+                                                 : tac_new_instruction(TAC_INSTRUCTION_STORE);
                     if (instr->kind == TAC_INSTRUCTION_BITFIELD_SET) {
                         instr->u.bitfield_set.src             = value;
-                        instr->u.bitfield_set.dst             = new_tac_val(TAC_VAL_VAR);
+                        instr->u.bitfield_set.dst             = tac_new_val(TAC_VAL_VAR);
                         instr->u.bitfield_set.dst->u.var_name = strdup(var_name);
                         instr->u.bitfield_set.offset          = 0;
                         instr->u.bitfield_set.width           = first_field->bit_width;
                     } else {
                         instr->u.store.src                 = value;
-                        instr->u.store.dst_ptr             = new_tac_val(TAC_VAL_VAR);
+                        instr->u.store.dst_ptr             = tac_new_val(TAC_VAL_VAR);
                         instr->u.store.dst_ptr->u.var_name = strdup(var_name);
                     }
                     append_instruction(ctx, instr);
                 } else {
-                    Tac_StaticInit *static_init   = new_tac_static_init(TAC_STATIC_INIT_COMPOUND);
+                    Tac_StaticInit *static_init   = tac_new_static_init(TAC_STATIC_INIT_COMPOUND);
                     static_init->u.compound.count = 1;
                     static_init->u.compound.inits = malloc(sizeof(Tac_StaticInit *));
                     static_init->u.compound.inits[0] =
@@ -542,7 +542,7 @@ void gen_var_declaration(TacGenContext *ctx, Declaration *decl, Tac_TopLevel **t
 
         if (is_local) {
             // Allocate stack space
-            Tac_Instruction *alloc  = new_tac_instruction(TAC_INSTRUCTION_ALLOC);
+            Tac_Instruction *alloc  = tac_new_instruction(TAC_INSTRUCTION_ALLOC);
             alloc->u.alloc.var_name = strdup(id->name);
             alloc->u.alloc.size     = type->kind == TAC_TYPE_ARRAY
                                           ? array_size * get_element_size(type->u.array.element)
@@ -559,7 +559,7 @@ void gen_var_declaration(TacGenContext *ctx, Declaration *decl, Tac_TopLevel **t
             }
         } else {
             // Global variable
-            Tac_TopLevel *toplevel      = new_tac_toplevel(TAC_TOPLEVEL_VARIABLE);
+            Tac_TopLevel *toplevel      = tac_new_toplevel(TAC_TOPLEVEL_VARIABLE);
             toplevel->next              = NULL;
             toplevel->u.variable.name   = strdup(id->name);
             toplevel->u.variable.global = decl->specifiers->storage == STORAGE_CLASS_EXTERN ||
@@ -597,7 +597,7 @@ void gen_struct_decl(TacGenContext *ctx, Declaration *decl, Tac_TopLevel **top_l
         return;
 
     // Create Tac_TopLevel for struct
-    Tac_TopLevel *toplevel = new_tac_toplevel(TAC_TOPLEVEL_STRUCT);
+    Tac_TopLevel *toplevel = tac_new_toplevel(TAC_TOPLEVEL_STRUCT);
     toplevel->next         = NULL;
     toplevel->u.struct_decl.name =
         decl->u.struct_type.name ? strdup(decl->u.struct_type.name) : NULL;
@@ -616,7 +616,7 @@ void gen_struct_decl(TacGenContext *ctx, Declaration *decl, Tac_TopLevel **top_l
         malloc(toplevel->u.struct_decl.field_count * sizeof(Tac_Field *));
     int i = 0;
     for (Field *field = decl->u.struct_type.fields; field; field = field->next) {
-        Tac_Field *tac_field = new_tac_field();
+        Tac_Field *tac_field = tac_new_field();
         tac_field->name      = field->name ? strdup(field->name) : NULL;
         tac_field->type      = convert_type(field->type);
         tac_field->bit_width = field->bitfield && field->bitfield->kind == EXPR_LITERAL &&
@@ -628,7 +628,7 @@ void gen_struct_decl(TacGenContext *ctx, Declaration *decl, Tac_TopLevel **top_l
 
     // Add to symbol table only if named
     if (toplevel->u.struct_decl.name) {
-        Tac_Type *struct_type = new_tac_type(TAC_TYPE_STRUCT);
+        Tac_Type *struct_type = tac_new_type(TAC_TYPE_STRUCT);
         struct_type->u.struct_type.name =
             toplevel->u.struct_decl.name ? strdup(toplevel->u.struct_decl.name) : NULL;
         struct_type->u.struct_type.fields      = toplevel->u.struct_decl.fields;
@@ -652,7 +652,7 @@ void gen_union_decl(TacGenContext *ctx, Declaration *decl, Tac_TopLevel **top_le
         return;
 
     // Create Tac_TopLevel for union
-    Tac_TopLevel *toplevel      = new_tac_toplevel(TAC_TOPLEVEL_UNION);
+    Tac_TopLevel *toplevel      = tac_new_toplevel(TAC_TOPLEVEL_UNION);
     toplevel->next              = NULL;
     toplevel->u.union_decl.name = decl->u.union_type.name ? strdup(decl->u.union_type.name) : NULL;
 
@@ -670,7 +670,7 @@ void gen_union_decl(TacGenContext *ctx, Declaration *decl, Tac_TopLevel **top_le
         malloc(toplevel->u.union_decl.field_count * sizeof(Tac_Field *));
     int i = 0;
     for (Field *field = decl->u.union_type.fields; field; field = field->next) {
-        Tac_Field *tac_field = new_tac_field();
+        Tac_Field *tac_field = tac_new_field();
         tac_field->name      = field->name ? strdup(field->name) : NULL;
         tac_field->type      = convert_type(field->type);
         tac_field->bit_width = field->bitfield && field->bitfield->kind == EXPR_LITERAL &&
@@ -682,7 +682,7 @@ void gen_union_decl(TacGenContext *ctx, Declaration *decl, Tac_TopLevel **top_le
 
     // Add to symbol table only if named
     if (toplevel->u.union_decl.name) {
-        Tac_Type *union_type = new_tac_type(TAC_TYPE_UNION);
+        Tac_Type *union_type = tac_new_type(TAC_TYPE_UNION);
         union_type->u.union_type.name =
             toplevel->u.union_decl.name ? strdup(toplevel->u.union_decl.name) : NULL;
         union_type->u.union_type.fields      = toplevel->u.union_decl.fields;
@@ -703,7 +703,7 @@ void gen_union_decl(TacGenContext *ctx, Declaration *decl, Tac_TopLevel **top_le
 void gen_function_decl(TacGenContext *ctx, ExternalDecl *decl, Tac_TopLevel **top_level_tail)
 {
     // Create Tac_TopLevel for function
-    Tac_TopLevel *toplevel      = new_tac_toplevel(TAC_TOPLEVEL_FUNCTION);
+    Tac_TopLevel *toplevel      = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
     toplevel->next              = NULL;
     toplevel->u.function.name   = decl->u.function.name ? strdup(decl->u.function.name) : NULL;
     toplevel->u.function.global = decl->u.function.specifiers->storage == STORAGE_CLASS_EXTERN ||
@@ -754,7 +754,7 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
 void gen_function_def(TacGenContext *ctx, ExternalDecl *decl, Tac_TopLevel **top_level_tail)
 {
     // Create Tac_TopLevel for function
-    Tac_TopLevel *toplevel      = new_tac_toplevel(TAC_TOPLEVEL_FUNCTION);
+    Tac_TopLevel *toplevel      = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
     toplevel->next              = NULL;
     toplevel->u.function.name   = decl->u.function.name ? strdup(decl->u.function.name) : NULL;
     toplevel->u.function.global = decl->u.function.specifiers->storage == STORAGE_CLASS_EXTERN ||
@@ -835,7 +835,7 @@ Tac_Program *ast_to_tac(ExternalDecl *decl)
     }
 
     // Clean up context
-    free_tac_gen_context(&ctx);
+    tac_free_gen_context(&ctx);
 
     return program;
 }

@@ -6,13 +6,13 @@
 #include "tac.h"
 
 // Assume these allocation routines exist
-extern Tac_Val *new_tac_val(Tac_ValKind kind);
-extern Tac_Instruction *new_tac_instruction(Tac_InstructionKind kind);
-extern Tac_Type *new_tac_type(Tac_TypeKind kind);
-extern Tac_Const *new_tac_const(Tac_ConstKind kind);
-extern Tac_Param *new_tac_param(void);
-extern Tac_TopLevel *new_tac_toplevel(Tac_TopLevelKind kind);
-extern Tac_StaticInit *new_tac_static_init(Tac_StaticInitKind kind);
+extern Tac_Val *tac_new_val(Tac_ValKind kind);
+extern Tac_Instruction *tac_new_instruction(Tac_InstructionKind kind);
+extern Tac_Type *tac_new_type(Tac_TypeKind kind);
+extern Tac_Const *tac_new_const(Tac_ConstKind kind);
+extern Tac_Param *tac_new_param(void);
+extern Tac_TopLevel *tac_new_toplevel(Tac_TopLevelKind kind);
+extern Tac_StaticInit *tac_new_static_init(Tac_StaticInitKind kind);
 
 // Simple symbol table for tracking variables
 typedef struct {
@@ -102,7 +102,7 @@ void init_tac_gen_context(TacGenContext *ctx)
 }
 
 // Free context
-void free_tac_gen_context(TacGenContext *ctx)
+void tac_free_gen_context(TacGenContext *ctx)
 {
     for (int i = 0; i < ctx->sym_table->count; i++) {
         free(ctx->sym_table->symbols[i].name);
@@ -238,7 +238,7 @@ void append_instruction(TacGenContext *ctx, Tac_Instruction *instr)
 // Convert AST Type to TAC Type
 Tac_Type *convert_type(Type *ast_type)
 {
-    Tac_Type *tac_type = new_tac_type(TAC_TYPE_VOID); // Default
+    Tac_Type *tac_type = tac_new_type(TAC_TYPE_VOID); // Default
     switch (ast_type->kind) {
     case TYPE_INT:
         tac_type->kind =
@@ -290,7 +290,7 @@ Tac_Param *convert_params(Param *ast_params)
 {
     Tac_Param *head = NULL, *tail = NULL;
     for (Param *p = ast_params; p; p = p->next) {
-        Tac_Param *tac_param = new_tac_param();
+        Tac_Param *tac_param = tac_new_param();
         tac_param->name      = p->name ? strdup(p->name) : NULL;
         tac_param->next      = NULL;
         if (!head) {
@@ -310,10 +310,10 @@ void gen_initializer(TacGenContext *ctx, Initializer *init, char *base_name, Tac
     if (!init)
         return;
     if (init->kind == INITIALIZER_SINGLE) {
-        Tac_Val *dst           = new_tac_val(TAC_VAL_VAR);
+        Tac_Val *dst           = tac_new_val(TAC_VAL_VAR);
         dst->u.var_name        = strdup(base_name);
         Tac_Val *src           = gen_expr(ctx, init->u.expr);
-        Tac_Instruction *instr = new_tac_instruction(TAC_INSTRUCTION_COPY);
+        Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_COPY);
         instr->u.copy.src      = src;
         instr->u.copy.dst      = dst;
         append_instruction(ctx, instr);
@@ -323,7 +323,7 @@ void gen_initializer(TacGenContext *ctx, Initializer *init, char *base_name, Tac
             // Assume no designators for simplicity
             if (item->init->kind == INITIALIZER_SINGLE) {
                 Tac_Val *src                = gen_expr(ctx, item->init->u.expr);
-                Tac_Instruction *instr      = new_tac_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
+                Tac_Instruction *instr      = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
                 instr->u.copy_to_offset.src = src;
                 instr->u.copy_to_offset.dst = strdup(base_name);
                 instr->u.copy_to_offset.offset =
@@ -341,8 +341,8 @@ Tac_Val *gen_expr(TacGenContext *ctx, Expr *expr)
 {
     switch (expr->kind) {
     case EXPR_LITERAL: {
-        Tac_Val *val    = new_tac_val(TAC_VAL_CONSTANT);
-        val->u.constant = new_tac_const(TAC_CONST_INT); // Default
+        Tac_Val *val    = tac_new_val(TAC_VAL_CONSTANT);
+        val->u.constant = tac_new_const(TAC_CONST_INT); // Default
         switch (expr->u.literal->kind) {
         case LITERAL_INT:
             val->u.constant->kind      = TAC_CONST_INT;
@@ -362,7 +362,7 @@ Tac_Val *gen_expr(TacGenContext *ctx, Expr *expr)
         return val;
     }
     case EXPR_VAR: {
-        Tac_Val *val    = new_tac_val(TAC_VAL_VAR);
+        Tac_Val *val    = tac_new_val(TAC_VAL_VAR);
         val->u.var_name = strdup(expr->u.var);
         return val;
     }
@@ -370,7 +370,7 @@ Tac_Val *gen_expr(TacGenContext *ctx, Expr *expr)
         Tac_Val *left          = gen_expr(ctx, expr->u.binary_op.left);
         Tac_Val *right         = gen_expr(ctx, expr->u.binary_op.right);
         char *dst              = new_temp(ctx);
-        Tac_Instruction *instr = new_tac_instruction(TAC_INSTRUCTION_BINARY);
+        Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_BINARY);
         instr->u.binary.op =
             (Tac_BinaryOperator[]){ [BINARY_ADD]        = TAC_BINARY_ADD,
                                     [BINARY_SUB]        = TAC_BINARY_SUBTRACT,
@@ -391,7 +391,7 @@ Tac_Val *gen_expr(TacGenContext *ctx, Expr *expr)
                                         TAC_BINARY_RIGHT_SHIFT }[expr->u.binary_op.op];
         instr->u.binary.src1            = left;
         instr->u.binary.src2            = right;
-        instr->u.binary.dst             = new_tac_val(TAC_VAL_VAR);
+        instr->u.binary.dst             = tac_new_val(TAC_VAL_VAR);
         instr->u.binary.dst->u.var_name = dst;
         append_instruction(ctx, instr);
         return instr->u.binary.dst;
@@ -420,12 +420,12 @@ Tac_Val *gen_expr(TacGenContext *ctx, Expr *expr)
             Tac_Val *base_val        = gen_expr(ctx, base);
             Tac_Val *index_val       = gen_expr(ctx, index);
             char *addr               = new_temp(ctx);
-            Tac_Instruction *add_ptr = new_tac_instruction(TAC_INSTRUCTION_ADD_PTR);
+            Tac_Instruction *add_ptr = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
             add_ptr->u.add_ptr.ptr   = base_val;
             add_ptr->u.add_ptr.index = index_val;
             add_ptr->u.add_ptr.scale =
                 get_element_size(convert_type(expr->u.assign.target->type->u.pointer.referenced));
-            add_ptr->u.add_ptr.dst             = new_tac_val(TAC_VAL_VAR);
+            add_ptr->u.add_ptr.dst             = tac_new_val(TAC_VAL_VAR);
             add_ptr->u.add_ptr.dst->u.var_name = addr;
             append_instruction(ctx, add_ptr);
 
@@ -434,27 +434,27 @@ Tac_Val *gen_expr(TacGenContext *ctx, Expr *expr)
                 result = value;
             } else {
                 // Load current array element value
-                Tac_Val *current      = new_tac_val(TAC_VAL_VAR);
+                Tac_Val *current      = tac_new_val(TAC_VAL_VAR);
                 current->u.var_name   = new_temp(ctx);
-                Tac_Instruction *load = new_tac_instruction(TAC_INSTRUCTION_LOAD);
+                Tac_Instruction *load = tac_new_instruction(TAC_INSTRUCTION_LOAD);
                 load->u.load.src_ptr  = add_ptr->u.add_ptr.dst;
                 load->u.load.dst      = current;
                 append_instruction(ctx, load);
 
                 // Perform compound operation
                 char *temp                          = new_temp(ctx);
-                Tac_Instruction *bin_instr          = new_tac_instruction(TAC_INSTRUCTION_BINARY);
+                Tac_Instruction *bin_instr          = tac_new_instruction(TAC_INSTRUCTION_BINARY);
                 bin_instr->u.binary.op              = op_map[expr->u.assign.op];
                 bin_instr->u.binary.src1            = current;
                 bin_instr->u.binary.src2            = value;
-                bin_instr->u.binary.dst             = new_tac_val(TAC_VAL_VAR);
+                bin_instr->u.binary.dst             = tac_new_val(TAC_VAL_VAR);
                 bin_instr->u.binary.dst->u.var_name = temp;
                 append_instruction(ctx, bin_instr);
                 result = bin_instr->u.binary.dst;
             }
 
             // Store result back to array
-            Tac_Instruction *store = new_tac_instruction(TAC_INSTRUCTION_STORE);
+            Tac_Instruction *store = tac_new_instruction(TAC_INSTRUCTION_STORE);
             store->u.store.src     = result;
             store->u.store.dst_ptr = add_ptr->u.add_ptr.dst;
             append_instruction(ctx, store);
@@ -466,18 +466,18 @@ Tac_Val *gen_expr(TacGenContext *ctx, Expr *expr)
             } else {
                 // Perform compound operation
                 char *temp                          = new_temp(ctx);
-                Tac_Instruction *bin_instr          = new_tac_instruction(TAC_INSTRUCTION_BINARY);
+                Tac_Instruction *bin_instr          = tac_new_instruction(TAC_INSTRUCTION_BINARY);
                 bin_instr->u.binary.op              = op_map[expr->u.assign.op];
                 bin_instr->u.binary.src1            = target;
                 bin_instr->u.binary.src2            = value;
-                bin_instr->u.binary.dst             = new_tac_val(TAC_VAL_VAR);
+                bin_instr->u.binary.dst             = tac_new_val(TAC_VAL_VAR);
                 bin_instr->u.binary.dst->u.var_name = temp;
                 append_instruction(ctx, bin_instr);
                 result = bin_instr->u.binary.dst;
             }
 
             // Assign result to target
-            Tac_Instruction *instr = new_tac_instruction(TAC_INSTRUCTION_COPY);
+            Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_COPY);
             instr->u.copy.src      = result;
             instr->u.copy.dst      = target;
             append_instruction(ctx, instr);
@@ -490,16 +490,16 @@ Tac_Val *gen_expr(TacGenContext *ctx, Expr *expr)
         Tac_Val *base_val        = gen_expr(ctx, base);
         Tac_Val *index_val       = gen_expr(ctx, index);
         char *addr               = new_temp(ctx);
-        Tac_Instruction *add_ptr = new_tac_instruction(TAC_INSTRUCTION_ADD_PTR);
+        Tac_Instruction *add_ptr = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
         add_ptr->u.add_ptr.ptr   = base_val;
         add_ptr->u.add_ptr.index = index_val;
         add_ptr->u.add_ptr.scale = get_element_size(convert_type(expr->type->u.pointer.referenced));
-        add_ptr->u.add_ptr.dst   = new_tac_val(TAC_VAL_VAR);
+        add_ptr->u.add_ptr.dst   = tac_new_val(TAC_VAL_VAR);
         add_ptr->u.add_ptr.dst->u.var_name = addr;
         append_instruction(ctx, add_ptr);
-        Tac_Val *result       = new_tac_val(TAC_VAL_VAR);
+        Tac_Val *result       = tac_new_val(TAC_VAL_VAR);
         result->u.var_name    = new_temp(ctx);
-        Tac_Instruction *load = new_tac_instruction(TAC_INSTRUCTION_LOAD);
+        Tac_Instruction *load = tac_new_instruction(TAC_INSTRUCTION_LOAD);
         load->u.load.src_ptr  = add_ptr->u.add_ptr.dst;
         load->u.load.dst      = result;
         append_instruction(ctx, load);
@@ -512,12 +512,12 @@ Tac_Val *gen_expr(TacGenContext *ctx, Expr *expr)
         // Process arguments
         for (Arg *arg = expr->u.call.args; arg; arg = arg->next) {
             Tac_Val *arg_val             = gen_expr(ctx, arg->expr);
-            Tac_Instruction *param_instr = new_tac_instruction(TAC_INSTRUCTION_PARAM);
+            Tac_Instruction *param_instr = tac_new_instruction(TAC_INSTRUCTION_PARAM);
             param_instr->u.param.src     = arg_val;
             append_instruction(ctx, param_instr);
         }
         // Generate call instruction
-        Tac_Instruction *call_instr = new_tac_instruction(TAC_INSTRUCTION_CALL);
+        Tac_Instruction *call_instr = tac_new_instruction(TAC_INSTRUCTION_CALL);
         call_instr->u.call.func     = func_val;
         Tac_Type *ret_type          = convert_type(expr->type); // Return type of the call
         // Check if function is variadic (no special handling needed in TAC, backend manages)
@@ -526,7 +526,7 @@ Tac_Val *gen_expr(TacGenContext *ctx, Expr *expr)
             // Variadic call; same TAC structure, backend handles variable args
         }
         if (ret_type->kind != TAC_TYPE_VOID) {
-            Tac_Val *result        = new_tac_val(TAC_VAL_VAR);
+            Tac_Val *result        = tac_new_val(TAC_VAL_VAR);
             result->u.var_name     = new_temp(ctx);
             call_instr->u.call.dst = result;
             append_instruction(ctx, call_instr);
@@ -553,7 +553,7 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
         break;
     }
     case STMT_RETURN: {
-        Tac_Instruction *instr = new_tac_instruction(TAC_INSTRUCTION_RETURN);
+        Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_RETURN);
         if (stmt->u.expr) {
             instr->u.return_.src = gen_expr(ctx, stmt->u.expr);
         } else {
@@ -566,17 +566,17 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
         char *else_label                    = new_label(ctx);
         char *end_label                     = new_label(ctx);
         Tac_Val *cond                       = gen_expr(ctx, stmt->u.if_stmt.condition);
-        Tac_Instruction *cond_jump          = new_tac_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
+        Tac_Instruction *cond_jump          = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
         cond_jump->u.jump_if_zero.condition = cond;
         cond_jump->u.jump_if_zero.target    = else_label;
         append_instruction(ctx, cond_jump);
         // Then branch
         gen_stmt(ctx, stmt->u.if_stmt.then_stmt);
-        Tac_Instruction *goto_end = new_tac_instruction(TAC_INSTRUCTION_JUMP);
+        Tac_Instruction *goto_end = tac_new_instruction(TAC_INSTRUCTION_JUMP);
         goto_end->u.jump.target   = end_label;
         append_instruction(ctx, goto_end);
         // Else label
-        Tac_Instruction *else_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+        Tac_Instruction *else_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
         else_instr->u.label.name    = else_label;
         append_instruction(ctx, else_instr);
         // Else branch
@@ -584,7 +584,7 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
             gen_stmt(ctx, stmt->u.if_stmt.else_stmt);
         }
         // End label
-        Tac_Instruction *end_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+        Tac_Instruction *end_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
         end_instr->u.label.name    = end_label;
         append_instruction(ctx, end_instr);
         break;
@@ -603,14 +603,14 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
                 char *case_label              = new_label(ctx);
                 Tac_Val *case_val             = gen_expr(ctx, case_expr); // Assume constant
                 char *temp                    = new_temp(ctx);
-                Tac_Instruction *cmp          = new_tac_instruction(TAC_INSTRUCTION_BINARY);
+                Tac_Instruction *cmp          = tac_new_instruction(TAC_INSTRUCTION_BINARY);
                 cmp->u.binary.op              = TAC_BINARY_EQUAL;
                 cmp->u.binary.src1            = switch_val;
                 cmp->u.binary.src2            = case_val;
-                cmp->u.binary.dst             = new_tac_val(TAC_VAL_VAR);
+                cmp->u.binary.dst             = tac_new_val(TAC_VAL_VAR);
                 cmp->u.binary.dst->u.var_name = temp;
                 append_instruction(ctx, cmp);
-                Tac_Instruction *jump = new_tac_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
+                Tac_Instruction *jump = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
                 jump->u.jump_if_not_zero.condition = cmp->u.binary.dst;
                 jump->u.jump_if_not_zero.target    = case_label;
                 append_instruction(ctx, jump);
@@ -621,19 +621,19 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
             }
         }
         // Jump to default or end if no match
-        Tac_Instruction *jump = new_tac_instruction(TAC_INSTRUCTION_JUMP);
+        Tac_Instruction *jump = tac_new_instruction(TAC_INSTRUCTION_JUMP);
         jump->u.jump.target   = default_label ? default_label : end_label;
         append_instruction(ctx, jump);
         // Generate body
         for (DeclOrStmt *item = body; item; item = item->next) {
             if (item->kind == DECL_OR_STMT_STMT) {
                 if (item->u.stmt->kind == STMT_CASE) {
-                    Tac_Instruction *label_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+                    Tac_Instruction *label_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
                     label_instr->u.label.name    = item->u.stmt->u.case_stmt.label;
                     append_instruction(ctx, label_instr);
                     gen_stmt(ctx, item->u.stmt->u.case_stmt.stmt);
                 } else if (item->u.stmt->kind == STMT_DEFAULT) {
-                    Tac_Instruction *label_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+                    Tac_Instruction *label_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
                     label_instr->u.label.name    = item->u.stmt->u.default_stmt->label;
                     append_instruction(ctx, label_instr);
                     gen_stmt(ctx, item->u.stmt->u.default_stmt);
@@ -660,7 +660,7 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
             }
         }
         // End label
-        Tac_Instruction *end_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+        Tac_Instruction *end_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
         end_instr->u.label.name    = end_label;
         append_instruction(ctx, end_instr);
         pop_control_context(ctx);
@@ -671,23 +671,23 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
         char *end_label  = new_label(ctx);
         push_control_context(ctx, end_label, loop_label);
         // Loop label
-        Tac_Instruction *loop_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+        Tac_Instruction *loop_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
         loop_instr->u.label.name    = loop_label;
         append_instruction(ctx, loop_instr);
         // Condition
         Tac_Val *cond                       = gen_expr(ctx, stmt->u.while_stmt.condition);
-        Tac_Instruction *cond_jump          = new_tac_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
+        Tac_Instruction *cond_jump          = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
         cond_jump->u.jump_if_zero.condition = cond;
         cond_jump->u.jump_if_zero.target    = end_label;
         append_instruction(ctx, cond_jump);
         // Body
         gen_stmt(ctx, stmt->u.while_stmt.body);
         // Jump back to loop
-        Tac_Instruction *goto_loop = new_tac_instruction(TAC_INSTRUCTION_JUMP);
+        Tac_Instruction *goto_loop = tac_new_instruction(TAC_INSTRUCTION_JUMP);
         goto_loop->u.jump.target   = loop_label;
         append_instruction(ctx, goto_loop);
         // End label
-        Tac_Instruction *end_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+        Tac_Instruction *end_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
         end_instr->u.label.name    = end_label;
         append_instruction(ctx, end_instr);
         pop_control_context(ctx);
@@ -698,19 +698,19 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
         char *end_label  = new_label(ctx);
         push_control_context(ctx, end_label, loop_label);
         // Loop label
-        Tac_Instruction *loop_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+        Tac_Instruction *loop_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
         loop_instr->u.label.name    = loop_label;
         append_instruction(ctx, loop_instr);
         // Body
         gen_stmt(ctx, stmt->u.do_while.body);
         // Condition
         Tac_Val *cond              = gen_expr(ctx, stmt->u.do_while.condition);
-        Tac_Instruction *cond_jump = new_tac_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
+        Tac_Instruction *cond_jump = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
         cond_jump->u.jump_if_not_zero.condition = cond;
         cond_jump->u.jump_if_not_zero.target    = loop_label;
         append_instruction(ctx, cond_jump);
         // End label
-        Tac_Instruction *end_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+        Tac_Instruction *end_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
         end_instr->u.label.name    = end_label;
         append_instruction(ctx, end_instr);
         pop_control_context(ctx);
@@ -746,25 +746,25 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
             }
         }
         // Loop label (for condition)
-        Tac_Instruction *loop_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+        Tac_Instruction *loop_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
         loop_instr->u.label.name    = loop_label;
         append_instruction(ctx, loop_instr);
         // Condition
         if (stmt->u.for_stmt.condition) {
             Tac_Val *cond                       = gen_expr(ctx, stmt->u.for_stmt.condition);
-            Tac_Instruction *cond_jump          = new_tac_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
+            Tac_Instruction *cond_jump          = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
             cond_jump->u.jump_if_zero.condition = cond;
             cond_jump->u.jump_if_zero.target    = end_label;
             append_instruction(ctx, cond_jump);
         }
         // Body label
-        Tac_Instruction *body_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+        Tac_Instruction *body_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
         body_instr->u.label.name    = body_label;
         append_instruction(ctx, body_instr);
         // Body
         gen_stmt(ctx, stmt->u.for_stmt.body);
         // Update label
-        Tac_Instruction *update_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+        Tac_Instruction *update_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
         update_instr->u.label.name    = update_label;
         append_instruction(ctx, update_instr);
         // Update expression
@@ -772,11 +772,11 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
             gen_expr(ctx, stmt->u.for_stmt.update);
         }
         // Jump back to loop
-        Tac_Instruction *goto_loop = new_tac_instruction(TAC_INSTRUCTION_JUMP);
+        Tac_Instruction *goto_loop = tac_new_instruction(TAC_INSTRUCTION_JUMP);
         goto_loop->u.jump.target   = loop_label;
         append_instruction(ctx, goto_loop);
         // End label
-        Tac_Instruction *end_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+        Tac_Instruction *end_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
         end_instr->u.label.name    = end_label;
         append_instruction(ctx, end_instr);
         pop_control_context(ctx);
@@ -785,7 +785,7 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
     case STMT_BREAK: {
         char *break_label = get_break_label(ctx);
         if (break_label) {
-            Tac_Instruction *instr = new_tac_instruction(TAC_INSTRUCTION_JUMP);
+            Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_JUMP);
             instr->u.jump.target   = break_label;
             append_instruction(ctx, instr);
         }
@@ -794,7 +794,7 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
     case STMT_CONTINUE: {
         char *continue_label = get_continue_label(ctx);
         if (continue_label) {
-            Tac_Instruction *instr = new_tac_instruction(TAC_INSTRUCTION_JUMP);
+            Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_JUMP);
             instr->u.jump.target   = continue_label;
             append_instruction(ctx, instr);
         }
@@ -803,7 +803,7 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
     case STMT_GOTO: {
         char *tac_label = get_tac_label(ctx, stmt->u.goto_label);
         if (tac_label) {
-            Tac_Instruction *instr = new_tac_instruction(TAC_INSTRUCTION_JUMP);
+            Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_JUMP);
             instr->u.jump.target   = tac_label;
             append_instruction(ctx, instr);
         }
@@ -812,7 +812,7 @@ void gen_stmt(TacGenContext *ctx, Stmt *stmt)
     case STMT_LABELED: {
         char *tac_label = new_label(ctx);
         add_label(ctx, stmt->u.labeled.label, tac_label);
-        Tac_Instruction *label_instr = new_tac_instruction(TAC_INSTRUCTION_LABEL);
+        Tac_Instruction *label_instr = tac_new_instruction(TAC_INSTRUCTION_LABEL);
         label_instr->u.label.name    = tac_label;
         append_instruction(ctx, label_instr);
         gen_stmt(ctx, stmt->u.labeled.stmt);
@@ -859,7 +859,7 @@ Tac_Program *ast_to_tac(ExternalDecl *decl)
     program->decls       = NULL;
 
     // Create Tac_TopLevel for function
-    Tac_TopLevel *toplevel      = new_tac_toplevel(TAC_TOPLEVEL_FUNCTION);
+    Tac_TopLevel *toplevel      = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
     toplevel->next              = NULL;
     toplevel->u.function.name   = decl->u.function.name ? strdup(decl->u.function.name) : NULL;
     toplevel->u.function.global = decl->u.function.specifiers->storage == STORAGE_CLASS_EXTERN;
@@ -874,7 +874,7 @@ Tac_Program *ast_to_tac(ExternalDecl *decl)
     // Add parameters to symbol table
     for (Tac_Param *p = toplevel->u.function.params; p; p = p->next) {
         if (p->name) {
-            Tac_Type *type = new_tac_type(TAC_TYPE_INT); // Placeholder type
+            Tac_Type *type = tac_new_type(TAC_TYPE_INT); // Placeholder type
             add_symbol(&ctx, p->name, type, -1);
         }
     }
@@ -891,7 +891,7 @@ Tac_Program *ast_to_tac(ExternalDecl *decl)
     program->decls = toplevel;
 
     // Clean up context
-    free_tac_gen_context(&ctx);
+    tac_free_gen_context(&ctx);
 
     return program;
 }
