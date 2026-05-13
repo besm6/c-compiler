@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <ctype.h>
 
 #include "parser.h"
 #include "scanner.h"
@@ -401,6 +402,50 @@ Expr *parse_primary_expression()
     return expr;
 }
 
+static int parse_char_literal(const char *s)
+{
+    // Skip optional encoding prefix: L, U, u, u8
+    if (*s == 'L' || *s == 'U')
+        s++;
+    else if (*s == 'u') {
+        s++;
+        if (*s == '8')
+            s++;
+    }
+    s++; // skip opening '
+    if (*s != '\\')
+        return (unsigned char)*s;
+    s++; // skip backslash
+    switch (*s) {
+    case '\'': return '\'';
+    case '"':  return '"';
+    case '?':  return '?';
+    case '\\': return '\\';
+    case 'a':  return '\a';
+    case 'b':  return '\b';
+    case 'f':  return '\f';
+    case 'n':  return '\n';
+    case 'r':  return '\r';
+    case 't':  return '\t';
+    case 'v':  return '\v';
+    default:
+        if (*s >= '0' && *s <= '7') { // octal
+            int val = *s++ - '0';
+            if (*s >= '0' && *s <= '7') val = val * 8 + (*s++ - '0');
+            if (*s >= '0' && *s <= '7') val = val * 8 + (*s - '0');
+            return val;
+        }
+        if (*s == 'x') { // hex
+            int val = 0;
+            for (s++; isxdigit((unsigned char)*s); s++)
+                val = val * 16 + (isdigit((unsigned char)*s) ? *s - '0'
+                                                             : tolower((unsigned char)*s) - 'a' + 10);
+            return val;
+        }
+        return (unsigned char)*s;
+    }
+}
+
 //
 // constant
 //     : I_CONSTANT             /* includes character_constant */
@@ -419,25 +464,32 @@ Expr *parse_constant()
                                                                       : LITERAL_ENUM);
     switch (current_token) {
     case TOKEN_I_CONSTANT: {
-        char *end = NULL;
-        unsigned long v = strtoul(current_lexeme, &end, 0);
-        if (end) {
-            while (*end) {
-                if (*end == 'u' || *end == 'U') {
-                    end++;
-                    continue;
-                }
-                if (*end == 'l' || *end == 'L') {
-                    end++;
+        const char *p = current_lexeme;
+        while (*p && *p != '\'' && !isdigit((unsigned char)*p))
+            p++;
+        if (*p == '\'') {
+            expr->u.literal->u.int_val = parse_char_literal(current_lexeme);
+        } else {
+            char *end = NULL;
+            unsigned long v = strtoul(current_lexeme, &end, 0);
+            if (end) {
+                while (*end) {
+                    if (*end == 'u' || *end == 'U') {
+                        end++;
+                        continue;
+                    }
                     if (*end == 'l' || *end == 'L') {
                         end++;
+                        if (*end == 'l' || *end == 'L') {
+                            end++;
+                        }
+                        continue;
                     }
-                    continue;
+                    break;
                 }
-                break;
             }
+            expr->u.literal->u.int_val = (int)v;
         }
-        expr->u.literal->u.int_val = (int)v;
         break;
     }
     case TOKEN_F_CONSTANT: {

@@ -805,7 +805,7 @@ TEST_F(TypecheckTest, CaseDuplicate)
 // char 'a' and integer 97 should be the same value — duplicate.
 // Disabled: the parser stores all char literals as LITERAL_INT 0 via strtoul,
 // so 'a' and 97 are not detected as equal until the parser is fixed.
-TEST_F(TypecheckTest, DISABLED_CaseDuplicateCharAndInt)
+TEST_F(TypecheckTest, CaseDuplicateCharAndInt)
 {
     ParseProgram(
         "int f(int x) { switch (x) { case 'a': break; case 97: break; } return 0; }");
@@ -1072,7 +1072,7 @@ protected:
 // not double-free any type that was also freed via free_external_decl(). When
 // this bug is present, xfree() detects "Damaged memory head" and calls exit(1)
 // before TearDown's xtotal_allocated_size() == 0 assertion is reached.
-TEST_F(TackerPipelineTest, DISABLED_FunctionBodyFreedCleanly)
+TEST_F(TackerPipelineTest, FunctionBodyFreedCleanly)
 {
     RunTackerPipeline("int f(void) { return 1; }");
 }

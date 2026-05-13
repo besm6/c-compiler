@@ -34,6 +34,22 @@ TEST_F(ParserTest, ScanIntegerConstant)
     free_expression(expr);
 }
 
+// Test primary expression: character literal
+TEST_F(ParserTest, ScanCharLiteral)
+{
+    init_scanner(CreateTempFile("'a';"));
+    advance_token();
+    Expr *expr = parse_primary_expression();
+    ASSERT_NE(expr, nullptr);
+    print_expression(stdout, expr, 0);
+
+    EXPECT_EQ(EXPR_LITERAL, expr->kind);
+    EXPECT_EQ(LITERAL_INT, expr->u.literal->kind);
+    EXPECT_EQ(97, expr->u.literal->u.int_val);
+
+    free_expression(expr);
+}
+
 // Test binary expression: x + y
 TEST_F(ParserTest, ScanBinaryExpression)
 {
