@@ -10,8 +10,6 @@
 #endif
 
 #include "symtab.h"
-#include "tac_export.h"
-#include "tac_yaml.h"
 #include "structtab.h"
 #include "translate.h"
 #include "wio.h"

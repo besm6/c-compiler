@@ -7,8 +7,7 @@ add_library(tac STATIC
     tac_free.c
     tac_compare.c
     tac_yaml.c
-# TODO:
-#   tac_import.c
+    tac_import.c
     tac_export.c
     tac_graphviz.c
 )
@@ -32,3 +31,12 @@ add_executable(tac-dot-tests
 )
 target_link_libraries(tac-dot-tests tac GTest::gtest_main)
 gtest_discover_tests(tac-dot-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+
+#
+# Tests for tac binary export/import
+#
+add_executable(tac-binary-tests
+    tac_binary_tests.cpp
+)
+target_link_libraries(tac-binary-tests tac GTest::gtest_main)
+gtest_discover_tests(tac-binary-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

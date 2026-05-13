@@ -1,10 +1,13 @@
-#include "tac_export.h"
+#include "tac.h"
 
 #include <stdlib.h>
 
 #include "wio.h"
 
 int export_tac_debug;
+
+static void export_type(WFILE *out, const Tac_Type *t);
+static void export_static_init(WFILE *out, const Tac_StaticInit *si);
 
 static void export_const(WFILE *out, const Tac_Const *c)
 {
@@ -179,9 +182,15 @@ void tac_export_toplevel(WFILE *out, const Tac_TopLevel *tl)
         export_instr(out, tl->u.function.body);
         break;
     case TAC_TOPLEVEL_STATIC_VARIABLE:
+        wputstr(tl->u.static_variable.name ? tl->u.static_variable.name : "", out);
+        wputw(tl->u.static_variable.global ? 1 : 0, out);
+        export_type(out, tl->u.static_variable.type);
+        export_static_init(out, tl->u.static_variable.init_list);
+        break;
     case TAC_TOPLEVEL_STATIC_CONSTANT:
-        /* Not produced by current translator */
-        wputw(0, out);
+        wputstr(tl->u.static_constant.name ? tl->u.static_constant.name : "", out);
+        export_type(out, tl->u.static_constant.type);
+        export_static_init(out, tl->u.static_constant.init);
         break;
     default:
         break;
@@ -192,4 +201,104 @@ void tac_export_end_stream(WFILE *out)
 {
     wputw(0, out);
     wflush(out);
+}
+
+static void export_type(WFILE *out, const Tac_Type *t)
+{
+    if (!t) {
+        wputw(0, out);
+        return;
+    }
+    wputw(1, out);
+    wputw((size_t)t->kind, out);
+    switch (t->kind) {
+    case TAC_TYPE_CHAR:
+    case TAC_TYPE_SCHAR:
+    case TAC_TYPE_UCHAR:
+    case TAC_TYPE_SHORT:
+    case TAC_TYPE_INT:
+    case TAC_TYPE_LONG:
+    case TAC_TYPE_LONG_LONG:
+    case TAC_TYPE_USHORT:
+    case TAC_TYPE_UINT:
+    case TAC_TYPE_ULONG:
+    case TAC_TYPE_ULONG_LONG:
+    case TAC_TYPE_FLOAT:
+    case TAC_TYPE_DOUBLE:
+    case TAC_TYPE_VOID:
+        break;
+    case TAC_TYPE_FUN_TYPE:
+        export_type(out, t->u.fun_type.param_types);
+        export_type(out, t->u.fun_type.ret_type);
+        break;
+    case TAC_TYPE_POINTER:
+        export_type(out, t->u.pointer.target_type);
+        break;
+    case TAC_TYPE_ARRAY:
+        export_type(out, t->u.array.elem_type);
+        wputw((size_t)t->u.array.size, out);
+        break;
+    case TAC_TYPE_STRUCTURE:
+        wputstr(t->u.structure.tag ? t->u.structure.tag : "", out);
+        break;
+    default:
+        break;
+    }
+    export_type(out, t->next);
+}
+
+static void export_static_init(WFILE *out, const Tac_StaticInit *si)
+{
+    if (!si) {
+        wputw(0, out);
+        return;
+    }
+    wputw(1, out);
+    wputw((size_t)si->kind, out);
+    switch (si->kind) {
+    case TAC_STATIC_INIT_I8:
+        wputw((size_t)(unsigned char)si->u.char_val, out);
+        break;
+    case TAC_STATIC_INIT_I32:
+        wputw((size_t)(unsigned int)si->u.int_val, out);
+        break;
+    case TAC_STATIC_INIT_I64:
+        wputw((size_t)(unsigned long long)si->u.long_val, out);
+        break;
+    case TAC_STATIC_INIT_U8:
+        wputw((size_t)si->u.uchar_val, out);
+        break;
+    case TAC_STATIC_INIT_U32:
+        wputw((size_t)si->u.uint_val, out);
+        break;
+    case TAC_STATIC_INIT_U64:
+        wputw((size_t)si->u.ulong_val, out);
+        break;
+    case TAC_STATIC_INIT_DOUBLE:
+        wputd(si->u.double_val, out);
+        break;
+    case TAC_STATIC_INIT_ZERO:
+        wputw((size_t)si->u.zero_bytes, out);
+        break;
+    case TAC_STATIC_INIT_STRING:
+        wputstr(si->u.string.val ? si->u.string.val : "", out);
+        wputw(si->u.string.null_terminated ? 1 : 0, out);
+        break;
+    case TAC_STATIC_INIT_POINTER:
+        wputstr(si->u.pointer_name ? si->u.pointer_name : "", out);
+        break;
+    default:
+        break;
+    }
+    export_static_init(out, si->next);
+}
+
+void tac_export_program(WFILE *out, const Tac_Program *prog)
+{
+    tac_export_begin_stream(out);
+    if (prog) {
+        for (const Tac_TopLevel *tl = prog->decls; tl; tl = tl->next)
+            tac_export_toplevel(out, tl);
+    }
+    tac_export_end_stream(out);
 }

@@ -392,6 +392,28 @@ bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b)
 bool tac_compare_toplevel(const Tac_TopLevel *a, const Tac_TopLevel *b);
 bool tac_compare_program(const Tac_Program *a, const Tac_Program *b);
 
+//
+// Binary export (wio stream)
+//
+typedef struct _wfile WFILE;
+
+#define TAC_TAG_STREAM 0x54414331u /* 'TAC1' */
+
+void tac_export_begin_stream(WFILE *out);
+void tac_export_toplevel(WFILE *out, const Tac_TopLevel *tl);
+void tac_export_end_stream(WFILE *out);
+void tac_export_program(WFILE *out, const Tac_Program *prog);
+
+//
+// Binary import (wio stream)
+//
+Tac_Program *tac_import_program(WFILE *in);
+
+//
+// YAML export
+//
+void tac_export_yaml(FILE *fd, const Tac_TopLevel *tl);
+
 #ifdef __cplusplus
 }
 #endif

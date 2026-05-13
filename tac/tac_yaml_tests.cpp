@@ -5,7 +5,6 @@
 #include <string>
 
 #include "tac.h"
-#include "tac_yaml.h"
 #include "xalloc.h"
 
 extern "C" int xalloc_debug;

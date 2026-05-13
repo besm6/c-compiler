@@ -1,7 +1,7 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-#include "tac_yaml.h"
+#include "tac.h"
 
 #define INDENT_STEP 2
 
