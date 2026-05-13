@@ -140,6 +140,31 @@ static Tac_Val *val_var(const char *name)
     return tv;
 }
 
+static Tac_BinaryOperator map_assign_op(AssignOp op)
+{
+    switch (op) {
+    case ASSIGN_ADD:   return TAC_BINARY_ADD;
+    case ASSIGN_SUB:   return TAC_BINARY_SUBTRACT;
+    case ASSIGN_MUL:   return TAC_BINARY_MULTIPLY;
+    case ASSIGN_DIV:   return TAC_BINARY_DIVIDE;
+    case ASSIGN_MOD:   return TAC_BINARY_REMAINDER;
+    case ASSIGN_LEFT:  return TAC_BINARY_LEFT_SHIFT;
+    case ASSIGN_RIGHT: return TAC_BINARY_RIGHT_SHIFT;
+    case ASSIGN_AND:   return TAC_BINARY_BITWISE_AND;
+    case ASSIGN_XOR:   return TAC_BINARY_BITWISE_XOR;
+    case ASSIGN_OR:    return TAC_BINARY_BITWISE_OR;
+    default:
+        fatal_error("Unsupported compound assignment operator in TAC lowering");
+    }
+}
+
+static const char *lvalue_name(const Expr *e)
+{
+    if (e->kind == EXPR_VAR)
+        return e->u.var;
+    fatal_error("lvalue not yet supported: expression kind %d", (int)e->kind);
+}
+
 static Tac_Val *new_var_val(TacCtx *ctx)
 {
     char    *d = new_temp(ctx);
@@ -203,6 +228,29 @@ static Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         return gen_unary(ctx, e->u.unary_op.op, e->u.unary_op.expr);
     case EXPR_BINARY_OP:
         return gen_binary(ctx, e->u.binary_op.op, e->u.binary_op.left, e->u.binary_op.right);
+    case EXPR_ASSIGN: {
+        const char *dst = lvalue_name(e->u.assign.target);
+        Tac_Val    *src = gen_expr(ctx, e->u.assign.value);
+        if (e->u.assign.op == ASSIGN_SIMPLE) {
+            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
+            in->u.copy.src = src;
+            in->u.copy.dst = val_var(dst);
+            tac_append(ctx, in);
+        } else {
+            Tac_Val         *vd  = new_var_val(ctx);
+            Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+            bin->u.binary.op   = map_assign_op(e->u.assign.op);
+            bin->u.binary.src1 = val_var(dst);
+            bin->u.binary.src2 = src;
+            bin->u.binary.dst  = vd;
+            tac_append(ctx, bin);
+            Tac_Instruction *cp = tac_new_instruction(TAC_INSTRUCTION_COPY);
+            cp->u.copy.src = val_var(vd->u.var_name);
+            cp->u.copy.dst = val_var(dst);
+            tac_append(ctx, cp);
+        }
+        return val_var(dst);
+    }
     default:
         fatal_error("Unsupported expression kind %d in TAC lowering", (int)e->kind);
     }
@@ -257,7 +305,7 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
     }
     case STMT_EXPR:
         if (stmt->u.expr) {
-            gen_expr(ctx, stmt->u.expr);
+            tac_free_val(gen_expr(ctx, stmt->u.expr));
         }
         break;
     case STMT_RETURN: {
@@ -329,7 +377,7 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
         if (stmt->u.for_stmt.init) {
             if (stmt->u.for_stmt.init->kind == FOR_INIT_EXPR) {
                 if (stmt->u.for_stmt.init->u.expr) {
-                    gen_expr(ctx, stmt->u.for_stmt.init->u.expr);
+                    tac_free_val(gen_expr(ctx, stmt->u.for_stmt.init->u.expr));
                 }
             } else {
                 gen_local_decl(ctx, stmt->u.for_stmt.init->u.decl);
@@ -347,7 +395,7 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
         gen_stmt(ctx, stmt->u.for_stmt.body);
         emit_label(ctx, cl);
         if (stmt->u.for_stmt.update) {
-            gen_expr(ctx, stmt->u.for_stmt.update);
+            tac_free_val(gen_expr(ctx, stmt->u.for_stmt.update));
         }
         emit_jump(ctx, test_lab);
         xfree(test_lab); // emit_label and emit_jump each xstrdup; free the original

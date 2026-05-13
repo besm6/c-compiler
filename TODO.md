@@ -8,28 +8,7 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 1. Assignment expressions
-
-**Current behavior:** `EXPR_ASSIGN` calls `fatal_error`.
-
-**AST node:** `e->u.assign.op` (AssignOp enum), `e->u.assign.target`, `e->u.assign.value`.
-
-**Concrete work:**
-
-- `ASSIGN_SIMPLE`: evaluate `value`, emit `COPY dst ← value` where `dst = val_var` of
-  the target variable name. Return `dst` (assignments are expressions in C).
-- Compound assignments (`ASSIGN_ADD`, `ASSIGN_SUB`, …, `ASSIGN_OR`): read the current
-  value of `target` into a temp with `COPY`, apply the matching binary operator (reuse
-  `map_binary_op`), emit `COPY target ← result`. Return `val_var(target)`.
-- Add a helper `lvalue_name(Expr *e)` that returns the variable name when `e` is
-  `EXPR_VAR` and calls `fatal_error("lvalue not yet supported: …")` for everything
-  else. This stub is filled in by task 10 when pointer targets are added.
-
-**Effort:** Small-medium (1–2 days including tests).
-
----
-
-## 2. Small cleanups: char/enum/string literals, `UNARY_PLUS`, `goto`, labeled-statement fix
+## 1. Small cleanups: char/enum/string literals, `UNARY_PLUS`, `goto`, labeled-statement fix
 
 **Current behavior:** Six small independent gaps that block real test inputs.
 
@@ -55,7 +34,7 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 3. Ternary conditional `?:`
+## 2. Ternary conditional `?:`
 
 **Current behavior:** `EXPR_COND` calls `fatal_error`.
 
@@ -82,7 +61,7 @@ Return `t.dst`.
 
 ---
 
-## 4. Short-circuit `&&` and `||`
+## 3. Short-circuit `&&` and `||`
 
 **Current behavior:** `BINARY_LOG_AND` and `BINARY_LOG_OR` hit `map_binary_op`'s
 `default` branch and call `fatal_error`. They cannot share the `gen_binary` path because
@@ -112,7 +91,7 @@ set result to 1 at `true_label`. Both branches write to the same destination tem
 
 ---
 
-## 5. Function calls
+## 4. Function calls
 
 **Current behavior:** `EXPR_CALL` calls `fatal_error`. `TAC_INSTRUCTION_FUN_CALL` exists
 in the IR but is never emitted.
@@ -137,7 +116,7 @@ argument `Expr*`).
 
 ---
 
-## 6. Type casts and numeric conversions
+## 5. Type casts and numeric conversions
 
 **Current behavior:** `EXPR_CAST` calls `fatal_error`. The TAC instructions
 `SIGN_EXTEND`, `TRUNCATE`, `ZERO_EXTEND`, `DOUBLE_TO_INT`, `DOUBLE_TO_UINT`,
@@ -164,7 +143,7 @@ argument `Expr*`).
 
 ---
 
-## 7. Pre/post increment and decrement
+## 6. Pre/post increment and decrement
 
 **Current behavior:** `UNARY_PRE_INC` and `UNARY_PRE_DEC` hit `map_unary_op`'s
 `default` and call `fatal_error`. `EXPR_POST_INC` and `EXPR_POST_DEC` call `fatal_error`.
@@ -184,15 +163,15 @@ argument `Expr*`).
   2. `COPY x ← t.new`
   3. Return `t.new`
 - Decrement variants use `SUBTRACT` in place of `ADD`.
-- Pointer operands need `ADD_PTR` with scale = `sizeof(*ptr)` — defer to task 10 using
-  the `lvalue_name` helper from task 2, which will `fatal_error` on non-variable operands
+- Pointer operands need `ADD_PTR` with scale = `sizeof(*ptr)` — defer to task 8 using
+  the `lvalue_name` helper from task 1, which will `fatal_error` on non-variable operands
   until then.
 
 **Effort:** Small (half a day including tests).
 
 ---
 
-## 8. `switch`/`case`/`default` lowering
+## 7. `switch`/`case`/`default` lowering
 
 **Current behavior:** `STMT_SWITCH`, `STMT_CASE`, and `STMT_DEFAULT` all call
 `fatal_error`. The semantic validation (type checking, duplicate-case detection) is
@@ -227,7 +206,7 @@ optimisation can follow later.
 
 ---
 
-## 9. Pointers, arrays, and struct field access
+## 8. Pointers, arrays, and struct field access
 
 **Current behavior:** `UNARY_ADDRESS`, `UNARY_DEREF`, `EXPR_SUBSCRIPT`,
 `EXPR_FIELD_ACCESS`, and `EXPR_PTR_ACCESS` all call `fatal_error`. The TAC instructions
@@ -260,7 +239,7 @@ Rename the current `gen_expr` to `gen_rval` and replace callers.
    then `ADD_PTR` with the field offset.
 5. `EXPR_PTR_ACCESS` (`p->f`): evaluate `p` with `gen_rval`, then apply the same
    field-offset logic via `LOAD` + offset.
-6. Revisit tasks 2 and 8: expand `lvalue_name` into a full `gen_lval`, and emit `STORE`
+6. Revisit tasks 1 and 7: expand `lvalue_name` into a full `gen_lval`, and emit `STORE`
    (instead of `COPY`) when the assignment or inc/dec target resolves to a pointer.
 
 **Effort:** Large (1–2 weeks; struct layout, pointer arithmetic, and lvalue plumbing

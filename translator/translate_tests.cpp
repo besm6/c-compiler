@@ -201,6 +201,180 @@ TEST_F(TranslateTest, LocalVarUsedInBinaryExpr)
 )");
 }
 
+// ---------------------------------------------------------------------------
+// Assignment expressions — task #2
+// ---------------------------------------------------------------------------
+
+// Simple assignment emits COPY into the target variable and returns it.
+TEST_F(TranslateTest, AssignSimple)
+{
+    std::string yaml = CompileToYaml("int f(void) { int x = 0; x = 42; return x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst:
+        kind: var
+        name: x
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 42
+      dst:
+        kind: var
+        name: x
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: x
+)");
+}
+
+// Assignment is an expression — its result can be used as an initializer.
+TEST_F(TranslateTest, AssignUsedAsExpr)
+{
+    std::string yaml = CompileToYaml("int f(void) { int x; int y = (x = 7); return y; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 7
+      dst:
+        kind: var
+        name: x
+    - instruction:
+      kind: copy
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: y
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: y
+)");
+}
+
+// Compound add-assign: reads target, adds rhs, stores back.
+TEST_F(TranslateTest, CompoundAssignAdd)
+{
+    std::string yaml = CompileToYaml("int f(void) { int x = 10; x += 5; return x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 10
+      dst:
+        kind: var
+        name: x
+    - instruction:
+      kind: binary
+      op: add
+      src1:
+        kind: var
+        name: x
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 5
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: copy
+      src:
+        kind: var
+        name: t.0
+      dst:
+        kind: var
+        name: x
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: x
+)");
+}
+
+// Compound bitwise-or-assign exercises the bitwise_or TAC binary operator.
+TEST_F(TranslateTest, CompoundAssignBitwiseOr)
+{
+    std::string yaml = CompileToYaml("int f(void) { int x = 6; x |= 3; return x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 6
+      dst:
+        kind: var
+        name: x
+    - instruction:
+      kind: binary
+      op: bitwise_or
+      src1:
+        kind: var
+        name: x
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 3
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: copy
+      src:
+        kind: var
+        name: t.0
+      dst:
+        kind: var
+        name: x
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: x
+)");
+}
+
 // for-init declaration emits COPY before the loop test label.
 TEST_F(TranslateTest, ForLoopInitDecl)
 {
