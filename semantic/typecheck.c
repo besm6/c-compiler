@@ -1,13 +1,20 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "string_map.h"
 #include "symtab.h"
-#include "translate.h"
+#include "semantic.h"
 #include "structtab.h"
 #include "typetab.h"
 #include "xalloc.h"
+
+// Enable debug output
+int semantic_debug;
+
+// Level of scope for nested compound operators.
+int scope_level;
 
 // Forward declarations
 void validate_type(const Type *t);
@@ -18,6 +25,22 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init);
 Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init);
 Stmt *typecheck_statement(const Type *ret_type, Stmt *s);
 void typecheck_local_decl(Declaration *d);
+
+//
+// Error handling
+//
+void _Noreturn fatal_error(const char *message, ...)
+{
+    fprintf(stderr, "Fatal error: ");
+
+    va_list ap;
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    va_end(ap);
+
+    fprintf(stderr, "\n");
+    exit(1);
+}
 
 static void scope_increment(void) { scope_level++; }
 static void scope_decrement(void)
@@ -30,7 +53,7 @@ static void scope_decrement(void)
 
 int round_away_from_zero(int alignment, int size)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (size % alignment == 0) {
@@ -46,7 +69,7 @@ int round_away_from_zero(int alignment, int size)
 
 static size_t get_array_size(const Type *t)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (t->kind != TYPE_ARRAY) {
@@ -77,7 +100,7 @@ static void set_array_size(Type *t, size_t size)
 // Check if an expression is an lvalue
 bool is_lvalue(const Expr *e)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     switch (e->kind) {
@@ -103,7 +126,7 @@ bool is_lvalue(const Expr *e)
 // Validate a type (recursive)
 void validate_type(const Type *t)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
         print_type(stdout, t, 4);
     }
@@ -149,7 +172,7 @@ void validate_type(const Type *t)
 // Validate a struct definition
 void validate_struct_definition(const char *tag, const Field *members)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (structtab_exists(tag)) {
@@ -195,7 +218,7 @@ static void typecheck_enum_decl(const Type *enum_type)
 // Type-check a struct declaration
 void typecheck_struct_decl(const Declaration *d)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (!d->u.empty.type)
@@ -237,7 +260,7 @@ void typecheck_struct_decl(const Declaration *d)
 // Convert an expression to a target type
 Expr *convert_to_type(Expr *e, const Type *target_type)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (e->type->kind == target_type->kind &&
@@ -254,7 +277,7 @@ Expr *convert_to_type(Expr *e, const Type *target_type)
 
 Expr *convert_to_kind(Expr *e, TypeKind target_kind)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (e->type->kind == target_kind)
@@ -270,7 +293,7 @@ Expr *convert_to_kind(Expr *e, TypeKind target_kind)
 // Get common type for arithmetic operations
 const Type *get_common_type(const Type *t1, const Type *t2)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     static const Type int_type    = { .kind = TYPE_INT };
@@ -291,7 +314,7 @@ const Type *get_common_type(const Type *t1, const Type *t2)
 // Check if a constant is a zero integer
 bool is_zero_int(const Literal *c)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     switch (c->kind) {
@@ -309,7 +332,7 @@ bool is_zero_int(const Literal *c)
 // Check if an expression is a null pointer constant
 bool is_null_pointer_constant(const Expr *e)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     return e->kind == EXPR_LITERAL && is_zero_int(e->u.literal);
@@ -318,7 +341,7 @@ bool is_null_pointer_constant(const Expr *e)
 // Get common pointer type
 Type *get_common_pointer_type(const Expr *e1, const Expr *e2)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (e1->type->kind == e2->type->kind &&
@@ -342,7 +365,7 @@ Type *get_common_pointer_type(const Expr *e1, const Expr *e2)
 // Convert by assignment
 Expr *convert_by_assignment(Expr *e, const Type *target_type)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (e->type->kind == target_type->kind &&
@@ -365,7 +388,7 @@ Expr *convert_by_assignment(Expr *e, const Type *target_type)
 // Type-check a variable
 Expr *typecheck_var(Expr *e)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     const Symbol *sym = symtab_get(e->u.var);
@@ -381,7 +404,7 @@ Expr *typecheck_var(Expr *e)
 // Type-check a string literal
 Expr *typecheck_string(Expr *e)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     Type *array            = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
@@ -395,7 +418,7 @@ Expr *typecheck_string(Expr *e)
 // Type-check a constant
 Expr *typecheck_const(Expr *e)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     free_type(e->type);
@@ -431,7 +454,7 @@ Expr *typecheck_const(Expr *e)
 // Type-check an expression
 Expr *typecheck_exp(Expr *e)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (!e)
@@ -800,7 +823,7 @@ Expr *typecheck_exp(Expr *e)
 // Type-check and convert an expression
 Expr *typecheck_and_convert(Expr *e)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (!e)
@@ -822,7 +845,7 @@ Expr *typecheck_and_convert(Expr *e)
 // Type-check a scalar expression
 Expr *typecheck_scalar(Expr *e)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     Expr *typed = typecheck_and_convert(e);
@@ -835,7 +858,7 @@ Expr *typecheck_scalar(Expr *e)
 // Create a zero initializer
 Initializer *make_zero_init(Type *t)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (t->kind == TYPE_ARRAY) {
@@ -894,7 +917,7 @@ Initializer *make_zero_init(Type *t)
 // Convert an initializer to a Tac_StaticInit list for global variables
 Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
 
@@ -1054,7 +1077,7 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
 // Type-check an initializer against a target type
 Initializer *typecheck_init(const Type *target_type, Initializer *init)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
 
@@ -1158,7 +1181,7 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
 // Type-check a block
 DeclOrStmt *typecheck_block(const Type *ret_type, DeclOrStmt *block)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     for (DeclOrStmt *item = block; item; item = item->next) {
@@ -1230,7 +1253,7 @@ static bool try_eval_const_int(const Expr *e, long *out)
 // Type-check a statement
 Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (!s)
@@ -1365,7 +1388,7 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
 // Type-check a local variable declaration
 void typecheck_local_var_decl(Declaration *d)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (d->u.var.specifiers &&
@@ -1416,7 +1439,7 @@ void typecheck_local_var_decl(Declaration *d)
 // Type-check a function declaration
 void typecheck_fn_decl(ExternalDecl *d)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     const Type *fun_type = d->u.function.type;
@@ -1497,7 +1520,7 @@ void typecheck_fn_decl(ExternalDecl *d)
 // Type-check a local declaration
 void typecheck_local_decl(Declaration *d)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     switch (d->kind) {
@@ -1515,7 +1538,7 @@ void typecheck_local_decl(Declaration *d)
 // Type-check a global variable declaration
 void typecheck_file_scope_var_decl(Declaration *d)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
         print_declaration(stdout, d, 4);
     }
@@ -1593,14 +1616,14 @@ void typecheck_file_scope_var_decl(Declaration *d)
 // Type-check a global declaration
 void typecheck_global_decl(ExternalDecl *d)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s()\n", __func__);
         print_external_decl(stdout, d, 4);
     }
     switch (d->kind) {
     case EXTERNAL_DECL_FUNCTION:
         typecheck_fn_decl(d);
-        if (translator_debug) {
+        if (semantic_debug) {
             printf("--- result:\n");
             print_external_decl(stdout, d, 4);
         }
@@ -1621,7 +1644,7 @@ void typecheck_global_decl(ExternalDecl *d)
             break;
         }
         }
-        if (translator_debug) {
+        if (semantic_debug) {
             printf("--- result:\n");
             print_declaration(stdout, d->u.declaration, 4);
         }

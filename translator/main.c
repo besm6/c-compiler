@@ -11,6 +11,7 @@
 
 #include "symtab.h"
 #include "structtab.h"
+#include "semantic.h"
 #include "translate.h"
 #include "wio.h"
 #include "xalloc.h"

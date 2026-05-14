@@ -7,7 +7,7 @@
 #include "internal.h"
 #include "string_map.h"
 #include "unique.h"
-#include "translate.h"
+#include "semantic.h"
 #include "xalloc.h"
 
 StringMap symtab;
@@ -17,7 +17,7 @@ StringMap symtab;
 //
 Symbol *new_symbol(const char *name, Type *t, SymbolKind kind)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s() %s\n", __func__, name);
         print_type(stdout, t, 4);
     }

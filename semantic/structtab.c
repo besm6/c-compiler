@@ -4,7 +4,7 @@
 
 #include "ast.h"
 #include "string_map.h"
-#include "translate.h"
+#include "semantic.h"
 #include "xalloc.h"
 
 StringMap structtab;
@@ -79,7 +79,7 @@ void structtab_destroy()
 //
 void structtab_add_struct(const char *tag, int alignment, int size, FieldDef *members, int level)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s() %s\n", __func__, tag);
     }
     // Build new definition.

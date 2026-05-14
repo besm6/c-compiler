@@ -8,6 +8,7 @@
 #include "structtab.h"
 #include "symtab.h"
 #include "tac.h"
+#include "semantic.h"
 #include "translate.h"
 #include "xalloc.h"
 

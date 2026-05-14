@@ -4,7 +4,7 @@
 
 #include "ast.h"
 #include "string_map.h"
-#include "translate.h"
+#include "semantic.h"
 #include "xalloc.h"
 
 StringMap typetab;
@@ -48,7 +48,7 @@ void typetab_destroy()
 //
 void typetab_add(const char *name, const Type *type, int scope_level)
 {
-    if (translator_debug) {
+    if (semantic_debug) {
         printf("--- %s() %s\n", __func__, name);
         print_type(stdout, type, 4);
     }

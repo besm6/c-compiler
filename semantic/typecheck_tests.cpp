@@ -28,7 +28,7 @@
 #include "parser.h"
 #include "scanner.h"
 #include "symtab.h"
-#include "translate.h"
+#include "semantic.h"
 #include "structtab.h"
 #include "xalloc.h"
 
@@ -46,7 +46,7 @@ protected:
         auto filename = test_name + ".c";
         input_file    = fopen(filename.c_str(), "w+");
         ASSERT_NE(nullptr, input_file);
-        translator_debug = 1;
+        semantic_debug = 1;
     }
 
     void TearDown() override
@@ -1036,43 +1036,4 @@ TEST_F(LabelLoopsTest, ContinueOutsideLoop)
     ASSERT_EXIT(RunLabelLoops("int f(void) { continue; }"),
                 ::testing::ExitedWithCode(1),
                 "continue statement not inside loop");
-}
-
-// ---------------------------------------------------------------------------
-// TackerPipelineTest — full pipeline including translate() and per-decl free,
-// mirroring tacker's main.c loop. Used to catch memory bugs that only appear
-// when translate() is part of the pipeline.
-// ---------------------------------------------------------------------------
-
-class TackerPipelineTest : public TypecheckTest {
-protected:
-    // Run the complete tacker pipeline on each declaration.
-    // Declarations are freed individually (as in tacker's main.c), so
-    // program->decls is detached here and must not be freed by TearDown.
-    void RunTackerPipeline(const char *src)
-    {
-        ParseProgram(src);
-        ExternalDecl *decls = program->decls;
-        program->decls      = nullptr;
-        while (decls) {
-            ExternalDecl *next = decls->next;
-            decls->next        = nullptr;
-            typecheck_global_decl(decls);
-            label_loops(decls);
-            Tac_TopLevel *tac = translate(decls);
-            free_external_decl(decls);
-            if (tac)
-                tac_free_toplevel(tac);
-            decls = next;
-        }
-    }
-};
-
-// After translate() + free_external_decl(), TearDown's symtab_destroy() must
-// not double-free any type that was also freed via free_external_decl(). When
-// this bug is present, xfree() detects "Damaged memory head" and calls exit(1)
-// before TearDown's xtotal_allocated_size() == 0 assertion is reached.
-TEST_F(TackerPipelineTest, FunctionBodyFreedCleanly)
-{
-    RunTackerPipeline("int f(void) { return 1; }");
 }

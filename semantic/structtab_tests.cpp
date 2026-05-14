@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <string.h>
 
-#include "translate.h"
+#include "semantic.h"
 #include "structtab.h"
 #include "xalloc.h"
 

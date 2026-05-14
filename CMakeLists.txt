@@ -52,6 +52,7 @@ add_subdirectory(ast)
 add_subdirectory(scanner)
 add_subdirectory(parser)
 add_subdirectory(tac)
+add_subdirectory(semantic)
 add_subdirectory(translator)
 
 #

@@ -1,7 +1,7 @@
 //
 // Helpers for Type.
 //
-#include "translate.h"
+#include "semantic.h"
 #include "structtab.h"
 #include "typetab.h"
 
