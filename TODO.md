@@ -8,55 +8,6 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 1. String literals: `LITERAL_STRING`
-
-**Current behavior:** Same `fatal_error("Unsupported literal in TAC lowering")` for
-`LITERAL_STRING`.
-
-**AST node:** `e->u.literal->u.string_val` — `char*`, the raw string content.
-
-**Design:** A string literal is a static object. Its data must live in a
-`TAC_TOPLEVEL_STATIC_CONSTANT` node (with `TAC_STATIC_INIT_STRING`) at the program
-top-level, not inside the function body. The expression itself produces a pointer to
-that storage via `TAC_INSTRUCTION_GET_ADDRESS`.
-
-**Concrete work:**
-
-1. **Extend `TacCtx`** (defined near the top of `translate.c`) with two new fields:
-
-   ```c
-   Tac_TopLevel *static_constants;   // head of accumulated string-constant list
-   int           string_id;          // counter for unique names: .str.0, .str.1, …
-   ```
-
-2. **On each `LITERAL_STRING`:**
-   - Generate a unique name: `snprintf(buf, …, ".str.%d", ctx->string_id++)`.
-   - Optionally call `symtab_add_string()` (already in `symtab.c`) to register the
-     name so later passes can see it.
-   - Build a `Tac_TopLevel` node with kind `TAC_TOPLEVEL_STATIC_CONSTANT`,
-     setting `name` to the generated name and `init` to a
-     `TAC_STATIC_INIT_STRING` node containing the string content.
-   - Prepend (or append) the node to `ctx->static_constants`.
-   - Emit `TAC_INSTRUCTION_GET_ADDRESS` with `val_var(name)` as source and a fresh
-     temp (`new_temp()`) as destination.
-   - Return the destination temp.
-
-3. **In `translate_function()`** (or wherever the function's `TacCtx` is finalized),
-   splice `ctx->static_constants` into the `Tac_Program`'s top-level list so they are
-   serialized with the rest of the program.
-
-**Helpers available:** `symtab_add_string()`, `new_temp()`, `val_var()`, `tac_append()`,
-`tac_new_instruction()`.
-
-**Deferral option:** If this task is postponed, replace the generic message with
-`fatal_error("string literals not yet lowered")` so the error is self-describing.
-
-**Effort:** Small (half a day — the one-liner cases above are trivial; most of the
-work is plumbing `static_constants` through `TacCtx` and splicing the list into the
-output).
-
----
-
 ## 3. Ternary conditional `?:`
 
 **Current behavior:** `EXPR_COND` calls `fatal_error`.

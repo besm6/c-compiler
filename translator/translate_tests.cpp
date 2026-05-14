@@ -229,6 +229,118 @@ TEST_F(TranslateTest, CharLiteralReturnedDirectly)
 }
 
 // ---------------------------------------------------------------------------
+// String literals — task #1
+// ---------------------------------------------------------------------------
+
+// A string literal emits a static_constant toplevel node followed by a
+// get_address instruction that yields the pointer result.
+TEST_F(TranslateTest, StringLiteralReturned)
+{
+    std::string yaml = CompileToYaml(R"(char *f(void) { return "hi"; })");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_constant
+  name: _str0
+  type:
+    kind: array
+    elem_type:
+      kind: char
+    size: 5
+  init:
+    kind: string
+    value: "hi"
+    null_terminated: true
+- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: get_address
+      src:
+        kind: var
+        name: _str0
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+)");
+}
+
+// Two functions with distinct string literals each get their own
+// static_constant node with unique names.
+TEST_F(TranslateTest, TwoFunctionsDistinctStringLiterals)
+{
+    std::string yaml = CompileToYaml(
+        "char *f(void) { return \"yes\"; }\n"
+        "char *g(void) { return \"no\"; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_constant
+  name: _str0
+  type:
+    kind: array
+    elem_type:
+      kind: char
+    size: 6
+  init:
+    kind: string
+    value: "yes"
+    null_terminated: true
+- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: get_address
+      src:
+        kind: var
+        name: _str0
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+- toplevel:
+  kind: static_constant
+  name: _str1
+  type:
+    kind: array
+    elem_type:
+      kind: char
+    size: 5
+  init:
+    kind: string
+    value: "no"
+    null_terminated: true
+- toplevel:
+  kind: function
+  name: g
+  global: true
+  body:
+    - instruction:
+      kind: get_address
+      src:
+        kind: var
+        name: _str1
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+)");
+}
+
+// ---------------------------------------------------------------------------
 // Unary plus — task #3
 // ---------------------------------------------------------------------------
 

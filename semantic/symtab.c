@@ -73,6 +73,7 @@ void symtab_init()
 void symtab_destroy()
 {
     map_destroy_free(&symtab, symtab_destroy_callback);
+    unique_string_literal_name_reset();
 }
 
 //

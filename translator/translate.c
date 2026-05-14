@@ -24,6 +24,7 @@ typedef struct {
     Tac_Instruction *head;
     Tac_Instruction *tail;
     int temp_id;
+    Tac_TopLevel *static_constants; // string-constant toplevel nodes accumulated during body lowering
 } TacCtx;
 
 static void tac_append(TacCtx *ctx, Tac_Instruction *instr)
@@ -167,6 +168,7 @@ static Tac_Val *new_var_val(TacCtx *ctx)
 }
 
 static Tac_Val *gen_expr(TacCtx *ctx, Expr *e);
+static Tac_Type *ast_type_to_tac_type(const Type *t);
 
 static Tac_Val *gen_unary(TacCtx *ctx, UnaryOp op, Expr *inner)
 {
@@ -214,6 +216,28 @@ static Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             return val_double(e->u.literal->u.real_val);
         case LITERAL_CHAR:
             return val_int(e->u.literal->u.char_val);
+        case LITERAL_STRING: {
+            const char *sname = symtab_add_string(e->u.literal->u.string_val);
+            Symbol *sym       = symtab_get(sname);
+
+            Tac_TopLevel *sc          = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
+            sc->u.static_constant.name = xstrdup(sname);
+            sc->u.static_constant.type = ast_type_to_tac_type(sym->type);
+            sc->u.static_constant.init = sym->u.const_init;
+            sym->u.const_init          = NULL; // transfer ownership to TAC node
+
+            sc->next              = ctx->static_constants;
+            ctx->static_constants = sc;
+
+            Tac_Val *dst           = new_var_val(ctx);
+            Tac_Instruction *in    = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
+            in->u.get_address.src  = val_var(sname);
+            in->u.get_address.dst  = dst;
+            tac_append(ctx, in);
+
+            xfree((char *)sname);
+            return val_var(dst->u.var_name);
+        }
         default:
             fatal_error("Unsupported literal in TAC lowering");
         }
@@ -512,9 +536,17 @@ static Tac_TopLevel *translate_fn(ExternalDecl *ast)
     tl->u.function.params = params_from_type(ast->u.function.type);
 
     if (ast->u.function.body) {
-        TacCtx ctx = { NULL, NULL, 0 };
+        TacCtx ctx = { NULL, NULL, 0, NULL };
         gen_stmt(&ctx, ast->u.function.body);
         tl->u.function.body = ctx.head;
+
+        if (ctx.static_constants) {
+            Tac_TopLevel *last = ctx.static_constants;
+            while (last->next)
+                last = last->next;
+            last->next = tl;
+            return ctx.static_constants;
+        }
     }
     return tl;
 }
