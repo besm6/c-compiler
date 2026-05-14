@@ -79,6 +79,93 @@ TEST_F(TranslateTest, StructFieldWrite)
 )");
 }
 
+// ---------------------------------------------------------------------------
+// Pointer-to-struct field access — task #7
+// ---------------------------------------------------------------------------
+
+// p->x in rvalue context emits ADD_PTR + LOAD.
+TEST_F(TranslateTest, PtrFieldRead)
+{
+    std::string yaml = CompileToYaml(
+        "struct Foo { int x; int y; };"
+        "int f(struct Foo *p) { return p->x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: p
+  body:
+    - instruction:
+      kind: add_ptr
+      ptr:
+        kind: var
+        name: p
+      index:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      scale: 1
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: load
+      src_ptr:
+        kind: var
+        name: t.0
+      dst:
+        kind: var
+        name: t.1
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.1
+)");
+}
+
+// p->x = 5 emits ADD_PTR + STORE.
+TEST_F(TranslateTest, PtrFieldWrite)
+{
+    std::string yaml = CompileToYaml(
+        "struct Foo { int x; int y; };"
+        "void f(struct Foo *p) { p->x = 5; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: p
+  body:
+    - instruction:
+      kind: add_ptr
+      ptr:
+        kind: var
+        name: p
+      index:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      scale: 1
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: store
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 5
+      dst_ptr:
+        kind: var
+        name: t.0
+)");
+}
+
 // &s.x emits GET_ADDRESS then ADD_PTR (scale=1, index=byte offset).
 TEST_F(TranslateTest, StructFieldAddressOf)
 {

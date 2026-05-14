@@ -155,6 +155,20 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         tac_append(ctx, ap);
         return val_var(dst->u.var_name);
     }
+    case EXPR_PTR_ACCESS: {
+        Expr *ptr_expr    = e->u.ptr_access.expr;
+        Tac_Val *ptr_val  = gen_expr(ctx, ptr_expr);
+        const Type *struct_type = ptr_expr->type->u.pointer.target;
+        int offset        = find_field_offset(struct_type, e->u.ptr_access.field);
+        Tac_Val *dst      = new_var_val(ctx);
+        Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
+        ap->u.add_ptr.ptr   = ptr_val;
+        ap->u.add_ptr.index = val_int(offset);
+        ap->u.add_ptr.scale = 1;
+        ap->u.add_ptr.dst   = dst;
+        tac_append(ctx, ap);
+        return val_var(dst->u.var_name);
+    }
     default:
         fatal_error("lvalue not yet supported in gen_lval: expression kind %d", (int)e->kind);
     }
@@ -565,6 +579,15 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             tac_append(ctx, in);
             return val_var(dst->u.var_name);
         }
+    }
+    case EXPR_PTR_ACCESS: {
+        Tac_Val *addr       = gen_lval(ctx, e);
+        Tac_Val *dst        = new_var_val(ctx);
+        Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+        in->u.load.src_ptr  = addr;
+        in->u.load.dst      = dst;
+        tac_append(ctx, in);
+        return val_var(dst->u.var_name);
     }
     default:
         fatal_error("Unsupported expression kind %d in TAC lowering", (int)e->kind);
