@@ -138,6 +138,127 @@ The `translator/attic/` directory holds older experiments; it is not linked into
 | `tac_yaml.c` | YAML listing (debug/test; not re-importable) |
 | `tac_graphviz.c` | Graphviz DOT output |
 
+### TAC YAML format
+
+`tac_export_yaml()` (`tac/tac_yaml.c`) emits one `- toplevel:` block per call. Indentation is 2 spaces per level. **Not re-importable** — debug/test use only.
+
+#### Toplevel kinds
+
+```yaml
+- toplevel:
+  kind: function
+  name: f
+  global: true          # false for static
+  params:               # omitted when empty
+    - param: x
+  body:                 # omitted for prototypes
+    - instruction:
+      kind: ...
+
+- toplevel:
+  kind: static_variable
+  name: g
+  global: true
+  type:
+    kind: int
+  init_list:            # omitted when absent (tentative definition)
+    - init:
+      kind: i32
+      value: 42
+
+- toplevel:
+  kind: static_constant  # used for string literals
+  name: _str0
+  type:
+    kind: array
+    elem_type:
+      kind: char
+    size: 6
+  init:
+    kind: string
+    value: hello
+    null_terminated: true
+```
+
+#### Values — appear under `src:`, `dst:`, `condition:`, `args:`
+
+```yaml
+kind: var
+name: x
+
+kind: constant
+const:
+  kind: int      # int | long | long_long | uint | ulong | ulong_long | double | char | uchar
+  value: 42      # double uses %a (hex float) format
+```
+
+**Instructions** (all have `- instruction:` header; fields follow at +2 indent)
+
+| `kind:` | Additional fields |
+|---------|-------------------|
+| `return` | `src:` val (omitted for void return) |
+| `copy` | `src:` `dst:` |
+| `sign_extend` | `src:` `dst:` |
+| `zero_extend` | `src:` `dst:` |
+| `truncate` | `src:` `dst:` |
+| `int_to_double` | `src:` `dst:` |
+| `uint_to_double` | `src:` `dst:` |
+| `double_to_int` | `src:` `dst:` |
+| `double_to_uint` | `src:` `dst:` |
+| `unary` | `op:` `src:` `dst:` |
+| `binary` | `op:` `src1:` `src2:` `dst:` |
+| `get_address` | `src:` `dst:` |
+| `load` | `src_ptr:` `dst:` |
+| `store` | `src:` `dst_ptr:` |
+| `add_ptr` | `ptr:` `index:` `scale: N` `dst:` |
+| `copy_to_offset` | `src:` `dst: name` (bare string) `offset: N` |
+| `copy_from_offset` | `src: name` (bare string) `offset: N` `dst:` |
+| `jump` | `target: label` |
+| `jump_if_zero` | `condition:` `target: label` |
+| `jump_if_not_zero` | `condition:` `target: label` |
+| `label` | `name: label` |
+| `fun_call` | `fun_name: f` `args:` list (omitted when none) `dst:` (omitted for void) |
+
+Unary ops: `complement`, `negate`, `not`.
+Binary ops: `add`, `subtract`, `multiply`, `divide`, `remainder`, `equal`, `not_equal`, `less_than`, `less_or_equal`, `greater_than`, `greater_or_equal`, `bitwise_and`, `bitwise_or`, `bitwise_xor`, `left_shift`, `right_shift`.
+
+**Types** (appear under `type:`, `elem_type:`, `target:`, `ret_type:`, `param_types:`)
+
+```yaml
+kind: int | uint | long | ulong | long_long | ulong_long
+     | char | schar | uchar | short | ushort | float | double | void
+
+kind: pointer
+target:
+  kind: ...
+
+kind: array
+elem_type:
+  kind: ...
+size: N
+
+kind: fun_type
+param_types:        # omitted when none
+  - type:
+    kind: ...
+ret_type:
+  kind: ...
+
+kind: structure
+tag: MyStruct
+```
+
+**Static init kinds** (list items under `init_list:`, single item under `init:`)
+
+| `kind:` | Fields |
+|---------|--------|
+| `i8` / `i32` / `i64` | `value:` (signed) |
+| `u8` / `u32` / `u64` | `value:` (unsigned) |
+| `double` | `value:` (hex float) |
+| `zero` | `bytes: N` |
+| `string` | `value:` `null_terminated: true\|false` |
+| `pointer` | `name:` |
+
 ### Grammar (`grammar/`)
 
 Reference grammars and notes. See [grammar/README.md](../grammar/README.md) for the relationship between Yacc, Lex, and ASDL files (`c11.y`, `c11.l`, `c11.asdl`).
