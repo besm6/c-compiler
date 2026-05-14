@@ -557,6 +557,20 @@ Expr *typecheck_exp(Expr *e)
             e->u.unary_op.expr = inner;
             return e;
         }
+        case UNARY_PRE_INC:
+        case UNARY_PRE_DEC: {
+            Expr *inner = typecheck_and_convert(e->u.unary_op.expr);
+            if (!is_lvalue(inner)) {
+                fatal_error("Operand of pre-increment/decrement must be a modifiable lvalue");
+            }
+            if (!is_scalar(inner->type)) {
+                fatal_error("Operand of pre-increment/decrement must be a scalar type");
+            }
+            free_type(e->type);
+            e->type            = clone_type(inner->type, __func__, __FILE__, __LINE__);
+            e->u.unary_op.expr = inner;
+            return e;
+        }
         default:
             fatal_error("Unsupported unary op %d", e->u.unary_op.op);
         }
@@ -829,6 +843,32 @@ Expr *typecheck_exp(Expr *e)
         free_type(e->type);
         e->type              = clone_type(member->type, __func__, __FILE__, __LINE__);
         e->u.ptr_access.expr = strct_ptr;
+        return e;
+    }
+    case EXPR_POST_INC: {
+        Expr *inner = typecheck_and_convert(e->u.post_inc);
+        if (!is_lvalue(inner)) {
+            fatal_error("Operand of post-increment must be a modifiable lvalue");
+        }
+        if (!is_scalar(inner->type)) {
+            fatal_error("Operand of post-increment must be a scalar type");
+        }
+        free_type(e->type);
+        e->type       = clone_type(inner->type, __func__, __FILE__, __LINE__);
+        e->u.post_inc = inner;
+        return e;
+    }
+    case EXPR_POST_DEC: {
+        Expr *inner = typecheck_and_convert(e->u.post_dec);
+        if (!is_lvalue(inner)) {
+            fatal_error("Operand of post-decrement must be a modifiable lvalue");
+        }
+        if (!is_scalar(inner->type)) {
+            fatal_error("Operand of post-decrement must be a scalar type");
+        }
+        free_type(e->type);
+        e->type       = clone_type(inner->type, __func__, __FILE__, __LINE__);
+        e->u.post_dec = inner;
         return e;
     }
     default:

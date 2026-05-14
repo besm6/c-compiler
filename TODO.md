@@ -8,34 +8,6 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 7. Pre/post increment and decrement
-
-**Current behavior:** `UNARY_PRE_INC` and `UNARY_PRE_DEC` hit `map_unary_op`'s
-`default` and call `fatal_error`. `EXPR_POST_INC` and `EXPR_POST_DEC` call `fatal_error`.
-
-**AST nodes:** `e->u.unary_op.expr` for all four forms.
-
-**Concrete work:**
-
-- Add cases in `gen_expr` before calling `gen_unary`.
-- Post-increment `x++`:
-  1. `COPY t.old ← x`
-  2. `t.new = BINARY ADD x, 1`
-  3. `COPY x ← t.new`
-  4. Return `t.old`
-- Pre-increment `++x`:
-  1. `t.new = BINARY ADD x, 1`
-  2. `COPY x ← t.new`
-  3. Return `t.new`
-- Decrement variants use `SUBTRACT` in place of `ADD`.
-- Pointer operands need `ADD_PTR` with scale = `sizeof(*ptr)` — defer to task 9 using
-  the `lvalue_name` helper (already in translate.c), which will `fatal_error` on
-  non-variable operands until then.
-
-**Effort:** Small (half a day including tests).
-
----
-
 ## 8. `switch`/`case`/`default` lowering
 
 **Current behavior:** `STMT_SWITCH`, `STMT_CASE`, and `STMT_DEFAULT` all call
