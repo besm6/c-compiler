@@ -108,6 +108,19 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         if (e->u.unary_op.op == UNARY_DEREF)
             return gen_expr(ctx, e->u.unary_op.expr);
         fatal_error("lvalue not yet supported in gen_lval: expression kind %d", (int)e->kind);
+    case EXPR_SUBSCRIPT: {
+        Tac_Val *ptr_val    = gen_expr(ctx, e->u.subscript.left);
+        Tac_Val *idx_val    = gen_expr(ctx, e->u.subscript.right);
+        int scale           = (int)get_size(e->type);
+        Tac_Val *dst        = new_var_val(ctx);
+        Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
+        in->u.add_ptr.ptr   = ptr_val;
+        in->u.add_ptr.index = idx_val;
+        in->u.add_ptr.scale = scale;
+        in->u.add_ptr.dst   = dst;
+        tac_append(ctx, in);
+        return val_var(dst->u.var_name);
+    }
     default:
         fatal_error("lvalue not yet supported in gen_lval: expression kind %d", (int)e->kind);
     }
@@ -470,6 +483,15 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             tac_append(ctx, st);
             return val_var(old->u.var_name);
         }
+    }
+    case EXPR_SUBSCRIPT: {
+        Tac_Val *addr       = gen_lval(ctx, e);
+        Tac_Val *dst        = new_var_val(ctx);
+        Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+        in->u.load.src_ptr  = addr;
+        in->u.load.dst      = dst;
+        tac_append(ctx, in);
+        return val_var(dst->u.var_name);
     }
     default:
         fatal_error("Unsupported expression kind %d in TAC lowering", (int)e->kind);

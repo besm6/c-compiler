@@ -110,6 +110,7 @@ bool is_lvalue(const Expr *e)
     case EXPR_VAR:
     case EXPR_FIELD_ACCESS:
     case EXPR_PTR_ACCESS:
+    case EXPR_SUBSCRIPT:
         return true;
     case EXPR_BINARY_OP:
         if (e->u.binary_op.op == BINARY_LOG_AND || e->u.binary_op.op == BINARY_LOG_OR) {

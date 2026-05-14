@@ -8,35 +8,6 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 4. Array subscript (`a[i]`)
-
-**Depends on:** Tasks 1–3.
-
-**Current behavior:** `EXPR_SUBSCRIPT` calls `fatal_error`. `ADD_PTR` is never emitted.
-
-**Work:**
-
-Extend `gen_lval()` with `EXPR_SUBSCRIPT`:
-
-1. Evaluate the base pointer/array with `gen_expr(base)`.
-2. Evaluate the index with `gen_expr(index)`.
-3. Compute `scale = get_size(element_type)` where `element_type` is the type of the
-   subscript expression itself (the type-checker has already resolved it).
-4. Emit `ADD_PTR dst ← ptr, index, scale`.
-
-Add `EXPR_SUBSCRIPT` to `gen_expr()`: call `gen_lval(e)` then emit `LOAD`.
-Assignment through `a[i]` is handled automatically by Task 3's dispatch.
-
-Tests (add to `translator/ptr_tests.cpp`):
-
-- `int y = a[i];` → `ADD_PTR` + `LOAD`.
-- `a[i] = 5;` → `ADD_PTR` + `STORE`.
-- `a[i]++;` → `ADD_PTR` + `LOAD` + `BINARY` + `STORE`.
-
-**Effort:** Small–Medium (~3 h).
-
----
-
 ## 5. `sizeof` and `_Alignof` operators
 
 **Current behavior:** `EXPR_SIZEOF_EXPR`, `EXPR_SIZEOF_TYPE`, and `EXPR_ALIGNOF` all
