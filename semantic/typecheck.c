@@ -1498,7 +1498,9 @@ void typecheck_fn_decl(ExternalDecl *d)
             break;
         }
     }
-    if (has_body && (!is_complete(fun_type->u.function.return_type) || !all_params_complete)) {
+    const Type *ret = fun_type->u.function.return_type;
+    bool ret_ok     = (ret->kind == TYPE_VOID) || is_complete(ret);
+    if (has_body && (!ret_ok || !all_params_complete)) {
         fatal_error("Can't define function with incomplete types");
     }
     bool global      = !is_static(d->u.function.specifiers);

@@ -1105,7 +1105,7 @@ TEST_F(TranslateTest, TypedefOnly)
 // Void call with no arguments emits fun_call with no args and no dst.
 TEST_F(TranslateTest, CallVoidNoArgs)
 {
-    std::string yaml = CompileToYaml("void g(void); int f(void) { g(); return 0; }");
+    std::string yaml = CompileToYaml("void g(void); void f(void) { g(); }");
     EXPECT_EQ(yaml, R"(- toplevel:
   kind: function
   name: g
@@ -1118,13 +1118,6 @@ TEST_F(TranslateTest, CallVoidNoArgs)
     - instruction:
       kind: fun_call
       fun_name: g
-    - instruction:
-      kind: return
-      src:
-        kind: constant
-        const:
-          kind: int
-          value: 0
 )");
 }
 
