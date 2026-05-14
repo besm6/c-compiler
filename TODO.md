@@ -8,44 +8,6 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 6. Struct field read/write (`s.f`, `COPY_FROM/TO_OFFSET`)
-
-**Depends on:** Tasks 1–3.
-
-**Current behavior:** `EXPR_FIELD_ACCESS` calls `fatal_error`. `COPY_FROM_OFFSET` and
-`COPY_TO_OFFSET` are never emitted.
-
-**Work:**
-
-Field offset lookup: `structtab_find(tag)->members`; walk the `FieldDef` linked list by
-name to find `.offset`.
-
-In `gen_expr()`, add `EXPR_FIELD_ACCESS`:
-
-- If base is `EXPR_VAR`: emit `COPY_FROM_OFFSET dst ← s, offset`.
-- Otherwise: `gen_lval(base)` → addr, `ADD_PTR addr2 ← addr, const_offset, 1`,
-  `LOAD dst ← addr2`.
-
-In `gen_lval()`, add `EXPR_FIELD_ACCESS`:
-
-- If base is `EXPR_VAR`: emit `GET_ADDRESS tmp ← s`, then
-  `ADD_PTR addr ← tmp, const_offset, 1`.
-- Otherwise: `gen_lval(base)` → addr, `ADD_PTR addr2 ← addr, const_offset, 1`.
-
-Assignment `s.f = val` falls through Task 3's dispatch. For the direct-variable case,
-also emit `COPY_TO_OFFSET val → s, offset` as an optimization (avoids
-`GET_ADDRESS` + `ADD_PTR` + `STORE`).
-
-Tests in a new `translator/struct_tests.cpp`:
-
-- `s.x` on rhs → `COPY_FROM_OFFSET`.
-- `s.x = 5;` → `COPY_TO_OFFSET`.
-- `&s.x` → `GET_ADDRESS` + `ADD_PTR`.
-
-**Effort:** Medium (~4 h).
-
----
-
 ## 7. Pointer-to-struct field access (`p->f`)
 
 **Depends on:** Tasks 1–3, 6.

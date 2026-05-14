@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "structtab.h"
 #include "xalloc.h"
 
 static Tac_BinaryOperator map_binary_op(BinaryOp op)
@@ -93,6 +94,16 @@ static Tac_BinaryOperator map_assign_op(AssignOp op)
 }
 
 
+static int find_field_offset(const Type *struct_type, const char *field_name)
+{
+    const StructDef *def = structtab_find(struct_type->u.struct_t.name);
+    for (const FieldDef *m = def->members; m; m = m->next) {
+        if (strcmp(m->name, field_name) == 0)
+            return m->offset;
+    }
+    fatal_error("Field %s not found in struct %s", field_name, struct_type->u.struct_t.name);
+}
+
 static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
 {
     switch (e->kind) {
@@ -119,6 +130,29 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         in->u.add_ptr.scale = scale;
         in->u.add_ptr.dst   = dst;
         tac_append(ctx, in);
+        return val_var(dst->u.var_name);
+    }
+    case EXPR_FIELD_ACCESS: {
+        Expr *base    = e->u.field_access.expr;
+        int offset    = find_field_offset(base->type, e->u.field_access.field);
+        Tac_Val *base_addr;
+        if (base->kind == EXPR_VAR) {
+            Tac_Val *tmp          = new_var_val(ctx);
+            Tac_Instruction *ga   = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
+            ga->u.get_address.src = val_var(base->u.var);
+            ga->u.get_address.dst = tmp;
+            tac_append(ctx, ga);
+            base_addr = val_var(tmp->u.var_name);
+        } else {
+            base_addr = gen_lval(ctx, base);
+        }
+        Tac_Val *dst        = new_var_val(ctx);
+        Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
+        ap->u.add_ptr.ptr   = base_addr;
+        ap->u.add_ptr.index = val_int(offset);
+        ap->u.add_ptr.scale = 1;
+        ap->u.add_ptr.dst   = dst;
+        tac_append(ctx, ap);
         return val_var(dst->u.var_name);
     }
     default:
@@ -351,6 +385,18 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 tac_append(ctx, cp);
             }
             return val_var(dst);
+        } else if (target->kind == EXPR_FIELD_ACCESS &&
+                   target->u.field_access.expr->kind == EXPR_VAR &&
+                   e->u.assign.op == ASSIGN_SIMPLE) {
+            const char *var_name = target->u.field_access.expr->u.var;
+            int offset           = find_field_offset(target->u.field_access.expr->type,
+                                                     target->u.field_access.field);
+            Tac_Instruction *in         = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
+            in->u.copy_to_offset.src    = src;
+            in->u.copy_to_offset.dst    = xstrdup(var_name);
+            in->u.copy_to_offset.offset = offset;
+            tac_append(ctx, in);
+            return val_var(var_name);
         } else {
             Tac_Val *addr_raw = gen_lval(ctx, target);
             if (e->u.assign.op == ASSIGN_SIMPLE) {
@@ -499,6 +545,27 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         return val_int(get_size(e->u.sizeof_type));
     case EXPR_ALIGNOF:
         return val_int(get_alignment(e->u.align_of));
+    case EXPR_FIELD_ACCESS: {
+        const Expr *base = e->u.field_access.expr;
+        int offset       = find_field_offset(base->type, e->u.field_access.field);
+        if (base->kind == EXPR_VAR) {
+            Tac_Val *dst                   = new_var_val(ctx);
+            Tac_Instruction *in            = tac_new_instruction(TAC_INSTRUCTION_COPY_FROM_OFFSET);
+            in->u.copy_from_offset.src     = xstrdup(base->u.var);
+            in->u.copy_from_offset.offset  = offset;
+            in->u.copy_from_offset.dst     = dst;
+            tac_append(ctx, in);
+            return val_var(dst->u.var_name);
+        } else {
+            Tac_Val *addr       = gen_lval(ctx, e);
+            Tac_Val *dst        = new_var_val(ctx);
+            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+            in->u.load.src_ptr  = addr;
+            in->u.load.dst      = dst;
+            tac_append(ctx, in);
+            return val_var(dst->u.var_name);
+        }
+    }
     default:
         fatal_error("Unsupported expression kind %d in TAC lowering", (int)e->kind);
     }
