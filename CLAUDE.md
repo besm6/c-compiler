@@ -52,9 +52,16 @@ Try the compiler tools:
 
 # tacker requires a filename — write AST to a file first, then pass it:
 ./build/cast input.c > /tmp/input.ast
-./build/tacker /tmp/input.ast           # → binary TAC to stdout
-./build/tacker --yaml /tmp/input.ast    # → YAML TAC
+./build/tacker /tmp/input.ast           # → binary TAC to /tmp/input.tac
+./build/tacker --yaml /tmp/input.ast    # → YAML TAC to /tmp/input.yaml (NOT stdout)
 ./build/tacker -D /tmp/input.ast        # debug: translator trace
+
+# tacker writes output to a derived filename, never to stdout.
+# The output file is the input path with the extension replaced:
+#   /tmp/input.ast --yaml  →  /tmp/input.yaml
+#   /tmp/input.ast         →  /tmp/input.tac
+# To print to stdout, pass "-" as the output argument:
+./build/tacker --yaml /tmp/input.ast -  # → YAML TAC to stdout
 ```
 
 Compiler flags in use: `-Wall -Werror -Wshadow` — all warnings are errors.

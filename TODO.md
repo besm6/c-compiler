@@ -8,31 +8,6 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 5. Function calls
-
-**Current behavior:** `EXPR_CALL` calls `fatal_error`. `TAC_INSTRUCTION_FUN_CALL` exists
-in the IR but is never emitted.
-
-**AST node:** `e->u.call.func` (callee expression), `e->u.call.args` (linked list of
-argument `Expr*`).
-
-**Concrete work:**
-
-- Evaluate each argument left-to-right with `gen_expr`; build a linked `Tac_Val*` list
-  by chaining `->next` on successive results.
-- Determine the callee: for a direct call (`e->u.call.func->kind == EXPR_VAR`) use
-  `e->u.call.func->u.var` as `fun_name`. Indirect calls (function pointers) can be
-  deferred with a `fatal_error` note.
-- If the annotated return type is `void` (`e->type->kind == TYPE_VOID`), set `dst = NULL`;
-  otherwise allocate a temp for the result.
-- Emit `TAC_INSTRUCTION_FUN_CALL` with `fun_name`, the arg list, and `dst`.
-- Return `dst` (or `val_int(0)` as a placeholder for void calls, whose result is never
-  consumed).
-
-**Effort:** Small-medium (1–2 days including tests).
-
----
-
 ## 6. Type casts and numeric conversions
 
 **Current behavior:** `EXPR_CAST` calls `fatal_error`. The TAC instructions

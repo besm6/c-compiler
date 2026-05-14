@@ -389,6 +389,30 @@ static Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         xfree(dst_name);
         return result;
     }
+    case EXPR_CALL: {
+        Tac_Val *args_head = NULL;
+        Tac_Val **args_tail = &args_head;
+        for (Expr *arg = e->u.call.args; arg; arg = arg->next) {
+            Tac_Val *av = gen_expr(ctx, arg);
+            *args_tail  = av;
+            args_tail   = &av->next;
+        }
+
+        Expr *func = e->u.call.func;
+        if (func->kind != EXPR_VAR)
+            fatal_error("Indirect call through non-variable expression not yet supported");
+        const char *fun_name = func->u.var;
+
+        Tac_Val *dst = (e->type->kind != TYPE_VOID) ? new_var_val(ctx) : NULL;
+
+        Tac_Instruction *in     = tac_new_instruction(TAC_INSTRUCTION_FUN_CALL);
+        in->u.fun_call.fun_name = xstrdup(fun_name);
+        in->u.fun_call.args     = args_head;
+        in->u.fun_call.dst      = dst;
+        tac_append(ctx, in);
+
+        return dst ? val_var(dst->u.var_name) : val_int(0);
+    }
     default:
         fatal_error("Unsupported expression kind %d in TAC lowering", (int)e->kind);
     }

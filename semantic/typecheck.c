@@ -709,11 +709,14 @@ Expr *typecheck_exp(Expr *e)
         if (func->kind != EXPR_VAR) {
             fatal_error("Function call requires variable name");
         }
-        Symbol *sym = symtab_get(func->u.var);
-        if (sym->type->kind != TYPE_FUNCTION) {
+        const Symbol *sym = symtab_get(func->u.var);
+        const Type *fn_type = sym->type;
+        if (fn_type->kind == TYPE_POINTER)
+            fn_type = fn_type->u.pointer.target; // function pointer decay
+        if (fn_type->kind != TYPE_FUNCTION) {
             fatal_error("Tried to use variable as function name");
         }
-        const Param *params = sym->type->u.function.params;
+        const Param *params = fn_type->u.function.params;
         int param_count = 0, arg_count = 0;
         for (const Param *p = params; p; p = p->next)
             param_count++;
@@ -735,7 +738,7 @@ Expr *typecheck_exp(Expr *e)
             p    = p->next;
         }
         free_type(e->type);
-        e->type = clone_type(sym->type->u.function.return_type, __func__, __FILE__, __LINE__);
+        e->type = clone_type(fn_type->u.function.return_type, __func__, __FILE__, __LINE__);
         e->u.call.args = new_args;
         return e;
     }
@@ -1575,11 +1578,21 @@ void typecheck_file_scope_var_decl(Declaration *d)
         // has_linkage is set correctly to allow the redeclaration.
         if (var_type->kind == TYPE_FUNCTION) {
             validate_type(var_type);
+            // Strip void sentinel — same normalization as in typecheck_fn_decl so
+            // call-site argument-count checks see zero params for f(void).
+            Type *adj  = clone_type(var_type, __func__, __FILE__, __LINE__);
+            Param *vsp = adj->u.function.params;
+            if (vsp && !vsp->next && vsp->type->kind == TYPE_VOID && !vsp->name) {
+                free_param(vsp);
+                adj->u.function.params = NULL;
+            }
             Symbol *existing = symtab_get_opt(decl->name);
             bool defined     = existing && existing->kind == SYM_FUNC && existing->u.func.defined;
             bool fn_global =
                 (existing && existing->kind == SYM_FUNC) ? existing->u.func.global : global;
-            symtab_add_fun(decl->name, var_type, fn_global, defined);
+            symtab_add_fun(decl->name, adj, fn_global, defined);
+            free_type(decl->type);
+            decl->type = adj; // normalized type now owned by AST
             continue;
         }
 
