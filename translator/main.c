@@ -268,7 +268,9 @@ void process_file(const Args *args)
         if (!ast)
             break;
 
-        print_external_decl(stdout, ast, 0);
+        if (args->debug) {
+            print_external_decl(stdout, ast, 0);
+        }
 
         // Typecheck definitions and uses of functions and variables.
         typecheck_global_decl(ast);

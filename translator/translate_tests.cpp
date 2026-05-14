@@ -495,6 +495,126 @@ TEST_F(TranslateTest, TernaryExprCondVarBranches)
 }
 
 // ---------------------------------------------------------------------------
+// Short-circuit && and || — task #4
+// ---------------------------------------------------------------------------
+
+TEST_F(TranslateTest, LogicalAndShortCircuit)
+{
+    std::string yaml = CompileToYaml("int f(int a, int b) { return a && b; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: a
+    - param: b
+  body:
+    - instruction:
+      kind: jump_if_zero
+      condition:
+        kind: var
+        name: a
+      target: t.0
+    - instruction:
+      kind: binary
+      op: not_equal
+      src1:
+        kind: var
+        name: b
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst:
+        kind: var
+        name: t.2
+    - instruction:
+      kind: jump
+      target: t.1
+    - instruction:
+      kind: label
+      name: t.0
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst:
+        kind: var
+        name: t.2
+    - instruction:
+      kind: label
+      name: t.1
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.2
+)");
+}
+
+TEST_F(TranslateTest, LogicalOrShortCircuit)
+{
+    std::string yaml = CompileToYaml("int f(int a, int b) { return a || b; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: a
+    - param: b
+  body:
+    - instruction:
+      kind: jump_if_not_zero
+      condition:
+        kind: var
+        name: a
+      target: t.0
+    - instruction:
+      kind: binary
+      op: not_equal
+      src1:
+        kind: var
+        name: b
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst:
+        kind: var
+        name: t.2
+    - instruction:
+      kind: jump
+      target: t.1
+    - instruction:
+      kind: label
+      name: t.0
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst:
+        kind: var
+        name: t.2
+    - instruction:
+      kind: label
+      name: t.1
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.2
+)");
+}
+
+// ---------------------------------------------------------------------------
 // goto statement — task #4
 // ---------------------------------------------------------------------------
 

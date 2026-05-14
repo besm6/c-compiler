@@ -8,36 +8,6 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 4. Short-circuit `&&` and `||`
-
-**Current behavior:** `BINARY_LOG_AND` and `BINARY_LOG_OR` hit `map_binary_op`'s
-`default` branch and call `fatal_error`. They cannot share the `gen_binary` path because
-C mandates short-circuit evaluation — the right operand must not be evaluated when the
-result is already determined.
-
-**Concrete work:** Add a fast-path in `gen_expr` before calling `gen_binary`.
-
-For `a && b`:
-
-```text
-  t.left = gen_expr(a)
-  JumpIfZero t.left → false_label
-  t.right = gen_expr(b)
-  t.dst   = BINARY NOT_EQUAL t.right, 0
-  Jump → end_label
-  LABEL false_label
-  COPY t.dst ← 0
-  LABEL end_label
-```
-
-`a || b` is symmetric: `JumpIfNotZero t.left → true_label`, evaluate `b`, otherwise
-set result to 1 at `true_label`. Both branches write to the same destination temp
-(`t.dst`), which holds the `int` boolean result.
-
-**Effort:** Small (half a day including tests).
-
----
-
 ## 5. Function calls
 
 **Current behavior:** `EXPR_CALL` calls `fatal_error`. `TAC_INSTRUCTION_FUN_CALL` exists

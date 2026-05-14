@@ -184,6 +184,74 @@ static void emit_label(TacCtx *ctx, const char *name)
 static Tac_Val *gen_expr(TacCtx *ctx, Expr *e);
 static Tac_Type *ast_type_to_tac_type(const Type *t);
 
+static Tac_Val *gen_logical_and(TacCtx *ctx, Expr *l, Expr *r)
+{
+    Tac_Val *left  = gen_expr(ctx, l);
+    char *false_l  = new_temp(ctx);
+    char *end_l    = new_temp(ctx);
+    char *dst_name = new_temp(ctx);
+
+    Tac_Instruction *jz          = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
+    jz->u.jump_if_zero.condition = left;
+    jz->u.jump_if_zero.target    = false_l; // instruction takes ownership
+    tac_append(ctx, jz);
+
+    Tac_Val *right       = gen_expr(ctx, r);
+    Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+    bin->u.binary.op     = TAC_BINARY_NOT_EQUAL;
+    bin->u.binary.src1   = right;
+    bin->u.binary.src2   = val_int(0);
+    bin->u.binary.dst    = val_var(dst_name);
+    tac_append(ctx, bin);
+    emit_jump(ctx, end_l);
+
+    emit_label(ctx, false_l); // false_l still valid; owned by jz
+    Tac_Instruction *cp = tac_new_instruction(TAC_INSTRUCTION_COPY);
+    cp->u.copy.src      = val_int(0);
+    cp->u.copy.dst      = val_var(dst_name);
+    tac_append(ctx, cp);
+
+    emit_label(ctx, end_l);
+    xfree(end_l);
+    Tac_Val *result = val_var(dst_name);
+    xfree(dst_name);
+    return result;
+}
+
+static Tac_Val *gen_logical_or(TacCtx *ctx, Expr *l, Expr *r)
+{
+    Tac_Val *left  = gen_expr(ctx, l);
+    char *true_l   = new_temp(ctx);
+    char *end_l    = new_temp(ctx);
+    char *dst_name = new_temp(ctx);
+
+    Tac_Instruction *jnz              = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
+    jnz->u.jump_if_not_zero.condition = left;
+    jnz->u.jump_if_not_zero.target    = true_l; // instruction takes ownership
+    tac_append(ctx, jnz);
+
+    Tac_Val *right       = gen_expr(ctx, r);
+    Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+    bin->u.binary.op     = TAC_BINARY_NOT_EQUAL;
+    bin->u.binary.src1   = right;
+    bin->u.binary.src2   = val_int(0);
+    bin->u.binary.dst    = val_var(dst_name);
+    tac_append(ctx, bin);
+    emit_jump(ctx, end_l);
+
+    emit_label(ctx, true_l); // true_l still valid; owned by jnz
+    Tac_Instruction *cp = tac_new_instruction(TAC_INSTRUCTION_COPY);
+    cp->u.copy.src      = val_int(1);
+    cp->u.copy.dst      = val_var(dst_name);
+    tac_append(ctx, cp);
+
+    emit_label(ctx, end_l);
+    xfree(end_l);
+    Tac_Val *result = val_var(dst_name);
+    xfree(dst_name);
+    return result;
+}
+
 static Tac_Val *gen_unary(TacCtx *ctx, UnaryOp op, Expr *inner)
 {
     Tac_Val *src = gen_expr(ctx, inner);
@@ -262,6 +330,10 @@ static Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             return gen_expr(ctx, e->u.unary_op.expr);
         return gen_unary(ctx, e->u.unary_op.op, e->u.unary_op.expr);
     case EXPR_BINARY_OP:
+        if (e->u.binary_op.op == BINARY_LOG_AND)
+            return gen_logical_and(ctx, e->u.binary_op.left, e->u.binary_op.right);
+        if (e->u.binary_op.op == BINARY_LOG_OR)
+            return gen_logical_or(ctx, e->u.binary_op.left, e->u.binary_op.right);
         return gen_binary(ctx, e->u.binary_op.op, e->u.binary_op.left, e->u.binary_op.right);
     case EXPR_ASSIGN: {
         const char *dst = lvalue_name(e->u.assign.target);
