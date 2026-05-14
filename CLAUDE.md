@@ -88,7 +88,7 @@ Source (.c)
 | Parser | `parser/` | Complete for C11 subset |
 | Type checking | `semantic/typecheck.c` | Mostly complete |
 | Loop labeling | `semantic/label_loops.c` | Complete |
-| AST → TAC lowering | `translator/translate.c` | Partial |
+| AST → TAC lowering | `translator/translate.c`, `expr.c`, `stmt.c` | Partial |
 | BESM-6 code gen | — | Not started |
 
 ### Key data structures
@@ -254,7 +254,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `parser/simple_tests.cpp`, `statement_tests.cpp`, … (8 files) → `parser-tests`
 - `tac/tac_yaml_tests.cpp`, `tac_graphviz_tests.cpp`, `tac_binary_tests.cpp` → `tac-yaml-tests`, `tac-dot-tests`, `tac-binary-tests`
 - `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp` → 4 separate executables
-- `translator/translate_tests.cpp` → `translate-tests`
+- `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp` → `translate-tests`
 - `libutil/string_map_tests.cpp`, `wio_tests.cpp` → `libutil-tests`, `wio-tests`
 
 Two test files are disabled in CMake (known failures): `parser/negative_tests.cpp` and `semantic/const_convert_tests.cpp`.
