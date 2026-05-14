@@ -2,7 +2,7 @@
 
 A C compiler project aimed at the [BESM-6](https://en.wikipedia.org/wiki/BESM-6) mainframe. The long-term idea is a self-hosting toolchain that can help build systems such as the [Unix v7 port for BESM-6](https://github.com/besm6/v7besm) and work with the [Dubna monitor](https://github.com/besm6/dubna).
 
-**This repository is unfinished.** The frontend (lexing, parsing, AST) is in active use; semantic analysis runs in `tacker`; three-address code is produced for a subset of the language and can be exported, while a full TAC pipeline and machine backend remain work in progress. For file-by-file detail, build options, and tests, see [docs/TECHNICAL.md](docs/TECHNICAL.md). Planned work and estimates are tracked in [TODO.md](TODO.md).
+**This repository is unfinished.** The frontend (lexing, parsing, AST) is in active use; semantic analysis runs in `tacker`; three-address code is produced for a subset of the language and can be exported, while a full TAC pipeline and machine backend remain work in progress. For file-by-file detail, build options, and tests, see [docs/Technical.md](docs/Technical.md). Planned work and estimates are tracked in [TODO.md](TODO.md).
 
 ## Goals
 
@@ -53,7 +53,7 @@ flowchart LR
     end
 ```
 
-The repository ships two programs: **`cast`** (C → AST) and **`tacker`** (binary AST → analysis and optional TAC output). Details and command lines are in [docs/TECHNICAL.md](docs/TECHNICAL.md#executables-cast-and-tacker).
+The repository ships two programs: **`cast`** (C → AST) and **`tacker`** (binary AST → analysis and optional TAC output). Details and command lines are in [docs/Technical.md](docs/Technical.md#executables-cast-and-tacker).
 
 ## Getting started
 
@@ -95,13 +95,13 @@ dot -Tpng hello.dot -o hello.png
 # ./build/tacker --dot hello.ast hello.dot   # Graphviz of TAC
 ```
 
-For debug logging, verbose mode, and full `tacker` behavior, see [docs/TECHNICAL.md](docs/TECHNICAL.md). Note that **docs/TECHNICAL.md** may still describe older stubs in places; the README status table above reflects the current pipeline.
+For debug logging, verbose mode, and full `tacker` behavior, see [docs/Technical.md](docs/Technical.md). Note that **docs/Technical.md** may still describe older stubs in places; the README status table above reflects the current pipeline.
 
 ## Documentation
 
 | Document | Purpose |
 |----------|---------|
-| [docs/TECHNICAL.md](docs/TECHNICAL.md) | Repository layout, components, build system, tests, ASDL vs C code, development notes, references |
+| [docs/Technical.md](docs/Technical.md) | Repository layout, components, build system, tests, ASDL vs C code, development notes, references |
 | [grammar/README.md](grammar/README.md) | Notes on the C11 grammar artifacts in `grammar/` |
 | [TODO.md](TODO.md) | Work plan |
 

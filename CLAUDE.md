@@ -127,7 +127,7 @@ Two test files are disabled in CMake (known failures): `parser/negative_tests.cp
 ## Documentation
 
 - [README.md](README.md) — goals, getting started, component overview
-- [docs/TECHNICAL.md](docs/TECHNICAL.md) — detailed reference: repo layout, ASDL, build system, development notes
+- [docs/Technical.md](docs/Technical.md) — detailed reference: repo layout, ASDL, build system, development notes
 - [TODO.md](TODO.md) — work plan with effort estimates
 - [grammar/README.md](grammar/README.md) — C11 grammar coverage notes
 - [grammar/c11.y](grammar/c11.y), [grammar/c11.l](grammar/c11.l) — reference grammar (not used for code generation)
