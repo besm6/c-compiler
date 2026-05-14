@@ -8,42 +8,6 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 3. Assignment and inc/dec through complex lvalues (`STORE`)
-
-**Depends on:** Tasks 1–2.
-
-**Current behavior:** `lvalue_name()` is called for assignment targets and
-inc/dec operands; it calls `fatal_error` for anything other than `EXPR_VAR`.
-`STORE` is never emitted.
-
-**Work:**
-
-Replace every call to `lvalue_name()` in `gen_expr()` with a dispatch:
-
-- If target is `EXPR_VAR`: keep the existing `COPY` instruction (no change to output).
-- Otherwise: call `gen_lval(target)` to get an address temp, emit `STORE` instead.
-
-For compound assignment and inc/dec through a pointer, the read must go through `LOAD`
-too. Pattern for `*p += val`:
-
-1. `gen_lval(*p)` → addr
-2. `LOAD t ← addr`
-3. `BINARY t2 ← t op val`
-4. `STORE t2 → addr`
-
-Affected cases: `EXPR_ASSIGN` (simple and compound), `UNARY_PRE_INC`/`DEC`,
-`EXPR_POST_INC`/`DEC`. Remove `lvalue_name()` once unused.
-
-Tests (add to `translator/ptr_tests.cpp`):
-
-- `*p = 5;` → `STORE`.
-- `(*p)++;` → `LOAD` + `BINARY` + `STORE`.
-- `*p += 3;` → `LOAD` + `BINARY` + `STORE`.
-
-**Effort:** Medium (~4 h).
-
----
-
 ## 4. Array subscript (`a[i]`)
 
 **Depends on:** Tasks 1–3.

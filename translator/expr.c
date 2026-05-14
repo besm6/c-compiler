@@ -92,12 +92,6 @@ static Tac_BinaryOperator map_assign_op(AssignOp op)
     }
 }
 
-static const char *lvalue_name(const Expr *e)
-{
-    if (e->kind == EXPR_VAR)
-        return e->u.var;
-    fatal_error("lvalue not yet supported: expression kind %d", (int)e->kind);
-}
 
 static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
 {
@@ -275,19 +269,43 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             return val_var(dst->u.var_name);
         }
         if (e->u.unary_op.op == UNARY_PRE_INC || e->u.unary_op.op == UNARY_PRE_DEC) {
-            const char *var      = lvalue_name(e->u.unary_op.expr);
-            Tac_Val *vd          = new_var_val(ctx);
-            Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-            bin->u.binary.op     = (e->u.unary_op.op == UNARY_PRE_INC) ? TAC_BINARY_ADD : TAC_BINARY_SUBTRACT;
-            bin->u.binary.src1   = val_var(var);
-            bin->u.binary.src2   = val_int(1);
-            bin->u.binary.dst    = vd;
-            tac_append(ctx, bin);
-            Tac_Instruction *cp = tac_new_instruction(TAC_INSTRUCTION_COPY);
-            cp->u.copy.src      = val_var(vd->u.var_name);
-            cp->u.copy.dst      = val_var(var);
-            tac_append(ctx, cp);
-            return val_var(vd->u.var_name);
+            Expr *inner = e->u.unary_op.expr;
+            Tac_BinaryOperator inc_op =
+                (e->u.unary_op.op == UNARY_PRE_INC) ? TAC_BINARY_ADD : TAC_BINARY_SUBTRACT;
+            if (inner->kind == EXPR_VAR) {
+                const char *var      = inner->u.var;
+                Tac_Val *vd          = new_var_val(ctx);
+                Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+                bin->u.binary.op     = inc_op;
+                bin->u.binary.src1   = val_var(var);
+                bin->u.binary.src2   = val_int(1);
+                bin->u.binary.dst    = vd;
+                tac_append(ctx, bin);
+                Tac_Instruction *cp = tac_new_instruction(TAC_INSTRUCTION_COPY);
+                cp->u.copy.src      = val_var(vd->u.var_name);
+                cp->u.copy.dst      = val_var(var);
+                tac_append(ctx, cp);
+                return val_var(vd->u.var_name);
+            } else {
+                Tac_Val *addr_raw        = gen_lval(ctx, inner);
+                Tac_Val *loaded          = new_var_val(ctx);
+                Tac_Instruction *ld      = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+                ld->u.load.src_ptr       = addr_raw;
+                ld->u.load.dst           = loaded;
+                tac_append(ctx, ld);
+                Tac_Val *result          = new_var_val(ctx);
+                Tac_Instruction *bin     = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+                bin->u.binary.op         = inc_op;
+                bin->u.binary.src1       = val_var(loaded->u.var_name);
+                bin->u.binary.src2       = val_int(1);
+                bin->u.binary.dst        = result;
+                tac_append(ctx, bin);
+                Tac_Instruction *st      = tac_new_instruction(TAC_INSTRUCTION_STORE);
+                st->u.store.src          = val_var(result->u.var_name);
+                st->u.store.dst_ptr      = val_var(addr_raw->u.var_name);
+                tac_append(ctx, st);
+                return val_var(result->u.var_name);
+            }
         }
         return gen_unary(ctx, e->u.unary_op.op, e->u.unary_op.expr);
     case EXPR_BINARY_OP:
@@ -297,27 +315,57 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             return gen_logical_or(ctx, e->u.binary_op.left, e->u.binary_op.right);
         return gen_binary(ctx, e->u.binary_op.op, e->u.binary_op.left, e->u.binary_op.right);
     case EXPR_ASSIGN: {
-        const char *dst = lvalue_name(e->u.assign.target);
+        Expr    *target = e->u.assign.target;
         Tac_Val *src    = gen_expr(ctx, e->u.assign.value);
-        if (e->u.assign.op == ASSIGN_SIMPLE) {
-            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
-            in->u.copy.src      = src;
-            in->u.copy.dst      = val_var(dst);
-            tac_append(ctx, in);
+        if (target->kind == EXPR_VAR) {
+            const char *dst = target->u.var;
+            if (e->u.assign.op == ASSIGN_SIMPLE) {
+                Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
+                in->u.copy.src      = src;
+                in->u.copy.dst      = val_var(dst);
+                tac_append(ctx, in);
+            } else {
+                Tac_Val *vd          = new_var_val(ctx);
+                Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+                bin->u.binary.op     = map_assign_op(e->u.assign.op);
+                bin->u.binary.src1   = val_var(dst);
+                bin->u.binary.src2   = src;
+                bin->u.binary.dst    = vd;
+                tac_append(ctx, bin);
+                Tac_Instruction *cp = tac_new_instruction(TAC_INSTRUCTION_COPY);
+                cp->u.copy.src      = val_var(vd->u.var_name);
+                cp->u.copy.dst      = val_var(dst);
+                tac_append(ctx, cp);
+            }
+            return val_var(dst);
         } else {
-            Tac_Val *vd          = new_var_val(ctx);
-            Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-            bin->u.binary.op     = map_assign_op(e->u.assign.op);
-            bin->u.binary.src1   = val_var(dst);
-            bin->u.binary.src2   = src;
-            bin->u.binary.dst    = vd;
-            tac_append(ctx, bin);
-            Tac_Instruction *cp = tac_new_instruction(TAC_INSTRUCTION_COPY);
-            cp->u.copy.src      = val_var(vd->u.var_name);
-            cp->u.copy.dst      = val_var(dst);
-            tac_append(ctx, cp);
+            Tac_Val *addr_raw = gen_lval(ctx, target);
+            if (e->u.assign.op == ASSIGN_SIMPLE) {
+                Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
+                st->u.store.src     = src;
+                st->u.store.dst_ptr = addr_raw;
+                tac_append(ctx, st);
+                return new_var_val(ctx);
+            } else {
+                Tac_Val *loaded     = new_var_val(ctx);
+                Tac_Instruction *ld = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+                ld->u.load.src_ptr  = addr_raw;
+                ld->u.load.dst      = loaded;
+                tac_append(ctx, ld);
+                Tac_Val *result      = new_var_val(ctx);
+                Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+                bin->u.binary.op     = map_assign_op(e->u.assign.op);
+                bin->u.binary.src1   = val_var(loaded->u.var_name);
+                bin->u.binary.src2   = src;
+                bin->u.binary.dst    = result;
+                tac_append(ctx, bin);
+                Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
+                st->u.store.src     = val_var(result->u.var_name);
+                st->u.store.dst_ptr = val_var(addr_raw->u.var_name);
+                tac_append(ctx, st);
+                return val_var(result->u.var_name);
+            }
         }
-        return val_var(dst);
     }
     case EXPR_COND: {
         Tac_Val *cond_val = gen_expr(ctx, e->u.cond.condition);
@@ -380,24 +428,48 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
     }
     case EXPR_POST_INC:
     case EXPR_POST_DEC: {
-        const char *var      = lvalue_name(e->kind == EXPR_POST_INC ? e->u.post_inc : e->u.post_dec);
-        Tac_Val *old         = new_var_val(ctx);
-        Tac_Instruction *cp1 = tac_new_instruction(TAC_INSTRUCTION_COPY);
-        cp1->u.copy.src      = val_var(var);
-        cp1->u.copy.dst      = old;
-        tac_append(ctx, cp1);
-        Tac_Val *vd          = new_var_val(ctx);
-        Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-        bin->u.binary.op     = (e->kind == EXPR_POST_INC) ? TAC_BINARY_ADD : TAC_BINARY_SUBTRACT;
-        bin->u.binary.src1   = val_var(var);
-        bin->u.binary.src2   = val_int(1);
-        bin->u.binary.dst    = vd;
-        tac_append(ctx, bin);
-        Tac_Instruction *cp2 = tac_new_instruction(TAC_INSTRUCTION_COPY);
-        cp2->u.copy.src      = val_var(vd->u.var_name);
-        cp2->u.copy.dst      = val_var(var);
-        tac_append(ctx, cp2);
-        return val_var(old->u.var_name);
+        Expr *inner = (e->kind == EXPR_POST_INC) ? e->u.post_inc : e->u.post_dec;
+        Tac_BinaryOperator inc_op =
+            (e->kind == EXPR_POST_INC) ? TAC_BINARY_ADD : TAC_BINARY_SUBTRACT;
+        if (inner->kind == EXPR_VAR) {
+            const char *var      = inner->u.var;
+            Tac_Val *old         = new_var_val(ctx);
+            Tac_Instruction *cp1 = tac_new_instruction(TAC_INSTRUCTION_COPY);
+            cp1->u.copy.src      = val_var(var);
+            cp1->u.copy.dst      = old;
+            tac_append(ctx, cp1);
+            Tac_Val *vd          = new_var_val(ctx);
+            Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+            bin->u.binary.op     = inc_op;
+            bin->u.binary.src1   = val_var(var);
+            bin->u.binary.src2   = val_int(1);
+            bin->u.binary.dst    = vd;
+            tac_append(ctx, bin);
+            Tac_Instruction *cp2 = tac_new_instruction(TAC_INSTRUCTION_COPY);
+            cp2->u.copy.src      = val_var(vd->u.var_name);
+            cp2->u.copy.dst      = val_var(var);
+            tac_append(ctx, cp2);
+            return val_var(old->u.var_name);
+        } else {
+            Tac_Val *addr_raw        = gen_lval(ctx, inner);
+            Tac_Val *old             = new_var_val(ctx);
+            Tac_Instruction *ld      = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+            ld->u.load.src_ptr       = addr_raw;
+            ld->u.load.dst           = old;
+            tac_append(ctx, ld);
+            Tac_Val *result          = new_var_val(ctx);
+            Tac_Instruction *bin     = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+            bin->u.binary.op         = inc_op;
+            bin->u.binary.src1       = val_var(old->u.var_name);
+            bin->u.binary.src2       = val_int(1);
+            bin->u.binary.dst        = result;
+            tac_append(ctx, bin);
+            Tac_Instruction *st      = tac_new_instruction(TAC_INSTRUCTION_STORE);
+            st->u.store.src          = val_var(result->u.var_name);
+            st->u.store.dst_ptr      = val_var(addr_raw->u.var_name);
+            tac_append(ctx, st);
+            return val_var(old->u.var_name);
+        }
     }
     default:
         fatal_error("Unsupported expression kind %d in TAC lowering", (int)e->kind);

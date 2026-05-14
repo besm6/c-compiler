@@ -100,6 +100,118 @@ TEST_F(TranslateTest, DISABLED_DerefDerefLocalVar)
 )");
 }
 
+// *p = 5 through a pointer parameter emits a single STORE.
+TEST_F(TranslateTest, AssignThroughPointer)
+{
+    std::string yaml = CompileToYaml("void f(int *p) { *p = 5; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: p
+  body:
+    - instruction:
+      kind: store
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 5
+      dst_ptr:
+        kind: var
+        name: p
+)");
+}
+
+// (*p)++ emits LOAD + BINARY(add 1) + STORE; returns the old value.
+TEST_F(TranslateTest, PostIncThroughPointer)
+{
+    std::string yaml = CompileToYaml("void f(int *p) { (*p)++; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: p
+  body:
+    - instruction:
+      kind: load
+      src_ptr:
+        kind: var
+        name: p
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: binary
+      op: add
+      src1:
+        kind: var
+        name: t.0
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst:
+        kind: var
+        name: t.1
+    - instruction:
+      kind: store
+      src:
+        kind: var
+        name: t.1
+      dst_ptr:
+        kind: var
+        name: p
+)");
+}
+
+// *p += 3 emits LOAD + BINARY(add 3) + STORE.
+TEST_F(TranslateTest, CompoundAssignThroughPointer)
+{
+    std::string yaml = CompileToYaml("void f(int *p) { *p += 3; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: p
+  body:
+    - instruction:
+      kind: load
+      src_ptr:
+        kind: var
+        name: p
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: binary
+      op: add
+      src1:
+        kind: var
+        name: t.0
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 3
+      dst:
+        kind: var
+        name: t.1
+    - instruction:
+      kind: store
+      src:
+        kind: var
+        name: t.1
+      dst_ptr:
+        kind: var
+        name: p
+)");
+}
+
 // **pp emits two LOADs, validating the mutual recursion between gen_lval and gen_expr.
 // Uses a function parameter for int** because local-var declarations lose the second
 // pointer level in the current parser (see DISABLED_DerefDerefLocalVar).
