@@ -803,6 +803,15 @@ Expr *typecheck_exp(Expr *e)
         e->type = new_type(TYPE_ULONG, __func__, __FILE__, __LINE__);
         return e;
     }
+    case EXPR_ALIGNOF: {
+        validate_type(e->u.align_of);
+        if (!is_complete(e->u.align_of)) {
+            fatal_error("Can't apply _Alignof to incomplete type");
+        }
+        free_type(e->type);
+        e->type = new_type(TYPE_ULONG, __func__, __FILE__, __LINE__);
+        return e;
+    }
     case EXPR_FIELD_ACCESS: {
         Expr *strct = typecheck_and_convert(e->u.field_access.expr);
         if (strct->type->kind != TYPE_STRUCT) {

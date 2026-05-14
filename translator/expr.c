@@ -493,6 +493,12 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         tac_append(ctx, in);
         return val_var(dst->u.var_name);
     }
+    case EXPR_SIZEOF_EXPR:
+        return val_int(get_size(e->u.sizeof_expr->type));
+    case EXPR_SIZEOF_TYPE:
+        return val_int(get_size(e->u.sizeof_type));
+    case EXPR_ALIGNOF:
+        return val_int(get_alignment(e->u.align_of));
     default:
         fatal_error("Unsupported expression kind %d in TAC lowering", (int)e->kind);
     }

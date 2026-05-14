@@ -8,32 +8,6 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 5. `sizeof` and `_Alignof` operators
-
-**Current behavior:** `EXPR_SIZEOF_EXPR`, `EXPR_SIZEOF_TYPE`, and `EXPR_ALIGNOF` all
-call `fatal_error`.
-
-**Work:**
-
-Add three cases in `gen_expr()` — all produce a compile-time integer constant (no
-instructions emitted):
-
-- `EXPR_SIZEOF_EXPR`: `val_int(get_size(e->u.sizeof_expr->type))`. The type-checker has
-  already annotated the inner expression's type; there is no need to evaluate it.
-- `EXPR_SIZEOF_TYPE`: `val_int(get_size(e->u.sizeof_type))`.
-- `EXPR_ALIGNOF`: `val_int(get_alignment(e->u.alignof_type))`.
-
-Tests (add to `translator/decl_tests.cpp` or a new file):
-
-- `sizeof(int)` → constant 4.
-- `sizeof(long)` → constant 8.
-- `sizeof(x)` where `x` is `int` → constant 4.
-- `_Alignof(double)` → constant 8.
-
-**Effort:** Small (~2 h).
-
----
-
 ## 6. Struct field read/write (`s.f`, `COPY_FROM/TO_OFFSET`)
 
 **Depends on:** Tasks 1–3.

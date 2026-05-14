@@ -447,3 +447,79 @@ TEST_F(TranslateTest, LogicalOrShortCircuit)
         name: t.2
 )");
 }
+
+// ---------------------------------------------------------------------------
+// sizeof and _Alignof operators — task #5
+// ---------------------------------------------------------------------------
+
+TEST_F(TranslateTest, SizeofType_Int)
+{
+    std::string yaml = CompileToYaml("unsigned long f(void) { return sizeof(int); }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 4
+)");
+}
+
+TEST_F(TranslateTest, SizeofType_Long)
+{
+    std::string yaml = CompileToYaml("unsigned long f(void) { return sizeof(long); }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 8
+)");
+}
+
+TEST_F(TranslateTest, SizeofExpr)
+{
+    std::string yaml = CompileToYaml("unsigned long f(void) { int x; return sizeof(x); }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 4
+)");
+}
+
+TEST_F(TranslateTest, AlignofDouble)
+{
+    std::string yaml = CompileToYaml("unsigned long f(void) { return _Alignof(double); }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 8
+)");
+}
