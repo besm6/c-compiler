@@ -152,10 +152,18 @@ void validate_type(const Type *t)
         }
         break;
     case TYPE_VOID:
+    case TYPE_BOOL:
     case TYPE_CHAR:
-    case TYPE_INT:
-    case TYPE_LONG:
+    case TYPE_SCHAR:
+    case TYPE_UCHAR:
     case TYPE_SHORT:
+    case TYPE_USHORT:
+    case TYPE_INT:
+    case TYPE_UINT:
+    case TYPE_LONG:
+    case TYPE_ULONG:
+    case TYPE_LONG_LONG:
+    case TYPE_ULONG_LONG:
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_STRUCT:

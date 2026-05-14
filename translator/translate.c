@@ -167,6 +167,72 @@ static Tac_Val *new_var_val(TacCtx *ctx)
     return v;
 }
 
+static Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
+{
+    bool from_int = is_integer(from);
+    bool to_int   = is_integer(to);
+    Tac_Val *dst  = new_var_val(ctx);
+
+    if (from_int && to_int) {
+        size_t from_size = get_size(from);
+        size_t to_size   = get_size(to);
+        if (to_size < from_size) {
+            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_TRUNCATE);
+            in->u.truncate.src  = src;
+            in->u.truncate.dst  = dst;
+            tac_append(ctx, in);
+        } else if (to_size == from_size) {
+            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
+            in->u.copy.src      = src;
+            in->u.copy.dst      = dst;
+            tac_append(ctx, in);
+        } else if (is_signed(from)) {
+            Tac_Instruction *in   = tac_new_instruction(TAC_INSTRUCTION_SIGN_EXTEND);
+            in->u.sign_extend.src = src;
+            in->u.sign_extend.dst = dst;
+            tac_append(ctx, in);
+        } else {
+            Tac_Instruction *in    = tac_new_instruction(TAC_INSTRUCTION_ZERO_EXTEND);
+            in->u.zero_extend.src  = src;
+            in->u.zero_extend.dst  = dst;
+            tac_append(ctx, in);
+        }
+    } else if (!from_int && to_int) {
+        // double → integer
+        if (is_signed(to)) {
+            Tac_Instruction *in     = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_INT);
+            in->u.double_to_int.src = src;
+            in->u.double_to_int.dst = dst;
+            tac_append(ctx, in);
+        } else {
+            Tac_Instruction *in      = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_UINT);
+            in->u.double_to_uint.src = src;
+            in->u.double_to_uint.dst = dst;
+            tac_append(ctx, in);
+        }
+    } else if (from_int && !to_int) {
+        // integer → double
+        if (is_signed(from)) {
+            Tac_Instruction *in     = tac_new_instruction(TAC_INSTRUCTION_INT_TO_DOUBLE);
+            in->u.int_to_double.src = src;
+            in->u.int_to_double.dst = dst;
+            tac_append(ctx, in);
+        } else {
+            Tac_Instruction *in      = tac_new_instruction(TAC_INSTRUCTION_UINT_TO_DOUBLE);
+            in->u.uint_to_double.src = src;
+            in->u.uint_to_double.dst = dst;
+            tac_append(ctx, in);
+        }
+    } else {
+        // double → double
+        Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
+        in->u.copy.src      = src;
+        in->u.copy.dst      = dst;
+        tac_append(ctx, in);
+    }
+    return val_var(dst->u.var_name);
+}
+
 static void emit_jump(TacCtx *ctx, const char *target)
 {
     Tac_Instruction *j = tac_new_instruction(TAC_INSTRUCTION_JUMP);
@@ -388,6 +454,10 @@ static Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         Tac_Val *result = val_var(dst_name);
         xfree(dst_name);
         return result;
+    }
+    case EXPR_CAST: {
+        Tac_Val *inner = gen_expr(ctx, e->u.cast.expr);
+        return emit_cast(ctx, inner, e->u.cast.expr->type, e->u.cast.type);
     }
     case EXPR_CALL: {
         Tac_Val *args_head = NULL;

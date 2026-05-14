@@ -8,33 +8,6 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 6. Type casts and numeric conversions
-
-**Current behavior:** `EXPR_CAST` calls `fatal_error`. The TAC instructions
-`SIGN_EXTEND`, `TRUNCATE`, `ZERO_EXTEND`, `DOUBLE_TO_INT`, `DOUBLE_TO_UINT`,
-`INT_TO_DOUBLE`, `UINT_TO_DOUBLE` exist but are never emitted.
-
-**Concrete work:**
-
-- Add `emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)` that
-  dispatches on the (from, to) type pair using `get_size()`, `is_signed()`,
-  `is_arithmetic()` from `typecheck.c` (all of which already resolve typedef names):
-  - Wider signed integer → narrower integer: `TRUNCATE`
-  - Narrower signed integer → wider signed integer: `SIGN_EXTEND`
-  - Narrower unsigned integer → wider integer: `ZERO_EXTEND`
-  - Integer → double: `INT_TO_DOUBLE` or `UINT_TO_DOUBLE` depending on signedness
-  - Double → integer: `DOUBLE_TO_INT` or `DOUBLE_TO_UINT` depending on signedness
-  - Same-size / same type: `COPY` or return `src` unchanged
-- Wire `EXPR_CAST` to call `emit_cast(ctx, gen_expr(inner), inner->type, e->u.cast.type)`.
-- Note on implicit promotions: the typecheck pass annotates `e->type` on every node but
-  does not insert explicit `EXPR_CAST` wrappers for implicit conversions (e.g., `char →
-  int` in arithmetic). For now those are handled by the backend; document the gap and
-  decide later whether to insert cast nodes in `typecheck.c` or handle them here.
-
-**Effort:** Medium (2–3 days; the type-pair dispatch table has many cases).
-
----
-
 ## 7. Pre/post increment and decrement
 
 **Current behavior:** `UNARY_PRE_INC` and `UNARY_PRE_DEC` hit `map_unary_op`'s
