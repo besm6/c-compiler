@@ -78,17 +78,19 @@ Source (.c)
 
 **`cast`** (`parser/main.c`): Lexes and parses a C source file, outputs a binary AST stream (via `wio`) to stdout, or `--yaml`/`--dot` for human-readable forms.
 
-**`tacker`** (`translator/main.c`): Reads the binary AST, runs semantic analysis and (partial) TAC lowering, outputs TAC.
+**`tacker`** (`translator/main.c`): Reads the binary AST, runs semantic analysis and TAC lowering, outputs TAC. Lowering is mostly complete; see the phases table for remaining gaps.
 
 ### Compiler phases
 
 | Phase | Location | Status |
 |---|---|---|
 | Lexer | `scanner/` | Complete |
-| Parser | `parser/` | Complete for C11 subset |
-| Type checking | `semantic/typecheck.c` | Mostly complete |
+| Parser | `parser/` | Complete for C11 subset; `negative_tests.cpp` disabled |
+| AST | `ast/` | Complete (alloc/free/export/import/yaml/graphviz/clone/compare) |
+| Type checking | `semantic/typecheck.c` | Mostly complete; `EXPR_GENERIC` and `EXPR_COMPOUND` not yet handled |
 | Loop labeling | `semantic/label_loops.c` | Complete |
-| AST → TAC lowering | `translator/translate.c`, `expr.c`, `stmt.c` | Partial |
+| Const conversion | `semantic/const_convert.c` | Complete; `const_convert_tests.cpp` not yet registered in CMake |
+| AST → TAC lowering | `translator/translate.c`, `expr.c`, `stmt.c` | Mostly complete; gaps: `LITERAL_ENUM`, compound initializers, indirect calls, `_Generic`, compound literals |
 | BESM-6 code gen | — | Not started |
 
 ### Key data structures
@@ -110,7 +112,7 @@ Source (.c)
 - **Scope tracking**: `scope_level` is incremented on block entry; `scope_decrement()` decrements it and calls `symtab_purge`, `structtab_purge`, and `typetab_purge` — all backed by `map_remove_level_free`, which fires the dealloc callback on every evicted value.
 - **`typedef` handling**: `STORAGE_CLASS_TYPEDEF` declarations are intercepted in `typecheck_local_var_decl` / `typecheck_file_scope_var_decl` and registered in `typetab`. `validate_type` resolves `TYPE_TYPEDEF_NAME` recursively. All type-utility helpers (`get_size`, `get_alignment`, `is_complete`, `is_signed`, `is_arithmetic`, `is_scalar`, `is_integer`, `is_character`) resolve typedef names transparently before dispatching.
 - **`switch` semantic validation**: `STMT_SWITCH` requires an integer controlling expression; narrower types (char, short) are promoted to `int` via `convert_to_kind`. `STMT_CASE` requires a constant integer expression evaluated by `try_eval_const_int` (handles literals, casts, and unary `−`/`+`/`~`); duplicates are detected via a `SwitchCtx` stack (`current_switch` in `typecheck.c`). `STMT_DEFAULT` rejects multiple defaults. Case/default labels outside any switch are also rejected.
-- **Partial TAC lowering**: `translate.c` calls `fatal_error()` on unimplemented constructs. Many `Expr` and `Stmt` kinds are not yet handled.
+- **TAC lowering coverage**: `translate.c` calls `fatal_error()` on unimplemented constructs. Lowering is mostly complete; remaining gaps are `LITERAL_ENUM` (enum constants in expressions), `INITIALIZER_COMPOUND` (aggregate local-variable init), indirect function-pointer calls, `EXPR_GENERIC` (`_Generic`), and `EXPR_COMPOUND` (compound literals).
 
 ### AST quirks
 
@@ -254,7 +256,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `parser/simple_tests.cpp`, `statement_tests.cpp`, … (8 files) → `parser-tests`
 - `tac/tac_yaml_tests.cpp`, `tac_graphviz_tests.cpp`, `tac_binary_tests.cpp` → `tac-yaml-tests`, `tac-dot-tests`, `tac-binary-tests`
 - `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp` → 4 separate executables
-- `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp` → `translate-tests`
+- `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`
 - `libutil/string_map_tests.cpp`, `wio_tests.cpp` → `libutil-tests`, `wio-tests`
 
 Two test files are disabled in CMake (known failures): `parser/negative_tests.cpp` and `semantic/const_convert_tests.cpp`.
