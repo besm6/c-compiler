@@ -8,28 +8,6 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 1. `gen_lval()` foundation and address-of (`&x`)
-
-**Current behavior:** `UNARY_ADDRESS` calls `fatal_error`. No `gen_lval` function exists.
-The existing `lvalue_name()` helper only supports `EXPR_VAR`.
-
-**Work:**
-
-Add `gen_lval(TacCtx *ctx, Expr *e) → Tac_Val*` that returns a pointer-valued temp
-holding the address of an lvalue. Initial support: `EXPR_VAR` only — emit
-`GET_ADDRESS dst ← x`.
-
-In `gen_expr()`, add the `UNARY_ADDRESS` case: delegate to `gen_lval(inner)` and return
-the result.
-
-Add tests in a new `translator/ptr_tests.cpp` (follow the `CompileToYaml` pattern):
-
-- `int *p = &x;` → `GET_ADDRESS` instruction.
-
-**Effort:** Small (~2 h).
-
----
-
 ## 2. Pointer dereference (`*p`)
 
 **Depends on:** Task 1.
