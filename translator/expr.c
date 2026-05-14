@@ -110,6 +110,10 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         tac_append(ctx, in);
         return val_var(dst->u.var_name);
     }
+    case EXPR_UNARY_OP:
+        if (e->u.unary_op.op == UNARY_DEREF)
+            return gen_expr(ctx, e->u.unary_op.expr);
+        fatal_error("lvalue not yet supported in gen_lval: expression kind %d", (int)e->kind);
     default:
         fatal_error("lvalue not yet supported in gen_lval: expression kind %d", (int)e->kind);
     }
@@ -261,6 +265,15 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             return gen_expr(ctx, e->u.unary_op.expr);
         if (e->u.unary_op.op == UNARY_ADDRESS)
             return gen_lval(ctx, e->u.unary_op.expr);
+        if (e->u.unary_op.op == UNARY_DEREF) {
+            Tac_Val *addr       = gen_lval(ctx, e);
+            Tac_Val *dst        = new_var_val(ctx);
+            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+            in->u.load.src_ptr  = addr;
+            in->u.load.dst      = dst;
+            tac_append(ctx, in);
+            return val_var(dst->u.var_name);
+        }
         if (e->u.unary_op.op == UNARY_PRE_INC || e->u.unary_op.op == UNARY_PRE_DEC) {
             const char *var      = lvalue_name(e->u.unary_op.expr);
             Tac_Val *vd          = new_var_val(ctx);

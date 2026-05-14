@@ -8,29 +8,6 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 2. Pointer dereference (`*p`)
-
-**Depends on:** Task 1.
-
-**Current behavior:** `UNARY_DEREF` calls `fatal_error`. `LOAD` is never emitted.
-
-**Work:**
-
-Extend `gen_lval()` with `UNARY_DEREF`: return `gen_expr(inner)` — the pointer value is
-already the address.
-
-Add `UNARY_DEREF` case in `gen_expr()`: call `gen_lval(e)` to get the address, emit
-`LOAD dst ← src_ptr`.
-
-Tests (add to `translator/ptr_tests.cpp`):
-
-- `int y = *p;` → `LOAD`.
-- `int y = **pp;` → two `LOAD`s (validates recursive `gen_lval`).
-
-**Effort:** Small (~2 h).
-
----
-
 ## 3. Assignment and inc/dec through complex lvalues (`STORE`)
 
 **Depends on:** Tasks 1–2.
