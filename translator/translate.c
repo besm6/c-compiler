@@ -167,6 +167,20 @@ static Tac_Val *new_var_val(TacCtx *ctx)
     return v;
 }
 
+static void emit_jump(TacCtx *ctx, const char *target)
+{
+    Tac_Instruction *j = tac_new_instruction(TAC_INSTRUCTION_JUMP);
+    j->u.jump.target   = xstrdup(target);
+    tac_append(ctx, j);
+}
+
+static void emit_label(TacCtx *ctx, const char *name)
+{
+    Tac_Instruction *l = tac_new_instruction(TAC_INSTRUCTION_LABEL);
+    l->u.label.name    = xstrdup(name);
+    tac_append(ctx, l);
+}
+
 static Tac_Val *gen_expr(TacCtx *ctx, Expr *e);
 static Tac_Type *ast_type_to_tac_type(const Type *t);
 
@@ -272,26 +286,43 @@ static Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         }
         return val_var(dst);
     }
+    case EXPR_COND: {
+        Tac_Val *cond_val = gen_expr(ctx, e->u.cond.condition);
+        char *else_l      = new_temp(ctx);
+        char *end_l       = new_temp(ctx);
+        char *dst_name    = new_temp(ctx);
+
+        Tac_Instruction *jz          = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
+        jz->u.jump_if_zero.condition = cond_val;
+        jz->u.jump_if_zero.target    = else_l; // instruction takes ownership
+        tac_append(ctx, jz);
+
+        Tac_Val *then_val        = gen_expr(ctx, e->u.cond.then_expr);
+        Tac_Instruction *cp_then = tac_new_instruction(TAC_INSTRUCTION_COPY);
+        cp_then->u.copy.src      = then_val;
+        cp_then->u.copy.dst      = val_var(dst_name);
+        tac_append(ctx, cp_then);
+        emit_jump(ctx, end_l);
+
+        emit_label(ctx, else_l);
+        Tac_Val *else_val        = gen_expr(ctx, e->u.cond.else_expr);
+        Tac_Instruction *cp_else = tac_new_instruction(TAC_INSTRUCTION_COPY);
+        cp_else->u.copy.src      = else_val;
+        cp_else->u.copy.dst      = val_var(dst_name);
+        tac_append(ctx, cp_else);
+
+        emit_label(ctx, end_l);
+        xfree(end_l);
+        Tac_Val *result = val_var(dst_name);
+        xfree(dst_name);
+        return result;
+    }
     default:
         fatal_error("Unsupported expression kind %d in TAC lowering", (int)e->kind);
     }
 }
 
 static void gen_stmt(TacCtx *ctx, Stmt *stmt);
-
-static void emit_jump(TacCtx *ctx, const char *target)
-{
-    Tac_Instruction *j = tac_new_instruction(TAC_INSTRUCTION_JUMP);
-    j->u.jump.target   = xstrdup(target);
-    tac_append(ctx, j);
-}
-
-static void emit_label(TacCtx *ctx, const char *name)
-{
-    Tac_Instruction *l = tac_new_instruction(TAC_INSTRUCTION_LABEL);
-    l->u.label.name    = xstrdup(name);
-    tac_append(ctx, l);
-}
 
 static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
 {

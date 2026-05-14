@@ -8,33 +8,6 @@ Tasks are listed in recommended implementation order. Each one builds on the pre
 
 ---
 
-## 3. Ternary conditional `?:`
-
-**Current behavior:** `EXPR_COND` calls `fatal_error`.
-
-**AST node:** `e->u.cond.condition`, `e->u.cond.then_expr`, `e->u.cond.else_expr`.
-
-**Concrete work:** Lower `cond ? a : b` with a conditional branch:
-
-```text
-  t.cond   = gen_expr(condition)
-  JumpIfZero t.cond → else_label
-  t.result = gen_expr(a)
-  COPY t.dst ← t.result
-  Jump → end_label
-  LABEL else_label
-  t.result = gen_expr(b)
-  COPY t.dst ← t.result
-  LABEL end_label
-```
-
-Allocate `t.dst` before either branch so both sides write to the same destination.
-Return `t.dst`.
-
-**Effort:** Small (half a day including tests).
-
----
-
 ## 4. Short-circuit `&&` and `||`
 
 **Current behavior:** `BINARY_LOG_AND` and `BINARY_LOG_OR` hit `map_binary_op`'s

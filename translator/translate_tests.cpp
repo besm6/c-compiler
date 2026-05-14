@@ -364,6 +364,137 @@ TEST_F(TranslateTest, UnaryPlusNoOp)
 }
 
 // ---------------------------------------------------------------------------
+// Ternary conditional ?:  — task #3
+// ---------------------------------------------------------------------------
+
+// Simple ternary: variable condition, integer constant branches.
+TEST_F(TranslateTest, TernaryConstantBranches)
+{
+    std::string yaml = CompileToYaml("int f(void) { int x = 1; return x ? 2 : 3; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst:
+        kind: var
+        name: x
+    - instruction:
+      kind: jump_if_zero
+      condition:
+        kind: var
+        name: x
+      target: t.0
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 2
+      dst:
+        kind: var
+        name: t.2
+    - instruction:
+      kind: jump
+      target: t.1
+    - instruction:
+      kind: label
+      name: t.0
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 3
+      dst:
+        kind: var
+        name: t.2
+    - instruction:
+      kind: label
+      name: t.1
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.2
+)");
+}
+
+// Ternary with expression condition and variable branches.
+TEST_F(TranslateTest, TernaryExprCondVarBranches)
+{
+    std::string yaml = CompileToYaml("int f(int x, int y) { return x > 0 ? x : y; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: x
+    - param: y
+  body:
+    - instruction:
+      kind: binary
+      op: greater_than
+      src1:
+        kind: var
+        name: x
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: jump_if_zero
+      condition:
+        kind: var
+        name: t.0
+      target: t.1
+    - instruction:
+      kind: copy
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: t.3
+    - instruction:
+      kind: jump
+      target: t.2
+    - instruction:
+      kind: label
+      name: t.1
+    - instruction:
+      kind: copy
+      src:
+        kind: var
+        name: y
+      dst:
+        kind: var
+        name: t.3
+    - instruction:
+      kind: label
+      name: t.2
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.3
+)");
+}
+
+// ---------------------------------------------------------------------------
 // goto statement — task #4
 // ---------------------------------------------------------------------------
 
