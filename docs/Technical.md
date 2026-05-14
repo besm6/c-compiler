@@ -13,8 +13,9 @@ c-compiler/
 ├── parser/              # Recursive-descent parser, nametab; cast driver
 ├── scanner/             # Hand-written lexer
 ├── scripts/             # googletest.xml (cppcheck), validate_asdl.py
-├── tac/                 # TAC IR: alloc, print, free, compare (export/import TODO in CMake)
-├── translator/          # resolve, typecheck, symtab, structtab; tacker driver
+├── semantic/            # symtab, structtab, typetab, typecheck, label_loops, const_convert
+├── tac/                 # TAC IR: alloc, print, free, compare, export/import, YAML, Graphviz
+├── translator/          # AST→TAC lowering (translate, expr, stmt); tacker driver
 ├── translator/attic/    # Older experiments (not linked by CMake)
 ├── CMakeLists.txt       # Root CMake project (project name: c-scanner)
 ├── Makefile             # Convenience: mkdir build, cmake, make test
@@ -52,12 +53,7 @@ cast input.c -                 # stdout
 
 **Processing order** (per top-level declaration): `resolve` → `typecheck_global_decl` → `label_loops` → `translate` → emit.
 
-**Current limitations:**
-
-- `translate()` in `translator/translator.c` is a stub: it returns `NULL`, so no TAC is produced for normal runs.
-- `label_loops()` assigns break/continue target labels on loop and switch statements.
-- `emit_tac_toplevel()` in `translator/main.c` only contains `TODO` comments for binary, YAML, and DOT export, so **no TAC is written** to the output file even if translation existed.
-- The `tac` library does not yet build `tac_export.c`, `tac_import.c`, `tac_yaml.c`, or `tac_graphviz.c` (they are commented out in `tac/CMakeLists.txt`).
+**TAC lowering status:** Mostly complete. Arithmetic, control flow, direct function calls, pointers, arrays, structs/unions, and type casts all lower correctly. Known remaining gaps: enum constants as expressions (`LITERAL_ENUM`), compound initializers for local aggregates (`INITIALIZER_COMPOUND`), indirect function-pointer calls, `_Generic` selection, and compound literals. See [TODO.md](../TODO.md) for the full task list.
 
 **Options:** `--tac`, `--yaml`, `--dot`, `-v`, `-D`, `-h` (see `translator/main.c`).
 
@@ -102,22 +98,32 @@ AST values are implemented in C (`ast.h` and companion `.c` files). Binary seria
 
 A stray file `clone_tests.cpp-` in `ast/` is not part of the CMake build.
 
+### Semantic analysis (`semantic/`)
+
+| File | Role |
+|------|------|
+| `symtab.c`, `symtab.h` | Scoped identifier → Symbol map |
+| `structtab.c`, `structtab.h` | Scoped struct/union/enum tag → StructDef map |
+| `typetab.c`, `typetab.h` | Scoped typedef name → TypeDef map |
+| `typecheck.c`, `typecheck.h` | Type checking and name binding (single-pass) |
+| `label_loops.c` | Annotates loop/switch statements with break/continue jump targets |
+| `type_utils.c` | Type helpers: `get_size`, `get_alignment`, `is_integer`, etc. |
+| `const_convert.c` | Constant-expression evaluation and conversion |
+
+Tests: `symtab_tests.cpp` → `symtab-tests`; `structtab_tests.cpp` → `structtab-tests`; `typetab_tests.cpp` → `typetab-tests`; `typecheck_tests.cpp` → `typecheck-tests`. The file `const_convert_tests.cpp` exists but is not yet registered in `semantic/CMakeLists.txt`.
+
 ### Translator (`translator/`)
 
 | File | Role |
 |------|------|
-| `translator.h`, `translator.c` | `fatal_error`, `label_loops`, `translate` (stub) |
-| `resolve.c` | Identifier and type resolution |
-| `typecheck.c` | Type checking and related transforms |
-| `symtab.c`, `symtab_print.c` | Symbol table |
-| `structtab.c`, `structtab_print.c` | Type table |
-| `type_utils.c` | Type helpers |
-| `const_convert.c` | Constant conversions |
-| `main.c` | `tacker` entry |
+| `translate.h`, `translate.c` | Shared helpers, type conversion, top-level entry points |
+| `expr.c` | AST `Expr` → TAC instruction lowering |
+| `stmt.c` | AST `Stmt` → TAC instruction lowering; local declaration init |
+| `main.c` | `tacker` entry: import → semantic passes → translate → emit |
 
-Tests: `symtab_tests.cpp`, `structtab_tests.cpp`, `typecheck_tests.cpp`. The file `const_convert_tests.cpp` exists but is **not** registered in `translator/CMakeLists.txt`.
+Tests: `decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`.
 
-The `translator/attic/` directory holds older experiments (e.g. alternate TAC generation); it is not linked into the main libraries.
+The `translator/attic/` directory holds older experiments; it is not linked into the main libraries.
 
 ### TAC (`tac/`)
 
@@ -125,11 +131,12 @@ The `translator/attic/` directory holds older experiments (e.g. alternate TAC ge
 |------|------|
 | `tacky.asdl` | Canonical TAC description |
 | `tac.h` | TAC structs and enums |
-| `tac_alloc.c`, `tac_free.c` | Allocation |
+| `tac_alloc.c`, `tac_free.c` | Allocation and free |
 | `tac_print.c` | Human-readable TAC printing |
 | `tac_compare.c` | Structural comparison |
-
-Planned but not built in CMake yet: `tac_export.c`, `tac_import.c`, `tac_yaml.c`, `tac_graphviz.c`.
+| `tac_export.c`, `tac_import.c` | Binary wire format (read/write via `wio`) |
+| `tac_yaml.c` | YAML listing (debug/test; not re-importable) |
+| `tac_graphviz.c` | Graphviz DOT output |
 
 ### Grammar (`grammar/`)
 
@@ -140,7 +147,7 @@ Reference grammars and notes. See [grammar/README.md](../grammar/README.md) for 
 | Module | Files | Purpose |
 |--------|--------|---------|
 | **xalloc** | `xalloc.c`, `xalloc.h` | Tracked allocation, `xfree_all`, leak reporting in debug paths |
-| **wio** | `wio.c`, `wio.h` | Binary I/O for AST (and future TAC) streams |
+| **wio** | `wio.c`, `wio.h` | Binary I/O for AST and TAC streams |
 | **string_map** | `string_map.c`, `string_map.h` | Map used in symbol and type tables |
 
 Tests: `string_map_tests.cpp` → `libutil-tests`; `wio_tests.cpp` → `wio-tests`.
@@ -182,20 +189,27 @@ Test executables and their sources:
 | Executable | Sources (under repo root) |
 |------------|---------------------------|
 | `scanner-tests` | `scanner/tests.cpp` |
-| `parser-tests` | `parser/simple_tests.cpp`, …, `serialize_tests.cpp` |
+| `parser-tests` | `parser/simple_tests.cpp`, …, `serialize_tests.cpp` (8 files) |
+| `ast-tests` | `ast/clone_tests.cpp` |
 | `libutil-tests` | `libutil/string_map_tests.cpp` |
 | `wio-tests` | `libutil/wio_tests.cpp` |
-| `symtab-tests` | `translator/symtab_tests.cpp` |
-| `structtab-tests` | `translator/structtab_tests.cpp` |
-| `typecheck-tests` | `translator/typecheck_tests.cpp` |
+| `symtab-tests` | `semantic/symtab_tests.cpp` |
+| `structtab-tests` | `semantic/structtab_tests.cpp` |
+| `typetab-tests` | `semantic/typetab_tests.cpp` |
+| `typecheck-tests` | `semantic/typecheck_tests.cpp` |
+| `tac-yaml-tests` | `tac/tac_yaml_tests.cpp` |
+| `tac-dot-tests` | `tac/tac_graphviz_tests.cpp` |
+| `tac-binary-tests` | `tac/tac_binary_tests.cpp` |
+| `translate-tests` | `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` |
 
-Disabled or unwired: `parser/negative_tests.cpp` (commented out in CMake); `translator/const_convert_tests.cpp` (not in CMake); `ast/clone_tests.cpp-` (not a valid registered test file).
+Disabled or unwired: `parser/negative_tests.cpp` (commented out in CMake); `semantic/const_convert_tests.cpp` (not registered in CMake).
 
 Run a single binary from `build/`:
 
 ```bash
 ./build/parser-tests
-./build/typecheck-tests
+./build/semantic/typecheck-tests
+./build/translator/translate-tests
 ```
 
 ## Development notes
@@ -207,7 +221,7 @@ Run a single binary from `build/`:
 ### Debugging
 
 - **`cast -D`:** parser debug, AST pretty-print to stdout before export, import/export/wio debug, `xreport_lost_memory` at end.
-- **`tacker -D`:** translator debug, AST print on import, import/export/wio debug; would print TAC with `print_tac_toplevel` if `translate()` returned non-NULL.
+- **`tacker -D`:** translator debug, AST print on import, import/export/wio debug; prints TAC with `print_tac_toplevel` after lowering.
 
 ### Visualization
 
@@ -218,7 +232,13 @@ cast --dot input.c ast.dot
 dot -Tpng ast.dot -o ast.png
 ```
 
-TAC DOT/YAML export is not implemented in the emitter until `emit_tac_toplevel` and TAC export code exist.
+TAC DOT and YAML export work the same way — pass `--dot` or `--yaml` to `tacker`:
+
+```bash
+tacker --yaml input.ast -        # YAML TAC to stdout
+tacker --dot input.ast tac.dot
+dot -Tpng tac.dot -o tac.png
+```
 
 ## References
 

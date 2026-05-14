@@ -27,12 +27,6 @@ Work plan, ordered by recommended implementation sequence.
 |---|------|-------------|--------|
 | 10 | `_Static_assert` in struct/union member lists | `parser/parser.c:1835` parses the construct but discards the result. Add a `FIELD_STATIC_ASSERT` node kind (or equivalent under `Declaration`) and handle it in typecheck. | M |
 
-## Documentation
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 11 | Update `docs/Technical.md` | Remove stale claims: `translate()` is no longer a stub; `tac_export.c`, `tac_import.c`, `tac_yaml.c`, and `tac_graphviz.c` are all built and tested. Update the Translator and TAC component tables; add the 8-file `translate-tests` entry to the testing table. | S |
-
 ## BESM-6 backend (future)
 
 | # | Task | Description | Effort |
