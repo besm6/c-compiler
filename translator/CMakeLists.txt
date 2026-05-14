@@ -17,6 +17,7 @@ add_executable(translate-tests
     translate_stmt_tests.cpp
     translate_cast_tests.cpp
     translate_incdec_tests.cpp
+    translate_switch_tests.cpp
 )
 target_link_libraries(translate-tests parser translator GTest::gtest_main)
 gtest_discover_tests(translate-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

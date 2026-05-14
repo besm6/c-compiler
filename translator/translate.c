@@ -27,6 +27,18 @@ typedef struct {
     Tac_TopLevel *static_constants; // string-constant toplevel nodes accumulated during body lowering
 } TacCtx;
 
+typedef struct CaseEntry {
+    Expr             *expr;  // case constant expression
+    const char       *label; // non-owning ptr to stmt->branch_target_label
+    struct CaseEntry *next;
+} CaseEntry;
+
+typedef struct {
+    CaseEntry  *head;
+    CaseEntry **tail;
+    const char *default_label; // non-owning ptr, or NULL
+} CaseList;
+
 static void tac_append(TacCtx *ctx, Tac_Instruction *instr)
 {
     if (!ctx->head) {
@@ -526,6 +538,53 @@ static Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
 
 static void gen_stmt(TacCtx *ctx, Stmt *stmt);
 
+static void collect_cases(TacCtx *ctx, Stmt *stmt, CaseList *list)
+{
+    if (!stmt)
+        return;
+    switch (stmt->kind) {
+    case STMT_CASE: {
+        stmt->branch_target_label = new_temp(ctx);
+        CaseEntry *e              = xalloc(sizeof *e, __func__, __FILE__, __LINE__);
+        e->expr                   = stmt->u.case_stmt.expr;
+        e->label                  = stmt->branch_target_label;
+        e->next                   = NULL;
+        *list->tail               = e;
+        list->tail                = &e->next;
+        collect_cases(ctx, stmt->u.case_stmt.stmt, list);
+        break;
+    }
+    case STMT_DEFAULT:
+        stmt->branch_target_label = new_temp(ctx);
+        list->default_label       = stmt->branch_target_label;
+        collect_cases(ctx, stmt->u.default_stmt, list);
+        break;
+    case STMT_COMPOUND:
+        for (DeclOrStmt *ds = stmt->u.compound; ds; ds = ds->next)
+            if (ds->kind == DECL_OR_STMT_STMT)
+                collect_cases(ctx, ds->u.stmt, list);
+        break;
+    case STMT_IF:
+        collect_cases(ctx, stmt->u.if_stmt.then_stmt, list);
+        collect_cases(ctx, stmt->u.if_stmt.else_stmt, list);
+        break;
+    case STMT_WHILE:
+        collect_cases(ctx, stmt->u.while_stmt.body, list);
+        break;
+    case STMT_DO_WHILE:
+        collect_cases(ctx, stmt->u.do_while.body, list);
+        break;
+    case STMT_FOR:
+        collect_cases(ctx, stmt->u.for_stmt.body, list);
+        break;
+    case STMT_LABELED:
+        collect_cases(ctx, stmt->u.labeled.stmt, list);
+        break;
+    default: // STMT_SWITCH and leaf statements: do not recurse
+        break;
+    }
+}
+
 static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
 {
     if (decl->kind != DECL_VAR)
@@ -656,8 +715,49 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
         emit_label(ctx, bl);
         break;
     }
-    case STMT_SWITCH:
-        fatal_error("switch not yet lowered to TAC");
+    case STMT_SWITCH: {
+        if (!stmt->loop_end_label)
+            fatal_error("switch: missing end label (label_loops not run?)");
+
+        CaseList cases  = {NULL, NULL, NULL};
+        cases.tail      = &cases.head;
+        collect_cases(ctx, stmt->u.switch_stmt.body, &cases);
+
+        Tac_Val *ctrl_raw      = gen_expr(ctx, stmt->u.switch_stmt.expr);
+        Tac_Val *ctrl_dst      = new_var_val(ctx);
+        const char *ctrl_name  = ctrl_dst->u.var_name; // save before ownership transfer
+        Tac_Instruction *cp    = tac_new_instruction(TAC_INSTRUCTION_COPY);
+        cp->u.copy.src         = ctrl_raw;
+        cp->u.copy.dst         = ctrl_dst;
+        tac_append(ctx, cp);
+
+        for (CaseEntry *e = cases.head; e; e = e->next) {
+            Tac_Val *cval         = gen_expr(ctx, e->expr);
+            Tac_Val *cmp_dst      = new_var_val(ctx);
+            const char *cmp_name  = cmp_dst->u.var_name;
+            Tac_Instruction *bin  = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+            bin->u.binary.op      = TAC_BINARY_EQUAL;
+            bin->u.binary.src1    = val_var(ctrl_name);
+            bin->u.binary.src2    = cval;
+            bin->u.binary.dst     = cmp_dst;
+            tac_append(ctx, bin);
+            Tac_Instruction *jnz              = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
+            jnz->u.jump_if_not_zero.condition = val_var(cmp_name);
+            jnz->u.jump_if_not_zero.target    = xstrdup(e->label);
+            tac_append(ctx, jnz);
+        }
+
+        emit_jump(ctx, cases.default_label ? cases.default_label : stmt->loop_end_label);
+        gen_stmt(ctx, stmt->u.switch_stmt.body);
+        emit_label(ctx, stmt->loop_end_label);
+
+        for (CaseEntry *e = cases.head; e;) {
+            CaseEntry *nx = e->next;
+            xfree(e);
+            e = nx;
+        }
+        break;
+    }
     case STMT_BREAK: {
         if (!stmt->branch_target_label) {
             fatal_error("break without target label");
@@ -680,8 +780,17 @@ static void gen_stmt(TacCtx *ctx, Stmt *stmt)
         gen_stmt(ctx, stmt->u.labeled.stmt);
         break;
     case STMT_CASE:
+        if (!stmt->branch_target_label)
+            fatal_error("case: missing label (collect_cases not run?)");
+        emit_label(ctx, stmt->branch_target_label);
+        gen_stmt(ctx, stmt->u.case_stmt.stmt);
+        break;
     case STMT_DEFAULT:
-        fatal_error("case/default in switch not yet lowered to TAC");
+        if (!stmt->branch_target_label)
+            fatal_error("default: missing label (collect_cases not run?)");
+        emit_label(ctx, stmt->branch_target_label);
+        gen_stmt(ctx, stmt->u.default_stmt);
+        break;
     default:
         fatal_error("Unsupported statement kind %d in TAC lowering", (int)stmt->kind);
     }
