@@ -2,10 +2,9 @@
 // Statement lowering: AST Stmt → TAC instructions.
 //
 
-#include "translate.h"
-
 #include <stdlib.h>
 
+#include "translate.h"
 #include "xalloc.h"
 
 static void collect_cases(TacCtx *ctx, Stmt *stmt, CaseList *list)
@@ -189,29 +188,29 @@ void gen_stmt(TacCtx *ctx, Stmt *stmt)
         if (!stmt->loop_end_label)
             fatal_error("switch: missing end label (label_loops not run?)");
 
-        CaseList cases  = {NULL, NULL, NULL};
-        cases.tail      = &cases.head;
+        CaseList cases = { NULL, NULL, NULL };
+        cases.tail     = &cases.head;
         collect_cases(ctx, stmt->u.switch_stmt.body, &cases);
 
-        Tac_Val *ctrl_raw      = gen_expr(ctx, stmt->u.switch_stmt.expr);
-        Tac_Val *ctrl_dst      = new_var_val(ctx);
-        const char *ctrl_name  = ctrl_dst->u.var_name; // save before ownership transfer
-        Tac_Instruction *cp    = tac_new_instruction(TAC_INSTRUCTION_COPY);
-        cp->u.copy.src         = ctrl_raw;
-        cp->u.copy.dst         = ctrl_dst;
+        Tac_Val *ctrl_raw     = gen_expr(ctx, stmt->u.switch_stmt.expr);
+        Tac_Val *ctrl_dst     = new_var_val(ctx);
+        const char *ctrl_name = ctrl_dst->u.var_name; // save before ownership transfer
+        Tac_Instruction *cp   = tac_new_instruction(TAC_INSTRUCTION_COPY);
+        cp->u.copy.src        = ctrl_raw;
+        cp->u.copy.dst        = ctrl_dst;
         tac_append(ctx, cp);
 
         for (CaseEntry *e = cases.head; e; e = e->next) {
-            Tac_Val *cval         = gen_expr(ctx, e->expr);
-            Tac_Val *cmp_dst      = new_var_val(ctx);
-            const char *cmp_name  = cmp_dst->u.var_name;
-            Tac_Instruction *bin  = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-            bin->u.binary.op      = TAC_BINARY_EQUAL;
-            bin->u.binary.src1    = val_var(ctrl_name);
-            bin->u.binary.src2    = cval;
-            bin->u.binary.dst     = cmp_dst;
+            Tac_Val *cval        = gen_expr(ctx, e->expr);
+            Tac_Val *cmp_dst     = new_var_val(ctx);
+            const char *cmp_name = cmp_dst->u.var_name;
+            Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+            bin->u.binary.op     = TAC_BINARY_EQUAL;
+            bin->u.binary.src1   = val_var(ctrl_name);
+            bin->u.binary.src2   = cval;
+            bin->u.binary.dst    = cmp_dst;
             tac_append(ctx, bin);
-            Tac_Instruction *jnz              = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
+            Tac_Instruction *jnz = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
             jnz->u.jump_if_not_zero.condition = val_var(cmp_name);
             jnz->u.jump_if_not_zero.target    = xstrdup(e->label);
             tac_append(ctx, jnz);

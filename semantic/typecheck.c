@@ -732,7 +732,7 @@ Expr *typecheck_exp(Expr *e)
         if (func->kind != EXPR_VAR) {
             fatal_error("Function call requires variable name");
         }
-        const Symbol *sym = symtab_get(func->u.var);
+        const Symbol *sym   = symtab_get(func->u.var);
         const Type *fn_type = sym->type;
         if (fn_type->kind == TYPE_POINTER)
             fn_type = fn_type->u.pointer.target; // function pointer decay
@@ -761,7 +761,7 @@ Expr *typecheck_exp(Expr *e)
             p    = p->next;
         }
         free_type(e->type);
-        e->type = clone_type(fn_type->u.function.return_type, __func__, __FILE__, __LINE__);
+        e->type        = clone_type(fn_type->u.function.return_type, __func__, __FILE__, __LINE__);
         e->u.call.args = new_args;
         return e;
     }

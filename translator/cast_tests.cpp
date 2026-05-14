@@ -34,7 +34,8 @@ TEST_F(TranslateTest, CastIntToLong)
 // (unsigned long)x where x is unsigned int: narrower unsigned → wider → zero_extend
 TEST_F(TranslateTest, CastUintToUlong)
 {
-    std::string yaml = CompileToYaml("unsigned long f(unsigned int x) { return (unsigned long)x; }");
+    std::string yaml =
+        CompileToYaml("unsigned long f(unsigned int x) { return (unsigned long)x; }");
     EXPECT_EQ(yaml, R"(- toplevel:
   kind: function
   name: f

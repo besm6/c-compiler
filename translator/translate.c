@@ -93,9 +93,9 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
             in->u.sign_extend.dst = dst;
             tac_append(ctx, in);
         } else {
-            Tac_Instruction *in    = tac_new_instruction(TAC_INSTRUCTION_ZERO_EXTEND);
-            in->u.zero_extend.src  = src;
-            in->u.zero_extend.dst  = dst;
+            Tac_Instruction *in   = tac_new_instruction(TAC_INSTRUCTION_ZERO_EXTEND);
+            in->u.zero_extend.src = src;
+            in->u.zero_extend.dst = dst;
             tac_append(ctx, in);
         }
     } else if (!from_int && to_int) {
@@ -173,24 +173,39 @@ static Tac_Param *params_from_type(const Type *fun_type)
 Tac_Type *ast_type_to_tac_type(const Type *t)
 {
     switch (t->kind) {
-    case TYPE_VOID:      return tac_new_type(TAC_TYPE_VOID);
-    case TYPE_CHAR:      return tac_new_type(TAC_TYPE_CHAR);
-    case TYPE_SCHAR:     return tac_new_type(TAC_TYPE_SCHAR);
-    case TYPE_UCHAR:     return tac_new_type(TAC_TYPE_UCHAR);
-    case TYPE_SHORT:     return tac_new_type(TAC_TYPE_SHORT);
-    case TYPE_USHORT:    return tac_new_type(TAC_TYPE_USHORT);
-    case TYPE_INT:       return tac_new_type(TAC_TYPE_INT);
-    case TYPE_UINT:      return tac_new_type(TAC_TYPE_UINT);
-    case TYPE_LONG:      return tac_new_type(TAC_TYPE_LONG);
-    case TYPE_ULONG:     return tac_new_type(TAC_TYPE_ULONG);
-    case TYPE_LONG_LONG: return tac_new_type(TAC_TYPE_LONG_LONG);
-    case TYPE_ULONG_LONG:return tac_new_type(TAC_TYPE_ULONG_LONG);
-    case TYPE_FLOAT:     return tac_new_type(TAC_TYPE_FLOAT);
-    case TYPE_DOUBLE:    return tac_new_type(TAC_TYPE_DOUBLE);
-    case TYPE_ENUM:      return tac_new_type(TAC_TYPE_INT);
+    case TYPE_VOID:
+        return tac_new_type(TAC_TYPE_VOID);
+    case TYPE_CHAR:
+        return tac_new_type(TAC_TYPE_CHAR);
+    case TYPE_SCHAR:
+        return tac_new_type(TAC_TYPE_SCHAR);
+    case TYPE_UCHAR:
+        return tac_new_type(TAC_TYPE_UCHAR);
+    case TYPE_SHORT:
+        return tac_new_type(TAC_TYPE_SHORT);
+    case TYPE_USHORT:
+        return tac_new_type(TAC_TYPE_USHORT);
+    case TYPE_INT:
+        return tac_new_type(TAC_TYPE_INT);
+    case TYPE_UINT:
+        return tac_new_type(TAC_TYPE_UINT);
+    case TYPE_LONG:
+        return tac_new_type(TAC_TYPE_LONG);
+    case TYPE_ULONG:
+        return tac_new_type(TAC_TYPE_ULONG);
+    case TYPE_LONG_LONG:
+        return tac_new_type(TAC_TYPE_LONG_LONG);
+    case TYPE_ULONG_LONG:
+        return tac_new_type(TAC_TYPE_ULONG_LONG);
+    case TYPE_FLOAT:
+        return tac_new_type(TAC_TYPE_FLOAT);
+    case TYPE_DOUBLE:
+        return tac_new_type(TAC_TYPE_DOUBLE);
+    case TYPE_ENUM:
+        return tac_new_type(TAC_TYPE_INT);
     case TYPE_POINTER: {
-        Tac_Type *tp               = tac_new_type(TAC_TYPE_POINTER);
-        tp->u.pointer.target_type  = ast_type_to_tac_type(t->u.pointer.target);
+        Tac_Type *tp              = tac_new_type(TAC_TYPE_POINTER);
+        tp->u.pointer.target_type = ast_type_to_tac_type(t->u.pointer.target);
         return tp;
     }
     case TYPE_ARRAY: {
@@ -214,7 +229,7 @@ Tac_Type *ast_type_to_tac_type(const Type *t)
     }
     case TYPE_STRUCT:
     case TYPE_UNION: {
-        Tac_Type *ts    = tac_new_type(TAC_TYPE_STRUCTURE);
+        Tac_Type *ts        = tac_new_type(TAC_TYPE_STRUCTURE);
         ts->u.structure.tag = t->u.struct_t.name ? xstrdup(t->u.struct_t.name) : NULL;
         return ts;
     }
@@ -263,17 +278,17 @@ static Tac_TopLevel *translate_decl(const Declaration *decl)
     Tac_TopLevel *head  = NULL;
     Tac_TopLevel **tail = &head;
     for (const InitDeclarator *id = decl->u.var.declarators; id; id = id->next) {
-        Symbol *sym      = symtab_get(id->name);
+        Symbol *sym = symtab_get(id->name);
         Tac_TopLevel *tl;
 
         if (id->type->kind == TYPE_FUNCTION) {
-            tl = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
+            tl                    = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
             tl->u.function.name   = xstrdup(id->name);
             tl->u.function.global = sym->u.func.global;
             tl->u.function.params = params_from_type(id->type);
             // body stays NULL — this is a prototype
         } else {
-            tl = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+            tl                              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
             tl->u.static_variable.name      = xstrdup(id->name);
             tl->u.static_variable.global    = sym->u.static_var.global;
             tl->u.static_variable.type      = ast_type_to_tac_type(sym->type);
@@ -291,8 +306,10 @@ static Tac_TopLevel *translate_external_decl(ExternalDecl *ast)
     if (!ast)
         return NULL;
     switch (ast->kind) {
-    case EXTERNAL_DECL_FUNCTION:    return translate_fn(ast);
-    case EXTERNAL_DECL_DECLARATION: return translate_decl(ast->u.declaration);
+    case EXTERNAL_DECL_FUNCTION:
+        return translate_fn(ast);
+    case EXTERNAL_DECL_DECLARATION:
+        return translate_decl(ast->u.declaration);
     }
     return NULL;
 }

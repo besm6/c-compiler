@@ -2,13 +2,12 @@
 // Expression lowering: AST Expr → TAC instructions.
 //
 
-#include "translate.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "structtab.h"
+#include "translate.h"
 #include "xalloc.h"
 
 static Tac_BinaryOperator map_binary_op(BinaryOp op)
@@ -93,7 +92,6 @@ static Tac_BinaryOperator map_assign_op(AssignOp op)
     }
 }
 
-
 static int find_field_offset(const Type *struct_type, const char *field_name)
 {
     const StructDef *def = structtab_find(struct_type->u.struct_t.name);
@@ -133,8 +131,8 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         return val_var(dst->u.var_name);
     }
     case EXPR_FIELD_ACCESS: {
-        Expr *base    = e->u.field_access.expr;
-        int offset    = find_field_offset(base->type, e->u.field_access.field);
+        Expr *base = e->u.field_access.expr;
+        int offset = find_field_offset(base->type, e->u.field_access.field);
         Tac_Val *base_addr;
         if (base->kind == EXPR_VAR) {
             Tac_Val *tmp          = new_var_val(ctx);
@@ -156,16 +154,16 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         return val_var(dst->u.var_name);
     }
     case EXPR_PTR_ACCESS: {
-        Expr *ptr_expr    = e->u.ptr_access.expr;
-        Tac_Val *ptr_val  = gen_expr(ctx, ptr_expr);
+        Expr *ptr_expr          = e->u.ptr_access.expr;
+        Tac_Val *ptr_val        = gen_expr(ctx, ptr_expr);
         const Type *struct_type = ptr_expr->type->u.pointer.target;
-        int offset        = find_field_offset(struct_type, e->u.ptr_access.field);
-        Tac_Val *dst      = new_var_val(ctx);
-        Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
-        ap->u.add_ptr.ptr   = ptr_val;
-        ap->u.add_ptr.index = val_int(offset);
-        ap->u.add_ptr.scale = 1;
-        ap->u.add_ptr.dst   = dst;
+        int offset              = find_field_offset(struct_type, e->u.ptr_access.field);
+        Tac_Val *dst            = new_var_val(ctx);
+        Tac_Instruction *ap     = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
+        ap->u.add_ptr.ptr       = ptr_val;
+        ap->u.add_ptr.index     = val_int(offset);
+        ap->u.add_ptr.scale     = 1;
+        ap->u.add_ptr.dst       = dst;
         tac_append(ctx, ap);
         return val_var(dst->u.var_name);
     }
@@ -292,7 +290,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             const char *sname = symtab_add_string(e->u.literal->u.string_val);
             Symbol *sym       = symtab_get(sname);
 
-            Tac_TopLevel *sc          = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
+            Tac_TopLevel *sc           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
             sc->u.static_constant.name = xstrdup(sname);
             sc->u.static_constant.type = ast_type_to_tac_type(sym->type);
             sc->u.static_constant.init = sym->u.const_init;
@@ -301,10 +299,10 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             sc->next              = ctx->static_constants;
             ctx->static_constants = sc;
 
-            Tac_Val *dst           = new_var_val(ctx);
-            Tac_Instruction *in    = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
-            in->u.get_address.src  = val_var(sname);
-            in->u.get_address.dst  = dst;
+            Tac_Val *dst          = new_var_val(ctx);
+            Tac_Instruction *in   = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
+            in->u.get_address.src = val_var(sname);
+            in->u.get_address.dst = dst;
             tac_append(ctx, in);
 
             xfree((char *)sname);
@@ -348,22 +346,22 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 tac_append(ctx, cp);
                 return val_var(vd->u.var_name);
             } else {
-                Tac_Val *addr_raw        = gen_lval(ctx, inner);
-                Tac_Val *loaded          = new_var_val(ctx);
-                Tac_Instruction *ld      = tac_new_instruction(TAC_INSTRUCTION_LOAD);
-                ld->u.load.src_ptr       = addr_raw;
-                ld->u.load.dst           = loaded;
+                Tac_Val *addr_raw   = gen_lval(ctx, inner);
+                Tac_Val *loaded     = new_var_val(ctx);
+                Tac_Instruction *ld = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+                ld->u.load.src_ptr  = addr_raw;
+                ld->u.load.dst      = loaded;
                 tac_append(ctx, ld);
-                Tac_Val *result          = new_var_val(ctx);
-                Tac_Instruction *bin     = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-                bin->u.binary.op         = inc_op;
-                bin->u.binary.src1       = val_var(loaded->u.var_name);
-                bin->u.binary.src2       = val_int(1);
-                bin->u.binary.dst        = result;
+                Tac_Val *result      = new_var_val(ctx);
+                Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+                bin->u.binary.op     = inc_op;
+                bin->u.binary.src1   = val_var(loaded->u.var_name);
+                bin->u.binary.src2   = val_int(1);
+                bin->u.binary.dst    = result;
                 tac_append(ctx, bin);
-                Tac_Instruction *st      = tac_new_instruction(TAC_INSTRUCTION_STORE);
-                st->u.store.src          = val_var(result->u.var_name);
-                st->u.store.dst_ptr      = val_var(addr_raw->u.var_name);
+                Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
+                st->u.store.src     = val_var(result->u.var_name);
+                st->u.store.dst_ptr = val_var(addr_raw->u.var_name);
                 tac_append(ctx, st);
                 return val_var(result->u.var_name);
             }
@@ -376,8 +374,8 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             return gen_logical_or(ctx, e->u.binary_op.left, e->u.binary_op.right);
         return gen_binary(ctx, e->u.binary_op.op, e->u.binary_op.left, e->u.binary_op.right);
     case EXPR_ASSIGN: {
-        Expr    *target = e->u.assign.target;
-        Tac_Val *src    = gen_expr(ctx, e->u.assign.value);
+        Expr *target = e->u.assign.target;
+        Tac_Val *src = gen_expr(ctx, e->u.assign.value);
         if (target->kind == EXPR_VAR) {
             const char *dst = target->u.var;
             if (e->u.assign.op == ASSIGN_SIMPLE) {
@@ -403,8 +401,8 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                    target->u.field_access.expr->kind == EXPR_VAR &&
                    e->u.assign.op == ASSIGN_SIMPLE) {
             const char *var_name = target->u.field_access.expr->u.var;
-            int offset           = find_field_offset(target->u.field_access.expr->type,
-                                                     target->u.field_access.field);
+            int offset =
+                find_field_offset(target->u.field_access.expr->type, target->u.field_access.field);
             Tac_Instruction *in         = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
             in->u.copy_to_offset.src    = src;
             in->u.copy_to_offset.dst    = xstrdup(var_name);
@@ -476,7 +474,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         return emit_cast(ctx, inner, e->u.cast.expr->type, e->u.cast.type);
     }
     case EXPR_CALL: {
-        Tac_Val *args_head = NULL;
+        Tac_Val *args_head  = NULL;
         Tac_Val **args_tail = &args_head;
         for (Expr *arg = e->u.call.args; arg; arg = arg->next) {
             Tac_Val *av = gen_expr(ctx, arg);
@@ -524,22 +522,22 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             tac_append(ctx, cp2);
             return val_var(old->u.var_name);
         } else {
-            Tac_Val *addr_raw        = gen_lval(ctx, inner);
-            Tac_Val *old             = new_var_val(ctx);
-            Tac_Instruction *ld      = tac_new_instruction(TAC_INSTRUCTION_LOAD);
-            ld->u.load.src_ptr       = addr_raw;
-            ld->u.load.dst           = old;
+            Tac_Val *addr_raw   = gen_lval(ctx, inner);
+            Tac_Val *old        = new_var_val(ctx);
+            Tac_Instruction *ld = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+            ld->u.load.src_ptr  = addr_raw;
+            ld->u.load.dst      = old;
             tac_append(ctx, ld);
-            Tac_Val *result          = new_var_val(ctx);
-            Tac_Instruction *bin     = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-            bin->u.binary.op         = inc_op;
-            bin->u.binary.src1       = val_var(old->u.var_name);
-            bin->u.binary.src2       = val_int(1);
-            bin->u.binary.dst        = result;
+            Tac_Val *result      = new_var_val(ctx);
+            Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+            bin->u.binary.op     = inc_op;
+            bin->u.binary.src1   = val_var(old->u.var_name);
+            bin->u.binary.src2   = val_int(1);
+            bin->u.binary.dst    = result;
             tac_append(ctx, bin);
-            Tac_Instruction *st      = tac_new_instruction(TAC_INSTRUCTION_STORE);
-            st->u.store.src          = val_var(result->u.var_name);
-            st->u.store.dst_ptr      = val_var(addr_raw->u.var_name);
+            Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
+            st->u.store.src     = val_var(result->u.var_name);
+            st->u.store.dst_ptr = val_var(addr_raw->u.var_name);
             tac_append(ctx, st);
             return val_var(old->u.var_name);
         }
@@ -563,11 +561,11 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         const Expr *base = e->u.field_access.expr;
         int offset       = find_field_offset(base->type, e->u.field_access.field);
         if (base->kind == EXPR_VAR) {
-            Tac_Val *dst                   = new_var_val(ctx);
-            Tac_Instruction *in            = tac_new_instruction(TAC_INSTRUCTION_COPY_FROM_OFFSET);
-            in->u.copy_from_offset.src     = xstrdup(base->u.var);
-            in->u.copy_from_offset.offset  = offset;
-            in->u.copy_from_offset.dst     = dst;
+            Tac_Val *dst                  = new_var_val(ctx);
+            Tac_Instruction *in           = tac_new_instruction(TAC_INSTRUCTION_COPY_FROM_OFFSET);
+            in->u.copy_from_offset.src    = xstrdup(base->u.var);
+            in->u.copy_from_offset.offset = offset;
+            in->u.copy_from_offset.dst    = dst;
             tac_append(ctx, in);
             return val_var(dst->u.var_name);
         } else {

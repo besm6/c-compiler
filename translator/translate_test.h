@@ -10,9 +10,9 @@
 #include "semantic.h"
 #include "structtab.h"
 #include "symtab.h"
-#include "typetab.h"
 #include "tac.h"
 #include "translate.h"
+#include "typetab.h"
 #include "xalloc.h"
 
 class TranslateTest : public ::testing::Test {
