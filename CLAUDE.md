@@ -11,27 +11,30 @@ make debug        # build with Debug flags
 make clean        # remove ./build/
 ```
 
-Run a single test binary directly (translator tests live in a subdirectory):
+Run a single test binary directly (semantic and translator tests live in subdirectories):
 ```sh
 ./build/ast/ast-tests
 ./build/parser-tests
-./build/translator/typecheck-tests
+./build/tac/tac-yaml-tests
+./build/tac/tac-dot-tests
+./build/tac/tac-binary-tests
+./build/semantic/typecheck-tests
+./build/semantic/symtab-tests
+./build/semantic/structtab-tests
+./build/semantic/typetab-tests
 ./build/translator/translate-tests
-./build/translator/symtab-tests
-./build/translator/structtab-tests
-./build/translator/typetab-tests
 ```
 
 Run a specific GoogleTest case:
 ```sh
 ./build/parser-tests --gtest_filter="*ExprTest*"
-./build/translator/typecheck-tests --gtest_filter="PipelineTest.*"
+./build/semantic/typecheck-tests --gtest_filter="PipelineTest.*"
 ```
 
 **Run tests from the build directory** to avoid polluting the source tree with temporary
 files that GoogleTest writes during test discovery:
 ```sh
-cd build/translator && ./typecheck-tests
+cd build/semantic && ./typecheck-tests
 ctest --test-dir build -R "Typecheck|Pipeline"
 ```
 
@@ -63,7 +66,7 @@ This is a C11 frontend compiler targeting the BESM-6 architecture. The backend i
 ```
 Source (.c)
   → [cast]    Scanner → Parser → AST (binary/YAML/DOT)
-  → [tacker]  Resolve → Typecheck → LabelLoops → Translate → TAC (binary/YAML/DOT)
+  → [tacker]  Typecheck → LabelLoops → Translate → TAC (binary/YAML/DOT)
 ```
 
 **`cast`** (`parser/main.c`): Lexes and parses a C source file, outputs a binary AST stream (via `wio`) to stdout, or `--yaml`/`--dot` for human-readable forms.
@@ -76,9 +79,8 @@ Source (.c)
 |---|---|---|
 | Lexer | `scanner/` | Complete |
 | Parser | `parser/` | Complete for C11 subset |
-| Name resolution | `translator/resolve.c` | Complete |
-| Type checking | `translator/typecheck.c` | Mostly complete |
-| Loop labeling | `translator/translate.c` | Complete |
+| Type checking | `semantic/typecheck.c` | Mostly complete |
+| Loop labeling | `semantic/label_loops.c` | Complete |
 | AST → TAC lowering | `translator/translate.c` | Partial |
 | BESM-6 code gen | — | Not started |
 
@@ -87,9 +89,9 @@ Source (.c)
 - **`Program`** (`ast/ast.h`): Root node; linked list of `ExternalDecl` (function definition or declaration).
 - **`ExternalDecl`**, **`Declaration`**, **`Stmt`**, **`Expr`**, **`Type`**: Core AST nodes. Defined in `ast/ast.h`, spec in `ast/ast.asdl`.
 - **`Tac_Instruction`**, **`Tac_Value`**, **`Tac_Type`**: TAC IR nodes. Defined in `tac/tac.h`, spec in `tac/tacky.asdl`.
-- **`symtab`** (`translator/symtab.c/h`): Scoped identifier → `Symbol` map. `symtab_purge(level)` removes block-scope entries on block exit.
-- **`structtab`** (`translator/structtab.c/h`): Struct/union/enum tag → `StructDef` map. Scoped; `structtab_purge(level)` on block exit.
-- **`typetab`** (`translator/typetab.c/h`): Typedef name → `TypeDef` (`name` + cloned `Type*`) map. Scoped; `typetab_purge(level)` on block exit. `typetab_resolve(name)` returns the underlying `Type*`.
+- **`symtab`** (`semantic/symtab.c/h`): Scoped identifier → `Symbol` map. `symtab_purge(level)` removes block-scope entries on block exit.
+- **`structtab`** (`semantic/structtab.c/h`): Struct/union/enum tag → `StructDef` map. Scoped; `structtab_purge(level)` on block exit.
+- **`typetab`** (`semantic/typetab.c/h`): Typedef name → `TypeDef` (`name` + cloned `Type*`) map. Scoped; `typetab_purge(level)` on block exit. `typetab_resolve(name)` returns the underlying `Type*`.
 
 ### Important design decisions
 
@@ -97,7 +99,7 @@ Source (.c)
 - **`.asdl` files are canonical specs, not code generators.** `ast/ast.asdl` and `tac/tacky.asdl` document the IR; `ast/ast.h` and `tac/tac.h` are maintained manually and must stay in sync.
 - **Word I/O (`libutil/wio`)**: AST and TAC binary streams use `size_t`-wide words for portability. Use `wio` for all IR serialization.
 - **`xalloc` (`libutil/xalloc`)**: All allocations go through `xalloc`/`xfree`. In debug builds, `xalloc_report()` prints leak totals.
-- **Two-pass semantics**: `resolve()` binds names, then `typecheck_global_decl()` type-checks. TODO.md tracks merging them into one pass.
+- **Single-pass semantics**: `typecheck_global_decl()` binds names and type-checks in a single pass.
 - **Scope tracking**: `scope_level` is incremented on block entry; `scope_decrement()` decrements it and calls `symtab_purge`, `structtab_purge`, and `typetab_purge` — all backed by `map_remove_level_free`, which fires the dealloc callback on every evicted value.
 - **`typedef` handling**: `STORAGE_CLASS_TYPEDEF` declarations are intercepted in `typecheck_local_var_decl` / `typecheck_file_scope_var_decl` and registered in `typetab`. `validate_type` resolves `TYPE_TYPEDEF_NAME` recursively. All type-utility helpers (`get_size`, `get_alignment`, `is_complete`, `is_signed`, `is_arithmetic`, `is_scalar`, `is_integer`, `is_character`) resolve typedef names transparently before dispatching.
 - **`switch` semantic validation**: `STMT_SWITCH` requires an integer controlling expression; narrower types (char, short) are promoted to `int` via `convert_to_kind`. `STMT_CASE` requires a constant integer expression evaluated by `try_eval_const_int` (handles literals, casts, and unary `−`/`+`/`~`); duplicates are detected via a `SwitchCtx` stack (`current_switch` in `typecheck.c`). `STMT_DEFAULT` rejects multiple defaults. Case/default labels outside any switch are also rejected.
@@ -106,7 +108,7 @@ Source (.c)
 ### AST quirks
 
 - **Function prototypes vs. definitions**: Only function *definitions* (with a body) parse as `EXTERNAL_DECL_FUNCTION`. A bare prototype such as `int f(int);` parses as `EXTERNAL_DECL_DECLARATION` / `DECL_VAR` with a `TYPE_FUNCTION` declarator type. The typecheck pass (`typecheck_file_scope_var_decl`) detects `TYPE_FUNCTION` and registers it via `symtab_add_fun()`.
-- **`f(void)` sentinel**: The parser represents a `(void)` parameter list as a single `Param` node with `TYPE_VOID` and a NULL name (not as an empty list). `typecheck_fn_decl()` strips this sentinel before param processing. `resolve_function_declaration()` skips params with a NULL name when adding to symtab.
+- **`f(void)` sentinel**: The parser represents a `(void)` parameter list as a single `Param` node with `TYPE_VOID` and a NULL name (not as an empty list). `typecheck_fn_decl()` strips this sentinel before param processing. Params with a NULL name are skipped when adding to symtab.
 
 ### Serialization pipeline
 
@@ -119,10 +121,12 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `ast/clone_tests.cpp` → `ast-tests`
 - `scanner/tests.cpp` → `scanner-tests`
 - `parser/simple_tests.cpp`, `statement_tests.cpp`, … (8 files) → `parser-tests`
-- `translator/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `translate_tests.cpp` → 5 separate executables
+- `tac/tac_yaml_tests.cpp`, `tac_graphviz_tests.cpp`, `tac_binary_tests.cpp` → `tac-yaml-tests`, `tac-dot-tests`, `tac-binary-tests`
+- `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp` → 4 separate executables
+- `translator/translate_tests.cpp` → `translate-tests`
 - `libutil/string_map_tests.cpp`, `wio_tests.cpp` → `libutil-tests`, `wio-tests`
 
-Two test files are disabled in CMake (known failures): `parser/negative_tests.cpp` and `translator/const_convert_tests.cpp`.
+Two test files are disabled in CMake (known failures): `parser/negative_tests.cpp` and `semantic/const_convert_tests.cpp`.
 
 ## Documentation
 

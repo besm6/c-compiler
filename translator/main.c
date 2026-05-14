@@ -280,10 +280,12 @@ void process_file(const Args *args)
         Tac_TopLevel *tac = translate(ast);
         free_external_decl(ast);
         if (tac) {
-            if (args->debug) {
-                tac_print_toplevel(stdout, tac, 0);
+            for (Tac_TopLevel *t = tac; t; t = t->next) {
+                if (args->debug) {
+                    tac_print_toplevel(stdout, t, 0);
+                }
+                emit_tac_toplevel(args, tac_out_ready ? &tac_out : NULL, t);
             }
-            emit_tac_toplevel(args, tac_out_ready ? &tac_out : NULL, tac);
             tac_free_toplevel(tac);
         }
     }

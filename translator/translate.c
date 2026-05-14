@@ -9,26 +9,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "semantic.h"
+#include "symtab.h"
 #include "xalloc.h"
 
 // Enable debug output
 int translator_debug;
-
-//
-// Error handling
-//
-static void _Noreturn fatal_error(const char *message, ...)
-{
-    fprintf(stderr, "Fatal error: ");
-
-    va_list ap;
-    va_start(ap, message);
-    vfprintf(stderr, message, ap);
-    va_end(ap);
-
-    fprintf(stderr, "\n");
-    exit(1);
-}
 
 //
 // TAC generation helpers
@@ -452,35 +438,129 @@ static Tac_Param *params_from_type(const Type *fun_type)
     Tac_Param *head  = NULL;
     Tac_Param **tail = &head;
     for (const Param *p = fun_type->u.function.params; p; p = p->next) {
+        if (!p->name)
+            continue; // skip void sentinel and unnamed params
         Tac_Param *tp = tac_new_param();
-        tp->name      = p->name ? xstrdup(p->name) : xstrdup("");
+        tp->name      = xstrdup(p->name);
         *tail         = tp;
         tail          = &tp->next;
     }
     return head;
 }
 
-static Tac_TopLevel *translate_external_decl(ExternalDecl *ast)
+static Tac_Type *ast_type_to_tac_type(const Type *t)
 {
-    if (!ast || ast->kind != EXTERNAL_DECL_FUNCTION) {
-        return NULL;
+    switch (t->kind) {
+    case TYPE_VOID:      return tac_new_type(TAC_TYPE_VOID);
+    case TYPE_CHAR:      return tac_new_type(TAC_TYPE_CHAR);
+    case TYPE_SCHAR:     return tac_new_type(TAC_TYPE_SCHAR);
+    case TYPE_UCHAR:     return tac_new_type(TAC_TYPE_UCHAR);
+    case TYPE_SHORT:     return tac_new_type(TAC_TYPE_SHORT);
+    case TYPE_USHORT:    return tac_new_type(TAC_TYPE_USHORT);
+    case TYPE_INT:       return tac_new_type(TAC_TYPE_INT);
+    case TYPE_UINT:      return tac_new_type(TAC_TYPE_UINT);
+    case TYPE_LONG:      return tac_new_type(TAC_TYPE_LONG);
+    case TYPE_ULONG:     return tac_new_type(TAC_TYPE_ULONG);
+    case TYPE_LONG_LONG: return tac_new_type(TAC_TYPE_LONG_LONG);
+    case TYPE_ULONG_LONG:return tac_new_type(TAC_TYPE_ULONG_LONG);
+    case TYPE_FLOAT:     return tac_new_type(TAC_TYPE_FLOAT);
+    case TYPE_DOUBLE:    return tac_new_type(TAC_TYPE_DOUBLE);
+    case TYPE_ENUM:      return tac_new_type(TAC_TYPE_INT);
+    case TYPE_POINTER: {
+        Tac_Type *tp               = tac_new_type(TAC_TYPE_POINTER);
+        tp->u.pointer.target_type  = ast_type_to_tac_type(t->u.pointer.target);
+        return tp;
     }
-    if (!ast->u.function.body) {
-        return NULL;
+    case TYPE_ARRAY: {
+        Tac_Type *ta          = tac_new_type(TAC_TYPE_ARRAY);
+        ta->u.array.elem_type = ast_type_to_tac_type(t->u.array.element);
+        ta->u.array.size      = (int)(get_size(t) / get_size(t->u.array.element));
+        return ta;
     }
-    TacCtx ctx;
-    ctx.head    = NULL;
-    ctx.tail    = NULL;
-    ctx.temp_id = 0;
+    case TYPE_FUNCTION: {
+        Tac_Type *tf          = tac_new_type(TAC_TYPE_FUN_TYPE);
+        Tac_Type **param_tail = &tf->u.fun_type.param_types;
+        for (const Param *p = t->u.function.params; p; p = p->next) {
+            if (!p->name && p->type->kind == TYPE_VOID)
+                continue; // skip void sentinel
+            Tac_Type *pt = ast_type_to_tac_type(p->type);
+            *param_tail  = pt;
+            param_tail   = &pt->next;
+        }
+        tf->u.fun_type.ret_type = ast_type_to_tac_type(t->u.function.return_type);
+        return tf;
+    }
+    case TYPE_STRUCT:
+    case TYPE_UNION: {
+        Tac_Type *ts    = tac_new_type(TAC_TYPE_STRUCTURE);
+        ts->u.structure.tag = t->u.struct_t.name ? xstrdup(t->u.struct_t.name) : NULL;
+        return ts;
+    }
+    default:
+        fatal_error("ast_type_to_tac_type: unsupported type kind %d", (int)t->kind);
+    }
+}
 
-    gen_stmt(&ctx, ast->u.function.body);
+static Tac_TopLevel *translate_fn(ExternalDecl *ast)
+{
+    const char *name  = ast->u.function.name;
+    const Symbol *sym = symtab_get(name);
 
     Tac_TopLevel *tl      = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
-    tl->u.function.name   = xstrdup(ast->u.function.name);
-    tl->u.function.global = true;
+    tl->u.function.name   = xstrdup(name);
+    tl->u.function.global = sym->u.func.global;
     tl->u.function.params = params_from_type(ast->u.function.type);
-    tl->u.function.body   = ctx.head;
+
+    if (ast->u.function.body) {
+        TacCtx ctx = { NULL, NULL, 0 };
+        gen_stmt(&ctx, ast->u.function.body);
+        tl->u.function.body = ctx.head;
+    }
     return tl;
+}
+
+static Tac_TopLevel *translate_decl(const Declaration *decl)
+{
+    if (decl->kind != DECL_VAR)
+        return NULL;
+    if (decl->u.var.specifiers && decl->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF)
+        return NULL;
+
+    Tac_TopLevel *head  = NULL;
+    Tac_TopLevel **tail = &head;
+    for (const InitDeclarator *id = decl->u.var.declarators; id; id = id->next) {
+        Symbol *sym      = symtab_get(id->name);
+        Tac_TopLevel *tl;
+
+        if (id->type->kind == TYPE_FUNCTION) {
+            tl = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
+            tl->u.function.name   = xstrdup(id->name);
+            tl->u.function.global = sym->u.func.global;
+            tl->u.function.params = params_from_type(id->type);
+            // body stays NULL — this is a prototype
+        } else {
+            tl = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+            tl->u.static_variable.name      = xstrdup(id->name);
+            tl->u.static_variable.global    = sym->u.static_var.global;
+            tl->u.static_variable.type      = ast_type_to_tac_type(sym->type);
+            tl->u.static_variable.init_list = sym->u.static_var.init_list;
+            sym->u.static_var.init_list     = NULL; // transfer ownership to TAC
+        }
+        *tail = tl;
+        tail  = &tl->next;
+    }
+    return head;
+}
+
+static Tac_TopLevel *translate_external_decl(ExternalDecl *ast)
+{
+    if (!ast)
+        return NULL;
+    switch (ast->kind) {
+    case EXTERNAL_DECL_FUNCTION:    return translate_fn(ast);
+    case EXTERNAL_DECL_DECLARATION: return translate_decl(ast->u.declaration);
+    }
+    return NULL;
 }
 
 //

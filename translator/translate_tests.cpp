@@ -8,6 +8,7 @@
 #include "semantic.h"
 #include "structtab.h"
 #include "symtab.h"
+#include "typetab.h"
 #include "tac.h"
 #include "translate.h"
 #include "xalloc.h"
@@ -32,6 +33,7 @@ protected:
         }
         symtab_destroy();
         structtab_destroy();
+        typetab_destroy();
         nametab_destroy();
         xreport_lost_memory();
         EXPECT_EQ(xtotal_allocated_size(), 0);
@@ -60,7 +62,8 @@ protected:
             if (tac) {
                 FILE *f = tmpfile();
                 EXPECT_NE(nullptr, f);
-                tac_export_yaml(f, tac);
+                for (const Tac_TopLevel *t = tac; t; t = t->next)
+                    tac_export_yaml(f, t);
                 long len = ftell(f);
                 rewind(f);
                 std::string yaml(static_cast<size_t>(len), '\0');
@@ -590,6 +593,157 @@ TEST_F(TranslateTest, ForLoopInitDecl)
     - instruction:
       kind: label
       name: .L0
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+)");
+}
+
+// ---------------------------------------------------------------------------
+// Global declarations — task #N
+// ---------------------------------------------------------------------------
+
+// Tentative global variable (no initializer) emits static_variable with no init_list.
+TEST_F(TranslateTest, GlobalVarTentative)
+{
+    std::string yaml = CompileToYaml("int x;");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: x
+  global: true
+  type:
+    kind: int
+)");
+}
+
+// Initialized global variable emits static_variable with i32 init.
+TEST_F(TranslateTest, GlobalVarInitialized)
+{
+    std::string yaml = CompileToYaml("int x = 42;");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: x
+  global: true
+  type:
+    kind: int
+  init_list:
+    - init:
+      kind: i32
+      value: 42
+)");
+}
+
+// Static global variable sets global=false.
+TEST_F(TranslateTest, GlobalVarStatic)
+{
+    std::string yaml = CompileToYaml("static int x = 5;");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: x
+  global: false
+  type:
+    kind: int
+  init_list:
+    - init:
+      kind: i32
+      value: 5
+)");
+}
+
+// extern declaration emits static_variable with global=true and no init_list.
+TEST_F(TranslateTest, GlobalVarExtern)
+{
+    std::string yaml = CompileToYaml("extern int x;");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: x
+  global: true
+  type:
+    kind: int
+)");
+}
+
+// Function prototype emits TAC_TOPLEVEL_FUNCTION with params but no body.
+TEST_F(TranslateTest, FunctionPrototype)
+{
+    std::string yaml = CompileToYaml("int foo(int a, int b);");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: foo
+  global: true
+  params:
+    - param: a
+    - param: b
+)");
+}
+
+// Static void prototype: global=false, no params (void sentinel stripped), no body.
+TEST_F(TranslateTest, FunctionPrototypeStatic)
+{
+    std::string yaml = CompileToYaml("static void bar(void);");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: bar
+  global: false
+)");
+}
+
+// Multi-declarator global declaration emits one static_variable per declarator.
+TEST_F(TranslateTest, GlobalVarMultiDeclarator)
+{
+    std::string yaml = CompileToYaml("int x = 1, y = 2;");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: x
+  global: true
+  type:
+    kind: int
+  init_list:
+    - init:
+      kind: i32
+      value: 1
+- toplevel:
+  kind: static_variable
+  name: y
+  global: true
+  type:
+    kind: int
+  init_list:
+    - init:
+      kind: i32
+      value: 2
+)");
+}
+
+// Struct/enum/typedef-only declarations produce no TAC output.
+TEST_F(TranslateTest, StructDeclOnly)
+{
+    EXPECT_EQ(CompileToYaml("struct Foo { int x; };"), "");
+}
+
+TEST_F(TranslateTest, EnumDeclOnly)
+{
+    EXPECT_EQ(CompileToYaml("enum Color { RED, GREEN, BLUE };"), "");
+}
+
+TEST_F(TranslateTest, TypedefOnly)
+{
+    EXPECT_EQ(CompileToYaml("typedef int MyInt;"), "");
+}
+
+// Static function definition must emit global=false (regression: was hardcoded true).
+TEST_F(TranslateTest, StaticFunctionGlobalFalse)
+{
+    std::string yaml = CompileToYaml("static int f(void) { return 0; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: false
+  body:
     - instruction:
       kind: return
       src:
