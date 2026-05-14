@@ -30,7 +30,7 @@ void label_loops(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
         return;
     }
     LabelFrame stack[256];
-    int        depth = 0;
+    int depth = 0;
     label_statement(ast->u.function.body, stack, &depth);
 }
 
@@ -75,47 +75,47 @@ static void label_statement(Stmt *stmt, LabelFrame *stack, int *depth)
         label_statement(stmt->u.if_stmt.else_stmt, stack, depth);
         break;
     case STMT_SWITCH: {
-        char *end = make_tac_label();
+        char *end                 = make_tac_label();
         stmt->loop_end_label      = end;
         stmt->loop_continue_label = NULL;
-        stack[*depth].break_lbl     = end;
-        stack[*depth].cont_lbl      = NULL;
+        stack[*depth].break_lbl   = end;
+        stack[*depth].cont_lbl    = NULL;
         (*depth)++;
         label_statement(stmt->u.switch_stmt.body, stack, depth);
         (*depth)--;
         break;
     }
     case STMT_WHILE: {
-        char *end  = make_tac_label();
-        char *cont = make_tac_label();
-        stmt->loop_end_label        = end;
-        stmt->loop_continue_label   = cont;
-        stack[*depth].break_lbl     = end;
-        stack[*depth].cont_lbl      = cont;
+        char *end                 = make_tac_label();
+        char *cont                = make_tac_label();
+        stmt->loop_end_label      = end;
+        stmt->loop_continue_label = cont;
+        stack[*depth].break_lbl   = end;
+        stack[*depth].cont_lbl    = cont;
         (*depth)++;
         label_statement(stmt->u.while_stmt.body, stack, depth);
         (*depth)--;
         break;
     }
     case STMT_DO_WHILE: {
-        char *end  = make_tac_label();
-        char *cont = make_tac_label();
-        stmt->loop_end_label        = end;
-        stmt->loop_continue_label   = cont;
-        stack[*depth].break_lbl     = end;
-        stack[*depth].cont_lbl      = cont;
+        char *end                 = make_tac_label();
+        char *cont                = make_tac_label();
+        stmt->loop_end_label      = end;
+        stmt->loop_continue_label = cont;
+        stack[*depth].break_lbl   = end;
+        stack[*depth].cont_lbl    = cont;
         (*depth)++;
         label_statement(stmt->u.do_while.body, stack, depth);
         (*depth)--;
         break;
     }
     case STMT_FOR: {
-        char *end  = make_tac_label();
-        char *cont = make_tac_label();
-        stmt->loop_end_label        = end;
-        stmt->loop_continue_label   = cont;
-        stack[*depth].break_lbl     = end;
-        stack[*depth].cont_lbl      = cont;
+        char *end                 = make_tac_label();
+        char *cont                = make_tac_label();
+        stmt->loop_end_label      = end;
+        stmt->loop_continue_label = cont;
+        stack[*depth].break_lbl   = end;
+        stack[*depth].cont_lbl    = cont;
         (*depth)++;
         label_statement(stmt->u.for_stmt.body, stack, depth);
         (*depth)--;

@@ -98,7 +98,7 @@ int parse_args(int argc, char *argv[], Args *args)
         { "ast", no_argument, 0, 'a' },     //
         { "yaml", no_argument, 0, 'y' },    //
         { "dot", no_argument, 0, 'd' },     //
-        { },                                //
+        {},                                 //
     };
 
     int opt;
@@ -171,7 +171,7 @@ void process_file(const Args *args)
         parser_debug = 1;
         import_debug = 1;
         export_debug = 1;
-        wio_debug = 1;
+        wio_debug    = 1;
     }
     FILE *input_file = fopen(args->input_file, "r");
     if (!input_file) {

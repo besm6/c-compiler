@@ -7,8 +7,8 @@
 /* Helper functions for AST construction */
 Type *new_type(TypeKind kind, const char *funcname, const char *filename, unsigned lineno)
 {
-    Type *t                 = xalloc(sizeof(Type), funcname, filename, lineno);
-    t->kind                 = kind;
+    Type *t = xalloc(sizeof(Type), funcname, filename, lineno);
+    t->kind = kind;
     return t;
 }
 
@@ -143,11 +143,11 @@ GenericAssoc *new_generic_assoc(GenericAssocKind kind)
 
 Stmt *new_stmt(StmtKind kind)
 {
-    Stmt *s = xalloc(sizeof(Stmt), __func__, __FILE__, __LINE__);
-    s->kind                 = kind;
-    s->loop_end_label       = NULL;
-    s->loop_continue_label  = NULL;
-    s->branch_target_label  = NULL;
+    Stmt *s                = xalloc(sizeof(Stmt), __func__, __FILE__, __LINE__);
+    s->kind                = kind;
+    s->loop_end_label      = NULL;
+    s->loop_continue_label = NULL;
+    s->branch_target_label = NULL;
     return s;
 }
 

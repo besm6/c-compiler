@@ -3,8 +3,8 @@
 #include <stdint.h>
 
 #include "ast.h"
-#include "string_map.h"
 #include "semantic.h"
+#include "string_map.h"
 #include "xalloc.h"
 
 StringMap structtab;

@@ -1,12 +1,13 @@
+#include "parser.h"
+
+#include <ctype.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdarg.h>
-#include <ctype.h>
 
-#include "parser.h"
-#include "scanner.h"
 #include "internal.h"
+#include "scanner.h"
 #include "xalloc.h"
 
 /* Global lexer state */
@@ -60,7 +61,7 @@ static int token_translation(int token)
     // Check identifier type
     if (token == TOKEN_IDENTIFIER) {
         token = nametab_find(get_yytext());
-        if (! token) {
+        if (!token) {
             token = TOKEN_IDENTIFIER;
         }
     }
@@ -91,9 +92,9 @@ static inline bool current_token_is_not(int token)
 // Does this token have something valuable in yytext?
 static bool has_yytext(int token)
 {
-    return token == TOKEN_IDENTIFIER || token == TOKEN_I_CONSTANT ||
-           token == TOKEN_F_CONSTANT || token == TOKEN_ENUMERATION_CONSTANT ||
-           token == TOKEN_STRING_LITERAL || token == TOKEN_TYPEDEF_NAME;
+    return token == TOKEN_IDENTIFIER || token == TOKEN_I_CONSTANT || token == TOKEN_F_CONSTANT ||
+           token == TOKEN_ENUMERATION_CONSTANT || token == TOKEN_STRING_LITERAL ||
+           token == TOKEN_TYPEDEF_NAME;
 }
 
 // Peek next token, without advancing the parser.
@@ -113,8 +114,8 @@ static int next_token()
 static void expect_token(int expected)
 {
     if (current_token != expected) {
-        fprintf(stderr, "Parse error: Expected token %d, got %d (lexeme: %s)\n",
-                        expected, current_token, current_lexeme ? current_lexeme : "");
+        fprintf(stderr, "Parse error: Expected token %d, got %d (lexeme: %s)\n", expected,
+                current_token, current_lexeme ? current_lexeme : "");
         exit(1);
     }
     advance_token();
@@ -123,30 +124,26 @@ static void expect_token(int expected)
 // Is this token a type specifier?
 static bool is_type_specifier(int token)
 {
-    return token == TOKEN_VOID || token == TOKEN_CHAR ||
-           token == TOKEN_SHORT || token == TOKEN_INT ||
-           token == TOKEN_LONG || token == TOKEN_FLOAT ||
-           token == TOKEN_DOUBLE || token == TOKEN_SIGNED ||
-           token == TOKEN_UNSIGNED || token == TOKEN_BOOL ||
-           token == TOKEN_COMPLEX || token == TOKEN_IMAGINARY ||
-           token == TOKEN_STRUCT || token == TOKEN_UNION ||
-           token == TOKEN_ENUM || token == TOKEN_TYPEDEF_NAME;
+    return token == TOKEN_VOID || token == TOKEN_CHAR || token == TOKEN_SHORT ||
+           token == TOKEN_INT || token == TOKEN_LONG || token == TOKEN_FLOAT ||
+           token == TOKEN_DOUBLE || token == TOKEN_SIGNED || token == TOKEN_UNSIGNED ||
+           token == TOKEN_BOOL || token == TOKEN_COMPLEX || token == TOKEN_IMAGINARY ||
+           token == TOKEN_STRUCT || token == TOKEN_UNION || token == TOKEN_ENUM ||
+           token == TOKEN_TYPEDEF_NAME;
 }
 
 // Is this token a type qualifier?
 // Except _Atomic.
 static bool is_type_qualifier(int token)
 {
-    return token == TOKEN_CONST || token == TOKEN_RESTRICT ||
-           token == TOKEN_VOLATILE;
+    return token == TOKEN_CONST || token == TOKEN_RESTRICT || token == TOKEN_VOLATILE;
 }
 
 // Is this token a storage class specifier?
 static bool is_storage_class_specifier(int token)
 {
-    return token == TOKEN_TYPEDEF || token == TOKEN_EXTERN ||
-           token == TOKEN_STATIC || token == TOKEN_THREAD_LOCAL ||
-           token == TOKEN_AUTO || token == TOKEN_REGISTER;
+    return token == TOKEN_TYPEDEF || token == TOKEN_EXTERN || token == TOKEN_STATIC ||
+           token == TOKEN_THREAD_LOCAL || token == TOKEN_AUTO || token == TOKEN_REGISTER;
 }
 
 //
@@ -157,12 +154,12 @@ static void append_list(void *head, void *node)
 {
     if (!node)
         return;
-    *(void**)node = NULL;
+    *(void **)node = NULL;
 
     // Find tail.
-    void **tail = (void**) head;
+    void **tail = (void **)head;
     while (*tail) {
-        tail = (void**) *tail;
+        tail = (void **)*tail;
     }
     *tail = node;
 }
@@ -417,29 +414,43 @@ static int parse_char_literal(const char *s)
         return (unsigned char)*s;
     s++; // skip backslash
     switch (*s) {
-    case '\'': return '\'';
-    case '"':  return '"';
-    case '?':  return '?';
-    case '\\': return '\\';
-    case 'a':  return '\a';
-    case 'b':  return '\b';
-    case 'f':  return '\f';
-    case 'n':  return '\n';
-    case 'r':  return '\r';
-    case 't':  return '\t';
-    case 'v':  return '\v';
+    case '\'':
+        return '\'';
+    case '"':
+        return '"';
+    case '?':
+        return '?';
+    case '\\':
+        return '\\';
+    case 'a':
+        return '\a';
+    case 'b':
+        return '\b';
+    case 'f':
+        return '\f';
+    case 'n':
+        return '\n';
+    case 'r':
+        return '\r';
+    case 't':
+        return '\t';
+    case 'v':
+        return '\v';
     default:
         if (*s >= '0' && *s <= '7') { // octal
             int val = *s++ - '0';
-            if (*s >= '0' && *s <= '7') val = val * 8 + (*s++ - '0');
-            if (*s >= '0' && *s <= '7') val = val * 8 + (*s - '0');
+            if (*s >= '0' && *s <= '7')
+                val = val * 8 + (*s++ - '0');
+            if (*s >= '0' && *s <= '7')
+                val = val * 8 + (*s - '0');
             return val;
         }
         if (*s == 'x') { // hex
             int val = 0;
             for (s++; isxdigit((unsigned char)*s); s++)
-                val = val * 16 + (isdigit((unsigned char)*s) ? *s - '0'
-                                                             : tolower((unsigned char)*s) - 'a' + 10);
+                val =
+                    val * 16 +
+                    (isdigit((unsigned char)*s) ? *s - '0' : tolower((unsigned char)*s) - 'a' + 10);
             return val;
         }
         return (unsigned char)*s;
@@ -470,7 +481,7 @@ Expr *parse_constant()
         if (*p == '\'') {
             expr->u.literal->u.int_val = parse_char_literal(current_lexeme);
         } else {
-            char *end = NULL;
+            char *end       = NULL;
             unsigned long v = strtoul(current_lexeme, &end, 0);
             if (end) {
                 while (*end) {
@@ -494,7 +505,7 @@ Expr *parse_constant()
     }
     case TOKEN_F_CONSTANT: {
         char *end = NULL;
-        double v = strtod(current_lexeme, &end);
+        double v  = strtod(current_lexeme, &end);
         if (end) {
             while (*end && (*end == 'f' || *end == 'F' || *end == 'l' || *end == 'L')) {
                 end++;
@@ -646,7 +657,7 @@ Expr *parse_postfix_expression()
             Expr *new_expr                 = new_expression(EXPR_FIELD_ACCESS);
             new_expr->u.field_access.expr  = expr;
             new_expr->u.field_access.field = field;
-            expr = new_expr;
+            expr                           = new_expr;
         } else if (current_token == TOKEN_PTR_OP) {
             advance_token();
             Ident field = xstrdup(current_lexeme);
@@ -654,7 +665,7 @@ Expr *parse_postfix_expression()
             Expr *new_expr               = new_expression(EXPR_PTR_ACCESS);
             new_expr->u.ptr_access.expr  = expr;
             new_expr->u.ptr_access.field = field;
-            expr = new_expr;
+            expr                         = new_expr;
         } else if (current_token == TOKEN_INC_OP) {
             advance_token();
             Expr *new_expr       = new_expression(EXPR_POST_INC);
@@ -769,11 +780,11 @@ UnaryOp parse_unary_operator()
         printf("--- %s()\n", __func__);
     }
     UnaryOp op = current_token == TOKEN_AMPERSAND ? UNARY_ADDRESS
-               : current_token == TOKEN_STAR    ? UNARY_DEREF
-               : current_token == TOKEN_PLUS    ? UNARY_PLUS
-               : current_token == TOKEN_MINUS   ? UNARY_NEG
-               : current_token == TOKEN_TILDE   ? UNARY_BIT_NOT
-                                                : UNARY_LOG_NOT;
+                 : current_token == TOKEN_STAR    ? UNARY_DEREF
+                 : current_token == TOKEN_PLUS    ? UNARY_PLUS
+                 : current_token == TOKEN_MINUS   ? UNARY_NEG
+                 : current_token == TOKEN_TILDE   ? UNARY_BIT_NOT
+                                                  : UNARY_LOG_NOT;
     advance_token();
     return op;
 }
@@ -819,9 +830,9 @@ Expr *parse_multiplicative_expression()
     while (current_token == TOKEN_STAR || current_token == TOKEN_SLASH ||
            current_token == TOKEN_PERCENT) {
         Expr *expr           = new_expression(EXPR_BINARY_OP);
-        expr->u.binary_op.op = current_token == TOKEN_STAR  ? BINARY_MUL
-                             : current_token == TOKEN_SLASH ? BINARY_DIV
-                                                            : BINARY_MOD;
+        expr->u.binary_op.op = current_token == TOKEN_STAR    ? BINARY_MUL
+                               : current_token == TOKEN_SLASH ? BINARY_DIV
+                                                              : BINARY_MOD;
         advance_token();
         expr->u.binary_op.left  = left;
         expr->u.binary_op.right = parse_cast_expression();
@@ -868,9 +879,9 @@ Expr *parse_shift_expression()
     }
     Expr *left = parse_additive_expression();
     while (current_token == TOKEN_LEFT_OP || current_token == TOKEN_RIGHT_OP) {
-        Expr *expr           = new_expression(EXPR_BINARY_OP);
-        expr->u.binary_op.op = current_token == TOKEN_LEFT_OP ? BINARY_LEFT_SHIFT
-                                                              : BINARY_RIGHT_SHIFT;
+        Expr *expr = new_expression(EXPR_BINARY_OP);
+        expr->u.binary_op.op =
+            current_token == TOKEN_LEFT_OP ? BINARY_LEFT_SHIFT : BINARY_RIGHT_SHIFT;
         advance_token();
         expr->u.binary_op.left  = left;
         expr->u.binary_op.right = parse_additive_expression();
@@ -897,10 +908,10 @@ Expr *parse_relational_expression()
     while (current_token == TOKEN_LT || current_token == TOKEN_GT || current_token == TOKEN_LE_OP ||
            current_token == TOKEN_GE_OP) {
         Expr *expr           = new_expression(EXPR_BINARY_OP);
-        expr->u.binary_op.op = current_token == TOKEN_LT    ? BINARY_LT
-                             : current_token == TOKEN_GT    ? BINARY_GT
-                             : current_token == TOKEN_LE_OP ? BINARY_LE
-                                                            : BINARY_GE;
+        expr->u.binary_op.op = current_token == TOKEN_LT      ? BINARY_LT
+                               : current_token == TOKEN_GT    ? BINARY_GT
+                               : current_token == TOKEN_LE_OP ? BINARY_LE
+                                                              : BINARY_GE;
         advance_token();
         expr->u.binary_op.left  = left;
         expr->u.binary_op.right = parse_shift_expression();
@@ -1121,17 +1132,17 @@ AssignOp parse_assignment_operator()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    AssignOp op = current_token == TOKEN_ASSIGN       ? ASSIGN_SIMPLE
-                : current_token == TOKEN_MUL_ASSIGN   ? ASSIGN_MUL
-                : current_token == TOKEN_DIV_ASSIGN   ? ASSIGN_DIV
-                : current_token == TOKEN_MOD_ASSIGN   ? ASSIGN_MOD
-                : current_token == TOKEN_ADD_ASSIGN   ? ASSIGN_ADD
-                : current_token == TOKEN_SUB_ASSIGN   ? ASSIGN_SUB
-                : current_token == TOKEN_LEFT_ASSIGN  ? ASSIGN_LEFT
-                : current_token == TOKEN_RIGHT_ASSIGN ? ASSIGN_RIGHT
-                : current_token == TOKEN_AND_ASSIGN   ? ASSIGN_AND
-                : current_token == TOKEN_XOR_ASSIGN   ? ASSIGN_XOR
-                                                      : ASSIGN_OR;
+    AssignOp op = current_token == TOKEN_ASSIGN         ? ASSIGN_SIMPLE
+                  : current_token == TOKEN_MUL_ASSIGN   ? ASSIGN_MUL
+                  : current_token == TOKEN_DIV_ASSIGN   ? ASSIGN_DIV
+                  : current_token == TOKEN_MOD_ASSIGN   ? ASSIGN_MOD
+                  : current_token == TOKEN_ADD_ASSIGN   ? ASSIGN_ADD
+                  : current_token == TOKEN_SUB_ASSIGN   ? ASSIGN_SUB
+                  : current_token == TOKEN_LEFT_ASSIGN  ? ASSIGN_LEFT
+                  : current_token == TOKEN_RIGHT_ASSIGN ? ASSIGN_RIGHT
+                  : current_token == TOKEN_AND_ASSIGN   ? ASSIGN_AND
+                  : current_token == TOKEN_XOR_ASSIGN   ? ASSIGN_XOR
+                                                        : ASSIGN_OR;
     advance_token();
     return op;
 }
@@ -1190,13 +1201,13 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
     enum { SIGNED_SIGNED, SIGNED_UNSIGNED };
 
     /* State for tracking type specifiers */
-    TypeKind base_kind     = -1; /* Unset */
-    int signedness         = -1; /* Unset */
-    int int_count          = 0;  /* For int */
-    int long_count         = 0;  /* For long, long long */
-    bool is_complex        = false;
-    bool is_imaginary      = false;
-    int specifier_count    = 0;
+    TypeKind base_kind           = -1; /* Unset */
+    int signedness               = -1; /* Unset */
+    int int_count                = 0;  /* For int */
+    int long_count               = 0;  /* For long, long long */
+    bool is_complex              = false;
+    bool is_imaginary            = false;
+    int specifier_count          = 0;
     const TypeSpec *struct_spec  = NULL;
     const TypeSpec *union_spec   = NULL;
     const TypeSpec *enum_spec    = NULL;
@@ -1308,27 +1319,32 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
                 fatal_error("Unknown basic type specifier");
             }
         } else if (s->kind == TYPE_SPEC_STRUCT) {
-            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec || base_kind != -1) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec ||
+                base_kind != -1) {
                 fatal_error("struct cannot combine with other distinct types");
             }
             struct_spec = s;
         } else if (s->kind == TYPE_SPEC_UNION) {
-            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec || base_kind != -1) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec ||
+                base_kind != -1) {
                 fatal_error("union cannot combine with other distinct types");
             }
             union_spec = s;
         } else if (s->kind == TYPE_SPEC_ENUM) {
-            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec || base_kind != -1) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec ||
+                base_kind != -1) {
                 fatal_error("enum cannot combine with other distinct types");
             }
             enum_spec = s;
         } else if (s->kind == TYPE_SPEC_TYPEDEF_NAME) {
-            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec || base_kind != -1) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec ||
+                base_kind != -1) {
                 fatal_error("typedef name cannot combine with other distinct types");
             }
             typedef_spec = s;
         } else if (s->kind == TYPE_SPEC_ATOMIC) {
-            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec || base_kind != -1) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec ||
+                base_kind != -1) {
                 fatal_error("_Atomic(type) cannot combine with other distinct types");
             }
             atomic_spec = s;
@@ -1354,8 +1370,9 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
         result                      = new_type(TYPE_TYPEDEF_NAME, __func__, __FILE__, __LINE__);
         result->u.typedef_name.name = xstrdup(typedef_spec->u.typedef_name.name);
     } else if (atomic_spec) {
-        result                = new_type(TYPE_ATOMIC, __func__, __FILE__, __LINE__);
-        result->u.atomic.base = clone_type(atomic_spec->u.atomic.type, __func__, __FILE__, __LINE__);
+        result = new_type(TYPE_ATOMIC, __func__, __FILE__, __LINE__);
+        result->u.atomic.base =
+            clone_type(atomic_spec->u.atomic.type, __func__, __FILE__, __LINE__);
     } else {
         /* Handle basic types */
         if (base_kind == -1) {
@@ -1509,7 +1526,7 @@ Declaration *parse_declaration()
     if (current_token == TOKEN_STATIC_ASSERT) {
         return parse_static_assert_declaration();
     }
-    Type *base_type = NULL;
+    Type *base_type      = NULL;
     DeclSpec *specifiers = parse_declaration_specifiers(&base_type);
     if (current_token == TOKEN_SEMICOLON) {
         advance_token();
@@ -1552,7 +1569,7 @@ DeclSpec *parse_declaration_specifiers(Type **base_type_result)
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    DeclSpec *ds = new_decl_spec();
+    DeclSpec *ds         = new_decl_spec();
     TypeSpec *type_specs = NULL;
     while (1) {
         if (is_storage_class_specifier(current_token)) {
@@ -1618,13 +1635,15 @@ InitDeclarator *parse_init_declarator(Declarator *decl, const Type *base_type)
         decl = parse_declarator();
     }
     InitDeclarator *init_decl = new_init_declarator();
-    init_decl->name = decl->name;
-    decl->name = NULL;
+    init_decl->name           = decl->name;
+    decl->name                = NULL;
     if (current_token == TOKEN_ASSIGN) {
         advance_token();
         init_decl->init = parse_initializer();
     }
-    init_decl->type = type_apply_suffixes(type_apply_pointers(clone_type(base_type, __func__, __FILE__, __LINE__), decl->pointers), decl->suffixes);
+    init_decl->type = type_apply_suffixes(
+        type_apply_pointers(clone_type(base_type, __func__, __FILE__, __LINE__), decl->pointers),
+        decl->suffixes);
     free_declarator(decl);
     return init_decl;
 }
@@ -1711,12 +1730,12 @@ TypeSpec *parse_type_specifier()
         ts->u.basic = new_type(TYPE_DOUBLE, __func__, __FILE__, __LINE__);
         advance_token();
     } else if (current_token == TOKEN_SIGNED) {
-        ts                               = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic                      = new_type(TYPE_SIGNED, __func__, __FILE__, __LINE__);
+        ts          = new_type_spec(TYPE_SPEC_BASIC);
+        ts->u.basic = new_type(TYPE_SIGNED, __func__, __FILE__, __LINE__);
         advance_token();
     } else if (current_token == TOKEN_UNSIGNED) {
-        ts                               = new_type_spec(TYPE_SPEC_BASIC);
-        ts->u.basic                      = new_type(TYPE_UNSIGNED, __func__, __FILE__, __LINE__);
+        ts          = new_type_spec(TYPE_SPEC_BASIC);
+        ts->u.basic = new_type(TYPE_UNSIGNED, __func__, __FILE__, __LINE__);
         advance_token();
     } else if (current_token == TOKEN_BOOL) {
         ts          = new_type_spec(TYPE_SPEC_BASIC);
@@ -1766,7 +1785,8 @@ TypeSpec *parse_struct_or_union_specifier()
     if (current_token != TOKEN_STRUCT && current_token != TOKEN_UNION) {
         fatal_error("Expected struct or union");
     }
-    TypeSpec *ts = new_type_spec(current_token == TOKEN_STRUCT ? TYPE_SPEC_STRUCT : TYPE_SPEC_UNION);
+    TypeSpec *ts =
+        new_type_spec(current_token == TOKEN_STRUCT ? TYPE_SPEC_STRUCT : TYPE_SPEC_UNION);
     advance_token();
     if (current_token == TOKEN_IDENTIFIER) {
         ts->u.struct_spec.name = xstrdup(current_lexeme);
@@ -1829,7 +1849,7 @@ Field *parse_struct_declaration()
     Field *fields = NULL, **fields_tail = &fields;
     for (;;) {
         Field *field = new_field();
-        field->type = clone_type(base_type, __func__, __FILE__, __LINE__);
+        field->type  = clone_type(base_type, __func__, __FILE__, __LINE__);
 
         if (current_token != TOKEN_COLON && current_token != TOKEN_SEMICOLON) {
             Declarator *declarator = parse_declarator();
@@ -2340,8 +2360,9 @@ DeclaratorSuffix *parse_direct_abstract_declarator(Ident *name_out)
                 fatal_error("Variadic function must have at least one parameter");
             } else {
                 // Case: '(' parameter_type_list ')'
-                DeclaratorSuffix *new_suffix  = new_declarator_suffix(SUFFIX_FUNCTION);
-                new_suffix->u.function.params = parse_parameter_type_list(&new_suffix->u.function.variadic);
+                DeclaratorSuffix *new_suffix = new_declarator_suffix(SUFFIX_FUNCTION);
+                new_suffix->u.function.params =
+                    parse_parameter_type_list(&new_suffix->u.function.variadic);
                 expect_token(TOKEN_RPAREN); // Consume ')'
                 *tail = new_suffix;
                 tail  = &new_suffix->next;
@@ -2444,7 +2465,8 @@ Param *parse_parameter_declaration()
     if (current_token == TOKEN_STAR || current_token == TOKEN_LBRACKET ||
         current_token == TOKEN_LPAREN) {
         Pointer *pointers = parse_pointer();
-        DeclaratorSuffix *suffixes = parse_direct_abstract_declarator(param->name ? NULL : &param->name);
+        DeclaratorSuffix *suffixes =
+            parse_direct_abstract_declarator(param->name ? NULL : &param->name);
 
         /* Apply pointers and suffixes */
         param->type = type_apply_suffixes(type_apply_pointers(param->type, pointers), suffixes);
@@ -2762,11 +2784,10 @@ DeclOrStmt *parse_block_item()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    if (is_storage_class_specifier(current_token) ||
-        is_type_specifier(current_token) || is_type_qualifier(current_token) ||
-        current_token == TOKEN_ATOMIC || current_token == TOKEN_INLINE ||
-        current_token == TOKEN_NORETURN || current_token == TOKEN_ALIGNAS ||
-        current_token == TOKEN_STATIC_ASSERT) {
+    if (is_storage_class_specifier(current_token) || is_type_specifier(current_token) ||
+        is_type_qualifier(current_token) || current_token == TOKEN_ATOMIC ||
+        current_token == TOKEN_INLINE || current_token == TOKEN_NORETURN ||
+        current_token == TOKEN_ALIGNAS || current_token == TOKEN_STATIC_ASSERT) {
         Declaration *decl = parse_declaration();
         DeclOrStmt *ds    = new_decl_or_stmt(DECL_OR_STMT_DECL);
         ds->u.decl        = decl;
@@ -2886,17 +2907,17 @@ Stmt *parse_iteration_statement()
     ForInit *init   = NULL;
     Expr *condition = NULL;
     Expr *update    = NULL;
-    if (is_storage_class_specifier(current_token) ||
-        is_type_specifier(current_token) || is_type_qualifier(current_token) ||
-        current_token == TOKEN_ATOMIC || current_token == TOKEN_INLINE || current_token == TOKEN_NORETURN ||
+    if (is_storage_class_specifier(current_token) || is_type_specifier(current_token) ||
+        is_type_qualifier(current_token) || current_token == TOKEN_ATOMIC ||
+        current_token == TOKEN_INLINE || current_token == TOKEN_NORETURN ||
         current_token == TOKEN_ALIGNAS || current_token == TOKEN_STATIC_ASSERT) {
         Declaration *decl = parse_declaration();
         init              = new_for_init(FOR_INIT_DECL);
         init->u.decl      = decl;
     } else {
-        Stmt *expr_stmt = parse_expression_statement();
-        init            = new_for_init(FOR_INIT_EXPR);
-        init->u.expr    = expr_stmt->u.expr;
+        Stmt *expr_stmt   = parse_expression_statement();
+        init              = new_for_init(FOR_INIT_EXPR);
+        init->u.expr      = expr_stmt->u.expr;
         expr_stmt->u.expr = NULL;
         free_statement(expr_stmt);
     }
@@ -2992,7 +3013,6 @@ ExternalDecl *parse_external_declaration()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_STATIC_ASSERT) {
-
         // Static assert.
         ExternalDecl *ed  = new_external_decl(EXTERNAL_DECL_DECLARATION);
         ed->u.declaration = parse_static_assert_declaration();
@@ -3001,11 +3021,10 @@ ExternalDecl *parse_external_declaration()
 
     // Parse declaration_specifiers (common to both function_definition and declaration).
     Type *base_type = NULL;
-    DeclSpec *spec = parse_declaration_specifiers(&base_type);
+    DeclSpec *spec  = parse_declaration_specifiers(&base_type);
 
     // Check if it's a declaration (ends with ';').
     if (current_token == TOKEN_SEMICOLON) {
-
         // Empty declaration.
         advance_token();
         Declaration *decl        = new_declaration(DECL_EMPTY);
@@ -3024,7 +3043,6 @@ ExternalDecl *parse_external_declaration()
     // Check if it's a declaration with init_declarator_list.
     if (current_token == TOKEN_SEMICOLON || current_token == TOKEN_COMMA ||
         current_token == TOKEN_ASSIGN) {
-
         // Declaration of variables.
         ExternalDecl *ed  = new_external_decl(EXTERNAL_DECL_DECLARATION);
         ed->u.declaration = new_declaration(DECL_VAR);
@@ -3045,10 +3063,11 @@ ExternalDecl *parse_external_declaration()
         decl_list = parse_declaration_list();
     }
 
-    ExternalDecl *ed           = new_external_decl(EXTERNAL_DECL_FUNCTION);
-    ed->u.function.specifiers  = spec;
-    ed->u.function.name        = xstrdup(decl->name);
-    ed->u.function.type        = type_apply_suffixes(type_apply_pointers(base_type, decl->pointers), decl->suffixes);
+    ExternalDecl *ed          = new_external_decl(EXTERNAL_DECL_FUNCTION);
+    ed->u.function.specifiers = spec;
+    ed->u.function.name       = xstrdup(decl->name);
+    ed->u.function.type =
+        type_apply_suffixes(type_apply_pointers(base_type, decl->pointers), decl->suffixes);
     ed->u.function.param_decls = decl_list;
     ed->u.function.body        = parse_compound_statement();
     free_declarator(decl);

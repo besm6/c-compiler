@@ -21,12 +21,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
-#include <stddef.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
 #include "xalloc.h"
+
+#include <stddef.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 int xalloc_debug; // Enable manually for debug
 
@@ -58,8 +58,8 @@ void *xalloc(size_t size, const char *funcname, const char *filename, unsigned l
     /* Allocate memory using malloc */
     void *ptr = calloc(1, total_size);
     if (ptr == NULL) {
-        fprintf(stderr, "Out of memory allocating %zu bytes by %s() at file %s, line %u\n",
-                size, funcname, filename, lineno);
+        fprintf(stderr, "Out of memory allocating %zu bytes by %s() at file %s, line %u\n", size,
+                funcname, filename, lineno);
         exit(1);
     }
 
@@ -76,9 +76,9 @@ void *xalloc(size_t size, const char *funcname, const char *filename, unsigned l
         head = h;
     } else {
         /* Insert at the head of the list */
-        h->next = head;
-        head->prev   = h;
-        head         = h;
+        h->next    = head;
+        head->prev = h;
+        head       = h;
     }
 
     /* Return pointer to user data (after header) */
@@ -146,8 +146,8 @@ void xreport_lost_memory()
             filename = h->filename;
         else
             filename++;
-        printf("%zu bytes allocated by %s() at line %u of file %s\n",
-               h->requested_size, h->funcname, h->lineno, filename);
+        printf("%zu bytes allocated by %s() at line %u of file %s\n", h->requested_size,
+               h->funcname, h->lineno, filename);
     }
 }
 

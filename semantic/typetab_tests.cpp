@@ -159,8 +159,8 @@ TEST_F(TypeTabTest, PurgeNestedScopes)
 // Test typedef of a pointer type
 TEST_F(TypeTabTest, TypedefToPointerType)
 {
-    Type *target = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    Type *ptr    = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
+    Type *target          = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    Type *ptr             = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
     ptr->u.pointer.target = target;
     typetab_add("IntPtr", ptr, 0);
     free_type(ptr);
@@ -175,8 +175,8 @@ TEST_F(TypeTabTest, TypedefToPointerType)
 // Test typedef of an array type
 TEST_F(TypeTabTest, TypedefToArrayType)
 {
-    Type *elem  = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    Type *arr   = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
+    Type *elem           = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    Type *arr            = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
     arr->u.array.element = elem;
     arr->u.array.size    = nullptr;
     typetab_add("IntArray", arr, 0);
@@ -198,7 +198,7 @@ TEST_F(TypeTabTest, TypedefToTypedefName)
     free_type(ti);
 
     // Second typedef: MyInt2 -> MyInt (i.e. TYPE_TYPEDEF_NAME "MyInt")
-    Type *tname = new_type(TYPE_TYPEDEF_NAME, __func__, __FILE__, __LINE__);
+    Type *tname                = new_type(TYPE_TYPEDEF_NAME, __func__, __FILE__, __LINE__);
     tname->u.typedef_name.name = xstrdup("MyInt");
     typetab_add("MyInt2", tname, 0);
     free_type(tname);
@@ -268,7 +268,7 @@ TEST_F(TypeTabTest, FindReturnsCorrectName)
 // Test struct type can be stored as a typedef
 TEST_F(TypeTabTest, TypedefToStructType)
 {
-    Type *s = new_type(TYPE_STRUCT, __func__, __FILE__, __LINE__);
+    Type *s              = new_type(TYPE_STRUCT, __func__, __FILE__, __LINE__);
     s->u.struct_t.name   = xstrdup("point");
     s->u.struct_t.fields = nullptr;
     typetab_add("Point", s, 0);

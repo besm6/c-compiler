@@ -945,7 +945,7 @@ void export_dot(FILE *fd, Program *program)
     fprintf(fd, "  graph [margin=\"0,0\", pad=\"0.1\", ranksep=0.3, nodesep=0.2];\n");
     fprintf(fd, "  node [width=0.3, height=0.3, margin=\"0.02,0.01\"];\n");
     fprintf(fd, "  node [shape=oval];\n");
-    //int root_id = gen_node_id();
+    // int root_id = gen_node_id();
     ExternalDecl *decl = program->decls;
     while (decl) {
         int decl_id = gen_node_id();

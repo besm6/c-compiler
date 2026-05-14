@@ -195,7 +195,7 @@ TypeQualifier *import_type_qualifier(WFILE *input)
     size_t tag = wgetw(input);
     check_input(input, "type qualifier tag");
     if (tag == TAG_EOL)
-         return NULL;
+        return NULL;
     if (tag < TAG_TYPEQUALIFIER || tag > TAG_TYPEQUALIFIER + TYPE_QUALIFIER_ATOMIC) {
         fprintf(stderr, "Error: Expected TAG_TYPEQUALIFIER, got 0x%zx\n", tag);
         exit(1);
@@ -213,7 +213,7 @@ Field *import_field(WFILE *input)
     size_t tag = wgetw(input);
     check_input(input, "field tag");
     if (tag == TAG_EOL)
-         return NULL;
+        return NULL;
     if (tag != TAG_FIELD) {
         fprintf(stderr, "Error: Expected TAG_FIELD, got 0x%zx\n", tag);
         exit(1);
@@ -234,7 +234,7 @@ Enumerator *import_enumerator(WFILE *input)
     size_t tag = wgetw(input);
     check_input(input, "enumerator tag");
     if (tag == TAG_EOL)
-         return NULL;
+        return NULL;
     if (tag != TAG_ENUMERATOR) {
         fprintf(stderr, "Error: Expected TAG_ENUMERATOR, got 0x%zx\n", tag);
         exit(1);
@@ -254,7 +254,7 @@ Param *import_param(WFILE *input)
     size_t tag = wgetw(input);
     check_input(input, "param tag");
     if (tag == TAG_EOL)
-         return NULL;
+        return NULL;
     if (tag != TAG_PARAM) {
         fprintf(stderr, "Error: Expected TAG_PARAM, got 0x%zx\n", tag);
         exit(1);
@@ -262,7 +262,7 @@ Param *import_param(WFILE *input)
     Param *param = new_param();
     param->name  = wgetstr(input);
     check_input(input, "param name");
-    param->type = import_type(input);
+    param->type       = import_type(input);
     param->specifiers = import_decl_spec(input);
     return param;
 }
@@ -275,7 +275,7 @@ Declaration *import_declaration(WFILE *input)
     size_t tag = wgetw(input);
     check_input(input, "declaration tag");
     if (tag == TAG_EOL)
-         return NULL;
+        return NULL;
     if (tag < TAG_DECLARATION || tag > TAG_DECLARATION + DECL_EMPTY) {
         fprintf(stderr, "Error: Expected TAG_DECLARATION, got 0x%zx\n", tag);
         exit(1);

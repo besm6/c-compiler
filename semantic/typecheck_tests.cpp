@@ -27,9 +27,9 @@
 #include "internal.h"
 #include "parser.h"
 #include "scanner.h"
-#include "symtab.h"
 #include "semantic.h"
 #include "structtab.h"
+#include "symtab.h"
 #include "xalloc.h"
 
 // Test fixture
@@ -196,8 +196,8 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
 //
 // Expected Symtab:
 // - p: {name="p", type=TYPE_STRUCT("Point"), kind=SYM_STATIC, u.static_var={global=true,
-// init_kind=INIT_INITIALIZED, init_list=[{kind=TAC_STATIC_INIT_I32, u.int_val=1}, {kind=TAC_STATIC_INIT_ZERO,
-// u.zero_bytes=4}, {kind=TAC_STATIC_INIT_DOUBLE, u.double_val=2.0}]}}
+// init_kind=INIT_INITIALIZED, init_list=[{kind=TAC_STATIC_INIT_I32, u.int_val=1},
+// {kind=TAC_STATIC_INIT_ZERO, u.zero_bytes=4}, {kind=TAC_STATIC_INIT_DOUBLE, u.double_val=2.0}]}}
 // - get_y: {name="get_y", type=TYPE_FUNCTION(return_type=TYPE_DOUBLE, params=NULL), kind=SYM_FUNC,
 // u.func={defined=true, global=true}}
 //
@@ -286,7 +286,8 @@ TEST_F(TypecheckTest, TypecheckStructDeclMemberAccess)
 //
 // Expected Symtab:
 // - _str0: {name="_str0", type=TYPE_ARRAY(element=TYPE_CHAR, size=6), kind=SYM_CONST,
-// u.const_init={kind=TAC_STATIC_INIT_STRING, u.string_val={str="hello", null_terminated=true}, next=NULL}}
+// u.const_init={kind=TAC_STATIC_INIT_STRING, u.string_val={str="hello", null_terminated=true},
+// next=NULL}}
 // - str: {name="str", type=TYPE_ARRAY(element=TYPE_CHAR, size=6), kind=SYM_STATIC,
 // u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list={kind=TAC_STATIC_INIT_STRING,
 // u.string_val={str="hello", null_terminated=true}, next=NULL}}}
@@ -327,9 +328,9 @@ TEST_F(TypecheckTest, TypecheckArrayStringLiteralInit)
 //
 // Expected Symtab:
 // - arr: {name="arr", type=TYPE_ARRAY(element=TYPE_INT, size=5), kind=SYM_STATIC,
-// u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list=[{kind=TAC_STATIC_INIT_I32, u.int_val=1},
-// {kind=TAC_STATIC_INIT_I32, u.int_val=2}, {kind=TAC_STATIC_INIT_I32, u.int_val=3}, {kind=TAC_STATIC_INIT_I32, u.int_val=4},
-// {kind=TAC_STATIC_INIT_I32, u.int_val=5}]}}
+// u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list=[{kind=TAC_STATIC_INIT_I32,
+// u.int_val=1}, {kind=TAC_STATIC_INIT_I32, u.int_val=2}, {kind=TAC_STATIC_INIT_I32, u.int_val=3},
+// {kind=TAC_STATIC_INIT_I32, u.int_val=4}, {kind=TAC_STATIC_INIT_I32, u.int_val=5}]}}
 // - ptr: {name="ptr", type=TYPE_POINTER(target=TYPE_INT), kind=SYM_STATIC,
 // u.static_var={global=true, init_kind=INIT_INITIALIZED, init_list={kind=TAC_STATIC_INIT_POINTER,
 // u.ptr_id="arr", next=NULL}}}
@@ -483,8 +484,8 @@ TEST_F(TypecheckTest, DuplicateStructDeclaration)
 //
 // Expected Symtab:
 // - s: {name="s", type=TYPE_STRUCT("S"), kind=SYM_STATIC, u.static_var={global=false,
-// init_kind=INIT_INITIALIZED, init_list=[{kind=TAC_STATIC_INIT_I32, u.int_val=1}, {kind=TAC_STATIC_INIT_I32,
-// u.int_val=2}]}}
+// init_kind=INIT_INITIALIZED, init_list=[{kind=TAC_STATIC_INIT_I32, u.int_val=1},
+// {kind=TAC_STATIC_INIT_I32, u.int_val=2}]}}
 //
 // Expected Typetab:
 // - S: {tag="S", alignment=4, size=8, members=[{name="x", type=TYPE_INT, offset=0}, {name="y",
@@ -618,8 +619,8 @@ TEST_F(TypecheckTest, PointerStructArrowOperator)
     ASSERT_NE(ext2, nullptr);
     EXPECT_EQ(ext2->kind, EXTERNAL_DECL_FUNCTION);
     DeclOrStmt *ds = ext2->u.function.body->u.compound;
-    ASSERT_NE(ds, nullptr);          // first: decl for p
-    ASSERT_NE(ds->next, nullptr);    // second: return stmt
+    ASSERT_NE(ds, nullptr);       // first: decl for p
+    ASSERT_NE(ds->next, nullptr); // second: return stmt
     Stmt *ret = ds->next->u.stmt;
     EXPECT_EQ(ret->kind, STMT_RETURN);
     Expr *arrow = ret->u.expr;
@@ -774,32 +775,28 @@ TEST_F(PipelineTest, StaticAndExternVars)
 TEST_F(TypecheckTest, SwitchFloatExpr)
 {
     ParseProgram("double f(double x) { switch (x) {} return 0; }");
-    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
-                "integer type");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "integer type");
 }
 
 // Pointer controlling expression is rejected.
 TEST_F(TypecheckTest, SwitchPointerExpr)
 {
     ParseProgram("int f(int *p) { switch (p) {} return 0; }");
-    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
-                "integer type");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "integer type");
 }
 
 // Float case expression is rejected.
 TEST_F(TypecheckTest, CaseFloatValue)
 {
     ParseProgram("int f(int x) { switch (x) { case 1.5: break; } return 0; }");
-    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
-                "integer type");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "integer type");
 }
 
 // Duplicate integer case values are rejected.
 TEST_F(TypecheckTest, CaseDuplicate)
 {
     ParseProgram("int f(int x) { switch (x) { case 1: break; case 1: break; } return 0; }");
-    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
-                "Duplicate case value");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "Duplicate case value");
 }
 
 // char 'a' and integer 97 should be the same value — duplicate.
@@ -807,25 +804,21 @@ TEST_F(TypecheckTest, CaseDuplicate)
 // so 'a' and 97 are not detected as equal until the parser is fixed.
 TEST_F(TypecheckTest, CaseDuplicateCharAndInt)
 {
-    ParseProgram(
-        "int f(int x) { switch (x) { case 'a': break; case 97: break; } return 0; }");
-    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
-                "Duplicate case value");
+    ParseProgram("int f(int x) { switch (x) { case 'a': break; case 97: break; } return 0; }");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "Duplicate case value");
 }
 
 // Two default labels in one switch are rejected.
 TEST_F(TypecheckTest, MultipleDefaultLabels)
 {
     ParseProgram("int f(int x) { switch (x) { default: break; default: break; } return 0; }");
-    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
-                "Multiple default");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "Multiple default");
 }
 
 // Basic switch with distinct integer case values is accepted.
 TEST_F(TypecheckTest, SwitchIntBasic)
 {
-    ParseProgram(
-        "int f(int x) { switch (x) { case 0: break; case 1: break; } return 0; }");
+    ParseProgram("int f(int x) { switch (x) { case 0: break; case 1: break; } return 0; }");
     typecheck_program(program);
 }
 
@@ -839,8 +832,7 @@ TEST_F(TypecheckTest, SwitchCharExpr)
 // Switch with cases and a default label is accepted.
 TEST_F(TypecheckTest, SwitchWithDefault)
 {
-    ParseProgram(
-        "int f(int x) { switch (x) { case 0: break; default: break; } return 0; }");
+    ParseProgram("int f(int x) { switch (x) { case 0: break; default: break; } return 0; }");
     typecheck_program(program);
 }
 
@@ -970,9 +962,9 @@ TEST_F(LabelLoopsTest, BreakInSwitch)
 {
     RunLabelLoops("int f(void) { switch (1) { case 1: break; } }");
 
-    Stmt *sw  = fn_first_stmt(program->decls);
+    Stmt *sw = fn_first_stmt(program->decls);
     ASSERT_EQ(sw->kind, STMT_SWITCH);
-    Stmt *cs  = compound_first(sw->u.switch_stmt.body);
+    Stmt *cs = compound_first(sw->u.switch_stmt.body);
     ASSERT_EQ(cs->kind, STMT_CASE);
     Stmt *brk = cs->u.case_stmt.stmt;
     ASSERT_EQ(brk->kind, STMT_BREAK);
@@ -984,9 +976,9 @@ TEST_F(LabelLoopsTest, NestedLoopBreakInner)
 {
     RunLabelLoops("int f(void) { while (1) { for (;;) { break; } } }");
 
-    Stmt *ws  = fn_first_stmt(program->decls);
+    Stmt *ws = fn_first_stmt(program->decls);
     ASSERT_EQ(ws->kind, STMT_WHILE);
-    Stmt *fs  = compound_first(ws->u.while_stmt.body);
+    Stmt *fs = compound_first(ws->u.while_stmt.body);
     ASSERT_EQ(fs->kind, STMT_FOR);
     Stmt *brk = compound_first(fs->u.for_stmt.body);
     ASSERT_EQ(brk->kind, STMT_BREAK);
@@ -999,7 +991,7 @@ TEST_F(LabelLoopsTest, NestedLoopContinueOuter)
 {
     RunLabelLoops("int f(void) { while (1) { for (;;) {} continue; } }");
 
-    Stmt *ws   = fn_first_stmt(program->decls);
+    Stmt *ws = fn_first_stmt(program->decls);
     ASSERT_EQ(ws->kind, STMT_WHILE);
     Stmt *cont = compound_second(ws->u.while_stmt.body);
     ASSERT_EQ(cont->kind, STMT_CONTINUE);
@@ -1011,11 +1003,11 @@ TEST_F(LabelLoopsTest, ContinueInSwitchInsideLoop)
 {
     RunLabelLoops("int f(void) { while (1) { switch (1) { case 1: continue; } } }");
 
-    Stmt *ws   = fn_first_stmt(program->decls);
+    Stmt *ws = fn_first_stmt(program->decls);
     ASSERT_EQ(ws->kind, STMT_WHILE);
-    Stmt *sw   = compound_first(ws->u.while_stmt.body);
+    Stmt *sw = compound_first(ws->u.while_stmt.body);
     ASSERT_EQ(sw->kind, STMT_SWITCH);
-    Stmt *cs   = compound_first(sw->u.switch_stmt.body);
+    Stmt *cs = compound_first(sw->u.switch_stmt.body);
     ASSERT_EQ(cs->kind, STMT_CASE);
     Stmt *cont = cs->u.case_stmt.stmt;
     ASSERT_EQ(cont->kind, STMT_CONTINUE);
@@ -1025,15 +1017,13 @@ TEST_F(LabelLoopsTest, ContinueInSwitchInsideLoop)
 // break outside any loop or switch is a fatal error.
 TEST_F(LabelLoopsTest, BreakOutsideLoop)
 {
-    ASSERT_EXIT(RunLabelLoops("int f(void) { break; }"),
-                ::testing::ExitedWithCode(1),
+    ASSERT_EXIT(RunLabelLoops("int f(void) { break; }"), ::testing::ExitedWithCode(1),
                 "break statement not inside loop or switch");
 }
 
 // continue outside any loop is a fatal error.
 TEST_F(LabelLoopsTest, ContinueOutsideLoop)
 {
-    ASSERT_EXIT(RunLabelLoops("int f(void) { continue; }"),
-                ::testing::ExitedWithCode(1),
+    ASSERT_EXIT(RunLabelLoops("int f(void) { continue; }"), ::testing::ExitedWithCode(1),
                 "continue statement not inside loop");
 }

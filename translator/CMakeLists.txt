@@ -13,5 +13,5 @@ target_link_libraries(translator semantic tac ast libutil)
 add_executable(translate-tests
    translate_tests.cpp
 )
-target_link_libraries(translate-tests parser semantic translator GTest::gtest_main)
+target_link_libraries(translate-tests parser translator GTest::gtest_main)
 gtest_discover_tests(translate-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

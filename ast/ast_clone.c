@@ -55,19 +55,20 @@ Type *clone_type(const Type *type, const char *funcname, const char *filename, u
         result->u.complex.base = clone_type(type->u.complex.base, __func__, __FILE__, __LINE__);
         break;
     case TYPE_POINTER:
-        result->u.pointer.target     = clone_type(type->u.pointer.target, __func__, __FILE__, __LINE__);
+        result->u.pointer.target = clone_type(type->u.pointer.target, __func__, __FILE__, __LINE__);
         result->u.pointer.qualifiers = clone_type_qualifier(type->u.pointer.qualifiers);
         break;
     case TYPE_ARRAY:
-        result->u.array.element    = clone_type(type->u.array.element, __func__, __FILE__, __LINE__);
-        result->u.array.size       = clone_expression(type->u.array.size);
+        result->u.array.element = clone_type(type->u.array.element, __func__, __FILE__, __LINE__);
+        result->u.array.size    = clone_expression(type->u.array.size);
         result->u.array.qualifiers = clone_type_qualifier(type->u.array.qualifiers);
         result->u.array.is_static  = type->u.array.is_static;
         break;
     case TYPE_FUNCTION:
-        result->u.function.return_type = clone_type(type->u.function.return_type, __func__, __FILE__, __LINE__);
-        result->u.function.params      = clone_param(type->u.function.params);
-        result->u.function.variadic    = type->u.function.variadic;
+        result->u.function.return_type =
+            clone_type(type->u.function.return_type, __func__, __FILE__, __LINE__);
+        result->u.function.params   = clone_param(type->u.function.params);
+        result->u.function.variadic = type->u.function.variadic;
         break;
     case TYPE_STRUCT:
     case TYPE_UNION:
@@ -136,9 +137,9 @@ Param *clone_param(const Param *param)
     Param *result = new_param();
     if (result == NULL)
         return NULL;
-    result->name = param->name ? xstrdup(param->name) : NULL;
-    result->type = clone_type(param->type, __func__, __FILE__, __LINE__);
-    result->next = clone_param(param->next);
+    result->name       = param->name ? xstrdup(param->name) : NULL;
+    result->type       = clone_type(param->type, __func__, __FILE__, __LINE__);
+    result->next       = clone_param(param->next);
     result->specifiers = clone_decl_spec(param->specifiers);
     return result;
 }
@@ -311,7 +312,8 @@ Expr *clone_expression(const Expr *expr)
         result->u.call.args = clone_expression(expr->u.call.args);
         break;
     case EXPR_COMPOUND:
-        result->u.compound_literal.type = clone_type(expr->u.compound_literal.type, __func__, __FILE__, __LINE__);
+        result->u.compound_literal.type =
+            clone_type(expr->u.compound_literal.type, __func__, __FILE__, __LINE__);
         result->u.compound_literal.init = clone_init_item(expr->u.compound_literal.init);
         break;
     case EXPR_SUBSCRIPT:
@@ -380,7 +382,8 @@ GenericAssoc *clone_generic_assoc(const GenericAssoc *assoc)
     if (result == NULL)
         return NULL;
     if (assoc->kind == GENERIC_ASSOC_TYPE) {
-        result->u.type_assoc.type = clone_type(assoc->u.type_assoc.type, __func__, __FILE__, __LINE__);
+        result->u.type_assoc.type =
+            clone_type(assoc->u.type_assoc.type, __func__, __FILE__, __LINE__);
         result->u.type_assoc.expr = clone_expression(assoc->u.type_assoc.expr);
     } else {
         result->u.default_assoc = clone_expression(assoc->u.default_assoc);
@@ -447,9 +450,11 @@ Stmt *clone_stmt(const Stmt *stmt)
         result->u.default_stmt = clone_stmt(stmt->u.default_stmt);
         break;
     }
-    result->loop_end_label      = stmt->loop_end_label ? xstrdup(stmt->loop_end_label) : NULL;
-    result->loop_continue_label = stmt->loop_continue_label ? xstrdup(stmt->loop_continue_label) : NULL;
-    result->branch_target_label = stmt->branch_target_label ? xstrdup(stmt->branch_target_label) : NULL;
+    result->loop_end_label = stmt->loop_end_label ? xstrdup(stmt->loop_end_label) : NULL;
+    result->loop_continue_label =
+        stmt->loop_continue_label ? xstrdup(stmt->loop_continue_label) : NULL;
+    result->branch_target_label =
+        stmt->branch_target_label ? xstrdup(stmt->branch_target_label) : NULL;
     return result;
 }
 
@@ -492,7 +497,8 @@ ExternalDecl *clone_external_decl(const ExternalDecl *ext_decl)
     if (result == NULL)
         return NULL;
     if (ext_decl->kind == EXTERNAL_DECL_FUNCTION) {
-        result->u.function.type = clone_type(ext_decl->u.function.type, __func__, __FILE__, __LINE__);
+        result->u.function.type =
+            clone_type(ext_decl->u.function.type, __func__, __FILE__, __LINE__);
         result->u.function.name =
             ext_decl->u.function.name ? xstrdup(ext_decl->u.function.name) : NULL;
         result->u.function.specifiers  = clone_decl_spec(ext_decl->u.function.specifiers);
@@ -518,7 +524,8 @@ TypeSpec *clone_type_spec(const TypeSpec *ts)
         break;
     case TYPE_SPEC_STRUCT:
     case TYPE_SPEC_UNION:
-        result->u.struct_spec.name = ts->u.struct_spec.name ? xstrdup(ts->u.struct_spec.name) : NULL;
+        result->u.struct_spec.name =
+            ts->u.struct_spec.name ? xstrdup(ts->u.struct_spec.name) : NULL;
         result->u.struct_spec.fields = clone_field(ts->u.struct_spec.fields);
         break;
     case TYPE_SPEC_ENUM:

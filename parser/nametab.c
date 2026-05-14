@@ -1,4 +1,5 @@
 #include <stdint.h>
+
 #include "string_map.h"
 
 static StringMap nametab;
@@ -24,9 +25,9 @@ int nametab_find(const char *name)
 //
 void nametab_define(const char *name, int value, int level)
 {
-    //printf("--- define %s as %s at level %d\n", name,
-    //value == TOKEN_TYPEDEF_NAME ? "TOKEN_TYPEDEF_NAME" :
-    //value == TOKEN_ENUMERATION_CONSTANT ? "TOKEN_ENUMERATION_CONSTANT" : "???", level);
+    // printf("--- define %s as %s at level %d\n", name,
+    // value == TOKEN_TYPEDEF_NAME ? "TOKEN_TYPEDEF_NAME" :
+    // value == TOKEN_ENUMERATION_CONSTANT ? "TOKEN_ENUMERATION_CONSTANT" : "???", level);
     map_insert(&nametab, name, value, level);
 }
 

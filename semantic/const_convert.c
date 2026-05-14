@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "symtab.h"
 #include "semantic.h"
+#include "symtab.h"
 
 //
 // Convert literal to int64

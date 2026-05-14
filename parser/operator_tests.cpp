@@ -489,7 +489,7 @@ int f() {
      * primary expressions, so the last two terms are subtractions. */
 
     Expr *outer_add = ret->u.binary_op.left;
-    Expr *last_term  = ret->u.binary_op.right;
+    Expr *last_term = ret->u.binary_op.right;
     EXPECT_EQ(EXPR_BINARY_OP, outer_add->kind);
     EXPECT_EQ(BINARY_ADD, outer_add->u.binary_op.op);
 

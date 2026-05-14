@@ -33,11 +33,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
+#include "string_map.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "string_map.h"
 #include "xalloc.h"
 
 // Get the height of a node (0 for NULL)
@@ -137,7 +138,8 @@ void map_init(StringMap *map)
 // Create a new node
 static StringNode *create_node(const char *key, intptr_t value, int level)
 {
-    StringNode *node = (StringNode *)xalloc(sizeof(StringNode) + strlen(key), __func__, __FILE__, __LINE__);
+    StringNode *node =
+        (StringNode *)xalloc(sizeof(StringNode) + strlen(key), __func__, __FILE__, __LINE__);
     if (!node)
         return NULL;
     strcpy(node->key, key);
@@ -150,8 +152,8 @@ static StringNode *create_node(const char *key, intptr_t value, int level)
 }
 
 // Insert or update a key-value pair
-static StringNode *insert_node(StringNode *node, const char *key, intptr_t value,
-                               int level, void (*dealloc)(intptr_t value))
+static StringNode *insert_node(StringNode *node, const char *key, intptr_t value, int level,
+                               void (*dealloc)(intptr_t value))
 {
     if (!node) {
         return create_node(key, value, level);
@@ -181,8 +183,8 @@ void map_insert(StringMap *map, const char *key, intptr_t value, int level)
     map->root = insert_node(map->root, key, value, level, NULL);
 }
 
-void map_insert_free(StringMap *map, const char *key, intptr_t value,
-                     int level, void (*dealloc)(intptr_t value))
+void map_insert_free(StringMap *map, const char *key, intptr_t value, int level,
+                     void (*dealloc)(intptr_t value))
 {
     if (!map || !key)
         return;
@@ -280,8 +282,7 @@ static StringNode *remove_node(StringNode *node, const char *key)
 }
 
 // Helper function for node removal by level
-static StringNode *remove_node_level(StringNode *node, int level,
-                                     void (*dealloc)(intptr_t value))
+static StringNode *remove_node_level(StringNode *node, int level, void (*dealloc)(intptr_t value))
 {
     if (!node) {
         return NULL;

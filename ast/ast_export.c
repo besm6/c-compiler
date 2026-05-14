@@ -53,7 +53,7 @@ void export_type(WFILE *fd, Type *type)
     if (export_debug) {
         printf("--- %s()\n", __func__);
     }
-    if (! type) {
+    if (!type) {
         wputw(TAG_EOL, fd);
         return;
     }

@@ -10,8 +10,7 @@
 #include "scanner.h"
 
 // Mock lexer
-class MockScanner
-{
+class MockScanner {
 public:
     MOCK_METHOD0(yylex, int());
     MOCK_METHOD0(get_yytext, char *());
@@ -53,35 +52,37 @@ char *get_yytext()
 }
 
 // Test fixture
-class ParserTest : public ::testing::
-                   Test{ protected : void SetUp() override{ mock_scanner = new MockScanner();
-token_sequence.clear();
-token_index = 0;
-}
+class ParserTest : public ::testing::Test {
+protected:
+    void SetUp() override
+    {
+        mock_scanner = new MockScanner();
+        token_sequence.clear();
+        token_index = 0;
+    }
 
-void TearDown() override
-{
-    delete mock_scanner;
-    mock_scanner = nullptr;
-}
+    void TearDown() override
+    {
+        delete mock_scanner;
+        mock_scanner = nullptr;
+    }
 
-// Helper to set token sequence
-void SetTokenSequence(const std::vector<std::pair<int, std::string>> &tokens)
-{
-    token_sequence = tokens;
-    token_index    = 0;
-}
+    // Helper to set token sequence
+    void SetTokenSequence(const std::vector<std::pair<int, std::string>> &tokens)
+    {
+        token_sequence = tokens;
+        token_index    = 0;
+    }
 
-// Helper to create a temporary file with content
-FILE *CreateTempFile(const char *content)
-{
-    FILE *f = tmpfile();
-    fwrite(content, 1, strlen(content), f);
-    rewind(f);
-    return f;
-}
-}
-;
+    // Helper to create a temporary file with content
+    FILE *CreateTempFile(const char *content)
+    {
+        FILE *f = tmpfile();
+        fwrite(content, 1, strlen(content), f);
+        rewind(f);
+        return f;
+    }
+};
 
 // Test error: Missing semicolon in declaration: int x
 TEST_F(ParserTest, MissingSemicolonDeclaration)

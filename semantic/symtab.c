@@ -5,9 +5,9 @@
 
 #include "ast.h"
 #include "internal.h"
+#include "semantic.h"
 #include "string_map.h"
 #include "unique.h"
-#include "semantic.h"
 #include "xalloc.h"
 
 StringMap symtab;
@@ -163,8 +163,8 @@ char *symtab_add_string(const char *s)
     init->u.string.null_terminated = true;
 
     // Add to symbol table
-    Symbol *sym        = new_symbol(name, t, SYM_CONST);
-    sym->u.const_init  = init;
+    Symbol *sym       = new_symbol(name, t, SYM_CONST);
+    sym->u.const_init = init;
     map_insert_free(&symtab, name, (intptr_t)sym, 0, symtab_destroy_callback);
 
     char *ret = xstrdup(name);
@@ -179,8 +179,8 @@ char *symtab_add_string(const char *s)
 //
 void symtab_add_enum_const(const char *name, int val, int scope_level)
 {
-    Type   *t   = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    Symbol *sym = new_symbol(name, t, SYM_ENUM);
+    Type *t         = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    Symbol *sym     = new_symbol(name, t, SYM_ENUM);
     sym->u.enum_val = val;
     map_insert_free(&symtab, name, (intptr_t)sym, scope_level, symtab_destroy_callback);
 }

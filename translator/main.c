@@ -9,9 +9,9 @@
 #define STDOUT_FILENO 1
 #endif
 
-#include "symtab.h"
-#include "structtab.h"
 #include "semantic.h"
+#include "structtab.h"
+#include "symtab.h"
 #include "translate.h"
 #include "wio.h"
 #include "xalloc.h"
@@ -244,7 +244,7 @@ void process_file(const Args *args)
     ast_import_open(&input, input_fd);
 
     WFILE tac_out;
-    int   tac_out_ready = 0;
+    int tac_out_ready = 0;
     if (args->format == FORMAT_TAC && output_file != stdout) {
         if (wdopen(&tac_out, fileno(output_file), "w") < 0) {
             fprintf(stderr, "Cannot open TAC binary output\n");

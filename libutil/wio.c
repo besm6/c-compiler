@@ -5,16 +5,17 @@
 // A `WFILE` structure includes a buffer, file descriptor, and state flags,
 // with functions mirroring `stdio.h` but operating on `size_t` words in native byte order.
 //
+#include "wio.h"
+
 #include <errno.h>
 #include <fcntl.h>
+#include <math.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <math.h>
 
-#include "wio.h"
 #include "xalloc.h"
 
 #define BUFFER_SIZE (4096 / sizeof(size_t)) /* Buffer holds words, aligned to page size */
@@ -31,7 +32,7 @@ int wopen(WFILE *stream, const char *path, const char *mode)
         return -1;
     }
     int flags = 0;
-    char m = mode[0];
+    char m    = mode[0];
     if (m == 'r') {
         flags = O_RDONLY;
     } else if (m == 'w') {
@@ -53,12 +54,12 @@ int wopen(WFILE *stream, const char *path, const char *mode)
         return -1;
     }
 
-    stream->fd = fd;
-    stream->buffer_pos = 0;
-    stream->buffer_count = 0;
-    stream->is_eof = false;
-    stream->is_error = false;
-    stream->mode = m;
+    stream->fd            = fd;
+    stream->buffer_pos    = 0;
+    stream->buffer_count  = 0;
+    stream->is_eof        = false;
+    stream->is_error      = false;
+    stream->mode          = m;
     stream->must_close_fd = true;
     return 0;
 }
@@ -102,12 +103,12 @@ int wdopen(WFILE *stream, int fildes, const char *mode)
         return -1;
     }
 
-    stream->fd = fildes;
-    stream->buffer_pos = 0;
-    stream->buffer_count = 0;
-    stream->is_eof = false;
-    stream->is_error = false;
-    stream->mode = m;
+    stream->fd            = fildes;
+    stream->buffer_pos    = 0;
+    stream->buffer_count  = 0;
+    stream->is_eof        = false;
+    stream->is_error      = false;
+    stream->mode          = m;
     stream->must_close_fd = false;
     return 0;
 }
@@ -124,7 +125,7 @@ int wflush(WFILE *stream)
 
     if (stream->buffer_pos > 0) {
         ssize_t bytes_to_write = stream->buffer_pos * sizeof(size_t);
-        ssize_t bytes_written = write(stream->fd, stream->buffer, bytes_to_write);
+        ssize_t bytes_written  = write(stream->fd, stream->buffer, bytes_to_write);
         if (bytes_written != bytes_to_write) {
             stream->is_error = true;
             return -1;
@@ -173,9 +174,9 @@ int wseek(WFILE *stream, long offset, int whence)
         return -1;
     }
 
-    stream->buffer_pos = 0;
+    stream->buffer_pos   = 0;
     stream->buffer_count = 0;
-    stream->is_eof = false;
+    stream->is_eof       = false;
     return 0;
 }
 
@@ -226,7 +227,7 @@ size_t wgetw(WFILE *stream)
     }
 
     if (stream->buffer_pos >= stream->buffer_count) {
-        stream->buffer_pos = 0;
+        stream->buffer_pos   = 0;
         stream->buffer_count = 0;
 
         ssize_t bytes_read = read(stream->fd, stream->buffer, BUFFER_SIZE * sizeof(size_t));
@@ -314,7 +315,7 @@ int wfileno(const WFILE *stream)
 void wclearerr(WFILE *stream)
 {
     if (stream) {
-        stream->is_eof = false;
+        stream->is_eof   = false;
         stream->is_error = false;
     }
 }
@@ -343,9 +344,9 @@ char *wgetstr(WFILE *stream)
         bool is_last_word = memchr(&buf[n], '\0', sizeof(size_t)) != NULL;
         if (is_last_word) {
             if (wio_debug) {
-                printf("    %s '%s'\n", __func__, (char*) buf);
+                printf("    %s '%s'\n", __func__, (char *)buf);
             }
-            return xstrdup((char*) buf);
+            return xstrdup((char *)buf);
         }
         n++;
         if (n * sizeof(size_t) >= sizeof(buf)) {
@@ -368,7 +369,7 @@ int wputstr(const char *str, WFILE *stream)
         return wputw(0, stream);
     }
     for (;;) {
-        size_t w = 0;
+        size_t w          = 0;
         bool is_last_word = memccpy(&w, str, '\0', sizeof(w)) != NULL;
 
         if (wputw(w, stream) < 0) {
@@ -397,7 +398,7 @@ double wgetd(WFILE *stream)
             return nan("");
         return u.f;
     }
-    if (sizeof(double) == 2*sizeof(size_t)) {
+    if (sizeof(double) == 2 * sizeof(size_t)) {
         // Two words
         union {
             size_t w[2];
@@ -430,7 +431,7 @@ int wputd(double f, WFILE *stream)
         u.f = f;
         return wputw(u.w, stream);
     }
-    if (sizeof(double) == 2*sizeof(size_t)) {
+    if (sizeof(double) == 2 * sizeof(size_t)) {
         // Two words
         union {
             double f;

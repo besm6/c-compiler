@@ -110,12 +110,12 @@ TEST_F(TacDotTest, NullInput)
 
 TEST_F(TacDotTest, FunctionWithParams)
 {
-    Tac_TopLevel *tl  = make_empty_function("add", true);
-    Tac_Param *p1     = tac_new_param();
-    p1->name          = xstrdup("x");
-    Tac_Param *p2     = tac_new_param();
-    p2->name          = xstrdup("y");
-    p1->next          = p2;
+    Tac_TopLevel *tl      = make_empty_function("add", true);
+    Tac_Param *p1         = tac_new_param();
+    p1->name              = xstrdup("x");
+    Tac_Param *p2         = tac_new_param();
+    p2->name              = xstrdup("y");
+    p1->next              = p2;
     tl->u.function.params = p1;
 
     std::string out = capture(tl);
@@ -132,12 +132,12 @@ TEST_F(TacDotTest, FunctionWithParams)
 
 TEST_F(TacDotTest, StaticVariable)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
-    tl->u.static_variable.name   = xstrdup("g_count");
-    tl->u.static_variable.global = true;
-    tl->u.static_variable.type   = tac_new_type(TAC_TYPE_INT);
-    Tac_StaticInit *init          = tac_new_static_init(TAC_STATIC_INIT_I32);
-    init->u.int_val               = 0;
+    Tac_TopLevel *tl                = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    tl->u.static_variable.name      = xstrdup("g_count");
+    tl->u.static_variable.global    = true;
+    tl->u.static_variable.type      = tac_new_type(TAC_TYPE_INT);
+    Tac_StaticInit *init            = tac_new_static_init(TAC_STATIC_INIT_I32);
+    init->u.int_val                 = 0;
     tl->u.static_variable.init_list = init;
 
     std::string out = capture(tl);
@@ -153,7 +153,7 @@ TEST_F(TacDotTest, StaticVariable)
 
 TEST_F(TacDotTest, StaticVariableLocalScope)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    Tac_TopLevel *tl             = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
     tl->u.static_variable.name   = xstrdup("s_val");
     tl->u.static_variable.global = false;
     tl->u.static_variable.type   = tac_new_type(TAC_TYPE_LONG);
@@ -167,12 +167,12 @@ TEST_F(TacDotTest, StaticVariableLocalScope)
 
 TEST_F(TacDotTest, StaticConstant)
 {
-    Tac_TopLevel *tl            = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
-    tl->u.static_constant.name  = xstrdup("PI");
-    tl->u.static_constant.type  = tac_new_type(TAC_TYPE_DOUBLE);
-    Tac_StaticInit *init        = tac_new_static_init(TAC_STATIC_INIT_DOUBLE);
-    init->u.double_val          = 3.14;
-    tl->u.static_constant.init  = init;
+    Tac_TopLevel *tl           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
+    tl->u.static_constant.name = xstrdup("PI");
+    tl->u.static_constant.type = tac_new_type(TAC_TYPE_DOUBLE);
+    Tac_StaticInit *init       = tac_new_static_init(TAC_STATIC_INIT_DOUBLE);
+    init->u.double_val         = 3.14;
+    tl->u.static_constant.init = init;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -222,11 +222,11 @@ TEST_F(TacDotTest, InstructionReturnVoid)
 
 TEST_F(TacDotTest, InstructionSignExtend)
 {
-    Tac_TopLevel *tl          = make_empty_function("f", true);
-    Tac_Instruction *instr    = tac_new_instruction(TAC_INSTRUCTION_SIGN_EXTEND);
-    instr->u.sign_extend.src  = make_var("x");
-    instr->u.sign_extend.dst  = make_var("y");
-    tl->u.function.body       = instr;
+    Tac_TopLevel *tl         = make_empty_function("f", true);
+    Tac_Instruction *instr   = tac_new_instruction(TAC_INSTRUCTION_SIGN_EXTEND);
+    instr->u.sign_extend.src = make_var("x");
+    instr->u.sign_extend.dst = make_var("y");
+    tl->u.function.body      = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -238,11 +238,11 @@ TEST_F(TacDotTest, InstructionSignExtend)
 
 TEST_F(TacDotTest, InstructionTruncate)
 {
-    Tac_TopLevel *tl        = make_empty_function("f", true);
-    Tac_Instruction *instr  = tac_new_instruction(TAC_INSTRUCTION_TRUNCATE);
-    instr->u.truncate.src   = make_var("a");
-    instr->u.truncate.dst   = make_var("b");
-    tl->u.function.body     = instr;
+    Tac_TopLevel *tl       = make_empty_function("f", true);
+    Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_TRUNCATE);
+    instr->u.truncate.src  = make_var("a");
+    instr->u.truncate.dst  = make_var("b");
+    tl->u.function.body    = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -252,11 +252,11 @@ TEST_F(TacDotTest, InstructionTruncate)
 
 TEST_F(TacDotTest, InstructionZeroExtend)
 {
-    Tac_TopLevel *tl           = make_empty_function("f", true);
-    Tac_Instruction *instr     = tac_new_instruction(TAC_INSTRUCTION_ZERO_EXTEND);
-    instr->u.zero_extend.src   = make_var("a");
-    instr->u.zero_extend.dst   = make_var("b");
-    tl->u.function.body        = instr;
+    Tac_TopLevel *tl         = make_empty_function("f", true);
+    Tac_Instruction *instr   = tac_new_instruction(TAC_INSTRUCTION_ZERO_EXTEND);
+    instr->u.zero_extend.src = make_var("a");
+    instr->u.zero_extend.dst = make_var("b");
+    tl->u.function.body      = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -266,11 +266,11 @@ TEST_F(TacDotTest, InstructionZeroExtend)
 
 TEST_F(TacDotTest, InstructionDoubleToInt)
 {
-    Tac_TopLevel *tl            = make_empty_function("f", true);
-    Tac_Instruction *instr      = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_INT);
-    instr->u.double_to_int.src  = make_var("d");
-    instr->u.double_to_int.dst  = make_var("i");
-    tl->u.function.body         = instr;
+    Tac_TopLevel *tl           = make_empty_function("f", true);
+    Tac_Instruction *instr     = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_INT);
+    instr->u.double_to_int.src = make_var("d");
+    instr->u.double_to_int.dst = make_var("i");
+    tl->u.function.body        = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -280,11 +280,11 @@ TEST_F(TacDotTest, InstructionDoubleToInt)
 
 TEST_F(TacDotTest, InstructionDoubleToUint)
 {
-    Tac_TopLevel *tl             = make_empty_function("f", true);
-    Tac_Instruction *instr       = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_UINT);
-    instr->u.double_to_uint.src  = make_var("d");
-    instr->u.double_to_uint.dst  = make_var("u");
-    tl->u.function.body          = instr;
+    Tac_TopLevel *tl            = make_empty_function("f", true);
+    Tac_Instruction *instr      = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_UINT);
+    instr->u.double_to_uint.src = make_var("d");
+    instr->u.double_to_uint.dst = make_var("u");
+    tl->u.function.body         = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -294,11 +294,11 @@ TEST_F(TacDotTest, InstructionDoubleToUint)
 
 TEST_F(TacDotTest, InstructionIntToDouble)
 {
-    Tac_TopLevel *tl            = make_empty_function("f", true);
-    Tac_Instruction *instr      = tac_new_instruction(TAC_INSTRUCTION_INT_TO_DOUBLE);
-    instr->u.int_to_double.src  = make_var("i");
-    instr->u.int_to_double.dst  = make_var("d");
-    tl->u.function.body         = instr;
+    Tac_TopLevel *tl           = make_empty_function("f", true);
+    Tac_Instruction *instr     = tac_new_instruction(TAC_INSTRUCTION_INT_TO_DOUBLE);
+    instr->u.int_to_double.src = make_var("i");
+    instr->u.int_to_double.dst = make_var("d");
+    tl->u.function.body        = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -308,11 +308,11 @@ TEST_F(TacDotTest, InstructionIntToDouble)
 
 TEST_F(TacDotTest, InstructionUintToDouble)
 {
-    Tac_TopLevel *tl             = make_empty_function("f", true);
-    Tac_Instruction *instr       = tac_new_instruction(TAC_INSTRUCTION_UINT_TO_DOUBLE);
-    instr->u.uint_to_double.src  = make_var("u");
-    instr->u.uint_to_double.dst  = make_var("d");
-    tl->u.function.body          = instr;
+    Tac_TopLevel *tl            = make_empty_function("f", true);
+    Tac_Instruction *instr      = tac_new_instruction(TAC_INSTRUCTION_UINT_TO_DOUBLE);
+    instr->u.uint_to_double.src = make_var("u");
+    instr->u.uint_to_double.dst = make_var("d");
+    tl->u.function.body         = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -377,13 +377,13 @@ TEST_F(TacDotTest, InstructionUnaryNot)
 
 TEST_F(TacDotTest, InstructionBinaryAdd)
 {
-    Tac_TopLevel *tl        = make_empty_function("f", true);
-    Tac_Instruction *instr  = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-    instr->u.binary.op      = TAC_BINARY_ADD;
-    instr->u.binary.src1    = make_var("a");
-    instr->u.binary.src2    = make_var("b");
-    instr->u.binary.dst     = make_var("c");
-    tl->u.function.body     = instr;
+    Tac_TopLevel *tl       = make_empty_function("f", true);
+    Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+    instr->u.binary.op     = TAC_BINARY_ADD;
+    instr->u.binary.src1   = make_var("a");
+    instr->u.binary.src2   = make_var("b");
+    instr->u.binary.dst    = make_var("c");
+    tl->u.function.body    = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -396,13 +396,13 @@ TEST_F(TacDotTest, InstructionBinaryAdd)
 
 TEST_F(TacDotTest, InstructionBinarySubtract)
 {
-    Tac_TopLevel *tl        = make_empty_function("f", true);
-    Tac_Instruction *instr  = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-    instr->u.binary.op      = TAC_BINARY_SUBTRACT;
-    instr->u.binary.src1    = make_var("a");
-    instr->u.binary.src2    = make_var("b");
-    instr->u.binary.dst     = make_var("c");
-    tl->u.function.body     = instr;
+    Tac_TopLevel *tl       = make_empty_function("f", true);
+    Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+    instr->u.binary.op     = TAC_BINARY_SUBTRACT;
+    instr->u.binary.src1   = make_var("a");
+    instr->u.binary.src2   = make_var("b");
+    instr->u.binary.dst    = make_var("c");
+    tl->u.function.body    = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -412,13 +412,13 @@ TEST_F(TacDotTest, InstructionBinarySubtract)
 
 TEST_F(TacDotTest, InstructionBinaryEqual)
 {
-    Tac_TopLevel *tl        = make_empty_function("f", true);
-    Tac_Instruction *instr  = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-    instr->u.binary.op      = TAC_BINARY_EQUAL;
-    instr->u.binary.src1    = make_var("a");
-    instr->u.binary.src2    = make_var("b");
-    instr->u.binary.dst     = make_var("c");
-    tl->u.function.body     = instr;
+    Tac_TopLevel *tl       = make_empty_function("f", true);
+    Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+    instr->u.binary.op     = TAC_BINARY_EQUAL;
+    instr->u.binary.src1   = make_var("a");
+    instr->u.binary.src2   = make_var("b");
+    instr->u.binary.dst    = make_var("c");
+    tl->u.function.body    = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -428,13 +428,13 @@ TEST_F(TacDotTest, InstructionBinaryEqual)
 
 TEST_F(TacDotTest, InstructionBinaryBitwiseOr)
 {
-    Tac_TopLevel *tl        = make_empty_function("f", true);
-    Tac_Instruction *instr  = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-    instr->u.binary.op      = TAC_BINARY_BITWISE_OR;
-    instr->u.binary.src1    = make_var("a");
-    instr->u.binary.src2    = make_var("b");
-    instr->u.binary.dst     = make_var("c");
-    tl->u.function.body     = instr;
+    Tac_TopLevel *tl       = make_empty_function("f", true);
+    Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+    instr->u.binary.op     = TAC_BINARY_BITWISE_OR;
+    instr->u.binary.src1   = make_var("a");
+    instr->u.binary.src2   = make_var("b");
+    instr->u.binary.dst    = make_var("c");
+    tl->u.function.body    = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -444,13 +444,13 @@ TEST_F(TacDotTest, InstructionBinaryBitwiseOr)
 
 TEST_F(TacDotTest, InstructionBinaryLeftShift)
 {
-    Tac_TopLevel *tl        = make_empty_function("f", true);
-    Tac_Instruction *instr  = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-    instr->u.binary.op      = TAC_BINARY_LEFT_SHIFT;
-    instr->u.binary.src1    = make_var("a");
-    instr->u.binary.src2    = make_const_int(2);
-    instr->u.binary.dst     = make_var("c");
-    tl->u.function.body     = instr;
+    Tac_TopLevel *tl       = make_empty_function("f", true);
+    Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+    instr->u.binary.op     = TAC_BINARY_LEFT_SHIFT;
+    instr->u.binary.src1   = make_var("a");
+    instr->u.binary.src2   = make_const_int(2);
+    instr->u.binary.dst    = make_var("c");
+    tl->u.function.body    = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -480,11 +480,11 @@ TEST_F(TacDotTest, InstructionCopy)
 
 TEST_F(TacDotTest, InstructionGetAddress)
 {
-    Tac_TopLevel *tl            = make_empty_function("f", true);
-    Tac_Instruction *instr      = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
-    instr->u.get_address.src    = make_var("arr");
-    instr->u.get_address.dst    = make_var("ptr");
-    tl->u.function.body         = instr;
+    Tac_TopLevel *tl         = make_empty_function("f", true);
+    Tac_Instruction *instr   = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
+    instr->u.get_address.src = make_var("arr");
+    instr->u.get_address.dst = make_var("ptr");
+    tl->u.function.body      = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -494,11 +494,11 @@ TEST_F(TacDotTest, InstructionGetAddress)
 
 TEST_F(TacDotTest, InstructionLoad)
 {
-    Tac_TopLevel *tl        = make_empty_function("f", true);
-    Tac_Instruction *instr  = tac_new_instruction(TAC_INSTRUCTION_LOAD);
-    instr->u.load.src_ptr   = make_var("ptr");
-    instr->u.load.dst       = make_var("val");
-    tl->u.function.body     = instr;
+    Tac_TopLevel *tl       = make_empty_function("f", true);
+    Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+    instr->u.load.src_ptr  = make_var("ptr");
+    instr->u.load.dst      = make_var("val");
+    tl->u.function.body    = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -509,11 +509,11 @@ TEST_F(TacDotTest, InstructionLoad)
 
 TEST_F(TacDotTest, InstructionStore)
 {
-    Tac_TopLevel *tl          = make_empty_function("f", true);
-    Tac_Instruction *instr    = tac_new_instruction(TAC_INSTRUCTION_STORE);
-    instr->u.store.src        = make_const_int(99);
-    instr->u.store.dst_ptr    = make_var("ptr");
-    tl->u.function.body       = instr;
+    Tac_TopLevel *tl       = make_empty_function("f", true);
+    Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_STORE);
+    instr->u.store.src     = make_const_int(99);
+    instr->u.store.dst_ptr = make_var("ptr");
+    tl->u.function.body    = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -524,13 +524,13 @@ TEST_F(TacDotTest, InstructionStore)
 
 TEST_F(TacDotTest, InstructionAddPtr)
 {
-    Tac_TopLevel *tl          = make_empty_function("f", true);
-    Tac_Instruction *instr    = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
-    instr->u.add_ptr.ptr      = make_var("base");
-    instr->u.add_ptr.index    = make_var("idx");
-    instr->u.add_ptr.scale    = 4;
-    instr->u.add_ptr.dst      = make_var("result");
-    tl->u.function.body       = instr;
+    Tac_TopLevel *tl       = make_empty_function("f", true);
+    Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
+    instr->u.add_ptr.ptr   = make_var("base");
+    instr->u.add_ptr.index = make_var("idx");
+    instr->u.add_ptr.scale = 4;
+    instr->u.add_ptr.dst   = make_var("result");
+    tl->u.function.body    = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -542,12 +542,12 @@ TEST_F(TacDotTest, InstructionAddPtr)
 
 TEST_F(TacDotTest, InstructionCopyToOffset)
 {
-    Tac_TopLevel *tl                      = make_empty_function("f", true);
-    Tac_Instruction *instr                = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
-    instr->u.copy_to_offset.src           = make_const_int(5);
-    instr->u.copy_to_offset.dst           = xstrdup("s");
-    instr->u.copy_to_offset.offset        = 8;
-    tl->u.function.body                   = instr;
+    Tac_TopLevel *tl               = make_empty_function("f", true);
+    Tac_Instruction *instr         = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
+    instr->u.copy_to_offset.src    = make_const_int(5);
+    instr->u.copy_to_offset.dst    = xstrdup("s");
+    instr->u.copy_to_offset.offset = 8;
+    tl->u.function.body            = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -560,12 +560,12 @@ TEST_F(TacDotTest, InstructionCopyToOffset)
 
 TEST_F(TacDotTest, InstructionCopyFromOffset)
 {
-    Tac_TopLevel *tl                        = make_empty_function("f", true);
-    Tac_Instruction *instr                  = tac_new_instruction(TAC_INSTRUCTION_COPY_FROM_OFFSET);
-    instr->u.copy_from_offset.src           = xstrdup("s");
-    instr->u.copy_from_offset.offset        = 4;
-    instr->u.copy_from_offset.dst           = make_var("out");
-    tl->u.function.body                     = instr;
+    Tac_TopLevel *tl                 = make_empty_function("f", true);
+    Tac_Instruction *instr           = tac_new_instruction(TAC_INSTRUCTION_COPY_FROM_OFFSET);
+    instr->u.copy_from_offset.src    = xstrdup("s");
+    instr->u.copy_from_offset.offset = 4;
+    instr->u.copy_from_offset.dst    = make_var("out");
+    tl->u.function.body              = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -597,11 +597,11 @@ TEST_F(TacDotTest, InstructionJump)
 
 TEST_F(TacDotTest, InstructionJumpIfZero)
 {
-    Tac_TopLevel *tl                  = make_empty_function("f", true);
-    Tac_Instruction *instr            = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
-    instr->u.jump_if_zero.condition   = make_var("flag");
-    instr->u.jump_if_zero.target      = xstrdup("done");
-    tl->u.function.body               = instr;
+    Tac_TopLevel *tl                = make_empty_function("f", true);
+    Tac_Instruction *instr          = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
+    instr->u.jump_if_zero.condition = make_var("flag");
+    instr->u.jump_if_zero.target    = xstrdup("done");
+    tl->u.function.body             = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -613,11 +613,11 @@ TEST_F(TacDotTest, InstructionJumpIfZero)
 
 TEST_F(TacDotTest, InstructionJumpIfNotZero)
 {
-    Tac_TopLevel *tl                      = make_empty_function("f", true);
-    Tac_Instruction *instr                = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
-    instr->u.jump_if_not_zero.condition   = make_var("flag");
-    instr->u.jump_if_not_zero.target      = xstrdup("loop_top");
-    tl->u.function.body                   = instr;
+    Tac_TopLevel *tl                    = make_empty_function("f", true);
+    Tac_Instruction *instr              = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
+    instr->u.jump_if_not_zero.condition = make_var("flag");
+    instr->u.jump_if_not_zero.target    = xstrdup("loop_top");
+    tl->u.function.body                 = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -645,10 +645,10 @@ TEST_F(TacDotTest, InstructionLabel)
 
 TEST_F(TacDotTest, InstructionFunCallNoArgsNoReturn)
 {
-    Tac_TopLevel *tl              = make_empty_function("f", true);
-    Tac_Instruction *instr        = tac_new_instruction(TAC_INSTRUCTION_FUN_CALL);
-    instr->u.fun_call.fun_name    = xstrdup("init");
-    tl->u.function.body           = instr;
+    Tac_TopLevel *tl           = make_empty_function("f", true);
+    Tac_Instruction *instr     = tac_new_instruction(TAC_INSTRUCTION_FUN_CALL);
+    instr->u.fun_call.fun_name = xstrdup("init");
+    tl->u.function.body        = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -660,15 +660,15 @@ TEST_F(TacDotTest, InstructionFunCallNoArgsNoReturn)
 
 TEST_F(TacDotTest, InstructionFunCallWithArgs)
 {
-    Tac_TopLevel *tl              = make_empty_function("f", true);
-    Tac_Instruction *instr        = tac_new_instruction(TAC_INSTRUCTION_FUN_CALL);
-    instr->u.fun_call.fun_name    = xstrdup("add");
-    Tac_Val *a1                   = make_const_int(1);
-    Tac_Val *a2                   = make_const_int(2);
-    a1->next                      = a2;
-    instr->u.fun_call.args        = a1;
-    instr->u.fun_call.dst         = make_var("result");
-    tl->u.function.body           = instr;
+    Tac_TopLevel *tl           = make_empty_function("f", true);
+    Tac_Instruction *instr     = tac_new_instruction(TAC_INSTRUCTION_FUN_CALL);
+    instr->u.fun_call.fun_name = xstrdup("add");
+    Tac_Val *a1                = make_const_int(1);
+    Tac_Val *a2                = make_const_int(2);
+    a1->next                   = a2;
+    instr->u.fun_call.args     = a1;
+    instr->u.fun_call.dst      = make_var("result");
+    tl->u.function.body        = instr;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -839,11 +839,11 @@ TEST_F(TacDotTest, ConstUchar)
 
 TEST_F(TacDotTest, TypePointer)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    Tac_TopLevel *tl             = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
     tl->u.static_variable.name   = xstrdup("p");
     tl->u.static_variable.global = false;
-    Tac_Type *ptr                 = tac_new_type(TAC_TYPE_POINTER);
-    Tac_Type *inner               = tac_new_type(TAC_TYPE_INT);
+    Tac_Type *ptr                = tac_new_type(TAC_TYPE_POINTER);
+    Tac_Type *inner              = tac_new_type(TAC_TYPE_INT);
     ptr->u.pointer.target_type   = inner;
     tl->u.static_variable.type   = ptr;
 
@@ -857,12 +857,12 @@ TEST_F(TacDotTest, TypePointer)
 
 TEST_F(TacDotTest, TypeArray)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    Tac_TopLevel *tl             = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
     tl->u.static_variable.name   = xstrdup("arr");
     tl->u.static_variable.global = false;
-    Tac_Type *arr                 = tac_new_type(TAC_TYPE_ARRAY);
-    arr->u.array.size             = 10;
-    arr->u.array.elem_type        = tac_new_type(TAC_TYPE_CHAR);
+    Tac_Type *arr                = tac_new_type(TAC_TYPE_ARRAY);
+    arr->u.array.size            = 10;
+    arr->u.array.elem_type       = tac_new_type(TAC_TYPE_CHAR);
     tl->u.static_variable.type   = arr;
 
     std::string out = capture(tl);
@@ -875,11 +875,11 @@ TEST_F(TacDotTest, TypeArray)
 
 TEST_F(TacDotTest, TypeStructure)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    Tac_TopLevel *tl             = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
     tl->u.static_variable.name   = xstrdup("obj");
     tl->u.static_variable.global = false;
-    Tac_Type *s                   = tac_new_type(TAC_TYPE_STRUCTURE);
-    s->u.structure.tag            = xstrdup("Point");
+    Tac_Type *s                  = tac_new_type(TAC_TYPE_STRUCTURE);
+    s->u.structure.tag           = xstrdup("Point");
     tl->u.static_variable.type   = s;
 
     std::string out = capture(tl);
@@ -890,13 +890,13 @@ TEST_F(TacDotTest, TypeStructure)
 
 TEST_F(TacDotTest, TypeFunType)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    Tac_TopLevel *tl             = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
     tl->u.static_variable.name   = xstrdup("fp");
     tl->u.static_variable.global = false;
-    Tac_Type *ft                  = tac_new_type(TAC_TYPE_FUN_TYPE);
-    ft->u.fun_type.ret_type       = tac_new_type(TAC_TYPE_INT);
-    Tac_Type *param               = tac_new_type(TAC_TYPE_DOUBLE);
-    ft->u.fun_type.param_types    = param;
+    Tac_Type *ft                 = tac_new_type(TAC_TYPE_FUN_TYPE);
+    ft->u.fun_type.ret_type      = tac_new_type(TAC_TYPE_INT);
+    Tac_Type *param              = tac_new_type(TAC_TYPE_DOUBLE);
+    ft->u.fun_type.param_types   = param;
     tl->u.static_variable.type   = ft;
 
     std::string out = capture(tl);
@@ -913,12 +913,12 @@ TEST_F(TacDotTest, TypeFunType)
 
 TEST_F(TacDotTest, StaticInitI8)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
-    tl->u.static_variable.name   = xstrdup("v");
-    tl->u.static_variable.global = false;
-    tl->u.static_variable.type   = tac_new_type(TAC_TYPE_CHAR);
-    Tac_StaticInit *init          = tac_new_static_init(TAC_STATIC_INIT_I8);
-    init->u.char_val              = 10;
+    Tac_TopLevel *tl                = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    tl->u.static_variable.name      = xstrdup("v");
+    tl->u.static_variable.global    = false;
+    tl->u.static_variable.type      = tac_new_type(TAC_TYPE_CHAR);
+    Tac_StaticInit *init            = tac_new_static_init(TAC_STATIC_INIT_I8);
+    init->u.char_val                = 10;
     tl->u.static_variable.init_list = init;
 
     std::string out = capture(tl);
@@ -929,12 +929,12 @@ TEST_F(TacDotTest, StaticInitI8)
 
 TEST_F(TacDotTest, StaticInitI32)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
-    tl->u.static_variable.name   = xstrdup("v");
-    tl->u.static_variable.global = false;
-    tl->u.static_variable.type   = tac_new_type(TAC_TYPE_INT);
-    Tac_StaticInit *init          = tac_new_static_init(TAC_STATIC_INIT_I32);
-    init->u.int_val               = -100;
+    Tac_TopLevel *tl                = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    tl->u.static_variable.name      = xstrdup("v");
+    tl->u.static_variable.global    = false;
+    tl->u.static_variable.type      = tac_new_type(TAC_TYPE_INT);
+    Tac_StaticInit *init            = tac_new_static_init(TAC_STATIC_INIT_I32);
+    init->u.int_val                 = -100;
     tl->u.static_variable.init_list = init;
 
     std::string out = capture(tl);
@@ -945,12 +945,12 @@ TEST_F(TacDotTest, StaticInitI32)
 
 TEST_F(TacDotTest, StaticInitI64)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
-    tl->u.static_variable.name   = xstrdup("v");
-    tl->u.static_variable.global = false;
-    tl->u.static_variable.type   = tac_new_type(TAC_TYPE_LONG);
-    Tac_StaticInit *init          = tac_new_static_init(TAC_STATIC_INIT_I64);
-    init->u.long_val              = 1000000000LL;
+    Tac_TopLevel *tl                = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    tl->u.static_variable.name      = xstrdup("v");
+    tl->u.static_variable.global    = false;
+    tl->u.static_variable.type      = tac_new_type(TAC_TYPE_LONG);
+    Tac_StaticInit *init            = tac_new_static_init(TAC_STATIC_INIT_I64);
+    init->u.long_val                = 1000000000LL;
     tl->u.static_variable.init_list = init;
 
     std::string out = capture(tl);
@@ -961,12 +961,12 @@ TEST_F(TacDotTest, StaticInitI64)
 
 TEST_F(TacDotTest, StaticInitU8)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
-    tl->u.static_variable.name   = xstrdup("v");
-    tl->u.static_variable.global = false;
-    tl->u.static_variable.type   = tac_new_type(TAC_TYPE_UCHAR);
-    Tac_StaticInit *init          = tac_new_static_init(TAC_STATIC_INIT_U8);
-    init->u.uchar_val             = 255;
+    Tac_TopLevel *tl                = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    tl->u.static_variable.name      = xstrdup("v");
+    tl->u.static_variable.global    = false;
+    tl->u.static_variable.type      = tac_new_type(TAC_TYPE_UCHAR);
+    Tac_StaticInit *init            = tac_new_static_init(TAC_STATIC_INIT_U8);
+    init->u.uchar_val               = 255;
     tl->u.static_variable.init_list = init;
 
     std::string out = capture(tl);
@@ -977,12 +977,12 @@ TEST_F(TacDotTest, StaticInitU8)
 
 TEST_F(TacDotTest, StaticInitU32)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
-    tl->u.static_variable.name   = xstrdup("v");
-    tl->u.static_variable.global = false;
-    tl->u.static_variable.type   = tac_new_type(TAC_TYPE_UINT);
-    Tac_StaticInit *init          = tac_new_static_init(TAC_STATIC_INIT_U32);
-    init->u.uint_val              = 4000000000u;
+    Tac_TopLevel *tl                = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    tl->u.static_variable.name      = xstrdup("v");
+    tl->u.static_variable.global    = false;
+    tl->u.static_variable.type      = tac_new_type(TAC_TYPE_UINT);
+    Tac_StaticInit *init            = tac_new_static_init(TAC_STATIC_INIT_U32);
+    init->u.uint_val                = 4000000000u;
     tl->u.static_variable.init_list = init;
 
     std::string out = capture(tl);
@@ -993,12 +993,12 @@ TEST_F(TacDotTest, StaticInitU32)
 
 TEST_F(TacDotTest, StaticInitU64)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
-    tl->u.static_variable.name   = xstrdup("v");
-    tl->u.static_variable.global = false;
-    tl->u.static_variable.type   = tac_new_type(TAC_TYPE_ULONG);
-    Tac_StaticInit *init          = tac_new_static_init(TAC_STATIC_INIT_U64);
-    init->u.ulong_val             = 9000000000ULL;
+    Tac_TopLevel *tl                = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    tl->u.static_variable.name      = xstrdup("v");
+    tl->u.static_variable.global    = false;
+    tl->u.static_variable.type      = tac_new_type(TAC_TYPE_ULONG);
+    Tac_StaticInit *init            = tac_new_static_init(TAC_STATIC_INIT_U64);
+    init->u.ulong_val               = 9000000000ULL;
     tl->u.static_variable.init_list = init;
 
     std::string out = capture(tl);
@@ -1009,12 +1009,12 @@ TEST_F(TacDotTest, StaticInitU64)
 
 TEST_F(TacDotTest, StaticInitDouble)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
-    tl->u.static_variable.name   = xstrdup("v");
-    tl->u.static_variable.global = false;
-    tl->u.static_variable.type   = tac_new_type(TAC_TYPE_DOUBLE);
-    Tac_StaticInit *init          = tac_new_static_init(TAC_STATIC_INIT_DOUBLE);
-    init->u.double_val            = 2.5;
+    Tac_TopLevel *tl                = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    tl->u.static_variable.name      = xstrdup("v");
+    tl->u.static_variable.global    = false;
+    tl->u.static_variable.type      = tac_new_type(TAC_TYPE_DOUBLE);
+    Tac_StaticInit *init            = tac_new_static_init(TAC_STATIC_INIT_DOUBLE);
+    init->u.double_val              = 2.5;
     tl->u.static_variable.init_list = init;
 
     std::string out = capture(tl);
@@ -1025,15 +1025,15 @@ TEST_F(TacDotTest, StaticInitDouble)
 
 TEST_F(TacDotTest, StaticInitZero)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
-    tl->u.static_variable.name   = xstrdup("buf");
-    tl->u.static_variable.global = false;
-    tl->u.static_variable.type   = tac_new_type(TAC_TYPE_ARRAY);
+    Tac_TopLevel *tl                              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    tl->u.static_variable.name                    = xstrdup("buf");
+    tl->u.static_variable.global                  = false;
+    tl->u.static_variable.type                    = tac_new_type(TAC_TYPE_ARRAY);
     tl->u.static_variable.type->u.array.elem_type = tac_new_type(TAC_TYPE_CHAR);
     tl->u.static_variable.type->u.array.size      = 16;
-    Tac_StaticInit *init          = tac_new_static_init(TAC_STATIC_INIT_ZERO);
-    init->u.zero_bytes            = 16;
-    tl->u.static_variable.init_list = init;
+    Tac_StaticInit *init                          = tac_new_static_init(TAC_STATIC_INIT_ZERO);
+    init->u.zero_bytes                            = 16;
+    tl->u.static_variable.init_list               = init;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -1043,15 +1043,15 @@ TEST_F(TacDotTest, StaticInitZero)
 
 TEST_F(TacDotTest, StaticInitString)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
-    tl->u.static_constant.name   = xstrdup("s");
-    tl->u.static_constant.type   = tac_new_type(TAC_TYPE_ARRAY);
+    Tac_TopLevel *tl                              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
+    tl->u.static_constant.name                    = xstrdup("s");
+    tl->u.static_constant.type                    = tac_new_type(TAC_TYPE_ARRAY);
     tl->u.static_constant.type->u.array.elem_type = tac_new_type(TAC_TYPE_CHAR);
     tl->u.static_constant.type->u.array.size      = 6;
-    Tac_StaticInit *init          = tac_new_static_init(TAC_STATIC_INIT_STRING);
-    init->u.string.val            = xstrdup("hello");
-    init->u.string.null_terminated = true;
-    tl->u.static_constant.init   = init;
+    Tac_StaticInit *init                          = tac_new_static_init(TAC_STATIC_INIT_STRING);
+    init->u.string.val                            = xstrdup("hello");
+    init->u.string.null_terminated                = true;
+    tl->u.static_constant.init                    = init;
 
     std::string out = capture(tl);
     tac_free_toplevel(tl);
@@ -1061,13 +1061,13 @@ TEST_F(TacDotTest, StaticInitString)
 
 TEST_F(TacDotTest, StaticInitPointer)
 {
-    Tac_TopLevel *tl              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    Tac_TopLevel *tl             = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
     tl->u.static_variable.name   = xstrdup("ptr_init");
     tl->u.static_variable.global = false;
     tl->u.static_variable.type   = tac_new_type(TAC_TYPE_POINTER);
     tl->u.static_variable.type->u.pointer.target_type = tac_new_type(TAC_TYPE_CHAR);
-    Tac_StaticInit *init          = tac_new_static_init(TAC_STATIC_INIT_POINTER);
-    init->u.pointer_name          = xstrdup("str_const");
+    Tac_StaticInit *init            = tac_new_static_init(TAC_STATIC_INIT_POINTER);
+    init->u.pointer_name            = xstrdup("str_const");
     tl->u.static_variable.init_list = init;
 
     std::string out = capture(tl);
@@ -1094,8 +1094,8 @@ TEST_F(TacDotTest, MultipleInstructions)
     Tac_Instruction *i3 = tac_new_instruction(TAC_INSTRUCTION_RETURN);
     i3->u.return_.src   = make_var("x");
 
-    i1->next = i2;
-    i2->next = i3;
+    i1->next            = i2;
+    i2->next            = i3;
     tl->u.function.body = i1;
 
     std::string out = capture(tl);

@@ -1,9 +1,8 @@
-#include "tac.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "tac.h"
 #include "wio.h"
 #include "xalloc.h"
 
@@ -183,7 +182,7 @@ static Tac_StaticInit *import_static_init(WFILE *in)
         check_input(in, "static_init zero");
         break;
     case TAC_STATIC_INIT_STRING:
-        si->u.string.val            = wgetstr(in);
+        si->u.string.val = wgetstr(in);
         check_input(in, "static_init string val");
         si->u.string.null_terminated = (bool)wgetw(in);
         check_input(in, "static_init string null_terminated");
@@ -236,13 +235,13 @@ static Tac_Instruction *import_instr(WFILE *in)
         instr->u.sign_extend.dst = import_val(in);
         break;
     case TAC_INSTRUCTION_UNARY:
-        instr->u.unary.op  = (Tac_UnaryOperator)wgetw(in);
+        instr->u.unary.op = (Tac_UnaryOperator)wgetw(in);
         check_input(in, "unary op");
         instr->u.unary.src = import_val(in);
         instr->u.unary.dst = import_val(in);
         break;
     case TAC_INSTRUCTION_BINARY:
-        instr->u.binary.op   = (Tac_BinaryOperator)wgetw(in);
+        instr->u.binary.op = (Tac_BinaryOperator)wgetw(in);
         check_input(in, "binary op");
         instr->u.binary.src1 = import_val(in);
         instr->u.binary.src2 = import_val(in);
@@ -266,21 +265,21 @@ static Tac_Instruction *import_instr(WFILE *in)
         instr->u.add_ptr.index = import_val(in);
         instr->u.add_ptr.scale = (int)wgetw(in);
         check_input(in, "add_ptr scale");
-        instr->u.add_ptr.dst   = import_val(in);
+        instr->u.add_ptr.dst = import_val(in);
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
-        instr->u.copy_to_offset.src    = import_val(in);
-        instr->u.copy_to_offset.dst    = wgetstr(in);
+        instr->u.copy_to_offset.src = import_val(in);
+        instr->u.copy_to_offset.dst = wgetstr(in);
         check_input(in, "copy_to_offset dst");
         instr->u.copy_to_offset.offset = (int)wgetw(in);
         check_input(in, "copy_to_offset offset");
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
-        instr->u.copy_from_offset.src    = wgetstr(in);
+        instr->u.copy_from_offset.src = wgetstr(in);
         check_input(in, "copy_from_offset src");
         instr->u.copy_from_offset.offset = (int)wgetw(in);
         check_input(in, "copy_from_offset offset");
-        instr->u.copy_from_offset.dst    = import_val(in);
+        instr->u.copy_from_offset.dst = import_val(in);
         break;
     case TAC_INSTRUCTION_JUMP:
         instr->u.jump.target = wgetstr(in);
@@ -320,7 +319,7 @@ static Tac_TopLevel *import_toplevel(WFILE *in)
     Tac_TopLevel *tl = tac_new_toplevel((Tac_TopLevelKind)kind);
     switch (tl->kind) {
     case TAC_TOPLEVEL_FUNCTION:
-        tl->u.function.name   = wgetstr(in);
+        tl->u.function.name = wgetstr(in);
         check_input(in, "function name");
         tl->u.function.global = (bool)wgetw(in);
         check_input(in, "function global");
@@ -328,9 +327,9 @@ static Tac_TopLevel *import_toplevel(WFILE *in)
         tl->u.function.body   = import_instr(in);
         break;
     case TAC_TOPLEVEL_STATIC_VARIABLE:
-        tl->u.static_variable.name      = wgetstr(in);
+        tl->u.static_variable.name = wgetstr(in);
         check_input(in, "static_variable name");
-        tl->u.static_variable.global    = (bool)wgetw(in);
+        tl->u.static_variable.global = (bool)wgetw(in);
         check_input(in, "static_variable global");
         tl->u.static_variable.type      = import_type(in);
         tl->u.static_variable.init_list = import_static_init(in);
@@ -353,8 +352,8 @@ Tac_Program *tac_import_program(WFILE *in)
     size_t magic = wgetw(in);
     check_input(in, "stream magic");
     if (magic != TAC_TAG_STREAM) {
-        fprintf(stderr, "Error: bad TAC stream magic 0x%zx (expected 0x%x)\n",
-                magic, TAC_TAG_STREAM);
+        fprintf(stderr, "Error: bad TAC stream magic 0x%zx (expected 0x%x)\n", magic,
+                TAC_TAG_STREAM);
         exit(1);
     }
     Tac_Program *prog = tac_new_program();

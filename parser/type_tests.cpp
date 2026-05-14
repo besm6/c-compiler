@@ -1547,7 +1547,8 @@ TEST_F(ParserTest, TypeConstStructParensPtrFuncInt)
     EXPECT_EQ(type->u.function.return_type->u.pointer.target->u.struct_t.fields, nullptr);
 
     ASSERT_NE(type->u.function.return_type->u.pointer.target->qualifiers, nullptr);
-    EXPECT_EQ(type->u.function.return_type->u.pointer.target->qualifiers->kind, TYPE_QUALIFIER_CONST);
+    EXPECT_EQ(type->u.function.return_type->u.pointer.target->qualifiers->kind,
+              TYPE_QUALIFIER_CONST);
     EXPECT_EQ(type->u.function.return_type->u.pointer.target->qualifiers->next, nullptr);
 
     EXPECT_FALSE(type->u.function.variadic);

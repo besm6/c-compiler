@@ -251,7 +251,8 @@ TEST_F(ParserTest, NestedStructWithArrayField)
 //
 TEST_F(ParserTest, UnionWithNestedStructAndAnonymousStruct)
 {
-    Type *type = TestType("union Variant { struct { int a; int b; }; struct Named { float x; } named; };");
+    Type *type =
+        TestType("union Variant { struct { int a; int b; }; struct Named { float x; } named; };");
 
     //
     // union Variant

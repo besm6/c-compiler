@@ -1,5 +1,5 @@
-#include <string.h>
 #include <inttypes.h>
+#include <string.h>
 
 #include "tac.h"
 

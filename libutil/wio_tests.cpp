@@ -1,12 +1,12 @@
-#include "wio.h"
-#include "xalloc.h"
-
 #include <errno.h>
 #include <fcntl.h>
 #include <gtest/gtest.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+
+#include "wio.h"
+#include "xalloc.h"
 
 //
 // Test fixture for WIO tests
@@ -22,10 +22,7 @@ protected:
         ASSERT_GE(close(mkstemp(filename)), 0);
     }
 
-    void TearDown() override
-    {
-        unlink(filename);
-    }
+    void TearDown() override { unlink(filename); }
 
     char filename[32];
 };
@@ -281,7 +278,8 @@ TEST_F(WIOTest, WPutStrAndWGetStr)
     WFILE wstream;
     ASSERT_GE(wopen(&wstream, filename, "w"), 0);
 
-    static const char *twas = "Twas brillig, and the slithy toves Did gyre and gimble in the wabefoobar";
+    static const char *twas =
+        "Twas brillig, and the slithy toves Did gyre and gimble in the wabefoobar";
     EXPECT_EQ(wputw(42, &wstream), 0);
     EXPECT_EQ(wputstr("foobar", &wstream), 0);
     EXPECT_EQ(wputstr(nullptr, &wstream), 0); // null string

@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 #include <stdio.h>
+
 #include "ast.h"
 
 /* Forward declarations for recursive types */
@@ -26,8 +27,8 @@ typedef enum {
     TYPE_SPEC_ATOMIC
 } TypeSpecKind; // Internal for parser only
 
-struct TypeSpec { // Internal for parser only
-    TypeSpec *next;            /* linked list */
+struct TypeSpec {   // Internal for parser only
+    TypeSpec *next; /* linked list */
     TypeSpecKind kind;
     union {
         Type *basic;

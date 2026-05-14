@@ -1,3 +1,4 @@
+#include <fcntl.h>
 #include <gtest/gtest.h>
 
 #include <cstdio>
@@ -5,11 +6,10 @@
 #include <string>
 #include <vector>
 
+#include "internal.h"
 #include "parser.h"
 #include "scanner.h"
-#include "internal.h"
 #include "xalloc.h"
-#include <fcntl.h>
 
 // Test fixture
 class ParserTest : public ::testing::Test {
@@ -23,7 +23,7 @@ protected:
     void SetUp() override
     {
         auto filename = test_name + ".c";
-        input_file = fopen(filename.c_str(), "w+");
+        input_file    = fopen(filename.c_str(), "w+");
         ASSERT_NE(nullptr, input_file);
         parser_debug = 1;
     }
@@ -108,7 +108,7 @@ protected:
     int CreateAstFile()
     {
         auto filename = test_name + ".ast";
-        int fd = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0600);
+        int fd        = open(filename.c_str(), O_CREAT | O_RDWR | O_TRUNC, 0600);
         EXPECT_GE(fd, 0);
         return fd;
     }

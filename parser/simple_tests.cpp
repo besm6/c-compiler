@@ -222,7 +222,8 @@ TEST_F(ParserTest, EnumScope)
 
 TEST_F(ParserTest, TypedefEnumField)
 {
-    program = parse(CreateTempFile("typedef int foo; enum { qux = 1 }; struct { foo bar : qux; } x;"));
+    program =
+        parse(CreateTempFile("typedef int foo; enum { qux = 1 }; struct { foo bar : qux; } x;"));
     ASSERT_NE(nullptr, program);
     print_program(stdout, program);
 

@@ -40,34 +40,34 @@ static const char *stmt_kind_str[] = { [STMT_EXPR] = "Expression",  [STMT_IF] = 
                                        [STMT_DEFAULT] = "Default",  [STMT_COMPOUND] = "Compound" };
 
 const char *type_kind_str[] = {
-    [TYPE_VOID] = "void",
-    [TYPE_BOOL] = "_Bool",
-    [TYPE_CHAR] = "char",
-    [TYPE_SCHAR] = "signed char",
-    [TYPE_UCHAR] = "unsigned char",
-    [TYPE_SHORT] = "short",
-    [TYPE_USHORT] = "unsigned short",
-    [TYPE_INT] = "int",
-    [TYPE_UINT] = "unsigned int",
-    [TYPE_LONG] = "long",
-    [TYPE_ULONG] = "unsigned long",
-    [TYPE_LONG_LONG] = "long long",
-    [TYPE_ULONG_LONG] = "unsigned long long",
-    [TYPE_SIGNED] = "signed",
-    [TYPE_UNSIGNED] = "unsigned",
-    [TYPE_FLOAT] = "float",
-    [TYPE_DOUBLE] = "double",
-    [TYPE_LONG_DOUBLE] = "long double",
-    [TYPE_COMPLEX] = "_Complex",
-    [TYPE_IMAGINARY] = "_Imaginary",
-    [TYPE_POINTER] = "ptr",
-    [TYPE_ARRAY] = "array",
-    [TYPE_FUNCTION] = "func",
-    [TYPE_STRUCT] = "struct",
-    [TYPE_UNION] = "union",
-    [TYPE_ENUM] = "enum",
+    [TYPE_VOID]         = "void",
+    [TYPE_BOOL]         = "_Bool",
+    [TYPE_CHAR]         = "char",
+    [TYPE_SCHAR]        = "signed char",
+    [TYPE_UCHAR]        = "unsigned char",
+    [TYPE_SHORT]        = "short",
+    [TYPE_USHORT]       = "unsigned short",
+    [TYPE_INT]          = "int",
+    [TYPE_UINT]         = "unsigned int",
+    [TYPE_LONG]         = "long",
+    [TYPE_ULONG]        = "unsigned long",
+    [TYPE_LONG_LONG]    = "long long",
+    [TYPE_ULONG_LONG]   = "unsigned long long",
+    [TYPE_SIGNED]       = "signed",
+    [TYPE_UNSIGNED]     = "unsigned",
+    [TYPE_FLOAT]        = "float",
+    [TYPE_DOUBLE]       = "double",
+    [TYPE_LONG_DOUBLE]  = "long double",
+    [TYPE_COMPLEX]      = "_Complex",
+    [TYPE_IMAGINARY]    = "_Imaginary",
+    [TYPE_POINTER]      = "ptr",
+    [TYPE_ARRAY]        = "array",
+    [TYPE_FUNCTION]     = "func",
+    [TYPE_STRUCT]       = "struct",
+    [TYPE_UNION]        = "union",
+    [TYPE_ENUM]         = "enum",
     [TYPE_TYPEDEF_NAME] = "typedef",
-    [TYPE_ATOMIC] = "_Atomic",
+    [TYPE_ATOMIC]       = "_Atomic",
 };
 
 static const char *binary_op_kind_str[] = {
@@ -518,7 +518,8 @@ void print_declarator_suffix(FILE *fd, DeclaratorSuffix *suffix, int indent)
         fprintf(fd, "Pointer\n");
         print_indent(fd, indent + 2);
         fprintf(fd, "Indirections:\n");
-        for (const Pointer *pointer = suffix->u.pointer.pointers; pointer; pointer = pointer->next) {
+        for (const Pointer *pointer = suffix->u.pointer.pointers; pointer;
+             pointer                = pointer->next) {
             print_pointer(fd, pointer, indent + 4);
         }
         print_declarator_suffix(fd, suffix->u.pointer.suffix, indent + 2);
@@ -552,26 +553,20 @@ void print_type_spec(FILE *fd, const TypeSpec *spec, int indent)
         break;
     case TYPE_SPEC_STRUCT:
         fprintf(fd, "struct %s\n",
-                spec->u.struct_spec.name ? spec->u.struct_spec.name
-                                                     : "(anonymous)");
-        for (Field *field = spec->u.struct_spec.fields; field;
-             field        = field->next) {
+                spec->u.struct_spec.name ? spec->u.struct_spec.name : "(anonymous)");
+        for (Field *field = spec->u.struct_spec.fields; field; field = field->next) {
             print_field(fd, field, indent + 4);
         }
         break;
     case TYPE_SPEC_UNION:
         fprintf(fd, "union %s\n",
-                spec->u.struct_spec.name ? spec->u.struct_spec.name
-                                                     : "(anonymous)");
-        for (Field *field = spec->u.struct_spec.fields; field;
-             field        = field->next) {
+                spec->u.struct_spec.name ? spec->u.struct_spec.name : "(anonymous)");
+        for (Field *field = spec->u.struct_spec.fields; field; field = field->next) {
             print_field(fd, field, indent + 4);
         }
         break;
     case TYPE_SPEC_ENUM:
-        fprintf(fd, "enum %s\n",
-                spec->u.enum_spec.name ? spec->u.enum_spec.name
-                                                   : "(anonymous)");
+        fprintf(fd, "enum %s\n", spec->u.enum_spec.name ? spec->u.enum_spec.name : "(anonymous)");
         for (const Enumerator *e = spec->u.enum_spec.enumerators; e; e = e->next) {
             print_indent(fd, indent + 4);
             fprintf(fd, "Enumerator: \"%s\"\n", e->name);

@@ -34,8 +34,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 //
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 // Structure for each node in the AVL tree
 typedef struct StringNode {
@@ -61,8 +61,8 @@ void map_init(StringMap *map);
 // then balances the tree on the way back up the recursion stack.
 //
 void map_insert(StringMap *map, const char *key, intptr_t value, int level);
-void map_insert_free(StringMap *map, const char *key, intptr_t value,
-                     int level, void (*dealloc)(intptr_t value));
+void map_insert_free(StringMap *map, const char *key, intptr_t value, int level,
+                     void (*dealloc)(intptr_t value));
 
 //
 // Get: Retrieves the value for a given key by traversing the tree

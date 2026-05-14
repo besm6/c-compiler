@@ -5,8 +5,8 @@
 #include <vector>
 
 #include "internal.h"
-#include "symtab.h"
 #include "semantic.h"
+#include "symtab.h"
 #include "xalloc.h"
 
 // Helper functions for type creation

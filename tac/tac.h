@@ -5,9 +5,9 @@
 extern "C" {
 #endif
 
-#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 
 // Forward declarations
 typedef struct Tac_Val Tac_Val;
@@ -48,8 +48,8 @@ typedef struct Tac_TopLevel {
         struct {
             char *name;
             bool global;
-            Tac_Param *params; // Linked list of identifiers
-            Tac_Instruction *body;  // Linked list of instructions
+            Tac_Param *params;     // Linked list of identifiers
+            Tac_Instruction *body; // Linked list of instructions
         } function;
         struct {
             char *name;

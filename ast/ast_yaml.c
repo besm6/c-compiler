@@ -356,8 +356,7 @@ static void export_init_item(FILE *fd, InitItem *item, int level)
             fprintf(fd, "designators:\n");
             while (des) {
                 print_indent(fd, level + 3);
-                fprintf(fd, "- kind: %s\n",
-                        des->kind == DESIGNATOR_ARRAY ? "array" : "field");
+                fprintf(fd, "- kind: %s\n", des->kind == DESIGNATOR_ARRAY ? "array" : "field");
                 if (des->kind == DESIGNATOR_ARRAY) {
                     print_indent(fd, level + 4);
                     fprintf(fd, "expr:\n");
@@ -371,8 +370,7 @@ static void export_init_item(FILE *fd, InitItem *item, int level)
         print_indent(fd, level + 2);
         fprintf(fd, "init:\n");
         print_indent(fd, level + 3);
-        fprintf(fd, "kind: %s\n",
-                item->init->kind == INITIALIZER_SINGLE ? "single" : "compound");
+        fprintf(fd, "kind: %s\n", item->init->kind == INITIALIZER_SINGLE ? "single" : "compound");
         if (item->init->kind == INITIALIZER_SINGLE) {
             print_indent(fd, level + 3);
             fprintf(fd, "expr:\n");

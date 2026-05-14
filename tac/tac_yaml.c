@@ -482,8 +482,7 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         fprintf(fd, "src:\n");
         export_yaml_val(fd, instr->u.copy_to_offset.src, level + 1);
         print_indent(fd, level);
-        fprintf(fd, "dst: %s\n",
-                instr->u.copy_to_offset.dst ? instr->u.copy_to_offset.dst : "");
+        fprintf(fd, "dst: %s\n", instr->u.copy_to_offset.dst ? instr->u.copy_to_offset.dst : "");
         print_indent(fd, level);
         fprintf(fd, "offset: %d\n", instr->u.copy_to_offset.offset);
         break;
@@ -529,8 +528,7 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
     case TAC_INSTRUCTION_FUN_CALL:
         fprintf(fd, "fun_call\n");
         print_indent(fd, level);
-        fprintf(fd, "fun_name: %s\n",
-                instr->u.fun_call.fun_name ? instr->u.fun_call.fun_name : "");
+        fprintf(fd, "fun_name: %s\n", instr->u.fun_call.fun_name ? instr->u.fun_call.fun_name : "");
         if (instr->u.fun_call.args) {
             print_indent(fd, level);
             fprintf(fd, "args:\n");
@@ -563,8 +561,7 @@ void tac_export_yaml(FILE *fd, const Tac_TopLevel *tl)
     switch (tl->kind) {
     case TAC_TOPLEVEL_FUNCTION:
         fprintf(fd, "  kind: function\n");
-        fprintf(fd, "  name: %s\n",
-                tl->u.function.name ? tl->u.function.name : "");
+        fprintf(fd, "  name: %s\n", tl->u.function.name ? tl->u.function.name : "");
         fprintf(fd, "  global: %s\n", tl->u.function.global ? "true" : "false");
         if (tl->u.function.params) {
             fprintf(fd, "  params:\n");
@@ -577,8 +574,7 @@ void tac_export_yaml(FILE *fd, const Tac_TopLevel *tl)
         break;
     case TAC_TOPLEVEL_STATIC_VARIABLE:
         fprintf(fd, "  kind: static_variable\n");
-        fprintf(fd, "  name: %s\n",
-                tl->u.static_variable.name ? tl->u.static_variable.name : "");
+        fprintf(fd, "  name: %s\n", tl->u.static_variable.name ? tl->u.static_variable.name : "");
         fprintf(fd, "  global: %s\n", tl->u.static_variable.global ? "true" : "false");
         fprintf(fd, "  type:\n");
         export_yaml_type(fd, tl->u.static_variable.type, 2);
@@ -589,8 +585,7 @@ void tac_export_yaml(FILE *fd, const Tac_TopLevel *tl)
         break;
     case TAC_TOPLEVEL_STATIC_CONSTANT:
         fprintf(fd, "  kind: static_constant\n");
-        fprintf(fd, "  name: %s\n",
-                tl->u.static_constant.name ? tl->u.static_constant.name : "");
+        fprintf(fd, "  name: %s\n", tl->u.static_constant.name ? tl->u.static_constant.name : "");
         fprintf(fd, "  type:\n");
         export_yaml_type(fd, tl->u.static_constant.type, 2);
         if (tl->u.static_constant.init) {

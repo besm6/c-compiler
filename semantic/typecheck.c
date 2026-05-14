@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "string_map.h"
-#include "symtab.h"
 #include "semantic.h"
+#include "string_map.h"
 #include "structtab.h"
+#include "symtab.h"
 #include "typetab.h"
 #include "xalloc.h"
 
@@ -42,7 +42,10 @@ void _Noreturn fatal_error(const char *message, ...)
     exit(1);
 }
 
-static void scope_increment(void) { scope_level++; }
+static void scope_increment(void)
+{
+    scope_level++;
+}
 static void scope_decrement(void)
 {
     scope_level--;
@@ -254,7 +257,8 @@ void typecheck_struct_decl(const Declaration *d)
         current_size = offset + get_size(f->type);
     }
     int size = round_away_from_zero(current_alignment, current_size);
-    structtab_add_struct(d->u.empty.type->u.struct_t.name, current_alignment, size, members, scope_level);
+    structtab_add_struct(d->u.empty.type->u.struct_t.name, current_alignment, size, members,
+                         scope_level);
 }
 
 // Convert an expression to a target type
@@ -438,11 +442,11 @@ Expr *typecheck_const(Expr *e)
     }
     case LITERAL_ENUM: {
         const Symbol *sym = symtab_get(e->u.literal->u.enum_const);
-        int val = sym->u.enum_val;
+        int val           = sym->u.enum_val;
         xfree(e->u.literal->u.enum_const);
-        e->u.literal->kind = LITERAL_INT;
+        e->u.literal->kind      = LITERAL_INT;
         e->u.literal->u.int_val = val;
-        e->type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+        e->type                 = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
         break;
     }
     default:
@@ -1151,8 +1155,8 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
     if (target_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
         const StructDef *struct_def = structtab_find(target_type->u.struct_t.name);
         const FieldDef *field       = struct_def->members;
-        InitItem *new_items   = NULL;
-        InitItem **current    = &new_items;
+        InitItem *new_items         = NULL;
+        InitItem **current          = &new_items;
 
         for (const InitItem *item = init->u.items; item; item = item->next) {
             if (!field) {
@@ -1222,9 +1226,14 @@ static bool try_eval_const_int(const Expr *e, long *out)
     switch (e->kind) {
     case EXPR_LITERAL:
         switch (e->u.literal->kind) {
-        case LITERAL_INT:  *out = e->u.literal->u.int_val;                   return true;
-        case LITERAL_CHAR: *out = (unsigned char)e->u.literal->u.char_val;   return true;
-        default:           return false;
+        case LITERAL_INT:
+            *out = e->u.literal->u.int_val;
+            return true;
+        case LITERAL_CHAR:
+            *out = (unsigned char)e->u.literal->u.char_val;
+            return true;
+        default:
+            return false;
         }
     case EXPR_CAST: {
         long inner;
@@ -1239,10 +1248,17 @@ static bool try_eval_const_int(const Expr *e, long *out)
         if (!try_eval_const_int(e->u.unary_op.expr, &inner))
             return false;
         switch (e->u.unary_op.op) {
-        case UNARY_NEG:     *out = -inner; return true;
-        case UNARY_PLUS:    *out =  inner; return true;
-        case UNARY_BIT_NOT: *out = ~inner; return true;
-        default:            return false;
+        case UNARY_NEG:
+            *out = -inner;
+            return true;
+        case UNARY_PLUS:
+            *out = inner;
+            return true;
+        case UNARY_BIT_NOT:
+            *out = ~inner;
+            return true;
+        default:
+            return false;
         }
     }
     default:
@@ -1328,17 +1344,17 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
         }
         /* Integer promotion: types narrower than int → int. */
         TypeKind k = ctrl->type->kind;
-        if (k == TYPE_CHAR || k == TYPE_SCHAR || k == TYPE_UCHAR ||
-            k == TYPE_SHORT || k == TYPE_USHORT) {
+        if (k == TYPE_CHAR || k == TYPE_SCHAR || k == TYPE_UCHAR || k == TYPE_SHORT ||
+            k == TYPE_USHORT) {
             ctrl = convert_to_kind(ctrl, TYPE_INT);
         }
         s->u.switch_stmt.expr = ctrl;
         /* Push a fresh context for case/default validation. */
         SwitchCtx ctx = { .seen_default = false, .outer = current_switch };
         map_init(&ctx.seen_cases);
-        current_switch = &ctx;
+        current_switch        = &ctx;
         s->u.switch_stmt.body = typecheck_statement(ret_type, s->u.switch_stmt.body);
-        current_switch = ctx.outer;
+        current_switch        = ctx.outer;
         map_destroy(&ctx.seen_cases);
         return s;
     }
@@ -1373,7 +1389,7 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
             fatal_error("Multiple default labels in one switch");
         }
         current_switch->seen_default = true;
-        s->u.default_stmt = typecheck_statement(ret_type, s->u.default_stmt);
+        s->u.default_stmt            = typecheck_statement(ret_type, s->u.default_stmt);
         return s;
     }
     case STMT_LABELED: {
@@ -1391,8 +1407,7 @@ void typecheck_local_var_decl(Declaration *d)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
-    if (d->u.var.specifiers &&
-        d->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF) {
+    if (d->u.var.specifiers && d->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF) {
         const InitDeclarator *decl = d->u.var.declarators;
         validate_type(decl->type);
         typetab_add(decl->name, decl->type, scope_level);
@@ -1454,7 +1469,7 @@ void typecheck_fn_decl(ExternalDecl *d)
         if (p && !p->next && p->type->kind == TYPE_VOID && !p->name) {
             free_param(p);
             adjusted_type->u.function.params = NULL;
-            p = NULL;
+            p                                = NULL;
         }
         while (p) {
             if (p->type->kind == TYPE_ARRAY) {
@@ -1542,8 +1557,7 @@ void typecheck_file_scope_var_decl(Declaration *d)
         printf("--- %s()\n", __func__);
         print_declaration(stdout, d, 4);
     }
-    if (d->u.var.specifiers &&
-        d->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF) {
+    if (d->u.var.specifiers && d->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF) {
         for (const InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
             validate_type(decl->type);
             typetab_add(decl->name, decl->type, scope_level);
@@ -1561,10 +1575,9 @@ void typecheck_file_scope_var_decl(Declaration *d)
         if (var_type->kind == TYPE_FUNCTION) {
             validate_type(var_type);
             Symbol *existing = symtab_get_opt(decl->name);
-            bool defined = existing && existing->kind == SYM_FUNC && existing->u.func.defined;
-            bool fn_global = (existing && existing->kind == SYM_FUNC)
-                                 ? existing->u.func.global
-                                 : global;
+            bool defined     = existing && existing->kind == SYM_FUNC && existing->u.func.defined;
+            bool fn_global =
+                (existing && existing->kind == SYM_FUNC) ? existing->u.func.global : global;
             symtab_add_fun(decl->name, var_type, fn_global, defined);
             continue;
         }

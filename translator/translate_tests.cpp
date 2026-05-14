@@ -5,10 +5,10 @@
 #include <string>
 
 #include "parser.h"
+#include "semantic.h"
 #include "structtab.h"
 #include "symtab.h"
 #include "tac.h"
-#include "semantic.h"
 #include "translate.h"
 #include "xalloc.h"
 
@@ -254,8 +254,7 @@ TEST_F(TranslateTest, UnaryPlusNoOp)
 
 TEST_F(TranslateTest, GotoEmitsJump)
 {
-    std::string yaml = CompileToYaml(
-        "int f(void) { goto end; end: return 0; }");
+    std::string yaml = CompileToYaml("int f(void) { goto end; end: return 0; }");
     EXPECT_EQ(yaml, R"(- toplevel:
   kind: function
   name: f
@@ -283,8 +282,7 @@ TEST_F(TranslateTest, GotoEmitsJump)
 
 TEST_F(TranslateTest, LabeledStatementEmitsLabel)
 {
-    std::string yaml = CompileToYaml(
-        "int f(void) { int x = 1; loop: x = 2; return x; }");
+    std::string yaml = CompileToYaml("int f(void) { int x = 1; loop: x = 2; return x; }");
     EXPECT_EQ(yaml, R"(- toplevel:
   kind: function
   name: f
@@ -502,8 +500,7 @@ TEST_F(TranslateTest, CompoundAssignBitwiseOr)
 // Enumerators without explicit values start at 0 and auto-increment.
 TEST_F(TranslateTest, EnumConstDefaultValues)
 {
-    std::string yaml = CompileToYaml(
-        "enum Color { RED, GREEN }; int f(void) { return GREEN; }");
+    std::string yaml = CompileToYaml("enum Color { RED, GREEN }; int f(void) { return GREEN; }");
     EXPECT_EQ(yaml, R"(- toplevel:
   kind: function
   name: f
@@ -522,8 +519,7 @@ TEST_F(TranslateTest, EnumConstDefaultValues)
 // An explicit initializer overrides the auto-increment.
 TEST_F(TranslateTest, EnumConstExplicitValue)
 {
-    std::string yaml = CompileToYaml(
-        "enum Color { RED = 5, GREEN }; int f(void) { return RED; }");
+    std::string yaml = CompileToYaml("enum Color { RED = 5, GREEN }; int f(void) { return RED; }");
     EXPECT_EQ(yaml, R"(- toplevel:
   kind: function
   name: f
@@ -542,8 +538,7 @@ TEST_F(TranslateTest, EnumConstExplicitValue)
 // Enum declared inside a function body is scoped to that body.
 TEST_F(TranslateTest, EnumConstLocalDecl)
 {
-    std::string yaml = CompileToYaml(
-        "int f(void) { enum Dir { UP = 10, DOWN }; return DOWN; }");
+    std::string yaml = CompileToYaml("int f(void) { enum Dir { UP = 10, DOWN }; return DOWN; }");
     EXPECT_EQ(yaml, R"(- toplevel:
   kind: function
   name: f
@@ -562,8 +557,7 @@ TEST_F(TranslateTest, EnumConstLocalDecl)
 // for-init declaration emits COPY before the loop test label.
 TEST_F(TranslateTest, ForLoopInitDecl)
 {
-    std::string yaml = CompileToYaml(
-        "int f(void) { for (int i = 5; ; ) { return i; } return 0; }");
+    std::string yaml = CompileToYaml("int f(void) { for (int i = 5; ; ) { return i; } return 0; }");
     EXPECT_EQ(yaml, R"(- toplevel:
   kind: function
   name: f

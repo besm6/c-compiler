@@ -256,7 +256,7 @@ static void scan_line_marker()
         consume_char();
     }
     yytext[yyleng] = '\0';
-    int line_num = atoi(yytext); // Convert to integer
+    int line_num   = atoi(yytext); // Convert to integer
 
     // Skip whitespace
     while (isspace(next_char) && next_char != '\n') {

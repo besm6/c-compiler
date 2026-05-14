@@ -5,11 +5,11 @@
 
 // Internal clone functions not declared in ast.h but with external linkage.
 extern "C" {
-DeclSpec      *clone_decl_spec(const DeclSpec *spec);
-FunctionSpec  *clone_function_spec(const FunctionSpec *fs);
+DeclSpec *clone_decl_spec(const DeclSpec *spec);
+FunctionSpec *clone_function_spec(const FunctionSpec *fs);
 AlignmentSpec *clone_alignment_spec(const AlignmentSpec *as);
-Designator    *clone_designator(const Designator *design);
-Initializer   *clone_initializer(const Initializer *init);
+Designator *clone_designator(const Designator *design);
+Initializer *clone_initializer(const Initializer *init);
 }
 
 class AstCloneTest : public ::testing::Test {
@@ -27,7 +27,7 @@ protected:
 TEST_F(AstCloneTest, CloneTypeQualifier)
 {
     TypeQualifier *orig = new_type_qualifier(TYPE_QUALIFIER_CONST);
-    orig->next = new_type_qualifier(TYPE_QUALIFIER_VOLATILE);
+    orig->next          = new_type_qualifier(TYPE_QUALIFIER_VOLATILE);
 
     TypeQualifier *copy = clone_type_qualifier(orig);
     ASSERT_NE(nullptr, copy);
@@ -60,8 +60,8 @@ TEST_F(AstCloneTest, CloneType)
 
 TEST_F(AstCloneTest, CloneTypePointer)
 {
-    Type *orig = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
-    orig->u.pointer.target = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    Type *orig                 = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
+    orig->u.pointer.target     = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     orig->u.pointer.qualifiers = new_type_qualifier(TYPE_QUALIFIER_CONST);
 
     Type *copy = clone_type(orig, __func__, __FILE__, __LINE__);
@@ -76,11 +76,11 @@ TEST_F(AstCloneTest, CloneTypePointer)
 
 TEST_F(AstCloneTest, CloneTypeStruct)
 {
-    Type *orig = new_type(TYPE_STRUCT, __func__, __FILE__, __LINE__);
-    orig->u.struct_t.name = xstrdup("point");
-    Field *f = new_field();
-    f->type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    f->name = xstrdup("x");
+    Type *orig              = new_type(TYPE_STRUCT, __func__, __FILE__, __LINE__);
+    orig->u.struct_t.name   = xstrdup("point");
+    Field *f                = new_field();
+    f->type                 = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    f->name                 = xstrdup("x");
     orig->u.struct_t.fields = f;
 
     Type *copy = clone_type(orig, __func__, __FILE__, __LINE__);
@@ -96,8 +96,8 @@ TEST_F(AstCloneTest, CloneTypeStruct)
 
 TEST_F(AstCloneTest, CloneTypeEnum)
 {
-    Type *orig = new_type(TYPE_ENUM, __func__, __FILE__, __LINE__);
-    orig->u.enum_t.name = xstrdup("color");
+    Type *orig                 = new_type(TYPE_ENUM, __func__, __FILE__, __LINE__);
+    orig->u.enum_t.name        = xstrdup("color");
     orig->u.enum_t.enumerators = new_enumerator(xstrdup("RED"), nullptr);
 
     Type *copy = clone_type(orig, __func__, __FILE__, __LINE__);
@@ -113,7 +113,7 @@ TEST_F(AstCloneTest, CloneTypeEnum)
 
 TEST_F(AstCloneTest, CloneTypeTypedefName)
 {
-    Type *orig = new_type(TYPE_TYPEDEF_NAME, __func__, __FILE__, __LINE__);
+    Type *orig                = new_type(TYPE_TYPEDEF_NAME, __func__, __FILE__, __LINE__);
     orig->u.typedef_name.name = xstrdup("size_t");
 
     Type *copy = clone_type(orig, __func__, __FILE__, __LINE__);
@@ -129,12 +129,12 @@ TEST_F(AstCloneTest, CloneTypeTypedefName)
 
 TEST_F(AstCloneTest, CloneTypeFunction)
 {
-    Type *orig = new_type(TYPE_FUNCTION, __func__, __FILE__, __LINE__);
+    Type *orig                   = new_type(TYPE_FUNCTION, __func__, __FILE__, __LINE__);
     orig->u.function.return_type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    Param *p = new_param();
-    p->name = xstrdup("n");
-    p->type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    orig->u.function.params = p;
+    Param *p                     = new_param();
+    p->name                      = xstrdup("n");
+    p->type                      = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    orig->u.function.params      = p;
 
     Type *copy = clone_type(orig, __func__, __FILE__, __LINE__);
     ASSERT_NE(nullptr, copy);
@@ -151,7 +151,7 @@ TEST_F(AstCloneTest, CloneTypeFunction)
 
 TEST_F(AstCloneTest, CloneLiteralInt)
 {
-    Literal *orig = new_literal(LITERAL_INT);
+    Literal *orig   = new_literal(LITERAL_INT);
     orig->u.int_val = 42;
 
     Literal *copy = clone_literal(orig);
@@ -166,7 +166,7 @@ TEST_F(AstCloneTest, CloneLiteralInt)
 
 TEST_F(AstCloneTest, CloneLiteralFloat)
 {
-    Literal *orig = new_literal(LITERAL_FLOAT);
+    Literal *orig    = new_literal(LITERAL_FLOAT);
     orig->u.real_val = 3.14;
 
     Literal *copy = clone_literal(orig);
@@ -181,7 +181,7 @@ TEST_F(AstCloneTest, CloneLiteralFloat)
 
 TEST_F(AstCloneTest, CloneLiteralChar)
 {
-    Literal *orig = new_literal(LITERAL_CHAR);
+    Literal *orig    = new_literal(LITERAL_CHAR);
     orig->u.char_val = 'A';
 
     Literal *copy = clone_literal(orig);
@@ -196,7 +196,7 @@ TEST_F(AstCloneTest, CloneLiteralChar)
 
 TEST_F(AstCloneTest, CloneLiteralString)
 {
-    Literal *orig = new_literal(LITERAL_STRING);
+    Literal *orig      = new_literal(LITERAL_STRING);
     orig->u.string_val = xstrdup("hello");
 
     Literal *copy = clone_literal(orig);
@@ -212,7 +212,7 @@ TEST_F(AstCloneTest, CloneLiteralString)
 
 TEST_F(AstCloneTest, CloneLiteralEnum)
 {
-    Literal *orig = new_literal(LITERAL_ENUM);
+    Literal *orig      = new_literal(LITERAL_ENUM);
     orig->u.enum_const = xstrdup("RED");
 
     Literal *copy = clone_literal(orig);
@@ -230,7 +230,7 @@ TEST_F(AstCloneTest, CloneLiteralEnum)
 
 TEST_F(AstCloneTest, CloneExpression)
 {
-    Expr *orig = new_expression(EXPR_VAR);
+    Expr *orig  = new_expression(EXPR_VAR);
     orig->u.var = xstrdup("x");
 
     Expr *copy = clone_expression(orig);
@@ -253,9 +253,9 @@ TEST_F(AstCloneTest, CloneExpressionNull)
 
 TEST_F(AstCloneTest, CloneUnaryOp)
 {
-    Expr *orig = new_expression(EXPR_UNARY_OP);
-    orig->u.unary_op.op = UNARY_NEG;
-    orig->u.unary_op.expr = new_expression(EXPR_VAR);
+    Expr *orig                   = new_expression(EXPR_UNARY_OP);
+    orig->u.unary_op.op          = UNARY_NEG;
+    orig->u.unary_op.expr        = new_expression(EXPR_VAR);
     orig->u.unary_op.expr->u.var = xstrdup("x");
 
     Expr *copy = clone_expression(orig);
@@ -273,11 +273,11 @@ TEST_F(AstCloneTest, CloneUnaryOp)
 
 TEST_F(AstCloneTest, CloneBinaryOp)
 {
-    Expr *orig = new_expression(EXPR_BINARY_OP);
-    orig->u.binary_op.op = BINARY_ADD;
-    orig->u.binary_op.left = new_expression(EXPR_VAR);
-    orig->u.binary_op.left->u.var = xstrdup("a");
-    orig->u.binary_op.right = new_expression(EXPR_VAR);
+    Expr *orig                     = new_expression(EXPR_BINARY_OP);
+    orig->u.binary_op.op           = BINARY_ADD;
+    orig->u.binary_op.left         = new_expression(EXPR_VAR);
+    orig->u.binary_op.left->u.var  = xstrdup("a");
+    orig->u.binary_op.right        = new_expression(EXPR_VAR);
     orig->u.binary_op.right->u.var = xstrdup("b");
 
     Expr *copy = clone_expression(orig);
@@ -296,12 +296,12 @@ TEST_F(AstCloneTest, CloneBinaryOp)
 
 TEST_F(AstCloneTest, CloneAssignOp)
 {
-    Expr *orig = new_expression(EXPR_ASSIGN);
-    orig->u.assign.op = ASSIGN_SIMPLE;
-    orig->u.assign.target = new_expression(EXPR_VAR);
-    orig->u.assign.target->u.var = xstrdup("x");
-    orig->u.assign.value = new_expression(EXPR_LITERAL);
-    orig->u.assign.value->u.literal = new_literal(LITERAL_INT);
+    Expr *orig                                 = new_expression(EXPR_ASSIGN);
+    orig->u.assign.op                          = ASSIGN_SIMPLE;
+    orig->u.assign.target                      = new_expression(EXPR_VAR);
+    orig->u.assign.target->u.var               = xstrdup("x");
+    orig->u.assign.value                       = new_expression(EXPR_LITERAL);
+    orig->u.assign.value->u.literal            = new_literal(LITERAL_INT);
     orig->u.assign.value->u.literal->u.int_val = 1;
 
     Expr *copy = clone_expression(orig);
@@ -321,8 +321,8 @@ TEST_F(AstCloneTest, CloneAssignOp)
 TEST_F(AstCloneTest, CloneField)
 {
     Field *orig = new_field();
-    orig->type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    orig->name = xstrdup("x");
+    orig->type  = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    orig->name  = xstrdup("x");
 
     Field *copy = clone_field(orig);
     ASSERT_NE(nullptr, copy);
@@ -344,12 +344,12 @@ TEST_F(AstCloneTest, CloneFieldNull)
 
 TEST_F(AstCloneTest, CloneEnumerator)
 {
-    Expr *val = new_expression(EXPR_LITERAL);
-    val->u.literal = new_literal(LITERAL_INT);
+    Expr *val                 = new_expression(EXPR_LITERAL);
+    val->u.literal            = new_literal(LITERAL_INT);
     val->u.literal->u.int_val = 0;
 
     Enumerator *orig = new_enumerator(xstrdup("RED"), val);
-    orig->next = new_enumerator(xstrdup("GREEN"), nullptr);
+    orig->next       = new_enumerator(xstrdup("GREEN"), nullptr);
 
     Enumerator *copy = clone_enumerator(orig);
     ASSERT_NE(nullptr, copy);
@@ -374,8 +374,8 @@ TEST_F(AstCloneTest, CloneEnumeratorNull)
 TEST_F(AstCloneTest, CloneParam)
 {
     Param *orig = new_param();
-    orig->name = xstrdup("n");
-    orig->type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    orig->name  = xstrdup("n");
+    orig->type  = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
 
     Param *copy = clone_param(orig);
     ASSERT_NE(nullptr, copy);
@@ -398,7 +398,7 @@ TEST_F(AstCloneTest, CloneParamNull)
 TEST_F(AstCloneTest, CloneFunctionSpec)
 {
     FunctionSpec *orig = new_function_spec(FUNC_SPEC_INLINE);
-    orig->next = new_function_spec(FUNC_SPEC_NORETURN);
+    orig->next         = new_function_spec(FUNC_SPEC_NORETURN);
 
     FunctionSpec *copy = clone_function_spec(orig);
     ASSERT_NE(nullptr, copy);
@@ -422,7 +422,7 @@ TEST_F(AstCloneTest, CloneFunctionSpecNull)
 TEST_F(AstCloneTest, CloneAlignmentSpec)
 {
     AlignmentSpec *orig_t = new_alignment_spec(ALIGN_SPEC_TYPE);
-    orig_t->u.type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    orig_t->u.type        = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
 
     AlignmentSpec *copy_t = clone_alignment_spec(orig_t);
     ASSERT_NE(nullptr, copy_t);
@@ -433,9 +433,9 @@ TEST_F(AstCloneTest, CloneAlignmentSpec)
     free_alignment_spec(orig_t);
     free_alignment_spec(copy_t);
 
-    AlignmentSpec *orig_e = new_alignment_spec(ALIGN_SPEC_EXPR);
-    orig_e->u.expr = new_expression(EXPR_LITERAL);
-    orig_e->u.expr->u.literal = new_literal(LITERAL_INT);
+    AlignmentSpec *orig_e                = new_alignment_spec(ALIGN_SPEC_EXPR);
+    orig_e->u.expr                       = new_expression(EXPR_LITERAL);
+    orig_e->u.expr->u.literal            = new_literal(LITERAL_INT);
     orig_e->u.expr->u.literal->u.int_val = 8;
 
     AlignmentSpec *copy_e = clone_alignment_spec(orig_e);
@@ -457,7 +457,7 @@ TEST_F(AstCloneTest, CloneAlignmentSpecNull)
 
 TEST_F(AstCloneTest, CloneDeclSpec)
 {
-    DeclSpec *orig = new_decl_spec();
+    DeclSpec *orig   = new_decl_spec();
     orig->qualifiers = new_type_qualifier(TYPE_QUALIFIER_CONST);
     orig->func_specs = new_function_spec(FUNC_SPEC_INLINE);
 
@@ -480,7 +480,7 @@ TEST_F(AstCloneTest, CloneDeclSpecNull)
 TEST_F(AstCloneTest, CloneStorageClass)
 {
     DeclSpec *orig = new_decl_spec();
-    orig->storage = STORAGE_CLASS_STATIC;
+    orig->storage  = STORAGE_CLASS_STATIC;
 
     DeclSpec *copy = clone_decl_spec(orig);
     ASSERT_NE(nullptr, copy);
@@ -496,9 +496,9 @@ TEST_F(AstCloneTest, CloneStorageClass)
 
 TEST_F(AstCloneTest, CloneDesignator)
 {
-    Designator *orig_a = new_designator(DESIGNATOR_ARRAY);
-    orig_a->u.expr = new_expression(EXPR_LITERAL);
-    orig_a->u.expr->u.literal = new_literal(LITERAL_INT);
+    Designator *orig_a                   = new_designator(DESIGNATOR_ARRAY);
+    orig_a->u.expr                       = new_expression(EXPR_LITERAL);
+    orig_a->u.expr->u.literal            = new_literal(LITERAL_INT);
     orig_a->u.expr->u.literal->u.int_val = 3;
 
     Designator *copy_a = clone_designator(orig_a);
@@ -511,7 +511,7 @@ TEST_F(AstCloneTest, CloneDesignator)
     free_designator(copy_a);
 
     Designator *orig_f = new_designator(DESIGNATOR_FIELD);
-    orig_f->u.name = xstrdup("x");
+    orig_f->u.name     = xstrdup("x");
 
     Designator *copy_f = clone_designator(orig_f);
     ASSERT_NE(nullptr, copy_f);
@@ -533,9 +533,9 @@ TEST_F(AstCloneTest, CloneDesignatorNull)
 
 TEST_F(AstCloneTest, CloneInitializer)
 {
-    Initializer *orig_s = new_initializer(INITIALIZER_SINGLE);
-    orig_s->u.expr = new_expression(EXPR_LITERAL);
-    orig_s->u.expr->u.literal = new_literal(LITERAL_INT);
+    Initializer *orig_s                  = new_initializer(INITIALIZER_SINGLE);
+    orig_s->u.expr                       = new_expression(EXPR_LITERAL);
+    orig_s->u.expr->u.literal            = new_literal(LITERAL_INT);
     orig_s->u.expr->u.literal->u.int_val = 7;
 
     Initializer *copy_s = clone_initializer(orig_s);
@@ -547,13 +547,13 @@ TEST_F(AstCloneTest, CloneInitializer)
     free_initializer(orig_s);
     free_initializer(copy_s);
 
-    Initializer *inner = new_initializer(INITIALIZER_SINGLE);
-    inner->u.expr = new_expression(EXPR_LITERAL);
-    inner->u.expr->u.literal = new_literal(LITERAL_INT);
+    Initializer *inner                  = new_initializer(INITIALIZER_SINGLE);
+    inner->u.expr                       = new_expression(EXPR_LITERAL);
+    inner->u.expr->u.literal            = new_literal(LITERAL_INT);
     inner->u.expr->u.literal->u.int_val = 1;
 
     Initializer *orig_c = new_initializer(INITIALIZER_COMPOUND);
-    orig_c->u.items = new_init_item(nullptr, inner);
+    orig_c->u.items     = new_init_item(nullptr, inner);
 
     Initializer *copy_c = clone_initializer(orig_c);
     ASSERT_NE(nullptr, copy_c);
@@ -575,11 +575,11 @@ TEST_F(AstCloneTest, CloneInitializerNull)
 TEST_F(AstCloneTest, CloneInitItem)
 {
     Designator *des = new_designator(DESIGNATOR_FIELD);
-    des->u.name = xstrdup("x");
+    des->u.name     = xstrdup("x");
 
-    Initializer *init = new_initializer(INITIALIZER_SINGLE);
-    init->u.expr = new_expression(EXPR_LITERAL);
-    init->u.expr->u.literal = new_literal(LITERAL_INT);
+    Initializer *init                  = new_initializer(INITIALIZER_SINGLE);
+    init->u.expr                       = new_expression(EXPR_LITERAL);
+    init->u.expr->u.literal            = new_literal(LITERAL_INT);
     init->u.expr->u.literal->u.int_val = 5;
 
     InitItem *orig = new_init_item(des, init);
@@ -604,9 +604,9 @@ TEST_F(AstCloneTest, CloneInitItemNull)
 
 TEST_F(AstCloneTest, CloneGenericAssoc)
 {
-    GenericAssoc *orig_t = new_generic_assoc(GENERIC_ASSOC_TYPE);
-    orig_t->u.type_assoc.type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    orig_t->u.type_assoc.expr = new_expression(EXPR_LITERAL);
+    GenericAssoc *orig_t                 = new_generic_assoc(GENERIC_ASSOC_TYPE);
+    orig_t->u.type_assoc.type            = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    orig_t->u.type_assoc.expr            = new_expression(EXPR_LITERAL);
     orig_t->u.type_assoc.expr->u.literal = new_literal(LITERAL_INT);
     orig_t->u.type_assoc.expr->u.literal->u.int_val = 1;
 
@@ -620,8 +620,8 @@ TEST_F(AstCloneTest, CloneGenericAssoc)
     free_generic_assoc(orig_t);
     free_generic_assoc(copy_t);
 
-    GenericAssoc *orig_d = new_generic_assoc(GENERIC_ASSOC_DEFAULT);
-    orig_d->u.default_assoc = new_expression(EXPR_VAR);
+    GenericAssoc *orig_d           = new_generic_assoc(GENERIC_ASSOC_DEFAULT);
+    orig_d->u.default_assoc        = new_expression(EXPR_VAR);
     orig_d->u.default_assoc->u.var = xstrdup("x");
 
     GenericAssoc *copy_d = clone_generic_assoc(orig_d);

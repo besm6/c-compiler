@@ -128,12 +128,12 @@ struct Field {
 struct Enumerator {
     Enumerator *next; /* linked list */
     Ident name;
-    Expr *value;      /* optional */
+    Expr *value; /* optional */
 };
 
 struct Param {
     Param *next; /* linked list */
-    Ident name; /* optional */
+    Ident name;  /* optional */
     Type *type;
     DeclSpec *specifiers; /* optional */
 };
@@ -198,7 +198,7 @@ struct InitDeclarator {
     InitDeclarator *next; /* linked list */
     Type *type;
     Ident name;
-    Initializer *init;    /* optional */
+    Initializer *init; /* optional */
 };
 
 typedef enum { INITIALIZER_SINGLE, INITIALIZER_COMPOUND } InitializerKind;
@@ -540,7 +540,7 @@ void free_statement(Stmt *stmt);
 void free_decl_or_stmt(DeclOrStmt *ds);
 void free_for_init(ForInit *fi);
 void free_external_decl(ExternalDecl *ext_decl);
-void free_program(Program* program);
+void free_program(Program *program);
 
 //
 // Clone
