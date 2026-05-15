@@ -2,7 +2,7 @@
 
 A C compiler project aimed at the [BESM-6](https://en.wikipedia.org/wiki/BESM-6) mainframe. The long-term idea is a self-hosting toolchain that can help build systems such as the [Unix v7 port for BESM-6](https://github.com/besm6/v7besm) and work with the [Dubna monitor](https://github.com/besm6/dubna).
 
-**This repository is unfinished.** The frontend (lexing, parsing, AST) is in active use; semantic analysis runs in `lower`; three-address code is produced for a subset of the language and can be exported, while a full TAC pipeline and machine backend remain work in progress. For file-by-file detail, build options, and tests, see [docs/Technical_Reference.md](docs/Technical_Reference.md). Planned work and estimates are tracked in [TODO.md](TODO.md).
+**This repository is unfinished.** The frontend (lexing, parsing, AST, semantic analysis, and full TAC lowering) is complete. A machine backend for BESM-6 remains work in progress. For file-by-file detail, build options, and tests, see [docs/Technical_Reference.md](docs/Technical_Reference.md). Planned work and estimates are tracked in [TODO.md](TODO.md).
 
 ## Goals
 
@@ -16,7 +16,7 @@ A C compiler project aimed at the [BESM-6](https://en.wikipedia.org/wiki/BESM-6)
 |------|--------|
 | **Build** | CMake-based build; optional `Makefile` wrapper. Unit tests via GoogleTest. |
 | **`parse`** | Reads C source and writes an abstract syntax tree (AST): binary `.ast`, or `--yaml` / `--dot` for inspection and graphs. |
-| **`lower`** | Reads a binary AST stream and, per top-level declaration, runs **typecheck → `translate` → emit**. Output can be **binary TAC** (default), **YAML-like listing** via the TAC pretty-printer, or **Graphviz DOT** (`tac_graphviz`). Semantic analysis handles `typedef` (scoped `typetab`) and full `switch` validation (integer controlling expression with integer promotion; constant integer case values; duplicate-case and multiple-default rejection). TAC lowering is **mostly complete**: arithmetic, control flow, functions (direct calls only), pointers, arrays, structs, and casts all lower correctly. Known gaps: enum constants as expressions, compound initializers for local aggregates, indirect function-pointer calls, `_Generic`, and compound literals. |
+| **`lower`** | Reads a binary AST stream and, per top-level declaration, runs **typecheck → `translate` → emit**. Output can be **binary TAC** (default), **YAML-like listing** via the TAC pretty-printer, or **Graphviz DOT** (`tac_graphviz`). Semantic analysis handles `typedef` (scoped `typetab`) and full `switch` validation (integer controlling expression with integer promotion; constant integer case values; duplicate-case and multiple-default rejection). TAC lowering is **complete**: arithmetic, control flow, functions (direct and indirect), pointers, arrays, structs, casts, `_Generic`, compound literals, and aggregate initializers all lower correctly. |
 | **TAC** | `tac/` builds **alloc/print/free/compare**, **`tac_export`** and **`tac_import`** (binary stream), **`tac_export_yaml`** (YAML listing), and **`tac_graphviz`** (DOT graph). Lowering lives in **`translator/translate.c`**. |
 | **Preprocessor, assembler, BESM-6 code generation** | **Not in this repo** at this stage. |
 
@@ -34,7 +34,7 @@ A compiler is usually described as a pipeline. You can think of it like an assem
 4. **Intermediate code** (here, *three-address code*, TAC) is a machine-neutral form that is easier to optimize and translate than raw C syntax.
 5. **Backend** (not present yet) would turn TAC into BESM-6 assembly or object code.
 
-Stages 1–3 are largely in place for parsing and checking. Stage 4 is **mostly complete**: AST is lowered to TAC for the large majority of the language, with a small number of remaining gaps (see [TODO.md](TODO.md)). TAC can be emitted as **binary** or re-imported, listed as **YAML** (`--yaml`), or rendered as **DOT** (`--dot`). Stage 5 is future work.
+Stages 1–3 are fully in place. Stage 4 is **complete**: the entire C11 is lowered to TAC. TAC can be emitted as **binary** or re-imported, listed as **YAML** (`--yaml`), or rendered as **DOT** (`--dot`). Stage 5 is future work.
 
 ```mermaid
 flowchart LR

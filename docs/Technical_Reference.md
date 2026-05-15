@@ -53,7 +53,7 @@ parse input.c -                 # stdout
 
 **Processing order** (per top-level declaration): `resolve` → `typecheck_global_decl` → `label_loops` → `translate` → emit.
 
-**TAC lowering status:** Mostly complete. Arithmetic, control flow, direct function calls, pointers, arrays, structs/unions, and type casts all lower correctly. Known remaining gaps: enum constants as expressions (`LITERAL_ENUM`), compound initializers for local aggregates (`INITIALIZER_COMPOUND`), indirect function-pointer calls, `_Generic` selection, and compound literals. See [TODO.md](../TODO.md) for the full task list.
+**TAC lowering status:** Complete. Arithmetic, control flow, all function call forms (direct and indirect), pointers, arrays, structs/unions, type casts, `_Generic` selection, compound literals, and aggregate local-variable initializers all lower correctly.
 
 **Options:** `--tac`, `--yaml`, `--dot`, `-v`, `-D`, `-h` (see `translator/main.c`).
 
@@ -81,7 +81,7 @@ Recursive-descent parser guided by the C11 grammar in `grammar/` (not generated 
 | `main.c` | `parse` entry: `parse` → `export_ast` / `export_yaml` / `export_dot` |
 | `fixture.h` | Test helpers |
 
-Parser tests: `simple_tests.cpp`, `statement_tests.cpp`, `operator_tests.cpp`, `type_tests.cpp`, `struct_tests.cpp`, `declaration_tests.cpp`, `constant_tests.cpp`, `serialize_tests.cpp` → `parser-tests`. `negative_tests.cpp` is present but **commented out** in `parser/CMakeLists.txt`.
+Parser tests: `simple_tests.cpp`, `statement_tests.cpp`, `operator_tests.cpp`, `type_tests.cpp`, `struct_tests.cpp`, `declaration_tests.cpp`, `constant_tests.cpp`, `serialize_tests.cpp`, `negative_tests.cpp` → `parser-tests`.
 
 ### AST (`ast/`)
 
@@ -112,7 +112,7 @@ AST values are implemented in C (`ast.h` and companion `.c` files). Binary seria
 | `structtab_print.c` | Debug printer for structtab entries |
 | `typetab_print.c` | Debug printer for typetab entries |
 
-Tests: `symtab_tests.cpp` → `symtab-tests`; `structtab_tests.cpp` → `structtab-tests`; `typetab_tests.cpp` → `typetab-tests`; `typecheck_tests.cpp` → `typecheck-tests`. The file `const_convert_tests.cpp` exists but is not yet registered in `semantic/CMakeLists.txt`.
+Tests: `symtab_tests.cpp` → `symtab-tests`; `structtab_tests.cpp` → `structtab-tests`; `typetab_tests.cpp` → `typetab-tests`; `typecheck_tests.cpp` → `typecheck-tests`; `const_convert_tests.cpp` → `const-convert-tests` (22 tests for constant-expression conversion).
 
 ### Translator (`translator/`)
 
@@ -322,12 +322,11 @@ Test executables and their sources:
 | `structtab-tests` | `semantic/structtab_tests.cpp` |
 | `typetab-tests` | `semantic/typetab_tests.cpp` |
 | `typecheck-tests` | `semantic/typecheck_tests.cpp` |
+| `const-convert-tests` | `semantic/const_convert_tests.cpp` |
 | `tac-yaml-tests` | `tac/tac_yaml_tests.cpp` |
 | `tac-dot-tests` | `tac/tac_graphviz_tests.cpp` |
 | `tac-binary-tests` | `tac/tac_binary_tests.cpp` |
 | `translate-tests` | `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` |
-
-Disabled or unwired: `parser/negative_tests.cpp` (commented out in CMake); `semantic/const_convert_tests.cpp` (not registered in CMake).
 
 Run a single binary from `build/`:
 

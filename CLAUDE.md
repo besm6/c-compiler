@@ -22,6 +22,7 @@ Run a single test binary directly (semantic and translator tests live in subdire
 ./build/semantic/symtab-tests
 ./build/semantic/structtab-tests
 ./build/semantic/typetab-tests
+./build/semantic/const-convert-tests
 ./build/translator/translate-tests
 ```
 
@@ -70,19 +71,19 @@ Source (.c)
 
 **`parse`** (`parser/main.c`): Lexes and parses a C source file, outputs a binary AST stream (via `wio`) to stdout, or `--yaml`/`--dot` for human-readable forms.
 
-**`lower`** (`translator/main.c`): Reads the binary AST, runs semantic analysis and TAC lowering, outputs TAC. Lowering is mostly complete; see the phases table for remaining gaps. The TAC YAML format is documented in [docs/Technical_Reference.md](docs/Technical_Reference.md).
+**`lower`** (`translator/main.c`): Reads the binary AST, runs semantic analysis and TAC lowering, outputs TAC. Lowering is complete. The TAC YAML format is documented in [docs/Technical_Reference.md](docs/Technical_Reference.md).
 
 ### Compiler phases
 
 | Phase | Location | Status |
 |---|---|---|
 | Lexer | `scanner/` | Complete |
-| Parser | `parser/` | Complete for C11 subset; `negative_tests.cpp` disabled |
+| Parser | `parser/` | Complete |
 | AST | `ast/` | Complete (alloc/free/export/import/yaml/graphviz/clone/compare) |
-| Type checking | `semantic/typecheck.c` | Mostly complete; `EXPR_GENERIC` and `EXPR_COMPOUND` not yet handled |
+| Type checking | `semantic/typecheck.c` | Complete |
 | Loop labeling | `semantic/label_loops.c` | Complete |
-| Const conversion | `semantic/const_convert.c` | Complete; `const_convert_tests.cpp` not yet registered in CMake |
-| AST → TAC lowering | `translator/translate.c`, `expr.c`, `stmt.c` | Mostly complete; gaps: `LITERAL_ENUM`, compound initializers, indirect calls, `_Generic`, compound literals |
+| Const conversion | `semantic/const_convert.c` | Complete |
+| AST → TAC lowering | `translator/translate.c`, `expr.c`, `stmt.c` | Complete |
 | BESM-6 code gen | — | Not started |
 
 ### Key data structures
@@ -104,12 +105,13 @@ Source (.c)
 - **Scope tracking**: `scope_level` is incremented on block entry; `scope_decrement()` decrements it and calls `symtab_purge`, `structtab_purge`, and `typetab_purge` — all backed by `map_remove_level_free`.
 - **`typedef` handling**: `STORAGE_CLASS_TYPEDEF` declarations are registered in `typetab`. `validate_type` resolves `TYPE_TYPEDEF_NAME` recursively; all type-utility helpers (`get_size`, `get_alignment`, `is_integer`, etc.) resolve typedef names transparently.
 - **`switch` semantic validation**: Integer controlling expression with `int` promotion via `convert_to_kind`; constant integer case values evaluated by `try_eval_const_int`; duplicates detected via a `SwitchCtx` stack; multiple defaults and stray case/default labels rejected.
-- **TAC lowering coverage**: `translate.c` calls `fatal_error()` on unimplemented constructs. Remaining gaps: `LITERAL_ENUM` (enum constants in expressions), `INITIALIZER_COMPOUND` (aggregate local-variable init), `EXPR_GENERIC` (`_Generic`), and `EXPR_COMPOUND` (compound literals).
+- **TAC lowering coverage**: `translate.c` calls `fatal_error()` on unimplemented constructs. All C11 constructs are now lowered.
 
 ### AST quirks
 
 - **Function prototypes vs. definitions**: Only function *definitions* (with a body) parse as `EXTERNAL_DECL_FUNCTION`. A bare prototype such as `int f(int);` parses as `EXTERNAL_DECL_DECLARATION` / `DECL_VAR` with a `TYPE_FUNCTION` declarator type. The typecheck pass (`typecheck_file_scope_var_decl`) detects `TYPE_FUNCTION` and registers it via `symtab_add_fun()`.
 - **`f(void)` sentinel**: The parser represents a `(void)` parameter list as a single `Param` node with `TYPE_VOID` and a NULL name (not as an empty list). `typecheck_fn_decl()` strips this sentinel before param processing. Params with a NULL name are skipped when adding to symtab.
+- **`_Static_assert` in struct/union bodies**: The parser accepts `_Static_assert` as a struct/union member. The AST uses a `FieldKind` discriminator to distinguish it from regular member declarations.
 
 ## Tests
 
@@ -117,13 +119,12 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 
 - `ast/clone_tests.cpp` → `ast-tests`
 - `scanner/tests.cpp` → `scanner-tests`
-- `parser/simple_tests.cpp`, `statement_tests.cpp`, … (8 files) → `parser-tests`
+- `parser/simple_tests.cpp`, `statement_tests.cpp`, … (9 files, including `negative_tests.cpp`) → `parser-tests`
 - `tac/tac_yaml_tests.cpp`, `tac_graphviz_tests.cpp`, `tac_binary_tests.cpp` → `tac-yaml-tests`, `tac-dot-tests`, `tac-binary-tests`
 - `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp` → 4 separate executables
+- `semantic/const_convert_tests.cpp` → `const-convert-tests`
 - `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`
 - `libutil/string_map_tests.cpp`, `wio_tests.cpp` → `libutil-tests`, `wio-tests`
-
-Two test files are disabled in CMake (known failures): `parser/negative_tests.cpp` and `semantic/const_convert_tests.cpp`.
 
 ## Documentation
 
