@@ -33,6 +33,7 @@ void xfree_all(void);
 char *xstrdup(const char *str);
 void xreport_lost_memory(void);
 size_t xtotal_allocated_size(void);
+char *xstruniq(const char *prefix, int *counter);
 
 #ifdef __cplusplus
 }

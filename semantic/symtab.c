@@ -7,10 +7,10 @@
 #include "internal.h"
 #include "semantic.h"
 #include "string_map.h"
-#include "unique.h"
 #include "xalloc.h"
 
 StringMap symtab;
+static int str_id;
 
 //
 // Build new symbol.
@@ -73,7 +73,7 @@ void symtab_init()
 void symtab_destroy()
 {
     map_destroy_free(&symtab, symtab_destroy_callback);
-    unique_string_literal_name_reset();
+    str_id = 0;
 }
 
 //
@@ -147,7 +147,7 @@ char *symtab_add_string(const char *s)
         return NULL; // cannot happen
     }
 
-    char *name = unique_string_literal_name();
+    char *name = xstruniq("_str", &str_id);
 
     // Create array type: char[strlen(s) + 1]
     Type *t            = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);

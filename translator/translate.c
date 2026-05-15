@@ -30,9 +30,7 @@ void tac_append(TacCtx *ctx, Tac_Instruction *instr)
 
 char *new_temp(TacCtx *ctx)
 {
-    char buf[32];
-    snprintf(buf, sizeof buf, "t.%d", ctx->temp_id++);
-    return xstrdup(buf);
+    return xstruniq("t.", &ctx->temp_id);
 }
 
 Tac_Val *val_int(int v)

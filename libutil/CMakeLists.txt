@@ -3,7 +3,6 @@
 #
 add_library(libutil STATIC
     string_map.c
-    unique.c
     xalloc.c
     wio.c
 )

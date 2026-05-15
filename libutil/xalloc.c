@@ -48,7 +48,13 @@ typedef struct BlockHeader {
 static BlockHeader *head = NULL;
 
 //
-// Allocates memory like malloc, but adds a header and maintains a doubly linked list
+// Allocate size bytes and return a pointer to the memory.
+// Exits the program with an error message if allocation fails.
+// Every allocation is tracked in an internal list so leaks can be reported.
+// Arguments funcname, filename, and lineno identify the call site
+// (caller's __func__, __FILE__, __LINE__); they are stored in the block header
+// and printed by xreport_lost_memory() so you can pinpoint which allocation
+// was never freed.
 //
 void *xalloc(size_t size, const char *funcname, const char *filename, unsigned lineno)
 {
@@ -90,7 +96,8 @@ void *xalloc(size_t size, const char *funcname, const char *filename, unsigned l
 }
 
 //
-// Frees memory like free, but removes the block from the doubly linked list
+// Free memory previously returned by xalloc() or xstrdup().
+// Safe to call with NULL. Removes the block from the tracking list.
 //
 void xfree(void *ptr)
 {
@@ -135,6 +142,10 @@ void xfree(void *ptr)
     free(h);
 }
 
+//
+// Print a list of all memory that was allocated but never freed.
+// Call this at the end of the program to check for leaks.
+//
 void xreport_lost_memory()
 {
     if (head) {
@@ -151,6 +162,10 @@ void xreport_lost_memory()
     }
 }
 
+//
+// Return the total number of bytes currently allocated (not yet freed).
+// Useful in tests to verify that all memory was released.
+//
 size_t xtotal_allocated_size()
 {
     size_t total = 0;
@@ -160,6 +175,10 @@ size_t xtotal_allocated_size()
     return total;
 }
 
+//
+// Free every allocation at once, without requiring individual xfree() calls.
+// Use at program exit when releasing each block individually is not practical.
+//
 void xfree_all()
 {
     if (xalloc_debug) {
@@ -172,7 +191,10 @@ void xfree_all()
     }
 }
 
-/* Helper to duplicate a string */
+//
+// Return a freshly allocated copy of str, or NULL if str is NULL.
+// The copy must be released with xfree() when no longer needed.
+//
 char *xstrdup(const char *str)
 {
     if (!str)
@@ -180,4 +202,18 @@ char *xstrdup(const char *str)
     char *new_str = xalloc(strlen(str) + 1, __func__, __FILE__, __LINE__);
     strcpy(new_str, str);
     return new_str;
+}
+
+//
+// Build a unique name by combining prefix with a counter, then increment the counter.
+// For example, xstruniq("t.", &n) returns "t.0", "t.1", "t.2", … on successive calls.
+// The caller owns the counter: declare it where the name series should start and reset,
+// initialize it to zero, and reset it to zero whenever a fresh series is needed.
+// The returned string is heap-allocated and must be released with xfree().
+//
+char *xstruniq(const char *prefix, int *counter)
+{
+    char name[64];
+    snprintf(name, sizeof name, "%s%d", prefix, (*counter)++);
+    return xstrdup(name);
 }
