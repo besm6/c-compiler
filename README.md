@@ -95,7 +95,7 @@ dot -Tpng hello.dot -o hello.png
 # ./build/lower --dot hello.ast hello.dot   # Graphviz of TAC
 ```
 
-For debug logging, verbose mode, and full `lower` behavior, see [docs/Technical_Reference.md](docs/Technical_Reference.md). Note that **docs/Technical_Reference.md** may still describe older stubs in places; the README status table above reflects the current pipeline.
+For debug logging, verbose mode, and full `lower` behavior, see [docs/Technical_Reference.md](docs/Technical_Reference.md).
 
 ## Documentation
 
@@ -105,6 +105,7 @@ For debug logging, verbose mode, and full `lower` behavior, see [docs/Technical_
 | [docs/Memory_Allocation.md](docs/Memory_Allocation.md) | Memory allocator (`xalloc`) design and usage |
 | [docs/String_Map.md](docs/String_Map.md) | `libutil/string_map` key-value store |
 | [docs/Word_Oriented_IO.md](docs/Word_Oriented_IO.md) | Word-oriented I/O (`wio`) for binary IR streams |
+| [docs/C_Grammar.md](docs/C_Grammar.md) | C grammar article: scanner (`c11.l`), parser (`c11.y`), ASDL (`c11.asdl`), and how they relate to the hand-written implementation |
 | [grammar/README.md](grammar/README.md) | Notes on the C11 grammar artifacts in `grammar/` |
 | [TODO.md](TODO.md) | Work plan |
 

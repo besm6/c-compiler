@@ -96,19 +96,21 @@ AST values are implemented in C (`ast.h` and companion `.c` files). Binary seria
 | `ast_yaml.c`, `ast_graphviz.c` | YAML and DOT |
 | `ast_print.c`, `ast_clone.c`, `ast_compare.c` | Print, clone, compare |
 
-A stray file `clone_tests.cpp-` in `ast/` is not part of the CMake build.
-
 ### Semantic analysis (`semantic/`)
 
 | File | Role |
 |------|------|
+| `semantic.h` | Umbrella public header for the semantic subsystem |
 | `symtab.c`, `symtab.h` | Scoped identifier → Symbol map |
 | `structtab.c`, `structtab.h` | Scoped struct/union/enum tag → StructDef map |
 | `typetab.c`, `typetab.h` | Scoped typedef name → TypeDef map |
-| `typecheck.c`, `typecheck.h` | Type checking and name binding (single-pass) |
+| `typecheck.c` | Type checking and name binding (single-pass) |
 | `label_loops.c` | Annotates loop/switch statements with break/continue jump targets |
 | `type_utils.c` | Type helpers: `get_size`, `get_alignment`, `is_integer`, etc. |
 | `const_convert.c` | Constant-expression evaluation and conversion |
+| `symtab_print.c` | Debug printer for symtab entries |
+| `structtab_print.c` | Debug printer for structtab entries |
+| `typetab_print.c` | Debug printer for typetab entries |
 
 Tests: `symtab_tests.cpp` → `symtab-tests`; `structtab_tests.cpp` → `structtab-tests`; `typetab_tests.cpp` → `typetab-tests`; `typecheck_tests.cpp` → `typecheck-tests`. The file `const_convert_tests.cpp` exists but is not yet registered in `semantic/CMakeLists.txt`.
 
@@ -117,6 +119,7 @@ Tests: `symtab_tests.cpp` → `symtab-tests`; `structtab_tests.cpp` → `structt
 | File | Role |
 |------|------|
 | `translate.h`, `translate.c` | Shared helpers, type conversion, top-level entry points |
+| `translate_test.h` | Test fixture helpers shared across translator test files |
 | `expr.c` | AST `Expr` → TAC instruction lowering |
 | `stmt.c` | AST `Stmt` → TAC instruction lowering; local declaration init |
 | `main.c` | `lower` entry: import → semantic passes → translate → emit |
@@ -267,11 +270,11 @@ Reference grammars and notes. See [grammar/README.md](../grammar/README.md) for 
 
 | Module | Files | Purpose |
 |--------|--------|---------|
-| **xalloc** | `xalloc.c`, `xalloc.h` | Tracked allocation, `xfree_all`, leak reporting in debug paths |
+| **xalloc** | `xalloc.c`, `xalloc.h`, `xalloc_tests.cpp` | Tracked allocation; `xfree_all`; `xstruniq()` for unique name generation; leak reporting in debug builds |
 | **wio** | `wio.c`, `wio.h` | Binary I/O for AST and TAC streams |
 | **string_map** | `string_map.c`, `string_map.h` | Map used in symbol and type tables |
 
-Tests: `string_map_tests.cpp` → `libutil-tests`; `wio_tests.cpp` → `wio-tests`.
+Tests: `string_map_tests.cpp` → `libutil-tests`; `wio_tests.cpp` → `wio-tests`; `xalloc_tests.cpp` → `xalloc-tests`.
 
 ### Scripts (`scripts/`)
 
@@ -314,6 +317,7 @@ Test executables and their sources:
 | `ast-tests` | `ast/clone_tests.cpp` |
 | `libutil-tests` | `libutil/string_map_tests.cpp` |
 | `wio-tests` | `libutil/wio_tests.cpp` |
+| `xalloc-tests` | `libutil/xalloc_tests.cpp` |
 | `symtab-tests` | `semantic/symtab_tests.cpp` |
 | `structtab-tests` | `semantic/structtab_tests.cpp` |
 | `typetab-tests` | `semantic/typetab_tests.cpp` |
@@ -329,6 +333,7 @@ Run a single binary from `build/`:
 
 ```bash
 ./build/parser-tests
+./build/xalloc-tests
 ./build/semantic/typecheck-tests
 ./build/translator/translate-tests
 ```
