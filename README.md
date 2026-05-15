@@ -2,7 +2,7 @@
 
 A C compiler project aimed at the [BESM-6](https://en.wikipedia.org/wiki/BESM-6) mainframe. The long-term idea is a self-hosting toolchain that can help build systems such as the [Unix v7 port for BESM-6](https://github.com/besm6/v7besm) and work with the [Dubna monitor](https://github.com/besm6/dubna).
 
-**This repository is unfinished.** The frontend (lexing, parsing, AST) is in active use; semantic analysis runs in `lower`; three-address code is produced for a subset of the language and can be exported, while a full TAC pipeline and machine backend remain work in progress. For file-by-file detail, build options, and tests, see [docs/Technical.md](docs/Technical.md). Planned work and estimates are tracked in [TODO.md](TODO.md).
+**This repository is unfinished.** The frontend (lexing, parsing, AST) is in active use; semantic analysis runs in `lower`; three-address code is produced for a subset of the language and can be exported, while a full TAC pipeline and machine backend remain work in progress. For file-by-file detail, build options, and tests, see [docs/Technical_Reference.md](docs/Technical_Reference.md). Planned work and estimates are tracked in [TODO.md](TODO.md).
 
 ## Goals
 
@@ -53,7 +53,7 @@ flowchart LR
     end
 ```
 
-The repository ships two programs: **`parse`** (C → AST) and **`lower`** (binary AST → analysis and optional TAC output). Details and command lines are in [docs/Technical.md](docs/Technical.md#executables-parse-and-lower).
+The repository ships two programs: **`parse`** (C → AST) and **`lower`** (binary AST → analysis and optional TAC output). Details and command lines are in [docs/Technical_Reference.md](docs/Technical_Reference.md#executables-parse-and-lower).
 
 ## Getting started
 
@@ -95,13 +95,16 @@ dot -Tpng hello.dot -o hello.png
 # ./build/lower --dot hello.ast hello.dot   # Graphviz of TAC
 ```
 
-For debug logging, verbose mode, and full `lower` behavior, see [docs/Technical.md](docs/Technical.md). Note that **docs/Technical.md** may still describe older stubs in places; the README status table above reflects the current pipeline.
+For debug logging, verbose mode, and full `lower` behavior, see [docs/Technical_Reference.md](docs/Technical_Reference.md). Note that **docs/Technical_Reference.md** may still describe older stubs in places; the README status table above reflects the current pipeline.
 
 ## Documentation
 
 | Document | Purpose |
 |----------|---------|
-| [docs/Technical.md](docs/Technical.md) | Repository layout, components, build system, tests, ASDL vs C code, development notes, references |
+| [docs/Technical_Reference.md](docs/Technical_Reference.md) | Repository layout, components, build system, tests, ASDL vs C code, development notes, references |
+| [docs/Memory_Allocation.md](docs/Memory_Allocation.md) | Memory allocator (`xalloc`) design and usage |
+| [docs/String_Map.md](docs/String_Map.md) | `libutil/string_map` key-value store |
+| [docs/Word_Oriented_IO.md](docs/Word_Oriented_IO.md) | Word-oriented I/O (`wio`) for binary IR streams |
 | [grammar/README.md](grammar/README.md) | Notes on the C11 grammar artifacts in `grammar/` |
 | [TODO.md](TODO.md) | Work plan |
 

@@ -70,7 +70,7 @@ Source (.c)
 
 **`parse`** (`parser/main.c`): Lexes and parses a C source file, outputs a binary AST stream (via `wio`) to stdout, or `--yaml`/`--dot` for human-readable forms.
 
-**`lower`** (`translator/main.c`): Reads the binary AST, runs semantic analysis and TAC lowering, outputs TAC. Lowering is mostly complete; see the phases table for remaining gaps. The TAC YAML format is documented in [docs/Technical.md](docs/Technical.md).
+**`lower`** (`translator/main.c`): Reads the binary AST, runs semantic analysis and TAC lowering, outputs TAC. Lowering is mostly complete; see the phases table for remaining gaps. The TAC YAML format is documented in [docs/Technical_Reference.md](docs/Technical_Reference.md).
 
 ### Compiler phases
 
@@ -128,7 +128,11 @@ Two test files are disabled in CMake (known failures): `parser/negative_tests.cp
 ## Documentation
 
 - [README.md](README.md) — goals, getting started, component overview
-- [docs/Technical.md](docs/Technical.md) — detailed reference: repo layout, components, build system, TAC YAML format, development notes
+- [docs/Technical_Reference.md](docs/Technical_Reference.md) — detailed reference: repo layout, components, build system, TAC YAML format, development notes
+- [docs/Memory_Allocation.md](docs/Memory_Allocation.md) — memory allocator (`xalloc`) design and usage
+- [docs/String_Map.md](docs/String_Map.md) — `libutil/string_map` key-value store
+- [docs/Word_Oriented_IO.md](docs/Word_Oriented_IO.md) — word-oriented I/O (`wio`) for binary IR streams
 - [TODO.md](TODO.md) — work plan with effort estimates
+- [docs/C_Grammar.md](docs/C_Grammar.md) — C grammar article: scanner (`c11.l`), parser (`c11.y`), ASDL (`c11.asdl`), and how they relate to the hand-written implementation
 - [grammar/README.md](grammar/README.md) — C11 grammar coverage notes
-- [grammar/c11.y](grammar/c11.y), [grammar/c11.l](grammar/c11.l) — reference grammar (not used for code generation)
+- [grammar/c11.y](grammar/c11.y), [grammar/c11.l](grammar/c11.l), [grammar/c11.asdl](grammar/c11.asdl) — reference grammar and abstract syntax (not used for code generation)

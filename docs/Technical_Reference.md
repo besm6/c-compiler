@@ -8,7 +8,7 @@ This document lists repository layout, build details, components, tests, and dev
 c-compiler/
 ├── ast/                 # AST: types, alloc, import/export, YAML, Graphviz, print, clone, compare, free
 ├── docs/                # Project documentation (this file)
-├── grammar/             # C11 Yacc/Lex/ASDL reference; see grammar/README.md
+├── grammar/             # C11 Yacc/Lex/ASDL reference; see docs/C_Grammar.md
 ├── libutil/             # xalloc, wio, string_map
 ├── parser/              # Recursive-descent parser, nametab; parse driver
 ├── scanner/             # Hand-written lexer
