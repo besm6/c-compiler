@@ -26,3 +26,12 @@ add_executable(wio-tests
 )
 target_link_libraries(wio-tests libutil GTest::gtest_main)
 gtest_discover_tests(wio-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+
+#
+# Tests for xalloc
+#
+add_executable(xalloc-tests
+    xalloc_tests.cpp
+)
+target_link_libraries(xalloc-tests libutil GTest::gtest_main)
+gtest_discover_tests(xalloc-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
