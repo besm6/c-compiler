@@ -523,3 +523,49 @@ TEST_F(TranslateTest, AlignofDouble)
           value: 8
 )");
 }
+
+// ---------------------------------------------------------------------------
+// _Generic expressions — task #5
+// ---------------------------------------------------------------------------
+
+// Controlling expression type matches a typed association.
+TEST_F(TranslateTest, GenericTypeMatch)
+{
+    std::string yaml = CompileToYaml("int f(int x) { return _Generic(x, double: 0, int: 42); }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: x
+  body:
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 42
+)");
+}
+
+// No type matches; falls back to the default association.
+TEST_F(TranslateTest, GenericDefault)
+{
+    std::string yaml = CompileToYaml("int f(double x) { return _Generic(x, int: 0, default: 99); }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: x
+  body:
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 99
+)");
+}

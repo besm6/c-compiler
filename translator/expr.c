@@ -602,6 +602,13 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         tac_append(ctx, in);
         return val_var(dst->u.var_name);
     }
+    case EXPR_GENERIC: {
+        GenericAssoc *match = e->u.generic.associations;
+        Expr *match_expr    = (match->kind == GENERIC_ASSOC_TYPE)
+                                  ? match->u.type_assoc.expr
+                                  : match->u.default_assoc;
+        return gen_expr(ctx, match_expr);
+    }
     default:
         fatal_error("Unsupported expression kind %d in TAC lowering", (int)e->kind);
     }
