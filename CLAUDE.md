@@ -15,27 +15,21 @@ Run a single test binary directly (semantic and translator tests live in subdire
 ```sh
 ./build/ast/ast-tests
 ./build/parser-tests
-./build/tac/tac-yaml-tests
-./build/tac/tac-dot-tests
-./build/tac/tac-binary-tests
-./build/semantic/typecheck-tests
-./build/semantic/symtab-tests
-./build/semantic/structtab-tests
-./build/semantic/typetab-tests
-./build/semantic/const-convert-tests
+./build/tac/tac-tests
+./build/semantic/semantic-tests
 ./build/translator/translate-tests
 ```
 
 Run a specific GoogleTest case:
 ```sh
 ./build/parser-tests --gtest_filter="*ExprTest*"
-./build/semantic/typecheck-tests --gtest_filter="PipelineTest.*"
+./build/semantic/semantic-tests --gtest_filter="PipelineTest.*"
 ```
 
 **Run tests from the build directory** to avoid polluting the source tree with temporary
 files that GoogleTest writes during test discovery:
 ```sh
-cd build/semantic && ./typecheck-tests
+cd build/semantic && ./semantic-tests
 ctest --test-dir build -R "Typecheck|Pipeline"
 ```
 
@@ -120,11 +114,10 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `ast/clone_tests.cpp` → `ast-tests`
 - `scanner/tests.cpp` → `scanner-tests`
 - `parser/simple_tests.cpp`, `statement_tests.cpp`, … (9 files, including `negative_tests.cpp`) → `parser-tests`
-- `tac/tac_yaml_tests.cpp`, `tac_graphviz_tests.cpp`, `tac_binary_tests.cpp` → `tac-yaml-tests`, `tac-dot-tests`, `tac-binary-tests`
-- `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp` → 4 separate executables
-- `semantic/const_convert_tests.cpp` → `const-convert-tests`
+- `tac/tac_yaml_tests.cpp`, `tac_graphviz_tests.cpp`, `tac_binary_tests.cpp` → `tac-tests`
+- `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `semantic/const_convert_tests.cpp` → `semantic-tests`
 - `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`
-- `libutil/string_map_tests.cpp`, `wio_tests.cpp` → `libutil-tests`, `wio-tests`
+- `libutil/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-tests`
 
 ## Documentation
 

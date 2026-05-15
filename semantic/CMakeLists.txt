@@ -21,46 +21,14 @@ target_include_directories(semantic PUBLIC .)
 target_link_libraries(semantic tac ast libutil)
 
 #
-# Tests for symtab
+# Tests for semantic
 #
-add_executable(symtab-tests
+add_executable(semantic-tests
    symtab_tests.cpp
-)
-target_link_libraries(symtab-tests semantic GTest::gtest_main)
-gtest_discover_tests(symtab-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
-
-#
-# Tests for structtab
-#
-add_executable(structtab-tests
    structtab_tests.cpp
-)
-target_link_libraries(structtab-tests semantic GTest::gtest_main)
-gtest_discover_tests(structtab-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
-
-#
-# Tests for typetab
-#
-add_executable(typetab-tests
    typetab_tests.cpp
-)
-target_link_libraries(typetab-tests semantic GTest::gtest_main)
-gtest_discover_tests(typetab-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
-
-#
-# Tests for typecheck
-#
-add_executable(typecheck-tests
    typecheck_tests.cpp
-)
-target_link_libraries(typecheck-tests parser semantic GTest::gtest_main)
-gtest_discover_tests(typecheck-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
-
-#
-# Tests for const_convert
-#
-add_executable(const-convert-tests
    const_convert_tests.cpp
 )
-target_link_libraries(const-convert-tests semantic GTest::gtest_main)
-gtest_discover_tests(const-convert-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+target_link_libraries(semantic-tests parser semantic GTest::gtest_main)
+gtest_discover_tests(semantic-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
