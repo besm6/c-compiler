@@ -76,12 +76,24 @@ bool compare_type_qualifier(const TypeQualifier *a, const TypeQualifier *b)
 bool compare_field(const Field *a, const Field *b)
 {
     while (a && b) {
-        if (!compare_type(a->type, b->type))
+        if (a->kind != b->kind)
             return false;
-        if (!compare_ident(a->name, b->name))
-            return false;
-        if (!compare_expr(a->bitfield, b->bitfield))
-            return false;
+        switch (a->kind) {
+        case FIELD_MEMBER:
+            if (!compare_type(a->u.member.type, b->u.member.type))
+                return false;
+            if (!compare_ident(a->u.member.name, b->u.member.name))
+                return false;
+            if (!compare_expr(a->u.member.bitfield, b->u.member.bitfield))
+                return false;
+            break;
+        case FIELD_STATIC_ASSERT:
+            if (!compare_expr(a->u.static_assrt.condition, b->u.static_assrt.condition))
+                return false;
+            if (!compare_ident(a->u.static_assrt.message, b->u.static_assrt.message))
+                return false;
+            break;
+        }
         a = a->next;
         b = b->next;
     }

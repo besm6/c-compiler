@@ -19,9 +19,10 @@ TypeQualifier *new_type_qualifier(TypeQualifierKind kind)
     return q;
 }
 
-Field *new_field(void)
+Field *new_field(FieldKind kind)
 {
     Field *f = (Field *)xalloc(sizeof(Field), __func__, __FILE__, __LINE__);
+    f->kind  = kind;
     return f;
 }
 

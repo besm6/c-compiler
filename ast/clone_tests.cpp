@@ -78,9 +78,9 @@ TEST_F(AstCloneTest, CloneTypeStruct)
 {
     Type *orig              = new_type(TYPE_STRUCT, __func__, __FILE__, __LINE__);
     orig->u.struct_t.name   = xstrdup("point");
-    Field *f                = new_field();
-    f->type                 = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    f->name                 = xstrdup("x");
+    Field *f                = new_field(FIELD_MEMBER);
+    f->u.member.type        = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    f->u.member.name        = xstrdup("x");
     orig->u.struct_t.fields = f;
 
     Type *copy = clone_type(orig, __func__, __FILE__, __LINE__);
@@ -320,16 +320,16 @@ TEST_F(AstCloneTest, CloneAssignOp)
 
 TEST_F(AstCloneTest, CloneField)
 {
-    Field *orig = new_field();
-    orig->type  = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
-    orig->name  = xstrdup("x");
+    Field *orig         = new_field(FIELD_MEMBER);
+    orig->u.member.type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    orig->u.member.name = xstrdup("x");
 
     Field *copy = clone_field(orig);
     ASSERT_NE(nullptr, copy);
     EXPECT_NE(orig, copy);
     EXPECT_TRUE(compare_field(orig, copy));
-    EXPECT_NE(orig->name, copy->name);
-    EXPECT_STREQ("x", copy->name);
+    EXPECT_NE(orig->u.member.name, copy->u.member.name);
+    EXPECT_STREQ("x", copy->u.member.name);
 
     free_field(orig);
     free_field(copy);

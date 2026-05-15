@@ -69,9 +69,17 @@ void free_field(Field *field)
 {
     while (field != NULL) {
         Field *next = field->next;
-        free_type(field->type);
-        xfree(field->name);
-        free_expression(field->bitfield);
+        switch (field->kind) {
+        case FIELD_MEMBER:
+            free_type(field->u.member.type);
+            xfree(field->u.member.name);
+            free_expression(field->u.member.bitfield);
+            break;
+        case FIELD_STATIC_ASSERT:
+            free_expression(field->u.static_assrt.condition);
+            xfree(field->u.static_assrt.message);
+            break;
+        }
         xfree(field);
         field = next;
     }

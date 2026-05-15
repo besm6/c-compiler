@@ -248,9 +248,9 @@ TEST_F(ParserTest, ParseTypeStruct)
     ASSERT_NE(field, nullptr);
     EXPECT_EQ(field->next, nullptr);
 
-    ASSERT_NE(field->type, nullptr);
-    EXPECT_EQ(field->type->kind, TYPE_INT);
-    EXPECT_STREQ(field->name, "x");
+    ASSERT_NE(field->u.member.type, nullptr);
+    EXPECT_EQ(field->u.member.type->kind, TYPE_INT);
+    EXPECT_STREQ(field->u.member.name, "x");
 
     InitDeclarator *init_decl = decl->u.var.declarators;
     ASSERT_NE(init_decl, nullptr);
@@ -275,9 +275,9 @@ TEST_F(ParserTest, ParseTypeAnonymousStruct)
     ASSERT_NE(field, nullptr);
     EXPECT_EQ(field->next, nullptr);
 
-    ASSERT_NE(field->type, nullptr);
-    EXPECT_EQ(field->type->kind, TYPE_INT);
-    EXPECT_STREQ(field->name, "x");
+    ASSERT_NE(field->u.member.type, nullptr);
+    EXPECT_EQ(field->u.member.type->kind, TYPE_INT);
+    EXPECT_STREQ(field->u.member.name, "x");
 
     InitDeclarator *init_decl = decl->u.var.declarators;
     ASSERT_NE(init_decl, nullptr);
@@ -303,9 +303,9 @@ TEST_F(ParserTest, ParseTypeUnion)
     ASSERT_NE(field, nullptr);
     EXPECT_EQ(field->next, nullptr);
 
-    ASSERT_NE(field->type, nullptr);
-    EXPECT_EQ(field->type->kind, TYPE_INT);
-    EXPECT_STREQ(field->name, "x");
+    ASSERT_NE(field->u.member.type, nullptr);
+    EXPECT_EQ(field->u.member.type->kind, TYPE_INT);
+    EXPECT_STREQ(field->u.member.name, "x");
 
     InitDeclarator *init_decl = decl->u.var.declarators;
     ASSERT_NE(init_decl, nullptr);
@@ -622,4 +622,44 @@ TEST_F(ParserTest, ParseFunctionParameterRegister)
     DeclSpec *spec = params->specifiers;
     ASSERT_NE(spec, nullptr);
     EXPECT_EQ(spec->storage, STORAGE_CLASS_REGISTER);
+}
+
+TEST_F(ParserTest, ParseStaticAssertInStruct)
+{
+    Declaration *decl = GetDeclaration("struct S { _Static_assert(1, \"ok\"); int x; };");
+
+    ASSERT_EQ(DECL_EMPTY, decl->kind);
+    Type *type = decl->u.empty.type;
+    ASSERT_EQ(TYPE_STRUCT, type->kind);
+
+    Field *f1 = type->u.struct_t.fields;
+    ASSERT_NE(nullptr, f1);
+    EXPECT_EQ(FIELD_STATIC_ASSERT, f1->kind);
+    EXPECT_EQ(EXPR_LITERAL, f1->u.static_assrt.condition->kind);
+    EXPECT_STREQ("ok", f1->u.static_assrt.message);
+
+    Field *f2 = f1->next;
+    ASSERT_NE(nullptr, f2);
+    EXPECT_EQ(FIELD_MEMBER, f2->kind);
+    EXPECT_STREQ("x", f2->u.member.name);
+    EXPECT_EQ(nullptr, f2->next);
+}
+
+TEST_F(ParserTest, ParseStaticAssertInUnion)
+{
+    Declaration *decl = GetDeclaration("union U { _Static_assert(1, \"ok\"); int x; };");
+
+    ASSERT_EQ(DECL_EMPTY, decl->kind);
+    Type *type = decl->u.empty.type;
+    ASSERT_EQ(TYPE_UNION, type->kind);
+
+    Field *f1 = type->u.struct_t.fields;
+    ASSERT_NE(nullptr, f1);
+    EXPECT_EQ(FIELD_STATIC_ASSERT, f1->kind);
+    EXPECT_STREQ("ok", f1->u.static_assrt.message);
+
+    Field *f2 = f1->next;
+    ASSERT_NE(nullptr, f2);
+    EXPECT_EQ(FIELD_MEMBER, f2->kind);
+    EXPECT_STREQ("x", f2->u.member.name);
 }

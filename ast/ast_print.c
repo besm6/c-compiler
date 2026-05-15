@@ -94,19 +94,31 @@ static const char *unary_op_kind_str[] = {
 static void print_decl_spec(FILE *fd, const DeclSpec *spec, int indent);
 
 // Print Field structure
-void print_field(FILE *fd, Field *field, int indent)
+void print_field(FILE *fd, const Field *field, int indent)
 {
     print_indent(fd, indent);
     if (!field) {
         fprintf(fd, "Field: NULL\n");
         return;
     }
-    fprintf(fd, "Field: %s\n", field->name ? field->name : "(anonymous)");
-    print_type(fd, field->type, indent + 2);
-    if (field->bitfield) {
-        print_indent(fd, indent + 2);
-        fprintf(fd, "Bitfield:\n");
-        print_expression(fd, field->bitfield, indent + 4);
+    switch (field->kind) {
+    case FIELD_MEMBER:
+        fprintf(fd, "Field: %s\n", field->u.member.name ? field->u.member.name : "(anonymous)");
+        print_type(fd, field->u.member.type, indent + 2);
+        if (field->u.member.bitfield) {
+            print_indent(fd, indent + 2);
+            fprintf(fd, "Bitfield:\n");
+            print_expression(fd, field->u.member.bitfield, indent + 4);
+        }
+        break;
+    case FIELD_STATIC_ASSERT:
+        fprintf(fd, "StaticAssert:\n");
+        print_expression(fd, field->u.static_assrt.condition, indent + 2);
+        if (field->u.static_assrt.message) {
+            print_indent(fd, indent + 2);
+            fprintf(fd, "Message: %s\n", field->u.static_assrt.message);
+        }
+        break;
     }
 }
 
@@ -263,7 +275,7 @@ void print_type(FILE *fd, const Type *type, int indent)
         if (type->u.struct_t.fields) {
             print_indent(fd, indent + 1);
             fprintf(fd, "Fields:\n");
-            for (Field *f = type->u.struct_t.fields; f; f = f->next) {
+            for (const Field *f = type->u.struct_t.fields; f; f = f->next) {
                 print_field(fd, f, indent + 2);
             }
         }
@@ -273,7 +285,7 @@ void print_type(FILE *fd, const Type *type, int indent)
         if (type->u.struct_t.fields) {
             print_indent(fd, indent + 1);
             fprintf(fd, "Fields:\n");
-            for (Field *f = type->u.struct_t.fields; f; f = f->next) {
+            for (const Field *f = type->u.struct_t.fields; f; f = f->next) {
                 print_field(fd, f, indent + 2);
             }
         }
@@ -554,14 +566,14 @@ void print_type_spec(FILE *fd, const TypeSpec *spec, int indent)
     case TYPE_SPEC_STRUCT:
         fprintf(fd, "struct %s\n",
                 spec->u.struct_spec.name ? spec->u.struct_spec.name : "(anonymous)");
-        for (Field *field = spec->u.struct_spec.fields; field; field = field->next) {
+        for (const Field *field = spec->u.struct_spec.fields; field; field = field->next) {
             print_field(fd, field, indent + 4);
         }
         break;
     case TYPE_SPEC_UNION:
         fprintf(fd, "union %s\n",
                 spec->u.struct_spec.name ? spec->u.struct_spec.name : "(anonymous)");
-        for (Field *field = spec->u.struct_spec.fields; field; field = field->next) {
+        for (const Field *field = spec->u.struct_spec.fields; field; field = field->next) {
             print_field(fd, field, indent + 4);
         }
         break;

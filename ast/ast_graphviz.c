@@ -55,15 +55,30 @@ static void export_field(FILE *fd, Field *field, int parent_id)
 {
     while (field) {
         int id = gen_node_id();
-        fprintf(fd, "  n%d [label=\"Field\", shape=box];\n", id);
-        fprintf(fd, "  n%d -> n%d [label=\"field\"];\n", parent_id, id);
-        export_type(fd, field->type, id);
-        export_ident(fd, field->name, id, "name");
-        if (field->bitfield) {
-            int expr_id = gen_node_id();
-            fprintf(fd, "  n%d [label=\"Bitfield\", shape=box];\n", expr_id);
-            fprintf(fd, "  n%d -> n%d [label=\"bitfield\"];\n", id, expr_id);
-            export_expr(fd, field->bitfield, expr_id);
+        switch (field->kind) {
+        case FIELD_MEMBER:
+            fprintf(fd, "  n%d [label=\"Field\", shape=box];\n", id);
+            fprintf(fd, "  n%d -> n%d [label=\"field\"];\n", parent_id, id);
+            export_type(fd, field->u.member.type, id);
+            export_ident(fd, field->u.member.name, id, "name");
+            if (field->u.member.bitfield) {
+                int expr_id = gen_node_id();
+                fprintf(fd, "  n%d [label=\"Bitfield\", shape=box];\n", expr_id);
+                fprintf(fd, "  n%d -> n%d [label=\"bitfield\"];\n", id, expr_id);
+                export_expr(fd, field->u.member.bitfield, expr_id);
+            }
+            break;
+        case FIELD_STATIC_ASSERT:
+            fprintf(fd, "  n%d [label=\"StaticAssert\", shape=box];\n", id);
+            fprintf(fd, "  n%d -> n%d [label=\"field\"];\n", parent_id, id);
+            export_expr(fd, field->u.static_assrt.condition, id);
+            if (field->u.static_assrt.message) {
+                int mid = gen_node_id();
+                fprintf(fd, "  n%d [label=\"Msg: %s\", shape=box];\n",
+                        mid, field->u.static_assrt.message);
+                fprintf(fd, "  n%d -> n%d [label=\"message\"];\n", id, mid);
+            }
+            break;
         }
         field = field->next;
     }

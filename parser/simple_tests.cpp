@@ -288,12 +288,12 @@ TEST_F(ParserTest, TypedefEnumField)
     EXPECT_EQ(nullptr, init->type->u.struct_t.name);
 
     Field *field = init->type->u.struct_t.fields;
-    EXPECT_STREQ("bar", field->name);
-    ASSERT_NE(nullptr, field->type);
-    EXPECT_EQ(TYPE_TYPEDEF_NAME, field->type->kind);
-    EXPECT_STREQ("foo", field->type->u.typedef_name.name);
+    EXPECT_STREQ("bar", field->u.member.name);
+    ASSERT_NE(nullptr, field->u.member.type);
+    EXPECT_EQ(TYPE_TYPEDEF_NAME, field->u.member.type->kind);
+    EXPECT_STREQ("foo", field->u.member.type->u.typedef_name.name);
 
-    Expr *bitfield = field->bitfield;
+    Expr *bitfield = field->u.member.bitfield;
     ASSERT_NE(nullptr, bitfield);
     EXPECT_EQ(EXPR_LITERAL, bitfield->kind);
     EXPECT_EQ(LITERAL_ENUM, bitfield->u.literal->kind);

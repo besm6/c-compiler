@@ -118,11 +118,22 @@ struct TypeQualifier {
     TypeQualifierKind kind;
 };
 
+typedef enum { FIELD_MEMBER, FIELD_STATIC_ASSERT } FieldKind;
+
 struct Field {
     Field *next; /* linked list */
-    Type *type;
-    Ident name;     /* optional */
-    Expr *bitfield; /* optional */
+    FieldKind kind;
+    union {
+        struct {
+            Type *type;
+            Ident name;     /* optional */
+            Expr *bitfield; /* optional */
+        } member;
+        struct {
+            Expr *condition;
+            char *message; /* optional (always set in C11, guarded for safety) */
+        } static_assrt;    /* typo matches existing Declaration convention */
+    } u;
 };
 
 struct Enumerator {
@@ -497,7 +508,7 @@ struct ExternalDecl {
 //
 Type *new_type(TypeKind kind, const char *funcname, const char *filename, unsigned lineno);
 TypeQualifier *new_type_qualifier(TypeQualifierKind kind);
-Field *new_field(void);
+Field *new_field(FieldKind kind);
 Enumerator *new_enumerator(Ident name, Expr *value);
 Param *new_param(void);
 Declaration *new_declaration(DeclarationKind kind);

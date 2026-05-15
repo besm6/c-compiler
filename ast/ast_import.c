@@ -214,16 +214,23 @@ Field *import_field(WFILE *input)
     check_input(input, "field tag");
     if (tag == TAG_EOL)
         return NULL;
-    if (tag != TAG_FIELD) {
-        fprintf(stderr, "Error: Expected TAG_FIELD, got 0x%zx\n", tag);
-        exit(1);
+    if (tag == TAG_FIELD) {
+        Field *field            = new_field(FIELD_MEMBER);
+        field->u.member.type    = import_type(input);
+        field->u.member.name    = wgetstr(input);
+        check_input(input, "field name");
+        field->u.member.bitfield = import_expr(input);
+        return field;
     }
-    Field *field = new_field();
-    field->type  = import_type(input);
-    field->name  = wgetstr(input);
-    check_input(input, "field name");
-    field->bitfield = import_expr(input);
-    return field;
+    if (tag == TAG_FIELD_STATIC_ASSERT) {
+        Field *field                    = new_field(FIELD_STATIC_ASSERT);
+        field->u.static_assrt.condition = import_expr(input);
+        field->u.static_assrt.message   = wgetstr(input);
+        check_input(input, "field static_assert message");
+        return field;
+    }
+    fprintf(stderr, "Error: Expected TAG_FIELD or TAG_FIELD_STATIC_ASSERT, got 0x%zx\n", tag);
+    exit(1);
 }
 
 Enumerator *import_enumerator(WFILE *input)

@@ -52,7 +52,8 @@ module AST {
 
     TypeQualifier = Const | Restrict | Volatile | Atomic
 
-    Field = (Type type, identifier? name, Expr? bitfield)
+    Field = Member(Type type, identifier? name, Expr? bitfield)
+          | StaticAssert(Expr condition, string? message)
 
     Enumerator = (identifier name, Expr? value)
 

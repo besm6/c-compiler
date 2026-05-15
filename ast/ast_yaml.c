@@ -54,15 +54,29 @@ static void export_field(FILE *fd, Field *field, int level)
 {
     while (field) {
         print_indent(fd, level);
-        fprintf(fd, "- field:\n");
-        print_indent(fd, level + 1);
-        fprintf(fd, "type:\n");
-        export_type(fd, field->type, level + 2);
-        export_ident(fd, field->name, level + 1);
-        if (field->bitfield) {
+        switch (field->kind) {
+        case FIELD_MEMBER:
+            fprintf(fd, "- field:\n");
             print_indent(fd, level + 1);
-            fprintf(fd, "bitfield:\n");
-            export_expr(fd, field->bitfield, level + 2);
+            fprintf(fd, "type:\n");
+            export_type(fd, field->u.member.type, level + 2);
+            export_ident(fd, field->u.member.name, level + 1);
+            if (field->u.member.bitfield) {
+                print_indent(fd, level + 1);
+                fprintf(fd, "bitfield:\n");
+                export_expr(fd, field->u.member.bitfield, level + 2);
+            }
+            break;
+        case FIELD_STATIC_ASSERT:
+            fprintf(fd, "- static_assert:\n");
+            print_indent(fd, level + 1);
+            fprintf(fd, "condition:\n");
+            export_expr(fd, field->u.static_assrt.condition, level + 2);
+            if (field->u.static_assrt.message) {
+                print_indent(fd, level + 1);
+                fprintf(fd, "message: %s\n", field->u.static_assrt.message);
+            }
+            break;
         }
         field = field->next;
     }

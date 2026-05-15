@@ -34,17 +34,30 @@ static void validate_struct_definition(const char *tag, const Field *members)
     StringMap names;
     map_init(&names);
     for (const Field *m = members; m; m = m->next) {
-        if (m->type->kind == TYPE_FUNCTION) {
+        if (m->kind == FIELD_STATIC_ASSERT) {
+            long val;
+            if (!try_eval_const_int(m->u.static_assrt.condition, &val))
+                fatal_error("_Static_assert condition is not a constant expression");
+            if (!val) {
+                if (m->u.static_assrt.message)
+                    fatal_error("_Static_assert failed: %s", m->u.static_assrt.message);
+                else
+                    fatal_error("_Static_assert failed");
+            }
+            continue;
+        }
+        if (m->u.member.type->kind == TYPE_FUNCTION) {
             fatal_error("Can't declare structure member with function type");
         }
-        if (!is_complete(m->type)) {
+        if (!is_complete(m->u.member.type)) {
             fatal_error("Cannot declare structure member with incomplete type");
         }
-        if (map_get(&names, m->name, NULL)) {
-            fatal_error("Duplicate member %s in structure %s", m->name, tag);
+        if (m->u.member.name && map_get(&names, m->u.member.name, NULL)) {
+            fatal_error("Duplicate member %s in structure %s", m->u.member.name, tag);
         }
-        map_insert(&names, m->name, 0, 0);
-        validate_type(m->type);
+        if (m->u.member.name)
+            map_insert(&names, m->u.member.name, 0, 0);
+        validate_type(m->u.member.type);
     }
     map_destroy(&names);
 }
@@ -92,17 +105,20 @@ static void typecheck_tag_decl(const Declaration *d)
     int current_size      = 0;
     int current_alignment = 1;
     for (const Field *f = d->u.empty.type->u.struct_t.fields; f; f = f->next) {
-        int member_alignment = get_alignment(f->type);
+        if (f->kind == FIELD_STATIC_ASSERT)
+            continue; /* already evaluated in validate_struct_definition */
+        int member_alignment = get_alignment(f->u.member.type);
         int offset           = 0;
         if (kind == TYPE_STRUCT) {
             offset = round_away_from_zero(member_alignment, current_size);
         }
-        *tail = new_member(f->name, clone_type(f->type, __func__, __FILE__, __LINE__), offset);
+        *tail = new_member(f->u.member.name,
+                           clone_type(f->u.member.type, __func__, __FILE__, __LINE__), offset);
         tail  = &(*tail)->next;
 
         current_alignment =
             current_alignment > member_alignment ? current_alignment : member_alignment;
-        current_size = offset + get_size(f->type);
+        current_size = offset + get_size(f->u.member.type);
     }
     int size = round_away_from_zero(current_alignment, current_size);
     structtab_add_struct(d->u.empty.type->u.struct_t.name, current_alignment, size, members,

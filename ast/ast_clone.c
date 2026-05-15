@@ -108,13 +108,22 @@ Field *clone_field(const Field *field)
 {
     if (field == NULL)
         return NULL;
-    Field *result = new_field();
+    Field *result = new_field(field->kind);
     if (result == NULL)
         return NULL;
-    result->type     = clone_type(field->type, __func__, __FILE__, __LINE__);
-    result->name     = field->name ? xstrdup(field->name) : NULL;
-    result->bitfield = clone_expression(field->bitfield);
-    result->next     = clone_field(field->next);
+    switch (field->kind) {
+    case FIELD_MEMBER:
+        result->u.member.type     = clone_type(field->u.member.type, __func__, __FILE__, __LINE__);
+        result->u.member.name     = field->u.member.name ? xstrdup(field->u.member.name) : NULL;
+        result->u.member.bitfield = clone_expression(field->u.member.bitfield);
+        break;
+    case FIELD_STATIC_ASSERT:
+        result->u.static_assrt.condition = clone_expression(field->u.static_assrt.condition);
+        result->u.static_assrt.message =
+            field->u.static_assrt.message ? xstrdup(field->u.static_assrt.message) : NULL;
+        break;
+    }
+    result->next = clone_field(field->next);
     return result;
 }
 

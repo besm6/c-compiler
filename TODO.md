@@ -2,13 +2,7 @@
 
 Work plan, ordered by recommended implementation sequence.
 
-## Parser gaps
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 10 | `_Static_assert` in struct/union member lists | `parser/parser.c:1835` parses the construct but discards the result. Add a `FIELD_STATIC_ASSERT` node kind (or equivalent under `Declaration`) and handle it in typecheck. | M |
-
-## BESM-6 backend (future)
+## BESM-6 backend
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
@@ -16,4 +10,3 @@ Work plan, ordered by recommended implementation sequence.
 | 13 | Instruction selection | Walk each `Tac_Instruction` and emit the corresponding BESM-6 instruction(s). Start with arithmetic, load/store, and control flow. | XL |
 | 14 | Register allocation | Implement a register allocator (linear scan or graph colouring) over TAC temporaries, targeting BESM-6's accumulator-based architecture. | XL |
 | 15 | Assembly / object output | Write output in a format consumable by the Dubna monitor or a BESM-6 assembler. | L |
-| 16 | Preprocessor | Integrate an existing CPP (e.g. `mcpp`) or implement a minimal `#include` / `#define` / `#if` pass as a separate tool. | XL |

@@ -1066,3 +1066,34 @@ TEST_F(LabelLoopsTest, ContinueOutsideLoop)
     ASSERT_EXIT(RunLabelLoops("int f(void) { continue; }"), ::testing::ExitedWithCode(1),
                 "continue statement not inside loop");
 }
+
+// _Static_assert with a true condition inside a struct is accepted.
+TEST_F(PipelineTest, StaticAssertInStructPasses)
+{
+    RunPipeline("struct S { _Static_assert(1, \"ok\"); int x; };");
+
+    const StructDef *sd = structtab_find("S");
+    ASSERT_NE(sd, nullptr);
+    ASSERT_NE(sd->members, nullptr);
+    EXPECT_STREQ(sd->members->name, "x");
+    EXPECT_EQ(sd->members->type->kind, TYPE_INT);
+}
+
+// _Static_assert with a false condition inside a struct is a compile-time error.
+TEST_F(PipelineTest, StaticAssertInStructFails)
+{
+    ParseProgram("struct S { _Static_assert(0, \"bad\"); int x; };");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "_Static_assert failed: bad");
+}
+
+// _Static_assert with a true condition inside a union is accepted.
+TEST_F(PipelineTest, StaticAssertInUnionPasses)
+{
+    RunPipeline("union U { _Static_assert(1, \"ok\"); int x; };");
+
+    const StructDef *sd = structtab_find("U");
+    ASSERT_NE(sd, nullptr);
+    ASSERT_NE(sd->members, nullptr);
+    EXPECT_STREQ(sd->members->name, "x");
+}

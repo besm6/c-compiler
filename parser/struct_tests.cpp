@@ -30,36 +30,36 @@ TEST_F(ParserTest, NestedStructWithSimpleField)
     //
     // Check field x
     //
-    ASSERT_NE(x->type, nullptr);
-    EXPECT_EQ(x->type->kind, TYPE_INT);
+    ASSERT_NE(x->u.member.type, nullptr);
+    EXPECT_EQ(x->u.member.type->kind, TYPE_INT);
 
-    EXPECT_STREQ(x->name, "x");
-    EXPECT_EQ(x->bitfield, nullptr);
+    EXPECT_STREQ(x->u.member.name, "x");
+    EXPECT_EQ(x->u.member.bitfield, nullptr);
 
     //
     // Check field inner
     //
-    ASSERT_NE(inner->type, nullptr);
-    EXPECT_EQ(inner->type->kind, TYPE_STRUCT);
-    EXPECT_STREQ(inner->type->u.struct_t.name, "Inner");
+    ASSERT_NE(inner->u.member.type, nullptr);
+    EXPECT_EQ(inner->u.member.type->kind, TYPE_STRUCT);
+    EXPECT_STREQ(inner->u.member.type->u.struct_t.name, "Inner");
 
-    EXPECT_STREQ(inner->name, "inner");
-    EXPECT_EQ(inner->bitfield, nullptr);
+    EXPECT_STREQ(inner->u.member.name, "inner");
+    EXPECT_EQ(inner->u.member.bitfield, nullptr);
 
     //
     // Check struct Inner
     //
-    Field *y = inner->type->u.struct_t.fields;
+    Field *y = inner->u.member.type->u.struct_t.fields;
     EXPECT_EQ(y->next, nullptr);
 
     //
     // Check field y
     //
-    ASSERT_NE(y->type, nullptr);
-    EXPECT_EQ(y->type->kind, TYPE_INT);
+    ASSERT_NE(y->u.member.type, nullptr);
+    EXPECT_EQ(y->u.member.type->kind, TYPE_INT);
 
-    EXPECT_STREQ(y->name, "y");
-    EXPECT_EQ(y->bitfield, nullptr);
+    EXPECT_STREQ(y->u.member.name, "y");
+    EXPECT_EQ(y->u.member.bitfield, nullptr);
 
     free_type(type);
 }
@@ -89,22 +89,22 @@ TEST_F(ParserTest, StructWithPointerToItself)
     //
     // Check field data
     //
-    EXPECT_STREQ(data->name, "data");
-    EXPECT_EQ(data->bitfield, nullptr);
-    ASSERT_NE(data->type, nullptr);
-    EXPECT_EQ(data->type->kind, TYPE_INT);
+    EXPECT_STREQ(data->u.member.name, "data");
+    EXPECT_EQ(data->u.member.bitfield, nullptr);
+    ASSERT_NE(data->u.member.type, nullptr);
+    EXPECT_EQ(data->u.member.type->kind, TYPE_INT);
 
     //
     // Check field next
     //
-    EXPECT_STREQ(next->name, "next");
-    EXPECT_EQ(next->bitfield, nullptr);
-    ASSERT_NE(next->type, nullptr);
-    EXPECT_EQ(next->type->kind, TYPE_POINTER);
-    EXPECT_EQ(next->type->qualifiers, nullptr);
-    EXPECT_EQ(next->type->u.pointer.qualifiers, nullptr);
+    EXPECT_STREQ(next->u.member.name, "next");
+    EXPECT_EQ(next->u.member.bitfield, nullptr);
+    ASSERT_NE(next->u.member.type, nullptr);
+    EXPECT_EQ(next->u.member.type->kind, TYPE_POINTER);
+    EXPECT_EQ(next->u.member.type->qualifiers, nullptr);
+    EXPECT_EQ(next->u.member.type->u.pointer.qualifiers, nullptr);
 
-    Type *target = next->type->u.pointer.target;
+    Type *target = next->u.member.type->u.pointer.target;
     ASSERT_NE(target, nullptr);
     EXPECT_EQ(target->kind, TYPE_STRUCT);
     EXPECT_STREQ(target->u.struct_t.name, "Node");
@@ -159,17 +159,17 @@ TEST_F(ParserTest, FunctionPointerWithStructParameter)
     ASSERT_NE(fy, nullptr);
     EXPECT_EQ(fy->next, nullptr);
 
-    EXPECT_STREQ(fx->name, "x");
-    EXPECT_EQ(fx->bitfield, nullptr);
-    ASSERT_NE(fx->type, nullptr);
-    EXPECT_EQ(fx->type->kind, TYPE_INT);
-    EXPECT_EQ(fx->type->qualifiers, nullptr);
+    EXPECT_STREQ(fx->u.member.name, "x");
+    EXPECT_EQ(fx->u.member.bitfield, nullptr);
+    ASSERT_NE(fx->u.member.type, nullptr);
+    EXPECT_EQ(fx->u.member.type->kind, TYPE_INT);
+    EXPECT_EQ(fx->u.member.type->qualifiers, nullptr);
 
-    EXPECT_STREQ(fy->name, "y");
-    EXPECT_EQ(fy->bitfield, nullptr);
-    ASSERT_NE(fy->type, nullptr);
-    EXPECT_EQ(fy->type->kind, TYPE_INT);
-    EXPECT_EQ(fy->type->qualifiers, nullptr);
+    EXPECT_STREQ(fy->u.member.name, "y");
+    EXPECT_EQ(fy->u.member.bitfield, nullptr);
+    ASSERT_NE(fy->u.member.type, nullptr);
+    EXPECT_EQ(fy->u.member.type->kind, TYPE_INT);
+    EXPECT_EQ(fy->u.member.type->qualifiers, nullptr);
 
     free_type(type);
 }
@@ -200,22 +200,22 @@ TEST_F(ParserTest, NestedStructWithArrayField)
     //
     // Field items: struct Item[10]
     //
-    EXPECT_STREQ(items->name, "items");
-    EXPECT_EQ(items->bitfield, nullptr);
+    EXPECT_STREQ(items->u.member.name, "items");
+    EXPECT_EQ(items->u.member.bitfield, nullptr);
 
-    ASSERT_NE(items->type, nullptr);
-    EXPECT_EQ(items->type->kind, TYPE_ARRAY);
-    EXPECT_EQ(items->type->qualifiers, nullptr);
-    EXPECT_FALSE(items->type->u.array.is_static);
-    EXPECT_EQ(items->type->u.array.qualifiers, nullptr);
+    ASSERT_NE(items->u.member.type, nullptr);
+    EXPECT_EQ(items->u.member.type->kind, TYPE_ARRAY);
+    EXPECT_EQ(items->u.member.type->qualifiers, nullptr);
+    EXPECT_FALSE(items->u.member.type->u.array.is_static);
+    EXPECT_EQ(items->u.member.type->u.array.qualifiers, nullptr);
 
-    Expr *size = items->type->u.array.size;
+    Expr *size = items->u.member.type->u.array.size;
     ASSERT_NE(size, nullptr);
     EXPECT_EQ(size->kind, EXPR_LITERAL);
     EXPECT_EQ(size->u.literal->kind, LITERAL_INT);
     EXPECT_EQ(size->u.literal->u.int_val, 10);
 
-    Type *elem = items->type->u.array.element;
+    Type *elem = items->u.member.type->u.array.element;
     ASSERT_NE(elem, nullptr);
     EXPECT_EQ(elem->kind, TYPE_STRUCT);
     EXPECT_STREQ(elem->u.struct_t.name, "Item");
@@ -228,11 +228,11 @@ TEST_F(ParserTest, NestedStructWithArrayField)
     ASSERT_NE(value, nullptr);
     EXPECT_EQ(value->next, nullptr);
 
-    EXPECT_STREQ(value->name, "value");
-    EXPECT_EQ(value->bitfield, nullptr);
-    ASSERT_NE(value->type, nullptr);
-    EXPECT_EQ(value->type->kind, TYPE_INT);
-    EXPECT_EQ(value->type->qualifiers, nullptr);
+    EXPECT_STREQ(value->u.member.name, "value");
+    EXPECT_EQ(value->u.member.bitfield, nullptr);
+    ASSERT_NE(value->u.member.type, nullptr);
+    EXPECT_EQ(value->u.member.type->kind, TYPE_INT);
+    EXPECT_EQ(value->u.member.type->qualifiers, nullptr);
 
     free_type(type);
 }
@@ -270,9 +270,9 @@ TEST_F(ParserTest, UnionWithNestedStructAndAnonymousStruct)
     //
     // Anonymous struct { int a; int b; };
     //
-    EXPECT_EQ(anon_member->name, nullptr);
-    EXPECT_EQ(anon_member->bitfield, nullptr);
-    Type *anon_struct = anon_member->type;
+    EXPECT_EQ(anon_member->u.member.name, nullptr);
+    EXPECT_EQ(anon_member->u.member.bitfield, nullptr);
+    Type *anon_struct = anon_member->u.member.type;
     ASSERT_NE(anon_struct, nullptr);
     EXPECT_EQ(anon_struct->kind, TYPE_STRUCT);
     EXPECT_EQ(anon_struct->u.struct_t.name, nullptr);
@@ -284,24 +284,24 @@ TEST_F(ParserTest, UnionWithNestedStructAndAnonymousStruct)
     ASSERT_NE(fb, nullptr);
     EXPECT_EQ(fb->next, nullptr);
 
-    EXPECT_STREQ(fa->name, "a");
-    EXPECT_EQ(fa->bitfield, nullptr);
-    ASSERT_NE(fa->type, nullptr);
-    EXPECT_EQ(fa->type->kind, TYPE_INT);
-    EXPECT_EQ(fa->type->qualifiers, nullptr);
+    EXPECT_STREQ(fa->u.member.name, "a");
+    EXPECT_EQ(fa->u.member.bitfield, nullptr);
+    ASSERT_NE(fa->u.member.type, nullptr);
+    EXPECT_EQ(fa->u.member.type->kind, TYPE_INT);
+    EXPECT_EQ(fa->u.member.type->qualifiers, nullptr);
 
-    EXPECT_STREQ(fb->name, "b");
-    EXPECT_EQ(fb->bitfield, nullptr);
-    ASSERT_NE(fb->type, nullptr);
-    EXPECT_EQ(fb->type->kind, TYPE_INT);
-    EXPECT_EQ(fb->type->qualifiers, nullptr);
+    EXPECT_STREQ(fb->u.member.name, "b");
+    EXPECT_EQ(fb->u.member.bitfield, nullptr);
+    ASSERT_NE(fb->u.member.type, nullptr);
+    EXPECT_EQ(fb->u.member.type->kind, TYPE_INT);
+    EXPECT_EQ(fb->u.member.type->qualifiers, nullptr);
 
     //
     // struct Named { float x; } named;
     //
-    EXPECT_STREQ(named_member->name, "named");
-    EXPECT_EQ(named_member->bitfield, nullptr);
-    Type *named_struct = named_member->type;
+    EXPECT_STREQ(named_member->u.member.name, "named");
+    EXPECT_EQ(named_member->u.member.bitfield, nullptr);
+    Type *named_struct = named_member->u.member.type;
     ASSERT_NE(named_struct, nullptr);
     EXPECT_EQ(named_struct->kind, TYPE_STRUCT);
     EXPECT_STREQ(named_struct->u.struct_t.name, "Named");
@@ -311,11 +311,11 @@ TEST_F(ParserTest, UnionWithNestedStructAndAnonymousStruct)
     ASSERT_NE(fx, nullptr);
     EXPECT_EQ(fx->next, nullptr);
 
-    EXPECT_STREQ(fx->name, "x");
-    EXPECT_EQ(fx->bitfield, nullptr);
-    ASSERT_NE(fx->type, nullptr);
-    EXPECT_EQ(fx->type->kind, TYPE_FLOAT);
-    EXPECT_EQ(fx->type->qualifiers, nullptr);
+    EXPECT_STREQ(fx->u.member.name, "x");
+    EXPECT_EQ(fx->u.member.bitfield, nullptr);
+    ASSERT_NE(fx->u.member.type, nullptr);
+    EXPECT_EQ(fx->u.member.type->kind, TYPE_FLOAT);
+    EXPECT_EQ(fx->u.member.type->qualifiers, nullptr);
 
     free_type(type);
 }

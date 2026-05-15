@@ -1848,9 +1848,12 @@ Field *parse_struct_declaration()
         printf("--- %s()\n", __func__);
     }
     if (current_token == TOKEN_STATIC_ASSERT) {
-        parse_static_assert_declaration();
-        /* TODO: implement static assert as a special kind of Field */
-        return NULL;
+        Declaration *sa = parse_static_assert_declaration();
+        Field *field                    = new_field(FIELD_STATIC_ASSERT);
+        field->u.static_assrt.condition = sa->u.static_assrt.condition;
+        field->u.static_assrt.message   = sa->u.static_assrt.message;
+        xfree(sa); /* free shell only; condition+message now owned by field */
+        return field;
     }
 
     /* Parse specifier_qualifier_list */
@@ -1865,24 +1868,24 @@ Field *parse_struct_declaration()
     /* Parse struct_declarator_list */
     Field *fields = NULL, **fields_tail = &fields;
     for (;;) {
-        Field *field = new_field();
-        field->type  = clone_type(base_type, __func__, __FILE__, __LINE__);
+        Field *field            = new_field(FIELD_MEMBER);
+        field->u.member.type    = clone_type(base_type, __func__, __FILE__, __LINE__);
 
         if (current_token != TOKEN_COLON && current_token != TOKEN_SEMICOLON) {
             Declarator *declarator = parse_declarator();
-            field->name            = declarator->name;
+            field->u.member.name   = declarator->name;
             declarator->name       = NULL;
             if (declarator->pointers) {
-                field->type = type_apply_pointers(field->type, declarator->pointers);
+                field->u.member.type = type_apply_pointers(field->u.member.type, declarator->pointers);
             }
             if (declarator->suffixes) {
-                field->type = type_apply_suffixes(field->type, declarator->suffixes);
+                field->u.member.type = type_apply_suffixes(field->u.member.type, declarator->suffixes);
             }
             free_declarator(declarator);
         }
         if (current_token == TOKEN_COLON) {
             advance_token();
-            field->bitfield = parse_constant_expression();
+            field->u.member.bitfield = parse_constant_expression();
         }
 
         *fields_tail = field;
