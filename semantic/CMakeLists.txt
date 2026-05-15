@@ -9,6 +9,10 @@ add_library(semantic STATIC
     typetab.c
     typetab_print.c
     typecheck.c
+    expressions.c
+    initializers.c
+    statements.c
+    declarations.c
     type_utils.c
     const_convert.c
     label_loops.c

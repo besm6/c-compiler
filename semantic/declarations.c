@@ -1,0 +1,386 @@
+//
+// Type-checking for declarations.
+//
+#include <stdio.h>
+
+#include "semantic.h"
+#include "string_map.h"
+#include "structtab.h"
+#include "symtab.h"
+#include "typecheck.h"
+#include "typetab.h"
+
+static bool is_extern(const DeclSpec *spec)
+{
+    return spec && (spec->storage == STORAGE_CLASS_EXTERN);
+}
+
+static bool is_static(const DeclSpec *spec)
+{
+    return spec && (spec->storage == STORAGE_CLASS_STATIC);
+}
+
+// Validate struct members for uniqueness and completeness.
+static void validate_struct_definition(const char *tag, const Field *members)
+{
+    if (semantic_debug) {
+        printf("--- %s()\n", __func__);
+    }
+    if (structtab_exists(tag)) {
+        fatal_error("Structure %s was already declared", tag);
+    }
+
+    // Check for duplicate member names.
+    StringMap names;
+    map_init(&names);
+    for (const Field *m = members; m; m = m->next) {
+        if (m->type->kind == TYPE_FUNCTION) {
+            fatal_error("Can't declare structure member with function type");
+        }
+        if (!is_complete(m->type)) {
+            fatal_error("Cannot declare structure member with incomplete type");
+        }
+        if (map_get(&names, m->name, NULL)) {
+            fatal_error("Duplicate member %s in structure %s", m->name, tag);
+        }
+        map_insert(&names, m->name, 0, 0);
+        validate_type(m->type);
+    }
+    map_destroy(&names);
+}
+
+// Register enum constants for an enum type definition.
+static void typecheck_enum_decl(const Type *enum_type)
+{
+    long next_val = 0;
+    for (const Enumerator *e = enum_type->u.enum_t.enumerators; e; e = e->next) {
+        long val;
+        if (e->value) {
+            if (!try_eval_const_int(e->value, &val))
+                fatal_error("Enum constant '%s' has non-constant initializer", e->name);
+        } else {
+            val = next_val;
+        }
+        next_val = val + 1;
+        symtab_add_enum_const(e->name, (int)val, scope_level);
+    }
+}
+
+// Type-check a struct/union/enum declaration.
+static void typecheck_struct_decl(const Declaration *d)
+{
+    if (semantic_debug) {
+        printf("--- %s()\n", __func__);
+    }
+    if (!d->u.empty.type)
+        return;
+    TypeKind kind = d->u.empty.type->kind;
+    if (kind == TYPE_ENUM) {
+        if (d->u.empty.type->u.enum_t.enumerators)
+            typecheck_enum_decl(d->u.empty.type);
+        return;
+    }
+    if (kind != TYPE_STRUCT && kind != TYPE_UNION)
+        return; // Ignore forward declarations
+
+    validate_struct_definition(d->u.empty.type->u.struct_t.name,
+                               d->u.empty.type->u.struct_t.fields);
+
+    // Build member definitions.
+    FieldDef *members     = NULL;
+    FieldDef **tail       = &members;
+    int current_size      = 0;
+    int current_alignment = 1;
+    for (const Field *f = d->u.empty.type->u.struct_t.fields; f; f = f->next) {
+        int member_alignment = get_alignment(f->type);
+        int offset           = 0;
+        if (kind == TYPE_STRUCT) {
+            offset = round_away_from_zero(member_alignment, current_size);
+        }
+        *tail = new_member(f->name, clone_type(f->type, __func__, __FILE__, __LINE__), offset);
+        tail  = &(*tail)->next;
+
+        current_alignment =
+            current_alignment > member_alignment ? current_alignment : member_alignment;
+        current_size = offset + get_size(f->type);
+    }
+    int size = round_away_from_zero(current_alignment, current_size);
+    structtab_add_struct(d->u.empty.type->u.struct_t.name, current_alignment, size, members,
+                         scope_level);
+}
+
+// Type-check a local variable declaration.
+static void typecheck_local_var_decl(Declaration *d)
+{
+    if (semantic_debug) {
+        printf("--- %s()\n", __func__);
+    }
+    if (d->u.var.specifiers && d->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF) {
+        const InitDeclarator *decl = d->u.var.declarators;
+        validate_type(decl->type);
+        typetab_add(decl->name, decl->type, scope_level);
+        return;
+    }
+    InitDeclarator *decl = d->u.var.declarators;
+    const Type *var_type = decl->type;
+    if (var_type->kind == TYPE_VOID) {
+        fatal_error("No void declarations");
+    }
+    validate_type(var_type);
+    if (is_extern(d->u.var.specifiers)) {
+        if (decl->init) {
+            fatal_error("Initializer on local extern declaration");
+        }
+        const Symbol *existing = symtab_get_opt(decl->name);
+        if (existing && existing->type->kind != var_type->kind) {
+            fatal_error("Variable %s redeclared with different type", decl->name);
+        }
+        if (!existing) {
+            symtab_add_static_var(decl->name, var_type, true, INIT_NONE, NULL);
+        }
+        return;
+    }
+    if (!is_complete(var_type)) {
+        fatal_error("Cannot define a variable with incomplete type");
+    }
+    if (is_static(d->u.var.specifiers)) {
+        Tac_StaticInit *static_init = to_static_init(var_type, decl->init);
+        symtab_add_static_var(decl->name, var_type, false, INIT_INITIALIZED, static_init);
+        // Drop initializer
+        free_initializer(decl->init);
+        decl->init = NULL;
+        return;
+    }
+    const Symbol *dup = symtab_get_opt(decl->name);
+    if (dup && !dup->has_linkage) {
+        fatal_error("Duplicate variable declaration %s", decl->name);
+    }
+    symtab_add_automatic_var_type(decl->name, var_type, scope_level);
+    decl->init = typecheck_init(var_type, decl->init);
+}
+
+// Type-check a function declaration/definition.
+static void typecheck_fn_decl(ExternalDecl *d)
+{
+    if (semantic_debug) {
+        printf("--- %s()\n", __func__);
+    }
+    const Type *fun_type = d->u.function.type;
+    validate_type(fun_type);
+    Type *adjusted_type = clone_type(fun_type, __func__, __FILE__, __LINE__);
+    if (fun_type->kind == TYPE_FUNCTION) {
+        if (fun_type->u.function.return_type->kind == TYPE_ARRAY) {
+            fatal_error("A function cannot return an array");
+        }
+        // In C, f(void) is represented as a single unnamed void param — it means no parameters.
+        Param *p = adjusted_type->u.function.params;
+        if (p && !p->next && p->type->kind == TYPE_VOID && !p->name) {
+            free_param(p);
+            adjusted_type->u.function.params = NULL;
+            p                                = NULL;
+        }
+        while (p) {
+            if (p->type->kind == TYPE_ARRAY) {
+                Type *ptr = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
+                ptr->u.pointer.target =
+                    clone_type(p->type->u.array.element, __func__, __FILE__, __LINE__);
+                p->type = ptr;
+            } else if (p->type->kind == TYPE_VOID) {
+                fatal_error("No void params allowed");
+            }
+            p = p->next;
+        }
+    } else {
+        fatal_error("Function has non-function type");
+    }
+    bool has_body            = d->u.function.body != NULL;
+    const Param *params      = adjusted_type->u.function.params;
+    bool all_params_complete = true;
+    for (const Param *p = params; p; p = p->next) {
+        if (!is_complete(p->type)) {
+            all_params_complete = false;
+            break;
+        }
+    }
+    const Type *ret = fun_type->u.function.return_type;
+    bool ret_ok     = (ret->kind == TYPE_VOID) || is_complete(ret);
+    if (has_body && (!ret_ok || !all_params_complete)) {
+        fatal_error("Can't define function with incomplete types");
+    }
+    bool global      = !is_static(d->u.function.specifiers);
+    Symbol *existing = symtab_get_opt(d->u.function.name);
+    bool defined     = has_body;
+    if (existing) {
+        if (existing->type->kind != fun_type->kind) {
+            fatal_error("Redeclared function %s with different type", d->u.function.name);
+        }
+        if (existing->kind == SYM_FUNC) {
+            if (existing->u.func.defined && has_body) {
+                fatal_error("Defined function %s twice", d->u.function.name);
+            }
+            if (existing->u.func.global && is_static(d->u.function.specifiers)) {
+                fatal_error("Static function declaration follows non-static");
+            }
+            defined = has_body || existing->u.func.defined;
+            global  = existing->u.func.global;
+        }
+    }
+    symtab_add_fun(d->u.function.name, adjusted_type, global, defined);
+    if (has_body) {
+        if (d->u.function.param_decls) {
+            fatal_error("Function parameters in K&R style are not supported");
+        }
+        scope_increment();
+        for (const Param *p = params; p; p = p->next) {
+            symtab_add_automatic_var_type(p->name, p->type, scope_level);
+        }
+        d->u.function.body =
+            typecheck_statement(fun_type->u.function.return_type, d->u.function.body);
+        scope_decrement();
+    }
+    free_type(d->u.function.type);
+    d->u.function.type = adjusted_type; // Update type in place
+}
+
+// Type-check a local declaration.
+void typecheck_local_decl(Declaration *d)
+{
+    if (semantic_debug) {
+        printf("--- %s()\n", __func__);
+    }
+    switch (d->kind) {
+    case DECL_VAR:
+        typecheck_local_var_decl(d);
+        break;
+    case DECL_EMPTY:
+        typecheck_struct_decl(d);
+        break;
+    default:
+        fatal_error("Unsupported local declaration kind %d", d->kind);
+    }
+}
+
+// Type-check a global (file-scope) variable declaration.
+static void typecheck_file_scope_var_decl(Declaration *d)
+{
+    if (semantic_debug) {
+        printf("--- %s()\n", __func__);
+        print_declaration(stdout, d, 4);
+    }
+    if (d->u.var.specifiers && d->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF) {
+        for (const InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
+            validate_type(decl->type);
+            typetab_add(decl->name, decl->type, scope_level);
+        }
+        return;
+    }
+    bool global = !is_static(d->u.var.specifiers);
+    for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
+        const Type *var_type = decl->type;
+
+        // A function prototype at file scope (e.g. "int f(int);") arrives here
+        // as a DECL_VAR with a function type. Register it as SYM_FUNC so that
+        // resolve() can find it when it later processes the definition, and so
+        // has_linkage is set correctly to allow the redeclaration.
+        if (var_type->kind == TYPE_FUNCTION) {
+            validate_type(var_type);
+            // Strip void sentinel — same normalization as in typecheck_fn_decl so
+            // call-site argument-count checks see zero params for f(void).
+            Type *adj  = clone_type(var_type, __func__, __FILE__, __LINE__);
+            Param *vsp = adj->u.function.params;
+            if (vsp && !vsp->next && vsp->type->kind == TYPE_VOID && !vsp->name) {
+                free_param(vsp);
+                adj->u.function.params = NULL;
+            }
+            Symbol *existing = symtab_get_opt(decl->name);
+            bool defined     = existing && existing->kind == SYM_FUNC && existing->u.func.defined;
+            bool fn_global =
+                (existing && existing->kind == SYM_FUNC) ? existing->u.func.global : global;
+            symtab_add_fun(decl->name, adj, fn_global, defined);
+            free_type(decl->type);
+            decl->type = adj; // normalized type now owned by AST
+            continue;
+        }
+
+        if (var_type->kind == TYPE_VOID) {
+            fatal_error("Void variables not allowed");
+        }
+        validate_type(var_type);
+
+        InitKind init_kind        = is_extern(d->u.var.specifiers) ? INIT_NONE : INIT_TENTATIVE;
+        Tac_StaticInit *init_list = NULL;
+        if (decl->init) {
+            init_kind = INIT_INITIALIZED;
+            init_list = to_static_init(var_type, decl->init);
+        }
+        if (!is_complete(var_type) && init_kind != INIT_NONE) {
+            fatal_error("Can't define a variable with incomplete type");
+        }
+        Symbol *existing = symtab_get_opt(decl->name);
+        if (existing) {
+            if (existing->type->kind != var_type->kind) {
+                fatal_error("Variable %s redeclared with different type", decl->name);
+            }
+            if (existing->kind == SYM_STATIC) {
+                if (!is_extern(d->u.var.specifiers) && existing->u.static_var.global != global) {
+                    fatal_error("Conflicting variable linkage");
+                }
+                if (existing->u.static_var.init_kind == INIT_INITIALIZED &&
+                    init_kind == INIT_INITIALIZED) {
+                    fatal_error("Conflicting global variable definition");
+                }
+                init_kind = existing->u.static_var.init_kind == INIT_INITIALIZED
+                                ? existing->u.static_var.init_kind
+                                : init_kind;
+                init_list = existing->u.static_var.init_kind == INIT_INITIALIZED
+                                ? existing->u.static_var.init_list
+                                : init_list;
+                global    = is_extern(d->u.var.specifiers) ? existing->u.static_var.global : global;
+            }
+        }
+        symtab_add_static_var(decl->name, var_type, global, init_kind, init_list);
+
+        // Drop initializer
+        free_initializer(decl->init);
+        decl->init = NULL;
+    }
+}
+
+// Type-check a global declaration.
+void typecheck_global_decl(ExternalDecl *d)
+{
+    if (semantic_debug) {
+        printf("--- %s()\n", __func__);
+        print_external_decl(stdout, d, 4);
+    }
+    switch (d->kind) {
+    case EXTERNAL_DECL_FUNCTION:
+        typecheck_fn_decl(d);
+        if (semantic_debug) {
+            printf("--- result:\n");
+            print_external_decl(stdout, d, 4);
+        }
+        break;
+    case EXTERNAL_DECL_DECLARATION:
+        switch (d->u.declaration->kind) {
+        case DECL_VAR:
+            typecheck_file_scope_var_decl(d->u.declaration);
+            break;
+        case DECL_EMPTY:
+            typecheck_struct_decl(d->u.declaration);
+            break;
+        case DECL_STATIC_ASSERT: {
+            const Expr *e = typecheck_and_convert(d->u.declaration->u.static_assrt.condition);
+            if (!is_scalar(e->type)) {
+                fatal_error("_Static_assert condition must have scalar type");
+            }
+            break;
+        }
+        }
+        if (semantic_debug) {
+            printf("--- result:\n");
+            print_declaration(stdout, d->u.declaration, 4);
+        }
+        break;
+    }
+}
