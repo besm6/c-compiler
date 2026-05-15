@@ -50,12 +50,12 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
             if (ret_type->kind == TYPE_VOID) {
                 fatal_error("Void function cannot return a value");
             }
-            s->u.expr = convert_by_assignment(typecheck_and_convert(s->u.expr), ret_type);
+            s->u.expr = coerce_for_assignment(typecheck_and_decay(s->u.expr), ret_type);
         } else if (ret_type->kind != TYPE_VOID) {
             return s;
         }
     case STMT_EXPR: {
-        s->u.expr = typecheck_and_convert(s->u.expr);
+        s->u.expr = typecheck_and_decay(s->u.expr);
         return s;
     }
     case STMT_IF: {
@@ -91,13 +91,13 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
             typecheck_local_decl(s->u.for_stmt.init->u.decl);
         } else {
             s->u.for_stmt.init->u.expr = s->u.for_stmt.init->u.expr
-                                             ? typecheck_and_convert(s->u.for_stmt.init->u.expr)
+                                             ? typecheck_and_decay(s->u.for_stmt.init->u.expr)
                                              : NULL;
         }
         s->u.for_stmt.condition =
             s->u.for_stmt.condition ? typecheck_scalar(s->u.for_stmt.condition) : NULL;
         s->u.for_stmt.update =
-            s->u.for_stmt.update ? typecheck_and_convert(s->u.for_stmt.update) : NULL;
+            s->u.for_stmt.update ? typecheck_and_decay(s->u.for_stmt.update) : NULL;
         s->u.for_stmt.body = typecheck_statement(ret_type, s->u.for_stmt.body);
         scope_decrement();
         return s;
@@ -108,7 +108,7 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
         return s;
     case STMT_SWITCH: {
         /* C11 §6.8.4.2 p1: controlling expression must be integer type. */
-        Expr *ctrl = typecheck_and_convert(s->u.switch_stmt.expr);
+        Expr *ctrl = typecheck_and_decay(s->u.switch_stmt.expr);
         if (!is_integer(ctrl->type)) {
             fatal_error("Switch controlling expression must be of integer type");
         }
@@ -133,7 +133,7 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
             fatal_error("Case label outside switch statement");
         }
         /* C11 §6.8.4.2 p3: case expression must be integer constant. */
-        Expr *ce = typecheck_and_convert(s->u.case_stmt.expr);
+        Expr *ce = typecheck_and_decay(s->u.case_stmt.expr);
         if (!is_integer(ce->type)) {
             fatal_error("Case expression must be of integer type");
         }

@@ -274,7 +274,7 @@ void process_file(const Args *args)
 
         // Typecheck definitions and uses of functions and variables.
         // Annotate loops and break/continue statements.
-        resolve(ast);
+        typecheck_decl(ast);
 
         // Convert the AST to TAC.
         Tac_TopLevel *tac = translate(ast);

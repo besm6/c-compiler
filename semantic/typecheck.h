@@ -28,19 +28,19 @@ Expr       *convert_to_kind(Expr *e, TypeKind kind);
 const Type *get_common_type(const Type *t1, const Type *t2);
 bool        is_zero_int(const Literal *c);
 bool        is_null_pointer_constant(const Expr *e);
-Type       *get_common_pointer_type(const Expr *e1, const Expr *e2);
-Expr       *convert_by_assignment(Expr *e, const Type *target_type);
+Type       *common_pointer_type(const Expr *e1, const Expr *e2);
+Expr       *coerce_for_assignment(Expr *e, const Type *target_type);
 
 // Const evaluation — typecheck.c
 bool try_eval_const_int(const Expr *e, long *out);
 
 // Expression type-checking — expressions.c
 Expr *typecheck_string(Expr *e);
-Expr *typecheck_and_convert(Expr *e);
+Expr *typecheck_and_decay(Expr *e);
 Expr *typecheck_scalar(Expr *e);
 
 // Initializer type-checking — initializers.c
-Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init);
+Tac_StaticInit *build_static_init(const Type *var_type, const Initializer *init);
 Initializer    *typecheck_init(const Type *target_type, Initializer *init);
 
 // Statement type-checking — statements.c

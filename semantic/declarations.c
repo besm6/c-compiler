@@ -50,7 +50,7 @@ static void validate_struct_definition(const char *tag, const Field *members)
 }
 
 // Register enum constants for an enum type definition.
-static void typecheck_enum_decl(const Type *enum_type)
+static void register_enum_constants(const Type *enum_type)
 {
     long next_val = 0;
     for (const Enumerator *e = enum_type->u.enum_t.enumerators; e; e = e->next) {
@@ -66,8 +66,8 @@ static void typecheck_enum_decl(const Type *enum_type)
     }
 }
 
-// Type-check a struct/union/enum declaration.
-static void typecheck_struct_decl(const Declaration *d)
+// Type-check a struct/union/enum tag declaration.
+static void typecheck_tag_decl(const Declaration *d)
 {
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
@@ -77,7 +77,7 @@ static void typecheck_struct_decl(const Declaration *d)
     TypeKind kind = d->u.empty.type->kind;
     if (kind == TYPE_ENUM) {
         if (d->u.empty.type->u.enum_t.enumerators)
-            typecheck_enum_decl(d->u.empty.type);
+            register_enum_constants(d->u.empty.type);
         return;
     }
     if (kind != TYPE_STRUCT && kind != TYPE_UNION)
@@ -144,7 +144,7 @@ static void typecheck_local_var_decl(Declaration *d)
         fatal_error("Cannot define a variable with incomplete type");
     }
     if (is_static(d->u.var.specifiers)) {
-        Tac_StaticInit *static_init = to_static_init(var_type, decl->init);
+        Tac_StaticInit *static_init = build_static_init(var_type, decl->init);
         symtab_add_static_var(decl->name, var_type, false, INIT_INITIALIZED, static_init);
         // Drop initializer
         free_initializer(decl->init);
@@ -253,7 +253,7 @@ void typecheck_local_decl(Declaration *d)
         typecheck_local_var_decl(d);
         break;
     case DECL_EMPTY:
-        typecheck_struct_decl(d);
+        typecheck_tag_decl(d);
         break;
     default:
         fatal_error("Unsupported local declaration kind %d", d->kind);
@@ -311,7 +311,7 @@ static void typecheck_file_scope_var_decl(Declaration *d)
         Tac_StaticInit *init_list = NULL;
         if (decl->init) {
             init_kind = INIT_INITIALIZED;
-            init_list = to_static_init(var_type, decl->init);
+            init_list = build_static_init(var_type, decl->init);
         }
         if (!is_complete(var_type) && init_kind != INIT_NONE) {
             fatal_error("Can't define a variable with incomplete type");
@@ -367,10 +367,10 @@ void typecheck_global_decl(ExternalDecl *d)
             typecheck_file_scope_var_decl(d->u.declaration);
             break;
         case DECL_EMPTY:
-            typecheck_struct_decl(d->u.declaration);
+            typecheck_tag_decl(d->u.declaration);
             break;
         case DECL_STATIC_ASSERT: {
-            const Expr *e = typecheck_and_convert(d->u.declaration->u.static_assrt.condition);
+            const Expr *e = typecheck_and_decay(d->u.declaration->u.static_assrt.condition);
             if (!is_scalar(e->type)) {
                 fatal_error("_Static_assert condition must have scalar type");
             }

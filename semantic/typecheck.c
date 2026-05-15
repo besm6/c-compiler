@@ -228,7 +228,7 @@ bool is_null_pointer_constant(const Expr *e)
 }
 
 // Get common pointer type for pointer-involved binary operations.
-Type *get_common_pointer_type(const Expr *e1, const Expr *e2)
+Type *common_pointer_type(const Expr *e1, const Expr *e2)
 {
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
@@ -252,7 +252,7 @@ Type *get_common_pointer_type(const Expr *e1, const Expr *e2)
 }
 
 // Convert an expression for assignment to target_type.
-Expr *convert_by_assignment(Expr *e, const Type *target_type)
+Expr *coerce_for_assignment(Expr *e, const Type *target_type)
 {
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
@@ -320,17 +320,17 @@ bool try_eval_const_int(const Expr *e, long *out)
     }
 }
 
-// Resolve a global declaration: type-check then label loops.
-void resolve(ExternalDecl *d)
+// Type-check a global declaration and label its loops.
+void typecheck_decl(ExternalDecl *d)
 {
     typecheck_global_decl(d);
     label_loops(d);
 }
 
-// Resolve an entire program.
-void resolve_program(Program *p)
+// Type-check an entire program.
+void typecheck_program(Program *p)
 {
     for (ExternalDecl *d = p->decls; d; d = d->next) {
-        resolve(d);
+        typecheck_decl(d);
     }
 }

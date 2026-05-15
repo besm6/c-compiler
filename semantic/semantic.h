@@ -18,9 +18,9 @@ extern int scope_level;
 extern int semantic_debug;
 extern int xalloc_debug;
 
-// Resolve definitions and uses of functions and variables.
-void resolve(ExternalDecl *d);
-void resolve_program(Program *p);
+// Semantic analysis entry points: type-check and label loops.
+void typecheck_decl(ExternalDecl *d);
+void typecheck_program(Program *p);
 
 // Annotate loops and break/continue statements.
 void label_loops(ExternalDecl *ast);

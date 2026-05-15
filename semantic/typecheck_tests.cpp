@@ -122,7 +122,7 @@ TEST_F(TypecheckTest, TypecheckIntVarExpr)
             return x + 1;
         }
     )");
-    resolve_program(program);
+    typecheck_program(program);
 
     // Check symbol x.
     const Symbol *x = symtab_get("x");
@@ -233,7 +233,7 @@ TEST_F(TypecheckTest, TypecheckStructDeclMemberAccess)
             return p.y;
         }
     )");
-    resolve_program(program);
+    typecheck_program(program);
 
     // structtab: Point with int x@0, double y@8, size=16, align=8
     const StructDef *pt = structtab_find("Point");
@@ -317,7 +317,7 @@ TEST_F(TypecheckTest, TypecheckArrayStringLiteralInit)
             return str[0];
         }
     )");
-    resolve_program(program);
+    typecheck_program(program);
 
     // TODO: check symtab, AST
 }
@@ -367,7 +367,7 @@ TEST_F(TypecheckTest, PointerArithmeticDereference)
             return *(ptr + 1);
         }
     )");
-    resolve_program(program);
+    typecheck_program(program);
 
     // TODO: check symtab, AST
 }
@@ -413,7 +413,7 @@ TEST_F(TypecheckTest, FunctionCallWithParameters)
             return add(1, 2.0);
         }
     )");
-    resolve_program(program);
+    typecheck_program(program);
 
     // TODO: check symtab, AST
 }
@@ -450,7 +450,7 @@ TEST_F(TypecheckTest, ConditionalExpression)
             return x ? 10 : 20;
         }
     )");
-    resolve_program(program);
+    typecheck_program(program);
 
     // TODO: check symtab, AST
 }
@@ -474,7 +474,7 @@ TEST_F(TypecheckTest, DuplicateStructDeclaration)
         struct S { int x; };
         struct S { int y; };
     )");
-    ASSERT_EXIT(resolve_program(program), ::testing::ExitedWithCode(1),
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
                 "Structure S was already declared");
 }
 
@@ -508,7 +508,7 @@ TEST_F(TypecheckTest, StaticVariableCompoundInitializer)
         struct S { int x; int y; };
         static struct S s = {1, 2};
     )");
-    resolve_program(program);
+    typecheck_program(program);
 
     // structtab: S with int x@0, int y@4, size=8, align=4
     const StructDef *sd = structtab_find("S");
@@ -585,7 +585,7 @@ TEST_F(TypecheckTest, PointerStructArrowOperator)
             return p->x;
         }
     )");
-    resolve_program(program);
+    typecheck_program(program);
 
     // structtab: S with int x@0, size=4, align=4
     const StructDef *sd = structtab_find("S");
@@ -652,7 +652,7 @@ TEST_F(TypecheckTest, InvalidAssignment)
             x = "string";
         }
     )");
-    ASSERT_EXIT(resolve_program(program), ::testing::ExitedWithCode(1),
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
                 "Cannot convert type for assignment");
 }
 
@@ -665,7 +665,7 @@ protected:
     void RunPipeline(const char *src)
     {
         ParseProgram(src);
-        resolve_program(program);
+        typecheck_program(program);
     }
 };
 
@@ -773,28 +773,28 @@ TEST_F(PipelineTest, StaticAndExternVars)
 TEST_F(TypecheckTest, SwitchFloatExpr)
 {
     ParseProgram("double f(double x) { switch (x) {} return 0; }");
-    ASSERT_EXIT(resolve_program(program), ::testing::ExitedWithCode(1), "integer type");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "integer type");
 }
 
 // Pointer controlling expression is rejected.
 TEST_F(TypecheckTest, SwitchPointerExpr)
 {
     ParseProgram("int f(int *p) { switch (p) {} return 0; }");
-    ASSERT_EXIT(resolve_program(program), ::testing::ExitedWithCode(1), "integer type");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "integer type");
 }
 
 // Float case expression is rejected.
 TEST_F(TypecheckTest, CaseFloatValue)
 {
     ParseProgram("int f(int x) { switch (x) { case 1.5: break; } return 0; }");
-    ASSERT_EXIT(resolve_program(program), ::testing::ExitedWithCode(1), "integer type");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "integer type");
 }
 
 // Duplicate integer case values are rejected.
 TEST_F(TypecheckTest, CaseDuplicate)
 {
     ParseProgram("int f(int x) { switch (x) { case 1: break; case 1: break; } return 0; }");
-    ASSERT_EXIT(resolve_program(program), ::testing::ExitedWithCode(1), "Duplicate case value");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "Duplicate case value");
 }
 
 // char 'a' and integer 97 should be the same value — duplicate.
@@ -803,42 +803,42 @@ TEST_F(TypecheckTest, CaseDuplicate)
 TEST_F(TypecheckTest, CaseDuplicateCharAndInt)
 {
     ParseProgram("int f(int x) { switch (x) { case 'a': break; case 97: break; } return 0; }");
-    ASSERT_EXIT(resolve_program(program), ::testing::ExitedWithCode(1), "Duplicate case value");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "Duplicate case value");
 }
 
 // Two default labels in one switch are rejected.
 TEST_F(TypecheckTest, MultipleDefaultLabels)
 {
     ParseProgram("int f(int x) { switch (x) { default: break; default: break; } return 0; }");
-    ASSERT_EXIT(resolve_program(program), ::testing::ExitedWithCode(1), "Multiple default");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1), "Multiple default");
 }
 
 // Basic switch with distinct integer case values is accepted.
 TEST_F(TypecheckTest, SwitchIntBasic)
 {
     ParseProgram("int f(int x) { switch (x) { case 0: break; case 1: break; } return 0; }");
-    resolve_program(program);
+    typecheck_program(program);
 }
 
 // Char controlling expression is accepted (gets integer-promoted).
 TEST_F(TypecheckTest, SwitchCharExpr)
 {
     ParseProgram("int f(char c) { switch (c) { case 'a': break; } return 0; }");
-    resolve_program(program);
+    typecheck_program(program);
 }
 
 // Switch with cases and a default label is accepted.
 TEST_F(TypecheckTest, SwitchWithDefault)
 {
     ParseProgram("int f(int x) { switch (x) { case 0: break; default: break; } return 0; }");
-    resolve_program(program);
+    typecheck_program(program);
 }
 
 // Switch with no cases is accepted.
 TEST_F(TypecheckTest, SwitchEmptyBody)
 {
     ParseProgram("int f(int x) { switch (x) {} return 0; }");
-    resolve_program(program);
+    typecheck_program(program);
 }
 
 // Nested switches each with case 1 are accepted — contexts are independent.
@@ -852,7 +852,7 @@ TEST_F(TypecheckTest, SwitchNestedContexts)
             return 0;
         }
     )");
-    resolve_program(program);
+    typecheck_program(program);
 }
 
 // ---------------------------------------------------------------------------
@@ -864,7 +864,7 @@ protected:
     void RunLabelLoops(const char *src)
     {
         ParseProgram(src);
-        resolve_program(program);
+        typecheck_program(program);
     }
 };
 

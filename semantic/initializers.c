@@ -70,7 +70,7 @@ static Initializer *make_zero_init(Type *t)
 }
 
 // Convert an initializer to a Tac_StaticInit list for global/static variables.
-Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
+Tac_StaticInit *build_static_init(const Type *var_type, const Initializer *init)
 {
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
@@ -171,7 +171,7 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
             if (element_count >= (int)array_size) {
                 fatal_error("Too many elements in array initializer");
             }
-            Tac_StaticInit *element_init = to_static_init(element_type, item->init);
+            Tac_StaticInit *element_init = build_static_init(element_type, item->init);
             *current                     = element_init;
             while (*current) {
                 current = &(*current)->next;
@@ -205,7 +205,7 @@ Tac_StaticInit *to_static_init(const Type *var_type, const Initializer *init)
                 *current                     = zero_padding;
                 current                      = &zero_padding->next;
             }
-            Tac_StaticInit *field_init = to_static_init(field->type, item->init);
+            Tac_StaticInit *field_init = build_static_init(field->type, item->init);
             *current                   = field_init;
             while (*current) {
                 current = &(*current)->next;
@@ -267,8 +267,8 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
 
     // Handle scalar initialized with a single expression.
     if (init->kind == INITIALIZER_SINGLE) {
-        Expr *expression = typecheck_and_convert(init->u.expr);
-        expression       = convert_by_assignment(expression, target_type);
+        Expr *expression = typecheck_and_decay(init->u.expr);
+        expression       = coerce_for_assignment(expression, target_type);
         init->u.expr     = expression;
         return init;
     }

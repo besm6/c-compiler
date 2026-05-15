@@ -68,7 +68,7 @@ Expr *typecheck_string(Expr *e)
 }
 
 // Type-check a constant literal.
-static Expr *typecheck_const(Expr *e)
+static Expr *typecheck_literal(Expr *e)
 {
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
@@ -105,7 +105,7 @@ static Expr *typecheck_const(Expr *e)
 }
 
 // Type-check an expression.
-static Expr *typecheck_exp(Expr *e)
+static Expr *typecheck_expr(Expr *e)
 {
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
@@ -116,10 +116,10 @@ static Expr *typecheck_exp(Expr *e)
     case EXPR_VAR:
         return typecheck_var(e);
     case EXPR_LITERAL:
-        return typecheck_const(e);
+        return typecheck_literal(e);
     case EXPR_CAST: {
         validate_type(e->u.cast.type);
-        Expr *inner = typecheck_and_convert(e->u.cast.expr);
+        Expr *inner = typecheck_and_decay(e->u.cast.expr);
         if ((e->u.cast.type->kind == TYPE_DOUBLE && is_pointer(inner->type)) ||
             (is_pointer(e->u.cast.type) && inner->type->kind == TYPE_DOUBLE)) {
             fatal_error("Cannot cast between pointer and double");
@@ -148,7 +148,7 @@ static Expr *typecheck_exp(Expr *e)
             return e;
         }
         case UNARY_BIT_NOT: {
-            Expr *inner = typecheck_and_convert(e->u.unary_op.expr);
+            Expr *inner = typecheck_and_decay(e->u.unary_op.expr);
             if (!is_integer(inner->type)) {
                 fatal_error("Bitwise complement only valid for integer types");
             }
@@ -161,7 +161,7 @@ static Expr *typecheck_exp(Expr *e)
         }
         case UNARY_PLUS:
         case UNARY_NEG: {
-            Expr *inner = typecheck_and_convert(e->u.unary_op.expr);
+            Expr *inner = typecheck_and_decay(e->u.unary_op.expr);
             if (!is_arithmetic(inner->type)) {
                 fatal_error("Can only apply unary +/- to arithmetic types");
             }
@@ -173,7 +173,7 @@ static Expr *typecheck_exp(Expr *e)
             return e;
         }
         case UNARY_DEREF: {
-            Expr *inner = typecheck_and_convert(e->u.unary_op.expr);
+            Expr *inner = typecheck_and_decay(e->u.unary_op.expr);
             if (!is_pointer(inner->type)) {
                 fatal_error("Tried to dereference non-pointer");
             }
@@ -186,7 +186,7 @@ static Expr *typecheck_exp(Expr *e)
             return e;
         }
         case UNARY_ADDRESS: {
-            Expr *inner = typecheck_exp(e->u.unary_op.expr);
+            Expr *inner = typecheck_expr(e->u.unary_op.expr);
             if (!is_lvalue(inner)) {
                 fatal_error("Cannot take address of non-lvalue");
             }
@@ -199,7 +199,7 @@ static Expr *typecheck_exp(Expr *e)
         }
         case UNARY_PRE_INC:
         case UNARY_PRE_DEC: {
-            Expr *inner = typecheck_and_convert(e->u.unary_op.expr);
+            Expr *inner = typecheck_and_decay(e->u.unary_op.expr);
             if (!is_lvalue(inner)) {
                 fatal_error("Operand of pre-increment/decrement must be a modifiable lvalue");
             }
@@ -229,8 +229,8 @@ static Expr *typecheck_exp(Expr *e)
             return e;
         }
         case BINARY_ADD: {
-            e1 = typecheck_and_convert(e1);
-            e2 = typecheck_and_convert(e2);
+            e1 = typecheck_and_decay(e1);
+            e2 = typecheck_and_decay(e2);
             free_type(e->type);
             if (is_arithmetic(e1->type) && is_arithmetic(e2->type)) {
                 const Type *common = get_common_type(e1->type, e2->type);
@@ -251,8 +251,8 @@ static Expr *typecheck_exp(Expr *e)
             return e;
         }
         case BINARY_SUB: {
-            e1 = typecheck_and_convert(e1);
-            e2 = typecheck_and_convert(e2);
+            e1 = typecheck_and_decay(e1);
+            e2 = typecheck_and_decay(e2);
             free_type(e->type);
             if (is_arithmetic(e1->type) && is_arithmetic(e2->type)) {
                 const Type *common = get_common_type(e1->type, e2->type);
@@ -274,8 +274,8 @@ static Expr *typecheck_exp(Expr *e)
         case BINARY_MUL:
         case BINARY_DIV:
         case BINARY_MOD: {
-            e1 = typecheck_and_convert(e1);
-            e2 = typecheck_and_convert(e2);
+            e1 = typecheck_and_decay(e1);
+            e2 = typecheck_and_decay(e2);
             if (!is_arithmetic(e1->type) || !is_arithmetic(e2->type)) {
                 fatal_error("Can only multiply arithmetic types");
             }
@@ -293,10 +293,10 @@ static Expr *typecheck_exp(Expr *e)
         }
         case BINARY_EQ:
         case BINARY_NE: {
-            e1                 = typecheck_and_convert(e1);
-            e2                 = typecheck_and_convert(e2);
+            e1                 = typecheck_and_decay(e1);
+            e2                 = typecheck_and_decay(e2);
             const Type *common = is_pointer(e1->type) || is_pointer(e2->type)
-                                     ? get_common_pointer_type(e1, e2)
+                                     ? common_pointer_type(e1, e2)
                                      : get_common_type(e1->type, e2->type);
             e1                 = convert_to_type(e1, common);
             e2                 = convert_to_type(e2, common);
@@ -310,8 +310,8 @@ static Expr *typecheck_exp(Expr *e)
         case BINARY_GT:
         case BINARY_LE:
         case BINARY_GE: {
-            e1                 = typecheck_and_convert(e1);
-            e2                 = typecheck_and_convert(e2);
+            e1                 = typecheck_and_decay(e1);
+            e2                 = typecheck_and_decay(e2);
             const Type *common = is_arithmetic(e1->type) && is_arithmetic(e2->type)
                                      ? get_common_type(e1->type, e2->type)
                                      : (e1->type->kind == e2->type->kind ? e1->type : NULL);
@@ -331,12 +331,12 @@ static Expr *typecheck_exp(Expr *e)
         }
     }
     case EXPR_ASSIGN: {
-        Expr *lhs = typecheck_and_convert(e->u.assign.target);
+        Expr *lhs = typecheck_and_decay(e->u.assign.target);
         if (!is_lvalue(lhs)) {
             fatal_error("Left hand side of assignment is invalid lvalue");
         }
-        Expr *rhs = typecheck_and_convert(e->u.assign.value);
-        rhs       = convert_by_assignment(rhs, lhs->type);
+        Expr *rhs = typecheck_and_decay(e->u.assign.value);
+        rhs       = coerce_for_assignment(rhs, lhs->type);
         free_type(e->type);
         e->type            = clone_type(lhs->type, __func__, __FILE__, __LINE__);
         e->u.assign.target = lhs;
@@ -345,13 +345,13 @@ static Expr *typecheck_exp(Expr *e)
     }
     case EXPR_COND: {
         Expr *cond      = typecheck_scalar(e->u.cond.condition);
-        Expr *then_expr = typecheck_and_convert(e->u.cond.then_expr);
-        Expr *else_expr = typecheck_and_convert(e->u.cond.else_expr);
+        Expr *then_expr = typecheck_and_decay(e->u.cond.then_expr);
+        Expr *else_expr = typecheck_and_decay(e->u.cond.else_expr);
         const Type *result_type;
         if (then_expr->type->kind == TYPE_VOID && else_expr->type->kind == TYPE_VOID) {
             result_type = new_type(TYPE_VOID, __func__, __FILE__, __LINE__);
         } else if (is_pointer(then_expr->type) || is_pointer(else_expr->type)) {
-            result_type = get_common_pointer_type(then_expr, else_expr);
+            result_type = common_pointer_type(then_expr, else_expr);
         } else if (is_arithmetic(then_expr->type) && is_arithmetic(else_expr->type)) {
             result_type = get_common_type(then_expr->type, else_expr->type);
         } else if (then_expr->type->kind == else_expr->type->kind) {
@@ -390,7 +390,7 @@ static Expr *typecheck_exp(Expr *e)
         Expr *arg = e->u.call.args, *prev = NULL, *new_args = NULL;
         const Param *p = params;
         while (arg && p) {
-            Expr *new_arg = convert_by_assignment(typecheck_and_convert(arg), p->type);
+            Expr *new_arg = coerce_for_assignment(typecheck_and_decay(arg), p->type);
             if (!new_args)
                 new_args = new_arg;
             if (prev)
@@ -405,8 +405,8 @@ static Expr *typecheck_exp(Expr *e)
         return e;
     }
     case EXPR_SUBSCRIPT: {
-        Expr *ptr   = typecheck_and_convert(e->u.subscript.left);
-        Expr *index = typecheck_and_convert(e->u.subscript.right);
+        Expr *ptr   = typecheck_and_decay(e->u.subscript.left);
+        Expr *index = typecheck_and_decay(e->u.subscript.right);
         const Type *result_type;
         if (is_complete_pointer(ptr->type) && is_integer(index->type)) {
             result_type = ptr->type->u.pointer.target;
@@ -424,7 +424,7 @@ static Expr *typecheck_exp(Expr *e)
         return e;
     }
     case EXPR_SIZEOF_EXPR: {
-        Expr *inner = typecheck_exp(e->u.sizeof_expr);
+        Expr *inner = typecheck_expr(e->u.sizeof_expr);
         if (!is_complete(inner->type)) {
             fatal_error("Can't apply sizeof to incomplete type");
         }
@@ -452,7 +452,7 @@ static Expr *typecheck_exp(Expr *e)
         return e;
     }
     case EXPR_FIELD_ACCESS: {
-        Expr *strct = typecheck_and_convert(e->u.field_access.expr);
+        Expr *strct = typecheck_and_decay(e->u.field_access.expr);
         if (strct->type->kind != TYPE_STRUCT) {
             fatal_error("Dot operator requires structure type");
         }
@@ -473,7 +473,7 @@ static Expr *typecheck_exp(Expr *e)
         return e;
     }
     case EXPR_PTR_ACCESS: {
-        Expr *strct_ptr = typecheck_and_convert(e->u.ptr_access.expr);
+        Expr *strct_ptr = typecheck_and_decay(e->u.ptr_access.expr);
         if (!is_pointer(strct_ptr->type) ||
             strct_ptr->type->u.pointer.target->kind != TYPE_STRUCT) {
             fatal_error("Arrow operator requires pointer to structure");
@@ -497,7 +497,7 @@ static Expr *typecheck_exp(Expr *e)
         return e;
     }
     case EXPR_POST_INC: {
-        Expr *inner = typecheck_and_convert(e->u.post_inc);
+        Expr *inner = typecheck_and_decay(e->u.post_inc);
         if (!is_lvalue(inner)) {
             fatal_error("Operand of post-increment must be a modifiable lvalue");
         }
@@ -510,7 +510,7 @@ static Expr *typecheck_exp(Expr *e)
         return e;
     }
     case EXPR_POST_DEC: {
-        Expr *inner = typecheck_and_convert(e->u.post_dec);
+        Expr *inner = typecheck_and_decay(e->u.post_dec);
         if (!is_lvalue(inner)) {
             fatal_error("Operand of post-decrement must be a modifiable lvalue");
         }
@@ -528,14 +528,14 @@ static Expr *typecheck_exp(Expr *e)
 }
 
 // Type-check an expression and apply array-to-pointer decay.
-Expr *typecheck_and_convert(Expr *e)
+Expr *typecheck_and_decay(Expr *e)
 {
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (!e)
         return NULL;
-    Expr *typed = typecheck_exp(e);
+    Expr *typed = typecheck_expr(e);
     if (typed->type->kind == TYPE_STRUCT && !is_complete(typed->type)) {
         fatal_error("Incomplete structure type not permitted");
     }
@@ -555,7 +555,7 @@ Expr *typecheck_scalar(Expr *e)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *typed = typecheck_and_convert(e);
+    Expr *typed = typecheck_and_decay(e);
     if (!is_scalar(typed->type)) {
         fatal_error("A scalar operand is required");
     }
