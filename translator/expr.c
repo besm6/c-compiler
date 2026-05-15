@@ -482,18 +482,33 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             args_tail   = &av->next;
         }
 
-        Expr *func = e->u.call.func;
-        if (func->kind != EXPR_VAR)
-            fatal_error("Indirect call through non-variable expression not yet supported");
-        const char *fun_name = func->u.var;
+        Expr       *func    = e->u.call.func;
+        const char *fun_name;
+        Tac_Val    *fn_ptr  = NULL;
+        if (func->kind == EXPR_VAR) {
+            fun_name = func->u.var;
+        } else {
+            // Indirect call. C11 §6.3.2.1p4: a function designator (*fp)
+            // decays to a function pointer; strip the DEREF so we use the
+            // pointer variable directly rather than emitting a LOAD from it.
+            Expr *callee = func;
+            if (callee->kind == EXPR_UNARY_OP
+                && callee->u.unary_op.op == UNARY_DEREF
+                && callee->type->kind == TYPE_FUNCTION)
+                callee = callee->u.unary_op.expr;
+            fn_ptr   = gen_expr(ctx, callee);
+            fun_name = fn_ptr->u.var_name;
+        }
 
-        Tac_Val *dst = (e->type->kind != TYPE_VOID) ? new_var_val(ctx) : NULL;
-
+        Tac_Val *dst            = (e->type->kind != TYPE_VOID) ? new_var_val(ctx) : NULL;
         Tac_Instruction *in     = tac_new_instruction(TAC_INSTRUCTION_FUN_CALL);
         in->u.fun_call.fun_name = xstrdup(fun_name);
         in->u.fun_call.args     = args_head;
         in->u.fun_call.dst      = dst;
         tac_append(ctx, in);
+
+        if (fn_ptr)
+            tac_free_val(fn_ptr);
 
         return dst ? val_var(dst->u.var_name) : val_int(0);
     }

@@ -367,16 +367,23 @@ static Expr *typecheck_expr(Expr *e)
         return e;
     }
     case EXPR_CALL: {
-        const Expr *func = e->u.call.func;
-        if (func->kind != EXPR_VAR) {
-            fatal_error("Function call requires variable name");
-        }
-        const Symbol *sym   = symtab_get(func->u.var);
-        const Type *fn_type = sym->type;
-        if (fn_type->kind == TYPE_POINTER)
-            fn_type = fn_type->u.pointer.target; // function pointer decay
-        if (fn_type->kind != TYPE_FUNCTION) {
-            fatal_error("Tried to use variable as function name");
+        Expr       *func    = e->u.call.func;
+        const Type *fn_type;
+        if (func->kind == EXPR_VAR) {
+            const Symbol *sym = symtab_get(func->u.var);
+            fn_type           = sym->type;
+            if (fn_type->kind == TYPE_POINTER)
+                fn_type = fn_type->u.pointer.target; // function pointer decay
+            if (fn_type->kind != TYPE_FUNCTION)
+                fatal_error("Tried to use variable as function name");
+        } else {
+            func    = typecheck_and_decay(func);
+            fn_type = func->type;
+            if (fn_type->kind == TYPE_POINTER)
+                fn_type = fn_type->u.pointer.target;
+            if (fn_type->kind != TYPE_FUNCTION)
+                fatal_error("Expression is not a function or function pointer");
+            e->u.call.func = func;
         }
         const Param *params = fn_type->u.function.params;
         int param_count = 0, arg_count = 0;

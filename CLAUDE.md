@@ -104,7 +104,7 @@ Source (.c)
 - **Scope tracking**: `scope_level` is incremented on block entry; `scope_decrement()` decrements it and calls `symtab_purge`, `structtab_purge`, and `typetab_purge` — all backed by `map_remove_level_free`.
 - **`typedef` handling**: `STORAGE_CLASS_TYPEDEF` declarations are registered in `typetab`. `validate_type` resolves `TYPE_TYPEDEF_NAME` recursively; all type-utility helpers (`get_size`, `get_alignment`, `is_integer`, etc.) resolve typedef names transparently.
 - **`switch` semantic validation**: Integer controlling expression with `int` promotion via `convert_to_kind`; constant integer case values evaluated by `try_eval_const_int`; duplicates detected via a `SwitchCtx` stack; multiple defaults and stray case/default labels rejected.
-- **TAC lowering coverage**: `translate.c` calls `fatal_error()` on unimplemented constructs. Remaining gaps: `LITERAL_ENUM` (enum constants in expressions), `INITIALIZER_COMPOUND` (aggregate local-variable init), indirect function-pointer calls, `EXPR_GENERIC` (`_Generic`), and `EXPR_COMPOUND` (compound literals).
+- **TAC lowering coverage**: `translate.c` calls `fatal_error()` on unimplemented constructs. Remaining gaps: `LITERAL_ENUM` (enum constants in expressions), `INITIALIZER_COMPOUND` (aggregate local-variable init), `EXPR_GENERIC` (`_Generic`), and `EXPR_COMPOUND` (compound literals).
 
 ### AST quirks
 

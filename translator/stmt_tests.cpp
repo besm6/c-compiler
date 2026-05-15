@@ -234,6 +234,37 @@ TEST_F(TranslateTest, IndirectCallViaFunctionPointer)
 )");
 }
 
+// Explicit dereference (*fp)(42) is equivalent to fp(42): same TAC output.
+TEST_F(TranslateTest, IndirectCallViaExplicitDeref)
+{
+    std::string yaml = CompileToYaml("int f(int (*fp)(int)) { return (*fp)(42); }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: fp
+  body:
+    - instruction:
+      kind: fun_call
+      fun_name: fp
+      args:
+        - val:
+          kind: constant
+          const:
+            kind: int
+            value: 42
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+)");
+}
+
 // ---------------------------------------------------------------------------
 // Global linkage — task #4
 // ---------------------------------------------------------------------------
