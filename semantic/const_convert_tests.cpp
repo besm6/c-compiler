@@ -1,213 +1,267 @@
-#include <float.h>
 #include <gtest/gtest.h>
 #include <limits.h>
+#include <stdint.h>
 
-#include "const_convert.h"
+#include "ast.h"
+#include "semantic.h"
+#include "tac.h"
+#include "xalloc.h"
 
-// Test fixture for common setup
+// Tests for new_static_init_from_literal().
+// Only types accepted by is_arithmetic() are tested as valid targets:
+// TYPE_INT, TYPE_UINT, TYPE_LONG, TYPE_ULONG, TYPE_CHAR, TYPE_UCHAR,
+// TYPE_SCHAR, TYPE_DOUBLE.
+
 class ConstConvertTest : public ::testing::Test {
 protected:
-    // Helper to create constants
-    Const make_const_char(int8_t v)
+    Tac_StaticInit *result = nullptr;
+
+    void TearDown() override
     {
-        Const c = { CONST_CHAR, .value.char_val = v };
-        return c;
-    }
-    Const make_const_uchar(uint8_t v)
-    {
-        Const c = { CONST_UCHAR, .value.uchar_val = v };
-        return c;
-    }
-    Const make_const_int(int32_t v)
-    {
-        Const c = { CONST_INT, .value.int_val = v };
-        return c;
-    }
-    Const make_const_long(int64_t v)
-    {
-        Const c = { CONST_LONG, .value.long_val = v };
-        return c;
-    }
-    Const make_const_uint(uint32_t v)
-    {
-        Const c = { CONST_UINT, .value.uint_val = v };
-        return c;
-    }
-    Const make_const_ulong(uint64_t v)
-    {
-        Const c = { CONST_ULONG, .value.ulong_val = v };
-        return c;
-    }
-    Const make_const_double(double v)
-    {
-        Const c = { CONST_DOUBLE, .value.double_val = v };
-        return c;
+        tac_free_static_init(result);
+        result = nullptr;
+        EXPECT_EQ(xtotal_allocated_size(), 0u);
     }
 
-    // Common test values
-    Const zero_char    = make_const_char(0);
-    Const max_char     = make_const_char(INT8_MAX);
-    Const min_char     = make_const_char(INT8_MIN);
-    Const zero_uchar   = make_const_uchar(0);
-    Const max_uchar    = make_const_uchar(UINT8_MAX);
-    Const zero_int     = make_const_int(0);
-    Const max_int      = make_const_int(INT32_MAX);
-    Const min_int      = make_const_int(INT32_MIN);
-    Const zero_long    = make_const_long(0);
-    Const max_long     = make_const_long(INT64_MAX);
-    Const min_long     = make_const_long(INT64_MIN);
-    Const zero_uint    = make_const_uint(0);
-    Const max_uint     = make_const_uint(UINT32_MAX);
-    Const zero_ulong   = make_const_ulong(0);
-    Const max_ulong    = make_const_ulong(UINT64_MAX);
-    Const zero_double  = make_const_double(0.0);
-    Const large_double = make_const_double(1e18);
-    Const neg_double   = make_const_double(-1e18);
+    static Literal int_lit(int v)
+    {
+        Literal l   = {};
+        l.kind      = LITERAL_INT;
+        l.u.int_val = v;
+        return l;
+    }
+    static Literal char_lit(char v)
+    {
+        Literal l    = {};
+        l.kind       = LITERAL_CHAR;
+        l.u.char_val = v;
+        return l;
+    }
+    static Literal float_lit(double v)
+    {
+        Literal l    = {};
+        l.kind       = LITERAL_FLOAT;
+        l.u.real_val = v;
+        return l;
+    }
+    static Type make_type(TypeKind k)
+    {
+        Type t = {};
+        t.kind = k;
+        return t;
+    }
 };
 
-// Macro to test conversion and check result
-#define TEST_CONVERSION(src, target_type, expected_tag, expected_value, value_field) \
-    do {                                                                             \
-        Const result = const_convert(target_type, src);                              \
-        EXPECT_EQ(expected_tag, result.tag);                                         \
-        EXPECT_EQ(expected_value, result.value.value_field);                         \
-    } while (0)
+// TYPE_INT
 
-// Macro for double conversions
-#define TEST_DOUBLE_CONVERSION(src, target_type, expected_tag, expected_value) \
-    do {                                                                       \
-        Const result = const_convert(target_type, src);                        \
-        EXPECT_EQ(expected_tag, result.tag);                                   \
-        EXPECT_DOUBLE_EQ(expected_value, result.value.double_val);             \
-    } while (0)
-
-// Test same-type conversions (no-op)
-TEST_F(ConstConvertTest, SameTypeConversion)
+TEST_F(ConstConvertTest, IntFromInt)
 {
-    TEST_CONVERSION(zero_char, TYPE_SCHAR, CONST_CHAR, 0, char_val);
-    TEST_CONVERSION(max_uchar, TYPE_UCHAR, CONST_UCHAR, UINT8_MAX, uchar_val);
-    TEST_CONVERSION(min_int, TYPE_INT, CONST_INT, INT32_MIN, int_val);
-    TEST_CONVERSION(max_long, TYPE_LONG, CONST_LONG, INT64_MAX, long_val);
-    TEST_CONVERSION(zero_uint, TYPE_UINT, CONST_UINT, 0, uint_val);
-    TEST_CONVERSION(max_ulong, TYPE_ULONG, CONST_ULONG, UINT64_MAX, ulong_val);
-    TEST_DOUBLE_CONVERSION(large_double, TYPE_DOUBLE, CONST_DOUBLE, 1e18);
+    auto lit  = int_lit(42);
+    auto type = make_type(TYPE_INT);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I32);
+    EXPECT_EQ(result->u.int_val, 42);
 }
 
-// Test conversions to SChar
-TEST_F(ConstConvertTest, ConvertToSChar)
+TEST_F(ConstConvertTest, IntFromChar)
 {
-    TEST_CONVERSION(zero_uchar, TYPE_SCHAR, CONST_CHAR, 0, char_val);
-    TEST_CONVERSION(max_uchar, TYPE_SCHAR, CONST_CHAR, -1, char_val);   // 255 -> -1
-    TEST_CONVERSION(max_int, TYPE_SCHAR, CONST_CHAR, -1, char_val);     // INT32_MAX -> -1
-    TEST_CONVERSION(min_long, TYPE_SCHAR, CONST_CHAR, 0, char_val);     // INT64_MIN -> 0
-    TEST_CONVERSION(max_uint, TYPE_SCHAR, CONST_CHAR, -1, char_val);    // UINT32_MAX -> -1
-    TEST_CONVERSION(max_ulong, TYPE_SCHAR, CONST_CHAR, -1, char_val);   // UINT64_MAX -> -1
-    TEST_CONVERSION(large_double, TYPE_SCHAR, CONST_CHAR, 0, char_val); // 1e18 -> 0
+    auto lit  = char_lit(-5); // sign-extended to -5
+    auto type = make_type(TYPE_INT);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I32);
+    EXPECT_EQ(result->u.int_val, -5);
 }
 
-// Test conversions to UChar
-TEST_F(ConstConvertTest, ConvertToUChar)
+TEST_F(ConstConvertTest, IntFromFloat)
 {
-    TEST_CONVERSION(min_char, TYPE_UCHAR, CONST_UCHAR, 128, uchar_val);   // -128 -> 128
-    TEST_CONVERSION(max_int, TYPE_UCHAR, CONST_UCHAR, 255, uchar_val);    // INT32_MAX -> 255
-    TEST_CONVERSION(min_long, TYPE_UCHAR, CONST_UCHAR, 0, uchar_val);     // INT64_MIN -> 0
-    TEST_CONVERSION(max_uint, TYPE_UCHAR, CONST_UCHAR, 255, uchar_val);   // UINT32_MAX -> 255
-    TEST_CONVERSION(max_ulong, TYPE_UCHAR, CONST_UCHAR, 255, uchar_val);  // UINT64_MAX -> 255
-    TEST_CONVERSION(large_double, TYPE_UCHAR, CONST_UCHAR, 0, uchar_val); // 1e18 -> 0
+    auto lit  = float_lit(3.7); // truncated to 3
+    auto type = make_type(TYPE_INT);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I32);
+    EXPECT_EQ(result->u.int_val, 3);
 }
 
-// Test conversions to Int
-TEST_F(ConstConvertTest, ConvertToInt)
+// TYPE_UINT
+
+TEST_F(ConstConvertTest, UIntFromInt)
 {
-    TEST_CONVERSION(min_char, TYPE_INT, CONST_INT, -128, int_val);
-    TEST_CONVERSION(max_uchar, TYPE_INT, CONST_INT, 255, int_val);
-    TEST_CONVERSION(max_long, TYPE_INT, CONST_INT, -1, int_val);    // INT64_MAX -> -1
-    TEST_CONVERSION(max_uint, TYPE_INT, CONST_INT, -1, int_val);    // UINT32_MAX -> -1
-    TEST_CONVERSION(max_ulong, TYPE_INT, CONST_INT, -1, int_val);   // UINT64_MAX -> -1
-    TEST_CONVERSION(large_double, TYPE_INT, CONST_INT, 0, int_val); // 1e18 -> 0
+    auto lit  = int_lit(42);
+    auto type = make_type(TYPE_UINT);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_U32);
+    EXPECT_EQ(result->u.uint_val, (uint32_t)42);
 }
 
-// Test conversions to Long
-TEST_F(ConstConvertTest, ConvertToLong)
+TEST_F(ConstConvertTest, UIntFromNegInt)
 {
-    TEST_CONVERSION(min_char, TYPE_LONG, CONST_LONG, -128, long_val);
-    TEST_CONVERSION(max_uchar, TYPE_LONG, CONST_LONG, 255, long_val);
-    TEST_CONVERSION(max_int, TYPE_LONG, CONST_LONG, INT32_MAX, long_val);
-    TEST_CONVERSION(max_uint, TYPE_LONG, CONST_LONG, UINT32_MAX, long_val);
-    TEST_CONVERSION(max_ulong, TYPE_LONG, CONST_LONG, -1, long_val);           // UINT64_MAX -> -1
-    TEST_CONVERSION(large_double, TYPE_LONG, CONST_LONG, INT64_MAX, long_val); // 1e18 -> INT64_MAX
+    auto lit  = int_lit(-1); // wraps to UINT32_MAX
+    auto type = make_type(TYPE_UINT);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_U32);
+    EXPECT_EQ(result->u.uint_val, (uint32_t)UINT32_MAX);
 }
 
-// Test conversions to UInt
-TEST_F(ConstConvertTest, ConvertToUInt)
+// TYPE_LONG
+
+TEST_F(ConstConvertTest, LongFromInt)
 {
-    TEST_CONVERSION(min_char, TYPE_UINT, CONST_UINT, (uint32_t)-128, uint_val);
-    TEST_CONVERSION(max_uchar, TYPE_UINT, CONST_UINT, 255, uint_val);
-    TEST_CONVERSION(max_int, TYPE_UINT, CONST_UINT, INT32_MAX, uint_val);
-    TEST_CONVERSION(max_long, TYPE_UINT, CONST_UINT, UINT32_MAX, uint_val);  // INT64_MAX -> -1
-    TEST_CONVERSION(max_ulong, TYPE_UINT, CONST_UINT, UINT32_MAX, uint_val); // UINT64_MAX -> -1
-    TEST_CONVERSION(large_double, TYPE_UINT, CONST_UINT, 0, uint_val);       // 1e18 -> 0
+    auto lit  = int_lit(42);
+    auto type = make_type(TYPE_LONG);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I64);
+    EXPECT_EQ(result->u.long_val, (int64_t)42);
 }
 
-// Test conversions to ULong
-TEST_F(ConstConvertTest, ConvertToULong)
+TEST_F(ConstConvertTest, LongFromNegInt)
 {
-    TEST_CONVERSION(min_char, TYPE_ULONG, CONST_ULONG, (uint64_t)-128, ulong_val);
-    TEST_CONVERSION(max_uchar, TYPE_ULONG, CONST_ULONG, 255, ulong_val);
-    TEST_CONVERSION(max_int, TYPE_ULONG, CONST_ULONG, INT32_MAX, ulong_val);
-    TEST_CONVERSION(max_long, TYPE_ULONG, CONST_ULONG, INT64_MAX, ulong_val);
-    TEST_CONVERSION(max_uint, TYPE_ULONG, CONST_ULONG, UINT32_MAX, ulong_val);
-    TEST_DOUBLE_CONVERSION(large_double, TYPE_ULONG, CONST_ULONG, 1e18); // Special case
+    auto lit  = int_lit(-1); // sign-extended to -1LL
+    auto type = make_type(TYPE_LONG);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I64);
+    EXPECT_EQ(result->u.long_val, (int64_t)-1);
 }
 
-// Test conversions to Double
-TEST_F(ConstConvertTest, ConvertToDouble)
+// TYPE_ULONG
+
+TEST_F(ConstConvertTest, ULongFromInt)
 {
-    TEST_DOUBLE_CONVERSION(min_char, TYPE_DOUBLE, CONST_DOUBLE, -128.0);
-    TEST_DOUBLE_CONVERSION(max_uchar, TYPE_DOUBLE, CONST_DOUBLE, 255.0);
-    TEST_DOUBLE_CONVERSION(max_int, TYPE_DOUBLE, CONST_DOUBLE, (double)INT32_MAX);
-    TEST_DOUBLE_CONVERSION(max_long, TYPE_DOUBLE, CONST_DOUBLE, (double)INT64_MAX);
-    TEST_DOUBLE_CONVERSION(max_uint, TYPE_DOUBLE, CONST_DOUBLE, (double)UINT32_MAX);
-    TEST_DOUBLE_CONVERSION(max_ulong, TYPE_DOUBLE, CONST_DOUBLE,
-                           (double)UINT64_MAX); // Special case
-    TEST_DOUBLE_CONVERSION(neg_double, TYPE_DOUBLE, CONST_DOUBLE, -1e18);
+    auto lit  = int_lit(42);
+    auto type = make_type(TYPE_ULONG);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_U64);
+    EXPECT_EQ(result->u.ulong_val, (uint64_t)42);
 }
 
-// Test conversions to Pointer (treated as ULong)
-TEST_F(ConstConvertTest, ConvertToPointer)
+TEST_F(ConstConvertTest, ULongFromFloat)
 {
-    TEST_CONVERSION(min_char, TYPE_POINTER, CONST_ULONG, (uint64_t)-128, ulong_val);
-    TEST_CONVERSION(max_uchar, TYPE_POINTER, CONST_ULONG, 255, ulong_val);
-    TEST_CONVERSION(max_int, TYPE_POINTER, CONST_ULONG, INT32_MAX, ulong_val);
-    TEST_CONVERSION(max_long, TYPE_POINTER, CONST_ULONG, INT64_MAX, ulong_val);
-    TEST_CONVERSION(max_uint, TYPE_POINTER, CONST_ULONG, UINT32_MAX, ulong_val);
-    TEST_CONVERSION(large_double, TYPE_POINTER, CONST_ULONG, (uint64_t)1e18, ulong_val);
+    auto lit  = float_lit(1e18);
+    auto type = make_type(TYPE_ULONG);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_U64);
+    EXPECT_EQ(result->u.ulong_val, (uint64_t)1e18);
 }
 
-// Test special cases (ULong <-> Double)
-TEST_F(ConstConvertTest, SpecialCases)
-{
-    // ULong to Double
-    Const large_ulong = make_const_ulong(UINT64_MAX);
-    TEST_DOUBLE_CONVERSION(large_ulong, TYPE_DOUBLE, CONST_DOUBLE, (double)UINT64_MAX);
+// TYPE_CHAR
 
-    // Double to ULong
-    Const double_1e18 = make_const_double(1e18);
-    TEST_CONVERSION(double_1e18, TYPE_ULONG, CONST_ULONG, (uint64_t)1e18, ulong_val);
+TEST_F(ConstConvertTest, CharFromChar)
+{
+    auto lit  = char_lit('A');
+    auto type = make_type(TYPE_CHAR);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I8);
+    EXPECT_EQ(result->u.char_val, (int8_t)65);
 }
 
-// Test error cases (non-scalar types)
-TEST_F(ConstConvertTest, NonScalarTypes)
+TEST_F(ConstConvertTest, CharTruncation)
 {
-    EXPECT_DEATH(const_convert(TYPE_VOID, zero_char), "non-scalar type");
-    EXPECT_DEATH(const_convert(TYPE_ARRAY, max_uchar), "non-scalar type");
-    EXPECT_DEATH(const_convert(TYPE_FUNTYPE, max_int), "non-scalar type");
-    EXPECT_DEATH(const_convert(TYPE_STRUCTURE, zero_double), "non-scalar type");
+    auto lit  = int_lit(300); // 300 & 0xFF = 44
+    auto type = make_type(TYPE_CHAR);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I8);
+    EXPECT_EQ(result->u.char_val, (int8_t)44);
 }
 
-// Main function to run tests
-int main(int argc, char **argv)
+// TYPE_SCHAR
+
+TEST_F(ConstConvertTest, SCharFromInt)
 {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    auto lit  = int_lit(65);
+    auto type = make_type(TYPE_SCHAR);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I8);
+    EXPECT_EQ(result->u.char_val, (int8_t)65);
+}
+
+TEST_F(ConstConvertTest, SCharTruncation)
+{
+    auto lit  = int_lit(300); // 300 & 0xFF = 44
+    auto type = make_type(TYPE_SCHAR);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I8);
+    EXPECT_EQ(result->u.char_val, (int8_t)44);
+}
+
+// TYPE_UCHAR
+
+TEST_F(ConstConvertTest, UCharFromInt)
+{
+    auto lit  = int_lit(200);
+    auto type = make_type(TYPE_UCHAR);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_U8);
+    EXPECT_EQ(result->u.uchar_val, (uint8_t)200);
+}
+
+TEST_F(ConstConvertTest, UCharFromNegInt)
+{
+    auto lit  = int_lit(-1); // wraps to 255
+    auto type = make_type(TYPE_UCHAR);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_U8);
+    EXPECT_EQ(result->u.uchar_val, (uint8_t)255);
+}
+
+// TYPE_DOUBLE
+
+TEST_F(ConstConvertTest, DoubleFromInt)
+{
+    auto lit  = int_lit(42);
+    auto type = make_type(TYPE_DOUBLE);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_DOUBLE);
+    EXPECT_DOUBLE_EQ(result->u.double_val, 42.0);
+}
+
+TEST_F(ConstConvertTest, DoubleFromFloat)
+{
+    auto lit  = float_lit(3.14);
+    auto type = make_type(TYPE_DOUBLE);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_DOUBLE);
+    EXPECT_DOUBLE_EQ(result->u.double_val, 3.14);
+}
+
+TEST_F(ConstConvertTest, DoubleFromChar)
+{
+    auto lit  = char_lit('A'); // 65 -> 65.0
+    auto type = make_type(TYPE_DOUBLE);
+    result    = new_static_init_from_literal(&type, &lit);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_DOUBLE);
+    EXPECT_DOUBLE_EQ(result->u.double_val, 65.0);
+}
+
+// Error paths: non-arithmetic target type
+
+TEST_F(ConstConvertTest, NonArithmeticTypeDies)
+{
+    auto lit  = int_lit(0);
+    auto type = make_type(TYPE_VOID);
+    EXPECT_DEATH(new_static_init_from_literal(&type, &lit), "Invalid static initializer");
+}
+
+TEST_F(ConstConvertTest, StructTypeDies)
+{
+    auto lit  = int_lit(0);
+    auto type = make_type(TYPE_STRUCT);
+    EXPECT_DEATH(new_static_init_from_literal(&type, &lit), "Invalid static initializer");
+}
+
+// Error paths: unsupported literal kinds
+
+TEST_F(ConstConvertTest, StringLiteralDies)
+{
+    char    str[]    = "test";
+    Literal lit      = {};
+    lit.kind         = LITERAL_STRING;
+    lit.u.string_val = str;
+    auto type = make_type(TYPE_INT);
+    EXPECT_DEATH(new_static_init_from_literal(&type, &lit), "Cannot convert string");
+}
+
+TEST_F(ConstConvertTest, EnumLiteralDies)
+{
+    Literal lit = {};
+    lit.kind    = LITERAL_ENUM;
+    auto type   = make_type(TYPE_INT);
+    EXPECT_DEATH(new_static_init_from_literal(&type, &lit), "Cannot convert enum");
 }

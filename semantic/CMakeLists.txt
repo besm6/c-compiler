@@ -55,3 +55,12 @@ add_executable(typecheck-tests
 )
 target_link_libraries(typecheck-tests parser semantic GTest::gtest_main)
 gtest_discover_tests(typecheck-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+
+#
+# Tests for const_convert
+#
+add_executable(const-convert-tests
+   const_convert_tests.cpp
+)
+target_link_libraries(const-convert-tests semantic GTest::gtest_main)
+gtest_discover_tests(const-convert-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

@@ -6,7 +6,6 @@ Work plan, ordered by recommended implementation sequence.
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 8 | Register `semantic/const_convert_tests.cpp` | Add to `semantic/CMakeLists.txt` (or a dedicated target); fix any failures. | S |
 | 9 | Re-enable `parser/negative_tests.cpp` | Uncomment in `parser/CMakeLists.txt`; investigate and fix the underlying parser failures. | M |
 
 ## Parser gaps
