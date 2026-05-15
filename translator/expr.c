@@ -167,6 +167,27 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         tac_append(ctx, ap);
         return val_var(dst->u.var_name);
     }
+    case EXPR_COMPOUND: {
+        char *T              = new_temp(ctx);
+        const Type *lit_type = e->u.compound_literal.type;
+        if (lit_type->kind == TYPE_ARRAY || lit_type->kind == TYPE_STRUCT) {
+            Initializer wrap;
+            memset(&wrap, 0, sizeof wrap);
+            wrap.kind    = INITIALIZER_COMPOUND;
+            wrap.u.items = e->u.compound_literal.init;
+            wrap.type    = (Type *)lit_type;
+            gen_compound_init(ctx, T, 0, &wrap);
+        } else {
+            gen_compound_init(ctx, T, 0, e->u.compound_literal.init->init);
+        }
+        Tac_Val *ptr          = new_var_val(ctx);
+        Tac_Instruction *ga   = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
+        ga->u.get_address.src = val_var(T);
+        ga->u.get_address.dst = ptr;
+        tac_append(ctx, ga);
+        xfree(T);
+        return val_var(ptr->u.var_name);
+    }
     default:
         fatal_error("lvalue not yet supported in gen_lval: expression kind %d", (int)e->kind);
     }
@@ -608,6 +629,13 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                                   ? match->u.type_assoc.expr
                                   : match->u.default_assoc;
         return gen_expr(ctx, match_expr);
+    }
+    case EXPR_COMPOUND: {
+        const Type *lit_type = e->u.compound_literal.type;
+        if (lit_type->kind == TYPE_ARRAY || lit_type->kind == TYPE_STRUCT) {
+            return gen_lval(ctx, e);
+        }
+        return gen_expr(ctx, e->u.compound_literal.init->init->u.expr);
     }
     default:
         fatal_error("Unsupported expression kind %d in TAC lowering", (int)e->kind);

@@ -2,12 +2,6 @@
 
 Work plan, ordered by recommended implementation sequence.
 
-## TAC lowering gaps
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 7 | `EXPR_COMPOUND` TAC lowering | Add an `EXPR_COMPOUND` case in `gen_expr`. Allocate a temp, emit initializer stores (reuse compound-init logic from task 2), and return the address or value. | M |
-
 ## Disabled / unregistered tests
 
 | # | Task | Description | Effort |

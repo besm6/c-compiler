@@ -587,14 +587,23 @@ static Expr *typecheck_expr(Expr *e)
         if (!is_complete(lit_type)) {
             fatal_error("Compound literal must have a complete type");
         }
-        // Wrap InitItem list in a temporary INITIALIZER_COMPOUND to reuse typecheck_init.
-        Initializer *wrap = new_initializer(INITIALIZER_COMPOUND);
-        wrap->u.items     = e->u.compound_literal.init;
-        Initializer *result = typecheck_init(lit_type, wrap);
-        // Detach the type-checked items and free the wrapper shell.
-        e->u.compound_literal.init = result->u.items;
-        result->u.items            = NULL;
-        free_initializer(result);
+        if (lit_type->kind == TYPE_ARRAY || lit_type->kind == TYPE_STRUCT) {
+            // Wrap InitItem list in a temporary INITIALIZER_COMPOUND to reuse typecheck_init.
+            Initializer *wrap = new_initializer(INITIALIZER_COMPOUND);
+            wrap->u.items     = e->u.compound_literal.init;
+            Initializer *result = typecheck_init(lit_type, wrap);
+            // Detach the type-checked items and free the wrapper shell.
+            e->u.compound_literal.init = result->u.items;
+            result->u.items            = NULL;
+            free_initializer(result);
+        } else {
+            // Scalar: C11 allows {expr} for a scalar type; typecheck the single item.
+            InitItem *item = e->u.compound_literal.init;
+            if (!item || item->next) {
+                fatal_error("Scalar compound literal must have exactly one initializer");
+            }
+            item->init = typecheck_init(lit_type, item->init);
+        }
         free_type(e->type);
         e->type = clone_type(lit_type, __func__, __FILE__, __LINE__);
         return e;

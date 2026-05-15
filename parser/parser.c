@@ -287,6 +287,7 @@ Expr *parse_string();
 Expr *parse_generic_selection();
 GenericAssoc *parse_generic_assoc_list();
 GenericAssoc *parse_generic_association();
+Expr *parse_postfix_tail(Expr *base);
 Expr *parse_postfix_expression();
 Expr *parse_argument_expression_list();
 Expr *parse_unary_expression();
@@ -629,7 +630,11 @@ Expr *parse_postfix_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *expr = parse_primary_expression();
+    return parse_postfix_tail(parse_primary_expression());
+}
+
+Expr *parse_postfix_tail(Expr *expr)
+{
     while (1) {
         if (current_token == TOKEN_LBRACKET) {
             advance_token();
@@ -814,7 +819,7 @@ Expr *parse_cast_expression()
             Expr *compound                    = new_expression(EXPR_COMPOUND);
             compound->u.compound_literal.type = type;
             compound->u.compound_literal.init = items;
-            return compound;
+            return parse_postfix_tail(compound);
         }
         Expr *expr            = parse_cast_expression();
         Expr *new_expr        = new_expression(EXPR_CAST);

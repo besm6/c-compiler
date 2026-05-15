@@ -569,3 +569,175 @@ TEST_F(TranslateTest, GenericDefault)
           value: 99
 )");
 }
+
+// ---------------------------------------------------------------------------
+// Compound literal expressions — task #7
+// ---------------------------------------------------------------------------
+
+// Scalar compound literal (int){42} — value returned directly, no temp.
+TEST_F(TranslateTest, CompoundLiteralScalar)
+{
+    std::string yaml = CompileToYaml("int f(void) { return (int){42}; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 42
+)");
+}
+
+// Struct compound literal field access: (struct Foo){1, 2}.x
+TEST_F(TranslateTest, CompoundLiteralStructField)
+{
+    std::string yaml = CompileToYaml(
+        "struct Foo { int x; int y; };"
+        "int f(void) { return (struct Foo){1, 2}.x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst: t.0
+      offset: 0
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 2
+      dst: t.0
+      offset: 4
+    - instruction:
+      kind: get_address
+      src:
+        kind: var
+        name: t.0
+      dst:
+        kind: var
+        name: t.1
+    - instruction:
+      kind: add_ptr
+      ptr:
+        kind: var
+        name: t.1
+      index:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      scale: 1
+      dst:
+        kind: var
+        name: t.2
+    - instruction:
+      kind: load
+      src_ptr:
+        kind: var
+        name: t.2
+      dst:
+        kind: var
+        name: t.3
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.3
+)");
+}
+
+// Array compound literal subscript: (int[3]){10, 20, 30}[1]
+TEST_F(TranslateTest, CompoundLiteralArraySubscript)
+{
+    std::string yaml = CompileToYaml("int f(void) { return (int[3]){10, 20, 30}[1]; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 10
+      dst: t.0
+      offset: 0
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 20
+      dst: t.0
+      offset: 4
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 30
+      dst: t.0
+      offset: 8
+    - instruction:
+      kind: get_address
+      src:
+        kind: var
+        name: t.0
+      dst:
+        kind: var
+        name: t.1
+    - instruction:
+      kind: sign_extend
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst:
+        kind: var
+        name: t.2
+    - instruction:
+      kind: add_ptr
+      ptr:
+        kind: var
+        name: t.1
+      index:
+        kind: var
+        name: t.2
+      scale: 4
+      dst:
+        kind: var
+        name: t.3
+    - instruction:
+      kind: load
+      src_ptr:
+        kind: var
+        name: t.3
+      dst:
+        kind: var
+        name: t.4
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.4
+)");
+}

@@ -55,8 +55,8 @@ static void collect_cases(TacCtx *ctx, Stmt *stmt, CaseList *list)
     }
 }
 
-static void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset,
-                               const Initializer *init)
+void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset,
+                       const Initializer *init)
 {
     if (init->kind == INITIALIZER_SINGLE) {
         Tac_Val *src                    = gen_expr(ctx, init->u.expr);

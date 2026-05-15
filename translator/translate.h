@@ -68,6 +68,8 @@ Tac_Type *ast_type_to_tac_type(const Type *t);
 //
 Tac_Val *gen_expr(TacCtx *ctx, Expr *e);
 void gen_stmt(TacCtx *ctx, Stmt *stmt);
+void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset,
+                       const Initializer *init);
 
 //
 // Convert the AST to TAC.
