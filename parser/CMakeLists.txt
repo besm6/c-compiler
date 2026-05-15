@@ -20,7 +20,7 @@ add_executable(parser-tests
     declaration_tests.cpp
     constant_tests.cpp
     serialize_tests.cpp
-#   negative_tests.cpp
+    negative_tests.cpp
 )
 target_link_libraries(parser-tests parser GTest::gtest_main)
 gtest_discover_tests(parser-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

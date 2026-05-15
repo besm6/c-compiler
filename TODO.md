@@ -2,12 +2,6 @@
 
 Work plan, ordered by recommended implementation sequence.
 
-## Disabled / unregistered tests
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 9 | Re-enable `parser/negative_tests.cpp` | Uncomment in `parser/CMakeLists.txt`; investigate and fix the underlying parser failures. | M |
-
 ## Parser gaps
 
 | # | Task | Description | Effort |

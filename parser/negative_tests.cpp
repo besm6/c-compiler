@@ -1,361 +1,155 @@
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
+//
+// Negative parser tests: inputs that must cause fatal_error() / exit(1).
+// All tests use EXPECT_DEATH since the parser never returns nullptr on error.
+//
+#include "fixture.h"
 
-#include <cstdio>
-#include <cstring>
-#include <string>
-#include <vector>
+// ---------------------------------------------------------------------------
+// A. Type specifier conflicts
+// ---------------------------------------------------------------------------
 
-#include "ast.h"
-#include "scanner.h"
-
-// Mock lexer
-class MockScanner {
-public:
-    MOCK_METHOD0(yylex, int());
-    MOCK_METHOD0(get_yytext, char *());
-    MOCK_METHOD1(init_scanner, void(FILE *));
-};
-
-// Global mock instance
-static MockScanner *mock_scanner = nullptr;
-
-// Token sequence for mocking
-static std::vector<std::pair<int, std::string>> token_sequence;
-static size_t token_index = 0;
-
-// Mock implementations
-extern "C" {
-void init_scanner(FILE *input)
+TEST_F(ParserTest, DuplicateInt_negative)
 {
-    if (mock_scanner) {
-        mock_scanner->init_scanner(input);
-    }
-    token_index = 0;
+    EXPECT_DEATH(parse(CreateTempFile("int int x;")), "");
 }
 
-int yylex()
+TEST_F(ParserTest, TooManyLong_negative)
 {
-    if (!mock_scanner || token_index >= token_sequence.size()) {
-        return TOKEN_EOF;
-    }
-    return token_sequence[token_index++].first;
+    EXPECT_DEATH(parse(CreateTempFile("long long long x;")), "");
 }
 
-char *get_yytext()
+TEST_F(ParserTest, VoidCombine_negative)
 {
-    if (!mock_scanner || token_index == 0 || token_index > token_sequence.size()) {
-        return nullptr;
-    }
-    return const_cast<char *>(token_sequence[token_index - 1].second.c_str());
-}
+    EXPECT_DEATH(parse(CreateTempFile("void int x;")), "");
 }
 
-// Test fixture
-class ParserTest : public ::testing::Test {
-protected:
-    void SetUp() override
-    {
-        mock_scanner = new MockScanner();
-        token_sequence.clear();
-        token_index = 0;
-    }
-
-    void TearDown() override
-    {
-        delete mock_scanner;
-        mock_scanner = nullptr;
-    }
-
-    // Helper to set token sequence
-    void SetTokenSequence(const std::vector<std::pair<int, std::string>> &tokens)
-    {
-        token_sequence = tokens;
-        token_index    = 0;
-    }
-
-    // Helper to create a temporary file with content
-    FILE *CreateTempFile(const char *content)
-    {
-        FILE *f = tmpfile();
-        fwrite(content, 1, strlen(content), f);
-        rewind(f);
-        return f;
-    }
-};
-
-// Test error: Missing semicolon in declaration: int x
-TEST_F(ParserTest, MissingSemicolonDeclaration)
+TEST_F(ParserTest, BoolCombine_negative)
 {
-    SetTokenSequence({ { TOKEN_INT, "int" }, { TOKEN_IDENTIFIER, "x" }, { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("int x");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    EXPECT_DEATH(parse(CreateTempFile("_Bool int x;")), "");
 }
 
-// Test error: Invalid type in declaration: invalid x;
-TEST_F(ParserTest, InvalidTypeDeclaration)
+TEST_F(ParserTest, SignedFloat_negative)
 {
-    SetTokenSequence({ { TOKEN_IDENTIFIER, "invalid" },
-                       { TOKEN Identifier, "x" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("invalid x;");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    EXPECT_DEATH(parse(CreateTempFile("signed float x;")), "");
 }
 
-// Test error: Missing identifier in declaration: int = 42;
-TEST_F(ParserTest, MissingIdentifierDeclaration)
+TEST_F(ParserTest, SignedDouble_negative)
 {
-    SetTokenSequence({ { TOKEN_INT, "int" },
-                       { TOKEN_ASSIGN, "=" },
-                       { TOKEN_I_CONSTANT, "42" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("int = 42;");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    EXPECT_DEATH(parse(CreateTempFile("signed double x;")), "");
 }
 
-// Test error: Unclosed struct: struct S { int x;
-TEST_F(ParserTest, UnclosedStructDeclaration)
+TEST_F(ParserTest, UnsignedFloat_negative)
 {
-    SetTokenSequence({ { TOKEN_STRUCT, "struct" },
-                       { TOKEN_IDENTIFIER, "S" },
-                       { TOKEN_LBRACE, "{" },
-                       { TOKEN_INT, "int" },
-                       { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("struct S { int x;");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    EXPECT_DEATH(parse(CreateTempFile("unsigned float x;")), "");
 }
 
-// Test error: Missing semicolon in statement: x = 1
-TEST_F(ParserTest, MissingSemicolonStatement)
+// ---------------------------------------------------------------------------
+// B. Declaration syntax errors
+// ---------------------------------------------------------------------------
+
+TEST_F(ParserTest, MissingSemicolon_negative)
 {
-    SetTokenSequence({ { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_ASSIGN, "=" },
-                       { TOKEN_I_CONSTANT, "1" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("x = 1");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    // int x with no terminating semicolon
+    EXPECT_DEATH(parse(CreateTempFile("int x")), "");
 }
 
-// Test error: Unclosed block: { x = 1
-TEST_F(ParserTest, UnclosedBlockStatement)
+TEST_F(ParserTest, UnclosedStruct_negative)
 {
-    SetTokenSequence({ { TOKEN_LBRACE, "{" },
-                       { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_ASSIGN, "=" },
-                       { TOKEN_I_CONSTANT, "1" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("{ x = 1");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    // struct body never closed
+    EXPECT_DEATH(parse(CreateTempFile("struct S { int x;")), "");
 }
 
-// Test error: Incomplete if: if (x
-TEST_F(ParserTest, IncompleteIfStatement)
+TEST_F(ParserTest, VariadicNoParams_negative)
 {
-    SetTokenSequence({ { TOKEN_IF, "if" },
-                       { TOKEN_LPAREN, "(" },
-                       { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("if (x");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    // ... requires at least one named parameter before it
+    EXPECT_DEATH(parse(CreateTempFile("int f(...) {}")), "");
 }
 
-// Test error: Missing condition in while: while () x;
-TEST_F(ParserTest, MissingConditionWhileStatement)
+TEST_F(ParserTest, TrailingCommaParams_negative)
 {
-    SetTokenSequence({ { TOKEN_WHILE, "while" },
-                       { TOKEN_LPAREN, "(" },
-                       { TOKEN_RPAREN, ")" },
-                       { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("while () x;");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    // trailing comma leaves an empty parameter slot
+    EXPECT_DEATH(parse(CreateTempFile("int f(int,) {}")), "");
 }
 
-// Test error: Mismatched parentheses in expression: (x + y
-TEST_F(ParserTest, MismatchedParenthesesExpression)
+TEST_F(ParserTest, MissingTypedefName_negative)
 {
-    SetTokenSequence({ { TOKEN_LPAREN, "(" },
-                       { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_PLUS, "+" },
-                       { TOKEN_IDENTIFIER, "y" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("(x + y");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    // typedef with no type specifier at all
+    EXPECT_DEATH(parse(CreateTempFile("typedef;")), "");
 }
 
-// Test error: Missing operand in expression: x + ;
-TEST_F(ParserTest, MissingOperandExpression)
+// ---------------------------------------------------------------------------
+// C. Statement syntax errors
+// ---------------------------------------------------------------------------
+
+TEST_F(ParserTest, StmtMissingSemicolon_negative)
 {
-    SetTokenSequence({ { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_PLUS, "+" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("x + ;");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    EXPECT_DEATH(parse(CreateTempFile("void f() { int x = 1 }")), "");
 }
 
-// Test error: Invalid operator in expression: x @ y;
-TEST_F(ParserTest, InvalidOperatorExpression)
+TEST_F(ParserTest, IfUnclosedParen_negative)
 {
-    SetTokenSequence({ { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_IDENTIFIER, "@" },
-                       { TOKEN_IDENTIFIER, "y" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("x @ y;");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    // condition paren never closed
+    EXPECT_DEATH(parse(CreateTempFile("void f() { if (x {} }")), "");
 }
 
-// Test error: Unclosed string in expression: "hello
-TEST_F(ParserTest, UnclosedStringExpression)
+TEST_F(ParserTest, WhileEmptyCondition_negative)
 {
-    SetTokenSequence(
-        { { TOKEN_STRING_LITERAL, "hello" }, { TOKEN_SEMICOLON, ";" }, { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("\"hello");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    // while () has no condition expression
+    EXPECT_DEATH(parse(CreateTempFile("void f() { while () ; }")), "");
 }
 
-// Test error: Invalid type specifier: int int x;
-TEST_F(ParserTest, InvalidTypeSpecifier)
+TEST_F(ParserTest, ForExtraSemicolon_negative)
 {
-    SetTokenSequence({ { TOKEN_INT, "int" },
-                       { TOKEN_INT, "int" },
-                       { TOKEN_IDENTIFIER, "x" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("int int x;");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    // for (;;;) has a third semicolon where ) is expected
+    EXPECT_DEATH(parse(CreateTempFile("void f() { for (;;;) ; }")), "");
 }
 
-// Test error: Incomplete typedef: typedef int;
-TEST_F(ParserTest, IncompleteTypedef)
+TEST_F(ParserTest, GotoMissingLabel_negative)
 {
-    SetTokenSequence({ { TOKEN_TYPEDEF, "typedef" },
-                       { TOKEN_INT, "int" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("typedef int;");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    // goto requires an identifier
+    EXPECT_DEATH(parse(CreateTempFile("void f() { goto; }")), "");
 }
 
-// Test error: Invalid static assert: _Static_assert(1;
-TEST_F(ParserTest, InvalidStaticAssert)
+// ---------------------------------------------------------------------------
+// D. Expression syntax errors
+// ---------------------------------------------------------------------------
+
+TEST_F(ParserTest, MissingRightOperand_negative)
 {
-    SetTokenSequence({ { TOKEN_STATIC_ASSERT, "_Static_assert" },
-                       { TOKEN_LPAREN, "(" },
-                       { TOKEN_I_CONSTANT, "1" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("_Static_assert(1;");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    EXPECT_DEATH(parse(CreateTempFile("void f() { int x = 1 + ; }")), "");
 }
 
-// Test error: Unclosed _Alignas: _Alignas(int
-TEST_F(ParserTest, UnclosedAlignas)
+TEST_F(ParserTest, UnclosedParenExpr_negative)
 {
-    SetTokenSequence({ { TOKEN_ALIGNAS, "_Alignas" },
-                       { TOKEN_LPAREN, "(" },
-                       { TOKEN_INT, "int" },
-                       { TOKEN_SEMICOLON, ";" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("_Alignas(int");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    EXPECT_DEATH(parse(CreateTempFile("void f() { int x = (1 + 2; }")), "");
 }
 
-// Test error: Invalid parameter in function: int f(int,) {}
-TEST_F(ParserTest, InvalidFunctionParameter)
+TEST_F(ParserTest, UnclosedSubscript_negative)
 {
-    SetTokenSequence({ { TOKEN_INT, "int" },
-                       { TOKEN_IDENTIFIER, "f" },
-                       { TOKEN_LPAREN, "(" },
-                       { TOKEN_INT, "int" },
-                       { TOKEN_COMMA, "," },
-                       { TOKEN_RPAREN, ")" },
-                       { TOKEN_LBRACE, "{" },
-                       { TOKEN_RBRACE, "}" },
-                       { TOKEN_EOF, "" } });
-
-    FILE *f          = CreateTempFile("int f(int,) {}");
-    Program *program = parse(f);
-    fclose(f);
-
-    EXPECT_EQ(nullptr, program);
+    EXPECT_DEATH(parse(CreateTempFile("void f() { int *p; int x = p[1; }")), "");
 }
 
-// Main for running tests
-int main(int argc, char **argv)
+TEST_F(ParserTest, TernaryMissingColon_negative)
 {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
+    // x ? y without the : else-branch
+    EXPECT_DEATH(parse(CreateTempFile("void f() { int x = 1 ? 2; }")), "");
+}
+
+// ---------------------------------------------------------------------------
+// E. C11 feature syntax errors
+// ---------------------------------------------------------------------------
+
+TEST_F(ParserTest, StaticAssertMissingComma_negative)
+{
+    EXPECT_DEATH(parse(CreateTempFile("_Static_assert(1;")), "");
+}
+
+TEST_F(ParserTest, StaticAssertMissingParen_negative)
+{
+    EXPECT_DEATH(parse(CreateTempFile("_Static_assert(1, \"msg\";")), "");
+}
+
+TEST_F(ParserTest, StaticAssertMissingSemi_negative)
+{
+    EXPECT_DEATH(parse(CreateTempFile("_Static_assert(1, \"msg\")")), "");
 }

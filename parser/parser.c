@@ -1404,7 +1404,7 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
         if ((is_complex || is_imaginary) && (base_kind != TYPE_FLOAT && base_kind != TYPE_DOUBLE)) {
             fatal_error("_Complex/_Imaginary require float or double");
         }
-        if ((signedness == SIGNED_UNSIGNED || long_count > 0) &&
+        if ((signedness == SIGNED_SIGNED || signedness == SIGNED_UNSIGNED || long_count > 0) &&
             (base_kind == TYPE_FLOAT || base_kind == TYPE_DOUBLE)) {
             fatal_error("signed/unsigned/long cannot combine with float/double");
         }
