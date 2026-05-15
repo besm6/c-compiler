@@ -45,15 +45,15 @@ ctest --test-dir build -R cppcheck
 
 Try the compiler tools:
 ```sh
-./build/cast input.c               # parse → binary AST to stdout
-./build/cast input.c --yaml        # parse → YAML AST
-./build/cast input.c --dot         # parse → Graphviz DOT
-./build/cast -D input.c            # debug: parser trace + AST dump + leak report
+./build/parse input.c               # parse → binary AST to stdout
+./build/parse input.c --yaml        # parse → YAML AST
+./build/parse input.c --dot         # parse → Graphviz DOT
+./build/parse -D input.c            # debug: parser trace + AST dump + leak report
 
-./build/cast input.c > /tmp/input.ast
-./build/tacker /tmp/input.ast           # → binary TAC to /tmp/input.tac
-./build/tacker --yaml /tmp/input.ast -  # → YAML TAC to stdout ("-" = stdout)
-./build/tacker -D /tmp/input.ast        # debug: translator trace
+./build/parse input.c > /tmp/input.ast
+./build/lower /tmp/input.ast           # → binary TAC to /tmp/input.tac
+./build/lower --yaml /tmp/input.ast -  # → YAML TAC to stdout ("-" = stdout)
+./build/lower -D /tmp/input.ast        # debug: translator trace
 ```
 
 Compiler flags in use: `-Wall -Werror -Wshadow` — all warnings are errors.
@@ -64,13 +64,13 @@ This is a C11 frontend compiler targeting the BESM-6 architecture. The backend i
 
 ```
 Source (.c)
-  → [cast]    Scanner → Parser → AST (binary/YAML/DOT)
-  → [tacker]  Typecheck → LabelLoops → Translate → TAC (binary/YAML/DOT)
+  → [parse]   Scanner → Parser → AST (binary/YAML/DOT)
+  → [lower]   Typecheck → LabelLoops → Translate → TAC (binary/YAML/DOT)
 ```
 
-**`cast`** (`parser/main.c`): Lexes and parses a C source file, outputs a binary AST stream (via `wio`) to stdout, or `--yaml`/`--dot` for human-readable forms.
+**`parse`** (`parser/main.c`): Lexes and parses a C source file, outputs a binary AST stream (via `wio`) to stdout, or `--yaml`/`--dot` for human-readable forms.
 
-**`tacker`** (`translator/main.c`): Reads the binary AST, runs semantic analysis and TAC lowering, outputs TAC. Lowering is mostly complete; see the phases table for remaining gaps. The TAC YAML format is documented in [docs/Technical.md](docs/Technical.md).
+**`lower`** (`translator/main.c`): Reads the binary AST, runs semantic analysis and TAC lowering, outputs TAC. Lowering is mostly complete; see the phases table for remaining gaps. The TAC YAML format is documented in [docs/Technical.md](docs/Technical.md).
 
 ### Compiler phases
 

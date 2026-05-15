@@ -657,7 +657,7 @@ TEST_F(TypecheckTest, InvalidAssignment)
 }
 
 // ---------------------------------------------------------------------------
-// PipelineTest — mirrors the tacker main loop: per-decl typecheck
+// PipelineTest — mirrors the lower main loop: per-decl typecheck
 // ---------------------------------------------------------------------------
 
 class PipelineTest : public TypecheckTest {

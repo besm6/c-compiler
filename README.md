@@ -2,7 +2,7 @@
 
 A C compiler project aimed at the [BESM-6](https://en.wikipedia.org/wiki/BESM-6) mainframe. The long-term idea is a self-hosting toolchain that can help build systems such as the [Unix v7 port for BESM-6](https://github.com/besm6/v7besm) and work with the [Dubna monitor](https://github.com/besm6/dubna).
 
-**This repository is unfinished.** The frontend (lexing, parsing, AST) is in active use; semantic analysis runs in `tacker`; three-address code is produced for a subset of the language and can be exported, while a full TAC pipeline and machine backend remain work in progress. For file-by-file detail, build options, and tests, see [docs/Technical.md](docs/Technical.md). Planned work and estimates are tracked in [TODO.md](TODO.md).
+**This repository is unfinished.** The frontend (lexing, parsing, AST) is in active use; semantic analysis runs in `lower`; three-address code is produced for a subset of the language and can be exported, while a full TAC pipeline and machine backend remain work in progress. For file-by-file detail, build options, and tests, see [docs/Technical.md](docs/Technical.md). Planned work and estimates are tracked in [TODO.md](TODO.md).
 
 ## Goals
 
@@ -15,14 +15,14 @@ A C compiler project aimed at the [BESM-6](https://en.wikipedia.org/wiki/BESM-6)
 | Area | Notes |
 |------|--------|
 | **Build** | CMake-based build; optional `Makefile` wrapper. Unit tests via GoogleTest. |
-| **`cast`** | Reads C source and writes an abstract syntax tree (AST): binary `.ast`, or `--yaml` / `--dot` for inspection and graphs. |
-| **`tacker`** | Reads a binary AST stream and, per top-level declaration, runs **resolve → typecheck → `label_loops` → `translate` → emit**. Output can be **binary TAC** (default), **YAML-like listing** via the TAC pretty-printer, or **Graphviz DOT** (`tac_graphviz`). Semantic analysis handles `typedef` (scoped `typetab`) and full `switch` validation (integer controlling expression with integer promotion; constant integer case values; duplicate-case and multiple-default rejection). TAC lowering is **mostly complete**: arithmetic, control flow, functions (direct calls only), pointers, arrays, structs, and casts all lower correctly. Known gaps: enum constants as expressions, compound initializers for local aggregates, indirect function-pointer calls, `_Generic`, and compound literals. |
+| **`parse`** | Reads C source and writes an abstract syntax tree (AST): binary `.ast`, or `--yaml` / `--dot` for inspection and graphs. |
+| **`lower`** | Reads a binary AST stream and, per top-level declaration, runs **resolve → typecheck → `label_loops` → `translate` → emit**. Output can be **binary TAC** (default), **YAML-like listing** via the TAC pretty-printer, or **Graphviz DOT** (`tac_graphviz`). Semantic analysis handles `typedef` (scoped `typetab`) and full `switch` validation (integer controlling expression with integer promotion; constant integer case values; duplicate-case and multiple-default rejection). TAC lowering is **mostly complete**: arithmetic, control flow, functions (direct calls only), pointers, arrays, structs, and casts all lower correctly. Known gaps: enum constants as expressions, compound initializers for local aggregates, indirect function-pointer calls, `_Generic`, and compound literals. |
 | **TAC** | `tac/` builds **alloc/print/free/compare**, **`tac_export`** and **`tac_import`** (binary stream), **`tac_export_yaml`** (YAML listing), and **`tac_graphviz`** (DOT graph). Lowering lives in **`translator/translate.c`**. |
 | **Preprocessor, assembler, BESM-6 code generation** | **Not in this repo** at this stage. |
 
 **Note:** This compiler intentionally rejects identifier shadowing — a name declared in an inner block that duplicates any name in an enclosing scope is a compile error.
 
-If you only want to try the project: build it, run `cast` on a small `.c` file, and open the YAML or DOT output. You can also feed the `.ast` into `tacker` to exercise analysis and TAC emission on supported code. See [Getting started](#getting-started) below.
+If you only want to try the project: build it, run `parse` on a small `.c` file, and open the YAML or DOT output. You can also feed the `.ast` into `lower` to exercise analysis and TAC emission on supported code. See [Getting started](#getting-started) below.
 
 ## How the pieces fit together (architecture)
 
@@ -53,7 +53,7 @@ flowchart LR
     end
 ```
 
-The repository ships two programs: **`cast`** (C → AST) and **`tacker`** (binary AST → analysis and optional TAC output). Details and command lines are in [docs/Technical.md](docs/Technical.md#executables-cast-and-tacker).
+The repository ships two programs: **`parse`** (C → AST) and **`lower`** (binary AST → analysis and optional TAC output). Details and command lines are in [docs/Technical.md](docs/Technical.md#executables-parse-and-lower).
 
 ## Getting started
 
@@ -77,25 +77,25 @@ ctest --test-dir build
 **Parse a file to YAML** (human-readable tree):
 
 ```bash
-./build/cast --yaml hello.c hello.yaml
+./build/parse --yaml hello.c hello.yaml
 ```
 
 **Parse to Graphviz DOT** (for a diagram if you have [Graphviz](https://graphviz.org/) installed):
 
 ```bash
-./build/cast --dot hello.c hello.dot
+./build/parse --dot hello.c hello.dot
 dot -Tpng hello.dot -o hello.png
 ```
 
-**Analyze and emit TAC** (after `cast`; formats match `tacker` options: default binary `.tac`, or `--yaml` / `--dot` for a listing or a TAC graph):
+**Analyze and emit TAC** (after `parse`; formats match `lower` options: default binary `.tac`, or `--yaml` / `--dot` for a listing or a TAC graph):
 
 ```bash
-./build/cast hello.c hello.ast
-./build/tacker hello.ast hello.tac
-# ./build/tacker --dot hello.ast hello.dot   # Graphviz of TAC
+./build/parse hello.c hello.ast
+./build/lower hello.ast hello.tac
+# ./build/lower --dot hello.ast hello.dot   # Graphviz of TAC
 ```
 
-For debug logging, verbose mode, and full `tacker` behavior, see [docs/Technical.md](docs/Technical.md). Note that **docs/Technical.md** may still describe older stubs in places; the README status table above reflects the current pipeline.
+For debug logging, verbose mode, and full `lower` behavior, see [docs/Technical.md](docs/Technical.md). Note that **docs/Technical.md** may still describe older stubs in places; the README status table above reflects the current pipeline.
 
 ## Documentation
 

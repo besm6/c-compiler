@@ -56,17 +56,17 @@ add_subdirectory(semantic)
 add_subdirectory(translator)
 
 #
-# 'cast' executable
+# 'parse' executable
 #
-add_executable(cast
+add_executable(parse
     parser/main.c
 )
-target_link_libraries(cast parser scanner)
+target_link_libraries(parse parser scanner)
 
 #
-# 'tacker' executable
+# 'lower' executable
 #
-add_executable(tacker
+add_executable(lower
     translator/main.c
 )
-target_link_libraries(tacker translator)
+target_link_libraries(lower translator)

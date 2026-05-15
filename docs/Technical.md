@@ -10,23 +10,23 @@ c-compiler/
 ├── docs/                # Project documentation (this file)
 ├── grammar/             # C11 Yacc/Lex/ASDL reference; see grammar/README.md
 ├── libutil/             # xalloc, wio, string_map
-├── parser/              # Recursive-descent parser, nametab; cast driver
+├── parser/              # Recursive-descent parser, nametab; parse driver
 ├── scanner/             # Hand-written lexer
 ├── scripts/             # googletest.xml (cppcheck), validate_asdl.py
 ├── semantic/            # symtab, structtab, typetab, typecheck, label_loops, const_convert
 ├── tac/                 # TAC IR: alloc, print, free, compare, export/import, YAML, Graphviz
-├── translator/          # AST→TAC lowering (translate, expr, stmt); tacker driver
+├── translator/          # AST→TAC lowering (translate, expr, stmt); lower driver
 ├── translator/attic/    # Older experiments (not linked by CMake)
 ├── CMakeLists.txt       # Root CMake project (project name: c-scanner)
 ├── Makefile             # Convenience: mkdir build, cmake, make test
 └── LICENSE
 ```
 
-## Executables: `cast` and `tacker`
+## Executables: `parse` and `lower`
 
-Both tools are built from the root `CMakeLists.txt`. Install or run them from the build directory (e.g. `./build/cast`).
+Both tools are built from the root `CMakeLists.txt`. Install or run them from the build directory (e.g. `./build/parse`).
 
-### `cast` (parser)
+### `parse` (parser)
 
 **Input:** one C source file (preprocessor is not implemented; feed the compiler preprocessed C if you rely on `#include` / `#define`).
 
@@ -41,15 +41,15 @@ Both tools are built from the root `CMakeLists.txt`. Install or run them from th
 **Examples:**
 
 ```bash
-cast input.c output.ast
-cast --yaml input.c output.yaml
-cast --dot input.c output.dot
-cast input.c -                 # stdout
+parse input.c output.ast
+parse --yaml input.c output.yaml
+parse --dot input.c output.dot
+parse input.c -                 # stdout
 ```
 
-### `tacker` (translator driver)
+### `lower` (translator driver)
 
-**Input:** binary AST stream as produced by `cast` (opened with `ast_import_open` / `import_external_decl`).
+**Input:** binary AST stream as produced by `parse` (opened with `ast_import_open` / `import_external_decl`).
 
 **Processing order** (per top-level declaration): `resolve` → `typecheck_global_decl` → `label_loops` → `translate` → emit.
 
@@ -78,14 +78,14 @@ Recursive-descent parser guided by the C11 grammar in `grammar/` (not generated 
 |------|------|
 | `parser.h`, `parser.c` | Parser API and implementation |
 | `nametab.c` | Identifier name table |
-| `main.c` | `cast` entry: `parse` → `export_ast` / `export_yaml` / `export_dot` |
+| `main.c` | `parse` entry: `parse` → `export_ast` / `export_yaml` / `export_dot` |
 | `fixture.h` | Test helpers |
 
 Parser tests: `simple_tests.cpp`, `statement_tests.cpp`, `operator_tests.cpp`, `type_tests.cpp`, `struct_tests.cpp`, `declaration_tests.cpp`, `constant_tests.cpp`, `serialize_tests.cpp` → `parser-tests`. `negative_tests.cpp` is present but **commented out** in `parser/CMakeLists.txt`.
 
 ### AST (`ast/`)
 
-AST values are implemented in C (`ast.h` and companion `.c` files). Binary serialization and YAML/DOT export are used by `cast` and by `tacker` when importing ASTs.
+AST values are implemented in C (`ast.h` and companion `.c` files). Binary serialization and YAML/DOT export are used by `parse` and by `lower` when importing ASTs.
 
 | File | Role |
 |------|------|
@@ -119,7 +119,7 @@ Tests: `symtab_tests.cpp` → `symtab-tests`; `structtab_tests.cpp` → `structt
 | `translate.h`, `translate.c` | Shared helpers, type conversion, top-level entry points |
 | `expr.c` | AST `Expr` → TAC instruction lowering |
 | `stmt.c` | AST `Stmt` → TAC instruction lowering; local declaration init |
-| `main.c` | `tacker` entry: import → semantic passes → translate → emit |
+| `main.c` | `lower` entry: import → semantic passes → translate → emit |
 
 Tests: `decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`.
 
@@ -341,23 +341,23 @@ Run a single binary from `build/`:
 
 ### Debugging
 
-- **`cast -D`:** parser debug, AST pretty-print to stdout before export, import/export/wio debug, `xreport_lost_memory` at end.
-- **`tacker -D`:** translator debug, AST print on import, import/export/wio debug; prints TAC with `print_tac_toplevel` after lowering.
+- **`parse -D`:** parser debug, AST pretty-print to stdout before export, import/export/wio debug, `xreport_lost_memory` at end.
+- **`lower -D`:** translator debug, AST print on import, import/export/wio debug; prints TAC with `print_tac_toplevel` after lowering.
 
 ### Visualization
 
 AST DOT export works:
 
 ```bash
-cast --dot input.c ast.dot
+parse --dot input.c ast.dot
 dot -Tpng ast.dot -o ast.png
 ```
 
-TAC DOT and YAML export work the same way — pass `--dot` or `--yaml` to `tacker`:
+TAC DOT and YAML export work the same way — pass `--dot` or `--yaml` to `lower`:
 
 ```bash
-tacker --yaml input.ast -        # YAML TAC to stdout
-tacker --dot input.ast tac.dot
+lower --yaml input.ast -        # YAML TAC to stdout
+lower --dot input.ast tac.dot
 dot -Tpng tac.dot -o tac.png
 ```
 
