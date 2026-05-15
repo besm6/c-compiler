@@ -6,8 +6,6 @@ Work plan, ordered by recommended implementation sequence.
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 1 | `LITERAL_ENUM` in `gen_expr` | Add a `LITERAL_ENUM` case in the `EXPR_LITERAL` switch in `translator/expr.c`. Enum constants carry an `ident enum_const` field; look up the integer value already resolved by typecheck and return `val_int`. | S |
-| 2 | Compound local-variable initializers | Extend `gen_local_decl` in `translator/stmt.c` to walk `INITIALIZER_COMPOUND` lists and emit `copy_to_offset` instructions for each element, using field offsets from `structtab`. | M |
 | 3 | Indirect function calls | Remove the `fatal_error` at `translator/expr.c:487`. When `func->kind != EXPR_VAR`, call `gen_expr` to load the function-pointer value and use it as the callee in `TAC_INSTRUCTION_FUN_CALL`. | M |
 | 4 | `EXPR_GENERIC` type-check | Add an `EXPR_GENERIC` case to `typecheck_expr` in `semantic/typecheck.c`. Type-check the controlling expression and select the matching `GenericAssoc` by comparing types. | M |
 | 5 | `EXPR_GENERIC` TAC lowering | Add an `EXPR_GENERIC` case in `gen_expr` (`translator/expr.c`). After typecheck has selected the matching branch, lower only that branch's expression. | S |

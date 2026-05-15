@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 
+#include "structtab.h"
 #include "translate.h"
 #include "xalloc.h"
 
@@ -54,6 +55,35 @@ static void collect_cases(TacCtx *ctx, Stmt *stmt, CaseList *list)
     }
 }
 
+static void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset,
+                               const Initializer *init)
+{
+    if (init->kind == INITIALIZER_SINGLE) {
+        Tac_Val *src                    = gen_expr(ctx, init->u.expr);
+        Tac_Instruction *in             = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
+        in->u.copy_to_offset.src        = src;
+        in->u.copy_to_offset.dst        = xstrdup(var_name);
+        in->u.copy_to_offset.offset     = base_offset;
+        tac_append(ctx, in);
+        return;
+    }
+    const Type *t = init->type;
+    if (t->kind == TYPE_ARRAY) {
+        int elem_size = (int)get_size(t->u.array.element);
+        int i         = 0;
+        for (const InitItem *item = init->u.items; item; item = item->next, i++)
+            gen_compound_init(ctx, var_name, base_offset + i * elem_size, item->init);
+    } else if (t->kind == TYPE_STRUCT) {
+        const StructDef *def = structtab_find(t->u.struct_t.name);
+        const FieldDef  *fld = def->members;
+        for (const InitItem *item = init->u.items; item; item = item->next, fld = fld->next)
+            gen_compound_init(ctx, var_name, base_offset + fld->offset, item->init);
+    } else {
+        fatal_error("Compound initializer for unsupported type %d in TAC lowering",
+                    (int)t->kind);
+    }
+}
+
 static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
 {
     if (decl->kind != DECL_VAR)
@@ -65,6 +95,8 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
             in->u.copy.src      = src;
             in->u.copy.dst      = val_var(id->name);
             tac_append(ctx, in);
+        } else if (id->init && id->init->kind == INITIALIZER_COMPOUND) {
+            gen_compound_init(ctx, id->name, 0, id->init);
         }
     }
 }

@@ -500,3 +500,121 @@ TEST_F(TranslateTest, TypedefOnly)
 {
     EXPECT_EQ(CompileToYaml("typedef int MyInt;"), "");
 }
+
+// ---------------------------------------------------------------------------
+// Compound local-variable initializers — task #2
+// ---------------------------------------------------------------------------
+
+// struct Foo s = {1, 2}; emits two COPY_TO_OFFSET instructions.
+TEST_F(TranslateTest, LocalStructCompoundInit)
+{
+    std::string yaml = CompileToYaml(
+        "struct Foo { int x; int y; };"
+        "void f(void) { struct Foo s = {1, 2}; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst: s
+      offset: 0
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 2
+      dst: s
+      offset: 4
+)");
+}
+
+// int arr[3] = {10, 20, 30}; emits three COPY_TO_OFFSET instructions.
+TEST_F(TranslateTest, LocalArrayCompoundInit)
+{
+    std::string yaml = CompileToYaml(
+        "void f(void) { int arr[3] = {10, 20, 30}; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 10
+      dst: arr
+      offset: 0
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 20
+      dst: arr
+      offset: 4
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 30
+      dst: arr
+      offset: 8
+)");
+}
+
+// struct Outer o = {{1, 2}, 3}; — nested struct — emits COPY_TO_OFFSET at offsets 0, 4, 8.
+TEST_F(TranslateTest, LocalNestedStructInit)
+{
+    std::string yaml = CompileToYaml(
+        "struct Inner { int a; int b; };"
+        "struct Outer { struct Inner in; int c; };"
+        "void f(void) { struct Outer o = {{1, 2}, 3}; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst: o
+      offset: 0
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 2
+      dst: o
+      offset: 4
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 3
+      dst: o
+      offset: 8
+)");
+}

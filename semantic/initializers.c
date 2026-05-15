@@ -297,7 +297,12 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
             current             = &zero_item->next;
         }
 
-        free_init_item(init->u.items);
+        // Free old InitItem shells only — sub-inits are now owned by new_items.
+        for (InitItem *item = init->u.items, *nx; item; item = nx) {
+            nx = item->next;
+            free_designator(item->designators);
+            xfree(item);
+        }
         init->u.items = new_items;
         return init;
     }
@@ -325,7 +330,12 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
             current             = &zero_item->next;
         }
 
-        free_init_item(init->u.items);
+        // Free old InitItem shells only — sub-inits are now owned by new_items.
+        for (InitItem *item = init->u.items, *nx; item; item = nx) {
+            nx = item->next;
+            free_designator(item->designators);
+            xfree(item);
+        }
         init->u.items = new_items;
         return init;
     }
