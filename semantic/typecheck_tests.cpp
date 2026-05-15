@@ -455,6 +455,28 @@ TEST_F(TypecheckTest, ConditionalExpression)
     // TODO: check symtab, AST
 }
 
+TEST_F(TypecheckTest, GenericExpressionTypeMatch)
+{
+    ParseProgram(R"(
+        int main() {
+            int x = 1;
+            return _Generic(x, double: 0, int: 42);
+        }
+    )");
+    typecheck_program(program);
+}
+
+TEST_F(TypecheckTest, GenericExpressionDefault)
+{
+    ParseProgram(R"(
+        int main() {
+            double x = 1.0;
+            return _Generic(x, int: 0, default: 42);
+        }
+    )");
+    typecheck_program(program);
+}
+
 //
 // Test Case 7: Error - Duplicate Struct Declaration
 // Tests error handling for duplicate struct definitions.

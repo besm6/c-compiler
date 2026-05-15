@@ -529,6 +529,58 @@ static Expr *typecheck_expr(Expr *e)
         e->u.post_dec = inner;
         return e;
     }
+    case EXPR_GENERIC: {
+        // Controlling expression is not evaluated; only its type is used for matching.
+        const Expr *ctrl      = typecheck_and_decay(e->u.generic.controlling_expr);
+        const Type *ctrl_type = ctrl->type;
+
+        GenericAssoc *selected      = NULL;
+        GenericAssoc *default_assoc = NULL;
+        for (GenericAssoc *ga = e->u.generic.associations; ga; ga = ga->next) {
+            if (ga->kind == GENERIC_ASSOC_TYPE) {
+                validate_type(ga->u.type_assoc.type);
+                ga->u.type_assoc.expr = typecheck_and_decay(ga->u.type_assoc.expr);
+                if (!selected && compare_type(ctrl_type, ga->u.type_assoc.type)) {
+                    selected = ga;
+                }
+            } else {
+                if (default_assoc)
+                    fatal_error("Multiple default associations in _Generic");
+                ga->u.default_assoc = typecheck_and_decay(ga->u.default_assoc);
+                default_assoc       = ga;
+            }
+        }
+
+        GenericAssoc *match = selected ? selected : default_assoc;
+        if (!match)
+            fatal_error("No matching association in _Generic expression");
+
+        const Expr *match_expr = (match->kind == GENERIC_ASSOC_TYPE)
+                                     ? match->u.type_assoc.expr
+                                     : match->u.default_assoc;
+        free_type(e->type);
+        e->type = clone_type(match_expr->type, __func__, __FILE__, __LINE__);
+
+        // Prune to the selected association so TAC lowering sees exactly one branch.
+        for (GenericAssoc *ga = e->u.generic.associations, *nxt; ga; ga = nxt) {
+            nxt = ga->next;
+            if (ga == match) {
+                match->next = NULL;
+                continue;
+            }
+            if (ga->kind == GENERIC_ASSOC_TYPE) {
+                free_type(ga->u.type_assoc.type);
+                free_expression(ga->u.type_assoc.expr);
+            } else {
+                free_expression(ga->u.default_assoc);
+            }
+            xfree(ga);
+        }
+        e->u.generic.associations     = match;
+        free_expression(e->u.generic.controlling_expr);
+        e->u.generic.controlling_expr = NULL;
+        return e;
+    }
     default:
         fatal_error("Unsupported expression kind %d", e->kind);
     }

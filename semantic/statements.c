@@ -54,6 +54,7 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
         } else if (ret_type->kind != TYPE_VOID) {
             return s;
         }
+        return s;
     case STMT_EXPR: {
         s->u.expr = typecheck_and_decay(s->u.expr);
         return s;
