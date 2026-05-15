@@ -18,9 +18,9 @@ extern int scope_level;
 extern int semantic_debug;
 extern int xalloc_debug;
 
-// Typecheck definitions and uses of functions and variables.
-void typecheck_program(Program *p);
-void typecheck_global_decl(ExternalDecl *d);
+// Resolve definitions and uses of functions and variables.
+void resolve(ExternalDecl *d);
+void resolve_program(Program *p);
 
 // Annotate loops and break/continue statements.
 void label_loops(ExternalDecl *ast);

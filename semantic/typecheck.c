@@ -1739,10 +1739,17 @@ void typecheck_global_decl(ExternalDecl *d)
     }
 }
 
-// Type-check a program
-void typecheck_program(Program *p)
+// Resolve a global declaration
+void resolve(ExternalDecl *d)
+{
+    typecheck_global_decl(d);
+    label_loops(d);
+}
+
+// Resolve a program
+void resolve_program(Program *p)
 {
     for (ExternalDecl *d = p->decls; d; d = d->next) {
-        typecheck_global_decl(d);
+        resolve(d);
     }
 }

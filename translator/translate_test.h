@@ -57,8 +57,7 @@ protected:
         while (decls) {
             ExternalDecl *next = decls->next;
             decls->next        = nullptr;
-            typecheck_global_decl(decls);
-            label_loops(decls);
+            resolve(decls);
             Tac_TopLevel *tac = translate(decls);
             free_external_decl(decls);
             if (tac) {
