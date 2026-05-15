@@ -477,6 +477,28 @@ TEST_F(TypecheckTest, GenericExpressionDefault)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, CompoundLiteralArray)
+{
+    ParseProgram(R"(
+        int f(void) {
+            return ((int[1]){42})[0];
+        }
+    )");
+    typecheck_program(program);
+}
+
+TEST_F(TypecheckTest, CompoundLiteralStruct)
+{
+    ParseProgram(R"(
+        struct S { int x; int y; };
+        int f(void) {
+            struct S s = (struct S){1, 2};
+            return s.x;
+        }
+    )");
+    typecheck_program(program);
+}
+
 //
 // Test Case 7: Error - Duplicate Struct Declaration
 // Tests error handling for duplicate struct definitions.

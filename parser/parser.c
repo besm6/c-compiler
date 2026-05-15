@@ -804,6 +804,18 @@ Expr *parse_cast_expression()
         advance_token();
         Type *type = parse_type_name();
         expect_token(TOKEN_RPAREN);
+        if (current_token == TOKEN_LBRACE) {
+            // Compound literal: (type-name) { initializer-list }
+            advance_token();
+            InitItem *items = parse_initializer_list();
+            if (current_token == TOKEN_COMMA)
+                advance_token();
+            expect_token(TOKEN_RBRACE);
+            Expr *compound                    = new_expression(EXPR_COMPOUND);
+            compound->u.compound_literal.type = type;
+            compound->u.compound_literal.init = items;
+            return compound;
+        }
         Expr *expr            = parse_cast_expression();
         Expr *new_expr        = new_expression(EXPR_CAST);
         new_expr->u.cast.type = type;

@@ -6,7 +6,6 @@ Work plan, ordered by recommended implementation sequence.
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 6 | `EXPR_COMPOUND` type-check | Add an `EXPR_COMPOUND` case to `typecheck_expr`. Treat it as a synthetic local of the specified type initialized with the given initializer list. | M |
 | 7 | `EXPR_COMPOUND` TAC lowering | Add an `EXPR_COMPOUND` case in `gen_expr`. Allocate a temp, emit initializer stores (reuse compound-init logic from task 2), and return the address or value. | M |
 
 ## Disabled / unregistered tests

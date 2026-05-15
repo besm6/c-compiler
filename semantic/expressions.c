@@ -581,6 +581,24 @@ static Expr *typecheck_expr(Expr *e)
         e->u.generic.controlling_expr = NULL;
         return e;
     }
+    case EXPR_COMPOUND: {
+        const Type *lit_type = e->u.compound_literal.type;
+        validate_type(lit_type);
+        if (!is_complete(lit_type)) {
+            fatal_error("Compound literal must have a complete type");
+        }
+        // Wrap InitItem list in a temporary INITIALIZER_COMPOUND to reuse typecheck_init.
+        Initializer *wrap = new_initializer(INITIALIZER_COMPOUND);
+        wrap->u.items     = e->u.compound_literal.init;
+        Initializer *result = typecheck_init(lit_type, wrap);
+        // Detach the type-checked items and free the wrapper shell.
+        e->u.compound_literal.init = result->u.items;
+        result->u.items            = NULL;
+        free_initializer(result);
+        free_type(e->type);
+        e->type = clone_type(lit_type, __func__, __FILE__, __LINE__);
+        return e;
+    }
     default:
         fatal_error("Unsupported expression kind %d", e->kind);
     }
