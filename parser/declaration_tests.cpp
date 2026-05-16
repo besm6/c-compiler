@@ -26,6 +26,15 @@ TEST_F(ParserTest, ParseInitializedDeclaration)
     EXPECT_EQ(42, decl->u.var.declarators->init->u.expr->u.literal->u.int_val);
 }
 
+TEST_F(ParserTest, ParseEmptyCompoundInitializer)
+{
+    Declaration *decl = GetDeclaration("int x[2] = {};");
+
+    ASSERT_NE(nullptr, decl->u.var.declarators->init);
+    EXPECT_EQ(INITIALIZER_COMPOUND, decl->u.var.declarators->init->kind);
+    EXPECT_EQ(nullptr, decl->u.var.declarators->init->u.items);
+}
+
 TEST_F(ParserTest, ParseMultipleDeclarators)
 {
     Declaration *decl = GetDeclaration("int x, y;");
