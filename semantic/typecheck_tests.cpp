@@ -949,7 +949,7 @@ TEST_F(TypecheckTest, SwitchNestedContexts)
     typecheck_program(program);
 }
 
-TEST_F(TypecheckTest, Sysacct)
+TEST_F(TypecheckTest, SysacctNamei)
 {
     ParseProgram(R"(
         struct inode *namei(int (*func)(void), int flag);
@@ -957,6 +957,23 @@ TEST_F(TypecheckTest, Sysacct)
         void sysacct()
         {
             namei(uchar, 0);
+        }
+    )");
+    typecheck_program(program);
+}
+
+TEST_F(TypecheckTest, SysacctBinaryOp13)
+{
+    ParseProgram(R"(
+        struct inode {
+            unsigned short i_mode;
+        };
+        void sysacct()
+        {
+            register struct inode *ip;
+            if ((ip->i_mode & 0170000) != 0100000) {
+                return;
+            }
         }
     )");
     typecheck_program(program);

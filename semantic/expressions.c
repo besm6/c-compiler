@@ -323,6 +323,42 @@ static Expr *typecheck_expr(Expr *e)
             e->u.binary_op.right = e2;
             return e;
         }
+        case BINARY_BIT_AND:
+        case BINARY_BIT_XOR:
+        case BINARY_BIT_OR: {
+            e1 = typecheck_and_decay(e1);
+            e2 = typecheck_and_decay(e2);
+            if (!is_integer(e1->type) || !is_integer(e2->type)) {
+                fatal_error("Bitwise operators require integer operands");
+            }
+            const Type *common = get_common_type(e1->type, e2->type);
+            e1                 = convert_to_type(e1, common);
+            e2                 = convert_to_type(e2, common);
+            free_type(e->type);
+            e->type              = clone_type(common, __func__, __FILE__, __LINE__);
+            e->u.binary_op.left  = e1;
+            e->u.binary_op.right = e2;
+            return e;
+        }
+        case BINARY_LEFT_SHIFT:
+        case BINARY_RIGHT_SHIFT: {
+            e1 = typecheck_and_decay(e1);
+            e2 = typecheck_and_decay(e2);
+            if (!is_integer(e1->type) || !is_integer(e2->type)) {
+                fatal_error("Shift operators require integer operands");
+            }
+            if (is_character(e1->type)) {
+                e1 = convert_to_kind(e1, TYPE_INT);
+            }
+            if (is_character(e2->type)) {
+                e2 = convert_to_kind(e2, TYPE_INT);
+            }
+            free_type(e->type);
+            e->type              = clone_type(e1->type, __func__, __FILE__, __LINE__);
+            e->u.binary_op.left  = e1;
+            e->u.binary_op.right = e2;
+            return e;
+        }
         default:
             fatal_error("Unsupported binary op %d", e->u.binary_op.op);
         }
