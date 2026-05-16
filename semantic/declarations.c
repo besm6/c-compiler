@@ -182,7 +182,7 @@ static void typecheck_local_var_decl(Declaration *d)
         return;
     }
     InitDeclarator *decl = d->u.var.declarators;
-    const Type *var_type = decl->type;
+    Type *var_type       = decl->type;
     if (var_type->kind == TYPE_VOID) {
         fatal_error("No void declarations");
     }
@@ -337,7 +337,7 @@ static void typecheck_file_scope_var_decl(Declaration *d)
     }
     bool global = !is_static(d->u.var.specifiers);
     for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
-        const Type *var_type = decl->type;
+        Type *var_type = decl->type;
 
         // A function prototype at file scope (e.g. "int f(int);") arrives here
         // as a DECL_VAR with a function type. Register it as SYM_FUNC so that

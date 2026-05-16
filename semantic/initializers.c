@@ -69,8 +69,18 @@ static Initializer *make_zero_init(Type *t)
     return init;
 }
 
+// Count top-level elements in a brace initializer list.
+static size_t count_init_items(const InitItem *items)
+{
+    size_t n = 0;
+    for (; items; items = items->next) {
+        n++;
+    }
+    return n;
+}
+
 // Convert an initializer to a Tac_StaticInit list for global/static variables.
-Tac_StaticInit *build_static_init(const Type *var_type, const Initializer *init)
+Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
 {
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
@@ -97,6 +107,7 @@ Tac_StaticInit *build_static_init(const Type *var_type, const Initializer *init)
         if (!var_type->u.array.size) {
             // Array size is not specified - use string size.
             array_size = string_length + 1;
+            set_array_size(var_type, array_size);
         } else {
             array_size = get_array_size(var_type);
             if (string_length > array_size) {
@@ -161,14 +172,21 @@ Tac_StaticInit *build_static_init(const Type *var_type, const Initializer *init)
 
     // Handle array with compound initializer.
     if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
-        size_t array_size          = get_array_size(var_type);
-        const Type *element_type   = var_type->u.array.element;
+        bool size_specified = var_type->u.array.size != NULL;
+        size_t array_size;
+        if (!size_specified) {
+            array_size = count_init_items(init->u.items);
+            set_array_size(var_type, array_size);
+        } else {
+            array_size = get_array_size(var_type);
+        }
+        Type *element_type         = var_type->u.array.element;
         Tac_StaticInit *array_init = NULL;
         Tac_StaticInit **current   = &array_init;
         int element_count          = 0;
 
         for (const InitItem *item = init->u.items; item; item = item->next) {
-            if (element_count >= (int)array_size) {
+            if (size_specified && element_count >= (int)array_size) {
                 fatal_error("Too many elements in array initializer");
             }
             Tac_StaticInit *element_init = build_static_init(element_type, item->init);
@@ -230,7 +248,7 @@ Tac_StaticInit *build_static_init(const Type *var_type, const Initializer *init)
 }
 
 // Type-check an initializer against a target type.
-Initializer *typecheck_init(const Type *target_type, Initializer *init)
+Initializer *typecheck_init(Type *target_type, Initializer *init)
 {
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
@@ -253,10 +271,12 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
             element_type->kind != TYPE_UCHAR) {
             fatal_error("String literal can only initialize character array");
         }
-        if (target_type->u.array.size) {
-            const char *string_val = init->u.expr->u.literal->u.string_val;
-            size_t string_length   = strlen(string_val);
-            size_t array_size      = get_array_size(target_type);
+        const char *string_val = init->u.expr->u.literal->u.string_val;
+        size_t string_length   = strlen(string_val);
+        if (!target_type->u.array.size) {
+            set_array_size(target_type, string_length + 1);
+        } else {
+            size_t array_size = get_array_size(target_type);
             if (string_length > array_size) {
                 fatal_error("String literal too long for array");
             }
@@ -275,14 +295,21 @@ Initializer *typecheck_init(const Type *target_type, Initializer *init)
 
     // Handle array with compound initializer.
     if (target_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
-        size_t array_size   = get_array_size(target_type);
+        bool size_specified = target_type->u.array.size != NULL;
+        size_t array_size;
+        if (!size_specified) {
+            array_size = count_init_items(init->u.items);
+            set_array_size(target_type, array_size);
+        } else {
+            array_size = get_array_size(target_type);
+        }
         Type *element_type  = target_type->u.array.element;
         InitItem *new_items = NULL;
         InitItem **current  = &new_items;
         int element_count   = 0;
 
         for (const InitItem *item = init->u.items; item; item = item->next) {
-            if (element_count >= (int)array_size) {
+            if (size_specified && element_count >= (int)array_size) {
                 fatal_error("Too many elements in array initializer");
             }
             InitItem *new_item = new_init_item(NULL, typecheck_init(element_type, item->init));

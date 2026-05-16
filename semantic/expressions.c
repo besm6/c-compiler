@@ -582,7 +582,7 @@ static Expr *typecheck_expr(Expr *e)
         return e;
     }
     case EXPR_COMPOUND: {
-        const Type *lit_type = e->u.compound_literal.type;
+        Type *lit_type = e->u.compound_literal.type;
         validate_type(lit_type);
         if (!is_complete(lit_type)) {
             fatal_error("Compound literal must have a complete type");

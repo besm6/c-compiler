@@ -322,6 +322,19 @@ TEST_F(TypecheckTest, TypecheckArrayStringLiteralInit)
     // TODO: check symtab, AST
 }
 
+TEST_F(TypecheckTest, TypecheckArrayInit)
+{
+    ParseProgram(R"(
+        int tab[] = { 1, 2 };
+        int main() {
+            return tab[0];
+        }
+    )");
+    typecheck_program(program);
+
+    // TODO: check symtab, AST
+}
+
 //
 // Test Case 4: Pointer Arithmetic and Dereference
 // Tests array-to-pointer conversion, pointer initialization, and dereference.

@@ -40,8 +40,8 @@ Expr *typecheck_and_decay(Expr *e);
 Expr *typecheck_scalar(Expr *e);
 
 // Initializer type-checking — initializers.c
-Tac_StaticInit *build_static_init(const Type *var_type, const Initializer *init);
-Initializer    *typecheck_init(const Type *target_type, Initializer *init);
+Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init);
+Initializer    *typecheck_init(Type *target_type, Initializer *init);
 
 // Statement type-checking — statements.c
 DeclOrStmt *typecheck_block(const Type *ret_type, DeclOrStmt *block);
