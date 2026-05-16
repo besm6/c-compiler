@@ -433,6 +433,22 @@ TEST_F(TranslateTest, GlobalVarExtern)
 )");
 }
 
+// Incomplete extern array declaration emits array type with size 0.
+TEST_F(TranslateTest, GlobalVarExternIncompleteArray)
+{
+    std::string yaml = CompileToYaml("extern int icode[];");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: icode
+  global: true
+  type:
+    kind: array
+    elem_type:
+      kind: int
+    size: 0
+)");
+}
+
 // Function prototype emits TAC_TOPLEVEL_FUNCTION with params but no body.
 TEST_F(TranslateTest, FunctionPrototype)
 {

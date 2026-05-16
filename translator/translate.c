@@ -212,7 +212,11 @@ Tac_Type *ast_type_to_tac_type(const Type *t)
     case TYPE_ARRAY: {
         Tac_Type *ta          = tac_new_type(TAC_TYPE_ARRAY);
         ta->u.array.elem_type = ast_type_to_tac_type(t->u.array.element);
-        ta->u.array.size      = (int)(get_size(t) / get_size(t->u.array.element));
+        if (t->u.array.size) {
+            ta->u.array.size = (int)(get_size(t) / get_size(t->u.array.element));
+        } else {
+            ta->u.array.size = 0; // incomplete array type (e.g. extern int arr[])
+        }
         return ta;
     }
     case TYPE_FUNCTION: {
