@@ -511,6 +511,18 @@ TEST_F(TypecheckTest, NestedStruct)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, NestedUnion)
+{
+    ParseProgram(R"(
+        struct foo {
+            union {
+                int bar;
+            } quz;
+        };
+    )");
+    typecheck_program(program);
+}
+
 //
 // Test Case 7: Error - Duplicate Struct Declaration
 // Tests error handling for duplicate struct definitions.

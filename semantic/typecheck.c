@@ -133,6 +133,7 @@ void validate_type(const Type *t)
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_STRUCT:
+    case TYPE_UNION:
     case TYPE_ENUM:
         break;
     case TYPE_TYPEDEF_NAME:
