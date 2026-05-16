@@ -949,6 +949,19 @@ TEST_F(TypecheckTest, SwitchNestedContexts)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, Sysacct)
+{
+    ParseProgram(R"(
+        struct inode *namei(int (*func)(void), int flag);
+        int uchar(void);
+        void sysacct()
+        {
+            namei(uchar, 0);
+        }
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------

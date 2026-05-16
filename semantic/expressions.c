@@ -45,9 +45,6 @@ static Expr *typecheck_var(Expr *e)
     }
     const Symbol *sym = symtab_get(e->u.var);
 
-    if (sym->type->kind == TYPE_FUNCTION) {
-        fatal_error("Tried to use function name as variable");
-    }
     free_type(e->type);
     e->type = clone_type(sym->type, __func__, __FILE__, __LINE__);
     return e;
@@ -631,6 +628,12 @@ Expr *typecheck_and_decay(Expr *e)
             clone_type(typed->type->u.array.element, __func__, __FILE__, __LINE__);
         free_type(typed->type);
         typed->type = ptr; // Modify in place
+    }
+    if (typed->type->kind == TYPE_FUNCTION) {
+        Type *ptr             = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
+        ptr->u.pointer.target = clone_type(typed->type, __func__, __FILE__, __LINE__);
+        free_type(typed->type);
+        typed->type = ptr;
     }
     return typed;
 }

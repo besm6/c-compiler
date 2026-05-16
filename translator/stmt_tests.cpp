@@ -234,7 +234,8 @@ TEST_F(TranslateTest, IndirectCallViaFunctionPointer)
 )");
 }
 
-// Explicit dereference (*fp)(42) is equivalent to fp(42): same TAC output.
+// (*fp)(42): callee is type-checked with decay, so (*fp) has pointer type and
+// lowering emits LOAD then indirect fun_call (unlike fp(42), which calls via fp).
 TEST_F(TranslateTest, IndirectCallViaExplicitDeref)
 {
     std::string yaml = CompileToYaml("int f(int (*fp)(int)) { return (*fp)(42); }");
@@ -246,8 +247,16 @@ TEST_F(TranslateTest, IndirectCallViaExplicitDeref)
     - param: fp
   body:
     - instruction:
+      kind: load
+      src_ptr:
+        kind: var
+        name: fp
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
       kind: fun_call
-      fun_name: fp
+      fun_name: t.0
       args:
         - val:
           kind: constant
@@ -256,12 +265,12 @@ TEST_F(TranslateTest, IndirectCallViaExplicitDeref)
             value: 42
       dst:
         kind: var
-        name: t.0
+        name: t.1
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.0
+        name: t.1
 )");
 }
 
