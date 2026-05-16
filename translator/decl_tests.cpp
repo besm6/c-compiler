@@ -501,6 +501,50 @@ TEST_F(TranslateTest, TypedefOnly)
     EXPECT_EQ(CompileToYaml("typedef int MyInt;"), "");
 }
 
+TEST_F(TranslateTest, TypedefLocalVar)
+{
+    std::string yaml = CompileToYaml(
+        "typedef int myint;"
+        "int f(void) { myint x = 42; return x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 42
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: copy
+      src:
+        kind: var
+        name: t.0
+      dst:
+        kind: var
+        name: x
+    - instruction:
+      kind: copy
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: t.1
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.1
+)");
+}
+
 // ---------------------------------------------------------------------------
 // Compound local-variable initializers — task #2
 // ---------------------------------------------------------------------------
