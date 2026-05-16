@@ -258,18 +258,23 @@ Expr *coerce_for_assignment(Expr *e, const Type *target_type)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
-    if (e->type->kind == target_type->kind &&
-        (!is_pointer(e->type) ||
-         e->type->u.pointer.target->kind == target_type->u.pointer.target->kind))
+    const Type *e_type = e->type;
+    if (e_type->kind == TYPE_TYPEDEF_NAME)
+        e_type = typetab_resolve(e_type->u.typedef_name.name);
+    if (target_type->kind == TYPE_TYPEDEF_NAME)
+        target_type = typetab_resolve(target_type->u.typedef_name.name);
+    if (e_type->kind == target_type->kind &&
+        (!is_pointer(e_type) ||
+         e_type->u.pointer.target->kind == target_type->u.pointer.target->kind))
         return e;
-    if (is_arithmetic(e->type) && is_arithmetic(target_type))
+    if (is_arithmetic(e_type) && is_arithmetic(target_type))
         return convert_to_type(e, target_type);
     if (is_null_pointer_constant(e) && is_pointer(target_type))
         return convert_to_type(e, target_type);
     if ((target_type->kind == TYPE_POINTER && target_type->u.pointer.target->kind == TYPE_VOID &&
-         is_pointer(e->type)) ||
-        (is_pointer(target_type) && e->type->kind == TYPE_POINTER &&
-         e->type->u.pointer.target->kind == TYPE_VOID)) {
+         is_pointer(e_type)) ||
+        (is_pointer(target_type) && e_type->kind == TYPE_POINTER &&
+         e_type->u.pointer.target->kind == TYPE_VOID)) {
         return convert_to_type(e, target_type);
     }
     fatal_error("Cannot convert type for assignment");

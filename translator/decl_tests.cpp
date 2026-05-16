@@ -553,28 +553,12 @@ TEST_F(TranslateTest, TypedefLocalVar)
           value: 42
       dst:
         kind: var
-        name: t.0
-    - instruction:
-      kind: copy
-      src:
-        kind: var
-        name: t.0
-      dst:
-        kind: var
         name: x
-    - instruction:
-      kind: copy
-      src:
-        kind: var
-        name: x
-      dst:
-        kind: var
-        name: t.1
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.1
+        name: x
 )");
 }
 

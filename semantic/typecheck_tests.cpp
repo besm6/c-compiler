@@ -1035,6 +1035,19 @@ TEST_F(TypecheckTest, CallBcopy)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, ArgumentCastTypedef)
+{
+    ParseProgram(R"(
+        typedef char *caddr_t;
+        void putstr(const char *str);
+        void foo(caddr_t str)
+        {
+            putstr(str);
+        }
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------
