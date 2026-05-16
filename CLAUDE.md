@@ -55,12 +55,14 @@ Compiler flags in use: `-Wall -Werror -Wshadow` — all warnings are errors.
 
 ## Architecture
 
-This is a C11 frontend compiler targeting the BESM-6 architecture. The backend is not yet implemented. The pipeline has two executables:
+This is a multi-platform C11 compiler. The shared frontend emits TAC; machine backends under `backend/` consume TAC and emit target assembly. The pipeline:
 
 ```
 Source (.c)
-  → [parse]   Scanner → Parser → AST (binary/YAML/DOT)
-  → [lower]   Typecheck → LabelLoops → Translate → TAC (binary/YAML/DOT)
+  → [parse]      Scanner → Parser → AST (binary/YAML/DOT)
+  → [lower]      Typecheck → Translate → TAC (binary/YAML/DOT)
+  → [genx86]     Frame alloc → Instruction select → GNU AT&T assembly (.s)
+  → [genbesm]    Frame alloc → Instruction select → Madlen assembly (.mad)
 ```
 
 **`parse`** (`parser/main.c`): Lexes and parses a C source file, outputs a binary AST stream (via `wio`) to stdout, or `--yaml`/`--dot` for human-readable forms.
@@ -78,7 +80,9 @@ Source (.c)
 | Loop labeling | `semantic/label_loops.c` | Complete |
 | Const conversion | `semantic/const_convert.c` | Complete |
 | AST → TAC lowering | `translator/translate.c`, `expr.c`, `stmt.c` | Complete |
-| BESM-6 code gen | — | Not started |
+| x86_64 code gen | `backend/x86/` | In progress |
+| BESM-6 code gen | `backend/besm6/` | In progress |
+| AArch64 / RISC-V / ARM32 code gen | — | Planned |
 
 ### Key data structures
 
@@ -126,7 +130,8 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - [docs/Memory_Allocation.md](docs/Memory_Allocation.md) — memory allocator (`xalloc`) design and usage
 - [docs/String_Map.md](docs/String_Map.md) — `libutil/string_map` key-value store
 - [docs/Word_Oriented_IO.md](docs/Word_Oriented_IO.md) — word-oriented I/O (`wio`) for binary IR streams
-- [TODO.md](TODO.md) — work plan with effort estimates
+- [backend/x86/TODO.md](backend/x86/TODO.md) — x86_64 backend work plan with effort estimates
+- [backend/besm6/TODO.md](backend/besm6/TODO.md) — BESM-6 backend work plan with effort estimates
 - [docs/C_Grammar.md](docs/C_Grammar.md) — C grammar article: scanner (`c11.l`), parser (`c11.y`), ASDL (`c11.asdl`), and how they relate to the hand-written implementation
 - [grammar/README.md](grammar/README.md) — C11 grammar coverage notes
 - [grammar/c11.y](grammar/c11.y), [grammar/c11.l](grammar/c11.l), [grammar/c11.asdl](grammar/c11.asdl) — reference grammar and abstract syntax (not used for code generation)
