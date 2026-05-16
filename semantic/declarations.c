@@ -165,7 +165,9 @@ static void typecheck_tag_decl(const Declaration *d)
         return;
     }
     if (kind != TYPE_STRUCT && kind != TYPE_UNION)
-        return; // Ignore forward declarations
+        return;
+    if (!d->u.empty.type->u.struct_t.fields)
+        return; // Forward declaration or tag reference — not a definition.
     register_struct_type(d->u.empty.type);
 }
 

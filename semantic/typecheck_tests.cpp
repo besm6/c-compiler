@@ -335,6 +335,19 @@ TEST_F(TypecheckTest, TypecheckArrayInit)
     // TODO: check symtab, AST
 }
 
+TEST_F(TypecheckTest, TypecheckStructRedeclared)
+{
+    ParseProgram(R"(
+        struct foo {
+            int quz;
+        };
+        struct foo;
+    )");
+    typecheck_program(program);
+
+    // TODO: check symtab, AST
+}
+
 //
 // Test Case 4: Pointer Arithmetic and Dereference
 // Tests array-to-pointer conversion, pointer initialization, and dereference.
