@@ -30,6 +30,7 @@
 #include "semantic.h"
 #include "structtab.h"
 #include "symtab.h"
+#include "typetab.h"
 #include "xalloc.h"
 
 // Test fixture
@@ -57,8 +58,10 @@ protected:
         }
         symtab_print();
         structtab_print();
+        nametab_destroy();
         symtab_destroy();
         structtab_destroy();
+        typetab_destroy();
         xreport_lost_memory();
         EXPECT_EQ(xtotal_allocated_size(), 0);
         xfree_all();
@@ -1002,6 +1005,19 @@ TEST_F(TypecheckTest, NestedUnionDotRef)
         int quz(struct foo *ptr)
         {
             return ptr->u.bar;
+        }
+    )");
+    typecheck_program(program);
+}
+
+TEST_F(TypecheckTest, TypedefFieldArrowAccess)
+{
+    ParseProgram(R"(
+        struct foo { int bar; };
+        typedef struct foo *foop;
+        int alloc(void *quz)
+        {
+            return ((foop)quz)->bar;
         }
     )");
     typecheck_program(program);

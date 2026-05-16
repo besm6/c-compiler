@@ -234,9 +234,10 @@ void process_file(const Args *args)
         printf("Debug: Format = %d, Input = %s, Output = %s\n", args->format, args->input_file,
                args->output_file);
         translator_debug = 1;
-        import_debug     = 1;
-        export_debug     = 1;
-        wio_debug        = 1;
+        //import_debug     = 1;
+        //export_debug     = 1;
+        //wio_debug        = 1;
+        //xalloc_debug     = 1;
     }
     open_input_output(args);
 

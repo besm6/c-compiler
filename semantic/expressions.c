@@ -8,6 +8,7 @@
 #include "structtab.h"
 #include "symtab.h"
 #include "typecheck.h"
+#include "typetab.h"
 #include "xalloc.h"
 
 // Check if an expression is an lvalue.
@@ -515,13 +516,18 @@ static Expr *typecheck_expr(Expr *e)
     }
     case EXPR_PTR_ACCESS: {
         Expr *strct_ptr = typecheck_and_decay(e->u.ptr_access.expr);
-        if (!is_pointer(strct_ptr->type) ||
-            (strct_ptr->type->u.pointer.target->kind != TYPE_STRUCT &&
-             strct_ptr->type->u.pointer.target->kind != TYPE_UNION)) {
+        const Type *ptr_type = strct_ptr->type;
+        if (ptr_type->kind == TYPE_TYPEDEF_NAME)
+            ptr_type = typetab_resolve(ptr_type->u.typedef_name.name);
+        if (!is_pointer(ptr_type) ||
+            (ptr_type->u.pointer.target->kind != TYPE_STRUCT &&
+             ptr_type->u.pointer.target->kind != TYPE_UNION)) {
             fatal_error("Arrow operator requires pointer to structure or union");
         }
-        const StructDef *entry =
-            structtab_find(strct_ptr->type->u.pointer.target->u.struct_t.name);
+        const Type *target_type = ptr_type->u.pointer.target;
+        if (target_type->kind == TYPE_TYPEDEF_NAME)
+            target_type = typetab_resolve(target_type->u.typedef_name.name);
+        const StructDef *entry = structtab_find(target_type->u.struct_t.name);
         const FieldDef *member = entry->members;
         for (; member; member = member->next) {
             if (strcmp(member->name, e->u.ptr_access.field) == 0) {
@@ -530,7 +536,7 @@ static Expr *typecheck_expr(Expr *e)
         }
         if (!member) {
             fatal_error("Struct %s has no member %s",
-                        strct_ptr->type->u.pointer.target->u.struct_t.name,
+                        target_type->u.struct_t.name,
                         e->u.ptr_access.field);
         }
         free_type(e->type);
