@@ -172,54 +172,56 @@ static void typecheck_tag_decl(const Declaration *d)
 }
 
 // Type-check a local variable declaration.
-static void typecheck_local_var_decl(Declaration *d)
+static void typecheck_local_var_decl(const Declaration *d)
 {
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
     if (d->u.var.specifiers && d->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF) {
-        const InitDeclarator *decl = d->u.var.declarators;
-        validate_type(decl->type);
-        typetab_add(decl->name, decl->type, scope_level);
-        return;
-    }
-    InitDeclarator *decl = d->u.var.declarators;
-    Type *var_type       = decl->type;
-    if (var_type->kind == TYPE_VOID) {
-        fatal_error("No void declarations");
-    }
-    register_inline_struct_defs(var_type);
-    validate_type(var_type);
-    if (is_extern(d->u.var.specifiers)) {
-        if (decl->init) {
-            fatal_error("Initializer on local extern declaration");
-        }
-        const Symbol *existing = symtab_get_opt(decl->name);
-        if (existing && existing->type->kind != var_type->kind) {
-            fatal_error("Variable %s redeclared with different type", decl->name);
-        }
-        if (!existing) {
-            symtab_add_static_var(decl->name, var_type, true, INIT_NONE, NULL);
+        for (const InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
+            validate_type(decl->type);
+            typetab_add(decl->name, decl->type, scope_level);
         }
         return;
     }
-    if (!is_complete(var_type)) {
-        fatal_error("Cannot define a variable with incomplete type");
+    for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
+        Type *var_type = decl->type;
+        if (var_type->kind == TYPE_VOID) {
+            fatal_error("No void declarations");
+        }
+        register_inline_struct_defs(var_type);
+        validate_type(var_type);
+        if (is_extern(d->u.var.specifiers)) {
+            if (decl->init) {
+                fatal_error("Initializer on local extern declaration");
+            }
+            const Symbol *existing = symtab_get_opt(decl->name);
+            if (existing && existing->type->kind != var_type->kind) {
+                fatal_error("Variable %s redeclared with different type", decl->name);
+            }
+            if (!existing) {
+                symtab_add_static_var(decl->name, var_type, true, INIT_NONE, NULL);
+            }
+            continue;
+        }
+        if (!is_complete(var_type)) {
+            fatal_error("Cannot define a variable with incomplete type");
+        }
+        if (is_static(d->u.var.specifiers)) {
+            Tac_StaticInit *static_init = build_static_init(var_type, decl->init);
+            symtab_add_static_var(decl->name, var_type, false, INIT_INITIALIZED, static_init);
+            // Drop initializer
+            free_initializer(decl->init);
+            decl->init = NULL;
+            continue;
+        }
+        const Symbol *dup = symtab_get_opt(decl->name);
+        if (dup && !dup->has_linkage) {
+            fatal_error("Duplicate variable declaration %s", decl->name);
+        }
+        symtab_add_automatic_var_type(decl->name, var_type, scope_level);
+        decl->init = typecheck_init(var_type, decl->init);
     }
-    if (is_static(d->u.var.specifiers)) {
-        Tac_StaticInit *static_init = build_static_init(var_type, decl->init);
-        symtab_add_static_var(decl->name, var_type, false, INIT_INITIALIZED, static_init);
-        // Drop initializer
-        free_initializer(decl->init);
-        decl->init = NULL;
-        return;
-    }
-    const Symbol *dup = symtab_get_opt(decl->name);
-    if (dup && !dup->has_linkage) {
-        fatal_error("Duplicate variable declaration %s", decl->name);
-    }
-    symtab_add_automatic_var_type(decl->name, var_type, scope_level);
-    decl->init = typecheck_init(var_type, decl->init);
 }
 
 // Type-check a function declaration/definition.

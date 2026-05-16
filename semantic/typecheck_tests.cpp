@@ -979,6 +979,18 @@ TEST_F(TypecheckTest, SysacctBinaryOp13)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, SecondLocalVar)
+{
+    ParseProgram(R"(
+        int foo()
+        {
+            int bar = 0, quz = 0;
+            return quz;
+        }
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------
