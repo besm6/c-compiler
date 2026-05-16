@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "semantic.h"
+#include "xalloc.h"
 #include "string_map.h"
 #include "structtab.h"
 #include "symtab.h"
@@ -79,10 +80,24 @@ static void register_enum_constants(const Type *enum_type)
     }
 }
 
+static int anon_struct_counter = 0;
+static void register_inline_struct_defs(const Type *t);
+
 // Register a struct/union type definition in the struct table.
 // Precondition: t is TYPE_STRUCT or TYPE_UNION with non-NULL fields, not yet in structtab.
 static void register_struct_type(const Type *t)
 {
+    // Anonymous structs have no tag; assign a unique synthetic one so structtab can store them.
+    if (!t->u.struct_t.name) {
+        char buf[32];
+        snprintf(buf, sizeof(buf), "__anon_%d", ++anon_struct_counter);
+        ((Type *)t)->u.struct_t.name = xstrdup(buf);
+    }
+    // Pre-register inline struct/union defs in member types so is_complete() finds them.
+    for (const Field *f = t->u.struct_t.fields; f; f = f->next) {
+        if (f->kind != FIELD_STATIC_ASSERT)
+            register_inline_struct_defs(f->u.member.type);
+    }
     TypeKind kind = t->kind;
     validate_struct_definition(t->u.struct_t.name, t->u.struct_t.fields);
     FieldDef *members     = NULL;

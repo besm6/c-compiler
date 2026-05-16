@@ -499,6 +499,18 @@ TEST_F(TypecheckTest, CompoundLiteralStruct)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, NestedStruct)
+{
+    ParseProgram(R"(
+        struct foo {
+            struct {
+                int bar;
+            } quz;
+        };
+    )");
+    typecheck_program(program);
+}
+
 //
 // Test Case 7: Error - Duplicate Struct Declaration
 // Tests error handling for duplicate struct definitions.
