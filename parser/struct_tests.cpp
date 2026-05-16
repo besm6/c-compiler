@@ -319,3 +319,54 @@ TEST_F(ParserTest, UnionWithNestedStructAndAnonymousStruct)
 
     free_type(type);
 }
+
+//
+// Struct with Function Pointer Member
+//      struct sysent {
+//          int (*sy_call)(void);
+//      }
+//
+TEST_F(ParserTest, StructWithFunctionPointerMember)
+{
+    Type *type = TestType("struct sysent { int (*sy_call)(void); };");
+
+    EXPECT_EQ(type->kind, TYPE_STRUCT);
+    EXPECT_STREQ(type->u.struct_t.name, "sysent");
+    EXPECT_EQ(type->qualifiers, nullptr);
+
+    Field *field = type->u.struct_t.fields;
+    ASSERT_NE(field, nullptr);
+    EXPECT_EQ(field->next, nullptr);
+
+    EXPECT_STREQ(field->u.member.name, "sy_call");
+    EXPECT_EQ(field->u.member.bitfield, nullptr);
+
+    // sy_call must be a pointer (not a function type directly)
+    Type *ptr = field->u.member.type;
+    ASSERT_NE(ptr, nullptr);
+    EXPECT_EQ(ptr->kind, TYPE_POINTER);
+    EXPECT_EQ(ptr->qualifiers, nullptr);
+    EXPECT_EQ(ptr->u.pointer.qualifiers, nullptr);
+
+    // The pointer target must be a function
+    Type *fn = ptr->u.pointer.target;
+    ASSERT_NE(fn, nullptr);
+    EXPECT_EQ(fn->kind, TYPE_FUNCTION);
+    EXPECT_EQ(fn->qualifiers, nullptr);
+    EXPECT_FALSE(fn->u.function.variadic);
+
+    // Return type is int
+    Type *ret = fn->u.function.return_type;
+    ASSERT_NE(ret, nullptr);
+    EXPECT_EQ(ret->kind, TYPE_INT);
+
+    // Single (void) parameter sentinel
+    Param *param = fn->u.function.params;
+    ASSERT_NE(param, nullptr);
+    EXPECT_EQ(param->next, nullptr);
+    EXPECT_EQ(param->name, nullptr);
+    ASSERT_NE(param->type, nullptr);
+    EXPECT_EQ(param->type->kind, TYPE_VOID);
+
+    free_type(type);
+}

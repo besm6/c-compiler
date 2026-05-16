@@ -2161,6 +2161,16 @@ Declarator *parse_direct_declarator()
         advance_token();
         decl = parse_declarator();
         expect_token(TOKEN_RPAREN);
+        // Parentheses change precedence: outer suffixes (e.g. '()') bind tighter
+        // than inner pointers (e.g. '*'). Convert inner pointers to SUFFIX_POINTER
+        // so type_apply_suffixes applies outer suffixes before the pointer.
+        if (decl->pointers) {
+            DeclaratorSuffix *ptr_suffix   = new_declarator_suffix(SUFFIX_POINTER);
+            ptr_suffix->u.pointer.pointers = decl->pointers;
+            ptr_suffix->u.pointer.suffix   = decl->suffixes;
+            decl->pointers                 = NULL;
+            decl->suffixes                 = ptr_suffix;
+        }
     } else {
         fatal_error("Expected identifier or '('");
     }
