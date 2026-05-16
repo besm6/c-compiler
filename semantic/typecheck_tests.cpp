@@ -991,6 +991,22 @@ TEST_F(TypecheckTest, SecondLocalVar)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, NestedUnionDotRef)
+{
+    ParseProgram(R"(
+        struct foo {
+            union {
+                int bar;
+            } u;
+        };
+        int quz(struct foo *ptr)
+        {
+            return ptr->u.bar;
+        }
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------

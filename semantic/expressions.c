@@ -493,8 +493,8 @@ static Expr *typecheck_expr(Expr *e)
     }
     case EXPR_FIELD_ACCESS: {
         Expr *strct = typecheck_and_decay(e->u.field_access.expr);
-        if (strct->type->kind != TYPE_STRUCT) {
-            fatal_error("Dot operator requires structure type");
+        if (strct->type->kind != TYPE_STRUCT && strct->type->kind != TYPE_UNION) {
+            fatal_error("Dot operator requires structure or union type");
         }
         const StructDef *entry = structtab_find(strct->type->u.struct_t.name);
         const FieldDef *member = entry->members;
@@ -516,8 +516,9 @@ static Expr *typecheck_expr(Expr *e)
     case EXPR_PTR_ACCESS: {
         Expr *strct_ptr = typecheck_and_decay(e->u.ptr_access.expr);
         if (!is_pointer(strct_ptr->type) ||
-            strct_ptr->type->u.pointer.target->kind != TYPE_STRUCT) {
-            fatal_error("Arrow operator requires pointer to structure");
+            (strct_ptr->type->u.pointer.target->kind != TYPE_STRUCT &&
+             strct_ptr->type->u.pointer.target->kind != TYPE_UNION)) {
+            fatal_error("Arrow operator requires pointer to structure or union");
         }
         const StructDef *entry =
             structtab_find(strct_ptr->type->u.pointer.target->u.struct_t.name);
