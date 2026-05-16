@@ -433,6 +433,23 @@ TEST_F(TranslateTest, GlobalVarExtern)
 )");
 }
 
+// Inline struct definition inside an extern array declaration is registered transparently.
+TEST_F(TranslateTest, ExternArrayOfInlineStruct)
+{
+    std::string yaml = CompileToYaml("extern struct S { int x; } arr[];");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: arr
+  global: true
+  type:
+    kind: array
+    elem_type:
+      kind: structure
+      tag: S
+    size: 0
+)");
+}
+
 // Incomplete extern array declaration emits array type with size 0.
 TEST_F(TranslateTest, GlobalVarExternIncompleteArray)
 {

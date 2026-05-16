@@ -79,6 +79,62 @@ static void register_enum_constants(const Type *enum_type)
     }
 }
 
+// Register a struct/union type definition in the struct table.
+// Precondition: t is TYPE_STRUCT or TYPE_UNION with non-NULL fields, not yet in structtab.
+static void register_struct_type(const Type *t)
+{
+    TypeKind kind = t->kind;
+    validate_struct_definition(t->u.struct_t.name, t->u.struct_t.fields);
+    FieldDef *members     = NULL;
+    FieldDef **tail       = &members;
+    int current_size      = 0;
+    int current_alignment = 1;
+    for (const Field *f = t->u.struct_t.fields; f; f = f->next) {
+        if (f->kind == FIELD_STATIC_ASSERT)
+            continue; /* already evaluated in validate_struct_definition */
+        int member_alignment = get_alignment(f->u.member.type);
+        int offset           = 0;
+        if (kind == TYPE_STRUCT)
+            offset = round_away_from_zero(member_alignment, current_size);
+        *tail = new_member(f->u.member.name,
+                           clone_type(f->u.member.type, __func__, __FILE__, __LINE__), offset);
+        tail  = &(*tail)->next;
+        current_alignment =
+            current_alignment > member_alignment ? current_alignment : member_alignment;
+        current_size = offset + get_size(f->u.member.type);
+    }
+    int size = round_away_from_zero(current_alignment, current_size);
+    structtab_add_struct(t->u.struct_t.name, current_alignment, size, members, scope_level);
+}
+
+// Register any inline struct/union definitions embedded in a type tree.
+// Must be called before validate_type() so is_complete() finds them in structtab.
+static void register_inline_struct_defs(const Type *t)
+{
+    if (!t)
+        return;
+    switch (t->kind) {
+    case TYPE_STRUCT:
+    case TYPE_UNION:
+        if (t->u.struct_t.fields && !structtab_exists(t->u.struct_t.name))
+            register_struct_type(t);
+        break;
+    case TYPE_ARRAY:
+        register_inline_struct_defs(t->u.array.element);
+        break;
+    case TYPE_POINTER:
+        register_inline_struct_defs(t->u.pointer.target);
+        break;
+    case TYPE_FUNCTION:
+        register_inline_struct_defs(t->u.function.return_type);
+        for (const Param *p = t->u.function.params; p; p = p->next)
+            register_inline_struct_defs(p->type);
+        break;
+    default:
+        break;
+    }
+}
+
 // Type-check a struct/union/enum tag declaration.
 static void typecheck_tag_decl(const Declaration *d)
 {
@@ -95,34 +151,7 @@ static void typecheck_tag_decl(const Declaration *d)
     }
     if (kind != TYPE_STRUCT && kind != TYPE_UNION)
         return; // Ignore forward declarations
-
-    validate_struct_definition(d->u.empty.type->u.struct_t.name,
-                               d->u.empty.type->u.struct_t.fields);
-
-    // Build member definitions.
-    FieldDef *members     = NULL;
-    FieldDef **tail       = &members;
-    int current_size      = 0;
-    int current_alignment = 1;
-    for (const Field *f = d->u.empty.type->u.struct_t.fields; f; f = f->next) {
-        if (f->kind == FIELD_STATIC_ASSERT)
-            continue; /* already evaluated in validate_struct_definition */
-        int member_alignment = get_alignment(f->u.member.type);
-        int offset           = 0;
-        if (kind == TYPE_STRUCT) {
-            offset = round_away_from_zero(member_alignment, current_size);
-        }
-        *tail = new_member(f->u.member.name,
-                           clone_type(f->u.member.type, __func__, __FILE__, __LINE__), offset);
-        tail  = &(*tail)->next;
-
-        current_alignment =
-            current_alignment > member_alignment ? current_alignment : member_alignment;
-        current_size = offset + get_size(f->u.member.type);
-    }
-    int size = round_away_from_zero(current_alignment, current_size);
-    structtab_add_struct(d->u.empty.type->u.struct_t.name, current_alignment, size, members,
-                         scope_level);
+    register_struct_type(d->u.empty.type);
 }
 
 // Type-check a local variable declaration.
@@ -142,6 +171,7 @@ static void typecheck_local_var_decl(Declaration *d)
     if (var_type->kind == TYPE_VOID) {
         fatal_error("No void declarations");
     }
+    register_inline_struct_defs(var_type);
     validate_type(var_type);
     if (is_extern(d->u.var.specifiers)) {
         if (decl->init) {
@@ -321,6 +351,7 @@ static void typecheck_file_scope_var_decl(Declaration *d)
         if (var_type->kind == TYPE_VOID) {
             fatal_error("Void variables not allowed");
         }
+        register_inline_struct_defs(var_type);
         validate_type(var_type);
 
         InitKind init_kind        = is_extern(d->u.var.specifiers) ? INIT_NONE : INIT_TENTATIVE;
