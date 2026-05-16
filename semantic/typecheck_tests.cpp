@@ -1023,6 +1023,18 @@ TEST_F(TypecheckTest, TypedefFieldArrowAccess)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, CallBcopy)
+{
+    ParseProgram(R"(
+        void bcopy(const void *src, void *dst, unsigned len);
+        void copy(const char *from, char *to)
+        {
+            bcopy(from, to, 42);
+        }
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------

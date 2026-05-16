@@ -431,13 +431,15 @@ static Expr *typecheck_expr(Expr *e)
         Expr *arg = e->u.call.args, *prev = NULL, *new_args = NULL;
         const Param *p = params;
         while (arg && p) {
+            Expr *arg_next = arg->next;
+            arg->next      = NULL;
             Expr *new_arg = coerce_for_assignment(typecheck_and_decay(arg), p->type);
             if (!new_args)
                 new_args = new_arg;
             if (prev)
                 prev->next = new_arg;
             prev = new_arg;
-            arg  = arg->next;
+            arg  = arg_next;
             p    = p->next;
         }
         free_type(e->type);
