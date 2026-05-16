@@ -71,7 +71,54 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
 {
     bool from_int = is_integer(from);
     bool to_int   = is_integer(to);
+    bool from_ptr = is_pointer(from);
+    bool to_ptr   = is_pointer(to);
     Tac_Val *dst  = new_var_val(ctx);
+
+    if (from_ptr || to_ptr) {
+        size_t from_size = get_size(from);
+        size_t to_size   = get_size(to);
+        if (from_ptr && to_ptr) {
+            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
+            in->u.copy.src      = src;
+            in->u.copy.dst      = dst;
+            tac_append(ctx, in);
+        } else if (to_ptr) {
+            // integer → pointer
+            if (from_size < to_size) {
+                if (is_signed(from)) {
+                    Tac_Instruction *in   = tac_new_instruction(TAC_INSTRUCTION_SIGN_EXTEND);
+                    in->u.sign_extend.src = src;
+                    in->u.sign_extend.dst = dst;
+                    tac_append(ctx, in);
+                } else {
+                    Tac_Instruction *in   = tac_new_instruction(TAC_INSTRUCTION_ZERO_EXTEND);
+                    in->u.zero_extend.src = src;
+                    in->u.zero_extend.dst = dst;
+                    tac_append(ctx, in);
+                }
+            } else {
+                Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
+                in->u.copy.src      = src;
+                in->u.copy.dst      = dst;
+                tac_append(ctx, in);
+            }
+        } else {
+            // pointer → integer
+            if (from_size > to_size) {
+                Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_TRUNCATE);
+                in->u.truncate.src  = src;
+                in->u.truncate.dst  = dst;
+                tac_append(ctx, in);
+            } else {
+                Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
+                in->u.copy.src      = src;
+                in->u.copy.dst      = dst;
+                tac_append(ctx, in);
+            }
+        }
+        return val_var(dst->u.var_name);
+    }
 
     if (from_int && to_int) {
         size_t from_size = get_size(from);

@@ -508,8 +508,9 @@ static Expr *typecheck_expr(Expr *e)
                         e->u.field_access.field);
         }
         free_type(e->type);
-        e->type                = clone_type(member->type, __func__, __FILE__, __LINE__);
-        e->u.field_access.expr = strct;
+        e->type                 = clone_type(member->type, __func__, __FILE__, __LINE__);
+        e->u.field_access.offset = member->offset;
+        e->u.field_access.expr  = strct;
         return e;
     }
     case EXPR_PTR_ACCESS: {
@@ -532,8 +533,9 @@ static Expr *typecheck_expr(Expr *e)
                         e->u.ptr_access.field);
         }
         free_type(e->type);
-        e->type              = clone_type(member->type, __func__, __FILE__, __LINE__);
-        e->u.ptr_access.expr = strct_ptr;
+        e->type                = clone_type(member->type, __func__, __FILE__, __LINE__);
+        e->u.ptr_access.offset = member->offset;
+        e->u.ptr_access.expr   = strct_ptr;
         return e;
     }
     case EXPR_POST_INC: {

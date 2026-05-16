@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "structtab.h"
 #include "translate.h"
 #include "xalloc.h"
 
@@ -92,16 +91,6 @@ static Tac_BinaryOperator map_assign_op(AssignOp op)
     }
 }
 
-static int find_field_offset(const Type *struct_type, const char *field_name)
-{
-    const StructDef *def = structtab_find(struct_type->u.struct_t.name);
-    for (const FieldDef *m = def->members; m; m = m->next) {
-        if (strcmp(m->name, field_name) == 0)
-            return m->offset;
-    }
-    fatal_error("Field %s not found in struct %s", field_name, struct_type->u.struct_t.name);
-}
-
 static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
 {
     switch (e->kind) {
@@ -132,7 +121,7 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
     }
     case EXPR_FIELD_ACCESS: {
         Expr *base = e->u.field_access.expr;
-        int offset = find_field_offset(base->type, e->u.field_access.field);
+        int offset = e->u.field_access.offset;
         Tac_Val *base_addr;
         if (base->kind == EXPR_VAR) {
             Tac_Val *tmp          = new_var_val(ctx);
@@ -154,11 +143,10 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         return val_var(dst->u.var_name);
     }
     case EXPR_PTR_ACCESS: {
-        Expr *ptr_expr          = e->u.ptr_access.expr;
-        Tac_Val *ptr_val        = gen_expr(ctx, ptr_expr);
-        const Type *struct_type = ptr_expr->type->u.pointer.target;
-        int offset              = find_field_offset(struct_type, e->u.ptr_access.field);
-        Tac_Val *dst            = new_var_val(ctx);
+        Expr *ptr_expr   = e->u.ptr_access.expr;
+        Tac_Val *ptr_val = gen_expr(ctx, ptr_expr);
+        int offset       = e->u.ptr_access.offset;
+        Tac_Val *dst     = new_var_val(ctx);
         Tac_Instruction *ap     = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
         ap->u.add_ptr.ptr       = ptr_val;
         ap->u.add_ptr.index     = val_int(offset);
@@ -422,8 +410,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                    target->u.field_access.expr->kind == EXPR_VAR &&
                    e->u.assign.op == ASSIGN_SIMPLE) {
             const char *var_name = target->u.field_access.expr->u.var;
-            int offset =
-                find_field_offset(target->u.field_access.expr->type, target->u.field_access.field);
+            int offset       = target->u.field_access.offset;
             Tac_Instruction *in         = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
             in->u.copy_to_offset.src    = src;
             in->u.copy_to_offset.dst    = xstrdup(var_name);
@@ -595,7 +582,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         return val_int(get_alignment(e->u.align_of));
     case EXPR_FIELD_ACCESS: {
         const Expr *base = e->u.field_access.expr;
-        int offset       = find_field_offset(base->type, e->u.field_access.field);
+        int offset       = e->u.field_access.offset;
         if (base->kind == EXPR_VAR) {
             Tac_Val *dst                  = new_var_val(ctx);
             Tac_Instruction *in           = tac_new_instruction(TAC_INSTRUCTION_COPY_FROM_OFFSET);

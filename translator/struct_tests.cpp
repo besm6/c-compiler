@@ -209,3 +209,68 @@ TEST_F(TranslateTest, StructFieldAddressOf)
         name: p
 )");
 }
+
+TEST_F(TranslateTest, LocalStructCast)
+{
+    std::string yaml = CompileToYaml(R"(
+        char *foo()
+        {
+            struct a {
+                char *bar;
+            } *quz;
+            quz = (struct a *)0;
+            return quz->bar;
+        }
+    )");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: foo
+  global: true
+  body:
+    - instruction:
+      kind: sign_extend
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: copy
+      src:
+        kind: var
+        name: t.0
+      dst:
+        kind: var
+        name: quz
+    - instruction:
+      kind: add_ptr
+      ptr:
+        kind: var
+        name: quz
+      index:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      scale: 1
+      dst:
+        kind: var
+        name: t.1
+    - instruction:
+      kind: load
+      src_ptr:
+        kind: var
+        name: t.1
+      dst:
+        kind: var
+        name: t.2
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.2
+)");
+}
