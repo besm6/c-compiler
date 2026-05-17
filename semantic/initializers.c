@@ -141,15 +141,20 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         return pointer_init;
     }
 
-    // Handle pointer initialized with array name.
+    // Handle pointer initialized with array or function name.
     if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
         init->u.expr->kind == EXPR_VAR) {
         const Symbol *sym = symtab_get(init->u.expr->u.var);
-        if (sym->type->kind != TYPE_ARRAY) {
-            fatal_error("Pointer can be only initialized by array");
-        }
-        if (!compare_type(var_type->u.pointer.target, sym->type->u.array.element)) {
-            fatal_error("Initialization of pointer with incompatible array");
+        if (sym->type->kind == TYPE_ARRAY) {
+            if (!compare_type(var_type->u.pointer.target, sym->type->u.array.element)) {
+                fatal_error("Initialization of pointer with incompatible array");
+            }
+        } else if (sym->type->kind == TYPE_FUNCTION) {
+            if (!compare_type(var_type->u.pointer.target, sym->type)) {
+                fatal_error("Initialization of pointer with incompatible function");
+            }
+        } else {
+            fatal_error("Pointer can only be initialized by array or function");
         }
         Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
         pointer_init->u.pointer_name = xstrdup(init->u.expr->u.var);

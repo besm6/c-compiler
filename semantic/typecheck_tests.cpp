@@ -1156,6 +1156,20 @@ TEST_F(TypecheckTest, FieldAddrViaTypedefStruct)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, InitStructOfFuncPtr)
+{
+    ParseProgram(R"(
+        extern struct bdevsw {
+            void (*pclose)(int);
+        } bdevsw[];
+        void nullclose(int);
+        struct bdevsw bdevsw[] = {
+            { nullclose },
+        };
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------
