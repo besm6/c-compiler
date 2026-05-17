@@ -1070,6 +1070,30 @@ TEST_F(TypecheckTest, StaticVarInitializer)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, PtrCastAddition)
+{
+    ParseProgram(R"(
+        typedef char *foo;
+        foo bar(char *quz)
+        {
+            return (foo)quz + 2;
+        }
+    )");
+    typecheck_program(program);
+}
+
+TEST_F(TypecheckTest, PtrCastDeref)
+{
+    ParseProgram(R"(
+        typedef char *foo;
+        char bar(char *quz)
+        {
+            return *(foo)quz;
+        }
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------

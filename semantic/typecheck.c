@@ -140,9 +140,12 @@ Expr *convert_to_type(Expr *e, const Type *target_type)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
-    if (e->type->kind == target_type->kind &&
-        (!is_pointer(e->type) ||
-         e->type->u.pointer.target->kind == target_type->u.pointer.target->kind))
+    const Type *src = e->type->kind == TYPE_TYPEDEF_NAME
+        ? typetab_resolve(e->type->u.typedef_name.name) : e->type;
+    const Type *tgt = target_type->kind == TYPE_TYPEDEF_NAME
+        ? typetab_resolve(target_type->u.typedef_name.name) : target_type;
+    if (src->kind == tgt->kind &&
+        (!is_pointer(src) || src->u.pointer.target->kind == tgt->u.pointer.target->kind))
         return e; // Avoid unnecessary casts
 
     Expr *cast        = new_expression(EXPR_CAST);

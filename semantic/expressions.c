@@ -178,11 +178,14 @@ static Expr *typecheck_expr(Expr *e)
             if (!is_pointer(inner->type)) {
                 fatal_error("Tried to dereference non-pointer");
             }
-            if (inner->type->u.pointer.target->kind == TYPE_VOID) {
+            const Type *ptr_type = inner->type->kind == TYPE_TYPEDEF_NAME
+                ? typetab_resolve(inner->type->u.typedef_name.name)
+                : inner->type;
+            if (ptr_type->u.pointer.target->kind == TYPE_VOID) {
                 fatal_error("Can't dereference pointer to void");
             }
             free_type(e->type);
-            e->type = clone_type(inner->type->u.pointer.target, __func__, __FILE__, __LINE__);
+            e->type = clone_type(ptr_type->u.pointer.target, __func__, __FILE__, __LINE__);
             e->u.unary_op.expr = inner;
             return e;
         }

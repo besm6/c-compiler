@@ -135,6 +135,8 @@ bool is_signed(const Type *t)
 
 bool is_pointer(const Type *t)
 {
+    if (t->kind == TYPE_TYPEDEF_NAME)
+        return is_pointer(typetab_resolve(t->u.typedef_name.name));
     return t->kind == TYPE_POINTER;
 }
 
@@ -273,6 +275,8 @@ bool is_complete(const Type *t)
 
 bool is_complete_pointer(const Type *t)
 {
+    if (t->kind == TYPE_TYPEDEF_NAME)
+        return is_complete_pointer(typetab_resolve(t->u.typedef_name.name));
     if (t->kind == TYPE_POINTER) {
         return is_complete(t->u.pointer.target);
     }
