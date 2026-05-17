@@ -250,6 +250,17 @@ static const Param *params_for_compat(const Type *fn_type)
     return params;
 }
 
+static bool compatible_params(const Param *a, const Param *b)
+{
+    while (a && b) {
+        if (!compatible_type(a->type, b->type))
+            return false;
+        a = a->next;
+        b = b->next;
+    }
+    return a == NULL && b == NULL;
+}
+
 // Return true if src may initialize or be assigned to target (target is the lhs type).
 bool compatible_type(const Type *target, const Type *src)
 {
@@ -269,7 +280,7 @@ bool compatible_type(const Type *target, const Type *src)
         const Param *sp = params_for_compat(src);
         if (!tp || !sp)
             return true; // old-style or f(void): no prototype to compare
-        return compare_param(tp, sp);
+        return compatible_params(tp, sp);
     }
     case TYPE_POINTER:
         return compatible_type(target->u.pointer.target, src->u.pointer.target);

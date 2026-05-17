@@ -1193,6 +1193,18 @@ TEST_F(TypecheckTest, InitFuncPtrNoArgs)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, ArgumentFuncPtr)
+{
+    ParseProgram(R"(
+        void foo(void (*)(char *));
+        void bar(char *quz)
+        {
+            foo(bar);
+        }
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------
