@@ -436,6 +436,9 @@ bool try_eval_const_int(const Expr *e, long *out)
             return true;
         }
         return false;
+    case EXPR_ALIGNOF:
+        *out = (long)get_alignment(e->u.align_of);
+        return true;
     default:
         return false;
     }
