@@ -1141,6 +1141,21 @@ TEST_F(TypecheckTest, CallFunctionByPtr)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, FieldAddrViaTypedefStruct)
+{
+    ParseProgram(R"(
+        typedef struct {
+            int x;
+        } *foo;
+        extern int bar;
+        int *quz()
+        {
+            return &((foo)&bar)->x;
+        }
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------

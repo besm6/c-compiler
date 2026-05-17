@@ -185,6 +185,7 @@ static void typecheck_local_var_decl(const Declaration *d)
     if (d->u.var.specifiers && d->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF) {
         for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
             decl->type = resolve_typedef_names(decl->type);
+            register_inline_struct_defs(decl->type);
             validate_type(decl->type);
             typetab_add(decl->name, decl->type, scope_level);
         }
@@ -343,6 +344,7 @@ static void typecheck_file_scope_var_decl(Declaration *d)
     if (d->u.var.specifiers && d->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF) {
         for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
             decl->type = resolve_typedef_names(decl->type);
+            register_inline_struct_defs(decl->type);
             validate_type(decl->type);
             typetab_add(decl->name, decl->type, scope_level);
         }
