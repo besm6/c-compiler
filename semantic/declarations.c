@@ -93,6 +93,11 @@ static void register_struct_type(const Type *t)
         snprintf(buf, sizeof(buf), "__anon_%d", ++anon_struct_counter);
         ((Type *)t)->u.struct_t.name = xstrdup(buf);
     }
+    // Resolve typedef names in field types in-place (analogous to the anon-name cast above).
+    for (Field *f = (Field *)t->u.struct_t.fields; f; f = f->next) {
+        if (f->kind != FIELD_STATIC_ASSERT)
+            f->u.member.type = resolve_typedef_names(f->u.member.type);
+    }
     // Pre-register inline struct/union defs in member types so is_complete() finds them.
     for (const Field *f = t->u.struct_t.fields; f; f = f->next) {
         if (f->kind != FIELD_STATIC_ASSERT)
@@ -178,13 +183,15 @@ static void typecheck_local_var_decl(const Declaration *d)
         printf("--- %s()\n", __func__);
     }
     if (d->u.var.specifiers && d->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF) {
-        for (const InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
+        for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
+            decl->type = resolve_typedef_names(decl->type);
             validate_type(decl->type);
             typetab_add(decl->name, decl->type, scope_level);
         }
         return;
     }
     for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
+        decl->type = resolve_typedef_names(decl->type);
         Type *var_type = decl->type;
         if (var_type->kind == TYPE_VOID) {
             fatal_error("No void declarations");
@@ -230,6 +237,7 @@ static void typecheck_fn_decl(ExternalDecl *d)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
+    d->u.function.type = resolve_typedef_names(d->u.function.type);
     const Type *fun_type = d->u.function.type;
     validate_type(fun_type);
     Type *adjusted_type = clone_type(fun_type, __func__, __FILE__, __LINE__);
@@ -333,7 +341,8 @@ static void typecheck_file_scope_var_decl(Declaration *d)
         print_declaration(stdout, d, 4);
     }
     if (d->u.var.specifiers && d->u.var.specifiers->storage == STORAGE_CLASS_TYPEDEF) {
-        for (const InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
+        for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
+            decl->type = resolve_typedef_names(decl->type);
             validate_type(decl->type);
             typetab_add(decl->name, decl->type, scope_level);
         }
@@ -341,6 +350,7 @@ static void typecheck_file_scope_var_decl(Declaration *d)
     }
     bool global = !is_static(d->u.var.specifiers);
     for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
+        decl->type = resolve_typedef_names(decl->type);
         Type *var_type = decl->type;
 
         // A function prototype at file scope (e.g. "int f(int);") arrives here

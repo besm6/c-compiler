@@ -123,12 +123,6 @@ void validate_type(const Type *t)
     case TYPE_UNION:
     case TYPE_ENUM:
         break;
-    case TYPE_TYPEDEF_NAME:
-        if (!typetab_exists(t->u.typedef_name.name)) {
-            fatal_error("Unknown typedef name '%s'", t->u.typedef_name.name);
-        }
-        validate_type(typetab_resolve(t->u.typedef_name.name));
-        break;
     default:
         fatal_error("Unsupported type kind %d", t->kind);
     }
@@ -140,10 +134,8 @@ Expr *convert_to_type(Expr *e, const Type *target_type)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
-    const Type *src = e->type->kind == TYPE_TYPEDEF_NAME
-        ? typetab_resolve(e->type->u.typedef_name.name) : e->type;
-    const Type *tgt = target_type->kind == TYPE_TYPEDEF_NAME
-        ? typetab_resolve(target_type->u.typedef_name.name) : target_type;
+    const Type *src = e->type;
+    const Type *tgt = target_type;
     if (src->kind == tgt->kind &&
         (!is_pointer(src) || src->u.pointer.target->kind == tgt->u.pointer.target->kind))
         return e; // Avoid unnecessary casts
@@ -256,10 +248,6 @@ Expr *coerce_for_assignment(Expr *e, const Type *target_type)
         printf("--- %s()\n", __func__);
     }
     const Type *e_type = e->type;
-    if (e_type->kind == TYPE_TYPEDEF_NAME)
-        e_type = typetab_resolve(e_type->u.typedef_name.name);
-    if (target_type->kind == TYPE_TYPEDEF_NAME)
-        target_type = typetab_resolve(target_type->u.typedef_name.name);
     if (e_type->kind == target_type->kind &&
         (!is_pointer(e_type) ||
          e_type->u.pointer.target->kind == target_type->u.pointer.target->kind)) {

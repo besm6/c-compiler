@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "typetab.h"
 #include "xalloc.h"
 
 // Enable debug output
@@ -249,8 +248,6 @@ Tac_Type *ast_type_to_tac_type(const Type *t)
         return tac_new_type(TAC_TYPE_DOUBLE);
     case TYPE_ENUM:
         return tac_new_type(TAC_TYPE_INT);
-    case TYPE_TYPEDEF_NAME:
-        return ast_type_to_tac_type(typetab_resolve(t->u.typedef_name.name));
     case TYPE_POINTER: {
         Tac_Type *tp              = tac_new_type(TAC_TYPE_POINTER);
         tp->u.pointer.target_type = ast_type_to_tac_type(t->u.pointer.target);

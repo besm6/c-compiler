@@ -9,7 +9,6 @@
 #include "structtab.h"
 #include "symtab.h"
 #include "typecheck.h"
-#include "typetab.h"
 #include "xalloc.h"
 
 // Check if an expression is an lvalue.
@@ -117,6 +116,7 @@ static Expr *typecheck_expr(Expr *e)
     case EXPR_LITERAL:
         return typecheck_literal(e);
     case EXPR_CAST: {
+        e->u.cast.type = resolve_typedef_names(e->u.cast.type);
         validate_type(e->u.cast.type);
         Expr *inner = typecheck_and_decay(e->u.cast.expr);
         if ((e->u.cast.type->kind == TYPE_DOUBLE && is_pointer(inner->type)) ||
@@ -178,9 +178,7 @@ static Expr *typecheck_expr(Expr *e)
             if (!is_pointer(inner->type)) {
                 fatal_error("Tried to dereference non-pointer");
             }
-            const Type *ptr_type = inner->type->kind == TYPE_TYPEDEF_NAME
-                ? typetab_resolve(inner->type->u.typedef_name.name)
-                : inner->type;
+            const Type *ptr_type = inner->type;
             if (ptr_type->u.pointer.target->kind == TYPE_VOID) {
                 fatal_error("Can't dereference pointer to void");
             }
@@ -485,6 +483,7 @@ static Expr *typecheck_expr(Expr *e)
         return e;
     }
     case EXPR_SIZEOF_TYPE: {
+        e->u.sizeof_type = resolve_typedef_names(e->u.sizeof_type);
         validate_type(e->u.sizeof_type);
         if (!is_complete(e->u.sizeof_type)) {
             fatal_error("Can't apply sizeof to incomplete type");
@@ -494,6 +493,7 @@ static Expr *typecheck_expr(Expr *e)
         return e;
     }
     case EXPR_ALIGNOF: {
+        e->u.align_of = resolve_typedef_names(e->u.align_of);
         validate_type(e->u.align_of);
         if (!is_complete(e->u.align_of)) {
             fatal_error("Can't apply _Alignof to incomplete type");
@@ -528,16 +528,12 @@ static Expr *typecheck_expr(Expr *e)
     case EXPR_PTR_ACCESS: {
         Expr *strct_ptr = typecheck_and_decay(e->u.ptr_access.expr);
         const Type *ptr_type = strct_ptr->type;
-        if (ptr_type->kind == TYPE_TYPEDEF_NAME)
-            ptr_type = typetab_resolve(ptr_type->u.typedef_name.name);
         if (!is_pointer(ptr_type) ||
             (ptr_type->u.pointer.target->kind != TYPE_STRUCT &&
              ptr_type->u.pointer.target->kind != TYPE_UNION)) {
             fatal_error("Arrow operator requires pointer to structure or union");
         }
         const Type *target_type = ptr_type->u.pointer.target;
-        if (target_type->kind == TYPE_TYPEDEF_NAME)
-            target_type = typetab_resolve(target_type->u.typedef_name.name);
         const StructDef *entry = structtab_find(target_type->u.struct_t.name);
         const FieldDef *member = entry->members;
         for (; member; member = member->next) {
@@ -592,6 +588,7 @@ static Expr *typecheck_expr(Expr *e)
         GenericAssoc *default_assoc = NULL;
         for (GenericAssoc *ga = e->u.generic.associations; ga; ga = ga->next) {
             if (ga->kind == GENERIC_ASSOC_TYPE) {
+                ga->u.type_assoc.type = resolve_typedef_names(ga->u.type_assoc.type);
                 validate_type(ga->u.type_assoc.type);
                 ga->u.type_assoc.expr = typecheck_and_decay(ga->u.type_assoc.expr);
                 if (!selected && compare_type(ctrl_type, ga->u.type_assoc.type)) {
@@ -637,6 +634,7 @@ static Expr *typecheck_expr(Expr *e)
         return e;
     }
     case EXPR_COMPOUND: {
+        e->u.compound_literal.type = resolve_typedef_names(e->u.compound_literal.type);
         Type *lit_type = e->u.compound_literal.type;
         validate_type(lit_type);
         if (!is_complete(lit_type)) {
