@@ -266,6 +266,10 @@ Expr *coerce_for_assignment(Expr *e, const Type *target_type)
          e_type->u.pointer.target->kind == TYPE_VOID)) {
         return convert_to_type(e, target_type);
     }
+    // C11 §6.7.6.3p7: array param adjusts to pointer; int* arg matches int[N] param
+    if (e_type->kind == TYPE_POINTER && target_type->kind == TYPE_ARRAY &&
+        e_type->u.pointer.target->kind == target_type->u.array.element->kind)
+        return e;
     fatal_error("Cannot convert type for assignment");
 }
 

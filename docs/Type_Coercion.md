@@ -191,13 +191,13 @@ otherwise
 
 ```
 typecheck and decay both lhs and rhs
-if op is ASSIGN_SIMPLE
+if op is '='
     → coerce_for_assignment(rhs, lhs type)
-if op is ASSIGN_ADD or ASSIGN_SUB AND lhs is a complete pointer type
+if op is '+=' or '-=' AND lhs is a complete pointer type
     if rhs is not an integer type
         → fatal_error("Pointer arithmetic requires integer operand")
     → convert_to_kind(rhs, long)
-otherwise (any other compound op, or ADD/SUB with arithmetic lhs)
+otherwise (any other compound op, or '+=' or '-=' with arithmetic lhs)
     if lhs or rhs is not arithmetic
         → fatal_error("Invalid operands for compound assignment")
     → convert_to_type(rhs, lhs type)

@@ -1105,6 +1105,19 @@ TEST_F(TypecheckTest, PtrIncrement)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, ArgumentArray)
+{
+    ParseProgram(R"(
+        int foo[42];
+        int bar(int[42]);
+        void quz()
+        {
+            bar(foo);
+        }
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------
