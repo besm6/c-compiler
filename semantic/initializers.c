@@ -169,8 +169,7 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
             zero_init->u.zero_bytes   = get_size(var_type);
             return zero_init;
         }
-        if (var_type->kind != TYPE_CHAR && var_type->kind != TYPE_INT &&
-            var_type->kind != TYPE_LONG && var_type->kind != TYPE_DOUBLE) {
+        if (!is_arithmetic(var_type)) {
             fatal_error("Static initializer requires arithmetic type");
         }
         return new_static_init_from_literal(var_type, literal);

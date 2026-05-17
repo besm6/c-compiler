@@ -1217,6 +1217,12 @@ TEST_F(TypecheckTest, VarInitAlignof)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, StaticInitShortArray)
+{
+    ParseProgram("void foo() { static short bar[] = { 1, 2 }; }");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------
