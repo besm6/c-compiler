@@ -929,7 +929,7 @@ TEST_F(TypecheckTest, MultipleDefaultLabels)
 // Basic switch with distinct integer case values is accepted.
 TEST_F(TypecheckTest, SwitchIntBasic)
 {
-    ParseProgram("int f(int x) { switch (x) { case 0: break; case 1: break; } return 0; }");
+    ParseProgram("int f(int x) { switch (x) { case 0: break; case 1: break; case 1+1: break; } return 0; }");
     typecheck_program(program);
 }
 

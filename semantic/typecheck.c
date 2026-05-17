@@ -314,6 +314,74 @@ bool try_eval_const_int(const Expr *e, long *out)
             return false;
         }
     }
+    case EXPR_BINARY_OP: {
+        long left, right;
+        if (!try_eval_const_int(e->u.binary_op.left, &left) ||
+            !try_eval_const_int(e->u.binary_op.right, &right))
+            return false;
+        switch (e->u.binary_op.op) {
+        case BINARY_MUL:
+            *out = left * right;
+            return true;
+        case BINARY_DIV:
+        case BINARY_MOD:
+            if (right == 0)
+                return false;
+            *out = (e->u.binary_op.op == BINARY_DIV) ? left / right : left % right;
+            return true;
+        case BINARY_ADD:
+            *out = left + right;
+            return true;
+        case BINARY_SUB:
+            *out = left - right;
+            return true;
+        case BINARY_LEFT_SHIFT:
+            if (right < 0 || (unsigned long)right >= sizeof(long) * 8)
+                return false;
+            *out = (long)((unsigned long)left << (unsigned long)right);
+            return true;
+        case BINARY_RIGHT_SHIFT:
+            if (right < 0 || (unsigned long)right >= sizeof(long) * 8)
+                return false;
+            *out = left >> right;
+            return true;
+        case BINARY_LT:
+            *out = left < right;
+            return true;
+        case BINARY_GT:
+            *out = left > right;
+            return true;
+        case BINARY_LE:
+            *out = left <= right;
+            return true;
+        case BINARY_GE:
+            *out = left >= right;
+            return true;
+        case BINARY_EQ:
+            *out = left == right;
+            return true;
+        case BINARY_NE:
+            *out = left != right;
+            return true;
+        case BINARY_BIT_AND:
+            *out = left & right;
+            return true;
+        case BINARY_BIT_XOR:
+            *out = left ^ right;
+            return true;
+        case BINARY_BIT_OR:
+            *out = left | right;
+            return true;
+        case BINARY_LOG_AND:
+            *out = (left != 0 && right != 0) ? 1L : 0L;
+            return true;
+        case BINARY_LOG_OR:
+            *out = (left != 0 || right != 0) ? 1L : 0L;
+            return true;
+        default:
+            return false;
+        }
+    }
     default:
         return false;
     }
