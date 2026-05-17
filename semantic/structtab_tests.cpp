@@ -10,7 +10,9 @@ class StructTabTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
-        xalloc_debug = 1;
+        // Enable to debug allocations:
+        //xalloc_debug = 1;
+
         structtab_init();
     }
 

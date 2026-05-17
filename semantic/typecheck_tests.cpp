@@ -1064,6 +1064,12 @@ TEST_F(TypecheckTest, ArgumentCastTypedef)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, StaticVarInitializer)
+{
+    ParseProgram("static int drv = -1;");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------

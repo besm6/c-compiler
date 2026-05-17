@@ -171,6 +171,15 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         return new_static_init_from_literal(var_type, literal);
     }
 
+    // Handle integer scalar initialized with a constant expression (e.g. -1, ~0).
+    if (init->kind == INITIALIZER_SINGLE && is_integer(var_type)) {
+        long val;
+        if (try_eval_const_int(init->u.expr, &val)) {
+            Literal lit = { .kind = LITERAL_INT, .u.int_val = (int)val };
+            return new_static_init_from_literal(var_type, &lit);
+        }
+    }
+
     // Handle array with compound initializer.
     if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
         bool size_specified = var_type->u.array.size != NULL;

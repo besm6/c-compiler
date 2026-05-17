@@ -16,7 +16,9 @@ protected:
 
     void SetUp() override
     {
-        xalloc_debug = 1;
+        // Enable to debug allocations:
+        //xalloc_debug = 1;
+
         strncpy(tmppath, "/tmp/tac_binary_XXXXXX", sizeof(tmppath));
         int fd = mkstemp(tmppath);
         close(fd);

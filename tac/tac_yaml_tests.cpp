@@ -11,7 +11,10 @@ extern "C" int xalloc_debug;
 
 class TacYamlTest : public ::testing::Test {
 protected:
-    void SetUp() override { xalloc_debug = 1; }
+    void SetUp() override {
+        // Enable to debug allocations:
+        //xalloc_debug = 1;
+    }
 
     void TearDown() override
     {
