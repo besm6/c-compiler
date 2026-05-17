@@ -161,6 +161,17 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         return pointer_init;
     }
 
+    // Handle pointer initialized with address-of a variable (&var).
+    if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
+        init->u.expr->kind == EXPR_UNARY_OP &&
+        init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
+        init->u.expr->u.unary_op.expr->kind == EXPR_VAR) {
+        const char *var_name         = init->u.expr->u.unary_op.expr->u.var;
+        Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
+        pointer_init->u.pointer_name = xstrdup(var_name);
+        return pointer_init;
+    }
+
     // Handle pointer initialized with an integer constant expression (e.g. cast from integer).
     if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE) {
         long val;

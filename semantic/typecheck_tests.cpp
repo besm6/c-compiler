@@ -1229,6 +1229,20 @@ TEST_F(TypecheckTest, InitVarCastPtrExpression)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, InitStructOfPtr)
+{
+    ParseProgram(R"(
+        extern struct foo {
+            int *bar;
+        } foo[];
+        extern int quz;
+        struct foo foo[] = {
+            { &quz },
+        };
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------
