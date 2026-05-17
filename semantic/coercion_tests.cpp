@@ -531,16 +531,17 @@ TEST_F(CoercionTest, FloatPlusFloat_GivesFloat)
 
 TEST_F(CoercionTest, FloatPlusInt_GivesFloat)
 {
-    // §6.3.1.8 step 3: if either operand is float, the other converts to float.
-    // BUG: get_common_type() lacks a float fast-path before the size comparison.
-    // When sizeof(float)==sizeof(int)==4 the code reaches is_signed(float) which
-    // calls fatal_error("Signedness doesn't make sense for non-integral type float").
-    // This test documents the CURRENT (buggy) crash behaviour.  Once the fix
-    // adds a `float` branch to get_common_type(), convert this to a success-path
-    // test that verifies result type == TYPE_FLOAT.
+    // §6.3.1.8 step 4: if either operand is float, the other converts to float.
     ParseProgram("float f(float a, int b) { return a + b; }");
-    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
-                "Signedness doesn't make sense");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_BINARY_OP);
+    EXPECT_EQ(ret->type->kind, TYPE_FLOAT);
+    // float operand stays as-is; int operand must be cast to float.
+    EXPECT_EQ(ret->u.binary_op.left->kind, EXPR_VAR);
+    EXPECT_EQ(ret->u.binary_op.left->type->kind, TYPE_FLOAT);
+    EXPECT_EQ(ret->u.binary_op.right->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.binary_op.right->type->kind, TYPE_FLOAT);
 }
 
 // ─── I. convert_to_kind() — integer promotions via unary operators ────────────
@@ -572,23 +573,19 @@ TEST_F(CoercionTest, CharUnaryBitNot_PromotesToInt)
     EXPECT_EQ(ret->u.unary_op.expr->type->kind, TYPE_INT);
 }
 
-TEST_F(CoercionTest, ShortUnaryPlus_NotPromoted)
+TEST_F(CoercionTest, ShortUnaryPlus_PromotesToInt)
 {
-    // C11 §6.3.1.1 technically promotes short to int, but this compiler only
-    // promotes character types (char/schar/uchar) in unary contexts.  For
-    // short the unary +x keeps TYPE_SHORT, and coerce_for_assignment() in the
-    // return statement then wraps it in an EXPR_CAST to match TYPE_INT.
+    // C11 §6.3.1.1: short is promoted to int before unary +.
     ParseProgram("int f(short x) { return +x; }");
     typecheck_program(program);
-    // The return expr is the cast inserted by coerce_for_assignment(), not the
-    // raw unary expression.
+    // The unary + itself yields TYPE_INT after promotion; no outer cast needed.
     Expr *ret = ReturnExpr();
-    ASSERT_EQ(ret->kind, EXPR_CAST);
+    ASSERT_EQ(ret->kind, EXPR_UNARY_OP);
+    EXPECT_EQ(ret->u.unary_op.op, UNARY_PLUS);
     EXPECT_EQ(ret->type->kind, TYPE_INT);
-    // The inner expression is the unary + with SHORT type.
-    ASSERT_EQ(ret->u.cast.expr->kind, EXPR_UNARY_OP);
-    EXPECT_EQ(ret->u.cast.expr->u.unary_op.op, UNARY_PLUS);
-    EXPECT_EQ(ret->u.cast.expr->type->kind, TYPE_SHORT);
+    // Operand must have been promoted to int.
+    EXPECT_EQ(ret->u.unary_op.expr->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.unary_op.expr->type->kind, TYPE_INT);
 }
 
 // ─── J. Struct / union coercion ───────────────────────────────────────────────
@@ -607,13 +604,6 @@ TEST_F(CoercionTest, DiffStructError)
 {
     // Assigning struct B to struct A must be rejected (§6.5.16.1 — types must
     // be compatible; two distinct struct tags are never compatible).
-    //
-    // BUG: coerce_for_assignment() compares only TypeKind, not the struct tag.
-    // Both struct A and struct B have kind==TYPE_STRUCT so the check
-    //   e_type->kind == target_type->kind && !is_pointer(e_type)
-    // silently returns 'e' unchanged instead of calling fatal_error().
-    // This test documents the correct expected behaviour (an error); it will
-    // pass once the tag comparison is added to coerce_for_assignment().
     ParseProgram(R"(
         struct A { int x; };
         struct B { int x; };
@@ -621,4 +611,124 @@ TEST_F(CoercionTest, DiffStructError)
     )");
     ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
                 "Cannot convert type for assignment");
+}
+
+TEST_F(CoercionTest, SameUnionAssign)
+{
+    // Assigning a union to the same union type is valid (§6.5.16.1).
+    ParseProgram("union U { int x; }; union U f(union U u) { return u; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExprOfFunc(1);
+    EXPECT_EQ(ret->kind, EXPR_VAR);
+}
+
+TEST_F(CoercionTest, DiffUnionError)
+{
+    // Assigning union B to union A must be rejected (different tags).
+    ParseProgram(R"(
+        union A { int x; };
+        union B { int x; };
+        union A f(union B b) { return b; }
+    )");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Cannot convert type for assignment");
+}
+
+// ─── H additions — get_common_type() with short and float ────────────────────
+
+TEST_F(CoercionTest, ShortPlusShort_GivesInt)
+{
+    // §6.3.1.1: both short operands are promoted to int; result is int.
+    ParseProgram("int f(short a, short b) { return a + b; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_BINARY_OP);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.binary_op.left->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.binary_op.left->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.binary_op.right->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.binary_op.right->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, ShortPlusInt_GivesInt)
+{
+    // §6.3.1.1: short is promoted to int; combined with int the result is int.
+    ParseProgram("int f(short a, int b) { return a + b; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_BINARY_OP);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.binary_op.left->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.binary_op.left->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.binary_op.right->kind, EXPR_VAR);
+    EXPECT_EQ(ret->u.binary_op.right->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, IntPlusFloat_GivesFloat)
+{
+    // §6.3.1.8 step 4: float dominates int; symmetric form of FloatPlusInt.
+    ParseProgram("float f(int a, float b) { return a + b; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_BINARY_OP);
+    EXPECT_EQ(ret->type->kind, TYPE_FLOAT);
+    EXPECT_EQ(ret->u.binary_op.left->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.binary_op.left->type->kind, TYPE_FLOAT);
+    EXPECT_EQ(ret->u.binary_op.right->kind, EXPR_VAR);
+    EXPECT_EQ(ret->u.binary_op.right->type->kind, TYPE_FLOAT);
+}
+
+TEST_F(CoercionTest, FloatPlusDouble_GivesDouble)
+{
+    // §6.3.1.8 step 3: double dominates float; float operand is widened.
+    ParseProgram("double f(float a, double b) { return a + b; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_BINARY_OP);
+    EXPECT_EQ(ret->type->kind, TYPE_DOUBLE);
+    EXPECT_EQ(ret->u.binary_op.left->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.binary_op.left->type->kind, TYPE_DOUBLE);
+    EXPECT_EQ(ret->u.binary_op.right->kind, EXPR_VAR);
+    EXPECT_EQ(ret->u.binary_op.right->type->kind, TYPE_DOUBLE);
+}
+
+// ─── I additions — unary short promotions ────────────────────────────────────
+
+TEST_F(CoercionTest, ShortUnaryMinus_PromotesToInt)
+{
+    // §6.3.1.1: short is promoted to int before unary -.
+    ParseProgram("int f(short x) { return -x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_UNARY_OP);
+    EXPECT_EQ(ret->u.unary_op.op, UNARY_NEG);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.unary_op.expr->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.unary_op.expr->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, ShortUnaryBitNot_PromotesToInt)
+{
+    // §6.3.1.1: short is promoted to int before unary ~.
+    ParseProgram("int f(short x) { return ~x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_UNARY_OP);
+    EXPECT_EQ(ret->u.unary_op.op, UNARY_BIT_NOT);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.unary_op.expr->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.unary_op.expr->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, UShortUnaryPlus_PromotesToInt)
+{
+    // §6.3.1.1: unsigned short is promoted to int before unary +.
+    ParseProgram("int f(unsigned short x) { return +x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_UNARY_OP);
+    EXPECT_EQ(ret->u.unary_op.op, UNARY_PLUS);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.unary_op.expr->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.unary_op.expr->type->kind, TYPE_INT);
 }

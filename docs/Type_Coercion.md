@@ -58,23 +58,6 @@ Applied to both operands of `+`, `-`, `*`, `/`, `%`, `&`, `|`, `^`, `==`,
 
 The result is computed by `get_common_type()` in `semantic/typecheck.c`.
 
-### Current implementation gaps
-
-- **`float` fast-path missing** (step 4 above).  `get_common_type()` checks for
-  `double` but not `float`.  When `sizeof(float) == sizeof(int)` the code falls
-  through to `is_signed(float)` which calls `fatal_error()`.  Correct C11
-  behaviour: `float + int → float`.  The fix is to add a `float` branch before
-  the size comparison, mirroring the existing `double` branch.  Exposed by the
-  `CoercionTest.FloatPlusInt_GivesFloat` test.
-
-- **`short` not promoted in unary contexts**.  The unary `+`, `-`, and `~`
-  handlers only promote `char`/`schar`/`uchar` to `int`; they leave `short` and
-  `unsigned short` at their original width.  C11 §6.3.1.1 requires that any
-  integer whose rank is less than `int` be promoted.  In binary expressions this
-  is partially masked because `get_common_type()` returns the wider type, but
-  `short + short` yields `short` rather than `int`.  Documented by the
-  `CoercionTest.ShortUnaryPlus_NotPromoted` test.
-
 - **`long double` not handled**.  The compiler does not expose `long double` as
   a distinct type, so this is not a gap in practice.
 
@@ -95,7 +78,7 @@ right-hand side are:
 | Incompatible pointer | Any pointer | **No** | `fatal_error` |
 | Integer (non-zero) | Any pointer | **No** | `fatal_error` |
 | Any pointer | Integer | **No** | `fatal_error` |
-| Different struct/union type | Any struct/union type | **No** | `fatal_error` (see known gap below) |
+| Different struct/union type | Any struct/union type | **No** | `fatal_error` |
 
 ### Null pointer constant
 
@@ -110,13 +93,12 @@ automatically by the void-pointer compatibility rule above.
 `void *` converts implicitly to and from any object pointer.  This rule does
 **not** apply to function pointers.
 
-### Known implementation gap — struct/union tag check
+### struct/union compatibility
 
-`coerce_for_assignment()` tests only the `TypeKind` of both sides.  Because
-distinct `struct` types share the same kind (`TYPE_STRUCT`), assigning
-`struct B` to `struct A` is not rejected even though it violates §6.5.16.1.
-The fix is to compare the struct tag strings when `e_type->kind == TYPE_STRUCT`.
-The test `CoercionTest.DiffStructError` documents this bug.
+When both sides have kind `TYPE_STRUCT` (or `TYPE_UNION`),
+`coerce_for_assignment()` additionally compares the tag names with `strcmp`.
+Assigning `struct B` to `struct A` is therefore correctly rejected even though
+both share the same `TypeKind`.
 
 ---
 
@@ -147,6 +129,8 @@ return type.  The same rules as §4 above apply.  Returning any value from a
 ```
 resolve typedef aliases on both sides
 if kinds match AND (not pointer OR target pointer-target kinds match)
+    if both are struct/union AND tags differ
+        → fatal_error("Cannot convert type for assignment")
     → return e unchanged  (no cast)
 if both arithmetic
     → convert_to_type(e, target_type)  (insert EXPR_CAST)
@@ -163,9 +147,11 @@ otherwise
 
 ```
 promote char operands to int
+promote short/unsigned short operands to int
 if same kind → return t1
-if either is double → return double          ← float branch is missing here
-if same size → return unsigned one (calls is_signed — fatal_error on float!)
+if either is double → return double
+if either is float  → return float
+if same size → return unsigned one
 return the larger type
 ```
 

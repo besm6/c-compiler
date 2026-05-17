@@ -150,7 +150,8 @@ static Expr *typecheck_expr(Expr *e)
             if (!is_integer(inner->type)) {
                 fatal_error("Bitwise complement only valid for integer types");
             }
-            if (is_character(inner->type))
+            if (is_character(inner->type) ||
+                inner->type->kind == TYPE_SHORT || inner->type->kind == TYPE_USHORT)
                 inner = convert_to_kind(inner, TYPE_INT);
             free_type(e->type);
             e->type            = clone_type(inner->type, __func__, __FILE__, __LINE__);
@@ -163,7 +164,8 @@ static Expr *typecheck_expr(Expr *e)
             if (!is_arithmetic(inner->type)) {
                 fatal_error("Can only apply unary +/- to arithmetic types");
             }
-            if (is_character(inner->type))
+            if (is_character(inner->type) ||
+                inner->type->kind == TYPE_SHORT || inner->type->kind == TYPE_USHORT)
                 inner = convert_to_kind(inner, TYPE_INT);
             free_type(e->type);
             e->type            = clone_type(inner->type, __func__, __FILE__, __LINE__);
@@ -348,10 +350,12 @@ static Expr *typecheck_expr(Expr *e)
             if (!is_integer(e1->type) || !is_integer(e2->type)) {
                 fatal_error("Shift operators require integer operands");
             }
-            if (is_character(e1->type)) {
+            if (is_character(e1->type) ||
+                e1->type->kind == TYPE_SHORT || e1->type->kind == TYPE_USHORT) {
                 e1 = convert_to_kind(e1, TYPE_INT);
             }
-            if (is_character(e2->type)) {
+            if (is_character(e2->type) ||
+                e2->type->kind == TYPE_SHORT || e2->type->kind == TYPE_USHORT) {
                 e2 = convert_to_kind(e2, TYPE_INT);
             }
             free_type(e->type);

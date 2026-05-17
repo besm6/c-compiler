@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "semantic.h"
 #include "structtab.h"
@@ -188,14 +189,21 @@ const Type *get_common_type(const Type *t1, const Type *t2)
     }
     static const Type int_type    = { .kind = TYPE_INT };
     static const Type double_type = { .kind = TYPE_DOUBLE };
+    static const Type float_type  = { .kind = TYPE_FLOAT };
     if (is_character(t1))
         t1 = &int_type;
     if (is_character(t2))
+        t2 = &int_type;
+    if (t1->kind == TYPE_SHORT || t1->kind == TYPE_USHORT)
+        t1 = &int_type;
+    if (t2->kind == TYPE_SHORT || t2->kind == TYPE_USHORT)
         t2 = &int_type;
     if (t1->kind == t2->kind)
         return t1;
     if (t1->kind == TYPE_DOUBLE || t2->kind == TYPE_DOUBLE)
         return &double_type;
+    if (t1->kind == TYPE_FLOAT || t2->kind == TYPE_FLOAT)
+        return &float_type;
     if (get_size(t1) == get_size(t2))
         return is_signed(t1) ? t2 : t1;
     return get_size(t1) > get_size(t2) ? t1 : t2;
@@ -265,8 +273,12 @@ Expr *coerce_for_assignment(Expr *e, const Type *target_type)
         target_type = typetab_resolve(target_type->u.typedef_name.name);
     if (e_type->kind == target_type->kind &&
         (!is_pointer(e_type) ||
-         e_type->u.pointer.target->kind == target_type->u.pointer.target->kind))
+         e_type->u.pointer.target->kind == target_type->u.pointer.target->kind)) {
+        if ((e_type->kind == TYPE_STRUCT || e_type->kind == TYPE_UNION) &&
+            strcmp(e_type->u.struct_t.name, target_type->u.struct_t.name) != 0)
+            fatal_error("Cannot convert type for assignment");
         return e;
+    }
     if (is_arithmetic(e_type) && is_arithmetic(target_type))
         return convert_to_type(e, target_type);
     if (is_null_pointer_constant(e) && is_pointer(target_type))
