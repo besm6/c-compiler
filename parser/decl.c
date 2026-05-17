@@ -288,32 +288,35 @@ Type *type_apply_pointers(Type *type, const Pointer *pointers)
 
 Type *type_apply_suffixes(Type *type, const DeclaratorSuffix *suffixes)
 {
-    for (const DeclaratorSuffix *s = suffixes; s; s = s->next) {
-        switch (s->kind) {
-        case SUFFIX_ARRAY: {
-            Type *array               = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
-            array->u.array.element    = type;
-            array->u.array.size       = clone_expression(s->u.array.size);
-            array->u.array.qualifiers = clone_type_qualifier(s->u.array.qualifiers);
-            array->u.array.is_static  = s->u.array.is_static;
-            array->qualifiers         = NULL;
-            type                      = array;
-            break;
-        }
-        case SUFFIX_FUNCTION: {
-            Type *func                   = new_type(TYPE_FUNCTION, __func__, __FILE__, __LINE__);
-            func->u.function.return_type = type;
-            func->u.function.params      = clone_param(s->u.function.params);
-            func->u.function.variadic    = s->u.function.variadic;
-            func->qualifiers             = NULL;
-            type                         = func;
-            break;
-        }
-        case SUFFIX_POINTER:
-            type = type_apply_suffixes(type, s->next);
-            type = type_apply_pointers(type, s->u.pointer.pointers);
-            return type_apply_suffixes(type, s->u.pointer.suffix);
-        }
+    if (!suffixes)
+        return type;
+    const DeclaratorSuffix *s = suffixes;
+    switch (s->kind) {
+    case SUFFIX_ARRAY: {
+        // Recurse on remaining suffixes first so the leftmost bracket becomes
+        // the outermost array dimension, matching C semantics for foo[3][1].
+        type                      = type_apply_suffixes(type, s->next);
+        Type *array               = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
+        array->u.array.element    = type;
+        array->u.array.size       = clone_expression(s->u.array.size);
+        array->u.array.qualifiers = clone_type_qualifier(s->u.array.qualifiers);
+        array->u.array.is_static  = s->u.array.is_static;
+        array->qualifiers         = NULL;
+        return array;
+    }
+    case SUFFIX_FUNCTION: {
+        type                         = type_apply_suffixes(type, s->next);
+        Type *func                   = new_type(TYPE_FUNCTION, __func__, __FILE__, __LINE__);
+        func->u.function.return_type = type;
+        func->u.function.params      = clone_param(s->u.function.params);
+        func->u.function.variadic    = s->u.function.variadic;
+        func->qualifiers             = NULL;
+        return func;
+    }
+    case SUFFIX_POINTER:
+        type = type_apply_suffixes(type, s->next);
+        type = type_apply_pointers(type, s->u.pointer.pointers);
+        return type_apply_suffixes(type, s->u.pointer.suffix);
     }
     return type;
 }

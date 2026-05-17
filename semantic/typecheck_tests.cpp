@@ -1243,6 +1243,18 @@ TEST_F(TypecheckTest, InitStructOfPtr)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, InitArray2D)
+{
+    ParseProgram(R"(
+        char foo[3][1] = {
+            { 11 },
+            { 22 },
+            { 33 },
+        };
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------
