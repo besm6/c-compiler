@@ -936,7 +936,7 @@ Declarator *parse_declarator()
     }
     Declarator *decl = parse_direct_declarator();
     if (pointers) {
-        append_list(&decl->pointers, pointers);
+        decl->pointers = pointers;
     }
     return decl;
 }

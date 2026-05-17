@@ -61,11 +61,8 @@ TEST_F(TranslateTest, DerefPointer)
 )");
 }
 
-// Parser bug: local-variable declarators strip all pointer stars beyond the first.
-// `int **pp;` gets type `int *` instead of `int **`, so typecheck rejects the second
-// dereference with "Tried to dereference non-pointer".
-// Re-enable and remove the workaround in DerefDerefPointer once the parser is fixed.
-TEST_F(TranslateTest, DISABLED_DerefDerefLocalVar)
+// int **pp; int y = **pp; — two LOADs (load pointer, load through it) then COPY.
+TEST_F(TranslateTest, DerefDerefLocalVar)
 {
     std::string yaml = CompileToYaml("void f(void) { int **pp; int y = **pp; }");
     EXPECT_EQ(yaml, R"(- toplevel:
@@ -213,8 +210,6 @@ TEST_F(TranslateTest, CompoundAssignThroughPointer)
 }
 
 // **pp emits two LOADs, validating the mutual recursion between gen_lval and gen_expr.
-// Uses a function parameter for int** because local-var declarations lose the second
-// pointer level in the current parser (see DISABLED_DerefDerefLocalVar).
 TEST_F(TranslateTest, DerefDerefPointer)
 {
     std::string yaml = CompileToYaml("void f(int **pp) { int y = **pp; }");
