@@ -388,6 +388,11 @@ static void typecheck_file_scope_var_decl(Declaration *d)
         InitKind init_kind        = is_extern(d->u.var.specifiers) ? INIT_NONE : INIT_TENTATIVE;
         Tac_StaticInit *init_list = NULL;
         if (decl->init) {
+            // Pre-register tentatively so the variable's own initializer can reference
+            // it via sizeof (e.g. int foo = sizeof(foo); — valid C11 §6.2.1p7).
+            if (!symtab_get_opt(decl->name)) {
+                symtab_add_static_var(decl->name, var_type, global, INIT_TENTATIVE, NULL);
+            }
             init_kind = INIT_INITIALIZED;
             init_list = build_static_init(var_type, decl->init);
         }

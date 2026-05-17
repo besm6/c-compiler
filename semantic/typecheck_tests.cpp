@@ -1205,6 +1205,12 @@ TEST_F(TypecheckTest, ArgumentFuncPtr)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, VarInitSizeof)
+{
+    ParseProgram("int foo = sizeof(foo);");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------

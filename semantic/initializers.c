@@ -176,10 +176,11 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         return new_static_init_from_literal(var_type, literal);
     }
 
-    // Handle integer scalar initialized with a constant expression (e.g. -1, ~0).
+    // Handle integer scalar initialized with a constant expression (e.g. -1, ~0, sizeof(T)).
     if (init->kind == INITIALIZER_SINGLE && is_integer(var_type)) {
+        const Expr *expr = typecheck_and_decay(init->u.expr);
         long val;
-        if (try_eval_const_int(init->u.expr, &val)) {
+        if (try_eval_const_int(expr, &val)) {
             Literal lit = { .kind = LITERAL_INT, .u.int_val = (int)val };
             return new_static_init_from_literal(var_type, &lit);
         }

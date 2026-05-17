@@ -427,6 +427,15 @@ bool try_eval_const_int(const Expr *e, long *out)
             return false;
         }
     }
+    case EXPR_SIZEOF_TYPE:
+        *out = (long)get_size(e->u.sizeof_type);
+        return true;
+    case EXPR_SIZEOF_EXPR:
+        if (e->u.sizeof_expr->type) {
+            *out = (long)get_size(e->u.sizeof_expr->type);
+            return true;
+        }
+        return false;
     default:
         return false;
     }
