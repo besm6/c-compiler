@@ -1118,6 +1118,18 @@ TEST_F(TypecheckTest, ArgumentArray)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, CallVariadicFunction)
+{
+    ParseProgram(R"(
+        void foo(char *fmt, ...);
+        void bar()
+        {
+            foo("%d", 42);
+        }
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------

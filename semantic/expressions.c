@@ -103,6 +103,17 @@ static Expr *typecheck_literal(Expr *e)
 }
 
 // Type-check an expression.
+// C11 §6.5.2.2: default argument promotions for variadic trailing arguments.
+static Expr *promote_variadic_arg(Expr *e)
+{
+    e = typecheck_and_decay(e);
+    if (is_character(e->type) || e->type->kind == TYPE_SHORT || e->type->kind == TYPE_USHORT)
+        e = convert_to_kind(e, TYPE_INT);
+    else if (e->type->kind == TYPE_FLOAT)
+        e = convert_to_kind(e, TYPE_DOUBLE);
+    return e;
+}
+
 static Expr *typecheck_expr(Expr *e)
 {
     if (semantic_debug) {
@@ -436,28 +447,37 @@ static Expr *typecheck_expr(Expr *e)
                 fatal_error("Expression is not a function or function pointer");
             e->u.call.func = func;
         }
-        const Param *params = fn_type->u.function.params;
-        int param_count = 0, arg_count = 0;
+        const Param *params   = fn_type->u.function.params;
+        const bool     variadic = fn_type->u.function.variadic;
+        int            param_count = 0, arg_count = 0;
         for (const Param *p = params; p; p = p->next)
             param_count++;
         for (const Expr *a = e->u.call.args; a; a = a->next)
             arg_count++;
-        if (param_count != arg_count) {
+        if (variadic) {
+            if (arg_count < param_count)
+                fatal_error("Function called with wrong number of arguments");
+        } else if (param_count != arg_count) {
             fatal_error("Function called with wrong number of arguments");
         }
         Expr *arg = e->u.call.args, *prev = NULL, *new_args = NULL;
         const Param *p = params;
-        while (arg && p) {
+        while (arg) {
             Expr *arg_next = arg->next;
             arg->next      = NULL;
-            Expr *new_arg = coerce_for_assignment(typecheck_and_decay(arg), p->type);
+            Expr *new_arg;
+            if (p) {
+                new_arg = coerce_for_assignment(typecheck_and_decay(arg), p->type);
+                p       = p->next;
+            } else {
+                new_arg = promote_variadic_arg(arg);
+            }
             if (!new_args)
                 new_args = new_arg;
             if (prev)
                 prev->next = new_arg;
             prev = new_arg;
             arg  = arg_next;
-            p    = p->next;
         }
         free_type(e->type);
         e->type        = clone_type(fn_type->u.function.return_type, __func__, __FILE__, __LINE__);
