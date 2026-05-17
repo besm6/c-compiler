@@ -1,6 +1,7 @@
 //
 // Type-checking for expressions.
 //
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -514,6 +515,7 @@ static Expr *typecheck_expr(Expr *e)
             fatal_error("Struct %s has no member %s", strct->type->u.struct_t.name,
                         e->u.field_access.field);
         }
+        assert(member);
         free_type(e->type);
         e->type                 = clone_type(member->type, __func__, __FILE__, __LINE__);
         e->u.field_access.offset = member->offset;
@@ -545,6 +547,7 @@ static Expr *typecheck_expr(Expr *e)
                         target_type->u.struct_t.name,
                         e->u.ptr_access.field);
         }
+        assert(member);
         free_type(e->type);
         e->type                = clone_type(member->type, __func__, __FILE__, __LINE__);
         e->u.ptr_access.offset = member->offset;
@@ -602,6 +605,7 @@ static Expr *typecheck_expr(Expr *e)
         GenericAssoc *match = selected ? selected : default_assoc;
         if (!match)
             fatal_error("No matching association in _Generic expression");
+        assert(match);
 
         const Expr *match_expr = (match->kind == GENERIC_ASSOC_TYPE)
                                      ? match->u.type_assoc.expr
@@ -650,6 +654,7 @@ static Expr *typecheck_expr(Expr *e)
             if (!item || item->next) {
                 fatal_error("Scalar compound literal must have exactly one initializer");
             }
+            assert(item);
             item->init = typecheck_init(lit_type, item->init);
         }
         free_type(e->type);

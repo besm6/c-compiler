@@ -2,6 +2,7 @@
 // Expression lowering: AST Expr → TAC instructions.
 //
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -286,6 +287,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
     if (!e) {
         fatal_error("NULL expression in TAC lowering");
     }
+    assert(e);
     switch (e->kind) {
     case EXPR_LITERAL:
         switch (e->u.literal->kind) {

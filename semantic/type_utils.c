@@ -1,6 +1,8 @@
 //
 // Helpers for Type.
 //
+#include <assert.h>
+
 #include "semantic.h"
 #include "structtab.h"
 #include "typetab.h"
@@ -37,6 +39,7 @@ size_t get_size(const Type *t)
         if (!t->u.array.size) {
             fatal_error("get_size: Array size not specified");
         }
+        assert(t->u.array.size);
         if (t->u.array.size->kind != EXPR_LITERAL) {
             fatal_error("get_size: Array size is not literal");
         }

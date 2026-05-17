@@ -1,6 +1,7 @@
 //
 // Core type-checking utilities and entry points.
 //
+#include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,6 +65,7 @@ size_t get_array_size(const Type *t)
     if (!t->u.array.size->u.literal) {
         fatal_error("get_array_size: No literal in size");
     }
+    assert(t->u.array.size->u.literal);
     if (t->u.array.size->u.literal->kind != LITERAL_INT) {
         fatal_error("get_array_size: Non-integer size");
     }

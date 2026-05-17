@@ -1,6 +1,7 @@
 //
 // Type-checking for initializers.
 //
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -217,6 +218,7 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
             if (!field) {
                 fatal_error("Too many elements in struct initializer");
             }
+            assert(field);
             if (current_offset < field->offset) {
                 Tac_StaticInit *zero_padding = tac_new_static_init(TAC_STATIC_INIT_ZERO);
                 zero_padding->u.zero_bytes   = field->offset - current_offset;
@@ -345,6 +347,7 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
             if (!field) {
                 fatal_error("Too many elements in struct initializer");
             }
+            assert(field);
             InitItem *new_item = new_init_item(NULL, typecheck_init(field->type, item->init));
             *current           = new_item;
             current            = &new_item->next;
