@@ -3,6 +3,9 @@
 #
 add_library(parser STATIC
     parser.c
+    expr.c
+    decl.c
+    stmt.c
     nametab.c
 )
 target_include_directories(parser PUBLIC .)
