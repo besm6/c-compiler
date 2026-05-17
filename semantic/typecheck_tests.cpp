@@ -1094,6 +1094,17 @@ TEST_F(TypecheckTest, PtrCastDeref)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, PtrIncrement)
+{
+    ParseProgram(R"(
+        void foo(char *bar)
+        {
+            bar += 42;
+        }
+    )");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------

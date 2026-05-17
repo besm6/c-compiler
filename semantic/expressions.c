@@ -376,7 +376,18 @@ static Expr *typecheck_expr(Expr *e)
             fatal_error("Left hand side of assignment is invalid lvalue");
         }
         Expr *rhs = typecheck_and_decay(e->u.assign.value);
-        rhs       = coerce_for_assignment(rhs, lhs->type);
+        if (e->u.assign.op == ASSIGN_SIMPLE) {
+            rhs = coerce_for_assignment(rhs, lhs->type);
+        } else if ((e->u.assign.op == ASSIGN_ADD || e->u.assign.op == ASSIGN_SUB) &&
+                   is_complete_pointer(lhs->type)) {
+            if (!is_integer(rhs->type))
+                fatal_error("Pointer arithmetic requires integer operand");
+            rhs = convert_to_kind(rhs, TYPE_LONG);
+        } else {
+            if (!is_arithmetic(lhs->type) || !is_arithmetic(rhs->type))
+                fatal_error("Invalid operands for compound assignment");
+            rhs = convert_to_type(rhs, lhs->type);
+        }
         free_type(e->type);
         e->type            = clone_type(lhs->type, __func__, __FILE__, __LINE__);
         e->u.assign.target = lhs;
