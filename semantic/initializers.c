@@ -146,11 +146,11 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         init->u.expr->kind == EXPR_VAR) {
         const Symbol *sym = symtab_get(init->u.expr->u.var);
         if (sym->type->kind == TYPE_ARRAY) {
-            if (!compare_type(var_type->u.pointer.target, sym->type->u.array.element)) {
+            if (!compatible_type(var_type->u.pointer.target, sym->type->u.array.element)) {
                 fatal_error("Initialization of pointer with incompatible array");
             }
         } else if (sym->type->kind == TYPE_FUNCTION) {
-            if (!compare_type(var_type->u.pointer.target, sym->type)) {
+            if (!compatible_type(var_type->u.pointer.target, sym->type)) {
                 fatal_error("Initialization of pointer with incompatible function");
             }
         } else {

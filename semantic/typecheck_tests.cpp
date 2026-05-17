@@ -1156,16 +1156,39 @@ TEST_F(TypecheckTest, FieldAddrViaTypedefStruct)
     typecheck_program(program);
 }
 
-TEST_F(TypecheckTest, InitStructOfFuncPtr)
+TEST_F(TypecheckTest, InitStructOfFuncPtrArgs)
 {
     ParseProgram(R"(
-        extern struct bdevsw {
-            void (*pclose)(int);
-        } bdevsw[];
-        void nullclose(int);
-        struct bdevsw bdevsw[] = {
-            { nullclose },
+        extern struct foo {
+            void (*bar)(int);
+        } foo[];
+        void quz(int);
+        struct foo foo[] = {
+            { quz },
         };
+    )");
+    typecheck_program(program);
+}
+
+TEST_F(TypecheckTest, InitStructOfFuncPtrNoArgs)
+{
+    ParseProgram(R"(
+        extern struct foo {
+            int (*bar)(int *);
+        } foo[];
+        int quz();
+        struct foo foo[] = {
+            { quz },
+        };
+    )");
+    typecheck_program(program);
+}
+
+TEST_F(TypecheckTest, InitFuncPtrNoArgs)
+{
+    ParseProgram(R"(
+        int foo();
+        int (*bar)(int *) = foo;
     )");
     typecheck_program(program);
 }

@@ -241,6 +241,46 @@ Type *common_pointer_type(const Expr *e1, const Expr *e2)
     fatal_error("Incompatible pointer types");
 }
 
+// Parser represents f(void) as a single unnamed TYPE_VOID param; treat as no params.
+static const Param *params_for_compat(const Type *fn_type)
+{
+    const Param *params = fn_type->u.function.params;
+    if (params && !params->next && params->type->kind == TYPE_VOID && !params->name)
+        return NULL;
+    return params;
+}
+
+// Return true if src may initialize or be assigned to target (target is the lhs type).
+bool compatible_type(const Type *target, const Type *src)
+{
+    if (!target && !src)
+        return true;
+    if (!target || !src)
+        return false;
+    if (target->kind != src->kind)
+        return false;
+    switch (target->kind) {
+    case TYPE_FUNCTION: {
+        if (target->u.function.variadic != src->u.function.variadic)
+            return false;
+        if (!compatible_type(target->u.function.return_type, src->u.function.return_type))
+            return false;
+        const Param *tp = params_for_compat(target);
+        const Param *sp = params_for_compat(src);
+        if (!tp || !sp)
+            return true; // old-style or f(void): no prototype to compare
+        return compare_param(tp, sp);
+    }
+    case TYPE_POINTER:
+        return compatible_type(target->u.pointer.target, src->u.pointer.target);
+    case TYPE_STRUCT:
+    case TYPE_UNION:
+        return strcmp(target->u.struct_t.name, src->u.struct_t.name) == 0;
+    default:
+        return compare_type(target, src);
+    }
+}
+
 // Convert an expression for assignment to target_type.
 Expr *coerce_for_assignment(Expr *e, const Type *target_type)
 {
@@ -248,14 +288,8 @@ Expr *coerce_for_assignment(Expr *e, const Type *target_type)
         printf("--- %s()\n", __func__);
     }
     const Type *e_type = e->type;
-    if (e_type->kind == target_type->kind &&
-        (!is_pointer(e_type) ||
-         e_type->u.pointer.target->kind == target_type->u.pointer.target->kind)) {
-        if ((e_type->kind == TYPE_STRUCT || e_type->kind == TYPE_UNION) &&
-            strcmp(e_type->u.struct_t.name, target_type->u.struct_t.name) != 0)
-            fatal_error("Cannot convert type for assignment");
+    if (e_type->kind == target_type->kind && compatible_type(target_type, e_type))
         return e;
-    }
     if (is_arithmetic(e_type) && is_arithmetic(target_type))
         return convert_to_type(e, target_type);
     if (is_null_pointer_constant(e) && is_pointer(target_type))

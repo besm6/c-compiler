@@ -29,6 +29,7 @@ const Type *get_common_type(const Type *t1, const Type *t2);
 bool        is_zero_int(const Literal *c);
 bool        is_null_pointer_constant(const Expr *e);
 Type       *common_pointer_type(const Expr *e1, const Expr *e2);
+bool        compatible_type(const Type *target, const Type *src);
 Expr       *coerce_for_assignment(Expr *e, const Type *target_type);
 
 // Const evaluation — typecheck.c
