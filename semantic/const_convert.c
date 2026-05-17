@@ -16,6 +16,7 @@ int64_t literal_to_int64(const Literal *lit)
     case LITERAL_INT:
         return (int64_t)lit->u.int_val; // Sign-extend
     case LITERAL_FLOAT:
+    case LITERAL_DOUBLE:
         return (int64_t)lit->u.real_val; // Truncate to int64
     case LITERAL_STRING:
         fatal_error("literal_to_int64: Cannot convert string %s", lit->u.string_val);
@@ -37,6 +38,7 @@ uint64_t literal_to_uint64(const Literal *lit)
     case LITERAL_INT:
         return (uint64_t)lit->u.int_val;
     case LITERAL_FLOAT:
+    case LITERAL_DOUBLE:
         return (uint64_t)lit->u.real_val; // Truncate to uint64
     case LITERAL_STRING:
         fatal_error("literal_to_uint64: Cannot convert string %s", lit->u.string_val);
@@ -58,6 +60,7 @@ double literal_to_double(const Literal *lit)
     case LITERAL_INT:
         return (double)lit->u.int_val;
     case LITERAL_FLOAT:
+    case LITERAL_DOUBLE:
         return (double)lit->u.real_val;
     case LITERAL_STRING:
         fatal_error("literal_to_double: Cannot convert string %s", lit->u.string_val);
@@ -128,6 +131,10 @@ Tac_StaticInit *new_static_init_from_literal(const Type *target_type, const Lite
         break;
 
     case TYPE_FLOAT:
+        result              = tac_new_static_init(TAC_STATIC_INIT_FLOAT);
+        result->u.float_val = (float)literal_to_double(lit);
+        break;
+
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
         result               = tac_new_static_init(TAC_STATIC_INIT_DOUBLE);

@@ -42,6 +42,9 @@ void tac_print_const(FILE *fd, const Tac_Const *constant, int depth)
     case TAC_CONST_ULONG_LONG:
         fprintf(fd, "ulong long %llu\n", constant->u.ulong_long_val);
         break;
+    case TAC_CONST_FLOAT:
+        fprintf(fd, "float %f\n", (double)constant->u.float_val);
+        break;
     case TAC_CONST_DOUBLE:
         fprintf(fd, "double %f\n", constant->u.double_val);
         break;
@@ -224,6 +227,9 @@ void tac_print_static_init(FILE *fd, const Tac_StaticInit *init, int depth)
     case TAC_STATIC_INIT_U64:
         fprintf(fd, "u64 %" PRIu64 "\n", init->u.ulong_val);
         break;
+    case TAC_STATIC_INIT_FLOAT:
+        fprintf(fd, "f32 %a\n", (double)init->u.float_val);
+        break;
     case TAC_STATIC_INIT_DOUBLE:
         fprintf(fd, "f64 %a\n", init->u.double_val);
         break;
@@ -281,6 +287,24 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
         break;
     case TAC_INSTRUCTION_UINT_TO_DOUBLE:
         fprintf(fd, "uint_to_double\n");
+        break;
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+        fprintf(fd, "float_to_double\n");
+        break;
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+        fprintf(fd, "double_to_float\n");
+        break;
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+        fprintf(fd, "int_to_float\n");
+        break;
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+        fprintf(fd, "uint_to_float\n");
+        break;
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+        fprintf(fd, "float_to_int\n");
+        break;
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
+        fprintf(fd, "float_to_uint\n");
         break;
     case TAC_INSTRUCTION_UNARY:
         fprintf(fd, "unary %s\n",

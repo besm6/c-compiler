@@ -80,6 +80,7 @@ module AST {
 
     Literal = Int(int val)
             | Float(float val)
+            | Double(double val)
             | Char(char val)
             | String(string val)
             | Enum(identifier enum_const)

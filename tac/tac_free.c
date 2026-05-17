@@ -49,6 +49,12 @@ void tac_free_instruction(Tac_Instruction *instr)
     case TAC_INSTRUCTION_DOUBLE_TO_UINT:
     case TAC_INSTRUCTION_INT_TO_DOUBLE:
     case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
         tac_free_val(instr->u.sign_extend.src);
         tac_free_val(instr->u.sign_extend.dst);
         break;

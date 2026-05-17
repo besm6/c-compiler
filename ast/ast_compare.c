@@ -351,6 +351,7 @@ bool compare_literal(const Literal *a, const Literal *b)
     case LITERAL_INT:
         return a->u.int_val == b->u.int_val;
     case LITERAL_FLOAT:
+    case LITERAL_DOUBLE:
         return a->u.real_val == b->u.real_val;
     case LITERAL_CHAR:
         return a->u.char_val == b->u.char_val;

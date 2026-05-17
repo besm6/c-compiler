@@ -52,6 +52,10 @@ static Tac_Const *import_const(WFILE *in)
         c->u.ulong_long_val = (unsigned long long)wgetw(in);
         check_input(in, "const ulong_long");
         break;
+    case TAC_CONST_FLOAT:
+        c->u.float_val = (float)wgetd(in);
+        check_input(in, "const float");
+        break;
     case TAC_CONST_DOUBLE:
         c->u.double_val = wgetd(in);
         check_input(in, "const double");
@@ -181,6 +185,10 @@ static Tac_StaticInit *import_static_init(WFILE *in)
         si->u.ulong_val = (uint64_t)wgetw(in);
         check_input(in, "static_init u64");
         break;
+    case TAC_STATIC_INIT_FLOAT:
+        si->u.float_val = (float)wgetd(in);
+        check_input(in, "static_init float");
+        break;
     case TAC_STATIC_INIT_DOUBLE:
         si->u.double_val = wgetd(in);
         check_input(in, "static_init double");
@@ -239,6 +247,12 @@ static Tac_Instruction *import_instr(WFILE *in)
     case TAC_INSTRUCTION_DOUBLE_TO_UINT:
     case TAC_INSTRUCTION_INT_TO_DOUBLE:
     case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
         instr->u.sign_extend.src = import_val(in);
         instr->u.sign_extend.dst = import_val(in);
         break;

@@ -42,6 +42,15 @@ Tac_Val *val_int(int v)
     return tv;
 }
 
+Tac_Val *val_float(float v)
+{
+    Tac_Val *tv    = tac_new_val(TAC_VAL_CONSTANT);
+    Tac_Const *c   = tac_new_const(TAC_CONST_FLOAT);
+    c->u.float_val = v;
+    tv->u.constant = c;
+    return tv;
+}
+
 Tac_Val *val_double(double v)
 {
     Tac_Val *tv     = tac_new_val(TAC_VAL_CONSTANT);
@@ -144,37 +153,59 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
             tac_append(ctx, in);
         }
     } else if (!from_int && to_int) {
-        // double → integer
+        // float/double → integer
+        bool from_float = (from->kind == TYPE_FLOAT);
         if (is_signed(to)) {
-            Tac_Instruction *in     = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_INT);
+            Tac_InstructionKind op  = from_float ? TAC_INSTRUCTION_FLOAT_TO_INT
+                                                 : TAC_INSTRUCTION_DOUBLE_TO_INT;
+            Tac_Instruction *in     = tac_new_instruction(op);
             in->u.double_to_int.src = src;
             in->u.double_to_int.dst = dst;
             tac_append(ctx, in);
         } else {
-            Tac_Instruction *in      = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_UINT);
+            Tac_InstructionKind op   = from_float ? TAC_INSTRUCTION_FLOAT_TO_UINT
+                                                  : TAC_INSTRUCTION_DOUBLE_TO_UINT;
+            Tac_Instruction *in      = tac_new_instruction(op);
             in->u.double_to_uint.src = src;
             in->u.double_to_uint.dst = dst;
             tac_append(ctx, in);
         }
     } else if (from_int && !to_int) {
-        // integer → double
+        // integer → float/double
+        bool to_float = (to->kind == TYPE_FLOAT);
         if (is_signed(from)) {
-            Tac_Instruction *in     = tac_new_instruction(TAC_INSTRUCTION_INT_TO_DOUBLE);
+            Tac_InstructionKind op  = to_float ? TAC_INSTRUCTION_INT_TO_FLOAT
+                                               : TAC_INSTRUCTION_INT_TO_DOUBLE;
+            Tac_Instruction *in     = tac_new_instruction(op);
             in->u.int_to_double.src = src;
             in->u.int_to_double.dst = dst;
             tac_append(ctx, in);
         } else {
-            Tac_Instruction *in      = tac_new_instruction(TAC_INSTRUCTION_UINT_TO_DOUBLE);
+            Tac_InstructionKind op   = to_float ? TAC_INSTRUCTION_UINT_TO_FLOAT
+                                                : TAC_INSTRUCTION_UINT_TO_DOUBLE;
+            Tac_Instruction *in      = tac_new_instruction(op);
             in->u.uint_to_double.src = src;
             in->u.uint_to_double.dst = dst;
             tac_append(ctx, in);
         }
     } else {
-        // double → double
-        Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
-        in->u.copy.src      = src;
-        in->u.copy.dst      = dst;
-        tac_append(ctx, in);
+        // float ↔ double or same-type
+        if (from->kind == TYPE_FLOAT && to->kind == TYPE_DOUBLE) {
+            Tac_Instruction *in        = tac_new_instruction(TAC_INSTRUCTION_FLOAT_TO_DOUBLE);
+            in->u.float_to_double.src  = src;
+            in->u.float_to_double.dst  = dst;
+            tac_append(ctx, in);
+        } else if (from->kind == TYPE_DOUBLE && to->kind == TYPE_FLOAT) {
+            Tac_Instruction *in       = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_FLOAT);
+            in->u.double_to_float.src = src;
+            in->u.double_to_float.dst = dst;
+            tac_append(ctx, in);
+        } else {
+            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
+            in->u.copy.src      = src;
+            in->u.copy.dst      = dst;
+            tac_append(ctx, in);
+        }
     }
     return val_var(dst->u.var_name);
 }

@@ -343,6 +343,9 @@ static void print_literal(FILE *fd, const Literal *lit, int indent)
     case LITERAL_FLOAT:
         fprintf(fd, "float %f\n", lit->u.real_val);
         break;
+    case LITERAL_DOUBLE:
+        fprintf(fd, "double %f\n", lit->u.real_val);
+        break;
     case LITERAL_STRING:
         fprintf(fd, "string \"%s\"\n", lit->u.string_val);
         break;

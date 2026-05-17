@@ -58,8 +58,11 @@ static Initializer *make_zero_init(Type *t)
     case TYPE_LONG:
         init->u.expr->u.literal = new_literal(LITERAL_INT); // Simplified
         break;
-    case TYPE_DOUBLE:
+    case TYPE_FLOAT:
         init->u.expr->u.literal = new_literal(LITERAL_FLOAT);
+        break;
+    case TYPE_DOUBLE:
+        init->u.expr->u.literal = new_literal(LITERAL_DOUBLE);
         break;
     case TYPE_POINTER:
         init->u.expr->u.literal = new_literal(LITERAL_INT); // Null pointer

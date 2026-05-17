@@ -484,6 +484,9 @@ static void export_literal(FILE *fd, const Literal *lit, int parent_id)
     case LITERAL_FLOAT:
         fprintf(fd, "float: %f", lit->u.real_val);
         break;
+    case LITERAL_DOUBLE:
+        fprintf(fd, "double: %f", lit->u.real_val);
+        break;
     case LITERAL_CHAR:
         fprintf(fd, "char: '%c'", lit->u.char_val);
         break;

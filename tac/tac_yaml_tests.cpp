@@ -212,6 +212,24 @@ TEST_F(TacYamlTest, ReturnUnsignedLongLong)
     EXPECT_NE(out.find("kind: ulong_long"), std::string::npos);
 }
 
+TEST_F(TacYamlTest, ReturnFloat)
+{
+    Tac_TopLevel *tl       = make_empty_function("f", true);
+    Tac_Const *c           = tac_new_const(TAC_CONST_FLOAT);
+    c->u.float_val         = 1.5f;
+    Tac_Val *val           = tac_new_val(TAC_VAL_CONSTANT);
+    val->u.constant        = c;
+    Tac_Instruction *instr = tac_new_instruction(TAC_INSTRUCTION_RETURN);
+    instr->u.return_.src   = val;
+    tl->u.function.body    = instr;
+
+    std::string out = capture(tl);
+    tac_free_toplevel(tl);
+
+    EXPECT_NE(out.find("kind: float"), std::string::npos);
+    EXPECT_NE(out.find("value: "), std::string::npos);
+}
+
 TEST_F(TacYamlTest, ReturnDouble)
 {
     Tac_TopLevel *tl       = make_empty_function("f", true);
@@ -723,6 +741,8 @@ TEST_F(TacYamlTest, StaticVariableAllInits)
     u32->u.uint_val               = 4000000000u;
     Tac_StaticInit *u64           = tac_new_static_init(TAC_STATIC_INIT_U64);
     u64->u.ulong_val              = 18000000000ull;
+    Tac_StaticInit *flt           = tac_new_static_init(TAC_STATIC_INIT_FLOAT);
+    flt->u.float_val              = 1.5f;
     Tac_StaticInit *dbl           = tac_new_static_init(TAC_STATIC_INIT_DOUBLE);
     dbl->u.double_val             = 2.718;
     Tac_StaticInit *zero          = tac_new_static_init(TAC_STATIC_INIT_ZERO);
@@ -738,7 +758,8 @@ TEST_F(TacYamlTest, StaticVariableAllInits)
     i64->next                       = u8;
     u8->next                        = u32;
     u32->next                       = u64;
-    u64->next                       = dbl;
+    u64->next                       = flt;
+    flt->next                       = dbl;
     dbl->next                       = zero;
     zero->next                      = str;
     str->next                       = ptr;
@@ -753,6 +774,7 @@ TEST_F(TacYamlTest, StaticVariableAllInits)
     EXPECT_NE(out.find("kind: u8"), std::string::npos);
     EXPECT_NE(out.find("kind: u32"), std::string::npos);
     EXPECT_NE(out.find("kind: u64"), std::string::npos);
+    EXPECT_NE(out.find("kind: float"), std::string::npos);
     EXPECT_NE(out.find("kind: double"), std::string::npos);
     EXPECT_NE(out.find("kind: zero"), std::string::npos);
     EXPECT_NE(out.find("bytes: 16"), std::string::npos);

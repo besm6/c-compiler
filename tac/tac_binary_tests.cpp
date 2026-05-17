@@ -151,6 +151,7 @@ TEST_F(TacBinaryTest, ReturnAllConstKinds)
         { TAC_CONST_UINT, "uint" },
         { TAC_CONST_ULONG, "ulong" },
         { TAC_CONST_ULONG_LONG, "ulong_long" },
+        { TAC_CONST_FLOAT, "float" },
         { TAC_CONST_DOUBLE, "double" },
         { TAC_CONST_CHAR, "char" },
         { TAC_CONST_UCHAR, "uchar" },
@@ -176,6 +177,9 @@ TEST_F(TacBinaryTest, ReturnAllConstKinds)
             break;
         case TAC_CONST_ULONG_LONG:
             c->u.ulong_long_val = 999999999999ull;
+            break;
+        case TAC_CONST_FLOAT:
+            c->u.float_val = 1.5f;
             break;
         case TAC_CONST_DOUBLE:
             c->u.double_val = 3.14;
@@ -670,6 +674,8 @@ TEST_F(TacBinaryTest, StaticVariableAllInits)
     u32->u.uint_val               = 4000000000u;
     Tac_StaticInit *u64           = tac_new_static_init(TAC_STATIC_INIT_U64);
     u64->u.ulong_val              = 18000000000ull;
+    Tac_StaticInit *flt           = tac_new_static_init(TAC_STATIC_INIT_FLOAT);
+    flt->u.float_val              = 1.5f;
     Tac_StaticInit *dbl           = tac_new_static_init(TAC_STATIC_INIT_DOUBLE);
     dbl->u.double_val             = 2.718;
     Tac_StaticInit *zero          = tac_new_static_init(TAC_STATIC_INIT_ZERO);
@@ -685,7 +691,8 @@ TEST_F(TacBinaryTest, StaticVariableAllInits)
     i64->next                                = u8;
     u8->next                                 = u32;
     u32->next                                = u64;
-    u64->next                                = dbl;
+    u64->next                                = flt;
+    flt->next                                = dbl;
     dbl->next                                = zero;
     zero->next                               = str;
     str->next                                = ptr;

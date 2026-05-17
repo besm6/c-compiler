@@ -256,7 +256,7 @@ Expr *parse_constant()
     }
     Expr *expr      = new_expression(EXPR_LITERAL);
     expr->u.literal = new_literal(current_token == TOKEN_I_CONSTANT   ? LITERAL_INT
-                                  : current_token == TOKEN_F_CONSTANT ? LITERAL_FLOAT
+                                  : current_token == TOKEN_F_CONSTANT ? LITERAL_DOUBLE
                                                                       : LITERAL_ENUM);
     switch (current_token) {
     case TOKEN_I_CONSTANT: {
@@ -289,14 +289,15 @@ Expr *parse_constant()
         break;
     }
     case TOKEN_F_CONSTANT: {
-        char *end = NULL;
-        double v  = strtod(current_lexeme, &end);
-        if (end) {
-            while (*end && (*end == 'f' || *end == 'F' || *end == 'l' || *end == 'L')) {
-                end++;
-            }
+        char *end        = NULL;
+        double v         = strtod(current_lexeme, &end);
+        bool is_f_suffix = end && (*end == 'f' || *end == 'F');
+        if (is_f_suffix) {
+            expr->u.literal->kind       = LITERAL_FLOAT;
+            expr->u.literal->u.real_val = strtof(current_lexeme, NULL);
+        } else {
+            expr->u.literal->u.real_val = v;
         }
-        expr->u.literal->u.real_val = v;
         break;
     }
     case TOKEN_ENUMERATION_CONSTANT:

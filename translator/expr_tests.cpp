@@ -741,3 +741,19 @@ TEST_F(TranslateTest, CompoundLiteralArraySubscript)
         name: t.4
 )");
 }
+
+// float literal (f suffix) → TAC_CONST_FLOAT
+TEST_F(TranslateTest, FloatLiteral)
+{
+    std::string yaml = CompileToYaml("float f(void) { return 1.5f; }");
+    EXPECT_NE(yaml.find("kind: float"), std::string::npos);
+    EXPECT_NE(yaml.find("value: 0x1.8p+0"), std::string::npos);
+}
+
+// double literal (no suffix) → TAC_CONST_DOUBLE
+TEST_F(TranslateTest, DoubleLiteral)
+{
+    std::string yaml = CompileToYaml("double f(void) { return 1.5; }");
+    EXPECT_NE(yaml.find("kind: double"), std::string::npos);
+    EXPECT_NE(yaml.find("value: 0x1.8p+0"), std::string::npos);
+}

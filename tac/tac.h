@@ -77,6 +77,12 @@ typedef enum {
     TAC_INSTRUCTION_DOUBLE_TO_UINT,
     TAC_INSTRUCTION_INT_TO_DOUBLE,
     TAC_INSTRUCTION_UINT_TO_DOUBLE,
+    TAC_INSTRUCTION_FLOAT_TO_DOUBLE,
+    TAC_INSTRUCTION_DOUBLE_TO_FLOAT,
+    TAC_INSTRUCTION_INT_TO_FLOAT,
+    TAC_INSTRUCTION_UINT_TO_FLOAT,
+    TAC_INSTRUCTION_FLOAT_TO_INT,
+    TAC_INSTRUCTION_FLOAT_TO_UINT,
     TAC_INSTRUCTION_UNARY,
     TAC_INSTRUCTION_BINARY,
     TAC_INSTRUCTION_COPY,
@@ -149,6 +155,30 @@ typedef struct Tac_Instruction {
             Tac_Val *src;
             Tac_Val *dst;
         } uint_to_double;
+        struct {
+            Tac_Val *src;
+            Tac_Val *dst;
+        } float_to_double;
+        struct {
+            Tac_Val *src;
+            Tac_Val *dst;
+        } double_to_float;
+        struct {
+            Tac_Val *src;
+            Tac_Val *dst;
+        } int_to_float;
+        struct {
+            Tac_Val *src;
+            Tac_Val *dst;
+        } uint_to_float;
+        struct {
+            Tac_Val *src;
+            Tac_Val *dst;
+        } float_to_int;
+        struct {
+            Tac_Val *src;
+            Tac_Val *dst;
+        } float_to_uint;
         struct {
             Tac_UnaryOperator op;
             Tac_Val *src;
@@ -238,6 +268,7 @@ typedef enum {
     TAC_CONST_UINT,
     TAC_CONST_ULONG,
     TAC_CONST_ULONG_LONG,
+    TAC_CONST_FLOAT,
     TAC_CONST_DOUBLE,
     TAC_CONST_CHAR,
     TAC_CONST_UCHAR
@@ -252,6 +283,7 @@ typedef struct Tac_Const {
         unsigned int uint_val;
         unsigned long ulong_val;
         unsigned long long ulong_long_val;
+        float float_val;
         double double_val;
         int char_val;
         unsigned char uchar_val;
@@ -315,6 +347,7 @@ typedef enum {
     TAC_STATIC_INIT_U16,
     TAC_STATIC_INIT_U32,
     TAC_STATIC_INIT_U64,
+    TAC_STATIC_INIT_FLOAT,
     TAC_STATIC_INIT_DOUBLE,
     TAC_STATIC_INIT_ZERO,
     TAC_STATIC_INIT_STRING,
@@ -333,6 +366,7 @@ typedef struct Tac_StaticInit {
         uint16_t ushort_val; // INIT_U16
         uint32_t uint_val;   // INIT_U32
         uint64_t ulong_val;  // INIT_U64
+        float float_val;     // INIT_FLOAT
         double double_val;   // INIT_DOUBLE
         int zero_bytes;      // INIT_ZERO
         struct {

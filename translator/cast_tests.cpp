@@ -425,3 +425,111 @@ TEST_F(TranslateTest, CastEmbeddedInExpr)
         name: t.1
 )");
 }
+
+// (float)x where x is int: signed integer → float → int_to_float
+TEST_F(TranslateTest, CastIntToFloat)
+{
+    std::string yaml = CompileToYaml("float f(int x) { return (float)x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: x
+  body:
+    - instruction:
+      kind: int_to_float
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+)");
+}
+
+// (int)x where x is float: float → signed integer → float_to_int
+TEST_F(TranslateTest, CastFloatToInt)
+{
+    std::string yaml = CompileToYaml("int f(float x) { return (int)x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: x
+  body:
+    - instruction:
+      kind: float_to_int
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+)");
+}
+
+// (double)x where x is float: float → double → float_to_double
+TEST_F(TranslateTest, CastFloatToDouble)
+{
+    std::string yaml = CompileToYaml("double f(float x) { return (double)x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: x
+  body:
+    - instruction:
+      kind: float_to_double
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+)");
+}
+
+// (float)x where x is double: double → float → double_to_float
+TEST_F(TranslateTest, CastDoubleToFloat)
+{
+    std::string yaml = CompileToYaml("float f(double x) { return (float)x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: x
+  body:
+    - instruction:
+      kind: double_to_float
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+)");
+}

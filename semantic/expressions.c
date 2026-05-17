@@ -90,6 +90,9 @@ static Expr *typecheck_literal(Expr *e)
         e->type = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
         break;
     case LITERAL_FLOAT:
+        e->type = new_type(TYPE_FLOAT, __func__, __FILE__, __LINE__);
+        break;
+    case LITERAL_DOUBLE:
         e->type = new_type(TYPE_DOUBLE, __func__, __FILE__, __LINE__);
         break;
     case LITERAL_STRING: {
@@ -304,8 +307,9 @@ static Expr *typecheck_expr(Expr *e)
             const Type *common = get_common_type(e1->type, e2->type);
             e1                 = convert_to_type(e1, common);
             e2                 = convert_to_type(e2, common);
-            if (e->u.binary_op.op == BINARY_MOD && common->kind == TYPE_DOUBLE) {
-                fatal_error("Can't apply %% to double");
+            if (e->u.binary_op.op == BINARY_MOD &&
+                (common->kind == TYPE_DOUBLE || common->kind == TYPE_FLOAT)) {
+                fatal_error("Can't apply %% to floating-point type");
             }
             free_type(e->type);
             e->type              = clone_type(common, __func__, __FILE__, __LINE__);

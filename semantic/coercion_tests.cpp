@@ -218,6 +218,22 @@ TEST_F(CoercionTest, IntToChar)
     EXPECT_EQ(ret->u.cast.expr->type->kind, TYPE_INT);
 }
 
+TEST_F(CoercionTest, FloatLiteralHasTypeFloat)
+{
+    ParseProgram("float f(void) { return 1.0f; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    EXPECT_EQ(ret->type->kind, TYPE_FLOAT);
+}
+
+TEST_F(CoercionTest, DoubleLiteralHasTypeDouble)
+{
+    ParseProgram("double f(void) { return 1.0; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    EXPECT_EQ(ret->type->kind, TYPE_DOUBLE);
+}
+
 TEST_F(CoercionTest, IntToFloat)
 {
     ParseProgram("float f(int x) { return x; }");

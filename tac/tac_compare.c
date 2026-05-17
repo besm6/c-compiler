@@ -25,6 +25,8 @@ bool tac_compare_const(const Tac_Const *a, const Tac_Const *b)
         return a->u.ulong_val == b->u.ulong_val;
     case TAC_CONST_ULONG_LONG:
         return a->u.ulong_long_val == b->u.ulong_long_val;
+    case TAC_CONST_FLOAT:
+        return a->u.float_val == b->u.float_val;
     case TAC_CONST_DOUBLE:
         return a->u.double_val == b->u.double_val;
     case TAC_CONST_CHAR:
@@ -130,6 +132,8 @@ bool tac_compare_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b)
         return a->u.uint_val == b->u.uint_val;
     case TAC_STATIC_INIT_U64:
         return a->u.ulong_val == b->u.ulong_val;
+    case TAC_STATIC_INIT_FLOAT:
+        return a->u.float_val == b->u.float_val;
     case TAC_STATIC_INIT_DOUBLE:
         return a->u.double_val == b->u.double_val;
     case TAC_STATIC_INIT_ZERO:

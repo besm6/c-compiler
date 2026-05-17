@@ -616,8 +616,9 @@ Literal *import_literal(WFILE *input)
         check_input(input, "literal int");
         break;
     case LITERAL_FLOAT:
+    case LITERAL_DOUBLE:
         lit->u.real_val = wgetd(input);
-        check_input(input, "literal float");
+        check_input(input, "literal float/double");
         break;
     case LITERAL_CHAR:
         lit->u.char_val = (char)wgetw(input);

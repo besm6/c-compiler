@@ -51,6 +51,7 @@ extern int xalloc_debug;
 void tac_append(TacCtx *ctx, Tac_Instruction *instr);
 char *new_temp(TacCtx *ctx);
 Tac_Val *val_int(int v);
+Tac_Val *val_float(float v);
 Tac_Val *val_double(double v);
 Tac_Val *val_var(const char *name);
 Tac_Val *new_var_val(TacCtx *ctx);

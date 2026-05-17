@@ -35,6 +35,9 @@ static void export_const(WFILE *out, const Tac_Const *c)
     case TAC_CONST_ULONG_LONG:
         wputw((size_t)c->u.ulong_long_val, out);
         break;
+    case TAC_CONST_FLOAT:
+        wputd((double)c->u.float_val, out);
+        break;
     case TAC_CONST_DOUBLE:
         wputd(c->u.double_val, out);
         break;
@@ -84,6 +87,12 @@ static void export_instr(WFILE *out, const Tac_Instruction *instr)
     case TAC_INSTRUCTION_DOUBLE_TO_UINT:
     case TAC_INSTRUCTION_INT_TO_DOUBLE:
     case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
         export_val(out, instr->u.sign_extend.src);
         export_val(out, instr->u.sign_extend.dst);
         break;
@@ -278,6 +287,9 @@ static void export_static_init(WFILE *out, const Tac_StaticInit *si)
         break;
     case TAC_STATIC_INIT_U64:
         wputw((size_t)si->u.ulong_val, out);
+        break;
+    case TAC_STATIC_INIT_FLOAT:
+        wputd((double)si->u.float_val, out);
         break;
     case TAC_STATIC_INIT_DOUBLE:
         wputd(si->u.double_val, out);

@@ -372,7 +372,14 @@ struct Expr {
     Type *type; // for typecheck
 };
 
-typedef enum { LITERAL_INT, LITERAL_FLOAT, LITERAL_CHAR, LITERAL_STRING, LITERAL_ENUM } LiteralKind;
+typedef enum {
+    LITERAL_INT,
+    LITERAL_FLOAT,
+    LITERAL_DOUBLE,
+    LITERAL_CHAR,
+    LITERAL_STRING,
+    LITERAL_ENUM
+} LiteralKind;
 
 struct Literal {
     LiteralKind kind;
