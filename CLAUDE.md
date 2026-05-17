@@ -80,8 +80,8 @@ Source (.c)
 | Loop labeling | `semantic/label_loops.c` | Complete |
 | Const conversion | `semantic/const_convert.c` | Complete |
 | AST → TAC lowering | `translator/translate.c`, `expr.c`, `stmt.c` | Complete |
-| x86_64 code gen | `backend/x86/` | In progress |
-| BESM-6 code gen | `backend/besm6/` | In progress |
+| x86_64 code gen | `backend/x86/` | Planned |
+| BESM-6 code gen | `backend/besm6/` | Planned |
 | AArch64 / RISC-V / ARM32 code gen | — | Planned |
 
 ### Key data structures
@@ -119,7 +119,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `scanner/tests.cpp` → `scanner-tests`
 - `parser/simple_tests.cpp`, `statement_tests.cpp`, … (9 files, including `negative_tests.cpp`) → `parser-tests`
 - `tac/tac_yaml_tests.cpp`, `tac_graphviz_tests.cpp`, `tac_binary_tests.cpp` → `tac-tests`
-- `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `semantic/const_convert_tests.cpp` → `semantic-tests`
+- `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `typecheck_real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` → `semantic-tests`
 - `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`
 - `libutil/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-tests`
 
@@ -132,6 +132,10 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - [docs/Word_Oriented_IO.md](docs/Word_Oriented_IO.md) — word-oriented I/O (`wio`) for binary IR streams
 - [backend/x86/TODO.md](backend/x86/TODO.md) — x86_64 backend work plan with effort estimates
 - [backend/besm6/TODO.md](backend/besm6/TODO.md) — BESM-6 backend work plan with effort estimates
+- [docs/Besm6_Calling_Conventions.md](docs/Besm6_Calling_Conventions.md) — BESM-6 C calling convention (registers, c/save, c/ret)
+- [docs/Besm6_Instruction_Set.md](docs/Besm6_Instruction_Set.md) — BESM-6 instruction set reference
+- [docs/Madlen.md](docs/Madlen.md) — Madlen assembler syntax for the Dubna monitor
+- [docs/Type_Coercion.md](docs/Type_Coercion.md) — C11 type coercion and arithmetic conversion rules
 - [docs/C_Grammar.md](docs/C_Grammar.md) — C grammar article: scanner (`c11.l`), parser (`c11.y`), ASDL (`c11.asdl`), and how they relate to the hand-written implementation
 - [grammar/README.md](grammar/README.md) — C11 grammar coverage notes
 - [grammar/c11.y](grammar/c11.y), [grammar/c11.l](grammar/c11.l), [grammar/c11.asdl](grammar/c11.asdl) — reference grammar and abstract syntax (not used for code generation)

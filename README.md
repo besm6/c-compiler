@@ -19,8 +19,8 @@ A C11 compiler with a shared frontend and pluggable machine backends. Current ba
 | **`parse`** | Reads C source and writes an abstract syntax tree (AST): binary `.ast`, or `--yaml` / `--dot` for inspection and graphs. |
 | **`lower`** | Reads a binary AST stream and, per top-level declaration, runs **typecheck → `translate` → emit**. Output can be **binary TAC** (default), **YAML-like listing** via the TAC pretty-printer, or **Graphviz DOT** (`tac_graphviz`). Semantic analysis handles `typedef` (scoped `typetab`) and full `switch` validation (integer controlling expression with integer promotion; constant integer case values; duplicate-case and multiple-default rejection). TAC lowering is **complete**: arithmetic, control flow, functions (direct and indirect), pointers, arrays, structs, casts, `_Generic`, compound literals, and aggregate initializers all lower correctly. |
 | **TAC** | `tac/` builds **alloc/print/free/compare**, **`tac_export`** and **`tac_import`** (binary stream), **`tac_export_yaml`** (YAML listing), and **`tac_graphviz`** (DOT graph). Lowering lives in **`translator/translate.c`**. |
-| **x86_64 backend (`genx86`)** | In progress. Consumes binary TAC, emits GNU AT&T assembly (`.s`). See [backend/x86/TODO.md](backend/x86/TODO.md). |
-| **BESM-6 backend (`genbesm`)** | In progress. Emits Madlen assembly (`.mad`) for the Dubna monitor. See [backend/besm6/TODO.md](backend/besm6/TODO.md). |
+| **x86_64 backend (`genx86`)** | Planned. Work plan in [backend/x86/TODO.md](backend/x86/TODO.md). |
+| **BESM-6 backend (`genbesm`)** | Planned. Work plan in [backend/besm6/TODO.md](backend/besm6/TODO.md). |
 | **AArch64 / RISC-V / ARM32 backends** | Planned (not started). |
 | **Preprocessor, assembler, linker** | Not in this repo. |
 
@@ -38,7 +38,7 @@ A compiler is usually described as a pipeline. You can think of it like an assem
 4. **Intermediate code** (here, *three-address code*, TAC) is a machine-neutral form that is easier to optimize and translate than raw C syntax.
 5. **Backend** translates TAC into target-specific assembly. Current targets: **x86_64** (`genx86`, System V AMD64 ABI) and **BESM-6** (`genbesm`, Madlen / Dubna). Planned: AArch64, RISC-V, ARM32.
 
-Stages 1–3 are fully in place. Stage 4 is **complete**: the entire C11 is lowered to TAC. TAC can be emitted as **binary** or re-imported, listed as **YAML** (`--yaml`), or rendered as **DOT** (`--dot`). Stage 5 is in progress for x86_64 and BESM-6.
+Stages 1–3 are fully in place. Stage 4 is **complete**: the entire C11 is lowered to TAC. TAC can be emitted as **binary** or re-imported, listed as **YAML** (`--yaml`), or rendered as **DOT** (`--dot`). Stage 5 is planned for x86_64 and BESM-6.
 
 ```mermaid
 flowchart LR
@@ -123,6 +123,10 @@ For debug logging, verbose mode, and full `lower` behavior, see [docs/Technical_
 | [grammar/README.md](grammar/README.md) | Notes on the C11 grammar artifacts in `grammar/` |
 | [backend/x86/TODO.md](backend/x86/TODO.md) | x86_64 backend work plan |
 | [backend/besm6/TODO.md](backend/besm6/TODO.md) | BESM-6 backend work plan |
+| [docs/Besm6_Calling_Conventions.md](docs/Besm6_Calling_Conventions.md) | BESM-6 C calling convention (registers, c/save, c/ret) |
+| [docs/Besm6_Instruction_Set.md](docs/Besm6_Instruction_Set.md) | BESM-6 instruction set reference |
+| [docs/Madlen.md](docs/Madlen.md) | Madlen assembler syntax for the Dubna monitor |
+| [docs/Type_Coercion.md](docs/Type_Coercion.md) | C11 type coercion and arithmetic conversion rules |
 
 ## License
 

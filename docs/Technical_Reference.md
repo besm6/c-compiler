@@ -81,7 +81,7 @@ Recursive-descent parser guided by the C11 grammar in `grammar/` (not generated 
 | `main.c` | `parse` entry: `parse` → `export_ast` / `export_yaml` / `export_dot` |
 | `fixture.h` | Test helpers |
 
-Parser tests: `simple_tests.cpp`, `statement_tests.cpp`, `operator_tests.cpp`, `type_tests.cpp`, `struct_tests.cpp`, `declaration_tests.cpp`, `constant_tests.cpp`, `serialize_tests.cpp`, `negative_tests.cpp` → `parser-tests`.
+Parser tests (9 files): `simple_tests.cpp`, `statement_tests.cpp`, `operator_tests.cpp`, `type_tests.cpp`, `struct_tests.cpp`, `declaration_tests.cpp`, `constant_tests.cpp`, `serialize_tests.cpp`, `negative_tests.cpp` → `parser-tests`.
 
 ### AST (`ast/`)
 
@@ -105,6 +105,10 @@ AST values are implemented in C (`ast.h` and companion `.c` files). Binary seria
 | `structtab.c`, `structtab.h` | Scoped struct/union/enum tag → StructDef map |
 | `typetab.c`, `typetab.h` | Scoped typedef name → TypeDef map |
 | `typecheck.c` | Type checking and name binding (single-pass) |
+| `expressions.c` | Expression semantic analysis |
+| `initializers.c` | Static initializer evaluation |
+| `statements.c` | Statement semantic analysis |
+| `declarations.c` | Declaration processing |
 | `label_loops.c` | Annotates loop/switch statements with break/continue jump targets |
 | `type_utils.c` | Type helpers: `get_size`, `get_alignment`, `is_integer`, etc. |
 | `const_convert.c` | Constant-expression evaluation and conversion |
@@ -112,7 +116,7 @@ AST values are implemented in C (`ast.h` and companion `.c` files). Binary seria
 | `structtab_print.c` | Debug printer for structtab entries |
 | `typetab_print.c` | Debug printer for typetab entries |
 
-Tests: `symtab_tests.cpp` → `symtab-tests`; `structtab_tests.cpp` → `structtab-tests`; `typetab_tests.cpp` → `typetab-tests`; `typecheck_tests.cpp` → `typecheck-tests`; `const_convert_tests.cpp` → `const-convert-tests` (22 tests for constant-expression conversion).
+Tests (9 files): `symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `typecheck_real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` → `semantic-tests`.
 
 ### Translator (`translator/`)
 
@@ -274,7 +278,7 @@ Reference grammars and notes. See [grammar/README.md](../grammar/README.md) for 
 | **wio** | `wio.c`, `wio.h` | Binary I/O for AST and TAC streams |
 | **string_map** | `string_map.c`, `string_map.h` | Map used in symbol and type tables |
 
-Tests: `string_map_tests.cpp` → `libutil-tests`; `wio_tests.cpp` → `wio-tests`; `xalloc_tests.cpp` → `xalloc-tests`.
+Tests: `string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-tests`.
 
 ### Scripts (`scripts/`)
 
@@ -313,27 +317,22 @@ Test executables and their sources:
 | Executable | Sources (under repo root) |
 |------------|---------------------------|
 | `scanner-tests` | `scanner/tests.cpp` |
-| `parser-tests` | `parser/simple_tests.cpp`, …, `serialize_tests.cpp` (8 files) |
+| `parser-tests` | `parser/simple_tests.cpp`, …, `serialize_tests.cpp` (9 files) |
 | `ast-tests` | `ast/clone_tests.cpp` |
-| `libutil-tests` | `libutil/string_map_tests.cpp` |
-| `wio-tests` | `libutil/wio_tests.cpp` |
-| `xalloc-tests` | `libutil/xalloc_tests.cpp` |
-| `symtab-tests` | `semantic/symtab_tests.cpp` |
-| `structtab-tests` | `semantic/structtab_tests.cpp` |
-| `typetab-tests` | `semantic/typetab_tests.cpp` |
-| `typecheck-tests` | `semantic/typecheck_tests.cpp` |
-| `const-convert-tests` | `semantic/const_convert_tests.cpp` |
-| `tac-yaml-tests` | `tac/tac_yaml_tests.cpp` |
-| `tac-dot-tests` | `tac/tac_graphviz_tests.cpp` |
-| `tac-binary-tests` | `tac/tac_binary_tests.cpp` |
+| `libutil-tests` | `libutil/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` |
+| `tac-tests` | `tac/tac_yaml_tests.cpp`, `tac_graphviz_tests.cpp`, `tac_binary_tests.cpp` |
+| `semantic-tests` | `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `typecheck_real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` |
 | `translate-tests` | `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` |
 
 Run a single binary from `build/`:
 
 ```bash
-./build/parser-tests
-./build/xalloc-tests
-./build/semantic/typecheck-tests
+./build/libutil-tests
+./build/scanner/scanner-tests
+./build/parser/parser-tests
+./build/ast/ast-tests
+./build/tac/tac-tests
+./build/semantic/semantic-tests
 ./build/translator/translate-tests
 ```
 
