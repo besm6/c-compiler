@@ -96,12 +96,20 @@ Tac_StaticInit *new_static_init_from_literal(const Type *target_type, const Lite
         break;
 
     case TYPE_SHORT:
+        result              = tac_new_static_init(TAC_STATIC_INIT_I16);
+        result->u.short_val = (int16_t)literal_to_int64(lit);
+        break;
+
     case TYPE_INT:
         result            = tac_new_static_init(TAC_STATIC_INIT_I32);
         result->u.int_val = (int32_t)literal_to_int64(lit);
         break;
 
     case TYPE_USHORT:
+        result               = tac_new_static_init(TAC_STATIC_INIT_U16);
+        result->u.ushort_val = (uint16_t)literal_to_int64(lit);
+        break;
+
     case TYPE_UINT:
         result             = tac_new_static_init(TAC_STATIC_INIT_U32);
         result->u.uint_val = (uint32_t)literal_to_int64(lit);

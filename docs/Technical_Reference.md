@@ -6,19 +6,18 @@ This document lists repository layout, build details, components, tests, and dev
 
 ```
 c-compiler/
-├── ast/                 # AST: types, alloc, import/export, YAML, Graphviz, print, clone, compare, free
-├── docs/                # Project documentation (this file)
-├── grammar/             # C11 Yacc/Lex/ASDL reference; see docs/C_Grammar.md
-├── libutil/             # xalloc, wio, string_map
-├── parser/              # Recursive-descent parser, nametab; parse driver
-├── scanner/             # Hand-written lexer
-├── scripts/             # googletest.xml (cppcheck), validate_asdl.py
-├── semantic/            # symtab, structtab, typetab, typecheck, label_loops, const_convert
-├── tac/                 # TAC IR: alloc, print, free, compare, export/import, YAML, Graphviz
-├── translator/          # AST→TAC lowering (translate, expr, stmt); lower driver
-├── translator/attic/    # Older experiments (not linked by CMake)
-├── CMakeLists.txt       # Root CMake project (project name: c-scanner)
-├── Makefile             # Convenience: mkdir build, cmake, make test
+├── ast/            # AST: types, alloc, import/export, YAML, Graphviz, print, clone, compare, free
+├── docs/           # Project documentation (this file)
+├── grammar/        # C11 Yacc/Lex/ASDL reference; see docs/C_Grammar.md
+├── libutil/        # xalloc, wio, string_map
+├── parser/         # Recursive-descent parser, nametab; parse driver
+├── scanner/        # Hand-written lexer
+├── scripts/        # googletest.xml (cppcheck), validate_asdl.py
+├── semantic/       # symtab, structtab, typetab, typecheck, label_loops, const_convert
+├── tac/            # TAC IR: alloc, print, free, compare, export/import, YAML, Graphviz
+├── translator/     # AST→TAC lowering (translate, expr, stmt); lower driver
+├── CMakeLists.txt  # Root CMake project (project name: c-scanner)
+├── Makefile        # Convenience: mkdir build, cmake, make test
 └── LICENSE
 ```
 
@@ -129,8 +128,6 @@ Tests (9 files): `symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`,
 | `main.c` | `lower` entry: import → semantic passes → translate → emit |
 
 Tests: `decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`.
-
-The `translator/attic/` directory holds older experiments; it is not linked into the main libraries.
 
 ### TAC (`tac/`)
 

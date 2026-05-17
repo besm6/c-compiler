@@ -308,9 +308,11 @@ typedef struct Tac_Type {
 //
 typedef enum {
     TAC_STATIC_INIT_I8,
+    TAC_STATIC_INIT_I16,
     TAC_STATIC_INIT_I32,
     TAC_STATIC_INIT_I64,
     TAC_STATIC_INIT_U8,
+    TAC_STATIC_INIT_U16,
     TAC_STATIC_INIT_U32,
     TAC_STATIC_INIT_U64,
     TAC_STATIC_INIT_DOUBLE,
@@ -323,19 +325,21 @@ typedef struct Tac_StaticInit {
     struct Tac_StaticInit *next; // Linked list
     Tac_StaticInitKind kind;
     union {
-        int8_t char_val;    // INIT_I8
-        int32_t int_val;    // INIT_I32
-        int64_t long_val;   // INIT_I64
-        uint8_t uchar_val;  // INIT_U8
-        uint32_t uint_val;  // INIT_U32
-        uint64_t ulong_val; // INIT_U64
-        double double_val;  // INIT_DOUBLE
-        int zero_bytes;     // INIT_ZERO
+        int8_t char_val;     // INIT_I8
+        int16_t short_val;   // INIT_I16
+        int32_t int_val;     // INIT_I32
+        int64_t long_val;    // INIT_I64
+        uint8_t uchar_val;   // INIT_U8
+        uint16_t ushort_val; // INIT_U16
+        uint32_t uint_val;   // INIT_U32
+        uint64_t ulong_val;  // INIT_U64
+        double double_val;   // INIT_DOUBLE
+        int zero_bytes;      // INIT_ZERO
         struct {
             char *val;
             bool null_terminated;
-        } string;           // INIT_STRING
-        char *pointer_name; // INIT_POINTER (name of array)
+        } string;            // INIT_STRING
+        char *pointer_name;  // INIT_POINTER (name of array)
     } u;
 } Tac_StaticInit;
 

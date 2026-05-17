@@ -202,6 +202,11 @@ static void export_yaml_static_init(FILE *fd, const Tac_StaticInit *init, int le
         print_indent(fd, level);
         fprintf(fd, "value: %d\n", (int)init->u.char_val);
         break;
+    case TAC_STATIC_INIT_I16:
+        fprintf(fd, "i16\n");
+        print_indent(fd, level);
+        fprintf(fd, "value: %" PRId16 "\n", init->u.short_val);
+        break;
     case TAC_STATIC_INIT_I32:
         fprintf(fd, "i32\n");
         print_indent(fd, level);
@@ -216,6 +221,11 @@ static void export_yaml_static_init(FILE *fd, const Tac_StaticInit *init, int le
         fprintf(fd, "u8\n");
         print_indent(fd, level);
         fprintf(fd, "value: %u\n", (unsigned)init->u.uchar_val);
+        break;
+    case TAC_STATIC_INIT_U16:
+        fprintf(fd, "u16\n");
+        print_indent(fd, level);
+        fprintf(fd, "value: %" PRIu16 "\n", init->u.ushort_val);
         break;
     case TAC_STATIC_INIT_U32:
         fprintf(fd, "u32\n");

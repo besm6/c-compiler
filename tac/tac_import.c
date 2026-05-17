@@ -153,6 +153,10 @@ static Tac_StaticInit *import_static_init(WFILE *in)
         si->u.char_val = (int8_t)wgetw(in);
         check_input(in, "static_init i8");
         break;
+    case TAC_STATIC_INIT_I16:
+        si->u.short_val = (int16_t)wgetw(in);
+        check_input(in, "static_init i16");
+        break;
     case TAC_STATIC_INIT_I32:
         si->u.int_val = (int32_t)wgetw(in);
         check_input(in, "static_init i32");
@@ -164,6 +168,10 @@ static Tac_StaticInit *import_static_init(WFILE *in)
     case TAC_STATIC_INIT_U8:
         si->u.uchar_val = (uint8_t)wgetw(in);
         check_input(in, "static_init u8");
+        break;
+    case TAC_STATIC_INIT_U16:
+        si->u.ushort_val = (uint16_t)wgetw(in);
+        check_input(in, "static_init u16");
         break;
     case TAC_STATIC_INIT_U32:
         si->u.uint_val = (uint32_t)wgetw(in);

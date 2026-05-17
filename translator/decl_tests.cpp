@@ -403,6 +403,40 @@ TEST_F(TranslateTest, GlobalVarInitialized)
 )");
 }
 
+// Initialized global short variable emits static_variable with i16 init.
+TEST_F(TranslateTest, GlobalVarShortInitialized)
+{
+    std::string yaml = CompileToYaml("short x = 42;");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: x
+  global: true
+  type:
+    kind: short
+  init_list:
+    - init:
+      kind: i16
+      value: 42
+)");
+}
+
+// Initialized global unsigned short variable emits static_variable with u16 init.
+TEST_F(TranslateTest, GlobalVarUshortInitialized)
+{
+    std::string yaml = CompileToYaml("unsigned short x = 1000;");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: x
+  global: true
+  type:
+    kind: ushort
+  init_list:
+    - init:
+      kind: u16
+      value: 1000
+)");
+}
+
 // Static global variable sets global=false.
 TEST_F(TranslateTest, GlobalVarStatic)
 {

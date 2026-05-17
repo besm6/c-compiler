@@ -222,6 +222,9 @@ static void emit_static_init(FILE *fd, const Tac_StaticInit *init, int parent_id
         case TAC_STATIC_INIT_I8:
             fprintf(fd, "i8 %d", (int)init->u.char_val);
             break;
+        case TAC_STATIC_INIT_I16:
+            fprintf(fd, "i16 %" PRId16, init->u.short_val);
+            break;
         case TAC_STATIC_INIT_I32:
             fprintf(fd, "i32 %" PRId32, init->u.int_val);
             break;
@@ -230,6 +233,9 @@ static void emit_static_init(FILE *fd, const Tac_StaticInit *init, int parent_id
             break;
         case TAC_STATIC_INIT_U8:
             fprintf(fd, "u8 %u", (unsigned)init->u.uchar_val);
+            break;
+        case TAC_STATIC_INIT_U16:
+            fprintf(fd, "u16 %" PRIu16, init->u.ushort_val);
             break;
         case TAC_STATIC_INIT_U32:
             fprintf(fd, "u32 %" PRIu32, init->u.uint_val);

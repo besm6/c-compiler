@@ -221,6 +221,171 @@ TEST_F(TranslateTest, CastDoubleToUint)
 )");
 }
 
+// (short)x where x is int: wider → narrower → truncate
+TEST_F(TranslateTest, CastIntToShort)
+{
+    std::string yaml = CompileToYaml("short f(int x) { return (short)x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: x
+  body:
+    - instruction:
+      kind: truncate
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+)");
+}
+
+// (int)x where x is short: narrower signed → wider signed → sign_extend
+TEST_F(TranslateTest, CastShortToInt)
+{
+    std::string yaml = CompileToYaml("int f(short x) { return (int)x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: x
+  body:
+    - instruction:
+      kind: sign_extend
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+)");
+}
+
+// (unsigned short)x where x is unsigned int: wider → narrower → truncate
+TEST_F(TranslateTest, CastUintToUshort)
+{
+    std::string yaml =
+        CompileToYaml("unsigned short f(unsigned int x) { return (unsigned short)x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: x
+  body:
+    - instruction:
+      kind: truncate
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+)");
+}
+
+// (unsigned int)x where x is unsigned short: narrower unsigned → wider → zero_extend
+TEST_F(TranslateTest, CastUshortToUint)
+{
+    std::string yaml =
+        CompileToYaml("unsigned int f(unsigned short x) { return (unsigned int)x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: x
+  body:
+    - instruction:
+      kind: zero_extend
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+)");
+}
+
+// (long)x where x is short: narrower signed → wider → sign_extend
+TEST_F(TranslateTest, CastShortToLong)
+{
+    std::string yaml = CompileToYaml("long f(short x) { return (long)x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: x
+  body:
+    - instruction:
+      kind: sign_extend
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+)");
+}
+
+// (unsigned long)x where x is unsigned short: narrower unsigned → wider → zero_extend
+TEST_F(TranslateTest, CastUshortToUlong)
+{
+    std::string yaml =
+        CompileToYaml("unsigned long f(unsigned short x) { return (unsigned long)x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: x
+  body:
+    - instruction:
+      kind: zero_extend
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: t.0
+)");
+}
+
 // Cast embedded in a larger expression: (long)x + y
 TEST_F(TranslateTest, CastEmbeddedInExpr)
 {

@@ -258,6 +258,9 @@ static void export_static_init(WFILE *out, const Tac_StaticInit *si)
     case TAC_STATIC_INIT_I8:
         wputw((size_t)(unsigned char)si->u.char_val, out);
         break;
+    case TAC_STATIC_INIT_I16:
+        wputw((size_t)(uint16_t)si->u.short_val, out);
+        break;
     case TAC_STATIC_INIT_I32:
         wputw((size_t)(unsigned int)si->u.int_val, out);
         break;
@@ -266,6 +269,9 @@ static void export_static_init(WFILE *out, const Tac_StaticInit *si)
         break;
     case TAC_STATIC_INIT_U8:
         wputw((size_t)si->u.uchar_val, out);
+        break;
+    case TAC_STATIC_INIT_U16:
+        wputw((size_t)si->u.ushort_val, out);
         break;
     case TAC_STATIC_INIT_U32:
         wputw((size_t)si->u.uint_val, out);

@@ -37,14 +37,16 @@ module TAC {
                    | LessThan | LessOrEqual | GreaterThan | GreaterOrEqual
                    | BitwiseAnd | BitwiseOr | BitwiseXor | LeftShift | RightShift
 
-    Type = Char | SChar | UChar | Int | Long | UInt | ULong | Double | Void
+    Type = Char | SChar | UChar | Short | UShort | Int | Long | UInt | ULong | Double | Void
          | FunType(Type* params, Type ret)
          | Pointer(Type referenced)
          | Array(Type element, int size)
          | Structure(identifier tag)
 
-    StaticInit = IntInit(int val) | LongInit(long val) | UIntInit(int val) | ULongInit(long val)
-               | CharInit(int val) | UCharInit(int val)
+    StaticInit = CharInit(int val) | UCharInit(int val)
+               | ShortInit(int val) | UShortInit(int val)
+               | IntInit(int val) | UIntInit(int val)
+               | LongInit(long val) | ULongInit(long val)
                | DoubleInit(double val) | ZeroInit(int bytes)
                | StringInit(string val, bool null_terminated)
                | PointerInit(string name)

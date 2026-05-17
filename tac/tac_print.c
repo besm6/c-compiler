@@ -203,6 +203,9 @@ void tac_print_static_init(FILE *fd, const Tac_StaticInit *init, int depth)
     case TAC_STATIC_INIT_I8:
         fprintf(fd, "i8 %d\n", init->u.char_val);
         break;
+    case TAC_STATIC_INIT_I16:
+        fprintf(fd, "i16 %" PRId16 "\n", init->u.short_val);
+        break;
     case TAC_STATIC_INIT_I32:
         fprintf(fd, "i32 %d\n", init->u.int_val);
         break;
@@ -211,6 +214,9 @@ void tac_print_static_init(FILE *fd, const Tac_StaticInit *init, int depth)
         break;
     case TAC_STATIC_INIT_U8:
         fprintf(fd, "u8 %u\n", init->u.uchar_val);
+        break;
+    case TAC_STATIC_INIT_U16:
+        fprintf(fd, "u16 %" PRIu16 "\n", init->u.ushort_val);
         break;
     case TAC_STATIC_INIT_U32:
         fprintf(fd, "u32 %u\n", init->u.uint_val);
