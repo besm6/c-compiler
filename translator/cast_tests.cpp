@@ -533,3 +533,36 @@ TEST_F(TranslateTest, CastDoubleToFloat)
         name: t.0
 )");
 }
+
+// ---------------------------------------------------------------------------
+// long long cast tests
+// ---------------------------------------------------------------------------
+
+// (long long)x where x is int: narrower signed → wider signed → sign_extend
+TEST_F(TranslateTest, CastIntToLongLong)
+{
+    std::string yaml = CompileToYaml("long long f(int x) { return (long long)x; }");
+    EXPECT_NE(yaml.find("kind: sign_extend"), std::string::npos);
+}
+
+// (int)x where x is long long: wider → narrower → truncate
+TEST_F(TranslateTest, CastLongLongToInt)
+{
+    std::string yaml = CompileToYaml("int f(long long x) { return (int)x; }");
+    EXPECT_NE(yaml.find("kind: truncate"), std::string::npos);
+}
+
+// (unsigned long long)x where x is long long: same size → copy
+TEST_F(TranslateTest, CastLongLongToULongLong)
+{
+    std::string yaml = CompileToYaml(
+        "unsigned long long f(long long x) { return (unsigned long long)x; }");
+    EXPECT_NE(yaml.find("kind: copy"), std::string::npos);
+}
+
+// (long long)x where x is unsigned int: narrower unsigned → wider signed → zero_extend
+TEST_F(TranslateTest, CastUintToLongLong)
+{
+    std::string yaml = CompileToYaml("long long f(unsigned int x) { return (long long)x; }");
+    EXPECT_NE(yaml.find("kind: zero_extend"), std::string::npos);
+}

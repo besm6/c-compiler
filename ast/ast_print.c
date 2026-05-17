@@ -340,6 +340,18 @@ static void print_literal(FILE *fd, const Literal *lit, int indent)
     case LITERAL_INT:
         fprintf(fd, "int %d\n", lit->u.int_val);
         break;
+    case LITERAL_LONG:
+        fprintf(fd, "long %ld\n", lit->u.long_val);
+        break;
+    case LITERAL_LONG_LONG:
+        fprintf(fd, "long long %lld\n", lit->u.long_long_val);
+        break;
+    case LITERAL_ULONG:
+        fprintf(fd, "unsigned long %lu\n", lit->u.ulong_val);
+        break;
+    case LITERAL_ULONG_LONG:
+        fprintf(fd, "unsigned long long %llu\n", lit->u.ulong_long_val);
+        break;
     case LITERAL_FLOAT:
         fprintf(fd, "float %f\n", lit->u.real_val);
         break;

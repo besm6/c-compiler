@@ -293,6 +293,14 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         switch (e->u.literal->kind) {
         case LITERAL_INT:
             return val_int(e->u.literal->u.int_val);
+        case LITERAL_LONG:
+            return val_long(e->u.literal->u.long_val);
+        case LITERAL_LONG_LONG:
+            return val_long_long(e->u.literal->u.long_long_val);
+        case LITERAL_ULONG:
+            return val_ulong(e->u.literal->u.ulong_val);
+        case LITERAL_ULONG_LONG:
+            return val_ulong_long(e->u.literal->u.ulong_long_val);
         case LITERAL_FLOAT:
             return val_float((float)e->u.literal->u.real_val);
         case LITERAL_DOUBLE:

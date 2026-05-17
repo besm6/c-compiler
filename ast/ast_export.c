@@ -463,6 +463,18 @@ void export_literal(WFILE *fd, const Literal *lit)
     case LITERAL_INT:
         wputw((size_t)lit->u.int_val, fd);
         break;
+    case LITERAL_LONG:
+        wputw((size_t)(unsigned long)lit->u.long_val, fd);
+        break;
+    case LITERAL_LONG_LONG:
+        wputw((size_t)(unsigned long long)lit->u.long_long_val, fd);
+        break;
+    case LITERAL_ULONG:
+        wputw((size_t)lit->u.ulong_val, fd);
+        break;
+    case LITERAL_ULONG_LONG:
+        wputw((size_t)lit->u.ulong_long_val, fd);
+        break;
     case LITERAL_FLOAT:
     case LITERAL_DOUBLE:
         wputd(lit->u.real_val, fd);

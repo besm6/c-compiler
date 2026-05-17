@@ -42,6 +42,42 @@ Tac_Val *val_int(int v)
     return tv;
 }
 
+Tac_Val *val_long(long v)
+{
+    Tac_Val *tv    = tac_new_val(TAC_VAL_CONSTANT);
+    Tac_Const *c   = tac_new_const(TAC_CONST_LONG);
+    c->u.long_val  = v;
+    tv->u.constant = c;
+    return tv;
+}
+
+Tac_Val *val_long_long(long long v)
+{
+    Tac_Val *tv        = tac_new_val(TAC_VAL_CONSTANT);
+    Tac_Const *c       = tac_new_const(TAC_CONST_LONG_LONG);
+    c->u.long_long_val = v;
+    tv->u.constant     = c;
+    return tv;
+}
+
+Tac_Val *val_ulong(unsigned long v)
+{
+    Tac_Val *tv    = tac_new_val(TAC_VAL_CONSTANT);
+    Tac_Const *c   = tac_new_const(TAC_CONST_ULONG);
+    c->u.ulong_val = v;
+    tv->u.constant = c;
+    return tv;
+}
+
+Tac_Val *val_ulong_long(unsigned long long v)
+{
+    Tac_Val *tv             = tac_new_val(TAC_VAL_CONSTANT);
+    Tac_Const *c            = tac_new_const(TAC_CONST_ULONG_LONG);
+    c->u.ulong_long_val     = v;
+    tv->u.constant          = c;
+    return tv;
+}
+
 Tac_Val *val_float(float v)
 {
     Tac_Val *tv    = tac_new_val(TAC_VAL_CONSTANT);

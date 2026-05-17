@@ -56,7 +56,16 @@ static Initializer *make_zero_init(Type *t)
         init->u.expr->u.literal = new_literal(LITERAL_INT);
         break;
     case TYPE_LONG:
-        init->u.expr->u.literal = new_literal(LITERAL_INT); // Simplified
+        init->u.expr->u.literal = new_literal(LITERAL_LONG);
+        break;
+    case TYPE_LONG_LONG:
+        init->u.expr->u.literal = new_literal(LITERAL_LONG_LONG);
+        break;
+    case TYPE_ULONG:
+        init->u.expr->u.literal = new_literal(LITERAL_ULONG);
+        break;
+    case TYPE_ULONG_LONG:
+        init->u.expr->u.literal = new_literal(LITERAL_ULONG_LONG);
         break;
     case TYPE_FLOAT:
         init->u.expr->u.literal = new_literal(LITERAL_FLOAT);
@@ -209,7 +218,14 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         const Expr *expr = typecheck_and_decay(init->u.expr);
         long val;
         if (try_eval_const_int(expr, &val)) {
-            Literal lit = { .kind = LITERAL_INT, .u.int_val = (int)val };
+            Literal lit;
+            if (get_size(var_type) == 8 && is_signed(var_type)) {
+                lit = (Literal){ .kind = LITERAL_LONG_LONG, .u.long_long_val = (long long)val };
+            } else if (get_size(var_type) == 8) {
+                lit = (Literal){ .kind = LITERAL_ULONG_LONG, .u.ulong_long_val = (unsigned long long)(unsigned long)val };
+            } else {
+                lit = (Literal){ .kind = LITERAL_INT, .u.int_val = (int)val };
+            }
             return new_static_init_from_literal(var_type, &lit);
         }
     }

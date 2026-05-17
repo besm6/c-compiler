@@ -374,6 +374,10 @@ struct Expr {
 
 typedef enum {
     LITERAL_INT,
+    LITERAL_LONG,
+    LITERAL_LONG_LONG,
+    LITERAL_ULONG,
+    LITERAL_ULONG_LONG,
     LITERAL_FLOAT,
     LITERAL_DOUBLE,
     LITERAL_CHAR,
@@ -385,6 +389,10 @@ struct Literal {
     LiteralKind kind;
     union {
         int int_val;
+        long long_val;
+        long long long_long_val;
+        unsigned long ulong_val;
+        unsigned long long ulong_long_val;
         double real_val;
         char char_val;
         char *string_val;

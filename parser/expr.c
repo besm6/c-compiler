@@ -264,19 +264,25 @@ Expr *parse_constant()
         while (*p && *p != '\'' && !isdigit((unsigned char)*p))
             p++;
         if (*p == '\'') {
+            expr->u.literal->kind      = LITERAL_INT;
             expr->u.literal->u.int_val = parse_char_literal(current_lexeme);
         } else {
-            char *end       = NULL;
-            unsigned long v = strtoul(current_lexeme, &end, 0);
+            char              *end       = NULL;
+            unsigned long long v         = strtoull(current_lexeme, &end, 0);
+            bool               is_unsigned = false;
+            int                long_count  = 0;
             if (end) {
                 while (*end) {
                     if (*end == 'u' || *end == 'U') {
+                        is_unsigned = true;
                         end++;
                         continue;
                     }
                     if (*end == 'l' || *end == 'L') {
+                        long_count++;
                         end++;
                         if (*end == 'l' || *end == 'L') {
+                            long_count++;
                             end++;
                         }
                         continue;
@@ -284,7 +290,22 @@ Expr *parse_constant()
                     break;
                 }
             }
-            expr->u.literal->u.int_val = (int)v;
+            if (long_count >= 2 && is_unsigned) {
+                expr->u.literal->kind             = LITERAL_ULONG_LONG;
+                expr->u.literal->u.ulong_long_val = v;
+            } else if (long_count >= 2) {
+                expr->u.literal->kind             = LITERAL_LONG_LONG;
+                expr->u.literal->u.long_long_val  = (long long)v;
+            } else if (long_count == 1 && is_unsigned) {
+                expr->u.literal->kind         = LITERAL_ULONG;
+                expr->u.literal->u.ulong_val  = (unsigned long)v;
+            } else if (long_count == 1) {
+                expr->u.literal->kind         = LITERAL_LONG;
+                expr->u.literal->u.long_val   = (long)v;
+            } else {
+                expr->u.literal->kind         = LITERAL_INT;
+                expr->u.literal->u.int_val    = (int)v;
+            }
         }
         break;
     }

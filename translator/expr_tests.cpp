@@ -757,3 +757,48 @@ TEST_F(TranslateTest, DoubleLiteral)
     EXPECT_NE(yaml.find("kind: double"), std::string::npos);
     EXPECT_NE(yaml.find("value: 0x1.8p+0"), std::string::npos);
 }
+
+// ---------------------------------------------------------------------------
+// long long / long / ulong / ulong_long literals
+// ---------------------------------------------------------------------------
+
+// Small LL literal gets TAC kind long_long, not int.
+TEST_F(TranslateTest, LongLongLiteralSmall)
+{
+    std::string yaml = CompileToYaml("long long f(void) { return 10LL; }");
+    EXPECT_NE(yaml.find("kind: long_long"), std::string::npos);
+    EXPECT_NE(yaml.find("value: 10"), std::string::npos);
+}
+
+// Large LL literal preserves all 64 bits.
+TEST_F(TranslateTest, LongLongLiteralLarge)
+{
+    std::string yaml = CompileToYaml(
+        "long long f(void) { long long x = 9999999999LL; return x; }");
+    EXPECT_NE(yaml.find("kind: long_long"), std::string::npos);
+    EXPECT_NE(yaml.find("value: 9999999999"), std::string::npos);
+}
+
+// ULL literal gets TAC kind ulong_long.
+TEST_F(TranslateTest, ULongLongLiteral)
+{
+    std::string yaml = CompileToYaml("unsigned long long f(void) { return 10ULL; }");
+    EXPECT_NE(yaml.find("kind: ulong_long"), std::string::npos);
+    EXPECT_NE(yaml.find("value: 10"), std::string::npos);
+}
+
+// L suffix literal gets TAC kind long.
+TEST_F(TranslateTest, LongLiteral)
+{
+    std::string yaml = CompileToYaml("long f(void) { return 10L; }");
+    EXPECT_NE(yaml.find("kind: long"), std::string::npos);
+    EXPECT_NE(yaml.find("value: 10"), std::string::npos);
+}
+
+// UL suffix literal gets TAC kind ulong.
+TEST_F(TranslateTest, ULongLiteral)
+{
+    std::string yaml = CompileToYaml("unsigned long f(void) { return 10UL; }");
+    EXPECT_NE(yaml.find("kind: ulong"), std::string::npos);
+    EXPECT_NE(yaml.find("value: 10"), std::string::npos);
+}

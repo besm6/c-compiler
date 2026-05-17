@@ -199,6 +199,14 @@ bool is_zero_int(const Literal *c)
     switch (c->kind) {
     case LITERAL_INT:
         return c->u.int_val == 0;
+    case LITERAL_LONG:
+        return c->u.long_val == 0;
+    case LITERAL_LONG_LONG:
+        return c->u.long_long_val == 0;
+    case LITERAL_ULONG:
+        return c->u.ulong_val == 0;
+    case LITERAL_ULONG_LONG:
+        return c->u.ulong_long_val == 0;
     case LITERAL_CHAR:
         return c->u.char_val == 0;
     case LITERAL_ENUM:
@@ -326,6 +334,18 @@ bool try_eval_const_int(const Expr *e, long *out)
         switch (e->u.literal->kind) {
         case LITERAL_INT:
             *out = e->u.literal->u.int_val;
+            return true;
+        case LITERAL_LONG:
+            *out = e->u.literal->u.long_val;
+            return true;
+        case LITERAL_LONG_LONG:
+            *out = (long)e->u.literal->u.long_long_val;
+            return true;
+        case LITERAL_ULONG:
+            *out = (long)e->u.literal->u.ulong_val;
+            return true;
+        case LITERAL_ULONG_LONG:
+            *out = (long)e->u.literal->u.ulong_long_val;
             return true;
         case LITERAL_CHAR:
             *out = (unsigned char)e->u.literal->u.char_val;

@@ -615,6 +615,22 @@ Literal *import_literal(WFILE *input)
         lit->u.int_val = (int)wgetw(input);
         check_input(input, "literal int");
         break;
+    case LITERAL_LONG:
+        lit->u.long_val = (long)wgetw(input);
+        check_input(input, "literal long");
+        break;
+    case LITERAL_LONG_LONG:
+        lit->u.long_long_val = (long long)wgetw(input);
+        check_input(input, "literal long long");
+        break;
+    case LITERAL_ULONG:
+        lit->u.ulong_val = (unsigned long)wgetw(input);
+        check_input(input, "literal ulong");
+        break;
+    case LITERAL_ULONG_LONG:
+        lit->u.ulong_long_val = (unsigned long long)wgetw(input);
+        check_input(input, "literal ulong long");
+        break;
     case LITERAL_FLOAT:
     case LITERAL_DOUBLE:
         lit->u.real_val = wgetd(input);

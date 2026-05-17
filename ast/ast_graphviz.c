@@ -481,6 +481,18 @@ static void export_literal(FILE *fd, const Literal *lit, int parent_id)
     case LITERAL_INT:
         fprintf(fd, "int: %d", lit->u.int_val);
         break;
+    case LITERAL_LONG:
+        fprintf(fd, "long: %ld", lit->u.long_val);
+        break;
+    case LITERAL_LONG_LONG:
+        fprintf(fd, "long long: %lld", lit->u.long_long_val);
+        break;
+    case LITERAL_ULONG:
+        fprintf(fd, "unsigned long: %lu", lit->u.ulong_val);
+        break;
+    case LITERAL_ULONG_LONG:
+        fprintf(fd, "unsigned long long: %llu", lit->u.ulong_long_val);
+        break;
     case LITERAL_FLOAT:
         fprintf(fd, "float: %f", lit->u.real_val);
         break;

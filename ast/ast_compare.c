@@ -350,6 +350,14 @@ bool compare_literal(const Literal *a, const Literal *b)
     switch (a->kind) {
     case LITERAL_INT:
         return a->u.int_val == b->u.int_val;
+    case LITERAL_LONG:
+        return a->u.long_val == b->u.long_val;
+    case LITERAL_LONG_LONG:
+        return a->u.long_long_val == b->u.long_long_val;
+    case LITERAL_ULONG:
+        return a->u.ulong_val == b->u.ulong_val;
+    case LITERAL_ULONG_LONG:
+        return a->u.ulong_long_val == b->u.ulong_long_val;
     case LITERAL_FLOAT:
     case LITERAL_DOUBLE:
         return a->u.real_val == b->u.real_val;

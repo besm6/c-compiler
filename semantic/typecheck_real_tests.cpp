@@ -286,3 +286,38 @@ TEST_F(TypecheckTest, InitArray2D)
     )");
     typecheck_program(program);
 }
+
+// long long literal with LL suffix typechecks without error.
+TEST_F(TypecheckTest, LongLongLiteralLL)
+{
+    ParseProgram("long long x = 9999999999LL;");
+    typecheck_program(program);
+}
+
+// unsigned long long literal with ULL suffix typechecks without error.
+TEST_F(TypecheckTest, ULongLongLiteralULL)
+{
+    ParseProgram("unsigned long long x = 18446744073709551615ULL;");
+    typecheck_program(program);
+}
+
+// long literal with L suffix typechecks without error.
+TEST_F(TypecheckTest, LongLiteralL)
+{
+    ParseProgram("long x = 1000000000L;");
+    typecheck_program(program);
+}
+
+// Zero-initializing a long long variable works (was hitting fatal_error before fix).
+TEST_F(TypecheckTest, LongLongZeroInit)
+{
+    ParseProgram("static long long x;");
+    typecheck_program(program);
+}
+
+// Static long long initializer with large value preserves 64 bits.
+TEST_F(TypecheckTest, StaticLongLongInit)
+{
+    ParseProgram("static long long x = 9999999999LL;");
+    typecheck_program(program);
+}

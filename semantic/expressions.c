@@ -86,6 +86,18 @@ static Expr *typecheck_literal(Expr *e)
     case LITERAL_INT:
         e->type = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
         break;
+    case LITERAL_LONG:
+        e->type = new_type(TYPE_LONG, __func__, __FILE__, __LINE__);
+        break;
+    case LITERAL_LONG_LONG:
+        e->type = new_type(TYPE_LONG_LONG, __func__, __FILE__, __LINE__);
+        break;
+    case LITERAL_ULONG:
+        e->type = new_type(TYPE_ULONG, __func__, __FILE__, __LINE__);
+        break;
+    case LITERAL_ULONG_LONG:
+        e->type = new_type(TYPE_ULONG_LONG, __func__, __FILE__, __LINE__);
+        break;
     case LITERAL_CHAR:
         e->type = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
         break;

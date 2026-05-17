@@ -79,6 +79,10 @@ module AST {
          attributes(Type? type)
 
     Literal = Int(int val)
+            | Long(long val)
+            | LongLong(long long val)
+            | ULong(unsigned long val)
+            | ULongLong(unsigned long long val)
             | Float(float val)
             | Double(double val)
             | Char(char val)

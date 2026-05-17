@@ -497,6 +497,18 @@ static void export_literal(FILE *fd, const Literal *lit, int level)
     case LITERAL_INT:
         fprintf(fd, "int\n");
         break;
+    case LITERAL_LONG:
+        fprintf(fd, "long\n");
+        break;
+    case LITERAL_LONG_LONG:
+        fprintf(fd, "long_long\n");
+        break;
+    case LITERAL_ULONG:
+        fprintf(fd, "ulong\n");
+        break;
+    case LITERAL_ULONG_LONG:
+        fprintf(fd, "ulong_long\n");
+        break;
     case LITERAL_FLOAT:
         fprintf(fd, "float\n");
         break;
@@ -518,6 +530,18 @@ static void export_literal(FILE *fd, const Literal *lit, int level)
     switch (lit->kind) {
     case LITERAL_INT:
         fprintf(fd, "%d\n", lit->u.int_val);
+        break;
+    case LITERAL_LONG:
+        fprintf(fd, "%ld\n", lit->u.long_val);
+        break;
+    case LITERAL_LONG_LONG:
+        fprintf(fd, "%lld\n", lit->u.long_long_val);
+        break;
+    case LITERAL_ULONG:
+        fprintf(fd, "%lu\n", lit->u.ulong_val);
+        break;
+    case LITERAL_ULONG_LONG:
+        fprintf(fd, "%llu\n", lit->u.ulong_long_val);
         break;
     case LITERAL_FLOAT:
         fprintf(fd, "%f\n", lit->u.real_val);

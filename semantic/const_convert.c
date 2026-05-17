@@ -12,12 +12,20 @@ int64_t literal_to_int64(const Literal *lit)
 {
     switch (lit->kind) {
     case LITERAL_CHAR:
-        return (int64_t)lit->u.char_val; // Sign-extend
+        return (int64_t)lit->u.char_val;
     case LITERAL_INT:
-        return (int64_t)lit->u.int_val; // Sign-extend
+        return (int64_t)lit->u.int_val;
+    case LITERAL_LONG:
+        return (int64_t)lit->u.long_val;
+    case LITERAL_LONG_LONG:
+        return (int64_t)lit->u.long_long_val;
+    case LITERAL_ULONG:
+        return (int64_t)lit->u.ulong_val;
+    case LITERAL_ULONG_LONG:
+        return (int64_t)lit->u.ulong_long_val;
     case LITERAL_FLOAT:
     case LITERAL_DOUBLE:
-        return (int64_t)lit->u.real_val; // Truncate to int64
+        return (int64_t)lit->u.real_val;
     case LITERAL_STRING:
         fatal_error("literal_to_int64: Cannot convert string %s", lit->u.string_val);
     case LITERAL_ENUM:
@@ -37,9 +45,17 @@ uint64_t literal_to_uint64(const Literal *lit)
         return (uint64_t)lit->u.char_val;
     case LITERAL_INT:
         return (uint64_t)lit->u.int_val;
+    case LITERAL_LONG:
+        return (uint64_t)lit->u.long_val;
+    case LITERAL_LONG_LONG:
+        return (uint64_t)lit->u.long_long_val;
+    case LITERAL_ULONG:
+        return (uint64_t)lit->u.ulong_val;
+    case LITERAL_ULONG_LONG:
+        return (uint64_t)lit->u.ulong_long_val;
     case LITERAL_FLOAT:
     case LITERAL_DOUBLE:
-        return (uint64_t)lit->u.real_val; // Truncate to uint64
+        return (uint64_t)lit->u.real_val;
     case LITERAL_STRING:
         fatal_error("literal_to_uint64: Cannot convert string %s", lit->u.string_val);
     case LITERAL_ENUM:
@@ -59,6 +75,14 @@ double literal_to_double(const Literal *lit)
         return (double)lit->u.char_val;
     case LITERAL_INT:
         return (double)lit->u.int_val;
+    case LITERAL_LONG:
+        return (double)lit->u.long_val;
+    case LITERAL_LONG_LONG:
+        return (double)lit->u.long_long_val;
+    case LITERAL_ULONG:
+        return (double)lit->u.ulong_val;
+    case LITERAL_ULONG_LONG:
+        return (double)lit->u.ulong_long_val;
     case LITERAL_FLOAT:
     case LITERAL_DOUBLE:
         return (double)lit->u.real_val;
