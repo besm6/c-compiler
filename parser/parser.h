@@ -23,6 +23,13 @@ extern int wio_debug;
 //
 Program *parse(FILE *input);
 Declarator *parse_declarator(void);
+int parser_get_token(void);
+const char *parser_get_lexeme(void);
+
+//
+// Error reporting, provided by caller
+//
+_Noreturn void fatal_error(const char *message, ...);
 
 //
 // Name table

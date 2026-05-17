@@ -1,4 +1,5 @@
 #include <getopt.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -220,6 +221,27 @@ void process_file(const Args *args)
         xreport_lost_memory();
     }
     xfree_all();
+}
+
+//
+// Error handling
+//
+void _Noreturn fatal_error(const char *message, ...)
+{
+    fprintf(stderr, "Parse error: ");
+
+    va_list ap;
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    va_end(ap);
+
+    const char *lexeme = parser_get_lexeme();
+    if (lexeme) {
+        fprintf(stderr, " (token: %d, lexeme: %s)\n", parser_get_token(), lexeme);
+    } else {
+        fprintf(stderr, " (token: %d)\n", parser_get_token());
+    }
+    exit(1);
 }
 
 int main(int argc, char *argv[])

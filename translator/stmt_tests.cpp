@@ -1,4 +1,21 @@
+#include <cstdarg>
+
 #include "translate_test.h"
+
+extern "C" {
+void _Noreturn fatal_error(const char *message, ...)
+{
+    fprintf(stderr, "Fatal error: ");
+
+    va_list ap;
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    va_end(ap);
+
+    fprintf(stderr, "\n");
+    exit(1);
+}
+};
 
 // ---------------------------------------------------------------------------
 // goto statement — task #4

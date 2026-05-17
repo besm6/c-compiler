@@ -26,7 +26,7 @@ void typecheck_program(Program *p);
 void label_loops(ExternalDecl *ast);
 
 // Error handling.
-void fatal_error(const char *message, ...) __attribute__((noreturn));
+_Noreturn void fatal_error(const char *message, ...);
 
 // Convert literal to given arithmetic type and return as Tac_StaticInit.
 Tac_StaticInit *new_static_init_from_literal(const Type *type, const Literal *lit);

@@ -1,5 +1,27 @@
+#include <cstdarg>
+
 #include "fixture.h"
 #include "internal.h"
+
+extern "C" {
+void _Noreturn fatal_error(const char *message, ...)
+{
+    fprintf(stderr, "Parse error: ");
+
+    va_list ap;
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    va_end(ap);
+
+    const char *lexeme = parser_get_lexeme();
+    if (lexeme) {
+        fprintf(stderr, " (token: %d, lexeme: %s)\n", parser_get_token(), lexeme);
+    } else {
+        fprintf(stderr, " (token: %d)\n", parser_get_token());
+    }
+    exit(1);
+}
+};
 
 // Test primary expression: identifier
 TEST_F(ParserTest, ScanIdentifier)

@@ -1,5 +1,6 @@
 #include <fcntl.h>
 #include <getopt.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -303,6 +304,22 @@ void process_file(const Args *args)
         xreport_lost_memory();
     }
     xfree_all();
+}
+
+//
+// Error handling
+//
+void _Noreturn fatal_error(const char *message, ...)
+{
+    fprintf(stderr, "Fatal error: ");
+
+    va_list ap;
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    va_end(ap);
+
+    fprintf(stderr, "\n");
+    exit(1);
 }
 
 int main(int argc, char *argv[])

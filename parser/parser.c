@@ -21,6 +21,19 @@ int parser_debug;
 int scope_level;
 
 //
+// Helpers for fatal_message.
+//
+int parser_get_token()
+{
+    return current_token;
+}
+
+const char *parser_get_lexeme()
+{
+    return current_lexeme;
+}
+
+//
 // In case of identifier, look in the parser's symbol table.
 // When it's a previously defined typedef - return TOKEN_TYPEDEF_NAME.
 // When a previously defined enumerator - return TOKEN_ENUMERATION_CONSTANT.

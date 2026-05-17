@@ -6,7 +6,6 @@
 #define PARSER_INTERNAL_H
 
 #include <stdbool.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -19,23 +18,6 @@ extern int current_token;
 extern const char *current_lexeme;
 extern int scope_level;
 
-/* Error reporting: static per translation unit to avoid conflicts with other libraries */
-static _Noreturn void fatal_error(const char *message, ...)
-{
-    fprintf(stderr, "Parse error: ");
-
-    va_list ap;
-    va_start(ap, message);
-    vfprintf(stderr, message, ap);
-    va_end(ap);
-
-    if (current_lexeme) {
-        fprintf(stderr, " (token: %d, lexeme: %s)\n", current_token, current_lexeme);
-    } else {
-        fprintf(stderr, " (token: %d)\n", current_token);
-    }
-    exit(1);
-}
 void advance_token(void);
 bool current_token_is_not(int token);
 int next_token(void);

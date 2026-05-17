@@ -19,6 +19,7 @@
 #include <fcntl.h>
 #include <gtest/gtest.h>
 
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -32,6 +33,21 @@
 #include "symtab.h"
 #include "typetab.h"
 #include "xalloc.h"
+
+extern "C" {
+void _Noreturn fatal_error(const char *message, ...)
+{
+    fprintf(stderr, "Fatal error: ");
+
+    va_list ap;
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    va_end(ap);
+
+    fprintf(stderr, "\n");
+    exit(1);
+}
+};
 
 // Test fixture
 class TypecheckTest : public ::testing::Test {

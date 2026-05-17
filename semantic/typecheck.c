@@ -18,22 +18,6 @@ int semantic_debug;
 // Level of scope for nested compound operators.
 int scope_level;
 
-//
-// Error handling
-//
-void _Noreturn fatal_error(const char *message, ...)
-{
-    fprintf(stderr, "Fatal error: ");
-
-    va_list ap;
-    va_start(ap, message);
-    vfprintf(stderr, message, ap);
-    va_end(ap);
-
-    fprintf(stderr, "\n");
-    exit(1);
-}
-
 void scope_increment(void)
 {
     scope_level++;
