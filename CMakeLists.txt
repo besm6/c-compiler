@@ -55,6 +55,17 @@ add_subdirectory(tac)
 add_subdirectory(semantic)
 add_subdirectory(translator)
 
+add_custom_target(build_tests
+    DEPENDS
+        libutil-tests
+        ast-tests
+        scanner-tests
+        parser-tests
+        tac-tests
+        semantic-tests
+        translate-tests
+)
+
 #
 # 'parse' executable
 #

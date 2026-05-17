@@ -17,7 +17,7 @@ target_link_libraries(tac libutil)
 #
 # Tests for tac binary export/import, tac_yaml and tac_graphviz
 #
-add_executable(tac-tests
+add_executable(tac-tests EXCLUDE_FROM_ALL
     tac_binary_tests.cpp
     tac_yaml_tests.cpp
     tac_graphviz_tests.cpp

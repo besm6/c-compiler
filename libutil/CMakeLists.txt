@@ -12,7 +12,7 @@ target_link_libraries(libutil m)
 #
 # Tests for string map, wio and xalloc
 #
-add_executable(libutil-tests
+add_executable(libutil-tests EXCLUDE_FROM_ALL
     string_map_tests.cpp
     wio_tests.cpp
     xalloc_tests.cpp

@@ -13,7 +13,7 @@ all:    build
 	$(MAKE) -Cbuild $@
 
 test:   build
-	$(MAKE) -Cbuild all
+	$(MAKE) -Cbuild build_tests
 	ctest --test-dir build
 
 clean:

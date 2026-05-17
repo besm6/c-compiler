@@ -23,7 +23,7 @@ target_link_libraries(semantic tac ast libutil)
 #
 # Tests for semantic
 #
-add_executable(semantic-tests
+add_executable(semantic-tests EXCLUDE_FROM_ALL
    symtab_tests.cpp
    structtab_tests.cpp
    typetab_tests.cpp
