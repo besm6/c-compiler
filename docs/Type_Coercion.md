@@ -78,6 +78,7 @@ right-hand side are:
 | `void *` | Any object pointer | **Yes** | Implicit cast |
 | Integer constant `0` (null pointer constant) | Any pointer | **Yes** | Implicit cast to null pointer |
 | Same struct/union type | Same struct/union type | **Yes** | No cast (direct copy) |
+| Compatible function pointer (same return type; either side old-style) | Function pointer | **Yes** | No cast |
 | Incompatible pointer | Any pointer | **No** | `fatal_error` |
 | Integer (non-zero) | Any pointer | **No** | `fatal_error` |
 | Any pointer | Integer | **No** | `fatal_error` |
@@ -99,9 +100,34 @@ automatically by the void-pointer compatibility rule above.
 ### struct/union compatibility
 
 When both sides have kind `TYPE_STRUCT` (or `TYPE_UNION`),
-`coerce_for_assignment()` additionally compares the tag names with `strcmp`.
+`compatible_type()` compares the tag names with `strcmp`.
 Assigning `struct B` to `struct A` is therefore correctly rejected even though
 both share the same `TypeKind`.
+
+### Function pointer compatibility
+
+Two function-pointer types are **compatible** when `compatible_type()` returns
+true for their pointee function types.  Two function types are compatible when:
+
+- Their `variadic` flags match.
+- Their return types are recursively compatible.
+- **Either** side has no parameter list — an old-style declaration `int f()`
+  or a `(void)` prototype both count as "no params" and are accepted against
+  any parameter list with a matching return type.
+- **Or** both have parameter lists and every parameter type is pairwise
+  compatible (`compare_param`).
+
+This allows an old-style function such as `int foo();` to initialize or be
+assigned to a `int (*)(int *)` function pointer:
+
+```c
+int foo();              // old-style: no prototype
+int (*bar)(int *) = foo; // OK — foo's no-param list matches anything
+```
+
+The `params_for_compat()` helper in `semantic/typecheck.c` normalises the
+`(void)` sentinel (a single unnamed `TYPE_VOID` param) to NULL so it is
+treated identically to an empty parameter list.
 
 ---
 
@@ -155,6 +181,28 @@ promotions**: `float` → `double`, and integer promotions; the compiler does no
 implement variadic promotion separately because calls to variadic functions are
 currently typed via the fixed-parameter portion of the prototype.
 
+### Parameter type adjustment (§6.7.6.3 p7)
+
+Before the assignment conversion rules are applied, each parameter type is
+**adjusted**:
+
+- A parameter declared as `T array[N]` or `T array[]` is treated as `T *`.
+- A parameter declared as a function type is treated as a pointer to function.
+
+In practice this means passing an array variable to an array parameter is
+valid: the argument decays to `T *` (§6.3.2.1 p3) and the adjusted parameter
+type is also `T *`, so no cast is inserted.
+
+```c
+int foo[42];
+void bar(int a[42]);   // parameter adjusted to int *
+bar(foo);              // foo decays to int *; types match, no cast
+```
+
+The compiler applies this adjustment inside `coerce_for_assignment()` by
+accepting a `TYPE_POINTER` argument against a `TYPE_ARRAY` target when the
+pointer's element kind matches the array's element kind.
+
 ---
 
 ## 6. Return statement (§6.8.6.4)
@@ -171,10 +219,7 @@ return type.  The same rules as §4 above apply.  Returning any value from a
 ### `coerce_for_assignment(e, target_type)` — `semantic/typecheck.c:256`
 
 ```
-resolve typedef aliases on both sides
-if kinds match AND (not pointer OR target pointer-target kinds match)
-    if both are struct/union AND tags differ
-        → fatal_error("Cannot convert type for assignment")
+if kinds match AND compatible_type(target_type, e_type)
     → return e unchanged  (no cast)
 if both arithmetic
     → convert_to_type(e, target_type)  (insert EXPR_CAST)
@@ -183,6 +228,9 @@ if e is a null pointer constant AND target is pointer
 if (target is void* AND e is any pointer)
    OR (target is any pointer AND e is void*)
     → convert_to_type(e, target_type)
+if e_type is pointer AND target_type is array
+   AND pointer-element kind == array-element kind
+    → return e unchanged  (C11 §6.7.6.3p7 array parameter adjustment)
 otherwise
     → fatal_error("Cannot convert type for assignment")
 ```
@@ -202,6 +250,29 @@ otherwise (any other compound op, or '+=' or '-=' with arithmetic lhs)
         → fatal_error("Invalid operands for compound assignment")
     → convert_to_type(rhs, lhs type)
 result type ← lhs type
+```
+
+### `compatible_type(target, src)` — `semantic/typecheck.c`
+
+Used by `coerce_for_assignment()` for the same-kind check and by
+`build_static_init()` for pointer initializers.
+
+```
+if either is NULL → return (target == src)
+if kinds differ → return false
+TYPE_FUNCTION:
+    if variadic flags differ → return false
+    if return types not compatible → return false
+    tp ← params_for_compat(target)  // NULL if old-style or f(void)
+    sp ← params_for_compat(src)
+    if tp is NULL OR sp is NULL → return true  (old-style: skip param check)
+    → compare_param(tp, sp)
+TYPE_POINTER:
+    → compatible_type(target->target, src->target)
+TYPE_STRUCT / TYPE_UNION:
+    → strcmp(tag names) == 0
+default:
+    → compare_type(target, src)
 ```
 
 ### `get_common_type(t1, t2)` — `semantic/typecheck.c:184`

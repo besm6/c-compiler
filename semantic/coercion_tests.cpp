@@ -437,6 +437,22 @@ TEST_F(CoercionTest, FuncArgIntPtrToVoidPtr)
     EXPECT_EQ(arg->type->u.pointer.target->kind, TYPE_VOID);
 }
 
+TEST_F(CoercionTest, FuncArgArrayDecay)
+{
+    // §6.7.6.3 p7: int[42] param adjusts to int*; array arg decays to int*.
+    // No cast inserted — argument is a pointer-typed expression, not EXPR_CAST.
+    ParseProgram(R"(
+        int foo[42];
+        int bar(int[42]);
+        void quz() { bar(foo); }
+    )");
+    typecheck_program(program);
+    Expr *arg = FirstCallArg(2); // decls: [0]=foo [1]=bar [2]=quz
+    EXPECT_NE(arg->kind, EXPR_CAST);
+    EXPECT_EQ(arg->type->kind, TYPE_POINTER);
+    EXPECT_EQ(arg->type->u.pointer.target->kind, TYPE_INT);
+}
+
 // ─── G. Error cases — incompatible types must call fatal_error() ─────────────
 
 TEST_F(CoercionTest, Error_IntToIntPtr)
