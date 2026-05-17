@@ -1,0 +1,624 @@
+//
+// Unit tests for type coercion functions:
+//   coerce_for_assignment()  — used for assignments, function args, and returns
+//   get_common_type()        — usual arithmetic conversions for binary operators
+//   convert_to_kind()        — integer promotions for unary operators
+//
+// Each test writes a small C snippet, parses it, runs typecheck_program(), and
+// then inspects the annotated AST to verify that casts were (or were not)
+// inserted, and that fatal_error() fires when types are incompatible.
+//
+// C11 references:
+//   §6.3.1.1  — Integer promotions
+//   §6.3.1.8  — Usual arithmetic conversions
+//   §6.3.2.3  — Pointer conversions / null pointer constant
+//   §6.5.16.1 — Assignment constraints
+//   §6.5.2.2  — Function call argument conversions
+//   §6.8.6.4  — Return statement type constraints
+//
+#include <gtest/gtest.h>
+
+#include <cstdio>
+#include <cstring>
+#include <string>
+
+#include "internal.h"
+#include "parser.h"
+#include "scanner.h"
+#include "semantic.h"
+#include "structtab.h"
+#include "symtab.h"
+#include "typetab.h"
+#include "xalloc.h"
+
+class CoercionTest : public ::testing::Test {
+    const std::string test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+    FILE *input_file{};
+
+public:
+    Program *program{};
+
+protected:
+    void SetUp() override
+    {
+        auto filename = test_name + ".c";
+        input_file    = fopen(filename.c_str(), "w+");
+        ASSERT_NE(nullptr, input_file);
+        semantic_debug = 0;
+    }
+
+    void TearDown() override
+    {
+        fclose(input_file);
+        if (program) {
+            free_program(program);
+        }
+        symtab_print();
+        structtab_print();
+        nametab_destroy();
+        symtab_destroy();
+        structtab_destroy();
+        typetab_destroy();
+        xreport_lost_memory();
+        EXPECT_EQ(xtotal_allocated_size(), 0);
+        xfree_all();
+    }
+
+    FILE *CreateTempFile(const char *content)
+    {
+        fwrite(content, 1, strlen(content), input_file);
+        rewind(input_file);
+        return input_file;
+    }
+
+    void ParseProgram(const char *content)
+    {
+        program = parse(CreateTempFile(content));
+        EXPECT_NE(nullptr, program);
+    }
+
+    // Return the return-expression of the first function in the program.
+    // Assumes the program has a single function whose body is a single STMT_RETURN.
+    Expr *ReturnExpr()
+    {
+        ExternalDecl *ext = program->decls;
+        Stmt         *ret = ext->u.function.body->u.compound->u.stmt;
+        EXPECT_EQ(ret->kind, STMT_RETURN);
+        return ret->u.expr;
+    }
+
+    // Return the return-expression of the Nth function (0-based) in the program.
+    Expr *ReturnExprOfFunc(int n)
+    {
+        ExternalDecl *ext = program->decls;
+        for (int i = 0; i < n; ++i) ext = ext->next;
+        Stmt *ret = ext->u.function.body->u.compound->u.stmt;
+        EXPECT_EQ(ret->kind, STMT_RETURN);
+        return ret->u.expr;
+    }
+
+    // Return the first argument of the call expression in the Nth external decl.
+    // Assumes body is one STMT_EXPR containing one EXPR_CALL.
+    Expr *FirstCallArg(int n)
+    {
+        ExternalDecl *ext = program->decls;
+        for (int i = 0; i < n; ++i) ext = ext->next;
+        Stmt *s = ext->u.function.body->u.compound->u.stmt;
+        EXPECT_EQ(s->kind, STMT_EXPR);
+        Expr *call = s->u.expr;
+        EXPECT_EQ(call->kind, EXPR_CALL);
+        return call->u.call.args;
+    }
+};
+
+// ─── A. Same type — coerce_for_assignment() must not insert a cast ───────────
+
+TEST_F(CoercionTest, SameInt)
+{
+    ParseProgram("int f(int x) { return x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    EXPECT_EQ(ret->kind, EXPR_VAR);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, SameDouble)
+{
+    ParseProgram("double f(double x) { return x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    EXPECT_EQ(ret->kind, EXPR_VAR);
+    EXPECT_EQ(ret->type->kind, TYPE_DOUBLE);
+}
+
+TEST_F(CoercionTest, SameChar)
+{
+    ParseProgram("char f(char x) { return x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    EXPECT_EQ(ret->kind, EXPR_VAR);
+    EXPECT_EQ(ret->type->kind, TYPE_CHAR);
+}
+
+TEST_F(CoercionTest, SameIntPtr)
+{
+    ParseProgram("int *f(int *x) { return x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    EXPECT_EQ(ret->kind, EXPR_VAR);
+    ASSERT_NE(ret->type, nullptr);
+    EXPECT_EQ(ret->type->kind, TYPE_POINTER);
+    EXPECT_EQ(ret->type->u.pointer.target->kind, TYPE_INT);
+}
+
+// ─── B. Arithmetic → arithmetic — cast must be inserted ──────────────────────
+
+TEST_F(CoercionTest, IntToDouble)
+{
+    ParseProgram("double f(int x) { return x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_DOUBLE);
+    EXPECT_EQ(ret->u.cast.expr->kind, EXPR_VAR);
+    EXPECT_EQ(ret->u.cast.expr->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, DoubleToInt)
+{
+    ParseProgram("int f(double x) { return x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.cast.expr->type->kind, TYPE_DOUBLE);
+}
+
+TEST_F(CoercionTest, CharToInt)
+{
+    ParseProgram("int f(char x) { return x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.cast.expr->type->kind, TYPE_CHAR);
+}
+
+TEST_F(CoercionTest, IntToChar)
+{
+    ParseProgram("char f(int x) { return x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_CHAR);
+    EXPECT_EQ(ret->u.cast.expr->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, IntToFloat)
+{
+    ParseProgram("float f(int x) { return x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_FLOAT);
+    EXPECT_EQ(ret->u.cast.expr->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, FloatToDouble)
+{
+    ParseProgram("double f(float x) { return x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_DOUBLE);
+    EXPECT_EQ(ret->u.cast.expr->type->kind, TYPE_FLOAT);
+}
+
+TEST_F(CoercionTest, CharToDouble)
+{
+    ParseProgram("double f(char x) { return x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_DOUBLE);
+}
+
+TEST_F(CoercionTest, LongToInt)
+{
+    ParseProgram("int f(long x) { return x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.cast.expr->type->kind, TYPE_LONG);
+}
+
+// ─── C. Null pointer constant → pointer ──────────────────────────────────────
+
+// The integer literal 0 is a null pointer constant (§6.3.2.3) and must be
+// implicitly converted to any pointer type.
+
+TEST_F(CoercionTest, NullLiteralToIntPtr)
+{
+    ParseProgram("int *f() { return 0; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    ASSERT_NE(ret->type, nullptr);
+    EXPECT_EQ(ret->type->kind, TYPE_POINTER);
+    EXPECT_EQ(ret->type->u.pointer.target->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, NullLiteralToCharPtr)
+{
+    ParseProgram("char *f() { return 0; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_POINTER);
+    EXPECT_EQ(ret->type->u.pointer.target->kind, TYPE_CHAR);
+}
+
+TEST_F(CoercionTest, NullLiteralToVoidPtr)
+{
+    ParseProgram("void *f() { return 0; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_POINTER);
+    EXPECT_EQ(ret->type->u.pointer.target->kind, TYPE_VOID);
+}
+
+// ─── D. void* ↔ pointer — bidirectional implicit conversion ──────────────────
+
+// §6.3.2.3: A pointer to void may be converted to/from a pointer to any object
+// type; the resulting pointer shall be equal to the original.
+
+TEST_F(CoercionTest, VoidPtrToIntPtr)
+{
+    ParseProgram("int *f(void *p) { return p; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    ASSERT_NE(ret->type, nullptr);
+    EXPECT_EQ(ret->type->kind, TYPE_POINTER);
+    EXPECT_EQ(ret->type->u.pointer.target->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, IntPtrToVoidPtr)
+{
+    ParseProgram("void *f(int *p) { return p; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    ASSERT_NE(ret->type, nullptr);
+    EXPECT_EQ(ret->type->kind, TYPE_POINTER);
+    EXPECT_EQ(ret->type->u.pointer.target->kind, TYPE_VOID);
+}
+
+TEST_F(CoercionTest, VoidPtrToCharPtr)
+{
+    ParseProgram("char *f(void *p) { return p; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_POINTER);
+    EXPECT_EQ(ret->type->u.pointer.target->kind, TYPE_CHAR);
+}
+
+TEST_F(CoercionTest, CharPtrToVoidPtr)
+{
+    ParseProgram("void *f(char *p) { return p; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_POINTER);
+    EXPECT_EQ(ret->type->u.pointer.target->kind, TYPE_VOID);
+}
+
+TEST_F(CoercionTest, VoidPtrRoundTrip)
+{
+    // void* → int* and int* → void* in one function; no error expected.
+    ParseProgram(R"(
+        void *g(int *p) { return p; }
+        int  *h(void *p) { return p; }
+    )");
+    typecheck_program(program);
+}
+
+// ─── E. Typedef resolution ────────────────────────────────────────────────────
+
+TEST_F(CoercionTest, TypedefArithmetic)
+{
+    ParseProgram("typedef int MyInt; double f(MyInt x) { return x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExprOfFunc(1); // typedef decl is decl 0, f is decl 1
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_DOUBLE);
+}
+
+TEST_F(CoercionTest, TypedefPtrToVoidPtr)
+{
+    ParseProgram("typedef int *IntPtr; void *f(IntPtr p) { return p; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExprOfFunc(1);
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_POINTER);
+    EXPECT_EQ(ret->type->u.pointer.target->kind, TYPE_VOID);
+}
+
+TEST_F(CoercionTest, VoidPtrToTypedefPtr)
+{
+    ParseProgram("typedef int *IntPtr; IntPtr f(void *p) { return p; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExprOfFunc(1);
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_POINTER);
+    EXPECT_EQ(ret->type->u.pointer.target->kind, TYPE_INT);
+}
+
+// ─── F. Function argument coercion ───────────────────────────────────────────
+
+// §6.5.2.2 p7: arguments are converted as if by assignment to the param type.
+
+TEST_F(CoercionTest, FuncArgIntToDouble)
+{
+    // g is decl 0 (prototype), f is decl 1 (definition with the call).
+    ParseProgram(R"(
+        void g(double x);
+        void f(int v) { g(v); }
+    )");
+    typecheck_program(program);
+    Expr *arg = FirstCallArg(1);
+    ASSERT_EQ(arg->kind, EXPR_CAST);
+    EXPECT_EQ(arg->type->kind, TYPE_DOUBLE);
+}
+
+TEST_F(CoercionTest, FuncArgNullToIntPtr)
+{
+    ParseProgram(R"(
+        void g(int *p);
+        void f(void) { g(0); }
+    )");
+    typecheck_program(program);
+    Expr *arg = FirstCallArg(1);
+    ASSERT_EQ(arg->kind, EXPR_CAST);
+    EXPECT_EQ(arg->type->kind, TYPE_POINTER);
+    EXPECT_EQ(arg->type->u.pointer.target->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, FuncArgVoidPtrToIntPtr)
+{
+    ParseProgram(R"(
+        void g(int *p);
+        void f(void *vp) { g(vp); }
+    )");
+    typecheck_program(program);
+    Expr *arg = FirstCallArg(1);
+    ASSERT_EQ(arg->kind, EXPR_CAST);
+    EXPECT_EQ(arg->type->kind, TYPE_POINTER);
+    EXPECT_EQ(arg->type->u.pointer.target->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, FuncArgIntPtrToVoidPtr)
+{
+    ParseProgram(R"(
+        void g(void *p);
+        void f(int *q) { g(q); }
+    )");
+    typecheck_program(program);
+    Expr *arg = FirstCallArg(1);
+    ASSERT_EQ(arg->kind, EXPR_CAST);
+    EXPECT_EQ(arg->type->kind, TYPE_POINTER);
+    EXPECT_EQ(arg->type->u.pointer.target->kind, TYPE_VOID);
+}
+
+// ─── G. Error cases — incompatible types must call fatal_error() ─────────────
+
+TEST_F(CoercionTest, Error_IntToIntPtr)
+{
+    ParseProgram("int *f(int x) { return x; }");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Cannot convert type for assignment");
+}
+
+TEST_F(CoercionTest, Error_IntPtrToInt)
+{
+    ParseProgram("int f(int *p) { return p; }");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Cannot convert type for assignment");
+}
+
+TEST_F(CoercionTest, Error_IncompatiblePtrs)
+{
+    ParseProgram("double *f(int *p) { return p; }");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Cannot convert type for assignment");
+}
+
+TEST_F(CoercionTest, Error_CharPtrToIntPtr)
+{
+    ParseProgram("int *f(char *p) { return p; }");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Cannot convert type for assignment");
+}
+
+TEST_F(CoercionTest, Error_FloatToPtr)
+{
+    ParseProgram("int *f(float x) { return x; }");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Cannot convert type for assignment");
+}
+
+TEST_F(CoercionTest, Error_StructToInt)
+{
+    ParseProgram("struct S { int x; }; int f(struct S s) { return s; }");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Cannot convert type for assignment");
+}
+
+TEST_F(CoercionTest, Error_FuncArgIncompat)
+{
+    ParseProgram(R"(
+        void g(int *p);
+        void f(double *q) { g(q); }
+    )");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Cannot convert type for assignment");
+}
+
+// ─── H. get_common_type() — usual arithmetic conversions ─────────────────────
+
+// The result type of a binary arithmetic expression and whether implicit casts
+// were inserted into the operands verify the usual arithmetic conversions.
+
+TEST_F(CoercionTest, CharPlusChar_PromotesToInt)
+{
+    // §6.3.1.1: char operands are promoted to int before arithmetic.
+    ParseProgram("int f(char a, char b) { return a + b; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    // The return has type int; the + expression itself carries TYPE_INT.
+    ASSERT_EQ(ret->kind, EXPR_BINARY_OP);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    // Both operands should have been cast to int.
+    EXPECT_EQ(ret->u.binary_op.left->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.binary_op.left->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.binary_op.right->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.binary_op.right->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, IntPlusDouble_GivesDouble)
+{
+    // §6.3.1.8: double dominates; int operand is widened.
+    ParseProgram("double f(int a, double b) { return a + b; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_BINARY_OP);
+    EXPECT_EQ(ret->type->kind, TYPE_DOUBLE);
+    // int operand must be cast to double; double operand stays as-is.
+    EXPECT_EQ(ret->u.binary_op.left->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.binary_op.left->type->kind, TYPE_DOUBLE);
+    EXPECT_EQ(ret->u.binary_op.right->kind, EXPR_VAR);
+    EXPECT_EQ(ret->u.binary_op.right->type->kind, TYPE_DOUBLE);
+}
+
+TEST_F(CoercionTest, IntPlusLong_GivesLong)
+{
+    // §6.3.1.8: larger integer rank dominates.
+    ParseProgram("long f(int a, long b) { return a + b; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_BINARY_OP);
+    EXPECT_EQ(ret->type->kind, TYPE_LONG);
+    EXPECT_EQ(ret->u.binary_op.left->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.binary_op.left->type->kind, TYPE_LONG);
+    EXPECT_EQ(ret->u.binary_op.right->kind, EXPR_VAR);
+}
+
+TEST_F(CoercionTest, FloatPlusFloat_GivesFloat)
+{
+    // Same float type — no cast needed, result is float.
+    ParseProgram("float f(float a, float b) { return a + b; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_BINARY_OP);
+    EXPECT_EQ(ret->type->kind, TYPE_FLOAT);
+    // Both operands already float — no cast expected.
+    EXPECT_EQ(ret->u.binary_op.left->kind, EXPR_VAR);
+    EXPECT_EQ(ret->u.binary_op.right->kind, EXPR_VAR);
+}
+
+TEST_F(CoercionTest, FloatPlusInt_GivesFloat)
+{
+    // §6.3.1.8 step 3: if either operand is float, the other converts to float.
+    // BUG: get_common_type() lacks a float fast-path before the size comparison.
+    // When sizeof(float)==sizeof(int)==4 the code reaches is_signed(float) which
+    // calls fatal_error("Signedness doesn't make sense for non-integral type float").
+    // This test documents the CURRENT (buggy) crash behaviour.  Once the fix
+    // adds a `float` branch to get_common_type(), convert this to a success-path
+    // test that verifies result type == TYPE_FLOAT.
+    ParseProgram("float f(float a, int b) { return a + b; }");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Signedness doesn't make sense");
+}
+
+// ─── I. convert_to_kind() — integer promotions via unary operators ────────────
+
+// §6.3.1.1: char/short operands of unary +/-/~ are promoted to int.
+
+TEST_F(CoercionTest, CharUnaryMinus_PromotesToInt)
+{
+    ParseProgram("int f(char x) { return -x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_UNARY_OP);
+    EXPECT_EQ(ret->u.unary_op.op, UNARY_NEG);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    // Operand should have been promoted.
+    EXPECT_EQ(ret->u.unary_op.expr->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.unary_op.expr->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, CharUnaryBitNot_PromotesToInt)
+{
+    ParseProgram("int f(char x) { return ~x; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_UNARY_OP);
+    EXPECT_EQ(ret->u.unary_op.op, UNARY_BIT_NOT);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.unary_op.expr->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.unary_op.expr->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, ShortUnaryPlus_NotPromoted)
+{
+    // C11 §6.3.1.1 technically promotes short to int, but this compiler only
+    // promotes character types (char/schar/uchar) in unary contexts.  For
+    // short the unary +x keeps TYPE_SHORT, and coerce_for_assignment() in the
+    // return statement then wraps it in an EXPR_CAST to match TYPE_INT.
+    ParseProgram("int f(short x) { return +x; }");
+    typecheck_program(program);
+    // The return expr is the cast inserted by coerce_for_assignment(), not the
+    // raw unary expression.
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_CAST);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    // The inner expression is the unary + with SHORT type.
+    ASSERT_EQ(ret->u.cast.expr->kind, EXPR_UNARY_OP);
+    EXPECT_EQ(ret->u.cast.expr->u.unary_op.op, UNARY_PLUS);
+    EXPECT_EQ(ret->u.cast.expr->type->kind, TYPE_SHORT);
+}
+
+// ─── J. Struct / union coercion ───────────────────────────────────────────────
+
+TEST_F(CoercionTest, SameStructAssign)
+{
+    // Assigning a struct to the same struct type is valid (§6.5.16.1).
+    ParseProgram("struct A { int x; }; struct A f(struct A a) { return a; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExprOfFunc(1);
+    // No cast required — struct types match.
+    EXPECT_EQ(ret->kind, EXPR_VAR);
+}
+
+TEST_F(CoercionTest, DiffStructError)
+{
+    // Assigning struct B to struct A must be rejected (§6.5.16.1 — types must
+    // be compatible; two distinct struct tags are never compatible).
+    //
+    // BUG: coerce_for_assignment() compares only TypeKind, not the struct tag.
+    // Both struct A and struct B have kind==TYPE_STRUCT so the check
+    //   e_type->kind == target_type->kind && !is_pointer(e_type)
+    // silently returns 'e' unchanged instead of calling fatal_error().
+    // This test documents the correct expected behaviour (an error); it will
+    // pass once the tag comparison is added to coerce_for_assignment().
+    ParseProgram(R"(
+        struct A { int x; };
+        struct B { int x; };
+        struct A f(struct B b) { return b; }
+    )");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Cannot convert type for assignment");
+}
