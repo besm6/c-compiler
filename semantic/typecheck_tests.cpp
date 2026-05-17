@@ -1223,6 +1223,12 @@ TEST_F(TypecheckTest, StaticInitShortArray)
     typecheck_program(program);
 }
 
+TEST_F(TypecheckTest, InitVarCastPtrExpression)
+{
+    ParseProgram("char *foo = (char *)(0x40000000 + 0xe00000);");
+    typecheck_program(program);
+}
+
 // ---------------------------------------------------------------------------
 // LabelLoopsTest — full pipeline: typecheck + label_loops
 // ---------------------------------------------------------------------------

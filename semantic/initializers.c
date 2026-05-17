@@ -161,6 +161,21 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         return pointer_init;
     }
 
+    // Handle pointer initialized with an integer constant expression (e.g. cast from integer).
+    if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE) {
+        long val;
+        if (try_eval_const_int(init->u.expr, &val)) {
+            if (val == 0) {
+                Tac_StaticInit *zero_init = tac_new_static_init(TAC_STATIC_INIT_ZERO);
+                zero_init->u.zero_bytes   = get_size(var_type);
+                return zero_init;
+            }
+            Tac_StaticInit *ptr_init = tac_new_static_init(TAC_STATIC_INIT_I64);
+            ptr_init->u.long_val     = val;
+            return ptr_init;
+        }
+    }
+
     // Handle scalar initialized with a literal.
     if (init->kind == INITIALIZER_SINGLE && init->u.expr->kind == EXPR_LITERAL) {
         const Literal *literal = init->u.expr->u.literal;
