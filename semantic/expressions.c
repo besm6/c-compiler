@@ -11,6 +11,15 @@
 #include "typecheck.h"
 #include "xalloc.h"
 
+// Parser represents f(void) as a single unnamed TYPE_VOID param; treat as no params.
+static const Param *params_for_call(const Type *fn_type)
+{
+    const Param *params = fn_type->u.function.params;
+    if (params && !params->next && params->type->kind == TYPE_VOID && !params->name)
+        return NULL;
+    return params;
+}
+
 // Check if an expression is an lvalue.
 static bool is_lvalue(const Expr *e)
 {
@@ -447,7 +456,7 @@ static Expr *typecheck_expr(Expr *e)
                 fatal_error("Expression is not a function or function pointer");
             e->u.call.func = func;
         }
-        const Param *params   = fn_type->u.function.params;
+        const Param *params     = params_for_call(fn_type);
         const bool     variadic = fn_type->u.function.variadic;
         int            param_count = 0, arg_count = 0;
         for (const Param *p = params; p; p = p->next)
