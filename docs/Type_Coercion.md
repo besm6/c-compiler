@@ -8,15 +8,18 @@ companion to `semantic/coercion_tests.cpp`.
 
 ## 1. Where coercion fires
 
-Implicit conversions happen in exactly three contexts:
+Implicit conversions happen in exactly four contexts:
 
 | Context | Standard reference | Compiler site |
 |---|---|---|
 | Assignment `lhs = rhs` | §6.5.16.1 | `coerce_for_assignment()` called from `initializers.c` and `expressions.c` (EXPR_ASSIGN) |
+| Compound assignment `lhs op= rhs` | §6.5.16.2, §6.5.16.3 | EXPR_ASSIGN dispatch in `expressions.c` (non-SIMPLE ops) |
 | Function call argument | §6.5.2.2 p7 | `coerce_for_assignment()` called for each argument in `expressions.c` (EXPR_CALL) |
 | Return statement | §6.8.6.4 p3 | `coerce_for_assignment()` called in `statements.c` (STMT_RETURN) |
 
-All three contexts apply the **assignment conversion rules** described below.
+Simple assignment, function arguments, and return statements apply the **assignment
+conversion rules** described in §4 below.  Compound assignment operators use a separate
+dispatch described in §4a.
 Binary and unary expressions additionally apply **integer promotions** and the
 **usual arithmetic conversions**.
 
@@ -102,6 +105,47 @@ both share the same `TypeKind`.
 
 ---
 
+## 4a. Compound assignment operators (§6.5.16.2, §6.5.16.3)
+
+The compound assignment operators are: `+=` `-=` `*=` `/=` `%=` `<<=` `>>=` `&=` `^=` `|=`.
+Unlike simple assignment they do **not** go through `coerce_for_assignment()`; instead the
+EXPR_ASSIGN handler in `expressions.c` dispatches directly on the operator and lhs type:
+
+| Operator | LHS type | Sub-case |
+|---|---|---|
+| `+=`, `-=` | Complete pointer | Additive pointer arithmetic (§6.5.6 p2) |
+| `+=`, `-=` | Arithmetic | Arithmetic compound |
+| `*=`, `/=`, `%=` | Arithmetic | Arithmetic compound |
+| `<<=`, `>>=` | Arithmetic | Arithmetic compound |
+| `&=`, `^=`, `\|=` | Arithmetic | Arithmetic compound |
+
+### Sub-case 1 — Additive pointer arithmetic (`+=`, `-=` on a pointer lhs)
+
+- RHS must be an integer type.  A non-integer RHS (floating point, pointer) is a
+  `fatal_error("Pointer arithmetic requires integer operand")`.
+- RHS is converted to `long` via `convert_to_kind(rhs, TYPE_LONG)` (§6.5.6 p2 — the
+  offset type for pointer arithmetic is `ptrdiff_t`, represented here as `long`).
+- If the RHS is already `long` no cast node is inserted.
+- Result type: the lhs pointer type.
+
+### Sub-case 2 — Arithmetic compound assignment (all other compound ops)
+
+- Both lhs and rhs must be arithmetic types.  A pointer on either side is a
+  `fatal_error("Invalid operands for compound assignment")`.
+- RHS is converted to the **lhs type** via `convert_to_type(rhs, lhs->type)`.
+  This permits silent narrowing (e.g. `int x; double y; x += y;` inserts a
+  `double → int` cast) — no diagnostic is issued, matching the C standard.
+- If the RHS already has the same kind as the lhs no cast node is inserted.
+- Result type: the lhs type.
+
+**Key difference from simple assignment (§4)**: compound operators narrow the rhs directly
+to the lhs type without going through `coerce_for_assignment()`.  Pointer↔pointer and
+pointer↔integer combinations that `coerce_for_assignment()` would reject with
+"Cannot convert type for assignment" instead reach the arithmetic check above and are
+rejected with "Invalid operands for compound assignment".
+
+---
+
 ## 5. Function argument coercion (§6.5.2.2)
 
 With a visible prototype, each argument undergoes implicit conversion as if by
@@ -141,6 +185,23 @@ if (target is void* AND e is any pointer)
     → convert_to_type(e, target_type)
 otherwise
     → fatal_error("Cannot convert type for assignment")
+```
+
+### EXPR_ASSIGN compound dispatch — `semantic/expressions.c:372`
+
+```
+typecheck and decay both lhs and rhs
+if op is ASSIGN_SIMPLE
+    → coerce_for_assignment(rhs, lhs type)
+if op is ASSIGN_ADD or ASSIGN_SUB AND lhs is a complete pointer type
+    if rhs is not an integer type
+        → fatal_error("Pointer arithmetic requires integer operand")
+    → convert_to_kind(rhs, long)
+otherwise (any other compound op, or ADD/SUB with arithmetic lhs)
+    if lhs or rhs is not arithmetic
+        → fatal_error("Invalid operands for compound assignment")
+    → convert_to_type(rhs, lhs type)
+result type ← lhs type
 ```
 
 ### `get_common_type(t1, t2)` — `semantic/typecheck.c:184`

@@ -109,6 +109,30 @@ protected:
         EXPECT_EQ(call->kind, EXPR_CALL);
         return call->u.call.args;
     }
+
+    // Return the EXPR_ASSIGN from the first statement of the first function.
+    // Assumes body is one STMT_EXPR containing one EXPR_ASSIGN.
+    Expr *AssignExpr()
+    {
+        ExternalDecl *ext = program->decls;
+        Stmt         *s   = ext->u.function.body->u.compound->u.stmt;
+        EXPECT_EQ(s->kind, STMT_EXPR);
+        Expr *e = s->u.expr;
+        EXPECT_EQ(e->kind, EXPR_ASSIGN);
+        return e;
+    }
+
+    // Return the EXPR_ASSIGN from the first statement of the Nth function (0-based).
+    Expr *AssignExprOfFunc(int n)
+    {
+        ExternalDecl *ext = program->decls;
+        for (int i = 0; i < n; ++i) ext = ext->next;
+        Stmt *s = ext->u.function.body->u.compound->u.stmt;
+        EXPECT_EQ(s->kind, STMT_EXPR);
+        Expr *e = s->u.expr;
+        EXPECT_EQ(e->kind, EXPR_ASSIGN);
+        return e;
+    }
 };
 
 // ─── A. Same type — coerce_for_assignment() must not insert a cast ───────────
@@ -731,4 +755,274 @@ TEST_F(CoercionTest, UShortUnaryPlus_PromotesToInt)
     EXPECT_EQ(ret->type->kind, TYPE_INT);
     EXPECT_EQ(ret->u.unary_op.expr->kind, EXPR_CAST);
     EXPECT_EQ(ret->u.unary_op.expr->type->kind, TYPE_INT);
+}
+
+// ─── K. Compound assignment operators ────────────────────────────────────────
+//
+// §6.5.16.2: compound assignment (arithmetic ops)
+// §6.5.16.3: compound assignment (bitwise ops)
+// §6.5.6 p2: pointer arithmetic for += and -=
+//
+// All test functions use only parameters so the body is a single STMT_EXPR,
+// allowing AssignExpr() to retrieve the EXPR_ASSIGN directly.
+
+// ─── K.1 ASSIGN_SIMPLE via direct assignment statement ────────────────────────
+
+TEST_F(CoercionTest, SimpleAssign_SameType_NoCast)
+{
+    // Same type: no cast should be inserted.
+    ParseProgram("void f(int x, int y) { x = y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_SIMPLE);
+    EXPECT_EQ(e->type->kind, TYPE_INT);
+    EXPECT_EQ(e->u.assign.value->kind, EXPR_VAR);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, SimpleAssign_ArithCast)
+{
+    // int rhs assigned to double lhs: rhs must be widened.
+    ParseProgram("void f(double x, int y) { x = y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_SIMPLE);
+    EXPECT_EQ(e->type->kind, TYPE_DOUBLE);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_DOUBLE);
+}
+
+TEST_F(CoercionTest, SimpleAssign_NullPtrConst)
+{
+    // Integer constant 0 is a null pointer constant (§6.3.2.3); must cast to int*.
+    ParseProgram("void f(int *p, int n) { p = 0; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_SIMPLE);
+    ASSERT_EQ(e->type->kind, TYPE_POINTER);
+    EXPECT_EQ(e->type->u.pointer.target->kind, TYPE_INT);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_POINTER);
+}
+
+// ─── K.2 ASSIGN_ADD / ASSIGN_SUB with pointer lhs ────────────────────────────
+
+TEST_F(CoercionTest, PlusAssign_Ptr_IntRhs_CastToLong)
+{
+    // §6.5.6 p2: int offset for pointer += must be converted to long.
+    ParseProgram("void f(int *p, int n) { p += n; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_ADD);
+    ASSERT_EQ(e->type->kind, TYPE_POINTER);
+    EXPECT_EQ(e->type->u.pointer.target->kind, TYPE_INT);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_LONG);
+}
+
+TEST_F(CoercionTest, PlusAssign_Ptr_CharRhs_CastToLong)
+{
+    // char offset must also be widened to long.
+    ParseProgram("void f(int *p, char n) { p += n; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_ADD);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_LONG);
+}
+
+TEST_F(CoercionTest, PlusAssign_Ptr_LongRhs_NoCast)
+{
+    // long offset is already the target kind — convert_to_kind must not insert a cast.
+    ParseProgram("void f(int *p, long n) { p += n; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_ADD);
+    EXPECT_EQ(e->u.assign.value->kind, EXPR_VAR);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_LONG);
+}
+
+TEST_F(CoercionTest, MinusAssign_Ptr_IntRhs_CastToLong)
+{
+    // -= on a pointer is symmetric with +=.
+    ParseProgram("void f(int *p, int n) { p -= n; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_SUB);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_LONG);
+    ASSERT_EQ(e->type->kind, TYPE_POINTER);
+}
+
+// ─── K.3 ASSIGN_ADD / ASSIGN_SUB with arithmetic lhs ─────────────────────────
+
+TEST_F(CoercionTest, PlusAssign_Int_DoubleRhs_Cast)
+{
+    // double rhs narrowed to int lhs type (no diagnostic in C).
+    ParseProgram("void f(int x, double y) { x += y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_ADD);
+    EXPECT_EQ(e->type->kind, TYPE_INT);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, PlusAssign_Double_IntRhs_Cast)
+{
+    // int rhs widened to double lhs type.
+    ParseProgram("void f(double x, int y) { x += y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_ADD);
+    EXPECT_EQ(e->type->kind, TYPE_DOUBLE);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_DOUBLE);
+}
+
+TEST_F(CoercionTest, MinusAssign_Float_IntRhs_Cast)
+{
+    // int rhs widened to float lhs type.
+    ParseProgram("void f(float x, int y) { x -= y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_SUB);
+    EXPECT_EQ(e->type->kind, TYPE_FLOAT);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_FLOAT);
+}
+
+TEST_F(CoercionTest, PlusAssign_Int_IntRhs_NoCast)
+{
+    // Same arithmetic type: convert_to_type must not insert a cast.
+    ParseProgram("void f(int x, int y) { x += y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_ADD);
+    EXPECT_EQ(e->type->kind, TYPE_INT);
+    EXPECT_EQ(e->u.assign.value->kind, EXPR_VAR);
+}
+
+// ─── K.4 All other arithmetic compound operators ──────────────────────────────
+
+TEST_F(CoercionTest, MulAssign_Double_IntRhs_Cast)
+{
+    ParseProgram("void f(double x, int y) { x *= y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_MUL);
+    EXPECT_EQ(e->type->kind, TYPE_DOUBLE);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_DOUBLE);
+}
+
+TEST_F(CoercionTest, DivAssign_Int_DoubleRhs_Cast)
+{
+    ParseProgram("void f(int x, double y) { x /= y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_DIV);
+    EXPECT_EQ(e->type->kind, TYPE_INT);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, ModAssign_Int_LongRhs_Cast)
+{
+    ParseProgram("void f(int x, long y) { x %= y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_MOD);
+    EXPECT_EQ(e->type->kind, TYPE_INT);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, LShiftAssign_Int_ShortRhs_Cast)
+{
+    ParseProgram("void f(int x, short y) { x <<= y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_LEFT);
+    EXPECT_EQ(e->type->kind, TYPE_INT);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, RShiftAssign_Int_LongRhs_Cast)
+{
+    ParseProgram("void f(int x, long y) { x >>= y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_RIGHT);
+    EXPECT_EQ(e->type->kind, TYPE_INT);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, AndAssign_Int_ShortRhs_Cast)
+{
+    ParseProgram("void f(int x, short y) { x &= y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_AND);
+    EXPECT_EQ(e->type->kind, TYPE_INT);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, XorAssign_Int_CharRhs_Cast)
+{
+    ParseProgram("void f(int x, char y) { x ^= y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_XOR);
+    EXPECT_EQ(e->type->kind, TYPE_INT);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_INT);
+}
+
+TEST_F(CoercionTest, OrAssign_Int_LongRhs_Cast)
+{
+    ParseProgram("void f(int x, long y) { x |= y; }");
+    typecheck_program(program);
+    Expr *e = AssignExpr();
+    EXPECT_EQ(e->u.assign.op, ASSIGN_OR);
+    EXPECT_EQ(e->type->kind, TYPE_INT);
+    ASSERT_EQ(e->u.assign.value->kind, EXPR_CAST);
+    EXPECT_EQ(e->u.assign.value->type->kind, TYPE_INT);
+}
+
+// ─── K.5 Error cases ─────────────────────────────────────────────────────────
+
+TEST_F(CoercionTest, Error_PlusAssign_Ptr_FloatRhs)
+{
+    // float is not an integer type — pointer += float must be rejected.
+    ParseProgram("void f(int *p, float n) { p += n; }");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Pointer arithmetic requires integer operand");
+}
+
+TEST_F(CoercionTest, Error_PlusAssign_Ptr_PtrRhs)
+{
+    // pointer rhs for pointer += is also rejected.
+    ParseProgram("void f(int *p, int *q) { p += q; }");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Pointer arithmetic requires integer operand");
+}
+
+TEST_F(CoercionTest, Error_MulAssign_PtrLhs)
+{
+    // *= on a pointer lhs is not pointer arithmetic — both sides must be arithmetic.
+    ParseProgram("void f(int *p, int n) { p *= n; }");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Invalid operands for compound assignment");
+}
+
+TEST_F(CoercionTest, Error_DivAssign_PtrRhs)
+{
+    // pointer rhs for integer /= is not arithmetic.
+    ParseProgram("void f(int x, int *p) { x /= p; }");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "Invalid operands for compound assignment");
 }
