@@ -28,6 +28,9 @@ add_executable(semantic-tests
    structtab_tests.cpp
    typetab_tests.cpp
    typecheck_tests.cpp
+   typecheck_real_tests.cpp
+   pipeline_tests.cpp
+   label_loops_tests.cpp
    const_convert_tests.cpp
    coercion_tests.cpp
 )
