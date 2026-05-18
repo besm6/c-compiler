@@ -380,6 +380,7 @@ typedef enum {
     LITERAL_ULONG_LONG,
     LITERAL_FLOAT,
     LITERAL_DOUBLE,
+    LITERAL_LONG_DOUBLE,
     LITERAL_CHAR,
     LITERAL_STRING,
     LITERAL_ENUM
@@ -394,6 +395,7 @@ struct Literal {
         unsigned long ulong_val;
         unsigned long long ulong_long_val;
         double real_val;
+        long double long_double_val;
         char char_val;
         char *string_val;
         Ident enum_const;

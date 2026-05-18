@@ -107,6 +107,9 @@ static Expr *typecheck_literal(Expr *e)
     case LITERAL_DOUBLE:
         e->type = new_type(TYPE_DOUBLE, __func__, __FILE__, __LINE__);
         break;
+    case LITERAL_LONG_DOUBLE:
+        e->type = new_type(TYPE_LONG_DOUBLE, __func__, __FILE__, __LINE__);
+        break;
     case LITERAL_STRING: {
         e = typecheck_string(e);
         break;

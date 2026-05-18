@@ -57,6 +57,7 @@ Tac_Val *val_ulong(unsigned long v);
 Tac_Val *val_ulong_long(unsigned long long v);
 Tac_Val *val_float(float v);
 Tac_Val *val_double(double v);
+Tac_Val *val_long_double(long double v);
 Tac_Val *val_var(const char *name);
 Tac_Val *new_var_val(TacCtx *ctx);
 Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to);

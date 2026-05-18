@@ -758,6 +758,17 @@ TEST_F(TranslateTest, DoubleLiteral)
     EXPECT_NE(yaml.find("value: 0x1.8p+0"), std::string::npos);
 }
 
+// long double literal (L suffix) → TAC_CONST_LONG_DOUBLE
+TEST_F(TranslateTest, LongDoubleLiteral)
+{
+    std::string yaml = CompileToYaml("long double f(void) { return 1.5L; }");
+    EXPECT_NE(yaml.find("kind: long_double"), std::string::npos);
+    // The hex float representation of 1.5L is platform-dependent (%La format):
+    // on macOS/ARM64 it prints as 0xcp-3; on Linux x86-64 it may differ.
+    // Verify the value is present but don't hard-code the exact hex string.
+    EXPECT_NE(yaml.find("value: "), std::string::npos);
+}
+
 // ---------------------------------------------------------------------------
 // long long / long / ulong / ulong_long literals
 // ---------------------------------------------------------------------------

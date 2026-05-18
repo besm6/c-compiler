@@ -119,6 +119,7 @@ void validate_type(const Type *t)
     case TYPE_ULONG_LONG:
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
+    case TYPE_LONG_DOUBLE:
     case TYPE_STRUCT:
     case TYPE_UNION:
     case TYPE_ENUM:
@@ -168,9 +169,10 @@ const Type *get_common_type(const Type *t1, const Type *t2)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
-    static const Type int_type    = { .kind = TYPE_INT };
-    static const Type double_type = { .kind = TYPE_DOUBLE };
-    static const Type float_type  = { .kind = TYPE_FLOAT };
+    static const Type int_type         = { .kind = TYPE_INT };
+    static const Type double_type      = { .kind = TYPE_DOUBLE };
+    static const Type float_type       = { .kind = TYPE_FLOAT };
+    static const Type long_double_type = { .kind = TYPE_LONG_DOUBLE };
     if (is_character(t1))
         t1 = &int_type;
     if (is_character(t2))
@@ -181,6 +183,8 @@ const Type *get_common_type(const Type *t1, const Type *t2)
         t2 = &int_type;
     if (t1->kind == t2->kind)
         return t1;
+    if (t1->kind == TYPE_LONG_DOUBLE || t2->kind == TYPE_LONG_DOUBLE)
+        return &long_double_type;
     if (t1->kind == TYPE_DOUBLE || t2->kind == TYPE_DOUBLE)
         return &double_type;
     if (t1->kind == TYPE_FLOAT || t2->kind == TYPE_FLOAT)

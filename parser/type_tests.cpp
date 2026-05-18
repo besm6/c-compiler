@@ -184,6 +184,15 @@ TEST_F(ParserTest, TypeLongInt)
     free_type(type);
 }
 
+TEST_F(ParserTest, TypeLongDouble)
+{
+    Type *type = TestType("long double");
+
+    EXPECT_EQ(type->kind, TYPE_LONG_DOUBLE);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    free_type(type);
+}
+
 //
 // 3. Qualified Types
 // Adding type qualifiers to basic and modified types.

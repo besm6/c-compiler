@@ -41,6 +41,9 @@ static void export_const(WFILE *out, const Tac_Const *c)
     case TAC_CONST_DOUBLE:
         wputd(c->u.double_val, out);
         break;
+    case TAC_CONST_LONG_DOUBLE:
+        wputld(c->u.long_double_val, out);
+        break;
     case TAC_CONST_CHAR:
         wputw((unsigned)c->u.char_val, out);
         break;
@@ -93,6 +96,14 @@ static void export_instr(WFILE *out, const Tac_Instruction *instr)
     case TAC_INSTRUCTION_UINT_TO_FLOAT:
     case TAC_INSTRUCTION_FLOAT_TO_INT:
     case TAC_INSTRUCTION_FLOAT_TO_UINT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
         export_val(out, instr->u.sign_extend.src);
         export_val(out, instr->u.sign_extend.dst);
         break;
@@ -233,6 +244,7 @@ static void export_type(WFILE *out, const Tac_Type *t)
     case TAC_TYPE_ULONG_LONG:
     case TAC_TYPE_FLOAT:
     case TAC_TYPE_DOUBLE:
+    case TAC_TYPE_LONG_DOUBLE:
     case TAC_TYPE_VOID:
         break;
     case TAC_TYPE_FUN_TYPE:
@@ -293,6 +305,9 @@ static void export_static_init(WFILE *out, const Tac_StaticInit *si)
         break;
     case TAC_STATIC_INIT_DOUBLE:
         wputd(si->u.double_val, out);
+        break;
+    case TAC_STATIC_INIT_LONG_DOUBLE:
+        wputld(si->u.long_double_val, out);
         break;
     case TAC_STATIC_INIT_ZERO:
         wputw((size_t)si->u.zero_bytes, out);

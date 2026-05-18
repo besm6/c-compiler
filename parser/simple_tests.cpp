@@ -72,6 +72,38 @@ TEST_F(ParserTest, ScanCharLiteral)
     free_expression(expr);
 }
 
+// Test primary expression: long double literal with L suffix
+TEST_F(ParserTest, ScanLongDoubleLiteralUpperL)
+{
+    init_scanner(CreateTempFile("1.5L;"));
+    advance_token();
+    Expr *expr = parse_primary_expression();
+    ASSERT_NE(expr, nullptr);
+    print_expression(stdout, expr, 0);
+
+    EXPECT_EQ(EXPR_LITERAL, expr->kind);
+    EXPECT_EQ(LITERAL_LONG_DOUBLE, expr->u.literal->kind);
+    EXPECT_EQ(1.5L, expr->u.literal->u.long_double_val);
+
+    free_expression(expr);
+}
+
+// Test primary expression: long double literal with lowercase l suffix
+TEST_F(ParserTest, ScanLongDoubleLiteralLowerL)
+{
+    init_scanner(CreateTempFile("2.5l;"));
+    advance_token();
+    Expr *expr = parse_primary_expression();
+    ASSERT_NE(expr, nullptr);
+    print_expression(stdout, expr, 0);
+
+    EXPECT_EQ(EXPR_LITERAL, expr->kind);
+    EXPECT_EQ(LITERAL_LONG_DOUBLE, expr->u.literal->kind);
+    EXPECT_EQ(2.5L, expr->u.literal->u.long_double_val);
+
+    free_expression(expr);
+}
+
 // Test binary expression: x + y
 TEST_F(ParserTest, ScanBinaryExpression)
 {

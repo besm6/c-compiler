@@ -383,6 +383,9 @@ Literal *clone_literal(const Literal *lit)
     case LITERAL_DOUBLE:
         result->u.real_val = lit->u.real_val;
         break;
+    case LITERAL_LONG_DOUBLE:
+        result->u.long_double_val = lit->u.long_double_val;
+        break;
     case LITERAL_CHAR:
         result->u.char_val = lit->u.char_val;
         break;

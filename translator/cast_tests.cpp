@@ -566,3 +566,63 @@ TEST_F(TranslateTest, CastUintToLongLong)
     std::string yaml = CompileToYaml("long long f(unsigned int x) { return (long long)x; }");
     EXPECT_NE(yaml.find("kind: zero_extend"), std::string::npos);
 }
+
+// ---------------------------------------------------------------------------
+// long double casts
+// ---------------------------------------------------------------------------
+
+// (long double)x where x is int: signed integer → long double
+TEST_F(TranslateTest, CastIntToLongDouble)
+{
+    std::string yaml = CompileToYaml("long double f(int x) { return (long double)x; }");
+    EXPECT_NE(yaml.find("kind: int_to_long_double"), std::string::npos);
+}
+
+// (long double)x where x is unsigned int: unsigned integer → long double
+TEST_F(TranslateTest, CastUintToLongDouble)
+{
+    std::string yaml = CompileToYaml("long double f(unsigned int x) { return (long double)x; }");
+    EXPECT_NE(yaml.find("kind: uint_to_long_double"), std::string::npos);
+}
+
+// (int)x where x is long double: long double → signed integer
+TEST_F(TranslateTest, CastLongDoubleToInt)
+{
+    std::string yaml = CompileToYaml("int f(long double x) { return (int)x; }");
+    EXPECT_NE(yaml.find("kind: long_double_to_int"), std::string::npos);
+}
+
+// (unsigned int)x where x is long double: long double → unsigned integer
+TEST_F(TranslateTest, CastLongDoubleToUint)
+{
+    std::string yaml = CompileToYaml("unsigned int f(long double x) { return (unsigned int)x; }");
+    EXPECT_NE(yaml.find("kind: long_double_to_uint"), std::string::npos);
+}
+
+// (long double)x where x is double: double → long double
+TEST_F(TranslateTest, CastDoubleToLongDouble)
+{
+    std::string yaml = CompileToYaml("long double f(double x) { return (long double)x; }");
+    EXPECT_NE(yaml.find("kind: double_to_long_double"), std::string::npos);
+}
+
+// (double)x where x is long double: long double → double
+TEST_F(TranslateTest, CastLongDoubleToDouble)
+{
+    std::string yaml = CompileToYaml("double f(long double x) { return (double)x; }");
+    EXPECT_NE(yaml.find("kind: long_double_to_double"), std::string::npos);
+}
+
+// (long double)x where x is float: float → long double
+TEST_F(TranslateTest, CastFloatToLongDouble)
+{
+    std::string yaml = CompileToYaml("long double f(float x) { return (long double)x; }");
+    EXPECT_NE(yaml.find("kind: float_to_long_double"), std::string::npos);
+}
+
+// (float)x where x is long double: long double → float
+TEST_F(TranslateTest, CastLongDoubleToFloat)
+{
+    std::string yaml = CompileToYaml("float f(long double x) { return (float)x; }");
+    EXPECT_NE(yaml.find("kind: long_double_to_float"), std::string::npos);
+}

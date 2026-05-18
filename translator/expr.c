@@ -305,6 +305,8 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             return val_float((float)e->u.literal->u.real_val);
         case LITERAL_DOUBLE:
             return val_double(e->u.literal->u.real_val);
+        case LITERAL_LONG_DOUBLE:
+            return val_long_double(e->u.literal->u.long_double_val);
         case LITERAL_CHAR:
             return val_int(e->u.literal->u.char_val);
         case LITERAL_STRING: {

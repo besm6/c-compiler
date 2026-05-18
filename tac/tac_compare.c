@@ -29,6 +29,8 @@ bool tac_compare_const(const Tac_Const *a, const Tac_Const *b)
         return a->u.float_val == b->u.float_val;
     case TAC_CONST_DOUBLE:
         return a->u.double_val == b->u.double_val;
+    case TAC_CONST_LONG_DOUBLE:
+        return a->u.long_double_val == b->u.long_double_val;
     case TAC_CONST_CHAR:
         return a->u.char_val == b->u.char_val;
     case TAC_CONST_UCHAR:

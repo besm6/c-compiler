@@ -96,6 +96,15 @@ Tac_Val *val_double(double v)
     return tv;
 }
 
+Tac_Val *val_long_double(long double v)
+{
+    Tac_Val *tv            = tac_new_val(TAC_VAL_CONSTANT);
+    Tac_Const *c           = tac_new_const(TAC_CONST_LONG_DOUBLE);
+    c->u.long_double_val   = v;
+    tv->u.constant         = c;
+    return tv;
+}
+
 Tac_Val *val_var(const char *name)
 {
     Tac_Val *tv    = tac_new_val(TAC_VAL_VAR);
@@ -189,43 +198,49 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
             tac_append(ctx, in);
         }
     } else if (!from_int && to_int) {
-        // float/double → integer
-        bool from_float = (from->kind == TYPE_FLOAT);
+        // float/double/long double → integer
+        bool from_float       = (from->kind == TYPE_FLOAT);
+        bool from_long_double = (from->kind == TYPE_LONG_DOUBLE);
         if (is_signed(to)) {
-            Tac_InstructionKind op  = from_float ? TAC_INSTRUCTION_FLOAT_TO_INT
-                                                 : TAC_INSTRUCTION_DOUBLE_TO_INT;
+            Tac_InstructionKind op  = from_float       ? TAC_INSTRUCTION_FLOAT_TO_INT
+                                    : from_long_double ? TAC_INSTRUCTION_LONG_DOUBLE_TO_INT
+                                                       : TAC_INSTRUCTION_DOUBLE_TO_INT;
             Tac_Instruction *in     = tac_new_instruction(op);
             in->u.double_to_int.src = src;
             in->u.double_to_int.dst = dst;
             tac_append(ctx, in);
         } else {
-            Tac_InstructionKind op   = from_float ? TAC_INSTRUCTION_FLOAT_TO_UINT
-                                                  : TAC_INSTRUCTION_DOUBLE_TO_UINT;
+            Tac_InstructionKind op   = from_float       ? TAC_INSTRUCTION_FLOAT_TO_UINT
+                                     : from_long_double ? TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT
+                                                        : TAC_INSTRUCTION_DOUBLE_TO_UINT;
             Tac_Instruction *in      = tac_new_instruction(op);
             in->u.double_to_uint.src = src;
             in->u.double_to_uint.dst = dst;
             tac_append(ctx, in);
         }
     } else if (from_int && !to_int) {
-        // integer → float/double
-        bool to_float = (to->kind == TYPE_FLOAT);
+        // integer → float/double/long double
+        bool to_float       = (to->kind == TYPE_FLOAT);
+        bool to_long_double = (to->kind == TYPE_LONG_DOUBLE);
         if (is_signed(from)) {
-            Tac_InstructionKind op  = to_float ? TAC_INSTRUCTION_INT_TO_FLOAT
-                                               : TAC_INSTRUCTION_INT_TO_DOUBLE;
+            Tac_InstructionKind op  = to_float       ? TAC_INSTRUCTION_INT_TO_FLOAT
+                                    : to_long_double ? TAC_INSTRUCTION_INT_TO_LONG_DOUBLE
+                                                     : TAC_INSTRUCTION_INT_TO_DOUBLE;
             Tac_Instruction *in     = tac_new_instruction(op);
             in->u.int_to_double.src = src;
             in->u.int_to_double.dst = dst;
             tac_append(ctx, in);
         } else {
-            Tac_InstructionKind op   = to_float ? TAC_INSTRUCTION_UINT_TO_FLOAT
-                                                : TAC_INSTRUCTION_UINT_TO_DOUBLE;
+            Tac_InstructionKind op   = to_float       ? TAC_INSTRUCTION_UINT_TO_FLOAT
+                                     : to_long_double ? TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE
+                                                      : TAC_INSTRUCTION_UINT_TO_DOUBLE;
             Tac_Instruction *in      = tac_new_instruction(op);
             in->u.uint_to_double.src = src;
             in->u.uint_to_double.dst = dst;
             tac_append(ctx, in);
         }
     } else {
-        // float ↔ double or same-type
+        // float ↔ double ↔ long double, or same-type copy
         if (from->kind == TYPE_FLOAT && to->kind == TYPE_DOUBLE) {
             Tac_Instruction *in        = tac_new_instruction(TAC_INSTRUCTION_FLOAT_TO_DOUBLE);
             in->u.float_to_double.src  = src;
@@ -235,6 +250,26 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
             Tac_Instruction *in       = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_FLOAT);
             in->u.double_to_float.src = src;
             in->u.double_to_float.dst = dst;
+            tac_append(ctx, in);
+        } else if (from->kind == TYPE_LONG_DOUBLE && to->kind == TYPE_DOUBLE) {
+            Tac_Instruction *in              = tac_new_instruction(TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE);
+            in->u.long_double_to_double.src  = src;
+            in->u.long_double_to_double.dst  = dst;
+            tac_append(ctx, in);
+        } else if (from->kind == TYPE_DOUBLE && to->kind == TYPE_LONG_DOUBLE) {
+            Tac_Instruction *in              = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE);
+            in->u.double_to_long_double.src  = src;
+            in->u.double_to_long_double.dst  = dst;
+            tac_append(ctx, in);
+        } else if (from->kind == TYPE_LONG_DOUBLE && to->kind == TYPE_FLOAT) {
+            Tac_Instruction *in             = tac_new_instruction(TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT);
+            in->u.long_double_to_float.src  = src;
+            in->u.long_double_to_float.dst  = dst;
+            tac_append(ctx, in);
+        } else if (from->kind == TYPE_FLOAT && to->kind == TYPE_LONG_DOUBLE) {
+            Tac_Instruction *in             = tac_new_instruction(TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE);
+            in->u.float_to_long_double.src  = src;
+            in->u.float_to_long_double.dst  = dst;
             tac_append(ctx, in);
         } else {
             Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
@@ -313,6 +348,8 @@ Tac_Type *ast_type_to_tac_type(const Type *t)
         return tac_new_type(TAC_TYPE_FLOAT);
     case TYPE_DOUBLE:
         return tac_new_type(TAC_TYPE_DOUBLE);
+    case TYPE_LONG_DOUBLE:
+        return tac_new_type(TAC_TYPE_LONG_DOUBLE);
     case TYPE_ENUM:
         return tac_new_type(TAC_TYPE_INT);
     case TYPE_POINTER: {

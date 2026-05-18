@@ -46,7 +46,10 @@ void tac_print_const(FILE *fd, const Tac_Const *constant, int depth)
         fprintf(fd, "float %f\n", (double)constant->u.float_val);
         break;
     case TAC_CONST_DOUBLE:
-        fprintf(fd, "double %f\n", constant->u.double_val);
+        fprintf(fd, "double %a\n", constant->u.double_val);
+        break;
+    case TAC_CONST_LONG_DOUBLE:
+        fprintf(fd, "long_double %La\n", constant->u.long_double_val);
         break;
     case TAC_CONST_CHAR:
         fprintf(fd, "char %d\n", constant->u.char_val);
@@ -130,6 +133,9 @@ void tac_print_type(FILE *fd, const Tac_Type *type, int depth)
         break;
     case TAC_TYPE_DOUBLE:
         fprintf(fd, "double\n");
+        break;
+    case TAC_TYPE_LONG_DOUBLE:
+        fprintf(fd, "long_double\n");
         break;
     case TAC_TYPE_VOID:
         fprintf(fd, "void\n");
@@ -233,6 +239,9 @@ void tac_print_static_init(FILE *fd, const Tac_StaticInit *init, int depth)
     case TAC_STATIC_INIT_DOUBLE:
         fprintf(fd, "f64 %a\n", init->u.double_val);
         break;
+    case TAC_STATIC_INIT_LONG_DOUBLE:
+        fprintf(fd, "ld128 %La\n", init->u.long_double_val);
+        break;
     case TAC_STATIC_INIT_ZERO:
         fprintf(fd, "zero %d bytes\n", init->u.zero_bytes);
         break;
@@ -305,6 +314,30 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
         break;
     case TAC_INSTRUCTION_FLOAT_TO_UINT:
         fprintf(fd, "float_to_uint\n");
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+        fprintf(fd, "long_double_to_int\n");
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+        fprintf(fd, "long_double_to_uint\n");
+        break;
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+        fprintf(fd, "int_to_long_double\n");
+        break;
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+        fprintf(fd, "uint_to_long_double\n");
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+        fprintf(fd, "long_double_to_double\n");
+        break;
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+        fprintf(fd, "double_to_long_double\n");
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+        fprintf(fd, "long_double_to_float\n");
+        break;
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+        fprintf(fd, "float_to_long_double\n");
         break;
     case TAC_INSTRUCTION_UNARY:
         fprintf(fd, "unary %s\n",
@@ -381,6 +414,20 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
     case TAC_INSTRUCTION_DOUBLE_TO_UINT:
     case TAC_INSTRUCTION_INT_TO_DOUBLE:
     case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src:\n");
         tac_print_val(fd, instr->u.sign_extend.src, depth + 2);

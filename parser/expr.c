@@ -313,9 +313,13 @@ Expr *parse_constant()
         char *end        = NULL;
         double v         = strtod(current_lexeme, &end);
         bool is_f_suffix = end && (*end == 'f' || *end == 'F');
+        bool is_l_suffix = end && (*end == 'l' || *end == 'L');
         if (is_f_suffix) {
             expr->u.literal->kind       = LITERAL_FLOAT;
             expr->u.literal->u.real_val = strtof(current_lexeme, NULL);
+        } else if (is_l_suffix) {
+            expr->u.literal->kind                = LITERAL_LONG_DOUBLE;
+            expr->u.literal->u.long_double_val   = strtold(current_lexeme, NULL);
         } else {
             expr->u.literal->u.real_val = v;
         }

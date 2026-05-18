@@ -57,6 +57,11 @@ static void export_yaml_const(FILE *fd, const Tac_Const *c, int level)
         print_indent(fd, level);
         fprintf(fd, "value: %a\n", c->u.double_val);
         break;
+    case TAC_CONST_LONG_DOUBLE:
+        fprintf(fd, "long_double\n");
+        print_indent(fd, level);
+        fprintf(fd, "value: %La\n", c->u.long_double_val);
+        break;
     case TAC_CONST_CHAR:
         fprintf(fd, "char\n");
         print_indent(fd, level);
@@ -151,6 +156,9 @@ static void export_yaml_type(FILE *fd, const Tac_Type *type, int level)
         break;
     case TAC_TYPE_DOUBLE:
         fprintf(fd, "double\n");
+        break;
+    case TAC_TYPE_LONG_DOUBLE:
+        fprintf(fd, "long_double\n");
         break;
     case TAC_TYPE_VOID:
         fprintf(fd, "void\n");
@@ -251,6 +259,11 @@ static void export_yaml_static_init(FILE *fd, const Tac_StaticInit *init, int le
         fprintf(fd, "double\n");
         print_indent(fd, level);
         fprintf(fd, "value: %a\n", init->u.double_val);
+        break;
+    case TAC_STATIC_INIT_LONG_DOUBLE:
+        fprintf(fd, "long_double\n");
+        print_indent(fd, level);
+        fprintf(fd, "value: %La\n", init->u.long_double_val);
         break;
     case TAC_STATIC_INIT_ZERO:
         fprintf(fd, "zero\n");
@@ -411,6 +424,78 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         print_indent(fd, level);
         fprintf(fd, "dst:\n");
         export_yaml_val(fd, instr->u.float_to_uint.dst, level + 1);
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+        fprintf(fd, "long_double_to_int\n");
+        print_indent(fd, level);
+        fprintf(fd, "src:\n");
+        export_yaml_val(fd, instr->u.long_double_to_int.src, level + 1);
+        print_indent(fd, level);
+        fprintf(fd, "dst:\n");
+        export_yaml_val(fd, instr->u.long_double_to_int.dst, level + 1);
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+        fprintf(fd, "long_double_to_uint\n");
+        print_indent(fd, level);
+        fprintf(fd, "src:\n");
+        export_yaml_val(fd, instr->u.long_double_to_uint.src, level + 1);
+        print_indent(fd, level);
+        fprintf(fd, "dst:\n");
+        export_yaml_val(fd, instr->u.long_double_to_uint.dst, level + 1);
+        break;
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+        fprintf(fd, "int_to_long_double\n");
+        print_indent(fd, level);
+        fprintf(fd, "src:\n");
+        export_yaml_val(fd, instr->u.int_to_long_double.src, level + 1);
+        print_indent(fd, level);
+        fprintf(fd, "dst:\n");
+        export_yaml_val(fd, instr->u.int_to_long_double.dst, level + 1);
+        break;
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+        fprintf(fd, "uint_to_long_double\n");
+        print_indent(fd, level);
+        fprintf(fd, "src:\n");
+        export_yaml_val(fd, instr->u.uint_to_long_double.src, level + 1);
+        print_indent(fd, level);
+        fprintf(fd, "dst:\n");
+        export_yaml_val(fd, instr->u.uint_to_long_double.dst, level + 1);
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+        fprintf(fd, "long_double_to_double\n");
+        print_indent(fd, level);
+        fprintf(fd, "src:\n");
+        export_yaml_val(fd, instr->u.long_double_to_double.src, level + 1);
+        print_indent(fd, level);
+        fprintf(fd, "dst:\n");
+        export_yaml_val(fd, instr->u.long_double_to_double.dst, level + 1);
+        break;
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+        fprintf(fd, "double_to_long_double\n");
+        print_indent(fd, level);
+        fprintf(fd, "src:\n");
+        export_yaml_val(fd, instr->u.double_to_long_double.src, level + 1);
+        print_indent(fd, level);
+        fprintf(fd, "dst:\n");
+        export_yaml_val(fd, instr->u.double_to_long_double.dst, level + 1);
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+        fprintf(fd, "long_double_to_float\n");
+        print_indent(fd, level);
+        fprintf(fd, "src:\n");
+        export_yaml_val(fd, instr->u.long_double_to_float.src, level + 1);
+        print_indent(fd, level);
+        fprintf(fd, "dst:\n");
+        export_yaml_val(fd, instr->u.long_double_to_float.dst, level + 1);
+        break;
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+        fprintf(fd, "float_to_long_double\n");
+        print_indent(fd, level);
+        fprintf(fd, "src:\n");
+        export_yaml_val(fd, instr->u.float_to_long_double.src, level + 1);
+        print_indent(fd, level);
+        fprintf(fd, "dst:\n");
+        export_yaml_val(fd, instr->u.float_to_long_double.dst, level + 1);
         break;
     case TAC_INSTRUCTION_UNARY: {
         fprintf(fd, "unary\n");

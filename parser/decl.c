@@ -115,7 +115,7 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
                     base_kind != TYPE_IMAGINARY) {
                     fatal_error("double cannot combine with %s", type_kind_str[base_kind]);
                 }
-                base_kind = TYPE_DOUBLE;
+                base_kind = (base_kind == TYPE_LONG) ? TYPE_LONG_DOUBLE : TYPE_DOUBLE;
                 break;
             case TYPE_SIGNED:
                 if (base_kind != -1 && base_kind != TYPE_CHAR && base_kind != TYPE_SHORT &&

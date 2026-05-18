@@ -515,6 +515,9 @@ static void export_literal(FILE *fd, const Literal *lit, int level)
     case LITERAL_DOUBLE:
         fprintf(fd, "double\n");
         break;
+    case LITERAL_LONG_DOUBLE:
+        fprintf(fd, "long_double\n");
+        break;
     case LITERAL_CHAR:
         fprintf(fd, "char\n");
         break;
@@ -544,10 +547,13 @@ static void export_literal(FILE *fd, const Literal *lit, int level)
         fprintf(fd, "%llu\n", lit->u.ulong_long_val);
         break;
     case LITERAL_FLOAT:
-        fprintf(fd, "%f\n", lit->u.real_val);
+        fprintf(fd, "%a\n", lit->u.real_val);
         break;
     case LITERAL_DOUBLE:
-        fprintf(fd, "%f\n", lit->u.real_val);
+        fprintf(fd, "%a\n", lit->u.real_val);
+        break;
+    case LITERAL_LONG_DOUBLE:
+        fprintf(fd, "%La\n", lit->u.long_double_val);
         break;
     case LITERAL_CHAR:
         fprintf(fd, "'%c'\n", lit->u.char_val);

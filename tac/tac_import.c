@@ -60,6 +60,10 @@ static Tac_Const *import_const(WFILE *in)
         c->u.double_val = wgetd(in);
         check_input(in, "const double");
         break;
+    case TAC_CONST_LONG_DOUBLE:
+        c->u.long_double_val = wgetld(in);
+        check_input(in, "const long double");
+        break;
     case TAC_CONST_CHAR:
         c->u.char_val = (int)wgetw(in);
         check_input(in, "const char");
@@ -118,6 +122,7 @@ static Tac_Type *import_type(WFILE *in)
     case TAC_TYPE_ULONG_LONG:
     case TAC_TYPE_FLOAT:
     case TAC_TYPE_DOUBLE:
+    case TAC_TYPE_LONG_DOUBLE:
     case TAC_TYPE_VOID:
         break;
     case TAC_TYPE_FUN_TYPE:
@@ -193,6 +198,10 @@ static Tac_StaticInit *import_static_init(WFILE *in)
         si->u.double_val = wgetd(in);
         check_input(in, "static_init double");
         break;
+    case TAC_STATIC_INIT_LONG_DOUBLE:
+        si->u.long_double_val = wgetld(in);
+        check_input(in, "static_init long double");
+        break;
     case TAC_STATIC_INIT_ZERO:
         si->u.zero_bytes = (int)wgetw(in);
         check_input(in, "static_init zero");
@@ -253,6 +262,14 @@ static Tac_Instruction *import_instr(WFILE *in)
     case TAC_INSTRUCTION_UINT_TO_FLOAT:
     case TAC_INSTRUCTION_FLOAT_TO_INT:
     case TAC_INSTRUCTION_FLOAT_TO_UINT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
         instr->u.sign_extend.src = import_val(in);
         instr->u.sign_extend.dst = import_val(in);
         break;
