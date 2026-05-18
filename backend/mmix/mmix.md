@@ -1,0 +1,7 @@
+Here's a quick summary of what the schema covers:
+
+**Registers:** `greg` (256 general-purpose 64-bit registers via `Greg(int num)`) and 32 named special registers (`RA`…`RZZ`) accessed via `GET`/`PUT`.
+
+**Key operand types:** `rhs` (RhsReg | RhsImm) collapses every register/immediate instruction pair into a single constructor, `mem_addr` (the one and only MMIX addressing mode: base + offset), `target` for branch/jump labels, `wyde_imm` for 16-bit immediates, and `round_mode` for the explicit Y-byte rounding override on FP conversion instructions.
+
+**Instruction groups:** `load_instr` (11), `store_instr` (12), `arith_instr` (ADD/SUB/MUL/DIV signed+unsigned + NEG/NEGU), `shift_instr` (SL/SLU/SR/SRU), `cmp_instr` (CMP/CMPU), `logic_instr` (8 Boolean functions), `cond_set_instr` (CS family, 8 conditions), `zero_set_instr` (ZS family), `byte_instr` (MUX/SADD/MOR/MXOR/xDIF), `wyde_instr` (all 16 SETH…ANDNL opcodes), `fp_arith_instr` (FADD…FINT), `fp_cmp_instr` (FCMP/FUN/FEQL + epsilon-relative FCMPE/FUNE/FEQLE), `fp_cvt_instr` (FIX/FIXU/FLOT/FLOTU/SFLOT/SFLOTU), `branch_instr` and `prob_branch_instr` (16 variants each with forward/backward prediction hints), `go_instr` (GO/GETA), `jump_instr` (JMP/JMPB), `call_instr` (PUSHJ/PUSHGO/POP register-window protocol), `sreg_instr`, `stack_instr` (SAVE/UNSAVE), `resume_instr`, `atomic_instr` (CSWAP), `cache_instr`, and `misc_instr` (TRAP/TRIP/SWYM/SYNC).

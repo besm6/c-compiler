@@ -1,0 +1,555 @@
+-- MMIX Instruction Set Architecture
+-- Donald Knuth's 64-bit RISC architecture (TAOCP Fascicle 1, MMIXware)
+--
+-- Design notes:
+--   • All 256 general registers are 64-bit; no dedicated zero register.
+--   • No condition-code register; comparisons produce integer results (-1/0/1).
+--   • Every instruction is unconditional; predication uses CS*/ZS* families.
+--   • IEEE 754 binary64 (double) is the sole FP format; binary32 only appears
+--     in LDSF/STSF load-store conversions and SFLOT/SFLOTU conversions.
+--   • Rounding mode lives in rA; conversion instructions carry an explicit
+--     Y-byte override (round_mode) instead.
+--   • Register-or-immediate operands are unified via rhs to avoid doubling
+--     every instruction (e.g. ADD covers both ADD $X,$Y,$Z and ADDI $X,$Y,Z).
+--   • Subroutine calls use a sliding register-window stack (rO/rS/rL/rG).
+--   • Constructor uniqueness: verified — all 256 names are globally distinct.
+--
+-- References:
+--   Knuth, TAOCP Vol.1 Fascicle 1, "MMIX — A RISC Computer for the New Millennium"
+--   Knuth, "MMIXware" (LNCS 1750)
+
+module Mmix {
+
+  -- =========================================================
+  -- Registers
+  -- =========================================================
+
+  -- 256 general-purpose 64-bit registers $0..$255.
+  -- The boundary between local, marginal, and global regs is
+  -- dynamic: rL = local threshold, rG = global threshold.
+  greg = Greg(int num)   -- num ∈ 0..255
+
+  -- Special (privileged) registers accessed via GET / PUT.
+  sreg = RA    -- arithmetic status (exception bits + rounding mode)
+       | RB    -- bootstrap / OS scratch
+       | RC    -- cycle counter (read-only)
+       | RD    -- dividend (high 64 bits for DIVU: rD:dst / rhs_op)
+       | RE    -- epsilon (for FCMPE / FUNE / FEQLE comparisons)
+       | RF    -- failure location (last faulting virtual address)
+       | RG    -- global threshold ($rG..$255 are global registers)
+       | RH    -- himult (high 64 bits produced by MULU)
+       | RI    -- interval counter
+       | RJ    -- return-jump register (saved PC+4 by PUSHJ/PUSHJB)
+       | RK    -- interrupt mask
+       | RL    -- local threshold ($0..$(rL-1) are local registers)
+       | RM    -- multiplex mask (used by MUX)
+       | RN    -- serial number (unique process/thread ID, read-only)
+       | RO    -- register-stack offset in bytes (managed by OS)
+       | RP    -- prediction register
+       | RQ    -- interrupt request bits
+       | RR    -- remainder (quotient from DIV/DIVU; residual from FREM)
+       | RS    -- register-stack pointer (address of top backing page)
+       | RT    -- trap address (user-mode trap handler)
+       | RU    -- usage counter
+       | RV    -- virtual translation register
+       | RW    -- where-interrupted: saved PC (user mode)
+       | RX    -- execution register: saved instruction (user mode)
+       | RY    -- Y-operand saved at user-mode trap
+       | RZ    -- Z-operand saved at user-mode trap
+       | RBB   -- kernel copy of rB
+       | RTT   -- dynamic trap address (kernel-mode trap handler)
+       | RWW   -- where-interrupted: saved PC (kernel mode)
+       | RXX   -- execution register: saved instruction (kernel mode)
+       | RYY   -- Y-operand saved at kernel-mode trap
+       | RZZ   -- Z-operand saved at kernel-mode trap
+
+  -- =========================================================
+  -- Operand building blocks
+  -- =========================================================
+
+  -- Z-field operand: either a register reference or an 8-bit unsigned
+  -- immediate (0..255).  Almost every three-operand instruction has both
+  -- a register form (ADD $X,$Y,$Z) and an immediate form (ADDI $X,$Y,Z);
+  -- rhs collapses the two into one constructor, halving the schema size.
+  rhs = RhsReg(greg reg)
+      | RhsImm(int imm)   -- 0..255
+
+  -- Memory address: $base + Z-field offset (register or 8-bit immediate).
+  -- MMIX has exactly one addressing mode.
+  mem_addr = MemAddr(greg base, rhs off)
+
+  -- Branch / jump target.  Relative offsets are in units of instructions
+  -- (×4 bytes).  Branches use a 16-bit signed offset; JMP uses 24-bit.
+  -- GETA also uses a 16-bit offset to compute a PC-relative address.
+  target = TgtLabel(string name)   -- symbolic label (resolved by assembler)
+         | TgtRel(int offset)      -- raw signed instruction-unit offset
+
+  -- 16-bit wyde immediate used by the SETH/INCH/ORH/ANDNH families.
+  wyde_imm = WydeImm(int value)   -- 0..65535
+
+  -- Explicit rounding mode in the Y-byte field of conversion instructions
+  -- (FSQRT, FINT, FIX, FIXU, FLOT, FLOTU, SFLOT, SFLOTU).
+  -- The default runtime mode lives in rA[11:9]; ROUND_DYN delegates to it.
+  round_mode = ROUND_OFF    -- toward zero (truncate)
+             | ROUND_UP     -- toward +infinity
+             | ROUND_DOWN   -- toward −infinity
+             | ROUND_NEAR   -- to nearest, ties to even (IEEE 754 default)
+             | ROUND_DYN    -- use the rounding mode bits in rA at runtime
+
+  -- =========================================================
+  -- Load instructions
+  -- =========================================================
+
+  -- Signed variants sign-extend to 64 bits; unsigned variants zero-extend.
+  -- Sizes: byte (1 B), wyde (2 B), tetra (4 B), octa (8 B).
+  -- LDSF: converts IEEE binary32 in memory to binary64 in register.
+  -- LDHT: loads 4 bytes into bits 63..32 of dst (bits 31..0 become zero).
+  -- LDUNC: octa load bypassing the data cache (for streaming / DMA).
+  load_instr = LDB(greg dst, mem_addr addr)    -- load byte, sign-extend
+             | LDBU(greg dst, mem_addr addr)   -- load byte, zero-extend
+             | LDW(greg dst, mem_addr addr)    -- load wyde (2 B), sign-extend
+             | LDWU(greg dst, mem_addr addr)   -- load wyde, zero-extend
+             | LDT(greg dst, mem_addr addr)    -- load tetra (4 B), sign-extend
+             | LDTU(greg dst, mem_addr addr)   -- load tetra, zero-extend
+             | LDO(greg dst, mem_addr addr)    -- load octa (8 B)
+             | LDOU(greg dst, mem_addr addr)   -- load octa (unsigned; same encoding)
+             | LDSF(greg dst, mem_addr addr)   -- load short float: binary32 → binary64
+             | LDHT(greg dst, mem_addr addr)   -- load high tetra → bits 63..32
+             | LDUNC(greg dst, mem_addr addr)  -- load octa, bypass cache
+
+  -- =========================================================
+  -- Store instructions
+  -- =========================================================
+
+  -- Stores write the low N bytes of src to memory; the "U" forms are
+  -- unsigned aliases with the same encoding.
+  -- STSF: converts binary64 in register to binary32 in memory.
+  -- STHT: stores bits 63..32 of src as a 4-byte tetra.
+  -- STCO: stores an 8-bit literal constant (0..255) as an octabyte.
+  -- STUNC: octa store bypassing the data cache.
+  store_instr = STB(greg src, mem_addr addr)
+              | STBU(greg src, mem_addr addr)
+              | STW(greg src, mem_addr addr)
+              | STWU(greg src, mem_addr addr)
+              | STT(greg src, mem_addr addr)
+              | STTU(greg src, mem_addr addr)
+              | STO(greg src, mem_addr addr)
+              | STOU(greg src, mem_addr addr)
+              | STSF(greg src, mem_addr addr)          -- store short float: binary64 → binary32
+              | STHT(greg src, mem_addr addr)          -- store high tetra: bits 63..32
+              | STCO(int const_val, mem_addr addr)     -- store 8-bit constant as 8 B
+              | STUNC(greg src, mem_addr addr)         -- store octa, bypass cache
+
+  -- =========================================================
+  -- Integer arithmetic
+  -- =========================================================
+
+  -- Signed (ADD/SUB/MUL/DIV): overflow / underflow sets bits in rA.
+  -- Unsigned (ADDU/SUBU/MULU/DIVU): wrap silently.
+  --   MULU: product high 64 bits → rH; low 64 bits → dst.
+  --   DIVU: treats rD:dst as 128-bit dividend; remainder → rR.
+  -- NEG/NEGU: dst = y − rhs_op  (y is a literal byte, normally 0;
+  --   these are the only instructions where the middle field is always
+  --   an immediate rather than a register).
+  arith_instr = ADD(greg dst, greg lhs, rhs rhs_op)
+              | SUB(greg dst, greg lhs, rhs rhs_op)
+              | MUL(greg dst, greg lhs, rhs rhs_op)    -- signed; overflow → rA
+              | DIV(greg dst, greg lhs, rhs rhs_op)    -- signed; remainder → rR
+              | ADDU(greg dst, greg lhs, rhs rhs_op)   -- unsigned add (wrap)
+              | SUBU(greg dst, greg lhs, rhs rhs_op)   -- unsigned sub (wrap)
+              | MULU(greg dst, greg lhs, rhs rhs_op)   -- unsigned; high 64 b → rH
+              | DIVU(greg dst, greg lhs, rhs rhs_op)   -- unsigned; rD:dst ÷ rhs_op
+              | NEG(greg dst, int y, rhs rhs_op)        -- dst = y − rhs (signed)
+              | NEGU(greg dst, int y, rhs rhs_op)       -- dst = y − rhs (unsigned)
+
+  -- =========================================================
+  -- Shift instructions
+  -- =========================================================
+
+  -- SL/SR treat values as signed 64-bit integers.
+  -- SLU/SRU treat values as unsigned 64-bit integers.
+  -- Shift amount from rhs (register or 0..63 immediate).
+  shift_instr = SL(greg dst, greg src, rhs amount)    -- shift left, signed
+              | SLU(greg dst, greg src, rhs amount)   -- shift left, unsigned
+              | SR(greg dst, greg src, rhs amount)    -- shift right, signed (arithmetic)
+              | SRU(greg dst, greg src, rhs amount)   -- shift right, unsigned (logical)
+
+  -- =========================================================
+  -- Integer comparison
+  -- =========================================================
+
+  -- Result in dst: −1 (lhs < rhs), 0 (equal), +1 (lhs > rhs).
+  -- No flags register; result is a normal register value.
+  cmp_instr = CMP(greg dst, greg lhs, rhs rhs_op)    -- signed compare
+            | CMPU(greg dst, greg lhs, rhs rhs_op)   -- unsigned compare
+
+  -- =========================================================
+  -- Bitwise logic
+  -- =========================================================
+
+  -- MMIX provides all 8 "interesting" two-input Boolean functions.
+  logic_instr = AND(greg dst, greg lhs, rhs rhs_op)
+              | OR(greg dst, greg lhs, rhs rhs_op)
+              | XOR(greg dst, greg lhs, rhs rhs_op)
+              | ANDN(greg dst, greg lhs, rhs rhs_op)    -- lhs & ~rhs  (AND-NOT)
+              | ORN(greg dst, greg lhs, rhs rhs_op)     -- lhs | ~rhs  (OR-NOT)
+              | NAND(greg dst, greg lhs, rhs rhs_op)    -- ~(lhs & rhs)
+              | NOR(greg dst, greg lhs, rhs rhs_op)     -- ~(lhs | rhs)
+              | NXOR(greg dst, greg lhs, rhs rhs_op)    -- ~(lhs ^ rhs) = XNOR
+
+  -- =========================================================
+  -- Conditional set instructions (CS family)
+  -- =========================================================
+
+  -- dst ← (condition(test)) ? val : dst   (dst unchanged when condition false)
+  -- Conditions: N=negative(<0), Z=zero, P=positive(>0), OD=odd,
+  --             NN=non-negative(≥0), NZ=non-zero, NP=non-positive(≤0), EV=even.
+  cond_set_instr = CSN(greg dst, greg test, rhs val)     -- set if test < 0
+                 | CSZ(greg dst, greg test, rhs val)     -- set if test = 0
+                 | CSP(greg dst, greg test, rhs val)     -- set if test > 0
+                 | CSOD(greg dst, greg test, rhs val)    -- set if test is odd
+                 | CSNN(greg dst, greg test, rhs val)    -- set if test ≥ 0
+                 | CSNZ(greg dst, greg test, rhs val)    -- set if test ≠ 0
+                 | CSNP(greg dst, greg test, rhs val)    -- set if test ≤ 0
+                 | CSEV(greg dst, greg test, rhs val)    -- set if test is even
+
+  -- =========================================================
+  -- Zero-or-set instructions (ZS family)
+  -- =========================================================
+
+  -- dst ← (condition(test)) ? val : 0   (zero when condition false)
+  -- Same conditions as CS family.
+  zero_set_instr = ZSN(greg dst, greg test, rhs val)
+                 | ZSZ(greg dst, greg test, rhs val)
+                 | ZSP(greg dst, greg test, rhs val)
+                 | ZSOD(greg dst, greg test, rhs val)
+                 | ZSNN(greg dst, greg test, rhs val)
+                 | ZSNZ(greg dst, greg test, rhs val)
+                 | ZSNP(greg dst, greg test, rhs val)
+                 | ZSEV(greg dst, greg test, rhs val)
+
+  -- =========================================================
+  -- Byte/wyde parallel and matrix instructions
+  -- =========================================================
+
+  -- MUX: selects bits from lhs or rhs_op according to rM mask.
+  -- SADD: "sideways add" = popcount(lhs & ~rhs_op).  With rhs_op=0, gives popcount(lhs).
+  -- MOR: treats lhs and rhs_op as 8×8 Boolean matrices (rows=bytes);
+  --      result = lhs × rhs_op using OR as addition, AND as multiplication.
+  -- MXOR: same as MOR but over GF(2) (XOR as addition); useful for ECC.
+  -- xDIF: packed saturating unsigned subtraction by byte/wyde/tetra/octa lanes.
+  byte_instr = MUX(greg dst, greg lhs, rhs rhs_op)        -- bitwise multiplex by rM
+             | SADD(greg dst, greg lhs, rhs rhs_op)       -- sideways add (popcount variant)
+             | MOR(greg dst, greg lhs, rhs rhs_op)        -- 8×8 Boolean matrix OR product
+             | MXOR(greg dst, greg lhs, rhs rhs_op)       -- 8×8 GF(2) matrix XOR product
+             | BDIF(greg dst, greg lhs, rhs rhs_op)       -- 8×1B saturating differences
+             | WDIF(greg dst, greg lhs, rhs rhs_op)       -- 4×2B saturating differences
+             | TDIF(greg dst, greg lhs, rhs rhs_op)       -- 2×4B saturating differences
+             | ODIF(greg dst, greg lhs, rhs rhs_op)       -- 1×8B saturating difference
+
+  -- =========================================================
+  -- 16-bit wyde-immediate instructions (SET / INC / OR / ANDN families)
+  -- =========================================================
+
+  -- Each mnemonic targets one of the four 16-bit "wyde" fields of the 64-bit dst:
+  --   H  = bits 63..48,  MH = bits 47..32,  ML = bits 31..16,  L = bits 15..0
+  -- SET*:  dst = 0, then place imm in the named field.
+  -- INC*:  dst += imm shifted to the named field position.
+  -- OR*:   dst |= imm shifted to the named field position.
+  -- ANDN*: dst &= ~(imm shifted to the named field position).
+  wyde_instr = SETH(greg dst, wyde_imm imm)      -- dst  = imm << 48
+             | SETMH(greg dst, wyde_imm imm)     -- dst  = imm << 32
+             | SETML(greg dst, wyde_imm imm)     -- dst  = imm << 16
+             | SETL(greg dst, wyde_imm imm)      -- dst  = imm
+             | INCH(greg dst, wyde_imm imm)      -- dst += imm << 48
+             | INCMH(greg dst, wyde_imm imm)     -- dst += imm << 32
+             | INCML(greg dst, wyde_imm imm)     -- dst += imm << 16
+             | INCL(greg dst, wyde_imm imm)      -- dst += imm
+             | ORH(greg dst, wyde_imm imm)       -- dst |= imm << 48
+             | ORMH(greg dst, wyde_imm imm)      -- dst |= imm << 32
+             | ORML(greg dst, wyde_imm imm)      -- dst |= imm << 16
+             | ORL(greg dst, wyde_imm imm)       -- dst |= imm
+             | ANDNH(greg dst, wyde_imm imm)     -- dst &= ~(imm << 48)
+             | ANDNMH(greg dst, wyde_imm imm)    -- dst &= ~(imm << 32)
+             | ANDNML(greg dst, wyde_imm imm)    -- dst &= ~(imm << 16)
+             | ANDNL(greg dst, wyde_imm imm)     -- dst &= ~imm
+
+  -- =========================================================
+  -- Floating-point arithmetic  (IEEE 754 binary64)
+  -- =========================================================
+
+  -- All FP values are binary64; registers are the same 64-bit general-purpose
+  -- file (no separate FP register file).
+  -- Exceptions (Invalid, Overflow, Underflow, etc.) set bits in rA.
+  -- Default rounding mode comes from rA[11:9]; FSQRT and FINT allow
+  -- an explicit round_mode in their Y byte.
+  fp_arith_instr = FADD(greg dst, greg lhs, greg rhs_r)
+                 | FSUB(greg dst, greg lhs, greg rhs_r)
+                 | FMUL(greg dst, greg lhs, greg rhs_r)
+                 | FDIV(greg dst, greg lhs, greg rhs_r)
+                 | FREM(greg dst, greg lhs, greg rhs_r)              -- IEEE 754 remainder
+                 | FSQRT(greg dst, round_mode rm, greg src)          -- Y byte = rounding mode
+                 | FINT(greg dst, round_mode rm, greg src)           -- round float → integer-valued float
+
+  -- =========================================================
+  -- Floating-point comparison
+  -- =========================================================
+
+  -- Exact comparisons (FCMP/FUN/FEQL): follow IEEE 754 strictly;
+  --   any NaN operand raises the Invalid exception.
+  -- Epsilon comparisons (FCMPE/FUNE/FEQLE): use rE as a relative tolerance;
+  --   |x−y| ≤ rE × max(|x|,|y|) is treated as equality.
+  -- All results are integers stored in dst (−1, 0, or 1; or 0/1 for predicates).
+  fp_cmp_instr = FCMP(greg dst, greg lhs, greg rhs_r)     -- exact: −1/0/1; NaN raises
+               | FUN(greg dst, greg lhs, greg rhs_r)      -- exact: 1 if unordered, else 0
+               | FEQL(greg dst, greg lhs, greg rhs_r)     -- exact: 1 if equal, else 0
+               | FCMPE(greg dst, greg lhs, greg rhs_r)    -- epsilon-relative −1/0/1
+               | FUNE(greg dst, greg lhs, greg rhs_r)     -- 1 if unordered under epsilon
+               | FEQLE(greg dst, greg lhs, greg rhs_r)    -- 1 if nearly equal under epsilon
+
+  -- =========================================================
+  -- Floating-point conversion
+  -- =========================================================
+
+  -- FIX/FIXU: binary64 → signed/unsigned 64-bit integer.
+  --   Source is always a register (cannot convert an 8-bit literal).
+  -- FLOT/FLOTU/SFLOT/SFLOTU: integer → binary64 / binary32-in-64.
+  --   Source uses rhs so the immediate form (e.g. FLOTI $X,Y,3) is covered.
+  -- SFLOT*: the result is a binary32 value stored in the low 32 bits of dst
+  --   with the high 32 bits zeroed (mirrors what STSF would write to memory).
+  fp_cvt_instr = FIX(greg dst, round_mode rm, greg src)       -- binary64 → signed int64
+               | FIXU(greg dst, round_mode rm, greg src)      -- binary64 → unsigned int64
+               | FLOT(greg dst, round_mode rm, rhs src)       -- signed int → binary64
+               | FLOTU(greg dst, round_mode rm, rhs src)      -- unsigned int → binary64
+               | SFLOT(greg dst, round_mode rm, rhs src)      -- signed int → binary32
+               | SFLOTU(greg dst, round_mode rm, rhs src)     -- unsigned int → binary32
+
+  -- =========================================================
+  -- Conditional branch instructions (B family)
+  -- =========================================================
+
+  -- 16-bit signed relative target (±32 Ki instructions from branch).
+  -- Forward forms (BN, BZ, …): processor predicts branch NOT taken.
+  -- Backward forms (BNB, BZB, …): processor predicts branch IS taken.
+  -- (Backward = loop-closing branch; the B suffix is the prediction hint.)
+  branch_instr = BN(greg test, target tgt)       -- branch if test < 0
+               | BNB(greg test, target tgt)      -- branch if test < 0  (backward predict)
+               | BZ(greg test, target tgt)       -- branch if test = 0
+               | BZB(greg test, target tgt)
+               | BP(greg test, target tgt)       -- branch if test > 0
+               | BPB(greg test, target tgt)
+               | BOD(greg test, target tgt)      -- branch if test is odd
+               | BODB(greg test, target tgt)
+               | BNN(greg test, target tgt)      -- branch if test ≥ 0
+               | BNNB(greg test, target tgt)
+               | BNZ(greg test, target tgt)      -- branch if test ≠ 0
+               | BNZB(greg test, target tgt)
+               | BNP(greg test, target tgt)      -- branch if test ≤ 0
+               | BNPB(greg test, target tgt)
+               | BEV(greg test, target tgt)      -- branch if test is even
+               | BEVB(greg test, target tgt)
+
+  -- =========================================================
+  -- Probable branch instructions (PB family)
+  -- =========================================================
+
+  -- Opposite prediction polarity from the B family:
+  --   forward PBN hints that the branch IS taken;
+  --   backward PBNB hints that the branch is NOT taken.
+  -- Useful for exit-unlikely-path and error-handling branches.
+  prob_branch_instr = PBN(greg test, target tgt)
+                    | PBNB(greg test, target tgt)
+                    | PBZ(greg test, target tgt)
+                    | PBZB(greg test, target tgt)
+                    | PBP(greg test, target tgt)
+                    | PBPB(greg test, target tgt)
+                    | PBOD(greg test, target tgt)
+                    | PBODB(greg test, target tgt)
+                    | PBNN(greg test, target tgt)
+                    | PBNNB(greg test, target tgt)
+                    | PBNZ(greg test, target tgt)
+                    | PBNZB(greg test, target tgt)
+                    | PBNP(greg test, target tgt)
+                    | PBNPB(greg test, target tgt)
+                    | PBEV(greg test, target tgt)
+                    | PBEVB(greg test, target tgt)
+
+  -- =========================================================
+  -- Go instructions (indirect jump with link)
+  -- =========================================================
+
+  -- GO:   dst ← PC+4 (return address);  PC ← base + off.
+  --       This is the indirect call/jump instruction (registers, not label).
+  -- GETA: dst ← PC + 4 × offset  (PC-relative address calculation, no jump).
+  --       Used to materialise a label's address into a register.
+  go_instr = GO(greg dst, greg base, rhs off)
+           | GETA(greg dst, target tgt)
+
+  -- =========================================================
+  -- Unconditional jump
+  -- =========================================================
+
+  -- 24-bit signed relative offset (±8 Mi instructions); no link register.
+  -- JMPB: backward-predict hint (processor assumes the jump is a loop header).
+  jump_instr = JMP(target tgt)
+             | JMPB(target tgt)
+
+  -- =========================================================
+  -- Subroutine call / return  (register-window stack protocol)
+  -- =========================================================
+
+  -- PUSHJ:   push $0..$(dst+1) onto the register stack; rJ ← PC+4; jump to tgt.
+  -- PUSHJB:  same but with backward prediction hint.
+  -- PUSHGO:  push-and-go with indirect target (base + off).
+  -- PUSHGOB: same with backward prediction hint.
+  -- POP:     restore num registers from the register stack;
+  --          PC ← rJ + 4 × ret_offset (ret_offset normally 0).
+  call_instr = PUSHJ(greg dst, target tgt)
+             | PUSHJB(greg dst, target tgt)
+             | PUSHGO(greg dst, greg base, rhs off)
+             | PUSHGOB(greg dst, greg base, rhs off)
+             | POP(int num, int ret_offset)
+
+  -- =========================================================
+  -- Special register access
+  -- =========================================================
+
+  -- GET: dst ← special_register.
+  -- PUT: special_register ← src.  Some registers are read-only (rC, rN, rO, …).
+  sreg_instr = GET(greg dst, sreg reg)
+             | PUT(sreg reg, rhs src)
+
+  -- =========================================================
+  -- Register-stack management
+  -- =========================================================
+
+  -- SAVE $X,0:    push the entire local register frame to the backing store;
+  --               dst ← address of the saved data.  Z must be 0.
+  -- UNSAVE $Z:    restore a register frame from the address held in src.
+  stack_instr = SAVE(greg dst)
+              | UNSAVE(greg src)
+
+  -- =========================================================
+  -- Resume from interrupt / trap
+  -- =========================================================
+
+  -- RESUME Z selects the resumption strategy:
+  --   0 = normal (re-fetch from rWW);
+  --   1 = re-execute the instruction stored in rXX with PC = rWW;
+  --   2 = continue with rXX-modified instruction;
+  --   3 = trap to rTT.
+  resume_instr = RESUME(int mode)   -- mode ∈ 0..3
+
+  -- =========================================================
+  -- Atomic memory operation
+  -- =========================================================
+
+  -- CSWAP $X,$Y,$Z: compare-and-swap octabyte at memory[addr].
+  --   If memory[addr] = $X: memory[addr] ← rP; dst ← 1 (success).
+  --   Otherwise: dst ← 0; $X ← current memory value (failure).
+  atomic_instr = CSWAP(greg dst, mem_addr addr)
+
+  -- =========================================================
+  -- Cache and memory-hierarchy hints
+  -- =========================================================
+
+  -- The hint byte (0..255) is a non-binding size hint in octabytes.
+  -- PRELD/PREGO: prefetch data / instructions into cache.
+  -- PREST: announce a region will be completely overwritten (avoids load).
+  -- SYNCD/SYNCID: flush data / instruction+data caches to memory.
+  -- LDVTS: load virtual translation status (privileged; memory management).
+  cache_instr = PRELD(int hint, mem_addr addr)
+              | PREGO(int hint, mem_addr addr)
+              | PREST(int hint, mem_addr addr)
+              | SYNCD(int hint, mem_addr addr)
+              | SYNCID(int hint, mem_addr addr)
+              | LDVTS(greg dst, mem_addr addr)
+
+  -- =========================================================
+  -- Miscellaneous / privileged instructions
+  -- =========================================================
+
+  -- TRAP:  OS system call; handler at rT; operands passed via rW/rX/rY/rZ.
+  -- TRIP:  user-level trap; handler at rTT; same operand passing convention.
+  -- SWYM:  NOP ("swim"); all three bytes are ignored (but may carry hints).
+  -- SYNC:  memory ordering fence; z ∈ 0..7 selects the fence strength.
+  misc_instr = TRAP(int x, int y, int z)
+             | TRIP(int x, int y, int z)
+             | SWYM(int x, int y, int z)
+             | SYNC(int z)
+
+  -- =========================================================
+  -- Top-level instruction wrapper
+  -- =========================================================
+
+  instr = ILoad(load_instr body)
+        | IStore(store_instr body)
+        | IArith(arith_instr body)
+        | IShift(shift_instr body)
+        | ICmp(cmp_instr body)
+        | ILogic(logic_instr body)
+        | ICondSet(cond_set_instr body)
+        | IZeroSet(zero_set_instr body)
+        | IByte(byte_instr body)
+        | IWyde(wyde_instr body)
+        | IFpArith(fp_arith_instr body)
+        | IFpCmp(fp_cmp_instr body)
+        | IFpCvt(fp_cvt_instr body)
+        | IBranch(branch_instr body)
+        | IPBranch(prob_branch_instr body)
+        | IGo(go_instr body)
+        | IJump(jump_instr body)
+        | ICall(call_instr body)
+        | ISreg(sreg_instr body)
+        | IStack(stack_instr body)
+        | IResume(resume_instr body)
+        | IAtomic(atomic_instr body)
+        | ICache(cache_instr body)
+        | IMisc(misc_instr body)
+        | ILabel(string name)     -- assembly label definition
+        | IAlign(int pow2)        -- align to 2^pow2 bytes
+        | IRawOcta(int value)     -- raw 64-bit literal in text segment
+
+  -- =========================================================
+  -- Code structure
+  -- =========================================================
+
+  block = Block(string? name, instr* body)
+
+  -- MMIX calling conventions.
+  -- MMIX_STD:  Knuth's standard ABI — PUSHJ/POP register-window protocol;
+  --            parameters and results in $0..$(rL-1).
+  -- MMIX_SIM:  MMIXware simulator convention (compatible with MMIX_STD;
+  --            exposes TRAP-based I/O helpers).
+  -- INTERNAL:  compiler-internal (no register-window discipline needed;
+  --            caller and callee share a fixed set of registers).
+  call_conv = MMIX_STD
+            | MMIX_SIM
+            | INTERNAL
+
+  func = Func(string name, greg* params, greg* results,
+              call_conv cc, block* blocks)
+
+  -- Data directives (correspond to MMIX assembler pseudo-ops).
+  data_item = DI_Octa(int value)       -- 8-byte integer constant   (OCTA)
+            | DI_Tetra(int value)      -- 4-byte integer constant   (TETRA)
+            | DI_Wyde(int value)       -- 2-byte integer constant   (WYDE)
+            | DI_Byte(int value)       -- 1-byte integer constant   (BYTE)
+            | DI_Float(float value)    -- 4-byte IEEE binary32      (TETRA fp)
+            | DI_Double(float value)   -- 8-byte IEEE binary64      (OCTA fp)
+            | DI_String(string s)      -- byte string               (BYTE sequence)
+            | DI_Ref(string name)      -- 8-byte reference to label (OCTA @label)
+            | DI_Align(int pow2)       -- padding to 2^pow2-byte boundary
+
+  -- MMIX memory segments (correspond to the four address-space regions).
+  section_kind = SK_Text    -- executable code    (addresses 0x00…–0x3F…)
+               | SK_Data    -- read/write data    (addresses 0x20…)
+               | SK_Pool    -- dynamic pool       (addresses 0x40…)
+               | SK_Stack   -- register-stack backing store
+               | SK_Local   -- compiler-temporary (not a standard MMIX segment)
+
+  data_section = DataSection(section_kind kind, string? name, data_item* items)
+
+  module = Module(string name, func* funcs, data_section* sections)
+
+}
