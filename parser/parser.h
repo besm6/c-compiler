@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 #include "ast.h"
+#include <stdnoreturn.h>
 
 typedef struct Declarator Declarator;
 
