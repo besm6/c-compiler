@@ -1,0 +1,698 @@
+-- aarch64.asdl
+-- Comprehensive ASDL description of the AArch64 (ARMv8-A 64-bit) instruction set.
+-- Covers: all general-purpose integer instructions, scalar floating-point
+-- (FP16 / FP32 / FP64), exclusive / acquire-release access, LSE atomics,
+-- system-register access, and common hint / barrier instructions.
+-- SIMD/NEON (vector) instructions are deliberately omitted.
+--
+-- Key AArch64 properties reflected in this schema:
+--   * Load-store architecture: only LDR/STR variants touch memory;
+--     all arithmetic uses registers.
+--   * 3-operand register instructions (dst, src1, src2).
+--   * Barrel-shifter operands: most ALU instructions accept a register
+--     optionally shifted or extended inline.
+--   * Condition flags (NZCV) are updated only by instructions with the
+--     S suffix (ADDS, SUBS, ANDS, …); the plain forms never touch flags.
+--   * The zero register (XZR/WZR) and stack pointer (SP/WSP) share
+--     register-file encoding 31 but are separate architectural registers;
+--     they are modelled as distinct variants in gpr.
+--   * Floating-point registers V0–V31 have scalar views at four widths;
+--     only the scalar (non-vector) views are used here.
+--
+-- ASDL notation:
+--   T?  optional field (0 or 1)
+--   T*  list field    (0 or more)
+--   |   variant separator
+-- Primitive leaf types: int, string, float, bool.
+
+module AArch64 {
+
+  -- ===========================================================
+  --  1. REGISTER FILES
+  -- ===========================================================
+
+  -- 64-bit general-purpose registers X0–X30.
+  -- X29 is conventionally the frame pointer (FP).
+  -- X30 is the link register (LR).
+  -- W0–W30 are the 32-bit low-word views of the same physical registers.
+  xreg = X0  | X1  | X2  | X3  | X4  | X5  | X6  | X7
+       | X8  | X9  | X10 | X11 | X12 | X13 | X14 | X15
+       | X16 | X17 | X18 | X19 | X20 | X21 | X22 | X23
+       | X24 | X25 | X26 | X27 | X28 | X29 | X30
+
+  wreg = W0  | W1  | W2  | W3  | W4  | W5  | W6  | W7
+       | W8  | W9  | W10 | W11 | W12 | W13 | W14 | W15
+       | W16 | W17 | W18 | W19 | W20 | W21 | W22 | W23
+       | W24 | W25 | W26 | W27 | W28 | W29 | W30
+
+  -- Special architectural registers.
+  -- XZR / WZR: zero register — reads always return 0; writes are discarded.
+  -- SP / WSP:  stack pointer — 64 / 32-bit views; shares encoding 31 with
+  --            XZR/WZR but is a distinct resource.
+  -- PC:        program counter — not directly writable; accessible via
+  --            ADR/ADRP and as a source for literal loads.
+  sp_zr_reg = XZR | WZR | SP | WSP
+
+  -- A general-purpose operand register (any of the four kinds).
+  gpr = GPX(xreg     r)    -- 64-bit  Xn
+      | GPW(wreg     r)    -- 32-bit  Wn
+      | GPSP                -- 64-bit stack pointer (SP)
+      | GPWSP               -- 32-bit stack pointer (WSP)
+      | GPXZR               -- 64-bit zero register (XZR)
+      | GPWZR               -- 32-bit zero register (WZR)
+
+  -- Scalar floating-point / SIMD register names.
+  -- The same physical register Vn has views at four scalar widths:
+  --   Bn –  8-bit  (byte)        — rarely used in FP arithmetic
+  --   Hn – 16-bit  (half)
+  --   Sn – 32-bit  (single)
+  --   Dn – 64-bit  (double)
+  -- The 128-bit Qn view (full SIMD lane) is excluded here.
+  fp_reg_name = V0  | V1  | V2  | V3  | V4  | V5  | V6  | V7
+              | V8  | V9  | V10 | V11 | V12 | V13 | V14 | V15
+              | V16 | V17 | V18 | V19 | V20 | V21 | V22 | V23
+              | V24 | V25 | V26 | V27 | V28 | V29 | V30 | V31
+
+  fp_width = FP_HALF    -- 16-bit  half-precision   (Hn view)
+           | FP_SINGLE  -- 32-bit  single-precision  (Sn view)
+           | FP_DOUBLE  -- 64-bit  double-precision  (Dn view)
+
+  fp_reg = FPReg(fp_reg_name r, fp_width w)
+
+  -- System / special-purpose registers accessed via MRS / MSR.
+  -- The open-ended SysRegOther variant covers any register not listed.
+  sys_reg = NZCV | FPCR | FPSR
+          | SP_EL0 | SP_EL1 | SP_EL2 | SP_EL3
+          | SPSel | DAIF | CurrentEL
+          | TPIDR_EL0 | TPIDRRO_EL0
+          | CTR_EL0 | DCZID_EL0
+          | CNTVCT_EL0 | CNTFRQ_EL0
+          | PMCCNTR_EL0
+          | SysRegOther(string name)   -- any register addressable as "op0:op1:CRn:CRm:op2"
+
+  -- ===========================================================
+  --  2. SHIFTS AND EXTENSIONS
+  -- ===========================================================
+
+  -- Shift type used in shifted-register operands and stand-alone shift
+  -- instructions.  ROR is not available in shifted-register forms of
+  -- ADD/SUB/AND (only in stand-alone ROR and RORV).
+  shift_type = LSL | LSR | ASR | ROR
+
+  -- Extension type used in extended-register operands.
+  -- These tell the encoder to zero-extend (UXT*) or sign-extend (SXT*)
+  -- a sub-word before adding to the base.  The EXT_ prefix avoids
+  -- collision with the identically-named extension pseudo-instructions
+  -- in the bitfield_instr section.
+  extend_type = EXT_UXTB | EXT_UXTH | EXT_UXTW | EXT_UXTX
+              | EXT_SXTB | EXT_SXTH | EXT_SXTW | EXT_SXTX
+
+  -- ===========================================================
+  --  3. IMMEDIATES
+  -- ===========================================================
+
+  -- Immediates are represented by integer value; the encoder selects
+  -- the appropriate hardware encoding:
+  --   • ADD/SUB: 12-bit unsigned, optionally shifted left by 12.
+  --   • AND/ORR/EOR: bitmask immediate (N, immr, imms encoding).
+  --   • Branches: PC-relative signed offsets (26-, 19-, 14-bit).
+  --   • MOVZ/MOVN/MOVK: 16-bit value with 16-bit shift position.
+  imm = Imm(int value)
+
+  -- MOVZ / MOVN / MOVK explicit form: 16-bit immediate plus shift position.
+  -- shift ∈ {0, 16, 32, 48} for 64-bit registers; {0, 16} for 32-bit.
+  mov_imm = MovImm(int value16, int shift)
+
+  -- ===========================================================
+  --  4. OPERANDS
+  -- ===========================================================
+
+  -- A shifted-register operand: Rm {, shift #amount}
+  -- amount ∈ [0, 63] for 64-bit; [0, 31] for 32-bit.
+  shifted_reg = ShiftedReg(gpr reg, shift_type stype, int amount)
+
+  -- An extended-register operand: Rm {, extend {#amount}}
+  -- amount ∈ [0, 4].  Used in ADD/SUB address arithmetic and load/store.
+  extended_reg = ExtendedReg(gpr reg, extend_type etype, int amount)
+
+  -- General integer operand: register, shifted register, extended register,
+  -- or immediate.  Not every instruction accepts all four forms; the
+  -- instruction selector enforces this at a higher level.
+  operand = OGpr(gpr           r)
+           | OShifted(shifted_reg   sr)
+           | OExtended(extended_reg er)
+           | OImm(imm           i)
+
+  -- Floating-point operand: FP register or an encoded 8-bit immediate.
+  -- The 8-bit FP immediate (used by FMOV) encodes a limited set of
+  -- small constants (sign, 3-bit exponent, 4-bit mantissa).
+  fp_operand = FPOpReg(fp_reg r)
+             | FPOpImm(float  value)   -- must be representable as abcdefgh encoding
+
+  -- ===========================================================
+  --  5. MEMORY ADDRESSING MODES
+  -- ===========================================================
+
+  -- AArch64 always uses a single base GPR for memory access.
+  -- There is no multi-register SIB byte; the second register
+  -- can be shifted or extended before adding to the base.
+  mem_offset
+    = MOff_None                                      -- [Xn] — base only
+    | MOff_Imm(int value)                            -- [Xn, #imm]  signed 9-bit (LDUR/STUR)
+    | MOff_ImmScaled(int value)                      -- [Xn, #imm]  unsigned, scaled by access size (LDR/STR)
+    | MOff_Reg(gpr rm)                               -- [Xn, Xm]
+    | MOff_RegShifted(gpr rm, int amount)            -- [Xn, Xm, LSL #n]  n = 0 or log2(access_size)
+    | MOff_RegExtended(gpr rm, extend_type e, int n) -- [Xn, Wm, UXTW/SXTW/SXTX #n]
+
+  -- Write-back modifier.  Pre-index updates the base before the access;
+  -- post-index updates the base after.  The offset used for the update
+  -- is the signed 9-bit immediate in MOff_Imm.
+  writeback = WB_None       -- no write-back
+            | WB_PreIndex   -- [Xn, #imm]!
+            | WB_PostIndex  -- [Xn], #imm
+
+  mem_addr = MemAddr(gpr base, mem_offset offset, writeback wb)
+
+  -- PC-relative address for literal loads (LDR Xn, =label) and ADR/ADRP.
+  literal_addr = LitLabel(label    lbl)          -- assembler resolves to PC-relative offset
+               | LitPCRel(int      byte_offset)  -- signed byte offset from current PC
+
+  -- ===========================================================
+  --  6. CONDITION CODES
+  -- ===========================================================
+
+  -- The NZCV flag register holds four bits.  Condition codes are
+  -- predicates over these bits.  HS/LO are aliases for CS/CC;
+  -- NV behaves like AL on current silicon but is architecturally reserved.
+  cc = EQ | NE        -- equal / not-equal                (Z=1 / Z=0)
+     | CS | CC        -- carry-set / carry-clear           (C=1 / C=0)  unsigned ≥ / <
+     | MI | PL        -- minus / plus                      (N=1 / N=0)
+     | VS | VC        -- overflow / no-overflow            (V=1 / V=0)
+     | HI | LS        -- unsigned higher / lower-or-same
+     | GE | LT        -- signed greater-or-equal / less-than
+     | GT | LE        -- signed greater-than / less-or-equal
+     | AL             -- always (unconditional)
+     | NV             -- never (architecturally reserved; don't generate in compilers)
+
+  -- ===========================================================
+  --  7. LABELS AND BRANCH TARGETS
+  -- ===========================================================
+
+  label = LocalLabel(string  name)    -- function-local  (.Lname)
+        | GlobalLabel(string name)    -- exported / external symbol
+        | AnonLabel(int      id)      -- compiler-generated numeric label
+
+  -- A branch or call target.  Indirect targets are always an xreg.
+  branch_target = BTLabel(label lbl)
+                | BTReg(xreg   r)
+
+  -- ===========================================================
+  --  8. INTEGER DATA-PROCESSING INSTRUCTIONS
+  -- ===========================================================
+
+  -- ----- 8a. Move -----
+  -- MOV is a pseudo-instruction; the assembler selects ORR / MOVZ / MOVN
+  -- depending on the source.  The backend can emit it as a distinct IR node;
+  -- the encoder resolves it.
+
+  move_instr = MOV(gpr dst, operand src)          -- general move pseudo-instruction
+             | MOVZ(gpr dst, mov_imm imm)          -- move zero:    dst ← imm16 << shift; other bits 0
+             | MOVN(gpr dst, mov_imm imm)          -- move negated: dst ← ~(imm16 << shift)
+             | MOVK(gpr dst, mov_imm imm)          -- move keep:    insert imm16 at shift; other bits unchanged
+             | MVN(gpr dst, shifted_reg src)       -- bitwise NOT:  dst ← ~src
+
+  -- ----- 8b. Arithmetic -----
+
+  arith_instr = ADD(gpr dst, gpr src1, operand src2)         -- dst ← src1 + src2
+              | ADDS(gpr dst, gpr src1, operand src2)        -- ADD and update NZCV
+              | SUB(gpr dst, gpr src1, operand src2)
+              | SUBS(gpr dst, gpr src1, operand src2)        -- SUB and update NZCV
+              | CMP(gpr src1, operand src2)                   -- SUBS XZR, src1, src2  (flags only)
+              | CMN(gpr src1, operand src2)                   -- ADDS XZR, src1, src2  (flags only)
+              | ADC(gpr dst, gpr src1, gpr src2)             -- dst ← src1 + src2 + C (add with carry)
+              | ADCS(gpr dst, gpr src1, gpr src2)
+              | SBC(gpr dst, gpr src1, gpr src2)             -- dst ← src1 - src2 - 1 + C
+              | SBCS(gpr dst, gpr src1, gpr src2)
+              | NEG(gpr dst, shifted_reg src)                 -- dst ← 0 - src
+              | NEGS(gpr dst, shifted_reg src)
+              -- Multiply (32×32 or 64×64 → low 64 bits)
+              | MUL(gpr dst, gpr src1, gpr src2)              -- dst ← (src1 * src2)[63:0]
+              | MADD(gpr dst, gpr src1, gpr src2, gpr acc)   -- dst ←  src1*src2 + acc
+              | MSUB(gpr dst, gpr src1, gpr src2, gpr acc)   -- dst ← -src1*src2 + acc
+              | MNEG(gpr dst, gpr src1, gpr src2)             -- dst ← -(src1 * src2)
+              -- Widening multiply (32 → 64 bits)
+              | SMULL(xreg dst, wreg src1, wreg src2)         -- signed   32×32 → 64
+              | UMULL(xreg dst, wreg src1, wreg src2)         -- unsigned 32×32 → 64
+              | SMULH(xreg dst, xreg src1, xreg src2)        -- signed   64×64 → high 64
+              | UMULH(xreg dst, xreg src1, xreg src2)        -- unsigned 64×64 → high 64
+              -- Widening multiply-accumulate
+              | SMADDL(xreg dst, wreg src1, wreg src2, xreg acc)
+              | UMADDL(xreg dst, wreg src1, wreg src2, xreg acc)
+              | SMSUBL(xreg dst, wreg src1, wreg src2, xreg acc)
+              | UMSUBL(xreg dst, wreg src1, wreg src2, xreg acc)
+              | SMNEGL(xreg dst, wreg src1, wreg src2)        -- -(s32 * s32) → s64
+              | UMNEGL(xreg dst, wreg src1, wreg src2)        -- -(u32 * u32) → u64
+              -- Division
+              | SDIV(gpr dst, gpr src1, gpr src2)             -- signed   integer divide (no remainder)
+              | UDIV(gpr dst, gpr src1, gpr src2)             -- unsigned integer divide
+
+  -- ----- 8c. Logical -----
+
+  logic_instr = AND(gpr dst, gpr src1, operand src2)
+              | ANDS(gpr dst, gpr src1, operand src2)         -- AND + update NZCV
+              | TST(gpr src1, operand src2)                   -- ANDS XZR, src1, src2  (flags only)
+              | ORR(gpr dst, gpr src1, operand src2)
+              | EOR(gpr dst, gpr src1, operand src2)
+              | BIC(gpr dst, gpr src1, shifted_reg src2)      -- AND NOT:  dst ← src1 & ~src2
+              | BICS(gpr dst, gpr src1, shifted_reg src2)
+              | ORN(gpr dst, gpr src1, shifted_reg src2)      -- OR NOT:   dst ← src1 | ~src2
+              | EON(gpr dst, gpr src1, shifted_reg src2)      -- EOR NOT:  dst ← src1 ^ ~src2
+
+  -- ----- 8d. Shifts -----
+  -- By-register forms (LSLV / LSRV / ASRV / RORV in the hardware).
+  -- By-immediate forms are aliases for UBFM / SBFM / EXTR.
+
+  shift_instr = LSL_REG(gpr dst, gpr src, gpr cnt)  -- dst ← src << (cnt mod width)
+              | LSR_REG(gpr dst, gpr src, gpr cnt)   -- dst ← src >> (cnt mod width)  logical
+              | ASR_REG(gpr dst, gpr src, gpr cnt)   -- dst ← src >> (cnt mod width)  arithmetic
+              | ROR_REG(gpr dst, gpr src, gpr cnt)   -- dst ← src ROR (cnt mod width)
+              | LSL_IMM(gpr dst, gpr src, int amount)
+              | LSR_IMM(gpr dst, gpr src, int amount)
+              | ASR_IMM(gpr dst, gpr src, int amount)
+              | ROR_IMM(gpr dst, gpr src, int amount)
+              -- Extract register: concatenate {src1, src2} and extract width bits at lsb.
+              -- With src1 = src2 this implements ROR_IMM.
+              | EXTR(gpr dst, gpr src1, gpr src2, int lsb)
+
+  -- ----- 8e. Bit-field and (sign / zero) extension -----
+  -- UBFM / SBFM / BFM aliases.
+
+  bitfield_instr = UBFX(gpr dst, gpr src, int lsb, int width)   -- unsigned extract: dst ← src[lsb+width-1:lsb]
+                 | SBFX(gpr dst, gpr src, int lsb, int width)   -- signed extract (sign-extends)
+                 | UBFIZ(gpr dst, gpr src, int lsb, int width)  -- zero-extend src[width-1:0] into dst[lsb+width-1:lsb]
+                 | SBFIZ(gpr dst, gpr src, int lsb, int width)
+                 | BFI(gpr dst, gpr src, int lsb, int width)    -- insert src[width-1:0] into dst at lsb; other bits preserved
+                 | BFXIL(gpr dst, gpr src, int lsb, int width)  -- extract and insert into low bits of dst
+                 | BFC(gpr dst, int lsb, int width)             -- clear width bits in dst starting at lsb
+                 -- Sign / zero extension from low byte/halfword/word
+                 -- (aliases for SBFX / UBFX from bit 0)
+                 | SXTB(gpr dst, gpr src)   -- sign-extend byte     to register width
+                 | SXTH(gpr dst, gpr src)   -- sign-extend halfword to register width
+                 | SXTW(gpr dst, gpr src)   -- sign-extend word to 64-bit (Xn dst only)
+                 | UXTB(gpr dst, gpr src)   -- zero-extend byte
+                 | UXTH(gpr dst, gpr src)   -- zero-extend halfword
+
+  -- ----- 8f. Miscellaneous data-processing -----
+
+  misc_dp_instr = CLZ(gpr dst, gpr src)    -- count leading zeros
+                | CLS(gpr dst, gpr src)    -- count leading sign bits (excluding the sign bit itself)
+                | RBIT(gpr dst, gpr src)   -- reverse bit order
+                | REV(gpr dst, gpr src)    -- reverse byte order (full register: 4 or 8 bytes)
+                | REV16(gpr dst, gpr src)  -- reverse bytes within each 16-bit halfword
+                | REV32(gpr dst, gpr src)  -- reverse bytes within each 32-bit word (Xn only)
+                | REV64(gpr dst, gpr src)  -- reverse bytes within each 64-bit doubleword (alias REV for Xn)
+
+  -- ----- 8g. Conditional data-processing -----
+
+  cond_dp_instr = CSEL(gpr dst, gpr src_t, gpr src_f, cc cond)   -- dst ← cond ? src_t : src_f
+                | CSET(gpr dst, cc cond)                          -- dst ← cond ? 1 : 0
+                | CSETM(gpr dst, cc cond)                         -- dst ← cond ? ~0 : 0
+                | CSINC(gpr dst, gpr src_t, gpr src_f, cc cond)  -- dst ← cond ? src_t : src_f+1
+                | CSINV(gpr dst, gpr src_t, gpr src_f, cc cond)  -- dst ← cond ? src_t : ~src_f
+                | CSNEG(gpr dst, gpr src_t, gpr src_f, cc cond)  -- dst ← cond ? src_t : -src_f
+                | CINC(gpr dst, gpr src, cc cond)                 -- dst ← cond ? src+1 : src
+                | CINV(gpr dst, gpr src, cc cond)                 -- dst ← cond ? ~src  : src
+                | CNEG(gpr dst, gpr src, cc cond)                 -- dst ← cond ? -src  : src
+                -- Conditional compare: if cond holds, perform the comparison and update NZCV;
+                -- otherwise load NZCV directly from the nzcv immediate (4-bit field).
+                | CCMP(gpr src1, operand src2, int nzcv, cc cond)  -- NZCV ← cond ? flags(src1-src2) : nzcv
+                | CCMN(gpr src1, operand src2, int nzcv, cc cond)  -- NZCV ← cond ? flags(src1+src2) : nzcv
+
+  -- ===========================================================
+  --  9. LOAD AND STORE INSTRUCTIONS (integer)
+  -- ===========================================================
+
+  ls_instr = LDR(gpr dst, mem_addr addr)              -- load register (size from GPR width: W→32, X→64)
+           | LDRB(gpr dst, mem_addr addr)             -- load byte,     zero-extend
+           | LDRH(gpr dst, mem_addr addr)             -- load halfword, zero-extend
+           | LDRSB(gpr dst, mem_addr addr)            -- load byte,     sign-extend
+           | LDRSH(gpr dst, mem_addr addr)            -- load halfword, sign-extend
+           | LDRSW(xreg dst, mem_addr addr)           -- load word (32-bit), sign-extend to 64
+           -- Unscaled-offset variants (9-bit signed offset, SIMD-free)
+           | LDUR(gpr dst, mem_addr addr)
+           | LDURB(gpr dst, mem_addr addr)
+           | LDURH(gpr dst, mem_addr addr)
+           | LDURSB(gpr dst, mem_addr addr)
+           | LDURSH(gpr dst, mem_addr addr)
+           | LDURSW(xreg dst, mem_addr addr)
+           -- PC-relative literal load (load from label embedded in code)
+           | LDR_LIT(gpr dst, literal_addr addr)
+           | LDRSW_LIT(xreg dst, literal_addr addr)
+           -- Pair loads (two registers in one instruction)
+           | LDP(gpr dst1, gpr dst2, mem_addr addr)
+           | LDPSW(xreg dst1, xreg dst2, mem_addr addr)  -- load pair of words, sign-extend
+           -- Non-temporal pair load (streaming hint, weakly ordered)
+           | LDNP(gpr dst1, gpr dst2, mem_addr addr)
+           -- Stores
+           | STR(gpr src, mem_addr addr)
+           | STRB(gpr src, mem_addr addr)
+           | STRH(gpr src, mem_addr addr)
+           | STUR(gpr src, mem_addr addr)
+           | STURB(gpr src, mem_addr addr)
+           | STURH(gpr src, mem_addr addr)
+           | STP(gpr src1, gpr src2, mem_addr addr)
+           | STNP(gpr src1, gpr src2, mem_addr addr)     -- non-temporal pair store
+           -- Prefetch
+           | PRFM(int prfop, mem_addr addr)              -- prfop: PLDL1KEEP=0x00 etc.
+           | PRFM_LIT(int prfop, literal_addr addr)
+
+  -- ===========================================================
+  --  10. EXCLUSIVE AND ACQUIRE/RELEASE ACCESS
+  -- ===========================================================
+
+  -- Exclusive load / store — classic LL/SC pattern.
+  -- The status register of STXR receives 0 on success, 1 on failure.
+  excl_instr = LDXR(gpr dst, mem_addr addr)                      -- load exclusive (64 or 32-bit)
+             | LDXRB(gpr dst, mem_addr addr)                     -- load exclusive byte
+             | LDXRH(gpr dst, mem_addr addr)                     -- load exclusive halfword
+             | LDXP(gpr dst1, gpr dst2, mem_addr addr)           -- load exclusive pair
+             | STXR(gpr status, gpr src, mem_addr addr)          -- store exclusive
+             | STXRB(gpr status, gpr src, mem_addr addr)
+             | STXRH(gpr status, gpr src, mem_addr addr)
+             | STXP(gpr status, gpr src1, gpr src2, mem_addr addr)
+             -- Ordered exclusive (load-acquire + store-release)
+             | LDAXR(gpr dst, mem_addr addr)
+             | LDAXRB(gpr dst, mem_addr addr)
+             | LDAXRH(gpr dst, mem_addr addr)
+             | LDAXP(gpr dst1, gpr dst2, mem_addr addr)
+             | STLXR(gpr status, gpr src, mem_addr addr)
+             | STLXRB(gpr status, gpr src, mem_addr addr)
+             | STLXRH(gpr status, gpr src, mem_addr addr)
+             | STLXP(gpr status, gpr src1, gpr src2, mem_addr addr)
+             -- Plain load-acquire / store-release (no exclusivity token)
+             | LDAR(gpr dst, mem_addr addr)
+             | LDARB(gpr dst, mem_addr addr)
+             | LDARH(gpr dst, mem_addr addr)
+             | STLR(gpr src, mem_addr addr)
+             | STLRB(gpr src, mem_addr addr)
+             | STLRH(gpr src, mem_addr addr)
+             -- RCPC load-acquire (ARMv8.3 — Release Consistency Processor Consistent)
+             | LDAPR(gpr dst, mem_addr addr)
+             | LDAPRB(gpr dst, mem_addr addr)
+             | LDAPRH(gpr dst, mem_addr addr)
+             -- Clear exclusive access monitor
+             | CLREX(int? imm4)
+
+  -- Large System Extension (LSE) atomic instructions (ARMv8.1).
+  -- The acquire/release ordering is encoded in the instruction mnemonic:
+  --   LSE_Relaxed        → no ordering  (e.g. LDADD)
+  --   LSE_Acquire        → load-acquire (e.g. LDADDA)
+  --   LSE_Release        → store-release (e.g. LDADDL)
+  --   LSE_AcqRel         → full barrier  (e.g. LDADDAL)
+  lse_order = LSE_Relaxed | LSE_Acquire | LSE_Release | LSE_AcqRel
+
+  -- Byte (B), halfword (H), word/doubleword (none) suffixes
+  lse_size = LSE_BYTE | LSE_HALF | LSE_WORD
+
+  lse_instr = LDADD(lse_order ord, lse_size sz, gpr src, gpr dst, mem_addr addr)   -- [addr] += src; dst ← old
+            | LDCLR(lse_order ord, lse_size sz, gpr src, gpr dst, mem_addr addr)   -- [addr] &= ~src
+            | LDSET(lse_order ord, lse_size sz, gpr src, gpr dst, mem_addr addr)   -- [addr] |= src
+            | LDEOR(lse_order ord, lse_size sz, gpr src, gpr dst, mem_addr addr)   -- [addr] ^= src
+            | LDMAX(lse_order ord, lse_size sz, gpr src, gpr dst, mem_addr addr)   -- [addr] ← smax([addr], src)
+            | LDMIN(lse_order ord, lse_size sz, gpr src, gpr dst, mem_addr addr)   -- [addr] ← smin([addr], src)
+            | LDUMAX(lse_order ord, lse_size sz, gpr src, gpr dst, mem_addr addr)  -- [addr] ← umax([addr], src)
+            | LDUMIN(lse_order ord, lse_size sz, gpr src, gpr dst, mem_addr addr)  -- [addr] ← umin([addr], src)
+            -- Store-only variants (destination = XZR, result discarded)
+            | STADD(lse_order ord, lse_size sz, gpr src, mem_addr addr)
+            | STCLR(lse_order ord, lse_size sz, gpr src, mem_addr addr)
+            | STSET(lse_order ord, lse_size sz, gpr src, mem_addr addr)
+            | STEOR(lse_order ord, lse_size sz, gpr src, mem_addr addr)
+            -- Atomic swap: dst ← [addr]; [addr] ← src
+            | SWP(lse_order ord, lse_size sz, gpr src, gpr dst, mem_addr addr)
+            -- Compare-and-swap: if [addr] = cmp, [addr] ← new; cmp ← old [addr]
+            -- (cmp register is updated regardless of whether the swap succeeded)
+            | CAS(lse_order ord, lse_size sz, gpr cmp, gpr new_val, mem_addr addr)
+            -- Compare-and-swap pair (operates on a 128-bit aligned pair)
+            -- cmp is W/Xeven; cmp+1 holds the high word implicitly
+            | CASP(lse_order ord, gpr cmp_lo, gpr new_lo, mem_addr addr)
+
+  -- ===========================================================
+  --  11. CONTROL FLOW
+  -- ===========================================================
+
+  cf_instr = B(branch_target tgt)                         -- unconditional branch
+           | Bcc(cc cond, label lbl)                       -- conditional branch (PC ± 1 MB)
+           | BL(label lbl)                                 -- branch with link (call; LR ← PC+4)
+           | BLR(xreg r)                                   -- branch with link to register
+           | BR(xreg r)                                    -- branch to register (no link)
+           | RET(xreg? ret_reg)                            -- return: branch to ret_reg (default X30/LR)
+           -- Compare-and-branch (no flag write)
+           | CBZ(gpr src, label lbl)                       -- branch if src = 0   (PC ± 1 MB)
+           | CBNZ(gpr src, label lbl)                      -- branch if src ≠ 0
+           -- Test-bit-and-branch (no flag write)
+           | TBZ(gpr src, int bit_pos, label lbl)          -- branch if bit_pos of src = 0   (PC ± 32 KB)
+           | TBNZ(gpr src, int bit_pos, label lbl)         -- branch if bit_pos of src ≠ 0
+
+  -- ===========================================================
+  --  12. ADDRESS GENERATION
+  -- ===========================================================
+
+  addr_instr = ADR(xreg dst, literal_addr addr)    -- load byte address of label (PC ± 1 MB)
+             | ADRP(xreg dst, label page)           -- load 4 KB page address of label (PC ± 4 GB, 4 KB aligned)
+                                                    -- upper 12 bits of the page; add PAGEOFF for the full address
+
+  -- ===========================================================
+  --  13. BARRIERS AND SYSTEM INSTRUCTIONS
+  -- ===========================================================
+
+  -- Scope of a data-memory barrier
+  barrier_domain = BD_FullSystem    -- all observers (OSH + ISH + NSH)
+                 | BD_OuterShare    -- outer-shareable domain
+                 | BD_InnerShare    -- inner-shareable domain (typical SMP)
+                 | BD_NonShare      -- non-shareable (local CPU only)
+
+  -- Direction restriction on a data-memory barrier
+  barrier_type = BT_Loads    -- LD: synchronise loads only
+               | BT_Stores   -- ST: synchronise stores only
+               | BT_Full     -- SY: full load+store barrier
+
+  sys_instr = NOP
+            | WFE                                      -- wait for event
+            | WFI                                      -- wait for interrupt
+            | SEV                                      -- send event (all PEs in shareability domain)
+            | SEVL                                     -- send event local
+            | YIELD                                    -- cooperative scheduling hint
+            | HINT_OP(int crm_op2)                     -- generic HINT(CRm:op2) — covers all hint encodings
+            | DMB(barrier_domain dom, barrier_type bt) -- data memory barrier
+            | DSB(barrier_domain dom, barrier_type bt) -- data synchronization barrier
+            | ISB                                      -- instruction synchronization barrier (flushes pipeline)
+            | SVC(int imm16)                           -- supervisor call (OS system call)
+            | HVC(int imm16)                           -- hypervisor call  (EL ≥ 1)
+            | SMC(int imm16)                           -- secure monitor call (EL ≥ 1)
+            | BRK(int imm16)                           -- software breakpoint (debug exception)
+            | HLT(int imm16)                           -- halt PE (debug halt)
+            | UDF(int imm16)                           -- permanently undefined (always #UNDEF)
+            | MRS(xreg dst, sys_reg reg)               -- dst ← system-register
+            | MSR_REG(sys_reg reg, xreg src)           -- system-register ← src
+            | MSR_IMM(int pstatefield, int imm4)       -- PSTATE field ← imm4
+            | SYS(int op1, int crn, int crm, int op2, gpr? xt)         -- generic SYS instruction
+            | SYSL(xreg dst, int op1, int crn, int crm, int op2)       -- SYS with result
+            | IC(string ic_op, gpr? xt)                -- instruction-cache maintenance (e.g. IVAU)
+            | DC(string dc_op, gpr? xt)                -- data-cache maintenance (e.g. CVAU, CIVAC)
+            | AT(string at_op, xreg xt)                -- address translation (e.g. S1E1R)
+            | TLBI(string tlbi_op, xreg? xt)           -- TLB invalidate (e.g. VMALLE1IS)
+            | PSSBB                                    -- physical speculative store bypass barrier
+            | CSDB                                     -- consumption-of-speculative-data barrier
+            | ESB                                      -- error synchronization barrier (ARMv8.2-RAS)
+
+  -- ===========================================================
+  --  14. FLOATING-POINT SCALAR INSTRUCTIONS
+  -- ===========================================================
+  -- All three scalar widths share the same instruction set.
+  -- fp_reg carries both the register name and the active width, so
+  -- the backend always knows whether it is operating on Hn/Sn/Dn.
+
+  -- ----- 14a. Data movement -----
+
+  fp_move_instr = FMOV_REG(fp_reg dst, fp_reg src)           -- copy between FP regs (may change width)
+                | FMOV_IMM(fp_reg dst, float imm)             -- encoded 8-bit FP immediate
+                | FMOV_TO_GPR(gpr dst, fp_reg src)            -- bit-copy FP → GPR (widths must match)
+                | FMOV_FROM_GPR(fp_reg dst, gpr src)          -- bit-copy GPR → FP  (widths must match)
+
+  -- ----- 14b. Arithmetic -----
+
+  fp_arith_instr = FADD(fp_reg dst, fp_reg src1, fp_reg src2)
+                 | FSUB(fp_reg dst, fp_reg src1, fp_reg src2)
+                 | FMUL(fp_reg dst, fp_reg src1, fp_reg src2)
+                 | FDIV(fp_reg dst, fp_reg src1, fp_reg src2)
+                 | FNMUL(fp_reg dst, fp_reg src1, fp_reg src2)    -- dst ← -(src1 * src2)
+                 -- Fused multiply-{add,subtract} — a single correctly-rounded operation
+                 | FMADD(fp_reg dst, fp_reg src1, fp_reg src2, fp_reg acc)   -- dst ←  src1*src2 + acc
+                 | FMSUB(fp_reg dst, fp_reg src1, fp_reg src2, fp_reg acc)   -- dst ← -src1*src2 + acc
+                 | FNMADD(fp_reg dst, fp_reg src1, fp_reg src2, fp_reg acc)  -- dst ← -(src1*src2 + acc)
+                 | FNMSUB(fp_reg dst, fp_reg src1, fp_reg src2, fp_reg acc)  -- dst ←  src1*src2 - acc
+                 -- Unary
+                 | FABS(fp_reg dst, fp_reg src)
+                 | FNEG(fp_reg dst, fp_reg src)
+                 | FSQRT(fp_reg dst, fp_reg src)
+                 -- Maximum / minimum (IEEE 754-2008 maxNum / minNum semantics)
+                 | FMAX(fp_reg dst, fp_reg src1, fp_reg src2)    -- max; if either is NaN return the other
+                 | FMIN(fp_reg dst, fp_reg src1, fp_reg src2)
+                 | FMAXNM(fp_reg dst, fp_reg src1, fp_reg src2)  -- max; propagate NaN
+                 | FMINNM(fp_reg dst, fp_reg src1, fp_reg src2)
+                 -- Reciprocal / inverse-square-root estimates (~8-bit mantissa precision)
+                 | FRECPE(fp_reg dst, fp_reg src)                 -- 1/src   (approximate)
+                 | FRSQRTE(fp_reg dst, fp_reg src)                -- 1/√src  (approximate)
+                 -- Newton-Raphson refinement step functions
+                 | FRECPS(fp_reg dst, fp_reg src1, fp_reg src2)   -- dst ← 2.0 - src1*src2
+                 | FRSQRTS(fp_reg dst, fp_reg src1, fp_reg src2)  -- dst ← (3.0 - src1*src2) / 2.0
+
+  -- ----- 14c. Rounding (to integer value in FP format) -----
+
+  fp_round_instr = FRINTN(fp_reg dst, fp_reg src)  -- round to nearest, ties to even
+                 | FRINTP(fp_reg dst, fp_reg src)  -- round toward +∞
+                 | FRINTM(fp_reg dst, fp_reg src)  -- round toward −∞
+                 | FRINTZ(fp_reg dst, fp_reg src)  -- round toward zero (truncate)
+                 | FRINTA(fp_reg dst, fp_reg src)  -- round to nearest, ties away from zero
+                 | FRINTX(fp_reg dst, fp_reg src)  -- round per FPCR; raise inexact if result changed
+                 | FRINTI(fp_reg dst, fp_reg src)  -- round per FPCR; never raise inexact
+
+  -- ----- 14d. Comparison -----
+
+  fp_cmp_instr = FCMP(fp_reg src1, fp_reg src2)              -- compare; sets NZCV; QNaN = quiet (no exception)
+               | FCMP_ZERO(fp_reg src)                        -- compare src with +0.0
+               | FCMPE(fp_reg src1, fp_reg src2)              -- like FCMP but always raises #InvalidOp on QNaN
+               | FCMPE_ZERO(fp_reg src)
+               -- Conditional compare: if cond, perform comparison; else NZCV ← nzcv
+               | FCCMP(fp_reg src1, fp_reg src2, int nzcv, cc cond)
+               | FCCMPE(fp_reg src1, fp_reg src2, int nzcv, cc cond)
+               -- Conditional select (FP)
+               | FCSEL(fp_reg dst, fp_reg src_t, fp_reg src_f, cc cond)
+
+  -- ----- 14e. FP ↔ FP conversion -----
+
+  fp_cvt_instr = FCVT(fp_reg dst, fp_reg src)    -- change precision (H↔S, H↔D, S↔D); dst.width ≠ src.width
+
+  -- ----- 14f. FP → integer conversion -----
+  -- These convert a scalar FP value to a GPR.  The GPR variant (W or X)
+  -- determines whether the result is 32 or 64-bit.
+
+  fp_to_int_instr = FCVTZS(gpr dst, fp_reg src)    -- toward zero,      signed
+                  | FCVTZU(gpr dst, fp_reg src)    -- toward zero,      unsigned
+                  | FCVTNS(gpr dst, fp_reg src)    -- to nearest even,  signed
+                  | FCVTNU(gpr dst, fp_reg src)    -- to nearest even,  unsigned
+                  | FCVTPS(gpr dst, fp_reg src)    -- toward +∞,        signed
+                  | FCVTPU(gpr dst, fp_reg src)    -- toward +∞,        unsigned
+                  | FCVTMS(gpr dst, fp_reg src)    -- toward −∞,        signed
+                  | FCVTMU(gpr dst, fp_reg src)    -- toward −∞,        unsigned
+                  | FCVTAS(gpr dst, fp_reg src)    -- to nearest, ties away, signed
+                  | FCVTAU(gpr dst, fp_reg src)    -- to nearest, ties away, unsigned
+                  -- Fixed-point: result is an integer with fbits fractional bits
+                  | FCVTZS_FX(gpr dst, fp_reg src, int fbits)
+                  | FCVTZU_FX(gpr dst, fp_reg src, int fbits)
+                  -- JavaScript integer conversion (ARMv8.3 JSCVT)
+                  -- src must be a Dn register; dst is Wn; updates NZCV
+                  | FJCVTZS(wreg dst, fp_reg src)
+
+  -- ----- 14g. Integer → FP conversion -----
+
+  int_to_fp_instr = SCVTF(fp_reg dst, gpr src)           -- signed integer → FP
+                  | UCVTF(fp_reg dst, gpr src)           -- unsigned integer → FP
+                  | SCVTF_FX(fp_reg dst, gpr src, int fbits)   -- from fixed-point
+                  | UCVTF_FX(fp_reg dst, gpr src, int fbits)
+
+  -- ----- 14h. FP load and store -----
+
+  fp_ls_instr = LDR_FP(fp_reg dst, mem_addr addr)          -- load scalar FP (size from fp_width)
+              | LDR_FP_LIT(fp_reg dst, literal_addr addr)  -- PC-relative literal load
+              | LDUR_FP(fp_reg dst, mem_addr addr)          -- unscaled-offset load
+              | STR_FP(fp_reg src, mem_addr addr)
+              | STUR_FP(fp_reg src, mem_addr addr)
+              | LDP_FP(fp_reg dst1, fp_reg dst2, mem_addr addr)  -- load pair of FP scalars
+              | STP_FP(fp_reg src1, fp_reg src2, mem_addr addr)
+
+  -- ===========================================================
+  --  15. TOP-LEVEL INSTRUCTION WRAPPER
+  -- ===========================================================
+  --
+  -- A concrete instruction in the basic block's body is one of these
+  -- variants.  Pseudo-instructions (ILabel, IAlign, IRawBytes) are
+  -- consumed by the assembler and do not emit machine code directly.
+
+  instr = IMove(move_instr       body)
+        | IArith(arith_instr     body)
+        | ILogic(logic_instr     body)
+        | IShift(shift_instr     body)
+        | IBitfield(bitfield_instr body)
+        | IMiscDP(misc_dp_instr  body)
+        | ICondDP(cond_dp_instr  body)
+        | ILS(ls_instr           body)
+        | IExcl(excl_instr       body)
+        | ILSE(lse_instr         body)
+        | ICF(cf_instr           body)
+        | IAddr(addr_instr       body)
+        | ISys(sys_instr         body)
+        | IFPMove(fp_move_instr  body)
+        | IFPArith(fp_arith_instr body)
+        | IFPRound(fp_round_instr body)
+        | IFPCmp(fp_cmp_instr    body)
+        | IFPCvt(fp_cvt_instr    body)
+        | IFPToInt(fp_to_int_instr body)
+        | IIntToFP(int_to_fp_instr body)
+        | IFPLS(fp_ls_instr      body)
+        | ILabel(label           lbl)    -- pseudo: label definition point
+        | IAlign(int             bytes)  -- pseudo: alignment directive
+        | IRawBytes(int*         data)   -- escape hatch: hand-encoded word sequence
+
+  -- ===========================================================
+  --  16. CODE STRUCTURE
+  -- ===========================================================
+
+  -- A basic block ends with exactly one control-flow instruction.
+  block = Block(label    name,
+                instr*   body,
+                cf_instr terminator)
+
+  -- AArch64 calling conventions
+  call_conv = AAPCS64         -- ARM Procedure Call Standard (Linux, Android, BSDs)
+                               -- Integer args: X0–X7;  FP args: V0–V7 (scalar Dn/Sn)
+                               -- Callee-saves: X19–X28, X29 (FP), X30 (LR), SP; D8–D15
+            | AAPCS64_VFP     -- AAPCS64 with FP/SIMD (default on modern toolchains)
+            | WIN_ARM64        -- Windows ARM64 ABI
+                               -- Integer args: X0–X7;  FP args: V0–V7
+                               -- Callee-saves: X19–X28, X29, X30, SP; D8–D15
+            | APPLE_ARM64      -- Apple platform ABI (iOS, macOS on Apple Silicon)
+                               -- Similar to AAPCS64_VFP; X18 is platform reserved
+            | INTERNAL         -- compiler-internal; no fixed register ABI
+
+  func = Func(string    name,
+              call_conv abi,
+              bool      is_global,
+              xreg*     callee_saved_gpr,   -- per AAPCS64: X19–X28 (plus X29/LR if used)
+              fp_reg*   callee_saved_fp,    -- per AAPCS64: D8–D15 low 64 bits only
+              int       frame_size,          -- bytes allocated on stack for locals + spills
+              bool      uses_frame_pointer,  -- true → X29 = frame pointer
+              block*    blocks)
+
+  -- Data section items
+  data_item = DI_Int(int bytes, int value)          -- bytes ∈ {1, 2, 4, 8}; value = integer constant
+            | DI_Float(fp_width w, float value)     -- FP constant in the stated precision
+            | DI_Bytes(int* data)                   -- raw byte sequence
+            | DI_String(string value)               -- null-terminated ASCII/UTF-8
+            | DI_Label(label lbl)                   -- pointer-width relocation
+            | DI_Space(int bytes)                   -- zero-fill (BSS / uninitialized)
+            | DI_Align(int bytes)                   -- alignment padding
+
+  section_kind = SEC_TEXT                           -- executable code (.text)
+               | SEC_DATA                           -- mutable initialized data (.data)
+               | SEC_RODATA                         -- read-only data (.rodata / .const)
+               | SEC_BSS                            -- zero-initialized data (.bss)
+               | SEC_CUSTOM(string name)            -- target-specific (e.g. .init_array, __TEXT,__stub)
+
+  data_section = DataSection(section_kind kind, data_item* items)
+
+  -- Top-level compilation unit (one source file → one module)
+  module = Module(string         source_file,
+                  func*          functions,
+                  data_section*  data_sections)
+}

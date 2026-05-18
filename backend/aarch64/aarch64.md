@@ -1,0 +1,19 @@
+Here is a summary of every significant design decision and how AArch64 differs from the x86_64 schema.
+
+**Register model.** AArch64 has 31 general-purpose registers (`X0`–`X30`) each with a 32-bit alias (`W0`–`W30`), plus two context-sensitive encodings of register 31: `XZR`/`WZR` (the zero register) and `SP`/`WSP` (the stack pointer). These are modelled as explicit variants of `gpr` (`GPXZR`, `GPSP`, etc.) rather than as a numeric index, so the type system prevents using SP where XZR is required and vice versa. Floating-point registers are named `V0`–`V31` and always carry a `fp_width` tag (`FP_HALF`, `FP_SINGLE`, `FP_DOUBLE`) so the backend always knows the active precision without inspecting a separate instruction field.
+
+**Shifted and extended register operands.** Unlike x86 (where shift is always a separate instruction or part of addressing), AArch64 integrates a barrel shifter into most ALU instructions. The `shifted_reg` type (`ShiftedReg(gpr, shift_type, amount)`) and `extended_reg` type (`ExtendedReg(gpr, extend_type, amount)`) capture this inline. The `operand` sum type then unifies all four forms (plain register, shifted, extended, immediate) so instruction selectors can express the full range of encodings with one field type. The `extend_type` variants are deliberately prefixed `EXT_UXTB`, `EXT_UXTH`, etc. to avoid collision with the `UXTB`, `UXTH`, `SXTB`... instruction names in `bitfield_instr`.
+
+**Flag-setting is explicit.** x86 instructions implicitly write or don't write flags depending on the opcode. AArch64 has a clean split: `ADD` never touches `NZCV`; `ADDS` always does. This is captured by having both as distinct constructors rather than a boolean flag field, which makes flag-liveness analysis trivial for a register allocator.
+
+**`CMP`, `TST`, `CMN` as first-class constructors.** These are officially aliases (`SUBS XZR`, `ANDS XZR`, `ADDS XZR`) but compilers universally emit them by name. Giving them their own constructors avoids the awkwardness of `GPXZR` as a destination in arithmetic instructions.
+
+**Memory addressing is simpler than x86.** There is no SIB byte. The `mem_offset` type covers the five real forms: base-only, 9-bit signed unscaled (`LDUR`), 12-bit unsigned scaled (`LDR`), register, shifted register, and extended register. `writeback` is a separate orthogonal field (`WB_PreIndex` / `WB_PostIndex` / `WB_None`) rather than an implicit property of the offset value.
+
+**Three distinct load-store layers.** The schema separates ordinary integer loads/stores (`ls_instr`), exclusive and acquire-release access (`excl_instr`), and LSE atomics (`lse_instr`). The LSE instructions carry `lse_order` (relaxed/acquire/release/acquire-release) and `lse_size` (byte/half/word) fields, which map directly to the hardware mnemonic suffixes (`LDADD` / `LDADDA` / `LDADDAL` / `LDADDL`, etc.).
+
+**Scalar FP is cleanly separated into six sub-groups.** `fp_move_instr`, `fp_arith_instr`, `fp_round_instr`, `fp_cmp_instr`, then conversion split into `fp_cvt_instr` (FP width change), `fp_to_int_instr` (FP→GPR, ten rounding modes), and `int_to_fp_instr` (GPR→FP, with fixed-point variant). The `FJCVTZS` (JavaScript FP conversion) is included in `fp_to_int_instr` since it is commonly emitted by JS engines on Apple Silicon and ARMv8.3 targets.
+
+**ISB/DMB/DSB in `sys_instr`, not `cf_instr`.** Unlike x86 `MFENCE` (which naturally sits in `atomic_instr`), AArch64 barriers are general-purpose and should not be block terminators. They live in `sys_instr` alongside `WFI`, `MSR`/`MRS`, cache maintenance, and TLB operations.
+
+**Four calling conventions.** `AAPCS64` (Linux/Android), `WIN_ARM64`, `APPLE_ARM64` (where `X18` is platform-reserved), and `INTERNAL`. The `func` type carries separate callee-saved lists for GPRs and FP registers, which differ between ABIs (Windows requires saving the full `Q8`–`Q15` lanes, while AAPCS64 only requires the low 64 bits of `D8`–`D15`).

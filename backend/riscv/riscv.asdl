@@ -1,0 +1,643 @@
+-- riscv.asdl
+-- Comprehensive ASDL description of the RISC-V instruction set.
+--
+-- Covered ISA extensions (the standard "G" profile + privileged ISA):
+--   RV32I / RV64I  — base integer ISA (32-bit and 64-bit)
+--   M              — integer multiply and divide
+--   A              — atomic memory operations
+--   F              — single-precision (32-bit) floating-point
+--   D              — double-precision (64-bit) floating-point
+--   Zicsr          — control and status register instructions
+--   Zifencei       — instruction-fetch fence
+--   Privileged ISA — machine / supervisor mode, traps, TLB fences
+--
+-- Not covered: V (vector), C (compressed 16-bit), B (bit-manipulation),
+--   H (hypervisor), Zfh (half-precision FP), Zfinx (FP-in-integer regs).
+--   Each can be added as additional module sections.
+--
+-- Key RISC-V properties reflected in this schema:
+--   * Load-store architecture: only LD/ST variants touch memory;
+--     all ALU work is register-only.
+--   * Fixed-width 32-bit instruction encoding (C extension not included).
+--   * No implicit condition flags: branches directly compare two registers.
+--   * x0 is the zero register — reads return 0, writes are discarded.
+--   * Every FP arithmetic instruction carries an explicit rounding-mode
+--     field (or DYN to use the runtime FCSR.frm value).
+--   * Atomic instructions carry acquire (aq) and release (rl) bits
+--     modelled here as a single amo_order enum.
+--   * Memory addressing is always base-register + 12-bit signed offset;
+--     there is no scaled-index or SIB addressing.
+--
+-- Naming convention: RISC-V dot-separated mnemonics (e.g. FADD.S) are
+-- written with underscores (FADD_S) since ASDL constructor names may
+-- not contain dots.
+--
+-- ASDL notation:
+--   T?  optional field (0 or 1)
+--   T*  list field    (0 or more)
+--   |   variant separator
+-- Primitive leaf types used: int, string, float, bool.
+
+module RISCV {
+
+  -- ===========================================================
+  --  1. REGISTER FILES
+  -- ===========================================================
+
+  -- 32 integer (general-purpose) registers x0–x31.
+  -- x0 (zero) is hardwired to 0: reads always return 0, writes have no effect.
+  -- ABI aliases for reference:
+  --   x0=zero  x1=ra  x2=sp  x3=gp  x4=tp
+  --   x5–x7=t0–t2   x8=s0/fp  x9=s1
+  --   x10–x17=a0–a7   x18–x27=s2–s11   x28–x31=t3–t6
+  xreg = X0  | X1  | X2  | X3  | X4  | X5  | X6  | X7
+       | X8  | X9  | X10 | X11 | X12 | X13 | X14 | X15
+       | X16 | X17 | X18 | X19 | X20 | X21 | X22 | X23
+       | X24 | X25 | X26 | X27 | X28 | X29 | X30 | X31
+
+  -- 32 floating-point registers f0–f31 (F and D extensions).
+  -- Each register is 64 bits wide when D is present; 32 bits for F-only.
+  -- Values narrower than the register are NaN-boxed in the upper bits.
+  -- ABI aliases for reference:
+  --   f0–f7=ft0–ft7    (caller-saved temporaries)
+  --   f8–f9=fs0–fs1    (callee-saved)
+  --   f10–f17=fa0–fa7  (arguments / return values)
+  --   f18–f27=fs2–fs11 (callee-saved)
+  --   f28–f31=ft8–ft11 (caller-saved temporaries)
+  freg = F0  | F1  | F2  | F3  | F4  | F5  | F6  | F7
+       | F8  | F9  | F10 | F11 | F12 | F13 | F14 | F15
+       | F16 | F17 | F18 | F19 | F20 | F21 | F22 | F23
+       | F24 | F25 | F26 | F27 | F28 | F29 | F30 | F31
+
+  -- ===========================================================
+  --  2. CONTROL AND STATUS REGISTERS  (Zicsr extension)
+  -- ===========================================================
+
+  -- CSR addresses are 12-bit identifiers.  Common CSRs are enumerated
+  -- below; the CSROther escape covers any address not listed.
+  csr = -- Floating-point control / status (F / D extensions)
+        FFLAGS          -- FP accrued exception flags (read/write)
+      | FRM             -- FP dynamic rounding mode
+      | FCSR            -- combined FFLAGS + FRM
+        -- Unprivileged read-only performance counters
+      | CYCLE           -- clock cycles executed (read-only)
+      | TIME            -- real-time clock (read-only)
+      | INSTRET         -- instructions retired (read-only)
+      | CYCLEH          -- high 32 bits of CYCLE  (RV32 only)
+      | TIMEH           -- high 32 bits of TIME   (RV32 only)
+      | INSTRETH        -- high 32 bits of INSTRET (RV32 only)
+        -- Supervisor-mode CSRs
+      | SSTATUS | SIE | STVEC | SCOUNTEREN
+      | SSCRATCH | SEPC | SCAUSE | STVAL | SIP | SATP
+        -- Machine-mode CSRs
+      | MSTATUS | MISA | MEDELEG | MIDELEG | MIE | MTVEC | MCOUNTEREN
+      | MSCRATCH | MEPC | MCAUSE | MTVAL | MIP
+      | MHARTID | MVENDORID | MARCHID | MIMPID | MCONFIGPTR
+      | MTINST | MTVAL2
+        -- Physical memory protection
+      | PMPCFG0 | PMPCFG1 | PMPCFG2 | PMPCFG3
+      | PMPADDR0 | PMPADDR1 | PMPADDR2 | PMPADDR3
+        -- Hardware performance monitors (examples; full set has 29 entries)
+      | MHPMCOUNTER3 | MHPMEVENT3
+        -- Escape hatch: any 12-bit CSR address not enumerated above
+      | CSROther(int addr)
+
+  -- ===========================================================
+  --  3. IMMEDIATES AND MEMORY ADDRESSING
+  -- ===========================================================
+
+  -- RISC-V immediates are always integers; sign/range is enforced by
+  -- the encoder rather than the ASDL schema.  Encoding widths are:
+  --   I / S type (base+offset, arith-imm):  12-bit signed  (−2048…2047)
+  --   B type (conditional branch):          13-bit signed, multiples of 2
+  --   U type (LUI / AUIPC):                 20-bit unsigned (upper 20 bits)
+  --   J type (JAL):                         21-bit signed,  multiples of 2
+  --   CSR immediate (CSRRWI etc.):           5-bit unsigned  (0…31)
+  --   Shift amount (SLLI etc.):              5-bit (RV32) or 6-bit (RV64)
+  imm = Imm(int value)
+
+  -- Memory addressing: base register + 12-bit signed offset.
+  -- There is no scaled-index mode; a separate add is required.
+  mem_addr = MemAddr(xreg base, int offset)
+
+  -- ===========================================================
+  --  4. FLOATING-POINT ROUNDING MODES  (F / D extensions)
+  -- ===========================================================
+
+  -- The 3-bit rm field present in most FP arithmetic instructions.
+  -- DYN instructs the hardware to read FCSR.frm at execution time.
+  round_mode = RNE   -- round to nearest, ties to even
+             | RTZ   -- round toward zero  (truncate)
+             | RDN   -- round toward −∞   (floor)
+             | RUP   -- round toward +∞   (ceiling)
+             | RMM   -- round to nearest, ties to max magnitude
+             | DYN   -- dynamic: use FCSR.frm
+
+  -- ===========================================================
+  --  5. FENCE ORDERING SETS  (FENCE instruction)
+  -- ===========================================================
+
+  -- FENCE takes a predecessor set and a successor set, each a 4-bit
+  -- bitmask: bit 3=I (device input), bit 2=O (device output),
+  --          bit 1=R (memory reads), bit 0=W (memory writes).
+  -- The most compiler-relevant combinations are enumerated; the raw
+  -- escape variant handles unusual combinations.
+  fence_set = FS_W              -- 0001  writes only
+            | FS_R              -- 0010  reads only
+            | FS_RW             -- 0011  reads and writes  (most common)
+            | FS_O              -- 0100  device output only
+            | FS_OW             -- 0101  device output + writes
+            | FS_OR             -- 0110  device output + reads
+            | FS_ORW            -- 0111  device output + reads + writes
+            | FS_I              -- 1000  device input only
+            | FS_IW             -- 1001
+            | FS_IR             -- 1010
+            | FS_IRW            -- 1011
+            | FS_IO             -- 1100
+            | FS_IOW            -- 1101
+            | FS_IOR            -- 1110
+            | FS_IORW           -- 1111  all four access types
+            | FS_Custom(int bits)      -- raw 4-bit mask for non-standard use
+
+  -- ===========================================================
+  --  6. LABELS AND BRANCH TARGETS
+  -- ===========================================================
+
+  label = LocalLabel(string  name)    -- function-local   (.Lname in GNU as)
+        | GlobalLabel(string name)    -- external / exported symbol
+        | AnonLabel(int      id)      -- compiler-generated numeric label
+
+  -- RISC-V branches are always PC-relative label references.
+  -- JALR supports indirect jumps through a register.
+  branch_target = BTLabel(label lbl)
+                | BTReg(xreg  r)    -- indirect: used by JALR
+
+  -- ===========================================================
+  --  7. BASE INTEGER INSTRUCTIONS — RV32I / RV64I
+  -- ===========================================================
+
+  -- ----- 7a. Upper-immediate (U-type) -----
+  -- Form a 32-bit constant by placing imm20 in the upper 20 bits;
+  -- the lower 12 bits are zero.  Combined with ADDI this gives any
+  -- 32-bit constant; with AUIPC it gives PC-relative data addresses.
+
+  upper_instr = LUI(xreg rd, int imm20)       -- rd ← imm20 << 12
+              | AUIPC(xreg rd, int imm20)     -- rd ← PC + (imm20 << 12)
+
+  -- ----- 7b. Jumps (J-type and I-type JALR) -----
+  -- JAL saves the return address (PC+4) in rd before jumping.
+  -- Setting rd = x0 (zero) gives an unconditional jump that discards the link.
+  -- JALR clears the least-significant bit of the computed target,
+  -- which makes it safe to use as an indirect call/return.
+
+  jump_instr = JAL(xreg rd, label lbl)                -- rd ← PC+4; PC ← PC + offset  (±1 MB)
+             | JALR(xreg rd, xreg rs1, int offset12)  -- rd ← PC+4; PC ← (rs1+offset) & ~1
+
+  -- ----- 7c. Conditional branches (B-type) -----
+  -- All compare two source registers and branch PC-relative (±4 KB).
+  -- There are no condition-flag registers; comparison is inline.
+
+  branch_instr = BEQ(xreg rs1, xreg rs2, label lbl)   -- branch if rs1 =  rs2  (signed or unsigned; same bits)
+               | BNE(xreg rs1, xreg rs2, label lbl)   -- branch if rs1 ≠  rs2
+               | BLT(xreg rs1, xreg rs2, label lbl)   -- branch if rs1 <  rs2  (signed)
+               | BGE(xreg rs1, xreg rs2, label lbl)   -- branch if rs1 ≥  rs2  (signed)
+               | BLTU(xreg rs1, xreg rs2, label lbl)  -- branch if rs1 <  rs2  (unsigned)
+               | BGEU(xreg rs1, xreg rs2, label lbl)  -- branch if rs1 ≥  rs2  (unsigned)
+
+  -- ----- 7d. Integer loads (I-type) -----
+  -- Address = rs1 + offset12 (12-bit signed).
+  -- Narrow loads sign-extend (LB, LH, LW) or zero-extend (LBU, LHU) to XLEN.
+  -- LWU and LD are RV64-only; LD always loads the full 64-bit doubleword.
+
+  load_instr = LB(xreg rd, mem_addr addr)     -- load byte,             sign-extend to XLEN
+             | LH(xreg rd, mem_addr addr)     -- load halfword (16-bit), sign-extend
+             | LW(xreg rd, mem_addr addr)     -- load word     (32-bit), sign-extend (in RV64)
+             | LBU(xreg rd, mem_addr addr)    -- load byte,              zero-extend
+             | LHU(xreg rd, mem_addr addr)    -- load halfword,          zero-extend
+             | LWU(xreg rd, mem_addr addr)    -- load word,              zero-extend  (RV64 only)
+             | LD(xreg rd, mem_addr addr)     -- load doubleword (64-bit)              (RV64 only)
+
+  -- ----- 7e. Integer stores (S-type) -----
+  -- Address = rs1 + offset12.  Only the low  8 / 16 / 32 / 64 bits of rs2
+  -- are stored; the upper bits are silently ignored.
+
+  store_instr = SB(xreg rs2, mem_addr addr)   -- store byte
+              | SH(xreg rs2, mem_addr addr)   -- store halfword
+              | SW(xreg rs2, mem_addr addr)   -- store word
+              | SD(xreg rs2, mem_addr addr)   -- store doubleword  (RV64 only)
+
+  -- ----- 7f. Arithmetic / logical immediate (I-type) -----
+  -- Immediate is sign-extended from 12 bits.
+  -- SLLI / SRLI / SRAI use a shift-amount field (5-bit for RV32, 6-bit for RV64).
+  -- NOP is the canonical alias: ADDI x0, x0, 0.
+
+  arith_imm_instr = ADDI(xreg rd, xreg rs1, int imm12)    -- rd ← rs1 + imm12
+                  | SLTI(xreg rd, xreg rs1, int imm12)    -- rd ← (rs1 <s imm12) ? 1 : 0
+                  | SLTIU(xreg rd, xreg rs1, int imm12)   -- rd ← (rs1 <u imm12) ? 1 : 0
+                  | XORI(xreg rd, xreg rs1, int imm12)
+                  | ORI(xreg rd, xreg rs1, int imm12)
+                  | ANDI(xreg rd, xreg rs1, int imm12)
+                  | SLLI(xreg rd, xreg rs1, int shamt)    -- logical  left shift  by immediate
+                  | SRLI(xreg rd, xreg rs1, int shamt)    -- logical  right shift by immediate
+                  | SRAI(xreg rd, xreg rs1, int shamt)    -- arithmetic right shift by immediate (sign-fill)
+
+  -- ----- 7g. Register-register arithmetic (R-type) -----
+  -- Shift amounts are taken from the low 5 bits (RV32) or 6 bits (RV64) of rs2.
+
+  arith_reg_instr = ADD(xreg rd, xreg rs1, xreg rs2)
+                  | SUB(xreg rd, xreg rs1, xreg rs2)
+                  | SLL(xreg rd, xreg rs1, xreg rs2)    -- logical left shift
+                  | SLT(xreg rd, xreg rs1, xreg rs2)    -- set if less than (signed)
+                  | SLTU(xreg rd, xreg rs1, xreg rs2)   -- set if less than (unsigned)
+                  | XOR(xreg rd, xreg rs1, xreg rs2)
+                  | SRL(xreg rd, xreg rs1, xreg rs2)    -- logical right shift
+                  | SRA(xreg rd, xreg rs1, xreg rs2)    -- arithmetic right shift (sign-fill)
+                  | OR(xreg rd, xreg rs1, xreg rs2)
+                  | AND(xreg rd, xreg rs1, xreg rs2)
+
+  -- ===========================================================
+  --  8. RV64I WORD-OPERATION EXTENSIONS
+  -- ===========================================================
+  -- Instructions with W suffix operate on the low 32 bits of a register
+  -- and sign-extend the 32-bit result to the full 64-bit register.
+  -- All RV64I-W instructions are illegal on RV32.
+
+  rv64i_instr = ADDIW(xreg rd, xreg rs1, int imm12)   -- 32-bit add + sign-extend to 64
+              | SLLIW(xreg rd, xreg rs1, int shamt5)   -- 32-bit logical left shift immediate
+              | SRLIW(xreg rd, xreg rs1, int shamt5)   -- 32-bit logical right shift immediate
+              | SRAIW(xreg rd, xreg rs1, int shamt5)   -- 32-bit arithmetic right shift immediate
+              | ADDW(xreg rd, xreg rs1, xreg rs2)
+              | SUBW(xreg rd, xreg rs1, xreg rs2)
+              | SLLW(xreg rd, xreg rs1, xreg rs2)
+              | SRLW(xreg rd, xreg rs1, xreg rs2)
+              | SRAW(xreg rd, xreg rs1, xreg rs2)
+
+  -- ===========================================================
+  --  9. M EXTENSION — INTEGER MULTIPLY AND DIVIDE
+  -- ===========================================================
+  -- All MUL/DIV results are placed in a single destination register.
+  -- To get both halves of a 64×64 product, two instructions are needed:
+  -- MUL for the low bits and MULH* for the high bits.
+  -- Division by zero returns −1 (quotient) and the dividend (remainder).
+  -- Overflow (INT_MIN ÷ −1) returns INT_MIN (quotient) and 0 (remainder).
+
+  mul_instr = MUL(xreg rd, xreg rs1, xreg rs2)       -- rd ← (rs1 × rs2)[XLEN-1:0]   (signed × signed, low)
+            | MULH(xreg rd, xreg rs1, xreg rs2)      -- rd ← (rs1 ×s rs2)[2·XLEN-1:XLEN]  signed high
+            | MULHSU(xreg rd, xreg rs1, xreg rs2)    -- rd ← (rs1 ×su rs2) high         signed × unsigned
+            | MULHU(xreg rd, xreg rs1, xreg rs2)     -- rd ← (rs1 ×u rs2) high          unsigned × unsigned
+            | DIV(xreg rd, xreg rs1, xreg rs2)       -- rd ← rs1 ÷s rs2  (signed,   round toward zero)
+            | DIVU(xreg rd, xreg rs1, xreg rs2)      -- rd ← rs1 ÷u rs2  (unsigned)
+            | REM(xreg rd, xreg rs1, xreg rs2)       -- rd ← rs1 mod rs2  (signed)
+            | REMU(xreg rd, xreg rs1, xreg rs2)      -- rd ← rs1 mod rs2  (unsigned)
+            -- RV64M: 32-bit word multiply/divide; result sign-extended to 64
+            | MULW(xreg rd, xreg rs1, xreg rs2)
+            | DIVW(xreg rd, xreg rs1, xreg rs2)
+            | DIVUW(xreg rd, xreg rs1, xreg rs2)
+            | REMW(xreg rd, xreg rs1, xreg rs2)
+            | REMUW(xreg rd, xreg rs1, xreg rs2)
+
+  -- ===========================================================
+  --  10. A EXTENSION — ATOMIC MEMORY OPERATIONS
+  -- ===========================================================
+
+  -- Acquire / release ordering bits.
+  -- RISC-V atomics carry two independent bits (aq and rl) giving four
+  -- combinations, which map to AArch64 / C++ memory_order semantics.
+  amo_order = AMO_Relaxed   -- aq=0 rl=0  no ordering guarantee
+            | AMO_Acquire   -- aq=1 rl=0  subsequent accesses not reordered before this load
+            | AMO_Release   -- aq=0 rl=1  prior accesses not reordered after this store
+            | AMO_AcqRel    -- aq=1 rl=1  sequentially consistent (both acquire + release)
+
+  atom_instr
+    -- Load-Reserved / Store-Conditional (classic LL/SC).
+    -- SC writes 0 to rd on success, nonzero on failure.
+    = LR_W(amo_order ord, xreg rd, mem_addr addr)                    -- load reserved  32-bit
+    | SC_W(amo_order ord, xreg rd, xreg rs2, mem_addr addr)          -- store conditional 32-bit
+    | LR_D(amo_order ord, xreg rd, mem_addr addr)                    -- load reserved  64-bit  (RV64)
+    | SC_D(amo_order ord, xreg rd, xreg rs2, mem_addr addr)          -- store conditional 64-bit (RV64)
+    -- Atomic Read-Modify-Write: rd ← [addr]; [addr] ← op(rd, rs2).
+    -- 32-bit (.W) variants: result sign-extended to XLEN.
+    | AMOSWAP_W(amo_order ord,  xreg rd, xreg rs2, mem_addr addr)    -- swap
+    | AMOADD_W(amo_order ord,   xreg rd, xreg rs2, mem_addr addr)    -- add
+    | AMOXOR_W(amo_order ord,   xreg rd, xreg rs2, mem_addr addr)    -- XOR
+    | AMOAND_W(amo_order ord,   xreg rd, xreg rs2, mem_addr addr)    -- AND
+    | AMOOR_W(amo_order ord,    xreg rd, xreg rs2, mem_addr addr)    -- OR
+    | AMOMAX_W(amo_order ord,   xreg rd, xreg rs2, mem_addr addr)    -- signed   maximum
+    | AMOMAXU_W(amo_order ord,  xreg rd, xreg rs2, mem_addr addr)    -- unsigned maximum
+    | AMOMIN_W(amo_order ord,   xreg rd, xreg rs2, mem_addr addr)    -- signed   minimum
+    | AMOMINU_W(amo_order ord,  xreg rd, xreg rs2, mem_addr addr)    -- unsigned minimum
+    -- 64-bit (.D) variants (RV64 only)
+    | AMOSWAP_D(amo_order ord,  xreg rd, xreg rs2, mem_addr addr)
+    | AMOADD_D(amo_order ord,   xreg rd, xreg rs2, mem_addr addr)
+    | AMOXOR_D(amo_order ord,   xreg rd, xreg rs2, mem_addr addr)
+    | AMOAND_D(amo_order ord,   xreg rd, xreg rs2, mem_addr addr)
+    | AMOOR_D(amo_order ord,    xreg rd, xreg rs2, mem_addr addr)
+    | AMOMAX_D(amo_order ord,   xreg rd, xreg rs2, mem_addr addr)
+    | AMOMAXU_D(amo_order ord,  xreg rd, xreg rs2, mem_addr addr)
+    | AMOMIN_D(amo_order ord,   xreg rd, xreg rs2, mem_addr addr)
+    | AMOMINU_D(amo_order ord,  xreg rd, xreg rs2, mem_addr addr)
+
+  -- ===========================================================
+  --  11. F EXTENSION — SINGLE-PRECISION FLOATING-POINT
+  -- ===========================================================
+
+  -- ----- 11a. Load / store -----
+  -- Address = rs1 + offset12 (same form as integer LD/ST).
+  -- Values are NaN-boxed into the upper bits when stored in a 64-bit register.
+
+  fp_single_ls_instr = FLW(freg rd, mem_addr addr)    -- load  32-bit float
+                     | FSW(freg rs2, mem_addr addr)   -- store 32-bit float
+
+  -- ----- 11b. Arithmetic -----
+  -- All arithmetic instructions include an explicit rounding-mode field rm.
+  -- FSGNJ, FMIN, FMAX do not round and therefore have no rm field.
+
+  fp_single_arith_instr
+    -- Fused multiply-add family (4-register, R4-type).
+    -- A single correctly-rounded result; only one rounding step.
+    = FMADD_S(freg rd, freg rs1, freg rs2, freg rs3, round_mode rm)    -- rd ←  rs1·rs2 + rs3
+    | FMSUB_S(freg rd, freg rs1, freg rs2, freg rs3, round_mode rm)    -- rd ←  rs1·rs2 − rs3
+    | FNMSUB_S(freg rd, freg rs1, freg rs2, freg rs3, round_mode rm)   -- rd ← −rs1·rs2 + rs3
+    | FNMADD_S(freg rd, freg rs1, freg rs2, freg rs3, round_mode rm)   -- rd ← −(rs1·rs2 + rs3)
+    -- Binary arithmetic
+    | FADD_S(freg rd, freg rs1, freg rs2, round_mode rm)
+    | FSUB_S(freg rd, freg rs1, freg rs2, round_mode rm)
+    | FMUL_S(freg rd, freg rs1, freg rs2, round_mode rm)
+    | FDIV_S(freg rd, freg rs1, freg rs2, round_mode rm)
+    | FSQRT_S(freg rd, freg rs1, round_mode rm)
+    -- Sign injection — no rounding; bit manipulation on the sign field.
+    -- FSGNJ.S:  rd = |rs1| with sign of rs2       (use rs1=rs2 for FMV.S alias)
+    -- FSGNJN.S: rd = |rs1| with inverted sign of rs2 (use rs1=rs2 for FNEG.S alias)
+    -- FSGNJX.S: rd = |rs1| with sign = rs1.sign XOR rs2.sign (use rs1=rs2 for FABS.S alias)
+    | FSGNJ_S(freg rd, freg rs1, freg rs2)
+    | FSGNJN_S(freg rd, freg rs1, freg rs2)
+    | FSGNJX_S(freg rd, freg rs1, freg rs2)
+    -- Minimum / maximum (IEEE 754-2008 minNum / maxNum)
+    -- If exactly one operand is a signaling NaN, the other is returned.
+    | FMIN_S(freg rd, freg rs1, freg rs2)
+    | FMAX_S(freg rd, freg rs1, freg rs2)
+
+  -- ----- 11c. Comparisons (result in integer register) -----
+  -- All three write 0 or 1 to an integer register rd.
+  -- FEQ raises InvalidOp only for signaling NaN; FLT and FLE raise it for any NaN.
+
+  fp_single_cmp_instr = FEQ_S(xreg rd, freg rs1, freg rs2)   -- rd ← (rs1 = rs2) ? 1 : 0
+                      | FLT_S(xreg rd, freg rs1, freg rs2)   -- rd ← (rs1 < rs2) ? 1 : 0
+                      | FLE_S(xreg rd, freg rs1, freg rs2)   -- rd ← (rs1 ≤ rs2) ? 1 : 0
+
+  -- ----- 11d. Classification -----
+  -- FCLASS.S writes a 10-bit one-hot mask into an integer register:
+  --   bit 0: −∞   bit 1: neg normal  bit 2: neg subnormal  bit 3: −0
+  --   bit 4: +0   bit 5: pos subnormal  bit 6: pos normal  bit 7: +∞
+  --   bit 8: sNaN  bit 9: qNaN
+
+  fp_single_class_instr = FCLASS_S(xreg rd, freg rs1)
+
+  -- ----- 11e. Float ↔ integer conversions -----
+  -- Conversion to integer: result is sign- or zero-extended to XLEN bits.
+  -- L/LU variants are RV64 only.
+
+  fp_single_cvt_instr
+    -- float32 → integer (result in xreg)
+    = FCVT_W_S(xreg rd, freg rs1, round_mode rm)     -- float32 → int32,  sign-extend to XLEN
+    | FCVT_WU_S(xreg rd, freg rs1, round_mode rm)    -- float32 → uint32, zero-extend to XLEN
+    | FCVT_L_S(xreg rd, freg rs1, round_mode rm)     -- float32 → int64   (RV64 only)
+    | FCVT_LU_S(xreg rd, freg rs1, round_mode rm)    -- float32 → uint64  (RV64 only)
+    -- integer → float32 (result in freg)
+    | FCVT_S_W(freg rd, xreg rs1, round_mode rm)     -- int32   → float32 (rs1 treated as 32-bit signed)
+    | FCVT_S_WU(freg rd, xreg rs1, round_mode rm)    -- uint32  → float32
+    | FCVT_S_L(freg rd, xreg rs1, round_mode rm)     -- int64   → float32 (RV64 only)
+    | FCVT_S_LU(freg rd, xreg rs1, round_mode rm)    -- uint64  → float32 (RV64 only)
+
+  -- ----- 11f. Bit moves: float register ↔ integer register -----
+  -- Copy bits without any conversion or reinterpretation.
+  -- In RV64, FMV.X.W sign-extends (or zero-extends, per spec) the 32-bit value to 64 bits.
+
+  fp_single_mv_instr = FMV_X_W(xreg rd, freg rs1)   -- rd ← sign-extend( rs1[31:0] )
+                     | FMV_W_X(freg rd, xreg rs1)   -- rd ← NaN-box( rs1[31:0] )
+
+  -- ===========================================================
+  --  12. D EXTENSION — DOUBLE-PRECISION FLOATING-POINT
+  -- ===========================================================
+
+  -- ----- 12a. Load / store -----
+
+  fp_double_ls_instr = FLD(freg rd, mem_addr addr)    -- load  64-bit double
+                     | FSD(freg rs2, mem_addr addr)   -- store 64-bit double
+
+  -- ----- 12b. Arithmetic -----
+
+  fp_double_arith_instr
+    = FMADD_D(freg rd, freg rs1, freg rs2, freg rs3, round_mode rm)
+    | FMSUB_D(freg rd, freg rs1, freg rs2, freg rs3, round_mode rm)
+    | FNMSUB_D(freg rd, freg rs1, freg rs2, freg rs3, round_mode rm)
+    | FNMADD_D(freg rd, freg rs1, freg rs2, freg rs3, round_mode rm)
+    | FADD_D(freg rd, freg rs1, freg rs2, round_mode rm)
+    | FSUB_D(freg rd, freg rs1, freg rs2, round_mode rm)
+    | FMUL_D(freg rd, freg rs1, freg rs2, round_mode rm)
+    | FDIV_D(freg rd, freg rs1, freg rs2, round_mode rm)
+    | FSQRT_D(freg rd, freg rs1, round_mode rm)
+    | FSGNJ_D(freg rd, freg rs1, freg rs2)    -- copy sign from rs2  (FMV.D alias: rs1=rs2)
+    | FSGNJN_D(freg rd, freg rs1, freg rs2)   -- copy inverted sign  (FNEG.D alias: rs1=rs2)
+    | FSGNJX_D(freg rd, freg rs1, freg rs2)   -- XOR signs           (FABS.D alias: rs1=rs2)
+    | FMIN_D(freg rd, freg rs1, freg rs2)
+    | FMAX_D(freg rd, freg rs1, freg rs2)
+
+  -- ----- 12c. Precision conversion (F ↔ D) -----
+  -- FCVT.D.S is always exact (single ⊂ double); rm is ignored but must be encoded.
+
+  fp_prec_cvt_instr = FCVT_S_D(freg rd, freg rs1, round_mode rm)   -- double → single (may round)
+                    | FCVT_D_S(freg rd, freg rs1, round_mode rm)   -- single → double (exact)
+
+  -- ----- 12d. Comparisons -----
+
+  fp_double_cmp_instr = FEQ_D(xreg rd, freg rs1, freg rs2)
+                      | FLT_D(xreg rd, freg rs1, freg rs2)
+                      | FLE_D(xreg rd, freg rs1, freg rs2)
+
+  -- ----- 12e. Classification -----
+
+  fp_double_class_instr = FCLASS_D(xreg rd, freg rs1)
+
+  -- ----- 12f. Double ↔ integer conversions -----
+  -- FCVT.D.W and FCVT.D.WU are always exact (32-bit int ⊂ double); rm is ignored.
+
+  fp_double_cvt_instr
+    -- float64 → integer
+    = FCVT_W_D(xreg rd, freg rs1, round_mode rm)     -- float64 → int32,  sign-extend to XLEN
+    | FCVT_WU_D(xreg rd, freg rs1, round_mode rm)    -- float64 → uint32, zero-extend
+    | FCVT_L_D(xreg rd, freg rs1, round_mode rm)     -- float64 → int64   (RV64 only)
+    | FCVT_LU_D(xreg rd, freg rs1, round_mode rm)    -- float64 → uint64  (RV64 only)
+    -- integer → float64
+    | FCVT_D_W(freg rd, xreg rs1, round_mode rm)     -- int32   → float64 (exact; rm ignored)
+    | FCVT_D_WU(freg rd, xreg rs1, round_mode rm)    -- uint32  → float64 (exact; rm ignored)
+    | FCVT_D_L(freg rd, xreg rs1, round_mode rm)     -- int64   → float64 (RV64 only)
+    | FCVT_D_LU(freg rd, xreg rs1, round_mode rm)    -- uint64  → float64 (RV64 only)
+
+  -- ----- 12g. Bit moves: double register ↔ integer register (RV64 only) -----
+
+  fp_double_mv_instr = FMV_X_D(xreg rd, freg rs1)   -- rd ← rs1 (copy 64 bits, no conversion)
+                     | FMV_D_X(freg rd, xreg rs1)   -- rd ← rs1 (copy 64 bits, no conversion)
+
+  -- ===========================================================
+  --  13. Zicsr EXTENSION — CSR INSTRUCTIONS
+  -- ===========================================================
+  -- CSR instructions read and optionally modify a control/status register.
+  -- When rd = x0, the read side-effect is suppressed (no CSR read trap).
+  -- When rs1 = x0 (register forms) or uimm5 = 0 (immediate forms),
+  -- the write side-effect is suppressed.
+
+  csr_instr = CSRRW(xreg rd, csr reg, xreg rs1)     -- rd ← csr; csr ← rs1            (Read/Write)
+            | CSRRS(xreg rd, csr reg, xreg rs1)     -- rd ← csr; csr ← csr | rs1      (Read / Set bits)
+            | CSRRC(xreg rd, csr reg, xreg rs1)     -- rd ← csr; csr ← csr & ~rs1     (Read / Clear bits)
+            | CSRRWI(xreg rd, csr reg, int uimm5)   -- rd ← csr; csr ← uimm5          (immediate Write)
+            | CSRRSI(xreg rd, csr reg, int uimm5)   -- rd ← csr; csr ← csr | uimm5   (immediate Set)
+            | CSRRCI(xreg rd, csr reg, int uimm5)   -- rd ← csr; csr ← csr & ~uimm5  (immediate Clear)
+
+  -- ===========================================================
+  --  14. SYSTEM, FENCE, AND PRIVILEGED INSTRUCTIONS
+  -- ===========================================================
+
+  sys_instr
+    -- No-op (canonical alias: ADDI x0, x0, 0)
+    = NOP
+    -- Memory ordering fences
+    | FENCE(fence_set pred, fence_set succ)          -- data / device memory barrier
+    | FENCE_TSO                                      -- total store ordering fence (fm=1000b)
+    | FENCE_I                                        -- instruction-fetch fence (Zifencei)
+                                                     -- flushes local I-cache after stores to code
+    -- Environment call and breakpoint
+    | ECALL                                          -- synchronous exception (system call)
+    | EBREAK                                         -- synchronous exception (debugger breakpoint)
+    -- Trap returns (privileged)
+    | MRET                                           -- return from machine-mode trap (restores mstatus)
+    | SRET                                           -- return from supervisor-mode trap
+    | URET                                           -- return from user-mode trap (N extension)
+    | MNRET                                          -- return from machine NMI (Smrnmi extension)
+    | DRET                                           -- return from debug mode
+    -- Power management
+    | WFI                                            -- wait for interrupt (hint; may be no-op)
+    -- Virtual-memory fence (supervisor mode)
+    -- rs1 = virtual address to invalidate (x0 = all addresses)
+    -- rs2 = ASID to invalidate (x0 = all ASIDs)
+    | SFENCE_VMA(xreg? rs1, xreg? rs2)
+    -- Hypervisor virtual-memory fences (H extension — included for completeness)
+    | HFENCE_BVMA(xreg? rs1, xreg? rs2)            -- fence for VS-stage translations
+    | HFENCE_GVMA(xreg? rs1, xreg? rs2)            -- fence for G-stage translations
+    -- Cache management (Zicbom / Zicbop / Zicboz extensions)
+    | CBO_CLEAN(mem_addr addr)                       -- write back dirty cache line
+    | CBO_FLUSH(mem_addr addr)                       -- write back and invalidate cache line
+    | CBO_INVAL(mem_addr addr)                       -- invalidate cache line (no writeback)
+    | CBO_ZERO(mem_addr addr)                        -- zero a cache line
+    | PREFETCH_I(mem_addr addr)                      -- prefetch for instruction fetch (Zicbop)
+    | PREFETCH_R(mem_addr addr)                      -- prefetch for load
+    | PREFETCH_W(mem_addr addr)                      -- prefetch for store
+
+  -- ===========================================================
+  --  15. TOP-LEVEL INSTRUCTION WRAPPER
+  -- ===========================================================
+  --
+  -- Every instruction in the body of a basic block is one of these
+  -- variants.  The compiler backend populates whichever sub-groups
+  -- correspond to the enabled ISA extensions.
+  -- ILabel and IAlign are pseudo-instructions consumed by the assembler.
+
+  instr = IUpper(upper_instr             body)
+        | IJump(jump_instr               body)
+        | IBranch(branch_instr           body)
+        | ILoad(load_instr               body)
+        | IStore(store_instr             body)
+        | IArithImm(arith_imm_instr      body)
+        | IArithReg(arith_reg_instr      body)
+        | IRV64I(rv64i_instr             body)
+        | IMul(mul_instr                 body)
+        | IAtom(atom_instr               body)
+        | IFPSingleLS(fp_single_ls_instr      body)
+        | IFPSingleArith(fp_single_arith_instr body)
+        | IFPSingleCmp(fp_single_cmp_instr    body)
+        | IFPSingleClass(fp_single_class_instr body)
+        | IFPSingleCvt(fp_single_cvt_instr    body)
+        | IFPSingleMv(fp_single_mv_instr      body)
+        | IFPDoubleLS(fp_double_ls_instr      body)
+        | IFPDoubleArith(fp_double_arith_instr body)
+        | IFPPrecCvt(fp_prec_cvt_instr        body)
+        | IFPDoubleCmp(fp_double_cmp_instr    body)
+        | IFPDoubleClass(fp_double_class_instr body)
+        | IFPDoubleCvt(fp_double_cvt_instr    body)
+        | IFPDoubleMv(fp_double_mv_instr      body)
+        | ICSR(csr_instr                 body)
+        | ISys(sys_instr                 body)
+        | ILabel(label                   lbl)    -- pseudo: label definition point
+        | IAlign(int                     bytes)  -- pseudo: byte-alignment directive
+        | IRawBytes(int*                 data)   -- escape hatch: hand-encoded 32-bit words
+
+  -- ===========================================================
+  --  16. CODE STRUCTURE
+  -- ===========================================================
+
+  -- A basic block is a maximal straight-line sequence of instructions
+  -- ending with exactly one control-flow instruction.
+  -- Unlike x86 / AArch64, RISC-V has no hardware fall-through:
+  -- the assembler inserts a NOP or the backend uses a JAL to the next block.
+  --
+  -- The terminator is typed as one of three categories:
+  --   CFBranch: one of the B-type conditional branches (two successors)
+  --   CFJump:   JAL or JALR (one successor, or indirect with unknown target)
+  --   CFTrap:   ECALL, EBREAK, MRET, SRET — causes a privilege-mode transition
+
+  cf_terminator = CFBranch(branch_instr body)
+                | CFJump(jump_instr     body)
+                | CFTrap(sys_instr      body)   -- ECALL, EBREAK, MRET, SRET, URET
+
+  block = Block(label          name,
+                instr*         body,
+                cf_terminator  terminator)
+
+  -- RISC-V ELF calling conventions.
+  -- The ABI name encodes both the integer width (ILP32 = RV32, LP64 = RV64)
+  -- and the FP argument-passing convention (none / F / D).
+  call_conv = ILP32          -- RV32, soft-float (no FP registers in ABI)
+            | ILP32F         -- RV32, single-precision FP arguments in f-registers
+            | ILP32D         -- RV32, double-precision FP arguments in f-registers
+            | LP64           -- RV64, soft-float
+            | LP64F          -- RV64, single-precision FP in f-registers
+            | LP64D          -- RV64, double-precision FP in f-registers  (most common)
+            | INTERNAL       -- compiler-internal; no fixed ABI
+
+  -- A compiled function.
+  -- Callee-saved integer registers per LP64D: x8–x9 (s0/fp, s1), x18–x27 (s2–s11).
+  -- Callee-saved FP registers per LP64D:      f8–f9 (fs0–fs1), f18–f27 (fs2–fs11).
+  func = Func(string     name,
+              call_conv  abi,
+              bool       is_global,
+              xreg*      callee_saved_gpr,    -- s0–s11  (x8–x9, x18–x27)
+              freg*      callee_saved_fpr,    -- fs0–fs11 (f8–f9, f18–f27)
+              int        frame_size,          -- bytes reserved for locals + spills + alignment
+              bool       uses_frame_pointer,  -- true → s0/x8 = frame pointer
+              block*     blocks)
+
+  -- Data section items.
+  data_item = DI_Int(int bytes, int value)      -- integer constant; bytes ∈ {1, 2, 4, 8}
+            | DI_Float32(float value)           -- 32-bit IEEE 754 constant
+            | DI_Float64(float value)           -- 64-bit IEEE 754 constant
+            | DI_Bytes(int* data)               -- raw byte sequence
+            | DI_String(string value)           -- null-terminated ASCII / UTF-8
+            | DI_Label(label lbl)               -- pointer-width relocation
+            | DI_Space(int bytes)               -- zero-fill (BSS / uninitialized)
+            | DI_Align(int bytes)               -- alignment padding
+
+  section_kind = SEC_TEXT                       -- executable code (.text)
+               | SEC_DATA                       -- mutable initialized data (.data)
+               | SEC_RODATA                     -- read-only data (.rodata)
+               | SEC_BSS                        -- zero-initialized data (.bss)
+               | SEC_CUSTOM(string name)        -- target-specific section (e.g. .sdata, .eh_frame)
+
+  data_section = DataSection(section_kind kind, data_item* items)
+
+  -- Top-level compilation unit.
+  -- target_abi sets the module-wide default; individual func entries may override.
+  module = Module(string         source_file,
+                  call_conv      target_abi,
+                  func*          functions,
+                  data_section*  data_sections)
+}

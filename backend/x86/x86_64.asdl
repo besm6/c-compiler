@@ -1,0 +1,665 @@
+-- x86_64.asdl
+-- Full-featured ASDL description of the x86_64 instruction set.
+-- Covers: all general-purpose integer instructions, x87 FPU, and SSE2
+-- scalar floating-point (SINGLE / DOUBLE).  Vector extensions (AVX, SSE
+-- packed) are deliberately omitted.
+--
+-- ASDL notation recap:
+--   T?   -- optional field (0 or 1)
+--   T*   -- list field    (0 or more)
+--   |    -- variant separator
+-- Primitive leaf types used here: int, string, float, identifier.
+-- "float" is not a standard ASDL primitive; treat it as a synonym for
+-- a 64-bit IEEE 754 value (the code generator can typedef accordingly).
+--
+-- Design philosophy:
+--   * Operand *size* is encoded in the register/memory variant chosen,
+--     not in a separate size tag on every instruction.  This mirrors
+--     how a real compiler's instruction selector works: the selector
+--     picks the right variant when lowering from the typed IR.
+--   * Instructions that require implicit registers (MUL, DIV, string
+--     ops, …) leave those implicit; the register allocator knows about
+--     them via the instruction's def/use tables, which are generated
+--     from this schema by a separate tool.
+--   * x87 and SSE scalar instructions are kept in separate variant
+--     groups so that a backend that uses only one path can ignore the
+--     other.
+
+module X86_64 {
+
+  -- ===========================================================
+  --  1. OPERAND SIZES
+  -- ===========================================================
+
+  -- Integer operand width
+  isize = BYTE          -- 8-bit
+        | WORD          -- 16-bit
+        | DWORD         -- 32-bit
+        | QWORD         -- 64-bit
+
+  -- Floating-point operand width
+  fsize = SINGLE        -- 32-bit  IEEE 754 single precision
+        | DOUBLE        -- 64-bit  IEEE 754 double precision
+        | LDOUBLE       -- 80-bit  x87 extended precision
+
+  -- ===========================================================
+  --  2. REGISTERS
+  -- ===========================================================
+
+  -- 64-bit general-purpose registers
+  -- RIP is included for use in RIP-relative memory addressing only;
+  -- it is never a writeable destination in normal instructions.
+  gpr64 = RAX | RBX | RCX | RDX | RSI | RDI | RSP | RBP
+        | R8  | R9  | R10 | R11 | R12 | R13 | R14 | R15
+        | RIP
+
+  -- 32-bit sub-registers (writing zero-extends into the 64-bit register)
+  gpr32 = EAX  | EBX  | ECX  | EDX  | ESI  | EDI  | ESP  | EBP
+        | R8D  | R9D  | R10D | R11D | R12D | R13D | R14D | R15D
+
+  -- 16-bit sub-registers
+  gpr16 = AX   | BX   | CX   | DX   | SI   | DI   | SP   | BP
+        | R8W  | R9W  | R10W | R11W | R12W | R13W | R14W | R15W
+
+  -- 8-bit low-byte sub-registers (require REX prefix for SIL/DIL/SPL/BPL)
+  gpr8l = AL  | BL  | CL  | DL  | SIL | DIL | SPL | BPL
+        | R8B | R9B | R10B | R11B | R12B | R13B | R14B | R15B
+
+  -- 8-bit legacy high-byte registers.
+  -- IMPORTANT: AH/BH/CH/DH cannot be encoded when a REX prefix is
+  -- present in the same instruction.  The register allocator must
+  -- never assign these to instructions that also reference R8-R15.
+  gpr8h = AH | BH | CH | DH
+
+  -- Unified GPR — carries the register and its width together so that
+  -- operand-size mismatches can be caught at the type level.
+  gpr = GPR64(gpr64 r)
+      | GPR32(gpr32 r)
+      | GPR16(gpr16 r)
+      | GPR8L(gpr8l r)
+      | GPR8H(gpr8h r)
+
+  -- Segment registers (used mainly in system code and FS/GS thread-local
+  -- access; most user-space instructions ignore them)
+  segreg = CS | DS | ES | FS | GS | SS
+
+  -- x87 FPU stack registers ST(0) … ST(7)
+  st_reg = ST0 | ST1 | ST2 | ST3 | ST4 | ST5 | ST6 | ST7
+
+  -- SSE/SSE2 128-bit XMM registers.
+  -- For scalar float work only the low 32 or 64 bits are active.
+  xmm_reg = XMM0  | XMM1  | XMM2  | XMM3
+           | XMM4  | XMM5  | XMM6  | XMM7
+           | XMM8  | XMM9  | XMM10 | XMM11
+           | XMM12 | XMM13 | XMM14 | XMM15
+
+  -- ===========================================================
+  --  3. MEMORY ADDRESSING
+  -- ===========================================================
+
+  -- SIB scale factor: base + index * scale + disp
+  scale = S1 | S2 | S4 | S8
+
+  -- General x86_64 effective address:
+  --   [base + index*scale + disp]
+  -- Rules enforced by the assembler / code generator:
+  --   * RSP cannot be used as index.
+  --   * When base = RIP the index must be absent (RIP-relative mode).
+  --   * disp is a signed 32-bit value; the assembler chooses the
+  --     shortest encoding (disp8 vs disp32) automatically.
+  --   * At least one of base/index must be present.
+  mem_addr = Addr(gpr64? base,
+                  gpr64? index,
+                  scale?  scale,
+                  int     disp)
+
+  -- A sized integer memory reference
+  mem = Mem(isize sz, mem_addr addr)
+
+  -- A sized floating-point memory reference
+  fmem = FMem(fsize sz, mem_addr addr)
+
+  -- ===========================================================
+  --  4. IMMEDIATES
+  -- ===========================================================
+
+  -- Immediates are typed by their bit width so the encoder can
+  -- verify that the value fits.  Most 64-bit instructions accept
+  -- only a sign-extended 32-bit immediate; use Imm64 exclusively
+  -- for the MOV r64, imm64 form.
+  imm = Imm8(int  value)
+      | Imm16(int value)
+      | Imm32(int value)
+      | Imm64(int value)   -- valid only in MOV r64, imm64
+
+  -- ===========================================================
+  --  5. OPERANDS
+  -- ===========================================================
+
+  -- General integer operand (register, memory, or immediate)
+  operand = OReg(gpr       r)
+           | OMem(mem       m)
+           | OImm(imm       i)
+           | OSeg(segreg    sr)   -- for MOV sreg, r/m16 and friends
+
+  -- x87 operand: either a stack register or a memory location
+  fp_operand = FPSt(st_reg  st)
+             | FPMem(fmem   m)
+
+  -- SSE scalar operand: XMM register or memory (SINGLE or DOUBLE only)
+  sse_operand = SseXmm(xmm_reg xr)
+              | SseMem(fmem    m)
+
+  -- ===========================================================
+  --  6. CONDITION CODES
+  -- ===========================================================
+
+  -- Standard x86 condition codes.  Aliases (E↔Z, B↔C, etc.) are
+  -- represented as a single canonical name to avoid duplication.
+  cc = O   | NO          -- overflow / no overflow
+     | B   | NB          -- below / above-or-equal    (CF=1 / CF=0)  unsigned
+     | Z   | NZ          -- zero / not-zero            (ZF=1 / ZF=0)
+     | BE  | NBE         -- below-or-equal / above     unsigned
+     | S   | NS          -- sign / no sign             (SF=1 / SF=0)
+     | P   | NP          -- parity-even / parity-odd
+     | L   | NL          -- less / greater-or-equal    signed
+     | LE  | NLE         -- less-or-equal / greater    signed
+
+  -- ===========================================================
+  --  7. LABELS AND BRANCH TARGETS
+  -- ===========================================================
+
+  label = LocalLabel(string  name)    -- function-local (.Lname)
+        | GlobalLabel(string name)    -- exported / external symbol
+        | AnonLabel(int      id)      -- compiler-generated numeric label
+
+  -- A jump or call target
+  target = TLabel(label  lbl)
+          | TReg(gpr64   r)           -- indirect via register
+          | TMem(mem     m)           -- indirect via memory
+
+  -- ===========================================================
+  --  8. PREFIXES
+  -- ===========================================================
+
+  rep_kind = REP           -- repeat CX/ECX/RCX times
+           | REPE          -- repeat while equal   (ZF=1)
+           | REPNE         -- repeat while not-equal (ZF=0)
+
+  -- LOCK is intentionally absent here: it is modelled as the
+  -- LOCK(instr body) constructor in atomic_instr (section 9i), which
+  -- restricts it to the instructions that legally accept it.
+  prefix = RepPrefix(rep_kind k) -- string-operation repeat
+
+  -- ===========================================================
+  --  9. INTEGER INSTRUCTIONS
+  -- ===========================================================
+
+  -- ----- 9a. Data Movement -----
+
+  data_instr
+    = MOV(operand dst, operand src)
+    | MOVSX(operand dst, operand src)     -- sign-extend narrower src → dst
+    | MOVZX(operand dst, operand src)     -- zero-extend narrower src → dst
+    | MOVSXD(gpr64 dst, operand src)      -- sign-extend r/m32 → r64
+    | MOVABS(gpr64 dst, imm src)          -- MOV r64, imm64  (only Imm64 valid)
+    | XCHG(operand dst, operand src)
+    | PUSH(operand src)
+    | POP(operand dst)
+    | PUSHF                               -- push RFLAGS (16/32/64-bit form)
+    | POPF                                -- pop  RFLAGS
+    -- PUSHA / POPA are encodable in 16-bit and 32-bit modes only;
+    -- the 64-bit processor raises #UD.  Included for completeness when
+    -- the backend also targets 32-bit sub-modes.
+    | PUSHA                               -- push all GPRs  (invalid in 64-bit mode)
+    | POPA                                -- pop  all GPRs  (invalid in 64-bit mode)
+    | LEA(gpr dst, mem_addr addr)         -- load effective address (no mem access)
+    -- Sign-extension of accumulator across a pair of registers
+    | CBW                                 -- AX  ← sign-extend AL
+    | CWDE                                -- EAX ← sign-extend AX
+    | CDQE                                -- RAX ← sign-extend EAX
+    | CWD                                 -- DX:AX   ← sign-extend AX
+    | CDQ                                 -- EDX:EAX ← sign-extend EAX
+    | CQO                                 -- RDX:RAX ← sign-extend RAX
+    | BSWAP(gpr dst)                      -- byte-reverse (endian swap); dst must be r32 or r64
+    | XLATB                               -- AL ← [RBX + zero-extend(AL)]
+    | LAHF                                -- AH ← low 8 bits of RFLAGS
+    | SAHF                                -- low 8 bits of RFLAGS ← AH
+    -- Segment-register moves (system / far-pointer use)
+    | MOV_FROM_SEG(operand dst, segreg sr)
+    | MOV_TO_SEG(segreg sr, operand src)
+
+  -- ----- 9b. Integer Arithmetic -----
+
+  arith_instr
+    = ADD(operand dst, operand src)
+    | ADC(operand dst, operand src)       -- add with carry (CF)
+    | SUB(operand dst, operand src)
+    | SBB(operand dst, operand src)       -- subtract with borrow (CF)
+    -- Signed multiply — three forms:
+    --   one-operand:   RDX:RAX ← RAX * src
+    --   two-operand:   dst ← dst * src
+    --   three-operand: dst ← src * imm
+    | IMUL1(operand src)
+    | IMUL2(gpr dst, operand src)
+    | IMUL3(gpr dst, operand src, imm i)
+    -- Unsigned multiply: RDX:RAX ← RAX * src
+    | MUL(operand src)
+    -- Signed divide:   RAX ← RDX:RAX / src,  RDX ← remainder
+    | IDIV(operand src)
+    -- Unsigned divide: RAX ← RDX:RAX / src,  RDX ← remainder
+    | DIV(operand src)
+    | INC(operand dst)
+    | DEC(operand dst)
+    | NEG(operand dst)                    -- two's-complement negate
+    | ADD_ADJ                             -- AAA  (BCD adjust after ADD; invalid in 64-bit)
+    | SUB_ADJ                             -- AAS  (BCD adjust after SUB; invalid in 64-bit)
+    | MUL_ADJ                             -- AAM  (BCD adjust after MUL; invalid in 64-bit)
+    | DIV_ADJ                             -- AAD  (BCD adjust before DIV; invalid in 64-bit)
+
+  -- ----- 9c. Logical / Bitwise -----
+
+  logic_instr
+    = AND(operand dst, operand src)
+    | OR(operand dst,  operand src)
+    | XOR(operand dst, operand src)
+    | NOT(operand dst)
+    | TEST(operand a,  operand b)         -- AND; sets flags, discards result
+    | CMP(operand a,   operand b)         -- SUB; sets flags, discards result
+    -- BMI1: ~src1 AND src2 in one instruction
+    | ANDN(gpr dst, gpr src1, operand src2)
+
+  -- ----- 9d. Shifts and Rotations -----
+
+  shift_instr
+    = SHL(operand dst, operand cnt)       -- logical left shift;  cnt = CL or imm8
+    | SHR(operand dst, operand cnt)       -- logical right shift
+    | SAR(operand dst, operand cnt)       -- arithmetic right shift (sign-fill)
+    | ROL(operand dst, operand cnt)       -- rotate left
+    | ROR(operand dst, operand cnt)       -- rotate right
+    | RCL(operand dst, operand cnt)       -- rotate left  through carry
+    | RCR(operand dst, operand cnt)       -- rotate right through carry
+    -- Double-precision shifts: shift dst by cnt using src as the bit supply
+    | SHLD(operand dst, gpr src, operand cnt)
+    | SHRD(operand dst, gpr src, operand cnt)
+
+  -- ----- 9e. Bit Manipulation -----
+
+  bit_instr
+    = BT(operand  base, operand idx)      -- bit test        → CF
+    | BTS(operand base, operand idx)      -- bit test and set
+    | BTR(operand base, operand idx)      -- bit test and reset
+    | BTC(operand base, operand idx)      -- bit test and complement
+    | BSF(gpr dst, operand src)           -- bit scan forward  (index of lowest  set bit; ZF if src=0)
+    | BSR(gpr dst, operand src)           -- bit scan reverse  (index of highest set bit; ZF if src=0)
+    | POPCNT(gpr dst, operand src)        -- count set bits    (SSE4.2)
+    | LZCNT(gpr dst, operand src)         -- count leading  zeros (LZCNT feature flag)
+    | TZCNT(gpr dst, operand src)         -- count trailing zeros (BMI1)
+
+  -- ----- 9f. Conditional Operations -----
+
+  cond_instr
+    = CMOVcc(cc cond, gpr dst, operand src)   -- conditional move (Pentium Pro+)
+    | SETcc(cc cond, operand dst)             -- dst ← (cond ? 1 : 0)  (dst must be r/m8)
+
+  -- ----- 9g. Control Flow -----
+
+  cf_instr
+    = JMP(target tgt)
+    | Jcc(cc cond, target tgt)
+    | CALL(target tgt)
+    | RET                                 -- near return (pop RIP)
+    | RET_IMM(int pop_bytes)              -- near return + discard stack bytes
+    | RETF                                -- far return
+    | RETF_IMM(int pop_bytes)             -- far return + discard stack bytes
+    -- Loop instructions decrement RCX first, then branch if condition holds
+    | LOOP(label lbl)                     -- branch if RCX ≠ 0
+    | LOOPE(label lbl)                    -- branch if RCX ≠ 0 ∧ ZF=1
+    | LOOPNE(label lbl)                   -- branch if RCX ≠ 0 ∧ ZF=0
+    | JRCXZ(label lbl)                    -- branch if RCX = 0  (64-bit form)
+    | JECXZ(label lbl)                    -- branch if ECX = 0  (32-bit form)
+
+  -- ----- 9h. String / Memory-Block Operations -----
+  -- These are normally used under a REP / REPE / REPNE prefix.
+  -- Source: DS:RSI; Destination: ES:RDI.  Count: RCX.
+
+  string_instr
+    = MOVSB | MOVSW | MOVS_DWORD | MOVSQ  -- move   byte/word/dword/qword
+                                          -- NB: MOVS_DWORD assembles as MOVSD; renamed here to avoid
+                                          --     collision with SSE MOVSD (scalar double)
+    | STOSB | STOSW | STOSD | STOSQ      -- store  AL/AX/EAX/RAX → [RDI]
+    | LODSB | LODSW | LODSD | LODSQ      -- load   [RSI] → AL/AX/EAX/RAX
+    | SCASB | SCASW | SCASD | SCASQ      -- scan:  compare AL/AX/EAX/RAX with [RDI]
+    | CMPSB | CMPSW | CMPS_DWORD | CMPSQ -- compare [RSI] with [RDI]
+                                          -- NB: CMPS_DWORD assembles as CMPSD; renamed to avoid
+                                          --     collision with SSE CMPSD (compare scalar double)
+
+  -- ----- 9i. Atomic / Synchronisation -----
+
+  atomic_instr
+    -- LOCK prefix is applied by wrapping the underlying instruction;
+    -- valid hosts: ADD, ADC, AND, BTC, BTR, BTS, DEC, INC, NEG, NOT,
+    --              OR, SBB, SUB, XOR, XCHG, CMPXCHG, XADD.
+    = LOCK(instr body)
+    | XADD(operand dst, gpr src)          -- { tmp←dst; dst←dst+src; src←tmp }
+    | CMPXCHG(operand dst, gpr src)       -- compare RAX with dst; if equal dst←src else RAX←dst
+    | CMPXCHG8B(mem  dst)                 -- compare EDX:EAX with mem64;  swap with ECX:EBX if equal
+    | CMPXCHG16B(mem dst)                 -- compare RDX:RAX with mem128; swap with RCX:RBX if equal
+    -- Memory-ordering fences
+    | MFENCE                              -- full memory fence  (all loads + stores)
+    | LFENCE                              -- load fence         (serialises loads)
+    | SFENCE                              -- store fence        (serialises stores)
+
+  -- ----- 9j. Miscellaneous -----
+
+  misc_instr
+    = NOP
+    | NOP_MULTI(int bytes)                -- multi-byte NOP for code alignment (1–9 bytes)
+    | HLT                                 -- halt until interrupt
+    | PAUSE                               -- spin-loop hint (avoids memory-order violation penalties)
+    | CPUID                               -- EAX/EBX/ECX/EDX ← processor info (leaf in EAX)
+    | RDTSC                               -- EDX:EAX ← time-stamp counter
+    | RDTSCP                              -- RDTSC + ECX ← IA32_TSC_AUX (serialising variant)
+    | RDPMC                               -- EDX:EAX ← performance-monitoring counter
+    | SYSCALL                             -- fast system call  (64-bit OS ABI entry)
+    | SYSRET                              -- return from SYSCALL
+    | SYSENTER                            -- fast system call  (32-bit legacy)
+    | SYSEXIT                             -- return from SYSENTER
+    | INT(int vector)                     -- software interrupt (vector 0–255)
+    | INTO                                -- interrupt #OF if overflow flag set (invalid in 64-bit)
+    | INT3                                -- breakpoint trap (used by debuggers)
+    | IRET | IRETD | IRETQ               -- interrupt return  (16/32/64-bit stack frame)
+    | UD2                                 -- guaranteed #UD — used for assertion traps
+    | ENDBR64                             -- CET: indirect-branch landing pad marker (64-bit)
+    | ENDBR32                             -- CET: indirect-branch landing pad marker (32-bit)
+    | CLFLUSH(mem addr)                   -- flush cache line containing addr
+    | PREFETCHT0(mem addr)                -- prefetch to all cache levels
+    | PREFETCHT1(mem addr)                -- prefetch to L2 and above
+    | PREFETCHT2(mem addr)                -- prefetch to L3 and above
+    | PREFETCHNTA(mem addr)               -- non-temporal prefetch (minimise cache pollution)
+
+  -- ===========================================================
+  --  10. x87 FPU INSTRUCTIONS
+  -- ===========================================================
+  --
+  -- The x87 register file is an 8-deep stack.  ST0 is the top.
+  -- Most arithmetic instructions operate on ST0 and one other
+  -- operand, leaving the result in ST0 (or in ST(i) for the *P
+  -- pop variants).
+  --
+  -- Memory operands must be FMem with the matching fsize:
+  --   SINGLE  → 4-byte memory (equivalent to Intel "m32fp")
+  --   DOUBLE  → 8-byte memory (equivalent to Intel "m64fp")
+  --   LDOUBLE → 10-byte memory (equivalent to Intel "m80fp")
+  -- Integer memory operands (for FILD / FIST*) use plain Mem.
+
+  x87_instr
+
+    -- ---- Load ----
+    = FLD(fp_operand src)                 -- push src onto FP stack
+    | FILD(mem src)                       -- push integer mem (word/dword/qword) converted to float
+    | FBLD(mem src)                       -- push packed-BCD  mem80 onto stack
+    | FLD1                                -- push +1.0
+    | FLDZ                                -- push +0.0
+    | FLDPI                               -- push π
+    | FLDL2E                              -- push log₂(e)
+    | FLDL2T                              -- push log₂(10)
+    | FLDLG2                              -- push log₁₀(2)
+    | FLDLN2                              -- push ln(2)
+
+    -- ---- Store ----
+    | FST(fp_operand dst)                 -- store ST0 (stack unchanged)
+    | FSTP(fp_operand dst)                -- store ST0 and pop
+    | FIST(mem dst)                       -- store ST0 as integer (word/dword)  [no pop]
+    | FISTP(mem dst)                      -- store ST0 as integer and pop        (word/dword/qword)
+    | FISTTP(mem dst)                     -- store with truncation and pop (SSE3; word/dword/qword)
+    | FBSTP(mem dst)                      -- store ST0 as packed-BCD and pop
+
+    -- ---- Stack manipulation ----
+    | FXCH(st_reg st)                     -- exchange ST0 with ST(i)
+    | FFREE(st_reg st)                    -- tag ST(i) as empty
+    | FDECSTP                             -- decrement stack pointer (rotate stack downward)
+    | FINCSTP                             -- increment stack pointer (rotate stack upward)
+
+    -- ---- Arithmetic ----
+    -- Two-operand forms: one operand must be ST0.
+    -- *P forms pop the stack after computing.
+    | FADD(fp_operand dst,  fp_operand src)
+    | FADDP(st_reg dst)                   -- ST(dst) ← ST(dst) + ST0; pop
+    | FIADD(mem src)                      -- ST0 ← ST0 + integer-mem
+
+    | FSUB(fp_operand dst,  fp_operand src)
+    | FSUBP(st_reg dst)                   -- ST(dst) ← ST(dst) − ST0; pop
+    | FSUBR(fp_operand dst, fp_operand src) -- reversed subtraction
+    | FSUBRP(st_reg dst)                  -- ST(dst) ← ST0 − ST(dst); pop
+    | FISUB(mem src)                      -- ST0 ← ST0 − integer-mem
+    | FISUBR(mem src)                     -- ST0 ← integer-mem − ST0
+
+    | FMUL(fp_operand dst,  fp_operand src)
+    | FMULP(st_reg dst)                   -- ST(dst) ← ST(dst) * ST0; pop
+    | FIMUL(mem src)                      -- ST0 ← ST0 * integer-mem
+
+    | FDIV(fp_operand dst,  fp_operand src)
+    | FDIVP(st_reg dst)                   -- ST(dst) ← ST(dst) / ST0; pop
+    | FDIVR(fp_operand dst, fp_operand src)
+    | FDIVRP(st_reg dst)                  -- ST(dst) ← ST0 / ST(dst); pop
+    | FIDIV(mem src)                      -- ST0 ← ST0 / integer-mem
+    | FIDIVR(mem src)                     -- ST0 ← integer-mem / ST0
+
+    -- Unary arithmetic
+    | FABS                                -- ST0 ← |ST0|
+    | FCHS                                -- ST0 ← −ST0
+    | FSQRT                               -- ST0 ← √ST0
+    | FRNDINT                             -- ST0 ← round(ST0) per FPU control word
+    | FSCALE                              -- ST0 ← ST0 × 2^⌊ST1⌋
+    | FPREM                               -- ST0 ← ST0 mod ST1 (x87 partial remainder, 8087-style)
+    | FPREM1                              -- ST0 ← ST0 mod ST1 (IEEE 754-style)
+    | FXTRACT                             -- split ST0 → exponent (pushed) and significand (ST0)
+
+    -- Transcendental helpers
+    | F2XM1                               -- ST0 ← 2^ST0 − 1  (only valid for |ST0| ≤ 1)
+    | FYL2X                               -- ST1 ← ST1 × log₂(ST0); pop
+    | FYL2XP1                             -- ST1 ← ST1 × log₂(ST0+1); pop  (accurate near 0)
+    | FPTAN                               -- ST0 ← tan(ST0); push 1.0
+    | FPATAN                              -- ST1 ← atan2(ST1, ST0); pop
+
+    -- ---- Comparison ----
+    | FCOM(fp_operand src)                -- compare ST0 with src; set C0/C2/C3
+    | FCOMP(fp_operand src)               -- compare and pop
+    | FCOMPP                              -- compare ST0 with ST1; pop twice
+    | FUCOM(st_reg src)                   -- unordered compare (NaN-tolerant)
+    | FUCOMP(st_reg src)                  -- unordered compare and pop
+    | FUCOMPP                             -- unordered compare ST0 with ST1; pop twice
+    | FCOMI(st_reg src)                   -- compare and set EFLAGS directly (P6+)
+    | FCOMIP(st_reg src)                  -- compare, set EFLAGS, pop
+    | FUCOMI(st_reg src)                  -- unordered compare, set EFLAGS
+    | FUCOMIP(st_reg src)                 -- unordered compare, set EFLAGS, pop
+    | FTST                                -- compare ST0 with 0.0
+    | FXAM                                -- classify ST0 (NaN / ±Inf / ±Normal / ±Denormal / ±Zero)
+
+    -- ---- FPU control ----
+    | FINIT                               -- initialize FPU (checks pending exceptions first)
+    | FNINIT                              -- initialize FPU (no exception check)
+    | FSTCW(mem dst)                      -- store FPU control word (2 bytes); raises exceptions
+    | FNSTCW(mem dst)                     -- store FPU control word (no exception check)
+    | FLDCW(mem src)                      -- load  FPU control word
+    | FSTSW(mem dst)                      -- store FPU status word to mem16; raises exceptions
+    | FNSTSW_AX                           -- store FPU status word directly to AX (no exception check)
+    | FSTENV(mem dst)                     -- store FPU environment (14/28 bytes)
+    | FNSTENV(mem dst)                    -- store FPU environment (no exception check)
+    | FLDENV(mem src)                     -- load  FPU environment
+    | FSAVE(mem dst)                      -- save full FPU state (94/108 bytes); checks exceptions
+    | FNSAVE(mem dst)                     -- save full FPU state (no exception check)
+    | FRSTOR(mem src)                     -- restore FPU state saved by FSAVE/FNSAVE
+    | FWAIT                               -- synchronise FPU with CPU (check for pending exceptions)
+    | FCLEX                               -- clear FPU exception flags (checks first)
+    | FNCLEX                              -- clear FPU exception flags (no check)
+
+  -- ===========================================================
+  --  11. SSE SCALAR FLOATING-POINT INSTRUCTIONS (SSE / SSE2)
+  -- ===========================================================
+  --
+  -- These operate on the low lane of XMM registers only:
+  --   *SS  — scalar single (low 32 bits of XMM; SINGLE fmem)
+  --   *SD  — scalar double (low 64 bits of XMM; DOUBLE fmem)
+  -- The upper bits of the destination XMM register are:
+  --   Preserved by reg-to-reg moves (MOVSS/MOVSD xmm, xmm)
+  --   Zeroed     by mem-to-reg moves (MOVSS/MOVSD xmm, m32/m64)
+  --
+  -- Integer operands in conversion instructions are sized by
+  -- the GPR variant chosen (GPR32 → 32-bit int, GPR64 → 64-bit int).
+
+  sse_scalar_instr
+
+    -- ---- Data movement ----
+    = MOVSS(sse_operand dst, sse_operand src)   -- scalar single
+    | MOVSD(sse_operand dst, sse_operand src)   -- scalar double
+
+    -- ---- Arithmetic ----
+    | ADDSS(xmm_reg dst, sse_operand src)
+    | ADDSD(xmm_reg dst, sse_operand src)
+    | SUBSS(xmm_reg dst, sse_operand src)
+    | SUBSD(xmm_reg dst, sse_operand src)
+    | MULSS(xmm_reg dst, sse_operand src)
+    | MULSD(xmm_reg dst, sse_operand src)
+    | DIVSS(xmm_reg dst, sse_operand src)
+    | DIVSD(xmm_reg dst, sse_operand src)
+    | SQRTSS(xmm_reg dst, sse_operand src)
+    | SQRTSD(xmm_reg dst, sse_operand src)
+    | RCPSS(xmm_reg dst, sse_operand src)       -- reciprocal approximation  (~12 bit)
+    | RSQRTSS(xmm_reg dst, sse_operand src)     -- reciprocal square-root approx. (~12 bit)
+    | MINSS(xmm_reg dst, sse_operand src)       -- min (returns src if either operand is NaN)
+    | MINSD(xmm_reg dst, sse_operand src)
+    | MAXSS(xmm_reg dst, sse_operand src)
+    | MAXSD(xmm_reg dst, sse_operand src)
+    -- Rounding with explicit mode (SSE4.1)
+    -- mode imm8: 0=nearest, 1=floor, 2=ceil, 3=truncate, 4=use MXCSR
+    | ROUNDSS(xmm_reg dst, sse_operand src, int mode)
+    | ROUNDSD(xmm_reg dst, sse_operand src, int mode)
+
+    -- ---- Comparison ----
+    -- CMPSS/CMPSD produce an all-0 or all-1 bitmask in dst.
+    -- pred imm8: 0=EQ, 1=LT, 2=LE, 3=UNORD, 4=NEQ, 5=NLT, 6=NLE, 7=ORD
+    | CMPSS(xmm_reg dst, sse_operand src, int pred)
+    | CMPSD(xmm_reg dst, sse_operand src, int pred)
+    -- UCOMISS / UCOMISD set EFLAGS (ZF/PF/CF) for use with Jcc
+    | UCOMISS(xmm_reg a, sse_operand b)   -- unordered scalar single compare → EFLAGS
+    | UCOMISD(xmm_reg a, sse_operand b)   -- unordered scalar double compare → EFLAGS
+    | COMISS(xmm_reg a,  sse_operand b)   -- ordered  scalar single compare → EFLAGS
+    | COMISD(xmm_reg a,  sse_operand b)   -- ordered  scalar double compare → EFLAGS
+
+    -- ---- Integer ↔ Float conversions ----
+    | CVTSI2SS(xmm_reg dst, operand src)    -- int32/int64 → float32
+    | CVTSI2SD(xmm_reg dst, operand src)    -- int32/int64 → float64
+    | CVTSS2SI(gpr dst, sse_operand src)    -- float32 → int32/int64 (round per MXCSR)
+    | CVTSD2SI(gpr dst, sse_operand src)    -- float64 → int32/int64 (round per MXCSR)
+    | CVTTSS2SI(gpr dst, sse_operand src)   -- float32 → int32/int64 (truncate toward zero)
+    | CVTTSD2SI(gpr dst, sse_operand src)   -- float64 → int32/int64 (truncate toward zero)
+
+    -- ---- Float ↔ Float conversions ----
+    | CVTSS2SD(xmm_reg dst, sse_operand src)  -- float32 → float64
+    | CVTSD2SS(xmm_reg dst, sse_operand src)  -- float64 → float32
+
+    -- ---- Bitwise operations on XMM (useful for sign-bit manipulation) ----
+    -- PS variants operate on the full 128 bits; standard practice for
+    -- single-scalar sign operations (ANDPS xmm, [abs_mask]).
+    | ANDPS(xmm_reg dst,  sse_operand src)
+    | ANDPD(xmm_reg dst,  sse_operand src)
+    | ANDNPS(xmm_reg dst, sse_operand src)   -- dst ← ~dst AND src
+    | ANDNPD(xmm_reg dst, sse_operand src)
+    | ORPS(xmm_reg dst,   sse_operand src)
+    | ORPD(xmm_reg dst,   sse_operand src)
+    | XORPS(xmm_reg dst,  sse_operand src)
+    | XORPD(xmm_reg dst,  sse_operand src)
+
+    -- ---- GPR ↔ XMM bit moves ----
+    -- Move without any conversion; useful for bit-level manipulation.
+    | MOVD(operand dst, operand src)    -- 32-bit: between xmm_reg ↔ gpr32/mem32
+    | MOVQ(operand dst, operand src)    -- 64-bit: between xmm_reg ↔ gpr64/mem64
+
+    -- ---- MXCSR control ----
+    | LDMXCSR(mem src)                  -- load  MXCSR from mem32
+    | STMXCSR(mem dst)                  -- store MXCSR to   mem32
+
+  -- ===========================================================
+  --  12. TOP-LEVEL INSTRUCTION WRAPPER
+  -- ===========================================================
+  --
+  -- Every concrete instruction in the instruction stream is one of
+  -- these variants.  The REP prefix is attached here so that the
+  -- prefix logic is centralised.  LOCK is handled structurally via
+  -- the LOCK(instr) wrapper inside atomic_instr.
+  -- ILabel and IAlign are pseudo-instructions emitted by the code
+  -- generator but consumed by the assembler.
+
+  instr
+    = IData(data_instr    body, prefix* pfx)
+    | IArith(arith_instr  body, prefix* pfx)
+    | ILogic(logic_instr  body, prefix* pfx)
+    | IShift(shift_instr  body, prefix* pfx)
+    | IBit(bit_instr      body, prefix* pfx)
+    | ICond(cond_instr    body)
+    | ICF(cf_instr        body)
+    | IString(string_instr body, prefix* pfx)
+    | IAtomic(atomic_instr body)              -- LOCK already encoded inside
+    | IMisc(misc_instr    body)
+    | IX87(x87_instr      body)
+    | ISSEScalar(sse_scalar_instr body)
+    | ILabel(label        lbl)                -- pseudo: label definition
+    | IAlign(int          bytes)              -- pseudo: alignment directive
+    | IRawBytes(int*      data)               -- escape hatch: hand-coded byte sequence
+
+  -- ===========================================================
+  --  13. CODE STRUCTURE
+  -- ===========================================================
+
+  -- A basic block ends with exactly one control-flow instruction.
+  -- The block's successors are implicit in that terminator.
+  block = Block(label    name,
+                instr*   body,
+                cf_instr terminator)
+
+  -- Calling convention / ABI selector
+  call_conv
+    = SYSV_AMD64    -- Linux, macOS, BSDs:  integer args in rdi,rsi,rdx,rcx,r8,r9
+                    --                      float   args in xmm0–xmm7
+    | WIN64         -- Windows x64:         integer args in rcx,rdx,r8,r9
+                    --                      float   args in xmm0–xmm3
+    | INTERNAL      -- compiler-internal; no fixed register ABI
+
+  -- A compiled function
+  func = Func(string     name,
+              call_conv  abi,
+              bool       is_global,     -- exported to object-file symbol table?
+              gpr64*     callee_saved,  -- GPRs this function must preserve
+              xmm_reg*   callee_saved_xmm, -- XMM regs preserved (WIN64 requires xmm6–xmm15)
+              int        frame_size,    -- bytes reserved on stack for locals + spills
+              bool       uses_frame_pointer, -- true → RBP is frame pointer
+              block*     blocks)
+
+  -- A single item in a data section
+  data_item
+    = DI_Int(isize   sz,    int    value)
+    | DI_Float(fsize sz,    float  value)
+    | DI_Bytes(int*  data)                    -- raw byte sequence
+    | DI_String(string value)                 -- ASCII/UTF-8, null-terminated
+    | DI_Label(label lbl)                     -- pointer-sized relocation
+    | DI_Space(int bytes)                     -- zero-fill (BSS / uninitialized data)
+    | DI_Align(int bytes)                     -- alignment padding
+
+  -- Named section kinds
+  section_kind
+    = SEC_TEXT         -- executable code
+    | SEC_DATA         -- mutable initialized data
+    | SEC_RODATA       -- read-only initialized data (literals, vtables, …)
+    | SEC_BSS          -- zero-initialized (uninitialized) data
+    | SEC_CUSTOM(string name)  -- target-specific (e.g. .init_array, .eh_frame)
+
+  -- A data section: a kind tag plus a list of items
+  data_section = DataSection(section_kind kind, data_item* items)
+
+  -- Top-level compilation unit (one source file → one module)
+  module = Module(string          source_file,
+                  func*           functions,
+                  data_section*   data_sections)
+}

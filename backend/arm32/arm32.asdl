@@ -1,0 +1,880 @@
+-- arm32.asdl
+-- Comprehensive ASDL description of the ARM 32-bit instruction set (ARMv7-A).
+--
+-- Covered architecture features:
+--   ARMv7-A base integer ISA (ARM state and Thumb-2 state)
+--   Integer multiply / divide (including DSP multiply extensions)
+--   Load / store and load / store multiple (including PUSH / POP)
+--   Bit-field, extension, saturation, and packed-SIMD-lite instructions
+--   Exclusive load / store (LDREX / STREX family)
+--   PSR access and coprocessor interface (generic MCR / MRC)
+--   System instructions: barriers, hints, supervisor / monitor calls
+--   VFPv3-D32 / VFPv4 scalar floating-point (single and double precision)
+--   Thumb-2 IT (If-Then) block
+--
+-- Not covered: Advanced SIMD / NEON vector instructions; Security Extensions
+--   beyond SVC / SMC; Jazelle (BXJ semantics beyond the instruction encoding).
+--
+-- Key ARMv7-A properties reflected in this schema:
+--   * EVERY 32-bit ARM instruction carries a 4-bit condition-code field
+--     (bits [31:28]).  This is modelled by including cc cond in the
+--     top-level instr wrapper; use AL (always) for unconditional execution.
+--   * The S suffix (set-flags) is an orthogonal attribute of data-processing
+--     and multiply instructions, modelled as bool set_flags where applicable.
+--   * Operand2 (the flexible second operand) can be a rotated 8-bit immediate,
+--     a register optionally shifted by an immediate or another register, or a
+--     register rotated right by one through the Carry flag (RRX).
+--   * Memory addressing: offset, pre-indexed, and post-indexed, each with
+--     immediate or (optionally-shifted) register offsets.
+--   * LDM / STM addressing: four modes IA / IB / DA / DB, with optional
+--     writeback (!) and optional user-register-banking (^).
+--   * VFP instructions are conditionally executable just like integer
+--     instructions; they share the cc cond field in the instr wrapper.
+--
+-- ASDL notation:
+--   T?  optional field (0 or 1)
+--   T*  list field    (0 or more)
+--   |   variant separator
+-- Primitive leaf types: int, string, float, bool.
+
+module ARM32 {
+
+  -- ===========================================================
+  --  1. INTEGER (GENERAL-PURPOSE) REGISTERS
+  -- ===========================================================
+
+  -- R0–R15 are the 16 visible general-purpose registers.
+  -- Conventional aliases (for reference — the numeric names are canonical):
+  --   R13 = SP  (stack pointer; banked per processor mode)
+  --   R14 = LR  (link register; holds return address after BL / BLX)
+  --   R15 = PC  (program counter; reading it gives PC+8 in ARM state,
+  --              PC+4 in Thumb state; writing it branches)
+  gpr = R0  | R1  | R2  | R3  | R4  | R5  | R6  | R7
+      | R8  | R9  | R10 | R11 | R12 | R13 | R14 | R15
+
+  -- ===========================================================
+  --  2. VFP (FLOATING-POINT) REGISTERS
+  -- ===========================================================
+
+  -- 32 single-precision scalar registers S0–S31.
+  -- S0–S1 map to the low / high halves of D0, S2–S3 to D1, etc.
+  sreg = S0  | S1  | S2  | S3  | S4  | S5  | S6  | S7
+       | S8  | S9  | S10 | S11 | S12 | S13 | S14 | S15
+       | S16 | S17 | S18 | S19 | S20 | S21 | S22 | S23
+       | S24 | S25 | S26 | S27 | S28 | S29 | S30 | S31
+
+  -- 32 double-precision scalar registers D0–D31.
+  -- D0–D15 have single-precision sub-registers (S0–S31).
+  -- D16–D31 exist only on processors implementing VFPv3-D32 / FPDP;
+  -- they have no single-precision sub-view.
+  dreg = D0  | D1  | D2  | D3  | D4  | D5  | D6  | D7
+       | D8  | D9  | D10 | D11 | D12 | D13 | D14 | D15
+       | D16 | D17 | D18 | D19 | D20 | D21 | D22 | D23
+       | D24 | D25 | D26 | D27 | D28 | D29 | D30 | D31
+
+  -- ===========================================================
+  --  3. CONDITION CODES
+  -- ===========================================================
+
+  -- The 4-bit condition field present in every ARM instruction.
+  -- Mnemonic suffixes in parentheses; EQ / NE etc. are the canonical names.
+  -- HS (higher or same) = CS; LO (lower) = CC.
+  cc = EQ  | NE   -- equal / not equal                     (Z=1 / Z=0)
+     | CS  | CC   -- carry set / carry clear                (C=1 / C=0)
+     | MI  | PL   -- negative / non-negative                (N=1 / N=0)
+     | VS  | VC   -- overflow / no overflow                 (V=1 / V=0)
+     | HI  | LS   -- unsigned higher / lower-or-same
+     | GE  | LT   -- signed greater-or-equal / less
+     | GT  | LE   -- signed greater / less-or-equal
+     | AL  | NV   -- always (unconditional) / never (do not generate; unpredictable)
+
+  -- ===========================================================
+  --  4. PROGRAM STATUS REGISTER FIELDS
+  -- ===========================================================
+
+  -- Which PSR is accessed by MRS / MSR.
+  psr = CPSR    -- Current Program Status Register
+      | SPSR    -- Saved Program Status Register (of current mode)
+
+  -- PSR field mask for MSR (any combination of the four byte-sized fields).
+  -- In assembly: MSR CPSR_fc means fields=flags+control.
+  psr_field = PSRField(psr reg,
+                       bool f,    -- flags     (CPSR[31:24])
+                       bool s,    -- status    (CPSR[23:16])
+                       bool x,    -- extension (CPSR[15:8])
+                       bool c)    -- control   (CPSR[7:0])
+
+  -- ===========================================================
+  --  5. SHIFT TYPES AND FLEXIBLE SECOND OPERAND (Operand2)
+  -- ===========================================================
+
+  -- Barrel-shifter shift types.
+  -- RRX (Rotate Right eXtended) shifts right by 1 and inserts the carry flag;
+  -- it takes no explicit amount and cannot be combined with a register shift.
+  shift_type = STYPE_LSL   -- logical shift left
+             | STYPE_LSR   -- logical shift right
+             | STYPE_ASR   -- arithmetic shift right (sign-extending)
+             | STYPE_ROR   -- rotate right
+
+  -- A shift controlled by an immediate amount.
+  -- Amounts: LSL 0–31, LSR 1–32, ASR 1–32, ROR 1–31.
+  -- LSL #0 is the identity (no shift).
+  imm_shift = ImmShift(shift_type stype, int amount)
+
+  -- A shift controlled by the low byte of a register.
+  -- Register shifts are not encodable for LDR / STR; only data-processing.
+  reg_shift = RegShift(shift_type stype, gpr rs)
+
+  -- The flexible second source operand (Operand2 / Op2).
+  -- Op2Imm: 8-bit immediate rotated right by 2*rotate (rotate ∈ 0–15).
+  --         Encodes a limited set of 32-bit constants.
+  -- Op2Reg: register with no shift (equivalent to LSL #0).
+  -- Op2RegImm: register shifted by an immediate amount.
+  -- Op2RegReg: register shifted by the low byte of another register.
+  --            Not available in load / store addressing.
+  -- Op2RRX: register rotated right by 1 through carry (no amount field).
+  operand2 = Op2Imm(int imm8, int rotate2)       -- constant: imm8 ROR (2 * rotate2)
+           | Op2Reg(gpr rm)                        -- plain register
+           | Op2RegImm(gpr rm, imm_shift shift)    -- Rm shifted by immediate
+           | Op2RegReg(gpr rm, reg_shift shift)    -- Rm shifted by register
+           | Op2RRX(gpr rm)                        -- Rm rotated right by 1 through carry
+
+  -- ===========================================================
+  --  6. MEMORY ADDRESSING
+  -- ===========================================================
+
+  -- Sign of a register offset (the U bit in the instruction encoding).
+  off_dir = OffAdd | OffSub
+
+  -- Memory offset: immediate (signed, maximum 12 bits for word, 8 bits for
+  -- halfword), or register optionally shifted by an immediate.
+  -- Immediate offset: positive value = add to base, negative = subtract.
+  -- Register offset: direction is explicit in off_dir.
+  mem_offset = MOff_Imm(int value)                               -- signed immediate offset
+             | MOff_Reg(gpr rm, imm_shift? shift, off_dir dir)   -- register ± shift
+
+  -- Write-back mode (selects offset / pre-indexed / post-indexed form).
+  --   WB_Offset:    [Rn, offset]      base unchanged
+  --   WB_PreIndex:  [Rn, offset]!     base updated before access
+  --   WB_PostIndex: [Rn], offset      base updated after access (offset may be zero)
+  writeback = WB_Offset | WB_PreIndex | WB_PostIndex
+
+  mem_addr = MemAddr(gpr base, mem_offset? offset, writeback wb)
+
+  -- PC-relative or label-based address for literal pools (LDR Rd, =value).
+  literal_addr = LitLabel(label lbl)
+               | LitPCRel(int  byte_offset)   -- signed offset from PC
+
+  -- ===========================================================
+  --  7. REGISTER LISTS  (LDM / STM and PUSH / POP)
+  -- ===========================================================
+
+  -- An ordered set of integer registers for LDM / STM instructions.
+  -- user_regs: the S bit (^) — in privileged mode, loads the user-mode
+  -- registers; when R15 is in the list, also restores CPSR from SPSR.
+  reg_list = RegList(gpr* regs, bool user_regs)
+
+  -- Consecutive range of single-precision VFP registers for VLDM / VSTM.
+  sreg_list = SRegList(sreg first, int count)   -- {first, first+1, …, first+count-1}
+
+  -- Consecutive range of double-precision VFP registers for VLDM / VSTM.
+  dreg_list = DRegList(dreg first, int count)
+
+  -- LDM / STM addressing mode (selects which of the four base-update modes).
+  -- IA = Increment After (default for LDM in most ABIs)
+  -- IB = Increment Before
+  -- DA = Decrement After
+  -- DB = Decrement Before (used for PUSH-style: STMDB SP!, {...})
+  -- Also aliased as FD / FA / ED / EA for stack semantics.
+  ldm_mode = LDM_IA | LDM_IB | LDM_DA | LDM_DB
+
+  -- ===========================================================
+  --  8. MEMORY BARRIER OPTIONS
+  -- ===========================================================
+
+  -- The option operand of DMB / DSB.  Encodes domain + access-type.
+  -- SY = full system, all accesses.  ISH = inner-shareable domain.
+  -- NSH = non-shareable.  OSH = outer-shareable.
+  -- ST suffix = stores only.  LD suffix = loads only (ARMv8 back-compat).
+  barrier_opt = BarSY    | BarST    | BarLD
+              | BarISH   | BarISHST | BarISHLD
+              | BarNSH   | BarNSHST | BarNSHLD
+              | BarOSH   | BarOSHST | BarOSHLD
+
+  -- ===========================================================
+  --  9. LABELS
+  -- ===========================================================
+
+  label = LocalLabel(string  name)   -- function-local  (.Lname)
+        | GlobalLabel(string name)   -- external / exported symbol
+        | AnonLabel(int      id)     -- compiler-generated numeric label
+
+  -- ===========================================================
+  --  10. DATA-PROCESSING INSTRUCTIONS
+  -- ===========================================================
+  -- These map to the ARM A1 / T1–T4 encodings.
+  -- set_flags = true generates the S-suffix form (ADDS, SUBS, …).
+  -- Comparison instructions (CMP, CMN, TST, TEQ) always set flags
+  -- and produce no destination register; set_flags is implicit.
+  -- MOV / MVN have no first source register (rn).
+  -- MOVW / MOVT accept a 16-bit immediate directly (ARMv7 only).
+
+  dp_instr = ADD(gpr rd, gpr rn, operand2 op2, bool set_flags)   -- rd ← rn + op2
+           | ADC(gpr rd, gpr rn, operand2 op2, bool set_flags)   -- rd ← rn + op2 + C
+           | SUB(gpr rd, gpr rn, operand2 op2, bool set_flags)   -- rd ← rn − op2
+           | SBC(gpr rd, gpr rn, operand2 op2, bool set_flags)   -- rd ← rn − op2 − 1 + C
+           | RSB(gpr rd, gpr rn, operand2 op2, bool set_flags)   -- rd ← op2 − rn  (reverse subtract)
+           | RSC(gpr rd, gpr rn, operand2 op2, bool set_flags)   -- rd ← op2 − rn − 1 + C
+           | AND(gpr rd, gpr rn, operand2 op2, bool set_flags)
+           | ORR(gpr rd, gpr rn, operand2 op2, bool set_flags)
+           | EOR(gpr rd, gpr rn, operand2 op2, bool set_flags)
+           | BIC(gpr rd, gpr rn, operand2 op2, bool set_flags)   -- rd ← rn & ~op2  (bit clear)
+           | ORN(gpr rd, gpr rn, operand2 op2, bool set_flags)   -- rd ← rn | ~op2  (Thumb-2 only)
+           -- Move / move-NOT (no rn)
+           | MOV(gpr rd, operand2 op2, bool set_flags)
+           | MVN(gpr rd, operand2 op2, bool set_flags)           -- rd ← ~op2
+           | MOVW(gpr rd, int imm16)                             -- rd ← zero-extend(imm16)  (ARMv7)
+           | MOVT(gpr rd, int imm16)                             -- rd[31:16] ← imm16 (top halfword)
+           -- Comparison (no destination; always set CPSR flags)
+           | CMP(gpr rn, operand2 op2)                           -- CPSR ← flags(rn − op2)
+           | CMN(gpr rn, operand2 op2)                           -- CPSR ← flags(rn + op2)
+           | TST(gpr rn, operand2 op2)                           -- CPSR ← flags(rn & op2)
+           | TEQ(gpr rn, operand2 op2)                           -- CPSR ← flags(rn ^ op2)
+
+  -- ===========================================================
+  --  11. SHIFT INSTRUCTIONS  (aliases for MOV with Operand2 shift)
+  -- ===========================================================
+  -- In ARM encoding these are all MOV instructions with the appropriate
+  -- shift sub-type; they are given their own constructors here because
+  -- every compiler emits them as first-class operations.
+  -- set_flags generates the S-suffix form.
+
+  shift_instr = LSL_IMM(gpr rd, gpr rm, int amount, bool set_flags)  -- rd ← rm << amount
+              | LSR_IMM(gpr rd, gpr rm, int amount, bool set_flags)  -- rd ← rm >> amount  (logical)
+              | ASR_IMM(gpr rd, gpr rm, int amount, bool set_flags)  -- rd ← rm >> amount  (arithmetic)
+              | ROR_IMM(gpr rd, gpr rm, int amount, bool set_flags)  -- rd ← rm ROR amount
+              | RRX_INST(gpr rd, gpr rm, bool set_flags)             -- rd ← (C << 31) | (rm >> 1)
+              | LSL_REG(gpr rd, gpr rm, gpr rs, bool set_flags)      -- rd ← rm << rs[7:0]
+              | LSR_REG(gpr rd, gpr rm, gpr rs, bool set_flags)
+              | ASR_REG(gpr rd, gpr rm, gpr rs, bool set_flags)
+              | ROR_REG(gpr rd, gpr rm, gpr rs, bool set_flags)
+
+  -- ===========================================================
+  --  12. MULTIPLY INSTRUCTIONS  (M extension, DSP multiply)
+  -- ===========================================================
+  -- MUL / MLA / MLS: basic 32-bit multiply (result = low 32 bits).
+  -- UMULL / UMLAL: unsigned 64-bit accumulating multiply.
+  -- SMULL / SMLAL: signed  64-bit accumulating multiply.
+  -- SMULxy / SMLAxy: 16×16 halfword multiply (x,y ∈ {B=bottom, T=top}).
+  -- SMULWy / SMLAWy: 32×16 halfword multiply.
+  -- SMUAD / SMUSD: dual 16×16 with add/subtract.
+  -- SMLAD / SMLSD: dual 16×16 multiply-accumulate.
+  -- SMLALD / SMLSLD: 64-bit accumulating dual 16×16.
+  -- USAD8 / USADA8: sum of absolute differences.
+
+  mul_instr = MUL(gpr rd, gpr rn, gpr rm, bool set_flags)                -- rd ← rn * rm  (low 32)
+            | MLA(gpr rd, gpr rn, gpr rm, gpr ra, bool set_flags)        -- rd ← rn*rm + ra
+            | MLS(gpr rd, gpr rn, gpr rm, gpr ra)                        -- rd ← ra − rn*rm  (no S)
+            -- 64-bit unsigned
+            | UMULL(gpr rdlo, gpr rdhi, gpr rn, gpr rm, bool set_flags)  -- {rdhi,rdlo} ← rn * rm  unsigned
+            | UMLAL(gpr rdlo, gpr rdhi, gpr rn, gpr rm, bool set_flags)  -- {rdhi,rdlo} += rn * rm
+            -- 64-bit signed
+            | SMULL(gpr rdlo, gpr rdhi, gpr rn, gpr rm, bool set_flags)
+            | SMLAL(gpr rdlo, gpr rdhi, gpr rn, gpr rm, bool set_flags)
+            -- 16×16 halfword multiplies (no S suffix; M = eXchange for X variants)
+            | SMULBB(gpr rd, gpr rn, gpr rm)   -- rd ← rn[15:0]  * rm[15:0]   signed
+            | SMULBT(gpr rd, gpr rn, gpr rm)   -- rd ← rn[15:0]  * rm[31:16]
+            | SMULTB(gpr rd, gpr rn, gpr rm)   -- rd ← rn[31:16] * rm[15:0]
+            | SMULTT(gpr rd, gpr rn, gpr rm)   -- rd ← rn[31:16] * rm[31:16]
+            -- 32×16 halfword
+            | SMULWB(gpr rd, gpr rn, gpr rm)   -- rd ← (rn * rm[15:0])[47:16]
+            | SMULWT(gpr rd, gpr rn, gpr rm)
+            -- 16×16 accumulate into 32-bit
+            | SMLABB(gpr rd, gpr rn, gpr rm, gpr ra)
+            | SMLABT(gpr rd, gpr rn, gpr rm, gpr ra)
+            | SMLATB(gpr rd, gpr rn, gpr rm, gpr ra)
+            | SMLATT(gpr rd, gpr rn, gpr rm, gpr ra)
+            -- 32×16 accumulate into 32-bit
+            | SMLAWB(gpr rd, gpr rn, gpr rm, gpr ra)
+            | SMLAWT(gpr rd, gpr rn, gpr rm, gpr ra)
+            -- 16×16 accumulate into 64-bit
+            | SMLALBB(gpr rdlo, gpr rdhi, gpr rn, gpr rm)
+            | SMLALBT(gpr rdlo, gpr rdhi, gpr rn, gpr rm)
+            | SMLALTB(gpr rdlo, gpr rdhi, gpr rn, gpr rm)
+            | SMLALTT(gpr rdlo, gpr rdhi, gpr rn, gpr rm)
+            -- Dual 16×16 (sum/difference of two products)
+            | SMUAD(gpr rd, gpr rn, gpr rm)     -- rd ← rn[15:0]*rm[15:0]  + rn[31:16]*rm[31:16]
+            | SMUADX(gpr rd, gpr rn, gpr rm)    -- X variant: rm operands exchanged
+            | SMUSD(gpr rd, gpr rn, gpr rm)     -- rd ← rn[15:0]*rm[15:0]  − rn[31:16]*rm[31:16]
+            | SMUSDX(gpr rd, gpr rn, gpr rm)
+            -- Dual 16×16 accumulate into 32-bit
+            | SMLAD(gpr rd, gpr rn, gpr rm, gpr ra)
+            | SMLADX(gpr rd, gpr rn, gpr rm, gpr ra)
+            | SMLSD(gpr rd, gpr rn, gpr rm, gpr ra)
+            | SMLSDX(gpr rd, gpr rn, gpr rm, gpr ra)
+            -- Dual 16×16 accumulate into 64-bit
+            | SMLALD(gpr rdlo, gpr rdhi, gpr rn, gpr rm)
+            | SMLALDX(gpr rdlo, gpr rdhi, gpr rn, gpr rm)
+            | SMLSLD(gpr rdlo, gpr rdhi, gpr rn, gpr rm)
+            | SMLSLDX(gpr rdlo, gpr rdhi, gpr rn, gpr rm)
+            -- Sum of absolute differences
+            | USAD8(gpr rd, gpr rn, gpr rm)               -- rd ← Σ|rn[byte_i] − rm[byte_i]|
+            | USADA8(gpr rd, gpr rn, gpr rm, gpr ra)      -- rd ← USAD8(rn,rm) + ra
+
+  -- ===========================================================
+  --  13. INTEGER DIVIDE  (available on Cortex-A with SDIV/UDIV feature)
+  -- ===========================================================
+
+  div_instr = SDIV(gpr rd, gpr rn, gpr rm)   -- rd ← rn ÷ rm  (signed,   round toward zero)
+            | UDIV(gpr rd, gpr rn, gpr rm)   -- rd ← rn ÷ rm  (unsigned)
+
+  -- ===========================================================
+  --  14. LOAD AND STORE INSTRUCTIONS
+  -- ===========================================================
+  -- LDR/STR:  32-bit word.   LDRB/STRB: 8-bit (zero-extend on load).
+  -- LDRH/STRH: 16-bit (zero-extend).  LDRSB/LDRSH: sign-extend.
+  -- LDRD/STRD: 64-bit doubleword; rd must be even, rd+1 is implicit.
+  -- Addressing via mem_addr covers offset, pre-indexed, and post-indexed.
+
+  ls_instr = LDR(gpr rd, mem_addr addr)           -- load  word         (32-bit, sign-extend if PC dst)
+           | LDRB(gpr rd, mem_addr addr)          -- load  byte         (zero-extend)
+           | LDRH(gpr rd, mem_addr addr)          -- load  halfword     (zero-extend)
+           | LDRSB(gpr rd, mem_addr addr)         -- load  byte         (sign-extend)
+           | LDRSH(gpr rd, mem_addr addr)         -- load  halfword     (sign-extend)
+           | LDRD(gpr rd, mem_addr addr)          -- load  doubleword   rd=(even), rd+1=odd implicit
+           | LDRT(gpr rd, mem_addr addr)          -- load  word,  unprivileged (T suffix)
+           | LDRBT(gpr rd, mem_addr addr)         -- load  byte,  unprivileged
+           | LDRHT(gpr rd, mem_addr addr)         -- load  halfword, unprivileged
+           | LDRSBT(gpr rd, mem_addr addr)
+           | LDRSHT(gpr rd, mem_addr addr)
+           | STR(gpr rs, mem_addr addr)           -- store word
+           | STRB(gpr rs, mem_addr addr)          -- store byte    (low 8 bits of rs)
+           | STRH(gpr rs, mem_addr addr)          -- store halfword (low 16 bits of rs)
+           | STRD(gpr rs, mem_addr addr)          -- store doubleword rs=even, rs+1=odd implicit
+           | STRT(gpr rs, mem_addr addr)          -- store word, unprivileged
+           | STRBT(gpr rs, mem_addr addr)
+           | STRHT(gpr rs, mem_addr addr)
+           -- PC-relative literal load (LDR Rd, =const  or  LDR Rd, label)
+           | LDR_LIT(gpr rd, literal_addr addr)
+           | LDRB_LIT(gpr rd, literal_addr addr)
+           | LDRH_LIT(gpr rd, literal_addr addr)
+           | LDRSB_LIT(gpr rd, literal_addr addr)
+           | LDRSH_LIT(gpr rd, literal_addr addr)
+
+  -- ===========================================================
+  --  15. LOAD AND STORE MULTIPLE
+  -- ===========================================================
+
+  lsm_instr = LDM(ldm_mode mode, gpr base, bool writeback, reg_list regs)
+            | STM(ldm_mode mode, gpr base, bool writeback, reg_list regs)
+            -- PUSH and POP are assembler aliases for STMDB SP! and LDMIA SP!
+            | PUSH(reg_list regs)
+            | POP(reg_list regs)
+            -- RFE (Return From Exception) — loads PC and CPSR from memory
+            | RFEIA(gpr base, bool writeback)
+            | RFEIB(gpr base, bool writeback)
+            | RFEDA(gpr base, bool writeback)
+            | RFEDB(gpr base, bool writeback)
+            -- SRS (Store Return State) — stores LR and SPSR to stack of target mode
+            | SRSIA(int mode_imm5, bool writeback)
+            | SRSIB(int mode_imm5, bool writeback)
+            | SRSDA(int mode_imm5, bool writeback)
+            | SRSDB(int mode_imm5, bool writeback)
+
+  -- ===========================================================
+  --  16. BRANCH INSTRUCTIONS
+  -- ===========================================================
+
+  branch_instr
+    = B(label tgt)                    -- unconditional branch (all conditions via cc field)
+    | BL(label tgt)                   -- branch with link (LR ← PC+4; call instruction)
+    | BX(gpr rm)                      -- branch and exchange (switches ARM↔Thumb per bit 0 of rm)
+    | BLX_LBL(label tgt)              -- branch with link, always switches to Thumb (label form)
+    | BLX_REG(gpr rm)                 -- branch with link via register (switches state per bit 0)
+    | BXJ(gpr rm)                     -- branch and exchange Jazelle (uses Thumb if Jazelle unavailable)
+    -- Thumb-2 compare-and-branch (no condition code — encoding encodes the cond)
+    -- These are 16-bit Thumb-2 only; they cannot be made conditional via IT.
+    | CBZ(gpr rn, label lbl)          -- branch if rn = 0  (PC + imm6, forward only, no flags)
+    | CBNZ(gpr rn, label lbl)         -- branch if rn ≠ 0
+    -- Table branch (Thumb-2 only; uses base register + index)
+    | TBB(gpr rn, gpr rm)             -- table branch byte  (PC ← PC + 2*[rn + rm])
+    | TBH(gpr rn, gpr rm)             -- table branch halfword
+
+  -- ===========================================================
+  --  17. BIT-FIELD AND BIT-MANIPULATION INSTRUCTIONS
+  -- ===========================================================
+
+  bitmanip_instr
+    = BFC(gpr rd, int lsb, int width)              -- bit-field clear: rd[lsb+width-1:lsb] ← 0
+    | BFI(gpr rd, gpr rn, int lsb, int width)      -- bit-field insert: rd[lsb+width-1:lsb] ← rn[width-1:0]
+    | SBFX(gpr rd, gpr rn, int lsb, int width)     -- signed   bit-field extract (sign-extends)
+    | UBFX(gpr rd, gpr rn, int lsb, int width)     -- unsigned bit-field extract (zero-extends)
+    | CLZ(gpr rd, gpr rm)                          -- count leading zeros
+    | RBIT(gpr rd, gpr rm)                         -- reverse bit order of rm
+    | REV(gpr rd, gpr rm)                          -- reverse byte order (endian swap)
+    | REV16(gpr rd, gpr rm)                        -- reverse bytes within each 16-bit halfword
+    | REVSH(gpr rd, gpr rm)                        -- reverse bytes in low halfword; sign-extend
+    -- Pack halfwords (Thumb-2 / ARMv6+)
+    | PKHBT(gpr rd, gpr rn, gpr rm, int lsl_amt)  -- rd ← {rn[31:16], (rm<<lsl)[15:0]}
+    | PKHTB(gpr rd, gpr rn, gpr rm, int asr_amt)  -- rd ← {rn[31:16], (rm>>asr)[15:0]}
+    -- Select bytes using GE flags (result of parallel adds/subs)
+    | SEL(gpr rd, gpr rn, gpr rm)                  -- rd[byte_i] ← GE[i] ? rn[byte_i] : rm[byte_i]
+
+  -- ===========================================================
+  --  18. SIGN / ZERO EXTENSION INSTRUCTIONS  (ARMv6+)
+  -- ===========================================================
+  -- Plain forms (no rn): SXT*/UXT* extend the low byte / halfword of rm.
+  -- Accumulating forms (with rn): add the extended value to rn.
+  -- The rot field selects a 0/8/16/24-bit right rotation of rm before extraction.
+
+  extend_instr
+    = SXTB(gpr rd, gpr rm, int rot)         -- sign-extend byte    (rot ∈ {0,8,16,24})
+    | SXTH(gpr rd, gpr rm, int rot)         -- sign-extend halfword
+    | SXTB16(gpr rd, gpr rm, int rot)       -- sign-extend both bytes of each halfword
+    | UXTB(gpr rd, gpr rm, int rot)         -- zero-extend byte
+    | UXTH(gpr rd, gpr rm, int rot)         -- zero-extend halfword
+    | UXTB16(gpr rd, gpr rm, int rot)       -- zero-extend both bytes
+    -- Accumulating forms
+    | SXTAB(gpr rd, gpr rn, gpr rm, int rot)
+    | SXTAH(gpr rd, gpr rn, gpr rm, int rot)
+    | SXTAB16(gpr rd, gpr rn, gpr rm, int rot)
+    | UXTAB(gpr rd, gpr rn, gpr rm, int rot)
+    | UXTAH(gpr rd, gpr rn, gpr rm, int rot)
+    | UXTAB16(gpr rd, gpr rn, gpr rm, int rot)
+
+  -- ===========================================================
+  --  19. SATURATING ARITHMETIC  (ARMv5E+, ARMv6+)
+  -- ===========================================================
+  -- Single-word saturating add / subtract (Q flag set on saturation).
+  -- QADD:  rd ← Sat32(rn + rm)    QSUB:  rd ← Sat32(rn − rm)
+  -- QDADD: rd ← Sat32(rn + 2*rm)  QDSUB: rd ← Sat32(rn − 2*rm)
+  -- SATurating shift: SSAT saturates a register to a signed n-bit value.
+  -- USAT saturates to an unsigned n-bit value.
+
+  sat_instr
+    = QADD(gpr rd, gpr rn, gpr rm)        -- saturating add    (signed 32-bit)
+    | QSUB(gpr rd, gpr rn, gpr rm)        -- saturating subtract
+    | QDADD(gpr rd, gpr rn, gpr rm)       -- saturating double-and-add
+    | QDSUB(gpr rd, gpr rn, gpr rm)
+    -- Byte-width saturating (ARMv6+)
+    | QADD8(gpr rd, gpr rn, gpr rm)       -- saturate each byte independently (signed)
+    | QADD16(gpr rd, gpr rn, gpr rm)      -- saturate each halfword
+    | QSUB8(gpr rd, gpr rn, gpr rm)
+    | QSUB16(gpr rd, gpr rn, gpr rm)
+    | UQADD8(gpr rd, gpr rn, gpr rm)     -- unsigned byte saturating add
+    | UQADD16(gpr rd, gpr rn, gpr rm)
+    | UQSUB8(gpr rd, gpr rn, gpr rm)
+    | UQSUB16(gpr rd, gpr rn, gpr rm)
+    -- Add-subtract exchange with saturation
+    | QASX(gpr rd, gpr rn, gpr rm)        -- rd[31:16] ← Sat16(rn[31:16]+rm[15:0]),
+                                          -- rd[15:0]  ← Sat16(rn[15:0] -rm[31:16])
+    | QSAX(gpr rd, gpr rn, gpr rm)        -- reversed
+    | UQASX(gpr rd, gpr rn, gpr rm)
+    | UQSAX(gpr rd, gpr rn, gpr rm)
+    -- Shift-and-saturate to bit width (n ∈ 1–32 for SSAT, 0–31 for USAT)
+    | SSAT(gpr rd, int sat_imm, gpr rn, imm_shift? shift)
+    | USAT(gpr rd, int sat_imm, gpr rn, imm_shift? shift)
+    -- 16-bit halfword saturation
+    | SSAT16(gpr rd, int sat_imm, gpr rn)
+    | USAT16(gpr rd, int sat_imm, gpr rn)
+
+  -- ===========================================================
+  --  20. PARALLEL (PACKED) ADD / SUBTRACT  (ARMv6+)
+  -- ===========================================================
+  -- These operate on four 8-bit bytes or two 16-bit halfwords in parallel.
+  -- S prefix = signed, U prefix = unsigned.
+  -- H prefix = halving (result / 2, avoids overflow).
+  -- ASX / SAX = add-subtract-exchange (swaps halfwords of rm before operating).
+
+  packed_instr
+    -- Signed parallel add / subtract (16-bit)
+    = SADD16(gpr rd, gpr rn, gpr rm)
+    | SSUB16(gpr rd, gpr rn, gpr rm)
+    | SASX(gpr rd, gpr rn, gpr rm)     -- rd[31:16] ← rn[31:16]+rm[15:0]; rd[15:0] ← rn[15:0]-rm[31:16]
+    | SSAX(gpr rd, gpr rn, gpr rm)     -- reversed exchange
+    -- Signed halving (16-bit)
+    | SHADD16(gpr rd, gpr rn, gpr rm)
+    | SHSUB16(gpr rd, gpr rn, gpr rm)
+    | SHASX(gpr rd, gpr rn, gpr rm)
+    | SHSAX(gpr rd, gpr rn, gpr rm)
+    -- Unsigned parallel (16-bit)
+    | UADD16(gpr rd, gpr rn, gpr rm)
+    | USUB16(gpr rd, gpr rn, gpr rm)
+    | UASX(gpr rd, gpr rn, gpr rm)
+    | USAX(gpr rd, gpr rn, gpr rm)
+    -- Unsigned halving (16-bit)
+    | UHADD16(gpr rd, gpr rn, gpr rm)
+    | UHSUB16(gpr rd, gpr rn, gpr rm)
+    | UHASX(gpr rd, gpr rn, gpr rm)
+    | UHSAX(gpr rd, gpr rn, gpr rm)
+    -- Signed parallel (8-bit)
+    | SADD8(gpr rd, gpr rn, gpr rm)
+    | SSUB8(gpr rd, gpr rn, gpr rm)
+    -- Signed halving (8-bit)
+    | SHADD8(gpr rd, gpr rn, gpr rm)
+    | SHSUB8(gpr rd, gpr rn, gpr rm)
+    -- Unsigned parallel (8-bit)
+    | UADD8(gpr rd, gpr rn, gpr rm)
+    | USUB8(gpr rd, gpr rn, gpr rm)
+    -- Unsigned halving (8-bit)
+    | UHADD8(gpr rd, gpr rn, gpr rm)
+    | UHSUB8(gpr rd, gpr rn, gpr rm)
+
+  -- ===========================================================
+  --  21. EXCLUSIVE LOAD AND STORE  (ARMv6K / ARMv7)
+  -- ===========================================================
+  -- LDREX places an exclusive reservation on the address.
+  -- STREX writes only if the reservation is still held; rd = 0 on success.
+  -- CLREX clears the reservation without any memory access.
+
+  excl_instr
+    = LDREX(gpr rd, mem_addr addr)                      -- load exclusive  word
+    | LDREXB(gpr rd, mem_addr addr)                     -- load exclusive  byte
+    | LDREXH(gpr rd, mem_addr addr)                     -- load exclusive  halfword
+    | LDREXD(gpr rd, mem_addr addr)                     -- load exclusive  doubleword (rd=even, rd+1 implicit)
+    | STREX(gpr rd, gpr rs, mem_addr addr)              -- store exclusive word     (rd=status)
+    | STREXB(gpr rd, gpr rs, mem_addr addr)
+    | STREXH(gpr rd, gpr rs, mem_addr addr)
+    | STREXD(gpr rd, gpr rs, mem_addr addr)             -- rd=status; rs=even, rs+1 implicit
+    | CLREX                                             -- clear exclusive reservation monitor
+
+  -- ===========================================================
+  --  22. PROGRAM STATUS REGISTER ACCESS
+  -- ===========================================================
+
+  psr_instr
+    = MRS(gpr rd, psr src)                      -- rd ← CPSR or SPSR
+    | MSR_REG(psr_field dst, gpr rs)            -- PSR[field] ← rs
+    | MSR_IMM(psr_field dst, int imm8, int rot) -- PSR[field] ← imm8 ROR (2*rot)
+
+  -- ===========================================================
+  --  23. COPROCESSOR INSTRUCTIONS
+  -- ===========================================================
+  -- Generic coprocessor interface (not for VFP/NEON; cp10/cp11 are VFP
+  -- and are covered by the VFP sections below).
+  -- coproc_num ∈ 0–15 (avoid 10 and 11 which are VFP).
+
+  coproc_instr
+    = CDP(int coproc, int opc1, int crd, int crn, int crm, int opc2)
+    | CDP2(int coproc, int opc1, int crd, int crn, int crm, int opc2)   -- unconditional form
+    | MCR(int coproc, int opc1, gpr rt, int crn, int crm, int opc2)     -- ARM GPR → coproc reg
+    | MCR2(int coproc, int opc1, gpr rt, int crn, int crm, int opc2)
+    | MRC(int coproc, int opc1, gpr rt, int crn, int crm, int opc2)     -- coproc reg → ARM GPR
+    | MRC2(int coproc, int opc1, gpr rt, int crn, int crm, int opc2)
+    | MCRR(int coproc, int opc1, gpr rt, gpr rt2, int crm)              -- two GPRs → coproc
+    | MCRR2(int coproc, int opc1, gpr rt, gpr rt2, int crm)
+    | MRRC(int coproc, int opc1, gpr rt, gpr rt2, int crm)              -- coproc → two GPRs
+    | MRRC2(int coproc, int opc1, gpr rt, gpr rt2, int crm)
+    | LDC(int coproc, int crd, mem_addr addr, bool long_form)           -- memory → coproc
+    | LDC2(int coproc, int crd, mem_addr addr, bool long_form)
+    | STC(int coproc, int crd, mem_addr addr, bool long_form)           -- coproc → memory
+    | STC2(int coproc, int crd, mem_addr addr, bool long_form)
+
+  -- ===========================================================
+  --  24. SYSTEM AND MISCELLANEOUS INSTRUCTIONS
+  -- ===========================================================
+
+  -- CPS mode / AIF fields (Change Processor State)
+  cps_effect = CPSIE | CPSID   -- interrupt enable / disable
+
+  misc_instr
+    = NOP                                    -- no operation (HINT 0)
+    | YIELD                                  -- cooperative scheduler hint (HINT 1)
+    | WFE                                    -- wait for event (HINT 2)
+    | WFI                                    -- wait for interrupt (HINT 3)
+    | SEV                                    -- send event to all cores (HINT 4)
+    | DBG(int hint)                          -- debug hint (HINT 15+hint)
+    | DMB(barrier_opt opt)                   -- data memory barrier
+    | DSB(barrier_opt opt)                   -- data synchronization barrier
+    | ISB                                    -- instruction synchronization barrier (always SY)
+    -- Prefetch hints (no data is returned; the instruction is a hint only)
+    | PLD(mem_addr addr)                     -- preload data (for load)
+    | PLDW(mem_addr addr)                    -- preload data (for store; ARMv7 MP)
+    | PLI(mem_addr addr)                     -- preload instruction
+    -- Breakpoint, supervisor, and security calls
+    | BKPT(int imm16)                        -- software breakpoint (debug monitor / JTAG)
+    | SVC(int imm24)                         -- supervisor call (system call)
+    | SMC(int imm4)                          -- secure monitor call (TrustZone; EL ≥ 1)
+    | HVC(int imm16)                         -- hypervisor call (Virtualization ext; EL ≥ 1)
+    -- Processor state changes (privileged)
+    | CPS_OP(cps_effect eff, bool a, bool i, bool f, int? mode)
+    | SETEND_LE                              -- set data endianness to little-endian
+    | SETEND_BE                              -- set data endianness to big-endian
+    -- Undefined instruction (guaranteed to take #UNDEF exception)
+    | UDF(int imm16)
+
+  -- ===========================================================
+  --  25. VFP: DATA MOVEMENT
+  -- ===========================================================
+  -- VMOV: several sub-forms for moving between scalar registers,
+  --       FP constants, and ARM integer registers.
+  -- VMRS / VMSR: transfer between FPSCR and ARM GPR (or APSR_nzcv).
+
+  vfp_move_instr
+    -- FP register to FP register
+    = VMOV_SS(sreg sd, sreg sm)                           -- single ← single  (same-type copy)
+    | VMOV_DD(dreg dd, dreg dm)                           -- double ← double
+    -- Encoded FP immediate (VFPv3; limited set of 8-bit constants)
+    | VMOV_IMM_S(sreg sd, float imm8)
+    | VMOV_IMM_D(dreg dd, float imm8)
+    -- Transfer between ARM GPR and single-precision VFP register
+    | VMOV_CORE_TO_S(sreg sn, gpr rt)                    -- Sn ← Rt
+    | VMOV_S_TO_CORE(gpr rt, sreg sn)                    -- Rt ← Sn
+    -- Transfer two ARM GPRs to / from a double-precision register
+    | VMOV_2CORE_TO_D(dreg dm, gpr rt1, gpr rt2)         -- Dm ← {Rt2, Rt1}  (Rt1 → low 32)
+    | VMOV_D_TO_2CORE(gpr rt1, gpr rt2, dreg dm)
+    -- Transfer two ARM GPRs to / from two consecutive single registers
+    | VMOV_2CORE_TO_2S(sreg sm, gpr rt1, gpr rt2)        -- {Sm+1, Sm} ← {Rt2, Rt1}
+    | VMOV_2S_TO_2CORE(gpr rt1, gpr rt2, sreg sm)
+    -- Move between scalar element and ARM GPR (for NEON-compatible extract)
+    | VMOV_SCALAR_TO_CORE(gpr rt, dreg dn, int index, bool sign_extend)
+    | VMOV_CORE_TO_SCALAR(dreg dn, int index, gpr rt)
+    -- FPSCR ↔ ARM GPR transfer
+    | VMRS(gpr rt)                                        -- Rt ← FPSCR  (use R15 for APSR_nzcv)
+    | VMSR(gpr rt)                                        -- FPSCR ← Rt
+
+  -- ===========================================================
+  --  26. VFP: LOAD AND STORE
+  -- ===========================================================
+  -- VLDR / VSTR: load / store a single scalar register using
+  --   [Rn, ±imm8*4] addressing (8-bit immediate * 4; no register offset).
+  -- VLDM / VSTM: load / store consecutive register ranges.
+  --   IA mode: start at [Rn], increment after each transfer.
+  --   DB mode: decrement base before first transfer (for VPUSH / VPOP).
+  -- VPUSH / VPOP: assembler aliases for VSTMDB SP! and VLDMIA SP!.
+
+  vfp_ls_instr
+    = VLDR_S(sreg sd, mem_addr addr)
+    | VLDR_D(dreg dd, mem_addr addr)
+    | VSTR_S(sreg sd, mem_addr addr)
+    | VSTR_D(dreg dd, mem_addr addr)
+    | VLDM_S(ldm_mode mode, gpr base, bool writeback, sreg_list regs)
+    | VLDM_D(ldm_mode mode, gpr base, bool writeback, dreg_list regs)
+    | VSTM_S(ldm_mode mode, gpr base, bool writeback, sreg_list regs)
+    | VSTM_D(ldm_mode mode, gpr base, bool writeback, dreg_list regs)
+    | VPUSH_S(sreg_list regs)    -- VSTMDB SP!, {Sd-Sd+n}
+    | VPUSH_D(dreg_list regs)    -- VSTMDB SP!, {Dd-Dd+n}
+    | VPOP_S(sreg_list regs)     -- VLDMIA SP!, {Sd-Sd+n}
+    | VPOP_D(dreg_list regs)     -- VLDMIA SP!, {Dd-Dd+n}
+
+  -- ===========================================================
+  --  27. VFP: ARITHMETIC
+  -- ===========================================================
+  -- Every VFP arithmetic instruction exists in a .F32 and a .F64 form.
+  -- _F32 variants operate on Sn registers; _F64 on Dn registers.
+  -- VMLA / VMLS: multiply-accumulate (NOT fused; two rounding steps).
+  -- VFMA / VFMS: fused multiply-add (VFPv4+, one rounding step).
+  -- VNMLA / VNMLS / VNMUL: negated forms.
+
+  vfp_arith_instr
+    -- Binary
+    = VADD_F32(sreg sd, sreg sn, sreg sm)
+    | VADD_F64(dreg dd, dreg dn, dreg dm)
+    | VSUB_F32(sreg sd, sreg sn, sreg sm)
+    | VSUB_F64(dreg dd, dreg dn, dreg dm)
+    | VMUL_F32(sreg sd, sreg sn, sreg sm)
+    | VMUL_F64(dreg dd, dreg dn, dreg dm)
+    | VDIV_F32(sreg sd, sreg sn, sreg sm)
+    | VDIV_F64(dreg dd, dreg dn, dreg dm)
+    -- Negated multiply
+    | VNMUL_F32(sreg sd, sreg sn, sreg sm)   -- sd ← -(sn * sm)
+    | VNMUL_F64(dreg dd, dreg dn, dreg dm)
+    -- Non-fused multiply-accumulate  (sd ← sd ± sn*sm; two roundings)
+    | VMLA_F32(sreg sd, sreg sn, sreg sm)    -- sd ←  sn*sm + sd
+    | VMLA_F64(dreg dd, dreg dn, dreg dm)
+    | VMLS_F32(sreg sd, sreg sn, sreg sm)    -- sd ← -sn*sm + sd
+    | VMLS_F64(dreg dd, dreg dn, dreg dm)
+    -- Negated non-fused multiply-accumulate
+    | VNMLA_F32(sreg sd, sreg sn, sreg sm)   -- sd ← -(sn*sm + sd)
+    | VNMLA_F64(dreg dd, dreg dn, dreg dm)
+    | VNMLS_F32(sreg sd, sreg sn, sreg sm)   -- sd ← -(- sn*sm + sd) = sn*sm - sd
+    | VNMLS_F64(dreg dd, dreg dn, dreg dm)
+    -- Fused multiply-add (VFPv4; single correctly-rounded result)
+    | VFMA_F32(sreg sd, sreg sn, sreg sm)    -- sd ←  sn*sm + sd  (fused)
+    | VFMA_F64(dreg dd, dreg dn, dreg dm)
+    | VFMS_F32(sreg sd, sreg sn, sreg sm)    -- sd ← -sn*sm + sd  (fused)
+    | VFMS_F64(dreg dd, dreg dn, dreg dm)
+    -- Negated fused (VFPv4)
+    | VFNMA_F32(sreg sd, sreg sn, sreg sm)   -- sd ← -(sn*sm + sd)  (fused)
+    | VFNMA_F64(dreg dd, dreg dn, dreg dm)
+    | VFNMS_F32(sreg sd, sreg sn, sreg sm)   -- sd ←  sn*sm - sd   (fused)
+    | VFNMS_F64(dreg dd, dreg dn, dreg dm)
+    -- Unary
+    | VABS_F32(sreg sd, sreg sm)
+    | VABS_F64(dreg dd, dreg dm)
+    | VNEG_F32(sreg sd, sreg sm)
+    | VNEG_F64(dreg dd, dreg dm)
+    | VSQRT_F32(sreg sd, sreg sm)
+    | VSQRT_F64(dreg dd, dreg dm)
+
+  -- ===========================================================
+  --  28. VFP: COMPARISON
+  -- ===========================================================
+  -- VCMP writes result into FPSCR[31:28] (NZCV flags).
+  -- Use VMRS R15 (APSR_nzcv), FPSCR afterwards to copy to CPSR for Bcc.
+  -- VCMPE raises an InvalidOp exception for quiet NaN operands.
+  -- VCMP_ZERO / VCMPE_ZERO compare the register against +0.0.
+
+  vfp_cmp_instr
+    = VCMP_F32(sreg sd, sreg sm)            -- compare two single registers
+    | VCMP_F64(dreg dd, dreg dm)
+    | VCMPE_F32(sreg sd, sreg sm)           -- compare; raise on QNaN
+    | VCMPE_F64(dreg dd, dreg dm)
+    | VCMP_ZERO_F32(sreg sd)               -- compare Sd with +0.0
+    | VCMP_ZERO_F64(dreg dd)
+    | VCMPE_ZERO_F32(sreg sd)
+    | VCMPE_ZERO_F64(dreg dd)
+
+  -- ===========================================================
+  --  29. VFP: CONVERSION
+  -- ===========================================================
+  -- Width conversion: VCVT between F32 and F64.
+  -- FP ↔ integer: VCVT to/from S32 (signed) or U32 (unsigned).
+  --   The default rounding mode is toward zero (RTZ) for FP→int.
+  -- VCVTR: FP → integer using the FPSCR rounding mode (not RTZ).
+  -- Fixed-point: VCVT with fbits specifies the number of fractional bits
+  --   in the fixed-point value.  The register holds the integer / fixed-point
+  --   representation; the instruction converts it in place.
+
+  vfp_cvt_instr
+    -- F32 ↔ F64
+    = VCVT_F64_F32(dreg dd, sreg sm)         -- float32 → float64
+    | VCVT_F32_F64(sreg sd, dreg dm)         -- float64 → float32
+    -- FP → integer (toward zero, in VFP register file; result is int bits in target reg)
+    | VCVT_S32_F32(sreg sd, sreg sm)         -- Sd ← (int32) Sm  (toward zero)
+    | VCVT_U32_F32(sreg sd, sreg sm)
+    | VCVT_S32_F64(sreg sd, dreg dm)         -- Sd ← (int32) Dm
+    | VCVT_U32_F64(sreg sd, dreg dm)
+    -- FP → integer using FPSCR rounding mode (VCVTR)
+    | VCVTR_S32_F32(sreg sd, sreg sm)
+    | VCVTR_U32_F32(sreg sd, sreg sm)
+    | VCVTR_S32_F64(sreg sd, dreg dm)
+    | VCVTR_U32_F64(sreg sd, dreg dm)
+    -- Integer → FP
+    | VCVT_F32_S32(sreg sd, sreg sm)         -- Sd ← (float) int-bits-of-Sm  (signed)
+    | VCVT_F32_U32(sreg sd, sreg sm)
+    | VCVT_F64_S32(dreg dd, sreg sm)
+    | VCVT_F64_U32(dreg dd, sreg sm)
+    -- Fixed-point ↔ FP (fbits ∈ 1–32)
+    | VCVT_F32_FX_S32(sreg sd, sreg sm, int fbits)   -- fixed-point S32 → float32
+    | VCVT_F32_FX_U32(sreg sd, sreg sm, int fbits)
+    | VCVT_F64_FX_S32(dreg dd, dreg dm, int fbits)
+    | VCVT_F64_FX_U32(dreg dd, dreg dm, int fbits)
+    | VCVT_FX_S32_F32(sreg sd, sreg sm, int fbits)   -- float32 → fixed-point S32
+    | VCVT_FX_U32_F32(sreg sd, sreg sm, int fbits)
+    | VCVT_FX_S32_F64(dreg dd, dreg dm, int fbits)
+    | VCVT_FX_U32_F64(dreg dd, dreg dm, int fbits)
+    -- Half-precision ↔ single (VFPv3 HP extension; result/source in lower 16 bits of Sd)
+    | VCVT_F32_F16(sreg sd, sreg sm)         -- half-precision bits in Sm → float32
+    | VCVT_F16_F32(sreg sd, sreg sm)         -- float32 in Sm → half-precision bits in Sd
+
+  -- ===========================================================
+  --  30. THUMB-2 IT (IF-THEN) BLOCK
+  -- ===========================================================
+  -- The IT instruction predicates the next 1–4 instructions in Thumb-2.
+  -- cond: the condition for the first (Then) instruction.
+  -- Each element of the mask is T (same cond) or E (inverse cond).
+  -- The mask has 1–3 elements (for IT / ITT/ITE / ITTT/ITTE/ITET/ITEE).
+  -- Instructions following the IT block carry the implied condition;
+  -- in this schema those conditions are already encoded in their cc field.
+
+  it_slot = IT_T   -- Then: execute if cond holds
+           | IT_E  -- Else: execute if inverse of cond holds
+
+  it_instr = ITBlock(cc first_cond, it_slot* mask)   -- mask has 0–3 elements
+
+  -- ===========================================================
+  --  31. TOP-LEVEL INSTRUCTION WRAPPER
+  -- ===========================================================
+  --
+  -- Every instruction in a basic block is one of these variants.
+  -- cc cond is the condition under which the instruction executes;
+  -- use AL for unconditional instructions.
+  -- Pseudo-instructions (ILabel, IAlign) have no condition and are
+  -- represented without a cc field.
+
+  instr = IDP(dp_instr         body, cc cond)
+        | IShift(shift_instr   body, cc cond)
+        | IMul(mul_instr       body, cc cond)
+        | IDiv(div_instr       body, cc cond)
+        | ILS(ls_instr         body, cc cond)
+        | ILSM(lsm_instr       body, cc cond)
+        | IBranch(branch_instr body, cc cond)
+        | IBit(bitmanip_instr  body, cc cond)
+        | IExt(extend_instr    body, cc cond)
+        | ISat(sat_instr       body, cc cond)
+        | IPacked(packed_instr body, cc cond)
+        | IExcl(excl_instr     body, cc cond)
+        | IPSR(psr_instr       body, cc cond)
+        | ICoproc(coproc_instr body, cc cond)
+        | IMisc(misc_instr     body, cc cond)
+        | IVFPMove(vfp_move_instr  body, cc cond)
+        | IVFPLoad(vfp_ls_instr    body, cc cond)
+        | IVFPArith(vfp_arith_instr body, cc cond)
+        | IVFPCmp(vfp_cmp_instr   body, cc cond)
+        | IVFPCvt(vfp_cvt_instr   body, cc cond)
+        | IIT(it_instr body)         -- Thumb-2 IT block: no condition on the wrapper itself
+        | ILabel(label lbl)          -- pseudo: label definition point
+        | IAlign(int   bytes)        -- pseudo: byte-alignment directive
+        | IRawBytes(int* data)       -- escape hatch: hand-encoded 32-bit (ARM) or 16-bit (Thumb) words
+
+  -- ===========================================================
+  --  32. CODE STRUCTURE
+  -- ===========================================================
+
+  -- A basic block ends with a single control-flow instruction.
+  -- The terminator is a branch instruction (with its cc); the fall-through
+  -- successor (if the branch is not taken) is implicit.
+  block = Block(label         name,
+                instr*        body,
+                branch_instr  terminator,
+                cc            term_cond)   -- condition on the terminator
+
+  -- ARM32 calling conventions (the ABI determines register usage).
+  call_conv = AAPCS          -- ARM Procedure Call Standard (Linux / Android / bare-metal)
+                              -- Args: R0–R3, FP args: S0–S15 / D0–D7 (hard-float variant)
+                              -- Callee-saves: R4–R11, LR; D8–D15
+            | AAPCS_HF       -- Hard-float AAPCS (Cortex-A Linux armel with -mfloat-abi=hard)
+            | APCS_OLD       -- Legacy APCS (pre-2000; rarely generated by modern compilers)
+            | INTERNAL       -- compiler-internal; no fixed ABI
+
+  -- VFP ABI variant (controls whether FP arguments go in integer or VFP registers)
+  vfp_abi = SoftFP    -- float args passed in integer registers (AAPCS soft or softfp)
+           | HardFP   -- float args passed in VFP registers     (AAPCS-VFP / hardfp)
+
+  func = Func(string    name,
+              call_conv abi,
+              vfp_abi   fp_abi,
+              bool      is_global,
+              gpr*      callee_saved_gpr,    -- per AAPCS: R4–R11, LR (R14)
+              dreg*     callee_saved_vfp,    -- per AAPCS-VFP: D8–D15
+              int       frame_size,
+              bool      uses_frame_pointer,  -- true → R11 = FP (AAPCS) or R7 (Thumb)
+              bool      thumb_mode,          -- true → function body is Thumb-2 code
+              block*    blocks)
+
+  -- Data section items
+  data_item = DI_Int(int bytes, int value)      -- bytes ∈ {1, 2, 4, 8}
+            | DI_Float32(float value)
+            | DI_Float64(float value)
+            | DI_Bytes(int* data)
+            | DI_String(string value)           -- null-terminated
+            | DI_Label(label lbl)               -- pointer-width relocation (4 bytes on ARM32)
+            | DI_Thumb_Label(label lbl)         -- Thumb function pointer (address | 1)
+            | DI_Space(int bytes)               -- zero fill
+            | DI_Align(int bytes)               -- alignment
+
+  section_kind = SEC_TEXT                       -- executable code (.text)
+               | SEC_DATA                       -- mutable initialized data (.data)
+               | SEC_RODATA                     -- read-only data (.rodata / .constdata)
+               | SEC_BSS                        -- zero-initialized data (.bss)
+               | SEC_CUSTOM(string name)        -- platform-specific (e.g. .init_array, .ARM.extab)
+
+  data_section = DataSection(section_kind kind, data_item* items)
+
+  module = Module(string         source_file,
+                  call_conv      target_abi,
+                  vfp_abi        target_fp_abi,
+                  func*          functions,
+                  data_section*  data_sections)
+}
