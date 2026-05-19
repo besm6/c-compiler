@@ -5,6 +5,7 @@
 
 #include "semantic.h"
 #include "structtab.h"
+#include "target.h"
 #include "typetab.h"
 
 // Replace every TYPE_TYPEDEF_NAME node in the type tree with a cloned, fully-resolved
@@ -50,21 +51,25 @@ size_t get_size(const Type *t)
         return 1;
     case TYPE_SHORT:
     case TYPE_USHORT:
-        return 2;
+        return target_config->short_size;
     case TYPE_INT:
     case TYPE_UINT:
-    case TYPE_FLOAT:
     case TYPE_ENUM:
-        return 4;
+        return target_config->int_size;
+    case TYPE_FLOAT:
+        return target_config->float_size;
     case TYPE_LONG:
     case TYPE_ULONG:
+        return target_config->long_size;
     case TYPE_LONG_LONG:
     case TYPE_ULONG_LONG:
+        return target_config->llong_size;
     case TYPE_DOUBLE:
+        return target_config->double_size;
     case TYPE_POINTER:
-        return 8;
+        return target_config->pointer_size;
     case TYPE_LONG_DOUBLE:
-        return 16;
+        return target_config->ldouble_size;
     case TYPE_ARRAY:
         if (!t->u.array.size) {
             fatal_error("get_size: Array size not specified");
@@ -95,21 +100,25 @@ size_t get_alignment(const Type *t)
         return 1;
     case TYPE_SHORT:
     case TYPE_USHORT:
-        return 2;
+        return target_config->short_align;
     case TYPE_INT:
     case TYPE_UINT:
-    case TYPE_FLOAT:
     case TYPE_ENUM:
-        return 4;
+        return target_config->int_align;
+    case TYPE_FLOAT:
+        return target_config->float_align;
     case TYPE_LONG:
     case TYPE_ULONG:
+        return target_config->long_align;
     case TYPE_LONG_LONG:
     case TYPE_ULONG_LONG:
+        return target_config->llong_align;
     case TYPE_DOUBLE:
+        return target_config->double_align;
     case TYPE_POINTER:
-        return 8;
+        return target_config->pointer_align;
     case TYPE_LONG_DOUBLE:
-        return 16;
+        return target_config->ldouble_align;
     case TYPE_ARRAY:
         return get_alignment(t->u.array.element);
     case TYPE_STRUCT:

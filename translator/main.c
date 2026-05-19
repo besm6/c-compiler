@@ -13,6 +13,7 @@
 #include "semantic.h"
 #include "structtab.h"
 #include "symtab.h"
+#include "target.h"
 #include "translate.h"
 #include "wio.h"
 #include "xalloc.h"
@@ -33,12 +34,13 @@ typedef enum {
 // Structure to hold parsed arguments
 //
 typedef struct {
-    int verbose;         // -v or --verbose
-    int help;            // -h or --help
-    int debug;           // -D or --debug
-    OutputFormat format; // Output format (--tac, --yaml, --dot)
-    char *input_file;    // Input filename
-    char *output_file;   // Output filename (optional)
+    int verbose;            // -v or --verbose
+    int help;               // -h or --help
+    int debug;              // -D or --debug
+    OutputFormat format;    // Output format (--tac, --yaml, --dot)
+    const char *target_name; // -t/--target
+    char *input_file;       // Input filename
+    char *output_file;      // Output filename (optional)
 } Args;
 
 //
@@ -53,12 +55,15 @@ static void print_usage(const char *prog_name)
     fprintf(stderr, "Usage:\n");
     fprintf(stderr, "    %s [options] input-filename [output-filename]\n", prog_name);
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "    --tac            Emit TAC in binary format (default)\n");
-    fprintf(stderr, "    --yaml           Emit YAML format\n");
-    fprintf(stderr, "    --dot            Emit Graphviz DOT script\n");
-    fprintf(stderr, "    -v, --verbose    Enable verbose mode\n");
-    fprintf(stderr, "    -D, --debug      Print debug information\n");
-    fprintf(stderr, "    -h, --help       Show this help message\n");
+    fprintf(stderr, "    --tac               Emit TAC in binary format (default)\n");
+    fprintf(stderr, "    --yaml              Emit YAML format\n");
+    fprintf(stderr, "    --dot               Emit Graphviz DOT script\n");
+    fprintf(stderr, "    -t, --target NAME   Target architecture (default: x86_64)\n");
+    fprintf(stderr, "    -v, --verbose       Enable verbose mode\n");
+    fprintf(stderr, "    -D, --debug         Print debug information\n");
+    fprintf(stderr, "    -h, --help          Show this help message\n");
+    fprintf(stderr, "Known targets:\n");
+    target_list();
 }
 
 //
@@ -66,12 +71,13 @@ static void print_usage(const char *prog_name)
 //
 static void init_args(Args *args)
 {
-    args->verbose     = 0;
-    args->help        = 0;
-    args->debug       = 0;
-    args->format      = FORMAT_TAC; // Default format
-    args->input_file  = NULL;
-    args->output_file = NULL;
+    args->verbose      = 0;
+    args->help         = 0;
+    args->debug        = 0;
+    args->format       = FORMAT_TAC; // Default format
+    args->target_name  = "x86_64";
+    args->input_file   = NULL;
+    args->output_file  = NULL;
 }
 
 //
@@ -106,13 +112,14 @@ static char *generate_output_filename(const char *input_file, OutputFormat forma
 static int parse_args(int argc, char *argv[], Args *args)
 {
     static struct option long_options[] = {
-        { "verbose", no_argument, 0, 'v' }, //
-        { "help", no_argument, 0, 'h' },    //
-        { "debug", no_argument, 0, 'D' },   //
-        { "tac", no_argument, 0, 't' },     //
-        { "yaml", no_argument, 0, 'y' },    //
-        { "dot", no_argument, 0, 'd' },     //
-        {},                                 //
+        { "verbose", no_argument,       0, 'v' }, //
+        { "help",    no_argument,       0, 'h' }, //
+        { "debug",   no_argument,       0, 'D' }, //
+        { "tac",     no_argument,       0, 'T' }, //
+        { "yaml",    no_argument,       0, 'y' }, //
+        { "dot",     no_argument,       0, 'd' }, //
+        { "target",  required_argument, 0, 't' }, //
+        {},                                       //
     };
 
     int opt;
@@ -123,7 +130,7 @@ static int parse_args(int argc, char *argv[], Args *args)
         args->help = 1;
         return 0;
     }
-    while ((opt = getopt_long(argc, argv, "vhD", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "vhDt:", long_options, &option_index)) != -1) {
         switch (opt) {
         case 'v':
             args->verbose = 1;
@@ -134,6 +141,9 @@ static int parse_args(int argc, char *argv[], Args *args)
         case 'D':
             args->debug = 1;
             break;
+        case 't':
+            args->target_name = optarg;
+            break;
         // Long options without short equivalents
         case 'y':
             args->format = FORMAT_YAML;
@@ -141,7 +151,7 @@ static int parse_args(int argc, char *argv[], Args *args)
         case 'd':
             args->format = FORMAT_DOT;
             break;
-        case 't':
+        case 'T':
             args->format = FORMAT_TAC;
             break;
         case '?': // Unknown option
@@ -228,6 +238,13 @@ static void emit_tac_toplevel(const Args *args, WFILE *tac_out, const Tac_TopLev
 //
 void process_file(const Args *args)
 {
+    target_config = target_lookup(args->target_name);
+    if (!target_config) {
+        fprintf(stderr, "Unknown target '%s'. Known targets:\n", args->target_name);
+        target_list();
+        exit(1);
+    }
+
     if (args->verbose) {
         printf("Processing %s in verbose mode\n", args->input_file);
     }

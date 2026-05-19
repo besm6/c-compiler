@@ -345,15 +345,16 @@ Incrementing a regular `T*` adds 1 to the numeric address, so
 a pointer increment advances by exactly 1 word:
 
 ```c
-int  *p = (int *)100;  p++;  // p is now 101  (one word forward)
+int  *p = (int *)100;   // p is 100
+p++;                    // p is 101  (one word forward)
 ```
 
 Incrementing a fat `char*` increases the intra-word offset, and occasionally adds 1 to
-the word address, so
-a pointer increment advances by exactly 1 word:
+the word address, so a pointer increment advances by exactly 1 word:
 
 ```c
-char *q = (char *)100; q++;  // q is now 100 + (8<<42)  (one byte forward)
+char *q = (char *)100;  // q is 100 + ((64 + 40) << 41)  (fat pointer)
+q++;                    // q is 100 + ((64 + 32) << 41)  (one byte forward)
 ```
 
 A single `char` variable on BESM-6 occupies full word, and wastes 40 of its 48 bits.

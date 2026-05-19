@@ -16,6 +16,7 @@ add_library(semantic STATIC
     type_utils.c
     const_convert.c
     label_loops.c
+    target.c
 )
 target_include_directories(semantic PUBLIC .)
 target_link_libraries(semantic tac ast libutil)
