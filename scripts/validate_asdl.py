@@ -11,11 +11,22 @@ file_path = sys.argv[1]
 
 import pyasdl
 
+def strip_asdl_comments(text):
+    lines = []
+    for line in text.splitlines():
+        idx = line.find('--')
+        if idx >= 0:
+            line = line[:idx]
+        lines.append(line)
+    return '\n'.join(lines)
+
 def validate_asdl_file(file_path):
     try:
         # Parse the ASDL file
         with open(file_path, 'r') as f:
             asdl_content = f.read()
+
+        asdl_content = strip_asdl_comments(asdl_content)
 
         # Parse the ASDL content into a schema
         schema = pyasdl.parse(asdl_content)
@@ -25,9 +36,6 @@ def validate_asdl_file(file_path):
             print("ASDL file parsed successfully!")
             print("\nSchema Summary:")
             print(f"Module Name: {schema.name}")
-
-            # Debug: Inspect schema attributes
-            print("Schema attributes:", dir(schema))
 
             # Access type definitions (assuming they are in 'definitions' or similar)
             type_defs = getattr(schema, 'body', None)
@@ -64,7 +72,7 @@ def validate_asdl_file(file_path):
             print("Failed to parse ASDL file: Empty schema.")
             return False
 
-    except pyasdl.ASDLSyntaxError as e:
+    except SyntaxError as e:
         print(f"Syntax Error in ASDL file: {e}")
         return False
     except FileNotFoundError:
