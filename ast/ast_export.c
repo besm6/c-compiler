@@ -163,7 +163,7 @@ void export_field(WFILE *fd, Field *field)
         export_expr(fd, field->u.member.bitfield);
         break;
     case FIELD_STATIC_ASSERT:
-        wputw(TAG_FIELD_STATIC_ASSERT, fd);
+        wputw(TAG_STATIC_ASSERT, fd);
         export_expr(fd, field->u.static_assrt.condition);
         wputstr(field->u.static_assrt.message, fd);
         break;

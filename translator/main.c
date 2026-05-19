@@ -264,16 +264,10 @@ void process_file(const Args *args)
 
     WFILE tac_out;
     int tac_out_ready = 0;
-    if (args->format == FORMAT_TAC && output_file != stdout) {
-        if (wdopen(&tac_out, fileno(output_file), "w") < 0) {
-            fprintf(stderr, "Cannot open TAC binary output\n");
-            exit(1);
-        }
-        tac_export_begin_stream(&tac_out);
-        tac_out_ready = 1;
-    } else if (args->format == FORMAT_TAC && output_file == stdout) {
-        if (wdopen(&tac_out, STDOUT_FILENO, "w") < 0) {
-            fprintf(stderr, "Cannot open TAC binary stdout\n");
+    if (args->format == FORMAT_TAC) {
+        if (wdopen(&tac_out, output_file == stdout ? STDOUT_FILENO
+                                                   : fileno(output_file), "w") < 0) {
+            fprintf(stderr, "Cannot reopen output file\n");
             exit(1);
         }
         tac_export_begin_stream(&tac_out);

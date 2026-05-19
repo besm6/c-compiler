@@ -222,14 +222,14 @@ Field *import_field(WFILE *input)
         field->u.member.bitfield = import_expr(input);
         return field;
     }
-    if (tag == TAG_FIELD_STATIC_ASSERT) {
+    if (tag == TAG_STATIC_ASSERT) {
         Field *field                    = new_field(FIELD_STATIC_ASSERT);
         field->u.static_assrt.condition = import_expr(input);
         field->u.static_assrt.message   = wgetstr(input);
         check_input(input, "field static_assert message");
         return field;
     }
-    fprintf(stderr, "Error: Expected TAG_FIELD or TAG_FIELD_STATIC_ASSERT, got 0x%zx\n", tag);
+    fprintf(stderr, "Error: Expected TAG_FIELD or TAG_STATIC_ASSERT, got 0x%zx\n", tag);
     exit(1);
 }
 

@@ -9,7 +9,7 @@ enum {
     TAG_EXPR           = 0x65787072, // 'expr' - for struct Expr
     TAG_EXTERNALDECL   = 0x65786463, // 'exdc' - for struct ExternalDecl
     TAG_FIELD          = 0x66656c64, // 'feld' - for struct Field
-    TAG_FIELD_STATIC_ASSERT = 0x66736173, // 'fsas' - for FIELD_STATIC_ASSERT
+    TAG_STATIC_ASSERT  = 0x66736173, // 'fsas' - for FIELD_STATIC_ASSERT
     TAG_FORINIT        = 0x66696e69, // 'fini' - for struct ForInit
     TAG_FUNCTIONSPEC   = 0x66737063, // 'fspc' - for struct FunctionSpec
     TAG_GENERICASSOC   = 0x67617363, // 'gasc' - for struct GenericAssoc
