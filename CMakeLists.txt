@@ -65,6 +65,7 @@ add_custom_target(build_tests
         tac-tests
         semantic-tests
         translate-tests
+        besm-tests
 )
 
 #

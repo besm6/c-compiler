@@ -1363,7 +1363,7 @@ where A and B are arrays and N is the number of elements.
           ,NTR, 18     . set R = 18₈ = 010 000₂: mult. mode + suppress norm
           ,XTA,        . A ← 0 (load memory[0] = accumulator zero initializer)
     *1:   ,BSS,        . loop top (label *1 = address of next instruction)
-       11 ,XTS         . push A (partial sum); A ← mem[M[11]] = A[i]
+       11 ,XTS,        . push A (partial sum); A ← mem[M[11]] = A[i]
        12 ,A*X,        . A ← A[i] * mem[M[12]] = A[i]*B[i]
        11 ,UTM, 1      . M[11] ← M[11] + 1 (advance pointer to A[i+1])
        12 ,UTM, 1      . M[12] ← M[12] + 1 (advance pointer to B[i+1])

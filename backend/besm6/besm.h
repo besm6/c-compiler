@@ -1,6 +1,8 @@
 #ifndef BESM_H
 #define BESM_H
 
+#include <stdio.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -362,10 +364,10 @@ typedef struct {
 //
 Besm_Instr *besm_new_instr(Besm_InstrKind kind);
 Besm_Block *besm_new_block(void);
-Besm_Func *besm_new_func(void);
+Besm_Func *besm_new_func(const char *name, Besm_CallConv cc);
 Besm_DataItem *besm_new_data_item(Besm_DataItemKind kind);
 Besm_DataSection *besm_new_data_section(Besm_SectionKind kind);
-Besm_Module *besm_new_module(void);
+Besm_Module *besm_new_module(const char *name);
 
 //
 // Deallocate
@@ -376,6 +378,16 @@ void besm_free_func(Besm_Func *func);
 void besm_free_data_item(Besm_DataItem *item);
 void besm_free_data_section(Besm_DataSection *section);
 void besm_free_module(Besm_Module *module);
+
+//
+// Emit Madlen assembly
+//
+void emit_madlen_instr(FILE *out, const Besm_Instr *instr);
+void emit_madlen_block(FILE *out, const Besm_Block *block);
+void emit_madlen_func(FILE *out, const Besm_Func *func);
+void emit_madlen_data_item(FILE *out, const Besm_DataItem *item);
+void emit_madlen_data_section(FILE *out, const Besm_DataSection *section);
+void emit_madlen_module(FILE *out, const Besm_Module *module);
 
 #ifdef __cplusplus
 }
