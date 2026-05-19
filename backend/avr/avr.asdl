@@ -1,0 +1,460 @@
+-- AVR 8-bit Instruction Set Architecture
+-- Originally developed by Atmel (now Microchip Technology)
+-- Covers: classic AVR (ATmega / ATtiny), AVR XMEGA, and AVRxm/AVRxt cores.
+--
+-- Architecture notes:
+--   • Harvard architecture: separate program flash and data SRAM.
+--   • 32 general-purpose 8-bit registers R0–R31 (mapped to data address 0–31).
+--   • Three 16-bit pointer pairs: X = R27:R26, Y = R29:R28, Z = R31:R30.
+--   • PC is 16-bit (small devices) or 22-bit (large flash, > 128 KB).
+--   • SREG (status register): I T H S V N Z C (bit 7..0).
+--   • Stack grows downward; SP is in I/O space (SPH:SPL).
+--   • I/O address space: 64 registers via IN/OUT (0x00–0x3F);
+--     extended I/O (0x60–0xFF) requires LDS/STS.
+--   • Register range constraints (documented per instruction):
+--       greg  R0–R31  — any general-purpose register
+--       ureg  R16–R31 — upper register; supports 8-bit immediates
+--       mreg  R16–R23 — "multiply" register; MULSU / FMUL* operands
+--       ereg  R0,R2,…,R30 — even register (lower of a pair); MOVW
+--       word_reg  R24/R26/R28/R30 — 16-bit pairs for ADIW/SBIW
+--   • Emulation instructions (pseudo-ops) are modelled explicitly because
+--     compiler back-ends generate them by mnemonic name.
+--   • Constructor uniqueness: verified — all names globally distinct.
+--
+-- References:
+--   "AVR Instruction Set Manual" (Atmel/Microchip, DS40002198)
+--   "AVR-GCC ABI" (avr-libc project documentation)
+
+module Avr {
+
+  -- =========================================================
+  -- Register types
+  -- =========================================================
+
+  -- Any of the 32 general-purpose 8-bit registers R0..R31.
+  greg = Greg(int num)   -- num ∈ 0..31
+
+  -- Upper registers R16..R31.
+  -- Required by: ANDI, ORI, SUBI, SBCI, CPI, LDI, SER, CBR, SBR,
+  --              MULS (both operands).
+  ureg = UReg(int num)   -- num ∈ 16..31
+
+  -- Middle-upper registers R16..R23.
+  -- Required by: MULSU, FMUL, FMULS, FMULSU (both operands).
+  mreg = MReg(int num)   -- num ∈ 16..23
+
+  -- Even-numbered registers for MOVW (represents the pair Rn+1:Rn).
+  -- Destination and source of MOVW must both be even.
+  ereg = EReg(int num)   -- num ∈ {0, 2, 4, …, 30}
+
+  -- 16-bit pointer register pairs (indirect load/store addressing).
+  -- X = R27:R26,  Y = R29:R28,  Z = R31:R30.
+  ptr_reg = PtrX
+          | PtrY
+          | PtrZ
+
+  -- 16-bit word register pairs for ADIW / SBIW.
+  -- WR24 = R25:R24,  WR26 = R27:R26 (= X),
+  -- WR28 = R29:R28 (= Y),  WR30 = R31:R30 (= Z).
+  word_reg = WR24
+           | WR26
+           | WR28
+           | WR30
+
+  -- =========================================================
+  -- SREG bit index
+  -- =========================================================
+
+  -- Used by BSET, BCLR, BRBS, BRBC, BST, BLD.
+  -- Bit indices: C=0, Z=1, N=2, V=3, S=4, H=5, T=6, I=7.
+  sreg_bit = SB_C   -- carry
+           | SB_Z   -- zero
+           | SB_N   -- negative
+           | SB_V   -- overflow (signed)
+           | SB_S   -- sign = N ⊕ V
+           | SB_H   -- half-carry (from bit 3)
+           | SB_T   -- T flag (bit-copy storage)
+           | SB_I   -- global interrupt enable
+
+  -- =========================================================
+  -- Indirect addressing building blocks
+  -- =========================================================
+
+  -- Auto-modification applied to a pointer register during load/store.
+  ptr_mode = Plain      -- @Rptr     — no change to pointer
+           | PostInc    -- @Rptr+   — pointer incremented after access
+           | PreDec     -- @-Rptr   — pointer decremented before access
+
+  -- Indirect memory address for LD / ST instructions.
+  --
+  -- IndX(md):  X register with ptr_mode (no displacement supported on X).
+  -- IndY(md):  Y register with ptr_mode.
+  -- IndZ(md):  Z register with ptr_mode.
+  -- IndYq(q):  Y + q displacement (LDD/STD Y+q form; q = 0..63).
+  -- IndZq(q):  Z + q displacement (LDD/STD Z+q form; q = 0..63).
+  --
+  -- Note: displacement and ptr_mode are mutually exclusive; IndYq/IndZq
+  --   always use Plain access (no auto-modify).
+  indir_addr = IndX(ptr_mode md)
+             | IndY(ptr_mode md)
+             | IndZ(ptr_mode md)
+             | IndYq(int q)     -- Y + q,  q ∈ 0..63
+             | IndZq(int q)     -- Z + q,  q ∈ 0..63
+
+  -- =========================================================
+  -- Jump / branch targets
+  -- =========================================================
+
+  -- 7-bit signed word offset for conditional branches (BRBS/BRBC and all
+  -- BRxx aliases); range −64..+63 words from the instruction after the branch.
+  -- 12-bit signed word offset for RJMP / RCALL; range ±2047 words.
+  rel_target = RelLabel(string name)   -- symbolic label (assembler resolves)
+             | RelOff(int offset)      -- signed word offset
+
+  -- 22-bit absolute word address for JMP / CALL.
+  abs_target = AbsLabel(string name)
+             | AbsAddr(int addr)       -- absolute word address (0..0x3FFFFF)
+
+  -- =========================================================
+  -- Arithmetic instructions
+  -- =========================================================
+
+  -- ADD:   Rd = Rd + Rr               (sets H, S, V, N, Z, C)
+  -- ADC:   Rd = Rd + Rr + C           (sets H, S, V, N, Z, C)
+  -- ADIW:  Rd+1:Rd = Rd+1:Rd + imm   (imm ∈ 0..63; Rd ∈ {R24,R26,R28,R30})
+  -- SUB:   Rd = Rd − Rr               (sets H, S, V, N, Z, C)
+  -- SUBI:  Rd = Rd − imm              (Rd ∈ R16..R31; imm ∈ 0..255)
+  -- SBC:   Rd = Rd − Rr − C          (borrow-subtract; sets H, S, V, N, Z, C)
+  -- SBCI:  Rd = Rd − imm − C         (Rd ∈ R16..R31)
+  -- SBIW:  Rd+1:Rd = Rd+1:Rd − imm  (imm ∈ 0..63; Rd ∈ {R24,R26,R28,R30})
+  -- INC:   Rd = Rd + 1               (does NOT change C; sets S, V, N, Z)
+  -- DEC:   Rd = Rd − 1               (does NOT change C; sets S, V, N, Z)
+  -- NEG:   Rd = 0 − Rd               (two's complement; sets all flags)
+  -- MUL:   R1:R0 = Rd × Rr           (unsigned 8×8→16; sets Z, C)
+  -- MULS:  R1:R0 = Rd × Rr           (signed   8×8→16; Rd,Rr ∈ R16..R31)
+  -- MULSU: R1:R0 = Rd × Rr           (signed×unsigned; Rd,Rr ∈ R16..R23)
+  -- FMUL:  R1:R0 = (Rd × Rr) << 1   (unsigned fractional; Rd,Rr ∈ R16..R23)
+  -- FMULS: R1:R0 = (Rd × Rr) << 1   (signed fractional)
+  -- FMULSU:R1:R0 = (Rd × Rr) << 1   (signed×unsigned fractional)
+  arith_instr = ADD(greg dst, greg src)
+              | ADC(greg dst, greg src)
+              | ADIW(word_reg dst, int imm)        -- word pair += imm (0..63)
+              | SUB(greg dst, greg src)
+              | SUBI(ureg dst, int imm)             -- dst −= imm (0..255)
+              | SBC(greg dst, greg src)             -- dst −= src − C
+              | SBCI(ureg dst, int imm)             -- dst −= imm − C
+              | SBIW(word_reg dst, int imm)         -- word pair −= imm (0..63)
+              | INC(greg dst)
+              | DEC(greg dst)
+              | NEG(greg dst)
+              | MUL(greg dst, greg src)             -- R1:R0 = dst × src  (unsigned)
+              | MULS(ureg dst, ureg src)            -- R1:R0 = dst × src  (signed)
+              | MULSU(mreg dst, mreg src)           -- R1:R0 = dst × src  (signed×unsigned)
+              | FMUL(mreg dst, mreg src)            -- fractional unsigned
+              | FMULS(mreg dst, mreg src)           -- fractional signed
+              | FMULSU(mreg dst, mreg src)          -- fractional signed×unsigned
+
+  -- =========================================================
+  -- Logic instructions
+  -- =========================================================
+
+  -- AND:  Rd = Rd & Rr     (sets S, V=0, N, Z)
+  -- ANDI: Rd = Rd & imm    (Rd ∈ R16..R31; imm ∈ 0..255)
+  -- OR:   Rd = Rd | Rr
+  -- ORI:  Rd = Rd | imm    (Rd ∈ R16..R31)
+  -- EOR:  Rd = Rd ^ Rr
+  -- COM:  Rd = 0xFF − Rd   (one's complement; sets S, V=0, N, Z, C=1)
+  logic_instr = AND(greg dst, greg src)
+              | ANDI(ureg dst, int imm)   -- bitwise AND with immediate
+              | OR(greg dst, greg src)
+              | ORI(ureg dst, int imm)    -- bitwise OR with immediate
+              | EOR(greg dst, greg src)   -- exclusive OR
+              | COM(greg dst)             -- one's complement (bitwise NOT)
+
+  -- =========================================================
+  -- Compare instructions
+  -- =========================================================
+
+  -- These set flags but do not write back a result.
+  -- CP:  Rd − Rr       (sets H, S, V, N, Z, C)
+  -- CPC: Rd − Rr − C  (compare with carry / borrow)
+  -- CPI: Rd − imm     (Rd ∈ R16..R31; imm ∈ 0..255)
+  cmp_instr = CP(greg rd, greg rr)
+            | CPC(greg rd, greg rr)
+            | CPI(ureg rd, int imm)
+
+  -- =========================================================
+  -- Data transfer instructions
+  -- =========================================================
+
+  -- MOV:   Rd = Rr                 (copies one 8-bit register)
+  -- MOVW:  Rd+1:Rd = Rr+1:Rr      (copies a register pair; Rd,Rr must be even)
+  -- LDI:   Rd = imm                (Rd ∈ R16..R31; imm ∈ 0..255)
+  -- LD:    Rd = Mem[addr]          (indirect via X/Y/Z with ptr_mode)
+  -- LDS:   Rd = Mem[k]             (direct load; k = 16-bit SRAM address)
+  -- ST:    Mem[addr] = Rr
+  -- STS:   Mem[k] = Rr
+  -- LPM_R0:  R0 = ProgramMem[Z]   (classic no-operand form; word address in Z)
+  -- LPM:     Rd = ProgramMem[Z]   (inc=false: Z unchanged; inc=true: Z++)
+  -- ELPM_R0: R0 = ProgramMem[RAMPZ:Z]  (extended; large flash > 64 KB)
+  -- ELPM:    Rd = ProgramMem[RAMPZ:Z]  (inc=false/true)
+  -- SPM:     ProgramMem[Z]  = R1:R0   (used for self-programming)
+  -- SPM_INC: ProgramMem[Z+] = R1:R0   (with Z post-increment)
+  -- IN:    Rd = IO[A]              (A ∈ 0..63; the 64-register I/O space)
+  -- OUT:   IO[A] = Rr
+  -- PUSH:  Mem[SP--] = Rr
+  -- POP:   Rd = Mem[++SP]
+  -- XCH:   swap Mem[Z] ↔ Rd       (ATxmega / newer cores)
+  -- LAC:   Rd = Mem[Z]; Mem[Z] &= ~Rd    (load and clear)
+  -- LAS:   Rd = Mem[Z]; Mem[Z] |=  Rd   (load and set)
+  -- LAT:   Rd = Mem[Z]; Mem[Z] ^=  Rd   (load and toggle)
+  mov_instr = MOV(greg dst, greg src)
+            | MOVW(ereg dst, ereg src)            -- copy register pair
+            | LDI(ureg dst, int imm)              -- load immediate (R16..R31)
+            | LD(greg dst, indir_addr addr)       -- load indirect (all X/Y/Z modes)
+            | LDS(greg dst, int addr16)           -- load direct from SRAM
+            | ST(indir_addr addr, greg src)       -- store indirect
+            | STS(int addr16, greg src)           -- store direct to SRAM
+            | LPM_R0                              -- R0 ← ProgramMem[Z]  (no operands)
+            | LPM(greg dst, bool inc)             -- Rd ← ProgramMem[Z[+]]
+            | ELPM_R0                             -- R0 ← ProgramMem[RAMPZ:Z]
+            | ELPM(greg dst, bool inc)            -- Rd ← ProgramMem[RAMPZ:Z[+]]
+            | SPM                                 -- ProgramMem[Z] ← R1:R0
+            | SPM_INC                             -- ProgramMem[Z+] ← R1:R0
+            | IN(greg dst, int ioaddr)            -- load from I/O register (0..63)
+            | OUT(int ioaddr, greg src)           -- store to I/O register (0..63)
+            | PUSH(greg src)
+            | POP(greg dst)
+            | XCH(greg rd)                        -- exchange Z (implicit) ↔ Rd
+            | LAC(greg rd)                        -- load and clear via Z
+            | LAS(greg rd)                        -- load and set via Z
+            | LAT(greg rd)                        -- load and toggle via Z
+
+  -- =========================================================
+  -- Bit and bit-test instructions
+  -- =========================================================
+
+  -- LSR:  Rd = 0:Rd[7:1]         (logical shift right; bit 0 → C; bit 7 = 0)
+  -- ROR:  Rd = C:Rd[7:1]         (rotate right through carry)
+  -- ASR:  Rd = Rd[7]:Rd[7:1]     (arithmetic shift right; MSB preserved)
+  -- SWAP: Rd = Rd[3:0]:Rd[7:4]   (swap nibbles; no flags changed)
+  -- BSET: SREG[sb] = 1           (set a named SREG bit)
+  -- BCLR: SREG[sb] = 0           (clear a named SREG bit)
+  -- BST:  T = Rd[b]              (copy bit b of Rd to T flag)
+  -- BLD:  Rd[b] = T              (copy T flag to bit b of Rd)
+  -- SBI:  IO[A][b] = 1           (set bit b in I/O register; A ∈ 0..31)
+  -- CBI:  IO[A][b] = 0           (clear bit b in I/O register; A ∈ 0..31)
+  bit_instr = LSR(greg dst)
+            | ROR(greg dst)
+            | ASR(greg dst)
+            | SWAP(greg dst)                          -- swap nibbles
+            | BSET(sreg_bit sb)                       -- set SREG bit (SEC/SEZ/…)
+            | BCLR(sreg_bit sb)                       -- clear SREG bit (CLC/CLZ/…)
+            | BST(greg rr, int bit)                   -- T ← Rr[bit]  (bit ∈ 0..7)
+            | BLD(greg rd, int bit)                   -- Rd[bit] ← T
+            | SBI(int ioaddr, int bit)                -- set I/O bit   (addr ∈ 0..31)
+            | CBI(int ioaddr, int bit)                -- clear I/O bit (addr ∈ 0..31)
+
+  -- =========================================================
+  -- Skip instructions
+  -- =========================================================
+
+  -- Conditionally skip the next instruction (1- or 2-word) if true.
+  -- CPSE:  skip if Rd = Rr
+  -- SBRC:  skip if bit b of Rr is clear (0)
+  -- SBRS:  skip if bit b of Rr is set   (1)
+  -- SBIC:  skip if bit b of I/O[A] is clear  (A ∈ 0..31)
+  -- SBIS:  skip if bit b of I/O[A] is set
+  skip_instr = CPSE(greg rd, greg rr)               -- skip if Rd = Rr
+             | SBRC(greg rr, int bit)               -- skip if Rr[bit] = 0
+             | SBRS(greg rr, int bit)               -- skip if Rr[bit] = 1
+             | SBIC(int ioaddr, int bit)            -- skip if IO[addr][bit] = 0
+             | SBIS(int ioaddr, int bit)            -- skip if IO[addr][bit] = 1
+
+  -- =========================================================
+  -- Conditional branch instructions
+  -- =========================================================
+
+  -- All branches use a 7-bit signed relative word offset (±63 words).
+  -- BRBS / BRBC are the generic forms; the named aliases are all accepted
+  -- by the assembler and are commonly generated by compilers.
+  --
+  -- Condition mapping:
+  --   BREQ / BRNE:  Z flag   (equal / not equal)
+  --   BRCS / BRCC:  C flag   (carry set / carry clear)
+  --   BRLO / BRSH:  C flag   (unsigned lower / same-or-higher; aliases for CS/CC)
+  --   BRMI / BRPL:  N flag   (minus / plus)
+  --   BRGE / BRLT:  S flag = N⊕V  (signed ≥ / signed <)
+  --   BRVS / BRVC:  V flag   (overflow set / clear)
+  --   BRHS / BRHC:  H flag   (half-carry set / clear)
+  --   BRTS / BRTC:  T flag
+  --   BRIE / BRID:  I flag   (interrupts enabled / disabled)
+  branch_instr = BRBS(sreg_bit sb, rel_target tgt)   -- branch if SREG[sb] = 1
+               | BRBC(sreg_bit sb, rel_target tgt)   -- branch if SREG[sb] = 0
+               | BREQ(rel_target tgt)                -- Z = 1  (equal)
+               | BRNE(rel_target tgt)                -- Z = 0  (not equal)
+               | BRCS(rel_target tgt)                -- C = 1  (carry set)
+               | BRCC(rel_target tgt)                -- C = 0  (carry clear)
+               | BRLO(rel_target tgt)                -- C = 1  (unsigned lower; alias BRCS)
+               | BRSH(rel_target tgt)                -- C = 0  (unsigned ≥;    alias BRCC)
+               | BRMI(rel_target tgt)                -- N = 1  (minus)
+               | BRPL(rel_target tgt)                -- N = 0  (plus)
+               | BRGE(rel_target tgt)                -- S = 0  (signed ≥)
+               | BRLT(rel_target tgt)                -- S = 1  (signed <)
+               | BRVS(rel_target tgt)                -- V = 1  (overflow)
+               | BRVC(rel_target tgt)                -- V = 0  (no overflow)
+               | BRHS(rel_target tgt)                -- H = 1  (half-carry)
+               | BRHC(rel_target tgt)                -- H = 0  (no half-carry)
+               | BRTS(rel_target tgt)                -- T = 1
+               | BRTC(rel_target tgt)                -- T = 0
+               | BRIE(rel_target tgt)                -- I = 1  (interrupts enabled)
+               | BRID(rel_target tgt)                -- I = 0  (interrupts disabled)
+
+  -- =========================================================
+  -- Control-flow instructions (jumps, calls, returns)
+  -- =========================================================
+
+  -- RJMP:   PC += 1 + k  (k = ±2047 words; 2-byte instruction)
+  -- IJMP:   PC  = Z      (indirect; 2-byte; EIJMP uses EIND:Z for >128KB)
+  -- JMP:    PC  = k      (absolute 22-bit word address; 4-byte instruction)
+  -- RCALL:  push PC+1; PC += 1 + k
+  -- ICALL:  push PC+1; PC = Z
+  -- CALL:   push PC+2; PC = k    (4-byte instruction)
+  -- RET:    PC = pop()
+  -- RETI:   PC = pop(); I = 1   (return from interrupt; re-enables interrupts)
+  cf_instr = RJMP(rel_target tgt)      -- relative jump (±2K words)
+           | IJMP                       -- indirect jump via Z
+           | EIJMP                      -- extended indirect jump via EIND:Z
+           | JMP(abs_target tgt)        -- absolute long jump (22-bit)
+           | RCALL(rel_target tgt)      -- relative call (±2K words)
+           | ICALL                      -- indirect call via Z
+           | EICALL                     -- extended indirect call via EIND:Z
+           | CALL(abs_target tgt)       -- absolute long call (22-bit)
+           | RET                        -- return from subroutine
+           | RETI                       -- return from interrupt (sets I flag)
+
+  -- =========================================================
+  -- Emulation (pseudo) instructions
+  -- =========================================================
+
+  -- These assembler mnemonics expand to a single real instruction each;
+  -- modelled explicitly so compiler back-ends can emit them by name.
+  --
+  -- CLR  Rd    → EOR Rd, Rd          (Rd = 0; sets S=0, V=0, N=0, Z=1)
+  -- SER  Rd    → LDI Rd, 0xFF        (Rd = 0xFF; Rd ∈ R16..R31)
+  -- TST  Rd    → AND Rd, Rd          (flags only; Rd unchanged)
+  -- LSL  Rd    → ADD Rd, Rd          (logical shift left; bit 0 ← 0; C ← bit 7)
+  -- ROL  Rd    → ADC Rd, Rd          (rotate left through carry)
+  -- CBR  Rd, K → ANDI Rd, ~K & 0xFF  (clear bits; Rd ∈ R16..R31)
+  -- SBR  Rd, K → ORI  Rd, K          (set bits;   Rd ∈ R16..R31)
+  pseudo_instr = CLR(greg dst)                -- clear register (EOR dst, dst)
+               | SER(ureg dst)               -- set register to 0xFF (R16..R31)
+               | TST(greg dst)               -- test: AND dst,dst; flags only
+               | LSL(greg dst)               -- logical shift left (ADD dst,dst)
+               | ROL(greg dst)               -- rotate left through carry
+               | CBR(ureg dst, int mask)     -- clear bits: dst &= ~mask
+               | SBR(ureg dst, int mask)     -- set bits:   dst |= mask
+
+  -- =========================================================
+  -- MCU control instructions
+  -- =========================================================
+
+  -- NOP:   no operation (one clock cycle; opcode 0x0000)
+  -- SLEEP: enter sleep mode (mode configured in SMCR/SLPCTRL)
+  -- WDR:   watchdog timer reset (restart watchdog countdown)
+  -- BREAK: stop CPU for on-chip debug; no effect without debugger attached
+  -- DES:   one round of AES/DES computation (ATxmega / AVR_DA/DB/DD cores;
+  --        round ∈ 0..15; operands implicitly in R0..R15; H flag = direction)
+  misc_instr = NOP
+             | SLEEP
+             | WDR
+             | BREAK
+             | DES(int round)   -- DES round instruction (XMEGA only; 0..15)
+
+  -- =========================================================
+  -- Top-level instruction wrapper
+  -- =========================================================
+
+  instr = IArith(arith_instr body)
+        | ILogic(logic_instr body)
+        | ICmp(cmp_instr body)
+        | IMov(mov_instr body)
+        | IBit(bit_instr body)
+        | ISkip(skip_instr body)
+        | IBranch(branch_instr body)
+        | ICF(cf_instr body)
+        | IPseudo(pseudo_instr body)
+        | IMisc(misc_instr body)
+        | ILabel(string name)     -- label definition (local or global)
+        | IAlign(int bytes)       -- align to bytes-byte boundary
+        | IRawByte(int value)     -- raw 8-bit byte in text segment
+
+  -- =========================================================
+  -- Code structure
+  -- =========================================================
+
+  block = Block(string? name, instr* body)
+
+  -- AVR calling conventions.
+  --
+  -- AVR_GCC: avr-gcc / avr-libc ABI.
+  --   Call-used (scratch): R18–R27, R30–R31.
+  --   Call-saved:          R2–R17, R28–R29 (Y pointer).
+  --   Parameters (right-to-left, 8-bit slots): R25–R8 (up to 9 bytes).
+  --   Return value:        R24 (8-bit), R25:R24 (16-bit), R25:R22 (32-bit).
+  --   Frame pointer:       R29:R28 (Y) when needed.
+  --   Interrupts:          prologue/epilogue must save/restore SREG.
+  --
+  -- AVR_IAR: IAR Systems AVR ABI (different parameter passing and
+  --   frame-pointer conventions from avr-gcc).
+  --
+  -- INTERNAL: compiler-internal (no ABI discipline; used for inlined
+  --   helpers and thunks that the register allocator controls fully).
+  call_conv = AVR_GCC
+            | AVR_IAR
+            | INTERNAL
+
+  func = Func(string name, greg* params, greg* results,
+              call_conv cc, block* blocks)
+
+  -- =========================================================
+  -- Data directives
+  -- =========================================================
+
+  -- Corresponds to GNU Binutils / avr-as data pseudo-ops.
+  -- DI_Byte:   .byte value          (1 byte)
+  -- DI_Word:   .word value          (2 bytes, little-endian)
+  -- DI_Long:   .long value          (4 bytes, little-endian)
+  -- DI_Float:  .float value         (4-byte IEEE 754 single)
+  -- DI_String: .ascii / .asciz s    (byte string, optionally NUL-terminated)
+  -- DI_Ref:    reference to a label (2-byte pointer for RAM / I/O)
+  -- DI_Ref22:  22-bit word address reference (for program memory pointers)
+  -- DI_Space:  .skip / .space count (count zero-filled bytes)
+  -- DI_Align:  .balign / .align     (pad to 2^pow2-byte boundary)
+  data_item = DI_Byte(int value)
+            | DI_Word(int value)
+            | DI_Long(int value)
+            | DI_Float(float value)
+            | DI_String(string s)
+            | DI_Ref(string name)       -- 16-bit data / SRAM address reference
+            | DI_Ref22(string name)     -- 22-bit program memory address reference
+            | DI_Space(int count)
+            | DI_Align(int pow2)
+
+  -- Standard AVR / avr-binutils linker sections.
+  -- SK_Text:   .text   — executable code in flash
+  -- SK_Data:   .data   — initialised variables (copied from flash to SRAM at reset)
+  -- SK_BSS:    .bss    — zero-initialised SRAM variables
+  -- SK_Const:  .rodata — read-only data (kept in flash; accessed via LPM)
+  -- SK_Eeprom: .eeprom — EEPROM-resident data
+  section_kind = SK_Text
+               | SK_Data
+               | SK_BSS
+               | SK_Const
+               | SK_Eeprom
+
+  data_section = DataSection(section_kind kind, string? name, data_item* items)
+
+  module = Module(string name, func* funcs, data_section* sections)
+
+}

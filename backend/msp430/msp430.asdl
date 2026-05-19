@@ -1,0 +1,364 @@
+-- MSP430 / MSP430X Instruction Set Architecture
+-- Texas Instruments 16-bit ultra-low-power RISC microcontroller family
+--
+-- Design notes:
+--   • Base MSP430: 16-bit registers, 16-bit address space (64 KB), three
+--     instruction formats (double-operand, single-operand, jump).
+--   • MSP430X extension: 20-bit registers/addresses (1 MB space), extended
+--     addressing modes, MOVA/ADDA/SUBA/CMPA/BRA/CALLA, PUSHM/POPM,
+--     RRCM/RRAM/RLAM/RRUM multi-rotate instructions.
+--   • Seven source addressing modes (SrcReg/SrcIdx/SrcSym/SrcAbs/SrcInd/
+--     SrcInc/SrcImm); destination restricted to four (DstReg/DstIdx/
+--     DstSym/DstAbs).
+--   • Instruction size (.B byte / .W word / .A address-word) attached to
+--     the top-level instr wrapper; word-only instructions are documented.
+--   • Constant-generator encoding (R2/R3 special modes for 0,1,2,4,8,−1)
+--     is an assembler-level optimisation; the IR uses SrcImm uniformly.
+--   • Emulation (pseudo) instructions that the assembler expands are modelled
+--     explicitly because compiler back-ends generate them by name.
+--   • Constructor uniqueness: all names globally distinct within the module.
+--
+-- Instruction-set references:
+--   "MSP430x2xx Family User's Guide" (SLAU144, Texas Instruments)
+--   "MSP430x5xx/6xx Family User's Guide" (SLAU208, Texas Instruments)
+--   "MSP430 Optimizing C/C++ Compiler User's Guide" (SLAU132)
+
+module Msp430 {
+
+  -- =========================================================
+  -- Registers
+  -- =========================================================
+
+  -- All 16 registers are 16-bit in base MSP430; 20-bit in MSP430X.
+  -- R0/PC and R1/SP follow hardware calling convention.
+  -- R2/SR doubles as CG1 (constant generator 1) for special As values.
+  -- R3/CG is the dedicated constant generator (always reads a constant
+  --   determined by its As field; see the ISA manual §3.2.4).
+  reg = R0    -- PC: Program Counter (auto-increments as instructions fetch)
+      | R1    -- SP: Stack Pointer (word-aligned; grows toward lower address)
+      | R2    -- SR/CG1: Status Register / Constant Generator 1
+      | R3    -- CG2: Constant Generator 2 (reads 0/1/2/−1 by As field)
+      | R4
+      | R5
+      | R6
+      | R7
+      | R8
+      | R9
+      | R10
+      | R11
+      | R12   -- first parameter / return value (TI EABI)
+      | R13   -- second parameter
+      | R14   -- third parameter
+      | R15   -- fourth parameter
+
+  -- =========================================================
+  -- Instruction size
+  -- =========================================================
+
+  -- SizeByte (.B): operates on low 8 bits of register; byte in memory.
+  -- SizeWord (.W): full 16-bit register / 2-byte aligned memory.
+  -- SizeAddr (.A): 20-bit MSP430X form; only for MOVA/ADDA/… and PUSHM/POPM/RRCM/…
+  op_size = SizeByte   -- .B  byte operation
+          | SizeWord   -- .W  word operation (default when no suffix written)
+          | SizeAddr   -- .A  20-bit address-word (MSP430X only)
+
+  -- =========================================================
+  -- Source addressing modes  (base MSP430, 16-bit)
+  -- =========================================================
+
+  -- All seven source modes are available for both Format-I and Format-II
+  -- source operands; destinations are more restricted (see dst_operand).
+  --
+  -- SrcSym: assembler computes a PC-relative 16-bit displacement;
+  --   equivalent to SrcIdx(R0, LABEL − (PC+2)).
+  -- SrcAbs: absolute address with no base-register component;
+  --   encoded as SrcIdx(R2, addr) in hardware.
+  -- SrcImm: next instruction word is the value (encoded as @R0+);
+  --   assembler substitutes the constant-generator form for 0,1,2,4,8,−1.
+  src_operand = SrcReg(reg r)                  -- register direct:            Rn
+              | SrcIdx(reg r, int offset)       -- register indexed:           offset(Rn)
+              | SrcSym(string label)            -- symbolic (PC-relative):     LABEL
+              | SrcAbs(int addr)                -- absolute:                   &addr
+              | SrcInd(reg r)                   -- indirect register:          @Rn
+              | SrcInc(reg r)                   -- indirect auto-increment:    @Rn+
+              | SrcImm(int value)               -- immediate:                  #N
+
+  -- =========================================================
+  -- Destination addressing modes  (base MSP430, 16-bit)
+  -- =========================================================
+
+  -- The Ad bit in Format-I instructions allows only register (Ad=0) or
+  -- indexed (Ad=1) modes; symbolic and absolute are indexed with PC/SR.
+  dst_operand = DstReg(reg r)                  -- register direct:            Rn
+              | DstIdx(reg r, int offset)       -- register indexed:           offset(Rn)
+              | DstSym(string label)            -- symbolic (PC-relative):     LABEL
+              | DstAbs(int addr)                -- absolute:                   &addr
+
+  -- =========================================================
+  -- Jump / branch target
+  -- =========================================================
+
+  -- All Format-III jumps use a 10-bit signed word offset (range ±512 words,
+  -- i.e. ±1 KB from the instruction after the jump).
+  -- BRA (MSP430X) and CALLA use 20-bit targets (see src20 / ext20_instr).
+  jump_target = JmpLabel(string name)   -- symbolic label resolved by assembler
+              | JmpOff(int offset)      -- signed word offset (−512..511)
+
+  -- =========================================================
+  -- MSP430X: 20-bit source and destination operands
+  -- =========================================================
+
+  -- These modes carry 20-bit immediates / addresses; they appear only in
+  -- MOVA, ADDA, SUBA, CMPA, BRA, CALLA, and RETA.
+  -- Src20Ind / Src20Inc: same semantics as SrcInd / SrcInc but the register
+  --   holds a 20-bit address.
+  src20 = Src20Reg(reg r)              -- register:                   Rn
+        | Src20Idx(reg r, int offset)  -- 20-bit indexed:             offset20(Rn)
+        | Src20Abs(int addr)           -- 20-bit absolute:            &addr20
+        | Src20Imm(int value)          -- 20-bit immediate:           #imm20
+        | Src20Ind(reg r)              -- indirect:                   @Rn
+        | Src20Inc(reg r)              -- indirect auto-increment:    @Rn+
+
+  dst20 = Dst20Reg(reg r)              -- register:                   Rn
+        | Dst20Idx(reg r, int offset)  -- 20-bit indexed:             offset20(Rn)
+        | Dst20Abs(int addr)           -- 20-bit absolute:            &addr20
+
+  -- =========================================================
+  -- Format I: Double-operand instructions
+  -- =========================================================
+
+  -- OP[.B|.W] src, dst — the op_size suffix is in the instr wrapper.
+  -- MOV:  dst = src
+  -- ADD:  dst = dst + src          (sets C, Z, N, V)
+  -- ADDC: dst = dst + src + C      (sets C, Z, N, V)
+  -- SUBC: dst = dst + ~src + C     (sets C, Z, N, V; hardware subtract-with-borrow)
+  -- SUB:  dst = dst − src          (sets C, Z, N, V; distinct opcode from SUBC)
+  -- CMP:  dst − src, discard       (sets C, Z, N, V; dst unchanged)
+  -- DADD: dst = dst + src (BCD decimal add with carry)
+  -- BIT:  dst & src, discard       (sets C, Z, N; dst unchanged)
+  -- BIC:  dst = dst & ~src         (C, Z, N unchanged)
+  -- BIS:  dst = dst | src          (C, Z, N unchanged)
+  -- XOR:  dst = dst ^ src          (sets C, Z, N, V)
+  -- AND:  dst = dst & src          (sets C, Z, N)
+  dop_instr = MOV(src_operand src, dst_operand dst)
+            | ADD(src_operand src, dst_operand dst)
+            | ADDC(src_operand src, dst_operand dst)
+            | SUBC(src_operand src, dst_operand dst)
+            | SUB(src_operand src, dst_operand dst)
+            | CMP(src_operand src, dst_operand dst)
+            | DADD(src_operand src, dst_operand dst)
+            | BIT(src_operand src, dst_operand dst)
+            | BIC(src_operand src, dst_operand dst)
+            | BIS(src_operand src, dst_operand dst)
+            | XOR(src_operand src, dst_operand dst)
+            | AND(src_operand src, dst_operand dst)
+
+  -- =========================================================
+  -- Format II: Single-operand instructions
+  -- =========================================================
+
+  -- OP[.B|.W] dst — the op_size suffix is in the instr wrapper.
+  -- Word-only (assembler error if .B used): SWPB, SXT, CALL, RETI.
+  -- RRC:  dst = C:dst >> 1           (old C → bit 15/7; dst[0] → new C)
+  -- SWPB: dst = {dst[7:0], dst[15:8]} (swap bytes; word only)
+  -- RRA:  dst = dst >> 1 (arithmetic; MSB preserved; dst[0] → C)
+  -- SXT:  dst = sign_extend(dst[7:0]) (byte sign-extended to word; word only)
+  -- PUSH: SP−=2; Mem[SP] = src        (PUSH uses src_operand, not dst_operand)
+  -- CALL: SP−=2; Mem[SP]=PC+2; PC=dst (word only)
+  -- RETI: SR = Mem[SP]; SP+=2; PC = Mem[SP]; SP+=2  (restore SR then PC)
+  sop_instr = RRC(dst_operand dst)
+            | SWPB(dst_operand dst)   -- word only: swap bytes
+            | RRA(dst_operand dst)
+            | SXT(dst_operand dst)    -- word only: sign-extend byte → word
+            | PUSH(src_operand src)   -- uses src modes so @Rn+, #N etc. work
+            | CALL(src_operand tgt)   -- word only: call; target via any src mode
+            | RETI                    -- return from interrupt; no operand
+
+  -- =========================================================
+  -- Format III: Jump instructions
+  -- =========================================================
+
+  -- Conditional / unconditional relative branches; 10-bit signed word offset.
+  -- JNE/JNZ: jump if Z=0   (not equal / not zero; same opcode)
+  -- JEQ/JZ:  jump if Z=1   (equal / zero)
+  -- JNC/JLO: jump if C=0   (no carry / unsigned lower)
+  -- JC/JHS:  jump if C=1   (carry set / unsigned higher or same)
+  -- JN:      jump if N=1   (negative; no matching "positive" branch)
+  -- JGE:     jump if N=V   (signed greater-or-equal)
+  -- JL:      jump if N≠V   (signed less-than)
+  -- JMP:     always jump   (unconditional; uses JGE encoding with all-1 field)
+  jmp_instr = JNE(jump_target tgt)   -- Z = 0  (also written JNZ)
+            | JEQ(jump_target tgt)   -- Z = 1  (also written JZ)
+            | JNC(jump_target tgt)   -- C = 0  (also written JLO)
+            | JC(jump_target tgt)    -- C = 1  (also written JHS)
+            | JN(jump_target tgt)    -- N = 1
+            | JGE(jump_target tgt)   -- N = V  (signed ≥)
+            | JL(jump_target tgt)    -- N ≠ V  (signed <)
+            | JMP(jump_target tgt)   -- unconditional
+
+  -- =========================================================
+  -- Emulation (pseudo) instructions
+  -- =========================================================
+
+  -- These are single assembler mnemonics that the assembler expands into
+  -- one real instruction; they are modelled explicitly because compiler
+  -- code-generators emit them by name for clarity and portability.
+  --
+  -- No-operand forms expand to a fixed encoding:
+  --   NOP  → MOV R3, R3          (uses CG2, no extension word)
+  --   RET  → MOV @R1+, R0        (pop PC)
+  --   CLRC → BIC #1, SR          (clear carry)
+  --   SETC → BIS #1, SR          (set carry)
+  --   CLRZ → BIC #2, SR          (clear zero)
+  --   SETZ → BIS #2, SR          (set zero)
+  --   CLRN → BIC #4, SR          (clear negative)
+  --   SETN → BIS #4, SR          (set negative)
+  --   CLRV → BIC #100H, SR       (clear overflow)
+  --   DINT → BIC #8, SR          (disable interrupts: clear GIE)
+  --   EINT → BIS #8, SR          (enable interrupts: set GIE)
+  --
+  -- Single-operand forms expand as noted:
+  --   CLR  dst  → MOV #0, dst
+  --   TST  dst  → CMP #0, dst    (sets flags; dst unchanged)
+  --   INV  dst  → XOR #0FFFFh, dst
+  --   INC  dst  → ADD #1, dst
+  --   INCD dst  → ADD #2, dst    ("increment double"; step by 2)
+  --   DEC  dst  → SUB #1, dst
+  --   DECD dst  → SUB #2, dst
+  --   RL   dst  → ADD dst, dst   (rotate left = shift left with old MSB lost)
+  --   RLC  dst  → ADDC dst, dst  (rotate left through carry)
+  pseudo_instr = NOP                        -- no operation
+               | RET                        -- return from subroutine
+               | CLRC                       -- clear carry flag
+               | SETC                       -- set carry flag
+               | CLRZ                       -- clear zero flag
+               | SETZ                       -- set zero flag
+               | CLRN                       -- clear negative flag
+               | SETN                       -- set negative flag
+               | CLRV                       -- clear overflow flag
+               | DINT                       -- disable interrupts (clear GIE)
+               | EINT                       -- enable interrupts (set GIE)
+               | CLR(dst_operand dst)       -- clear: dst = 0
+               | TST(dst_operand dst)       -- test: CMP #0,dst; flags only
+               | INV(dst_operand dst)       -- bitwise invert
+               | INC(dst_operand dst)       -- dst += 1
+               | INCD(dst_operand dst)      -- dst += 2 (increment by two)
+               | DEC(dst_operand dst)       -- dst −= 1
+               | DECD(dst_operand dst)      -- dst −= 2
+               | RL(dst_operand dst)        -- rotate left (ADD dst,dst)
+               | RLC(dst_operand dst)       -- rotate left through carry
+
+  -- =========================================================
+  -- MSP430X: 20-bit arithmetic instructions
+  -- =========================================================
+
+  -- MOVA/ADDA/SUBA/CMPA operate on full 20-bit register values.
+  -- BRA:  PC = src20 (20-bit unconditional branch; no link register)
+  -- RETA: 20-bit return — pops 20-bit PC from stack (SP += 4)
+  -- CALLA: 20-bit call — pushes PC+4 (20-bit), then PC = tgt
+  ext20_instr = MOVA(src20 src, dst20 dst)   -- move 20-bit value
+              | ADDA(src20 src, dst20 dst)   -- dst += src (20-bit)
+              | SUBA(src20 src, dst20 dst)   -- dst −= src (20-bit)
+              | CMPA(src20 src, dst20 dst)   -- compare 20-bit (flags only)
+              | BRA(src20 tgt)               -- branch to 20-bit address
+              | RETA                         -- return (20-bit pop)
+              | CALLA(src20 tgt)             -- call to 20-bit address
+
+  -- =========================================================
+  -- MSP430X: multi-rotate / multi-shift instructions
+  -- =========================================================
+
+  -- RRCM / RRAM / RLAM / RRUM each rotate/shift a single register
+  -- by n steps (n = 1..4) in a single instruction cycle.
+  -- Available in .W (16-bit) and .A (20-bit) forms; the op_size is
+  -- captured in the instr wrapper (IExtRot).
+  -- RRCM: rotate right through carry × n
+  -- RRAM: arithmetic right shift × n (MSB replicated)
+  -- RLAM: arithmetic left shift × n (0 shifted in from right; sets C from MSB)
+  -- RRUM: logical right shift × n (0 shifted in from left)
+  extrot_instr = RRCM(int n, reg r)   -- rotate right through carry, n=1..4
+               | RRAM(int n, reg r)   -- arithmetic right shift × n
+               | RLAM(int n, reg r)   -- arithmetic left shift × n
+               | RRUM(int n, reg r)   -- logical right shift × n
+
+  -- =========================================================
+  -- MSP430X: push / pop multiple registers
+  -- =========================================================
+
+  -- PUSHM.A/.W #n, Rx: push n consecutive registers Rx, Rx−1, …, Rx−(n−1)
+  --   onto the stack (highest-numbered first).
+  -- POPM.A/.W #n, Rx: pop n consecutive registers into Rx−(n−1), …, Rx
+  --   from the stack (lowest-numbered first, i.e. reverse of push order).
+  -- n is 1..16; op_size (.A or .W) is in the instr wrapper (IExtStack).
+  -- 'top' is the highest register number in the range.
+  extstack_instr = PUSHM(int n, reg top)   -- push n regs: top, top−1, …
+                 | POPM(int n, reg top)    -- pop  n regs: …, top−1, top
+
+  -- =========================================================
+  -- Top-level instruction wrapper
+  -- =========================================================
+
+  -- op_size on IDop / ISop / IExtRot / IExtStack carries the .B/.W/.A suffix.
+  -- Note:
+  --   • SWPB, SXT, CALL, RETI must use SizeWord.
+  --   • IExtRot accepts SizeWord or SizeAddr (.W or .A).
+  --   • IExtStack accepts SizeWord or SizeAddr.
+  --   • IJmp, IPseudo, IExt20, ILabel, IAlign, IRawWord carry no size.
+  instr = IDop(dop_instr body, op_size sz)
+        | ISop(sop_instr body, op_size sz)
+        | IJmp(jmp_instr body)
+        | IPseudo(pseudo_instr body)
+        | IExt20(ext20_instr body)
+        | IExtRot(extrot_instr body, op_size sz)
+        | IExtStack(extstack_instr body, op_size sz)
+        | ILabel(string name)     -- local / global label definition
+        | IAlign(int bytes)       -- align to bytes-byte boundary
+        | IRawWord(int value)     -- raw 16-bit word in text segment
+
+  -- =========================================================
+  -- Code structure
+  -- =========================================================
+
+  block = Block(string? name, instr* body)
+
+  -- MSP430 calling conventions.
+  --
+  -- MSP430_EABI:  TI EABI for base MSP430 (16-bit addresses).
+  --   Parameters: R12..R15 (right-to-left, each 16-bit slot).
+  --   Return:     R12 (16-bit), R12:R13 (32-bit pair).
+  --   Callee-saved: R4..R11.
+  --   Call/return: CALL / RET (MOV @SP+, PC).
+  --
+  -- MSP430X_EABI: TI EABI for MSP430X (20-bit addresses).
+  --   Same register allocation but addresses are 20-bit.
+  --   Call/return: CALLA / RETA.
+  --
+  -- INTERNAL: compiler-internal (no ABI discipline required).
+  call_conv = MSP430_EABI
+            | MSP430X_EABI
+            | INTERNAL
+
+  func = Func(string name, reg* params, reg* results,
+              call_conv cc, block* blocks)
+
+  -- Data directives (TI assembler / GNU as pseudo-ops for MSP430).
+  data_item = DI_Byte(int value)       -- 1-byte integer  (.byte / DB)
+            | DI_Word(int value)       -- 2-byte integer  (.word / DW)
+            | DI_Long(int value)       -- 4-byte integer  (.long / DL)
+            | DI_Float(float value)    -- 4-byte IEEE 754 single (.float)
+            | DI_String(string s)      -- byte string     (.string / .asciz)
+            | DI_Ref(string name)      -- 16-bit label address reference
+            | DI_Ref20(string name)    -- 20-bit label address (MSP430X)
+            | DI_Space(int count)      -- zero-fill count bytes  (.space)
+            | DI_Align(int pow2)       -- align to 2^pow2-byte boundary
+
+  section_kind = SK_Text    -- executable code   (.text)
+               | SK_Data    -- initialised data  (.data)
+               | SK_BSS     -- zero-initialised  (.bss)
+               | SK_Const   -- read-only data    (.rodata / .const)
+
+  data_section = DataSection(section_kind kind, string? name, data_item* items)
+
+  module = Module(string name, func* funcs, data_section* sections)
+
+}
