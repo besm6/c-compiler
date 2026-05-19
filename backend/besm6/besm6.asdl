@@ -14,7 +14,7 @@
 --   • R register (6 bits): AU mode register.
 --       Bits 5–3 (ω mode): record most-recent operation class (additive /
 --         multiplicative / logical / none) and govern UZA/U1A branch conditions.
---       Bit 6: suppress FP overflow exception.
+--       Bit 6: suppress overflow exception.
 --       Bit 2: suppress rounding after normalization.
 --       Bit 1: suppress normalization (RAU_NORM_DISABLE); required before
 --         integer arithmetic so INT-format words are not mis-normalized.
@@ -164,29 +164,29 @@ module Besm6 {
   -- Floating-point arithmetic instructions
   -- =========================================================
 
-  -- All FP instructions are stack-mode aware: when M=017 and V=0 (offset+C=0)
+  -- All arithmetic instructions are stack-mode aware: when M=017 and V=0 (offset+C=0)
   -- M[017] is decremented before the load, popping the stack operand.
-  -- ω mode set to Additive by: ADDFP, SUBFP, RSUBFP, ABSSUB.
-  -- ω mode set to Multiplicative by: MULFP, DIVFP.
+  -- ω mode set to Additive by: ADD, SUB, RSUB, ABSSUB.
+  -- ω mode set to Multiplicative by: MUL, DIV.
   -- CNEG sets ω=Additive (normalization applied after conditional negate).
   -- Results: A receives the primary result; Y[40:1] (Z) receives the
-  -- low-order remainder for ADDFP/SUBFP/RSUBFP/ABSSUB/MULFP.
-  -- For DIVFP, Y is left undefined.
+  -- low-order remainder for ADD/SUB/RSUB/ABSSUB/MUL.
+  -- For DIV, Y is left undefined.
   --
-  -- ADDFP  (004, A+X):  [A,Z] = A + mem[EA]
-  -- SUBFP  (005, A-X):  [A,Z] = A − mem[EA]
-  -- RSUBFP (006, X-A):  [A,Z] = mem[EA] − A
+  -- ADD    (004, A+X):  [A,Z] = A + mem[EA]
+  -- SUB    (005, A-X):  [A,Z] = A − mem[EA]
+  -- RSUB   (006, X-A):  [A,Z] = mem[EA] − A
   -- ABSSUB (007, AMX):  [A,Z] = |A| − |mem[EA]|
-  -- MULFP  (017, A*X):  [A,Z] = A × mem[EA]
-  -- DIVFP  (016, A/X):  A = A / mem[EA]; Y = undefined
+  -- MUL    (017, A*X):  [A,Z] = A × mem[EA]
+  -- DIV    (016, A/X):  A = A / mem[EA]; Y = undefined
   -- CNEG   (014, AVX):  if mem[EA][41] ≠ 0: A = −A  (negate A if operand negative)
-  fp_arith_instr = ADDFP(mem_addr addr)     -- A + X          (opcode 004)
-                 | SUBFP(mem_addr addr)     -- A - X          (opcode 005)
-                 | RSUBFP(mem_addr addr)    -- X - A          (opcode 006)
-                 | ABSSUB(mem_addr addr)    -- |A| - |X|      (opcode 007)
-                 | MULFP(mem_addr addr)     -- A * X          (opcode 017)
-                 | DIVFP(mem_addr addr)     -- A / X          (opcode 016)
-                 | CNEG(mem_addr addr)      -- cond. negate   (opcode 014)
+  arith_instr = ADD(mem_addr addr)       -- A + X          (opcode 004)
+              | SUB(mem_addr addr)       -- A - X          (opcode 005)
+              | RSUB(mem_addr addr)      -- X - A          (opcode 006)
+              | ABSSUB(mem_addr addr)    -- |A| - |X|      (opcode 007)
+              | MUL(mem_addr addr)       -- A * X          (opcode 017)
+              | DIV(mem_addr addr)       -- A / X          (opcode 016)
+              | CNEG(mem_addr addr)      -- cond. negate   (opcode 014)
 
   -- =========================================================
   -- Logical and bit-manipulation instructions
@@ -281,7 +281,7 @@ module Besm6 {
   --   Adds V to an index register in-place; result truncated to 15 bits.  ω=Kept.
   -- JADDM (045, J+M):  M[dst_j] += M[src]   (dst_j = V[4:1])
   --   Adds M[src] to M[dst_j] in-place.  ω=Kept.
-  idx_instr = VTM(mreg dst, int value)          -- M[dst] = value        (opcode 024 F2)
+  reg_instr = VTM(mreg dst, int value)          -- M[dst] = value        (opcode 024 F2)
             | UTM(mreg dst, int value)          -- M[dst] += value       (opcode 025 F2)
             | JADDM(mreg src, int dst_j)        -- M[dst_j] += M[src]    (opcode 045)
 
@@ -299,8 +299,8 @@ module Besm6 {
   --   When EA = 0 this is a NOP.
   -- WTC (023 Format 2): C = mem[EA][15:1]   (from memory; stack-mode aware)
   --   Loads the low 15 bits of the memory word at EA into C.  ω=Kept.
-  c_instr = UTC(mem_addr addr)     -- C = EA  (set C immediately)      (opcode 022 F2)
-          | WTC(mem_addr addr)     -- C = mem[EA][15:1]  (from memory) (opcode 023 F2)
+  mod_instr = UTC(mem_addr addr)     -- C = EA  (set C immediately)      (opcode 022 F2)
+            | WTC(mem_addr addr)     -- C = mem[EA][15:1]  (from memory) (opcode 023 F2)
 
   -- =========================================================
   -- Control-flow instructions
@@ -344,14 +344,14 @@ module Besm6 {
   --
   -- Halt:
   --   STOP (033 F2): stops the processor.  Accessible in user mode.  ω=Kept.
-  cf_instr = UZA(mem_addr addr)               -- branch if ω = 0        (opcode 026 F2)
-           | U1A(mem_addr addr)               -- branch if ω ≠ 0        (opcode 027 F2)
-           | UJ(mem_addr addr)                -- unconditional jump      (opcode 030 F2)
-           | VJM(mreg link, target tgt)       -- call subroutine         (opcode 031 F2)
-           | VZM(mreg test, target tgt)       -- branch if M[test] = 0  (opcode 034 F2)
-           | V1M(mreg test, target tgt)       -- branch if M[test] ≠ 0  (opcode 035 F2)
-           | VLM(mreg cnt, target tgt)        -- loop (inc. + branch)    (opcode 037 F2)
-           | STOP                             -- halt processor          (opcode 033 F2)
+  branch_instr = UZA(mem_addr addr)           -- branch if ω = 0        (opcode 026 F2)
+               | U1A(mem_addr addr)           -- branch if ω ≠ 0        (opcode 027 F2)
+               | UJ(mem_addr addr)            -- unconditional jump      (opcode 030 F2)
+               | VJM(mreg link, target tgt)   -- call subroutine         (opcode 031 F2)
+               | VZM(mreg test, target tgt)   -- branch if M[test] = 0  (opcode 034 F2)
+               | V1M(mreg test, target tgt)   -- branch if M[test] ≠ 0  (opcode 035 F2)
+               | VLM(mreg cnt, target tgt)    -- loop (inc. + branch)    (opcode 037 F2)
+               | STOP                         -- halt processor          (opcode 033 F2)
 
   -- =========================================================
   -- Extracodes (system calls and math library)
@@ -402,20 +402,20 @@ module Besm6 {
   -- Top-level instruction wrapper
   -- =========================================================
 
-  instr = IMem(mem_instr body)            -- load / store / index-reg transfer
-        | IFpArith(fp_arith_instr body)   -- floating-point arithmetic
-        | ILog(log_instr body)            -- logical and bit-manipulation
-        | IExp(exp_instr body)            -- exponent, shift, mode-register
-        | IIdx(idx_instr body)            -- index-register manipulation
-        | IC(c_instr body)                -- C register (UTC / WTC)
-        | ICF(cf_instr body)              -- control flow
-        | IExtra(extra_instr body)        -- extracodes
-        | ILabel(string name)             -- assembly label definition
-        | IName(string name)              -- ,NAME, directive (subprogram name)
-        | IRel                            -- ,REL, directive (relocatable basing)
-        | ICall(string name)              -- ,CALL, name (declare external ref.)
-        | IEntry(string name)             -- ,ENTRY, name (export as global symbol)
-        | IEnd                            -- ,END, directive (end of subprogram)
+  instr = IMem(mem_instr body)         -- load / store / index-reg transfer
+        | IArith(arith_instr body)     -- floating-point arithmetic
+        | ILog(log_instr body)         -- logical and bit-manipulation
+        | IExp(exp_instr body)         -- exponent, shift, mode-register
+        | IReg(reg_instr body)         -- index-register manipulation
+        | IMOD(mod_instr body)         -- C register (UTC / WTC)
+        | IBranch(branch_instr body)   -- control flow
+        | IExtra(extra_instr body)     -- extracodes
+        | ILabel(string name)          -- assembly label definition
+        | IName(string name)           -- ,NAME, directive (subprogram name)
+        | IRel                         -- ,REL, directive (relocatable basing)
+        | ICall(string name)           -- ,CALL, name (declare external ref.)
+        | IEntry(string name)          -- ,ENTRY, name (export as global symbol)
+        | IEnd                         -- ,END, directive (end of subprogram)
 
   -- =========================================================
   -- Code structure
