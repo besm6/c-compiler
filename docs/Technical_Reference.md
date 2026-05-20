@@ -7,13 +7,17 @@ This document lists repository layout, build details, components, tests, and dev
 ```
 c-compiler/
 ├── ast/            # AST: types, alloc, import/export, YAML, Graphviz, print, clone, compare, free
+├── backend/
+│   ├── besm6/      # BESM-6 IR (besm.h, besm6.asdl), Madlen emitter, tests
+│   ├── x86/        # x86_64 backend (planned; x86_64.asdl, TODO.md)
+│   └── ...         # aarch64/, arm32/, riscv/ — ISA ASDL specs
 ├── docs/           # Project documentation (this file)
 ├── grammar/        # C11 Yacc/Lex/ASDL reference; see docs/C_Grammar.md
 ├── libutil/        # xalloc, wio, string_map
 ├── parser/         # Recursive-descent parser, nametab; parse driver
 ├── scanner/        # Hand-written lexer
 ├── scripts/        # googletest.xml (cppcheck), validate_asdl.py
-├── semantic/       # symtab, structtab, typetab, typecheck, label_loops, const_convert
+├── semantic/       # symtab, structtab, typetab, typecheck, label_loops, const_convert, target
 ├── tac/            # TAC IR: alloc, print, free, compare, export/import, YAML, Graphviz
 ├── translator/     # AST→TAC lowering (translate, expr, stmt); lower driver
 ├── CMakeLists.txt  # Root CMake project (project name: c-scanner)
@@ -111,11 +115,12 @@ AST values are implemented in C (`ast.h` and companion `.c` files). Binary seria
 | `label_loops.c` | Annotates loop/switch statements with break/continue jump targets |
 | `type_utils.c` | Type helpers: `get_size`, `get_alignment`, `is_integer`, etc. |
 | `const_convert.c` | Constant-expression evaluation and conversion |
+| `target.c`, `target.h` | Target architecture parameterization (type sizes, alignment) |
 | `symtab_print.c` | Debug printer for symtab entries |
 | `structtab_print.c` | Debug printer for structtab entries |
 | `typetab_print.c` | Debug printer for typetab entries |
 
-Tests (9 files): `symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `typecheck_real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` → `semantic-tests`.
+Tests (9 files): `symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` → `semantic-tests`.
 
 ### Translator (`translator/`)
 
@@ -139,8 +144,22 @@ Tests: `decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `
 | `tac_print.c` | Human-readable TAC printing |
 | `tac_compare.c` | Structural comparison |
 | `tac_export.c`, `tac_import.c` | Binary wire format (read/write via `wio`) |
+| `tags.h` | 4-letter ASCII tag constants for binary wire format (`TAC2`) |
 | `tac_yaml.c` | YAML listing (debug/test; not re-importable) |
 | `tac_graphviz.c` | Graphviz DOT output |
+
+### BESM-6 backend (`backend/besm6/`)
+
+| File | Role |
+|------|------|
+| `besm6.asdl` | Canonical ISA description: instructions, addressing modes, calling conventions |
+| `besm.h` | C structs for BESM-6 IR (`Besm_Module`, `Besm_Func`, `Besm_Block`, `Besm_Instr`, `Besm_DataSection`, `Besm_DataItem`) |
+| `besm_alloc.c` | Allocation functions (`besm_new_*`) |
+| `besm_free.c` | Deallocation functions (`besm_free_*`) |
+| `besm_madlen.c` | Madlen assembly emitter (`emit_madlen_module`, `emit_madlen_func`, etc.) |
+| `madlen_tests.cpp` | GoogleTest suite (`besm-tests`) |
+
+IR hierarchy: `Besm_Module` → `Besm_Func` (calling convention: `BESM6_C` or `INTERNAL`) → `Besm_Block` → `Besm_Instr` (8 instruction categories: mem, arith, log, exp, reg, mod, branch, extra). Data lives in `Besm_DataSection` → `Besm_DataItem` (8 kinds: Int, Real, Oct, Log, Bss, Equ, Ref, String).
 
 ### TAC YAML format
 
@@ -192,8 +211,9 @@ name: x
 
 kind: constant
 const:
-  kind: int      # int | long | long_long | uint | ulong | ulong_long | double | char | uchar
-  value: 42      # double uses %a (hex float) format
+  kind: int      # int | long | long_long | uint | ulong | ulong_long
+                 # | char | uchar | float | double | long_double
+  value: 42      # float/double/long_double use %a (hex float) format
 ```
 
 **Instructions** (all have `- instruction:` header; fields follow at +2 indent)
@@ -230,7 +250,7 @@ Binary ops: `add`, `subtract`, `multiply`, `divide`, `remainder`, `equal`, `not_
 
 ```yaml
 kind: int | uint | long | ulong | long_long | ulong_long
-     | char | schar | uchar | short | ushort | float | double | void
+     | char | schar | uchar | short | ushort | float | double | long_double | void
 
 kind: pointer
 target:
@@ -256,9 +276,11 @@ tag: MyStruct
 
 | `kind:` | Fields |
 |---------|--------|
-| `i8` / `i32` / `i64` | `value:` (signed) |
-| `u8` / `u32` / `u64` | `value:` (unsigned) |
+| `i8` / `i16` / `i32` / `i64` | `value:` (signed) |
+| `u8` / `u16` / `u32` / `u64` | `value:` (unsigned) |
+| `float` | `value:` (hex float) |
 | `double` | `value:` (hex float) |
+| `long_double` | `value:` (hex float) |
 | `zero` | `bytes: N` |
 | `string` | `value:` `null_terminated: true\|false` |
 | `pointer` | `name:` |
@@ -299,6 +321,8 @@ Common build types: `Debug`, `RelWithDebInfo`, `Release`.
 
 The `.asdl` files (`ast/ast.asdl`, `tac/tacky.asdl`, `grammar/c11.asdl`) describe the intended shape of the AST and TAC. The **CMake build does not generate C headers from ASDL**; `ast.h` and `tac.h` are maintained manually to match those specs. Use `scripts/validate_asdl.py` if you change ASDL and want a quick parse check.
 
+Backend ISA descriptions (`backend/besm6/besm6.asdl`, `backend/x86/x86_64.asdl`, and others under `backend/`) follow the same pattern — canonical specs maintained in sync with the hand-written C headers (`besm.h`, etc.).
+
 ## Testing
 
 Run all tests:
@@ -317,8 +341,9 @@ Test executables and their sources:
 | `parser-tests` | `parser/simple_tests.cpp`, …, `serialize_tests.cpp` (9 files) |
 | `ast-tests` | `ast/clone_tests.cpp` |
 | `libutil-tests` | `libutil/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` |
-| `tac-tests` | `tac/tac_yaml_tests.cpp`, `tac_graphviz_tests.cpp`, `tac_binary_tests.cpp` |
-| `semantic-tests` | `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `typecheck_real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` |
+| `tac-tests` | `tac/yaml_tests.cpp`, `graphviz_tests.cpp`, `binary_tests.cpp` |
+| `semantic-tests` | `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` |
+| `besm-tests` | `backend/besm6/madlen_tests.cpp` |
 | `translate-tests` | `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` |
 
 Run a single binary from `build/`:
@@ -331,6 +356,7 @@ Run a single binary from `build/`:
 ./build/tac/tac-tests
 ./build/semantic/semantic-tests
 ./build/translator/translate-tests
+./build/backend/besm6/besm-tests
 ```
 
 ## Development notes
