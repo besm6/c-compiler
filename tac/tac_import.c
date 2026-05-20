@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "tac.h"
+#include "tags.h"
 #include "wio.h"
 #include "xalloc.h"
 
@@ -20,13 +21,11 @@ static void check_input(const WFILE *in, const char *ctx)
 
 static Tac_Const *import_const(WFILE *in)
 {
-    size_t present = wgetw(in);
-    check_input(in, "const present");
-    if (!present)
+    size_t tag = wgetw(in);
+    check_input(in, "const tag");
+    if (tag < TAG_TAC_CONST || tag > TAG_TAC_CONST + TAC_CONST_UCHAR)
         return NULL;
-    size_t kind = wgetw(in);
-    check_input(in, "const kind");
-    Tac_Const *c = tac_new_const((Tac_ConstKind)kind);
+    Tac_Const *c = tac_new_const((Tac_ConstKind)(tag - TAG_TAC_CONST));
     switch (c->kind) {
     case TAC_CONST_INT:
         c->u.int_val = (int)wgetw(in);
@@ -80,13 +79,11 @@ static Tac_Const *import_const(WFILE *in)
 
 static Tac_Val *import_val(WFILE *in)
 {
-    size_t present = wgetw(in);
-    check_input(in, "val present");
-    if (!present)
+    size_t tag = wgetw(in);
+    check_input(in, "val tag");
+    if (tag < TAG_TAC_VAL || tag > TAG_TAC_VAL + TAC_VAL_VAR)
         return NULL;
-    size_t kind = wgetw(in);
-    check_input(in, "val kind");
-    Tac_Val *v = tac_new_val((Tac_ValKind)kind);
+    Tac_Val *v = tac_new_val((Tac_ValKind)(tag - TAG_TAC_VAL));
     if (v->kind == TAC_VAL_CONSTANT) {
         v->u.constant = import_const(in);
     } else {
@@ -101,13 +98,11 @@ static Tac_Type *import_type(WFILE *in);
 
 static Tac_Type *import_type(WFILE *in)
 {
-    size_t present = wgetw(in);
-    check_input(in, "type present");
-    if (!present)
+    size_t tag = wgetw(in);
+    check_input(in, "type tag");
+    if (tag < TAG_TAC_TYPE || tag > TAG_TAC_TYPE + TAC_TYPE_STRUCTURE)
         return NULL;
-    size_t kind = wgetw(in);
-    check_input(in, "type kind");
-    Tac_Type *t = tac_new_type((Tac_TypeKind)kind);
+    Tac_Type *t = tac_new_type((Tac_TypeKind)(tag - TAG_TAC_TYPE));
     switch (t->kind) {
     case TAC_TYPE_CHAR:
     case TAC_TYPE_SCHAR:
@@ -150,13 +145,11 @@ static Tac_Type *import_type(WFILE *in)
 
 static Tac_StaticInit *import_static_init(WFILE *in)
 {
-    size_t present = wgetw(in);
-    check_input(in, "static_init present");
-    if (!present)
+    size_t tag = wgetw(in);
+    check_input(in, "static_init tag");
+    if (tag < TAG_TAC_STATIC_INIT || tag > TAG_TAC_STATIC_INIT + TAC_STATIC_INIT_POINTER)
         return NULL;
-    size_t kind = wgetw(in);
-    check_input(in, "static_init kind");
-    Tac_StaticInit *si = tac_new_static_init((Tac_StaticInitKind)kind);
+    Tac_StaticInit *si = tac_new_static_init((Tac_StaticInitKind)(tag - TAG_TAC_STATIC_INIT));
     switch (si->kind) {
     case TAC_STATIC_INIT_I8:
         si->u.char_val = (int8_t)wgetw(in);
@@ -225,9 +218,9 @@ static Tac_StaticInit *import_static_init(WFILE *in)
 
 static Tac_Param *import_param(WFILE *in)
 {
-    size_t present = wgetw(in);
-    check_input(in, "param present");
-    if (!present)
+    size_t tag = wgetw(in);
+    check_input(in, "param tag");
+    if (tag != TAG_TAC_PARAM)
         return NULL;
     Tac_Param *p = tac_new_param();
     p->name      = wgetstr(in);
@@ -238,13 +231,11 @@ static Tac_Param *import_param(WFILE *in)
 
 static Tac_Instruction *import_instr(WFILE *in)
 {
-    size_t present = wgetw(in);
-    check_input(in, "instr present");
-    if (!present)
+    size_t tag = wgetw(in);
+    check_input(in, "instr tag");
+    if (tag < TAG_TAC_INSTR || tag > TAG_TAC_INSTR + TAC_INSTRUCTION_FUN_CALL)
         return NULL;
-    size_t kind = wgetw(in);
-    check_input(in, "instr kind");
-    Tac_Instruction *instr = tac_new_instruction((Tac_InstructionKind)kind);
+    Tac_Instruction *instr = tac_new_instruction((Tac_InstructionKind)(tag - TAG_TAC_INSTR));
     switch (instr->kind) {
     case TAC_INSTRUCTION_RETURN:
         instr->u.return_.src = import_val(in);
@@ -349,13 +340,11 @@ static Tac_Instruction *import_instr(WFILE *in)
 
 static Tac_TopLevel *import_toplevel(WFILE *in)
 {
-    size_t present = wgetw(in);
-    check_input(in, "toplevel present");
-    if (!present)
+    size_t tag = wgetw(in);
+    check_input(in, "toplevel tag");
+    if (tag < TAG_TAC_TOPLEVEL || tag > TAG_TAC_TOPLEVEL + TAC_TOPLEVEL_STATIC_CONSTANT)
         return NULL;
-    size_t kind = wgetw(in);
-    check_input(in, "toplevel kind");
-    Tac_TopLevel *tl = tac_new_toplevel((Tac_TopLevelKind)kind);
+    Tac_TopLevel *tl = tac_new_toplevel((Tac_TopLevelKind)(tag - TAG_TAC_TOPLEVEL));
     switch (tl->kind) {
     case TAC_TOPLEVEL_FUNCTION:
         tl->u.function.name = wgetstr(in);

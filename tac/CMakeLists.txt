@@ -18,9 +18,9 @@ target_link_libraries(tac libutil)
 # Tests for tac binary export/import, tac_yaml and tac_graphviz
 #
 add_executable(tac-tests EXCLUDE_FROM_ALL
-    tac_binary_tests.cpp
-    tac_yaml_tests.cpp
-    tac_graphviz_tests.cpp
+    binary_tests.cpp
+    yaml_tests.cpp
+    graphviz_tests.cpp
 )
 target_link_libraries(tac-tests tac GTest::gtest_main)
 gtest_discover_tests(tac-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

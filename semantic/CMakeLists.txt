@@ -29,7 +29,7 @@ add_executable(semantic-tests EXCLUDE_FROM_ALL
    structtab_tests.cpp
    typetab_tests.cpp
    typecheck_tests.cpp
-   typecheck_real_tests.cpp
+   real_tests.cpp
    pipeline_tests.cpp
    label_loops_tests.cpp
    const_convert_tests.cpp

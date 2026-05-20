@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
 #include "tac.h"
+#include "tags.h"
 #include "wio.h"
 
 int export_tac_debug;
@@ -11,11 +12,10 @@ static void export_static_init(WFILE *out, const Tac_StaticInit *si);
 static void export_const(WFILE *out, const Tac_Const *c)
 {
     if (!c) {
-        wputw(0, out);
+        wputw(TAG_EOL, out);
         return;
     }
-    wputw(1, out);
-    wputw((size_t)c->kind, out);
+    wputw(TAG_TAC_CONST + c->kind, out);
     switch (c->kind) {
     case TAC_CONST_INT:
         wputw((unsigned)c->u.int_val, out);
@@ -58,11 +58,10 @@ static void export_const(WFILE *out, const Tac_Const *c)
 static void export_val(WFILE *out, const Tac_Val *v)
 {
     if (!v) {
-        wputw(0, out);
+        wputw(TAG_EOL, out);
         return;
     }
-    wputw(1, out);
-    wputw((size_t)v->kind, out);
+    wputw(TAG_TAC_VAL + v->kind, out);
     if (v->kind == TAC_VAL_CONSTANT) {
         export_const(out, v->u.constant);
     } else {
@@ -74,11 +73,10 @@ static void export_val(WFILE *out, const Tac_Val *v)
 static void export_instr(WFILE *out, const Tac_Instruction *instr)
 {
     if (!instr) {
-        wputw(0, out);
+        wputw(TAG_EOL, out);
         return;
     }
-    wputw(1, out);
-    wputw((size_t)instr->kind, out);
+    wputw(TAG_TAC_INSTR + instr->kind, out);
     switch (instr->kind) {
     case TAC_INSTRUCTION_RETURN:
         export_val(out, instr->u.return_.src);
@@ -172,10 +170,10 @@ static void export_instr(WFILE *out, const Tac_Instruction *instr)
 static void export_param(WFILE *out, const Tac_Param *p)
 {
     if (!p) {
-        wputw(0, out);
+        wputw(TAG_EOL, out);
         return;
     }
-    wputw(1, out);
+    wputw(TAG_TAC_PARAM, out);
     wputstr(p->name ? p->name : "", out);
     export_param(out, p->next);
 }
@@ -188,11 +186,10 @@ void tac_export_begin_stream(WFILE *out)
 void tac_export_toplevel(WFILE *out, const Tac_TopLevel *tl)
 {
     if (!tl) {
-        wputw(0, out);
+        wputw(TAG_EOL, out);
         return;
     }
-    wputw(1, out);
-    wputw((size_t)tl->kind, out);
+    wputw(TAG_TAC_TOPLEVEL + tl->kind, out);
     switch (tl->kind) {
     case TAC_TOPLEVEL_FUNCTION:
         wputstr(tl->u.function.name ? tl->u.function.name : "", out);
@@ -218,18 +215,17 @@ void tac_export_toplevel(WFILE *out, const Tac_TopLevel *tl)
 
 void tac_export_end_stream(WFILE *out)
 {
-    wputw(0, out);
+    wputw(TAG_EOL, out);
     wflush(out);
 }
 
 static void export_type(WFILE *out, const Tac_Type *t)
 {
     if (!t) {
-        wputw(0, out);
+        wputw(TAG_EOL, out);
         return;
     }
-    wputw(1, out);
-    wputw((size_t)t->kind, out);
+    wputw(TAG_TAC_TYPE + t->kind, out);
     switch (t->kind) {
     case TAC_TYPE_CHAR:
     case TAC_TYPE_SCHAR:
@@ -270,11 +266,10 @@ static void export_type(WFILE *out, const Tac_Type *t)
 static void export_static_init(WFILE *out, const Tac_StaticInit *si)
 {
     if (!si) {
-        wputw(0, out);
+        wputw(TAG_EOL, out);
         return;
     }
-    wputw(1, out);
-    wputw((size_t)si->kind, out);
+    wputw(TAG_TAC_STATIC_INIT + si->kind, out);
     switch (si->kind) {
     case TAC_STATIC_INIT_I8:
         wputw((size_t)(unsigned char)si->u.char_val, out);

@@ -480,7 +480,7 @@ bool tac_compare_program(const Tac_Program *a, const Tac_Program *b);
 //
 typedef struct _wfile WFILE;
 
-#define TAC_TAG_STREAM 0x54414331u /* 'TAC1' */
+#define TAC_TAG_STREAM 0x54414332u /* 'TAC2' */
 
 void tac_export_begin_stream(WFILE *out);
 void tac_export_toplevel(WFILE *out, const Tac_TopLevel *tl);
