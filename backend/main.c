@@ -6,6 +6,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "codegen.h"
 #include "tac.h"
 #include "wio.h"
 #include "xalloc.h"
@@ -182,7 +183,7 @@ void process_file(const Args *args)
         }
 
         // Convert TAC to assembler.
-        //TODO: codegen(output_file, tac);
+        codegen_program(tac, output_file);
 
         tac_free_toplevel(tac);
     }

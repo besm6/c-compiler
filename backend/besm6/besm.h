@@ -380,6 +380,11 @@ void besm_free_data_section(Besm_DataSection *section);
 void besm_free_module(Besm_Module *module);
 
 //
+// Generate a unique internal label: writes "prefix.N" into buf (N auto-increments).
+//
+void mad_fresh_label(char *buf, size_t n, const char *prefix);
+
+//
 // Emit Madlen assembly
 //
 void emit_madlen_instr(FILE *out, const Besm_Instr *instr);

@@ -3,6 +3,12 @@
 
 #include "besm.h"
 
+void mad_fresh_label(char *buf, size_t n, const char *prefix)
+{
+    static int counter = 0;
+    snprintf(buf, n, "%s.%d", prefix, counter++);
+}
+
 //
 // Fill buf with the address-field string for a mem_addr.
 // The reg field is emitted separately into the M column; only the offset/name
