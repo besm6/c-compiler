@@ -54,7 +54,7 @@ add_subdirectory(parser)
 add_subdirectory(tac)
 add_subdirectory(semantic)
 add_subdirectory(translator)
-add_subdirectory(backend/besm6)
+add_subdirectory(backend)
 
 add_custom_target(build_tests
     DEPENDS

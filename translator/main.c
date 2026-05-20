@@ -270,7 +270,6 @@ void process_file(const Args *args)
             fprintf(stderr, "Cannot reopen output file\n");
             exit(1);
         }
-        tac_export_begin_stream(&tac_out);
         tac_out_ready = 1;
     }
 

@@ -1,0 +1,233 @@
+#include <fcntl.h>
+#include <getopt.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include "tac.h"
+#include "wio.h"
+#include "xalloc.h"
+
+#ifndef STDOUT_FILENO
+#define STDOUT_FILENO 1
+#endif
+
+static FILE *output_file;
+
+//
+// Structure to hold parsed arguments
+//
+typedef struct {
+    int verbose;            // -v or --verbose
+    int help;               // -h or --help
+    int debug;              // -D or --debug
+    char *input_file;       // Input filename
+    char *output_file;      // Output filename (optional)
+} Args;
+
+//
+// Function to print usage information
+//
+static void print_usage(const char *prog_name)
+{
+    const char *p = strrchr(prog_name, '/');
+    if (p) {
+        prog_name = p + 1;
+    }
+    fprintf(stderr, "Usage:\n");
+    fprintf(stderr, "    %s [options] input-filename [output-filename]\n", prog_name);
+    fprintf(stderr, "Options:\n");
+    fprintf(stderr, "    -v, --verbose       Enable verbose mode\n");
+    fprintf(stderr, "    -D, --debug         Print debug information\n");
+    fprintf(stderr, "    -h, --help          Show this help message\n");
+}
+
+//
+// Initialize Args structure with default values
+//
+static void init_args(Args *args)
+{
+    args->verbose      = 0;
+    args->help         = 0;
+    args->debug        = 0;
+    args->input_file   = NULL;
+    args->output_file  = NULL;
+}
+
+//
+// Generate output filename from input filename
+//
+static char *generate_output_filename(const char *input_file)
+{
+    // Find the last '.' in input_file to replace extension
+    const char *ext     = strrchr(input_file, '.');
+    size_t base_len     = ext ? (size_t)(ext - input_file) : strlen(input_file);
+    const char *new_ext = ".mad";
+    size_t new_ext_len  = strlen(new_ext);
+
+    // Allocate memory for new filename
+    char *filename = malloc(base_len + new_ext_len + 1);
+    if (!filename) {
+        fprintf(stderr, "Error: Memory allocation failed for output filename\n");
+        return NULL;
+    }
+
+    // Copy base name and append new extension
+    strncpy(filename, input_file, base_len);
+    strcpy(filename + base_len, new_ext);
+    return filename;
+}
+
+//
+// Parse command-line arguments using getopt_long
+//
+static int parse_args(int argc, char *argv[], Args *args)
+{
+    static struct option long_options[] = {
+        { "verbose", no_argument,       0, 'v' }, //
+        { "help",    no_argument,       0, 'h' }, //
+        { "debug",   no_argument,       0, 'D' }, //
+        {},                                       //
+    };
+
+    int opt;
+    int option_index = 0;
+
+    if (argc < 2) {
+        // Show usage.
+        args->help = 1;
+        return 0;
+    }
+    while ((opt = getopt_long(argc, argv, "vhDt:", long_options, &option_index)) != -1) {
+        switch (opt) {
+        case 'v':
+            args->verbose = 1;
+            break;
+        case 'h':
+            args->help = 1;
+            return 0;
+        case 'D':
+            args->debug = 1;
+            break;
+        case '?': // Unknown option
+            return -1;
+        }
+    }
+
+    // Check for input filename (required)
+    if (optind < argc) {
+        args->input_file = argv[optind++];
+    } else {
+        fprintf(stderr, "Error: Input filename is required\n");
+        return -1;
+    }
+
+    // Check for output filename (optional)
+    if (optind < argc) {
+        args->output_file = argv[optind];
+    } else {
+        // Generate output filename based on input
+        args->output_file = generate_output_filename(args->input_file);
+        if (!args->output_file) {
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+static void open_output(const Args *args)
+{
+    output_file = stdout;
+    if (args->output_file[0] != '-') {
+        output_file = fopen(args->output_file, "w");
+    }
+}
+
+static void close_output(const Args *args)
+{
+    if (output_file != stdout) {
+        fclose(output_file);
+    }
+}
+
+//
+// Main processing function
+//
+void process_file(const Args *args)
+{
+    if (args->verbose) {
+        printf("Processing %s in verbose mode\n", args->input_file);
+    }
+    if (args->debug) {
+        printf("Debug: Input = %s, Output = %s\n", args->input_file, args->output_file);
+        //import_debug     = 1;
+        //export_debug     = 1;
+        //wio_debug        = 1;
+        //xalloc_debug     = 1;
+    }
+    open_output(args);
+
+    WFILE input;
+    wopen(&input, args->input_file, "r");
+
+    for (;;) {
+        Tac_TopLevel *tac = tac_import_toplevel(&input);
+        if (!tac)
+            break;
+        if (args->debug) {
+            tac_print_toplevel(stdout, tac, 0);
+        }
+
+        // Convert TAC to assembler.
+        //TODO: codegen(output_file, tac);
+
+        tac_free_toplevel(tac);
+    }
+    wclose(&input);
+    close_output(args);
+
+    if (args->debug) {
+        xreport_lost_memory();
+    }
+    xfree_all();
+}
+
+//
+// Error handling
+//
+void _Noreturn fatal_error(const char *message, ...)
+{
+    fprintf(stderr, "Fatal error: ");
+
+    va_list ap;
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    va_end(ap);
+
+    fprintf(stderr, "\n");
+    exit(1);
+}
+
+int main(int argc, char *argv[])
+{
+    Args args;
+    init_args(&args);
+
+    if (parse_args(argc, argv, &args) != 0) {
+        print_usage(argv[0]);
+        return 1;
+    }
+
+    if (args.help) {
+        print_usage(argv[0]);
+        return 0;
+    }
+
+    // Pass args to backend for processing
+    process_file(&args);
+
+    return 0;
+}

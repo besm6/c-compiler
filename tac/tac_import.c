@@ -338,12 +338,17 @@ static Tac_Instruction *import_instr(WFILE *in)
     return instr;
 }
 
-static Tac_TopLevel *import_toplevel(WFILE *in)
+Tac_TopLevel *tac_import_toplevel(WFILE *in)
 {
     size_t tag = wgetw(in);
     check_input(in, "toplevel tag");
-    if (tag < TAG_TAC_TOPLEVEL || tag > TAG_TAC_TOPLEVEL + TAC_TOPLEVEL_STATIC_CONSTANT)
+    if (tag == TAG_EOL) {
         return NULL;
+    }
+    if (tag < TAG_TAC_TOPLEVEL || tag > TAG_TAC_TOPLEVEL + TAC_TOPLEVEL_STATIC_CONSTANT) {
+        fprintf(stderr, "Error: bad TAC tag 0x%zx (expected 0x%x)\n", tag, TAG_TAC_TOPLEVEL);
+        return NULL;
+    }
     Tac_TopLevel *tl = tac_new_toplevel((Tac_TopLevelKind)(tag - TAG_TAC_TOPLEVEL));
     switch (tl->kind) {
     case TAC_TOPLEVEL_FUNCTION:
@@ -371,20 +376,16 @@ static Tac_TopLevel *import_toplevel(WFILE *in)
     default:
         break;
     }
-    tl->next = import_toplevel(in);
     return tl;
 }
 
 Tac_Program *tac_import_program(WFILE *in)
 {
-    size_t magic = wgetw(in);
-    check_input(in, "stream magic");
-    if (magic != TAC_TAG_STREAM) {
-        fprintf(stderr, "Error: bad TAC stream magic 0x%zx (expected 0x%x)\n", magic,
-                TAC_TAG_STREAM);
-        exit(1);
-    }
     Tac_Program *prog = tac_new_program();
-    prog->decls       = import_toplevel(in);
+    for (Tac_TopLevel **p = &prog->decls; ; p = &(*p)->next) {
+        *p = tac_import_toplevel(in);
+        if (*p == NULL)
+            break;
+    }
     return prog;
 }

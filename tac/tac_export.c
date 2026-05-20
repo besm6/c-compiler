@@ -178,11 +178,6 @@ static void export_param(WFILE *out, const Tac_Param *p)
     export_param(out, p->next);
 }
 
-void tac_export_begin_stream(WFILE *out)
-{
-    wputw(TAC_TAG_STREAM, out);
-}
-
 void tac_export_toplevel(WFILE *out, const Tac_TopLevel *tl)
 {
     if (!tl) {
@@ -322,7 +317,6 @@ static void export_static_init(WFILE *out, const Tac_StaticInit *si)
 
 void tac_export_program(WFILE *out, const Tac_Program *prog)
 {
-    tac_export_begin_stream(out);
     if (prog) {
         for (const Tac_TopLevel *tl = prog->decls; tl; tl = tl->next)
             tac_export_toplevel(out, tl);
