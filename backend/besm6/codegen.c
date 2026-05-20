@@ -65,17 +65,6 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
     Besm_Instr *iname = emit(block, &tail, BESM_INSTR_NAME);
     iname->u.name     = xstrdup(name);
 
-    emit(block, &tail, BESM_INSTR_REL);
-
-    Besm_Instr *csave = emit(block, &tail, BESM_INSTR_CALL);
-    csave->u.name     = xstrdup("c/save");
-
-    Besm_Instr *cret = emit(block, &tail, BESM_INSTR_CALL);
-    cret->u.name     = xstrdup("c/ret");
-
-    // Build frame map (params → REG_PAR slots, temporaries → REG_AUTO slots).
-    Frame *f = frame_build(tl);
-
     // Prologue: push last argument + capture return address, then call c/save,
     // then extend the stack by the number of auto-variable slots.
     Besm_Instr *its13          = emit(block, &tail, BESM_INSTR_MEM);
@@ -88,6 +77,8 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
     vjm_csave->u.branch.u.jump.tgt.kind               = BESM_TARGET_LABEL;
     vjm_csave->u.branch.u.jump.tgt.u.name             = xstrdup("c/save");
 
+    // Build frame map (params → REG_PAR slots, temporaries → REG_AUTO slots).
+    Frame *f      = frame_build(tl);
     int num_autos = frame_num_autos(f);
     if (num_autos > 0) {
         Besm_Instr *utm_sp               = emit(block, &tail, BESM_INSTR_REG);
