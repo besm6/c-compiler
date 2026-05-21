@@ -18,7 +18,7 @@ the mnemonic is between the two commas; the address follows the second comma.
 
 | Register | Role |
 |----------|------|
-| r13 | Return address — set by `13 ,VJM, fun` on each call |
+| r13 | Return address — set by `,CALL, fun` on each call |
 | r14 | Negative argument count — set by caller |
 | r15 | Stack pointer — grows toward higher addresses |
 | r6 | Parameter pointer — set by `b/save`; `r6+i` = param[i] |
@@ -26,8 +26,8 @@ the mnemonic is between the two commas; the address follows the second comma.
 | r1–r7 | Callee-saved |
 
 Caller pushes arguments in direct order with `XTA`/`XTS` (last arg stays in A), sets
-`14 ,VTM, -N`, then calls `13 ,VJM, fun`.  Every callee starts with `,ITS, 13` (push last
-arg, load r13) then `13 ,VJM, b/save` (saves r13/r7/r6, sets r6 and r7).  Return value goes
+`14 ,VTM, -N`, then calls `,CALL, fun`.  Every callee starts with `,ITS, 13` (push last
+arg, load r13) then `,CALL, b/save` (saves r13/r7/r6, sets r6 and r7).  Return value goes
 in A; epilogue is `,UJ, b/ret`.  Reading address 0 yields 0 — an architectural guarantee of
 the BESM-6/Dubna system; no `__zero` constant is needed.
 
@@ -51,7 +51,7 @@ register.  The pattern is: load from frame → operate → store to frame.
 | 25 | Floating-point arithmetic | FP Add/Subtract/Multiply/Divide map directly to `A+X`, `A-X`, `A*X`, `A/X`. No `NTR` needed. FP comparisons: `A-X` sets ω=Additive; `U1A` branches if A<0. FP negate: `,X-A, 0` (mem[0] = 0.0 in FP). | M |
 | 26 | Type conversions | **Truncate**: `6\|7 ,XTA, src` / `,AAX, __maskN` (AND with N-bit mask). **ZeroExtend**: same with target-width mask. **SignExtend**: mask, test sign bit, OR fill if negative. **IntToDouble**: INT word is already valid BESM-6 FP; `,A+X, 0` forces normalization. **DoubleToInt**: runtime `b/dtoi` (extract exponent, shift mantissa by 104−exp via `ASN`). UInt variants handle sign bit specially. | L |
 | 27 | Label, Jump, JumpIfZero, JumpIfNotZero | **Label**: buffer; prepend to next emitted instruction. **Jump**: `,UJ, target`. **JumpIfZero**: `6\|7 ,XTA, cond` (sets ω=Logical) / `,UZA, target`. **JumpIfNotZero**: same with `,U1A,`. No `NTR` needed; `XTA` sets logical ω mode automatically. | S |
-| 28 | FunCall and Return | **Call** (N args): load arg0 with `XTA`; push args 1..N−1 with `6\|7 ,XTS, off` (XTS pushes A then loads next); `14 ,VTM, -N`; `13 ,VJM, fun`. N=0: `14 ,VTM, 0` + `13 ,VJM, fun`. Result in A; store with `6\|7 ,ATX, dst`. **Callee prologue**: `,ITS, 13` / `13 ,VJM, b/save` / `15 ,UTM, L`. **Epilogue**: load result; `,UJ, b/ret`. Declare externals with `,SUBP, name`. | L |
+| 28 | FunCall and Return | **Call** (N args): load arg0 with `XTA`; push args 1..N−1 with `6\|7 ,XTS, off` (XTS pushes A then loads next); `14 ,VTM, -N`; `,CALL, fun`. N=0: `14 ,VTM, 0` + `,CALL, fun`. Result in A; store with `6\|7 ,ATX, dst`. **Callee prologue**: `,ITS, 13` / `,CALL, b/save` / `15 ,UTM, L`. **Epilogue**: load result; `,UJ, b/ret`. Declare externals with `,SUBP, name`. | L |
 | 29 | AddPtr, CopyToOffset, CopyFromOffset | **AddPtr**: for power-of-2 scale k, `,ASN, (64-k)B` on index; `,NTR, 001B` + `6\|7 ,A+X, ptr`. Non-power: call `b/imul`. **CopyToOffset/FromOffset**: `7 ,MTJ, 1` + `1 ,UTM, base_off` + `1 ,UTM, field_off`; then `1 ,ATX\|XTA, 0` for write/read. | M |
 
 ---
@@ -71,7 +71,7 @@ register.  The pattern is: load from frame → operate → store to frame.
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
 | 33 | Runtime helpers (`backend/besm6/runtime.mad`) | Implement in Madlen using the standard C calling convention: `b/save` and `b/ret` (context save/restore per calling convention); `b/idiv` (truncated signed divide); `b/imod` (remainder); `b/imul` (for non-constant-scale use); `b/udiv`, `b/umod`, `b/ucmp` (unsigned variants); `b/dtoi` (double-to-integer). Also define constants: `__one : ,INT, 1`; `__allones : ,OCT, 7777777777777777`; truncation masks `__mask8 : ,INT, 255`, `__mask16 : ,INT, 65535`. No `__zero` needed — use `,XTA, 0`. | L |
-| 34 | Program entry point (`backend/besm6/startup.mad`) | Emit the `main` subprogram that calls the C-compiled `b/main`: set r14=0, `13 ,VJM, b/main`, then `,STOP,`. Declare `b/main` external with `,SUBP,`. Link `startup.mad` first so the Dubna loader finds the `main` entry point. | M |
+| 34 | Program entry point (`backend/besm6/startup.mad`) | Emit the `main` subprogram that calls the C-compiled `b/main`: set r14=0, `,CALL, b/main`, then `,STOP,`. Declare `b/main` external with `,SUBP,`. Link `startup.mad` first so the Dubna loader finds the `main` entry point. | M |
 
 ---
 

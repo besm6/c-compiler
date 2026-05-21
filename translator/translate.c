@@ -438,11 +438,7 @@ static Tac_TopLevel *translate_decl(const Declaration *decl)
         Tac_TopLevel *tl;
 
         if (id->type->kind == TYPE_FUNCTION) {
-            tl                    = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
-            tl->u.function.name   = xstrdup(id->name);
-            tl->u.function.global = sym->u.func.global;
-            tl->u.function.params = params_from_type(id->type);
-            // body stays NULL — this is a prototype
+            continue; // prototype — no TAC needed
         } else {
             tl                              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
             tl->u.static_variable.name      = xstrdup(id->name);

@@ -132,13 +132,17 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
     besm_free_module(module);
 }
 
-// Phase B stubs — one per TAC instruction kind.
 static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
                           Besm_Block *block, Besm_Instr **tail)
 {
     (void)f;
-    (void)block;
-    (void)tail;
-
-    fatal_error("TODO: codegen for TAC instruction kind %d (Phase B)", (int)instr->kind);
+    switch (instr->kind) {
+    case TAC_INSTRUCTION_FUN_CALL: {
+        Besm_Instr *call = emit(block, tail, BESM_INSTR_CALL);
+        call->u.name     = xstrdup(instr->u.fun_call.fun_name);
+        break;
+    }
+    default:
+        fatal_error("TODO: codegen for TAC instruction kind %d (Phase B)", (int)instr->kind);
+    }
 }

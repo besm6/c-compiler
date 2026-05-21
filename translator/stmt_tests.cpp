@@ -98,10 +98,6 @@ TEST_F(TranslateTest, CallVoidNoArgs)
     std::string yaml = CompileToYaml("void g(void); void f(void) { g(); }");
     EXPECT_EQ(yaml, R"(- toplevel:
   kind: function
-  name: g
-  global: true
-- toplevel:
-  kind: function
   name: f
   global: true
   body:
@@ -116,10 +112,6 @@ TEST_F(TranslateTest, CallReturningInt)
 {
     std::string yaml = CompileToYaml("int g(void); int f(void) { return g(); }");
     EXPECT_EQ(yaml, R"(- toplevel:
-  kind: function
-  name: g
-  global: true
-- toplevel:
   kind: function
   name: f
   global: true
@@ -143,13 +135,6 @@ TEST_F(TranslateTest, CallWithArgs)
 {
     std::string yaml = CompileToYaml("int add(int a, int b); int f(void) { return add(1, 2); }");
     EXPECT_EQ(yaml, R"(- toplevel:
-  kind: function
-  name: add
-  global: true
-  params:
-    - param: a
-    - param: b
-- toplevel:
   kind: function
   name: f
   global: true
@@ -184,10 +169,6 @@ TEST_F(TranslateTest, CallResultInExpression)
 {
     std::string yaml = CompileToYaml("int g(void); int f(void) { return g() + 1; }");
     EXPECT_EQ(yaml, R"(- toplevel:
-  kind: function
-  name: g
-  global: true
-- toplevel:
   kind: function
   name: f
   global: true

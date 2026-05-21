@@ -500,31 +500,6 @@ TEST_F(TranslateTest, GlobalVarExternIncompleteArray)
 )");
 }
 
-// Function prototype emits TAC_TOPLEVEL_FUNCTION with params but no body.
-TEST_F(TranslateTest, FunctionPrototype)
-{
-    std::string yaml = CompileToYaml("int foo(int a, int b);");
-    EXPECT_EQ(yaml, R"(- toplevel:
-  kind: function
-  name: foo
-  global: true
-  params:
-    - param: a
-    - param: b
-)");
-}
-
-// Static void prototype: global=false, no params (void sentinel stripped), no body.
-TEST_F(TranslateTest, FunctionPrototypeStatic)
-{
-    std::string yaml = CompileToYaml("static void bar(void);");
-    EXPECT_EQ(yaml, R"(- toplevel:
-  kind: function
-  name: bar
-  global: false
-)");
-}
-
 // Multi-declarator global declaration emits one static_variable per declarator.
 TEST_F(TranslateTest, GlobalVarMultiDeclarator)
 {

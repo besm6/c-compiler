@@ -65,6 +65,10 @@ protected:
         EXPECT_NE(nullptr, f);
         codegen_program(tl, f);
         long len = ftell(f);
+        if (len == 0) {
+            fclose(f);
+            return {};
+        }
         rewind(f);
         std::string result(static_cast<size_t>(len), '\0');
         EXPECT_TRUE(fread(&result[0], 1, static_cast<size_t>(len), f));

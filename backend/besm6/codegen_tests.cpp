@@ -243,7 +243,7 @@ TEST_F(CodegenTest, EmptyFunctionVariadic)
 )", output);
 }
 
-TEST_F(CodegenTest, DISABLED_CallOkno)
+TEST_F(CodegenTest, CallOkno)
 {
     std::string output = CompileToMadlen("void OKHO(void); void foo() { OKHO(); }");
     EXPECT_EQ(R"(c Module: foo
