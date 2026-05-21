@@ -36,6 +36,33 @@ static Besm_Instr *emit(Besm_Block *block, Besm_Instr **tail, Besm_InstrKind kin
     return i;
 }
 
+// Emit XTA: A = mem[reg + off].
+static void emit_xta(Besm_Block *b, Besm_Instr **t, int reg, int off)
+{
+    Besm_Instr *i            = emit(b, t, BESM_INSTR_MEM);
+    i->u.mem.kind            = BESM_MEM_XTA;
+    i->u.mem.u.addr.kind     = BESM_MEM_ADDR_REG;
+    i->u.mem.u.addr.reg.num  = reg;
+    i->u.mem.u.addr.u.offset = off;
+}
+
+// Emit ATX: mem[reg + off] = A.
+static void emit_atx(Besm_Block *b, Besm_Instr **t, int reg, int off)
+{
+    Besm_Instr *i            = emit(b, t, BESM_INSTR_MEM);
+    i->u.mem.kind            = BESM_MEM_ATX;
+    i->u.mem.u.addr.kind     = BESM_MEM_ADDR_REG;
+    i->u.mem.u.addr.reg.num  = reg;
+    i->u.mem.u.addr.u.offset = off;
+}
+
+// Frame lookup with fatal_error on miss.
+static void lookup(const Frame *f, const char *name, int *reg, int *off)
+{
+    if (!frame_lookup(f, name, reg, off))
+        fatal_error("variable '%s' not in frame", name);
+}
+
 void codegen_program(const Tac_TopLevel *tl, FILE *out)
 {
     switch (tl->kind) {
@@ -135,8 +162,64 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
 static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
                           Besm_Block *block, Besm_Instr **tail)
 {
-    (void)f;
     switch (instr->kind) {
+    case TAC_INSTRUCTION_COPY: {
+        const Tac_Val *src = instr->u.copy.src;
+        const Tac_Val *dst = instr->u.copy.dst;
+        if (src->kind != TAC_VAL_VAR)
+            fatal_error("TODO: COPY from constant (Phase B task 21)");
+        int sr, so, dr, doff;
+        lookup(f, src->u.var_name, &sr, &so);
+        lookup(f, dst->u.var_name, &dr, &doff);
+        emit_xta(block, tail, sr, so);
+        emit_atx(block, tail, dr, doff);
+        break;
+    }
+    case TAC_INSTRUCTION_GET_ADDRESS: {
+        int sr, so, dr, doff;
+        lookup(f, instr->u.get_address.src->u.var_name, &sr, &so);
+        lookup(f, instr->u.get_address.dst->u.var_name, &dr, &doff);
+        // reg_src ,MTJ, 1  →  M[1] = M[reg_src]  (copy base ptr to r1)
+        Besm_Instr *mtj          = emit(block, tail, BESM_INSTR_MEM);
+        mtj->u.mem.kind          = BESM_MEM_MTJ;
+        mtj->u.mem.u.mtj.src.num = sr;
+        mtj->u.mem.u.mtj.dst_j   = 1;
+        // 1 ,UTM, so  →  M[1] += so
+        Besm_Instr *utm          = emit(block, tail, BESM_INSTR_REG);
+        utm->u.reg.kind          = BESM_REG_UTM;
+        utm->u.reg.u.vtm.dst.num = 1;
+        utm->u.reg.u.vtm.value   = so;
+        // ,ITA, 1  →  A = M[1]
+        Besm_Instr *ita   = emit(block, tail, BESM_INSTR_MEM);
+        ita->u.mem.kind   = BESM_MEM_ITA;
+        ita->u.mem.u.ireg = 1;
+        emit_atx(block, tail, dr, doff);
+        break;
+    }
+    case TAC_INSTRUCTION_LOAD: {
+        int pr, po, dr, doff;
+        lookup(f, instr->u.load.src_ptr->u.var_name, &pr, &po);
+        lookup(f, instr->u.load.dst->u.var_name, &dr, &doff);
+        emit_xta(block, tail, pr, po);   // load pointer value into A
+        Besm_Instr *ati   = emit(block, tail, BESM_INSTR_MEM);
+        ati->u.mem.kind   = BESM_MEM_ATI;
+        ati->u.mem.u.ireg = 1;           // M[1] = A (pointer)
+        emit_xta(block, tail, 1, 0);     // A = mem[M[1]+0] = *ptr
+        emit_atx(block, tail, dr, doff);
+        break;
+    }
+    case TAC_INSTRUCTION_STORE: {
+        int pr, po, sr, so;
+        lookup(f, instr->u.store.dst_ptr->u.var_name, &pr, &po);
+        lookup(f, instr->u.store.src->u.var_name, &sr, &so);
+        emit_xta(block, tail, pr, po);   // load pointer into A
+        Besm_Instr *ati   = emit(block, tail, BESM_INSTR_MEM);
+        ati->u.mem.kind   = BESM_MEM_ATI;
+        ati->u.mem.u.ireg = 1;           // M[1] = A (pointer)
+        emit_xta(block, tail, sr, so);   // load source value into A
+        emit_atx(block, tail, 1, 0);     // mem[M[1]+0] = A = src
+        break;
+    }
     case TAC_INSTRUCTION_FUN_CALL: {
         Besm_Instr *call = emit(block, tail, BESM_INSTR_CALL);
         call->u.name     = xstrdup(instr->u.fun_call.fun_name);

@@ -256,3 +256,84 @@ TEST_F(CodegenTest, CallOkno)
              ,end,
 )", output);
 }
+
+TEST_F(CodegenTest, CopyParamToAuto)
+{
+    // copy a → b: src=param a@(6,0), dst=auto b@(7,0); num_autos=1
+    std::string output = CompileToMadlen("void foo(int a) { int b; b = a; }");
+    EXPECT_EQ(R"(c Module: foo
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+           7 ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, GetAddressAuto)
+{
+    // get_address a → t.0, copy t.0 → p
+    // autos: a@(7,0), t.0@(7,1), p@(7,2); num_autos=3
+    std::string output = CompileToMadlen("void foo(void) { int a; int *p = &a; }");
+    EXPECT_EQ(R"(c Module: foo
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 3
+           7 ,mtj, 1
+           1 ,utm,
+             ,ita, 1
+           7 ,atx, 1
+           7 ,xta, 1
+           7 ,atx, 2
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, StoreThroughPtr)
+{
+    // store src=a → dst_ptr=p: params p@(6,0), a@(6,1); num_autos=0
+    std::string output = CompileToMadlen("void foo(int *p, int a) { *p = a; }");
+    EXPECT_EQ(R"(c Module: foo
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,ati, 1
+           6 ,xta, 1
+           1 ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, LoadAndStoreThroughPtr)
+{
+    // load *p → t.0, store t.0 → *q
+    // params: p@(6,0), q@(6,1); auto: t.0@(7,0); num_autos=1
+    std::string output = CompileToMadlen("void foo(int *p, int *q) { *q = *p; }");
+    EXPECT_EQ(R"(c Module: foo
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,ati, 1
+           1 ,xta,
+           7 ,atx,
+           6 ,xta, 1
+             ,ati, 1
+           7 ,xta,
+           1 ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
