@@ -15,9 +15,9 @@ target_link_libraries(besm tac libutil)
 # Tests for the BESM-6 backend
 #
 add_executable(besm-tests
-    madlen_tests.cpp
+    label_tests.cpp
     frame_tests.cpp
     codegen_tests.cpp
 )
-target_link_libraries(besm-tests besm GTest::gtest_main)
+target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
 gtest_discover_tests(besm-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
