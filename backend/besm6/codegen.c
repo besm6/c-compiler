@@ -65,7 +65,7 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
     Besm_Instr *iname = emit(block, &tail, BESM_INSTR_NAME);
     iname->u.name     = xstrdup(name);
 
-    // Prologue: push last argument + capture return address, then call c/save,
+    // Prologue: push last argument + capture return address, then call b/save,
     // then extend the stack by the number of auto-variable slots.
     Besm_Instr *its13          = emit(block, &tail, BESM_INSTR_MEM);
     its13->u.mem.kind          = BESM_MEM_ITS;
@@ -75,7 +75,7 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
     vjm_csave->u.branch.kind                          = BESM_BRANCH_VJM;
     vjm_csave->u.branch.u.jump.reg.num                = REG_RET;
     vjm_csave->u.branch.u.jump.tgt.kind               = BESM_TARGET_LABEL;
-    vjm_csave->u.branch.u.jump.tgt.u.name             = xstrdup("c/save");
+    vjm_csave->u.branch.u.jump.tgt.u.name             = xstrdup("b/save");
 
     // Build frame map (params → REG_PAR slots, temporaries → REG_AUTO slots).
     Frame *f      = frame_build(tl);
@@ -91,12 +91,12 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
     for (const Tac_Instruction *instr = tl->u.function.body; instr; instr = instr->next)
         codegen_instr(instr, f, block, &tail);
 
-    // Epilogue: return via c/ret.
+    // Epilogue: return via b/ret.
     Besm_Instr *uj_cret                         = emit(block, &tail, BESM_INSTR_BRANCH);
     uj_cret->u.branch.kind                      = BESM_BRANCH_UJ;
     uj_cret->u.branch.u.addr.kind               = BESM_MEM_ADDR_LABEL;
     uj_cret->u.branch.u.addr.reg.num            = 0;
-    uj_cret->u.branch.u.addr.u.name             = xstrdup("c/ret");
+    uj_cret->u.branch.u.addr.u.name             = xstrdup("b/ret");
 
     emit(block, &tail, BESM_INSTR_END);
 

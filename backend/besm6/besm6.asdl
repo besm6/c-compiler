@@ -65,11 +65,11 @@
 --   M[013] (r13): return address — set by "13 ,VJM, fun" on each call.
 --   M[014] (r14): negative argument count — set by caller.
 --   M[015] (r15): stack pointer.
---   M[006] (r6):  parameter pointer — set by c/save; r6+i = param[i].
---   M[007] (r7):  auto-variable pointer — set by c/save; r7+j = local[j].
+--   M[006] (r6):  parameter pointer — set by b/save; r6+i = param[i].
+--   M[007] (r7):  auto-variable pointer — set by b/save; r7+j = local[j].
 --   M[001]–M[007] (r1–r7): callee-saved.
---   c/save and c/ret are external runtime routines declared via ,CALL,.
---   Return value is left in A; epilogue is ",UJ, c/ret".
+--   b/save and b/ret are external runtime routines declared via ,CALL,.
+--   Return value is left in A; epilogue is ",UJ, b/ret".
 --
 -- Madlen assembler syntax (Dubna monitor assembler):
 --   Every statement: <label> : <mreg_num> ,<mnemonic>, <address>
@@ -430,11 +430,11 @@ module Besm6 {
   --   Return address:    M[13] (r13), set by "13 ,VJM, fun".
   --   Arg count:         M[14] (r14) = −N (negative number of arguments).
   --   Stack pointer:     M[15] (r15), grows toward higher addresses.
-  --   Parameter pointer: M[6]  (r6), set by c/save; r6+i = param[i].
-  --   Auto-var pointer:  M[7]  (r7), set by c/save; r7+j = local[j].
+  --   Parameter pointer: M[6]  (r6), set by b/save; r6+i = param[i].
+  --   Auto-var pointer:  M[7]  (r7), set by b/save; r7+j = local[j].
   --   Return value:      A register.
-  --   Prologue:          ",ITS, 13" then "13 ,VJM, c/save".
-  --   Epilogue:          ",UJ, c/ret".
+  --   Prologue:          ",ITS, 13" then "13 ,VJM, b/save".
+  --   Epilogue:          ",UJ, b/ret".
   -- INTERNAL: compiler-internal; caller and callee share register usage
   --   with no ABI discipline (used for inlined helpers and thunks).
   call_conv = BESM6_C

@@ -204,21 +204,41 @@ TEST_F(CodegenTest, EmptyFunctionNoArgs)
 
     EXPECT_EQ(R"(c Module: foo
       foo:   ,name,
-             ,its, 13
-          13 ,vjm, c/save
-             ,uj, c/ret
+          13 ,uj,
              ,end,
 )", output);
 }
 
-TEST_F(CodegenTest, EmptyFunctionWithParam)
+TEST_F(CodegenTest, EmptyFunctionOneParam)
 {
     std::string output = CompileToMadlen("void foo(int bar) {}");
     EXPECT_EQ(R"(c Module: foo
       foo:   ,name,
-             ,its, 13
-          13 ,vjm, c/save
-             ,uj, c/ret
+          13 ,uj,
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, EmptyFunctionTwoParams)
+{
+    std::string output = CompileToMadlen("void foo(int bar, int quz) {}");
+    EXPECT_EQ(R"(c Module: foo
+      foo:   ,name,
+          14 ,utc, 1
+          15 ,utm,
+          13 ,uj,
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, EmptyFunctionVariadic)
+{
+    std::string output = CompileToMadlen("void foo(int bar, ...) {}");
+    EXPECT_EQ(R"(c Module: foo
+      foo:   ,name,
+          14 ,utc, 1
+          15 ,utm,
+          13 ,uj,
              ,end,
 )", output);
 }

@@ -61,15 +61,15 @@ static inline int codegen_alignof(const Tac_Type *t)
 // Calling convention register assignments (Dubna C ABI).
 // See docs/Besm6_Calling_Conventions.md for full protocol.
 //
-// After c/save:
+// After b/save:
 //   r6 (REG_PAR)  points to the parameter block: r6+i = address of param i
 //   r7 (REG_AUTO) points to the auto-variable block: r7+j = local variable j
 //
-// c/save and c/ret are external Madlen routines; the backend declares them
-// with ",CALL, c/save" and ",CALL, c/ret" — it does not emit their bodies.
+// b/save and b/ret are external Madlen routines; the backend declares them
+// with ",CALL, b/save" and ",CALL, b/ret" — it does not emit their bodies.
 //
-#define REG_AUTO  7   // auto-variable pointer (set by c/save)
-#define REG_PAR   6   // parameter pointer (set by c/save)
+#define REG_AUTO  7   // auto-variable pointer (set by b/save)
+#define REG_PAR   6   // parameter pointer (set by b/save)
 #define REG_CNT   14  // negative argument count (set by caller)
 #define REG_RET   13  // return address (set by caller via VJM)
 #define REG_SP    15  // stack pointer (grows toward higher addresses)
