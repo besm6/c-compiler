@@ -163,6 +163,21 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
                           Besm_Block *block, Besm_Instr **tail)
 {
     switch (instr->kind) {
+    // COPY  dst = src
+    //
+    // In C:  b = a;
+    // TAC:   copy src → dst   (both src and dst are TAC_VAL_VAR frame slots)
+    //
+    // BESM-6 sequence:
+    //   reg_src ,XTA, off_src   — load src from its frame slot into A
+    //   reg_dst ,ATX, off_dst   — store A into dst's frame slot
+    //
+    // frame_lookup resolves each name to (reg, offset) where reg is REG_PAR (r6)
+    // for function parameters or REG_AUTO (r7) for local variables.
+    // The XTA/ATX pair works uniformly regardless of which base register is used.
+    //
+    // COPY from a constant (e.g. b = 0) requires INT-format encoding and is
+    // deferred to task #21.
     case TAC_INSTRUCTION_COPY: {
         const Tac_Val *src = instr->u.copy.src;
         const Tac_Val *dst = instr->u.copy.dst;
@@ -175,51 +190,106 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         emit_atx(block, tail, dr, doff);
         break;
     }
+    // GET_ADDRESS  dst = &src
+    //
+    // In C:  p = &a;
+    // TAC:   get_address src → dst   (src is the variable being addressed;
+    //                                 dst receives its runtime word address)
+    //
+    // BESM-6 sequence (r1 is a scratch index register):
+    //   reg_src ,MTJ, 1      — M[1] = M[reg_src]: copy the frame base pointer
+    //                           (r6 for params, r7 for autos) into r1
+    //   1 ,UTM, off_src      — M[1] += off_src: advance r1 to the exact slot
+    //                           so r1 now holds the word address of src
+    //   ,ITA, 1              — A = M[1]: load that address into the accumulator
+    //   reg_dst ,ATX, off_dst — store A (the address) into dst's frame slot
+    //
+    // The UTM instruction is emitted unconditionally; when off_src == 0 the
+    // Madlen emitter omits the address field ("1 ,utm,") but the instruction
+    // is still present for uniformity.
     case TAC_INSTRUCTION_GET_ADDRESS: {
         int sr, so, dr, doff;
         lookup(f, instr->u.get_address.src->u.var_name, &sr, &so);
         lookup(f, instr->u.get_address.dst->u.var_name, &dr, &doff);
-        // reg_src ,MTJ, 1  →  M[1] = M[reg_src]  (copy base ptr to r1)
         Besm_Instr *mtj          = emit(block, tail, BESM_INSTR_MEM);
         mtj->u.mem.kind          = BESM_MEM_MTJ;
         mtj->u.mem.u.mtj.src.num = sr;
         mtj->u.mem.u.mtj.dst_j   = 1;
-        // 1 ,UTM, so  →  M[1] += so
         Besm_Instr *utm          = emit(block, tail, BESM_INSTR_REG);
         utm->u.reg.kind          = BESM_REG_UTM;
         utm->u.reg.u.vtm.dst.num = 1;
         utm->u.reg.u.vtm.value   = so;
-        // ,ITA, 1  →  A = M[1]
         Besm_Instr *ita   = emit(block, tail, BESM_INSTR_MEM);
         ita->u.mem.kind   = BESM_MEM_ITA;
         ita->u.mem.u.ireg = 1;
         emit_atx(block, tail, dr, doff);
         break;
     }
+    // LOAD  dst = *src_ptr
+    //
+    // In C:  b = *p;
+    // TAC:   load *src_ptr → dst   (src_ptr is a pointer variable in the frame;
+    //                               dst receives the dereferenced value)
+    //
+    // BESM-6 sequence (r1 is used as a pointer index register):
+    //   reg_ptr ,XTA, off_ptr   — load the pointer value (a word address) into A
+    //   ,ATI, 1                 — M[1] = A: store the pointer into index register r1
+    //   1 ,XTA, 0               — A = mem[M[1]+0]: dereference — load the word that
+    //                              r1 points to into A
+    //   reg_dst ,ATX, off_dst   — store the loaded value into dst's frame slot
+    //
+    // All BESM-6 pointers are word addresses; the offset in the final XTA is always
+    // 0 because TAC LOAD always reads the base of the pointed-to object.
     case TAC_INSTRUCTION_LOAD: {
         int pr, po, dr, doff;
         lookup(f, instr->u.load.src_ptr->u.var_name, &pr, &po);
         lookup(f, instr->u.load.dst->u.var_name, &dr, &doff);
-        emit_xta(block, tail, pr, po);   // load pointer value into A
+        emit_xta(block, tail, pr, po);
         Besm_Instr *ati   = emit(block, tail, BESM_INSTR_MEM);
         ati->u.mem.kind   = BESM_MEM_ATI;
-        ati->u.mem.u.ireg = 1;           // M[1] = A (pointer)
-        emit_xta(block, tail, 1, 0);     // A = mem[M[1]+0] = *ptr
+        ati->u.mem.u.ireg = 1;
+        emit_xta(block, tail, 1, 0);
         emit_atx(block, tail, dr, doff);
         break;
     }
+    // STORE  *dst_ptr = src
+    //
+    // In C:  *p = a;
+    // TAC:   store src → *dst_ptr   (dst_ptr is a pointer variable in the frame;
+    //                                src is the value to write through it)
+    //
+    // BESM-6 sequence (r1 is used as a pointer index register):
+    //   reg_ptr ,XTA, off_ptr   — load the pointer value (a word address) into A
+    //   ,ATI, 1                 — M[1] = A: store the pointer into index register r1
+    //   reg_src ,XTA, off_src   — load the source value into A
+    //   1 ,ATX, 0               — mem[M[1]+0] = A: write A through the pointer
+    //
+    // The pointer must be loaded before the source because ATI consumes A.
+    // The write offset is always 0 for the same reason as in LOAD above.
     case TAC_INSTRUCTION_STORE: {
         int pr, po, sr, so;
         lookup(f, instr->u.store.dst_ptr->u.var_name, &pr, &po);
         lookup(f, instr->u.store.src->u.var_name, &sr, &so);
-        emit_xta(block, tail, pr, po);   // load pointer into A
+        emit_xta(block, tail, pr, po);
         Besm_Instr *ati   = emit(block, tail, BESM_INSTR_MEM);
         ati->u.mem.kind   = BESM_MEM_ATI;
-        ati->u.mem.u.ireg = 1;           // M[1] = A (pointer)
-        emit_xta(block, tail, sr, so);   // load source value into A
-        emit_atx(block, tail, 1, 0);     // mem[M[1]+0] = A = src
+        ati->u.mem.u.ireg = 1;
+        emit_xta(block, tail, sr, so);
+        emit_atx(block, tail, 1, 0);
         break;
     }
+    // FUN_CALL  [dst =] fun(args...)
+    //
+    // In C:  OKHO();
+    // TAC:   fun_call fun_name [args] [→ dst]
+    //
+    // BESM-6 sequence (zero-arg call, task #16):
+    //   ,CALL, fun_name   — set r13 = return address, jump to fun_name
+    //
+    // Full argument marshalling (XTS per arg, VTM for arg count) and return-value
+    // capture (ATX into dst) are implemented in task #28.  For now only the bare
+    // CALL instruction is emitted; the callee's prologue (ITS 13 / CALL b/save)
+    // handles the rest of the calling convention.
     case TAC_INSTRUCTION_FUN_CALL: {
         Besm_Instr *call = emit(block, tail, BESM_INSTR_CALL);
         call->u.name     = xstrdup(instr->u.fun_call.fun_name);

@@ -14,7 +14,7 @@ target_link_libraries(besm tac libutil)
 #
 # Tests for the BESM-6 backend
 #
-add_executable(besm-tests
+add_executable(besm-tests EXCLUDE_FROM_ALL
     label_tests.cpp
     frame_tests.cpp
     codegen_tests.cpp
