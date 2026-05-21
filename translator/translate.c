@@ -403,7 +403,10 @@ static Tac_TopLevel *translate_fn(ExternalDecl *ast)
     Tac_TopLevel *tl      = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
     tl->u.function.name   = xstrdup(name);
     tl->u.function.global = sym->u.func.global;
-    tl->u.function.params = params_from_type(ast->u.function.type);
+    tl->u.function.params   = params_from_type(ast->u.function.type);
+    tl->u.function.variadic = ast->u.function.type &&
+                              ast->u.function.type->kind == TYPE_FUNCTION &&
+                              ast->u.function.type->u.function.variadic;
 
     if (ast->u.function.body) {
         TacCtx ctx = { NULL, NULL, 0, NULL };

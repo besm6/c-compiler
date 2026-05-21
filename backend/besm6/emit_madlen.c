@@ -184,7 +184,8 @@ static void emit_reg_instr(FILE *out, const Besm_RegInstr *reg)
         emit_line(out, NULL, reg->u.vtm.dst.num, "vtm", addr);
         break;
     case BESM_REG_UTM:
-        snprintf(addr, sizeof(addr), "%d", reg->u.vtm.value);
+        if (reg->u.vtm.value)
+            snprintf(addr, sizeof(addr), "%d", reg->u.vtm.value);
         emit_line(out, NULL, reg->u.vtm.dst.num, "utm", addr);
         break;
     case BESM_REG_JADDM:

@@ -264,6 +264,8 @@ bool tac_compare_toplevel(const Tac_TopLevel *a, const Tac_TopLevel *b)
             return false;
         if (a->u.function.global != b->u.function.global)
             return false;
+        if (a->u.function.variadic != b->u.function.variadic)
+            return false;
         return tac_compare_param(a->u.function.params, b->u.function.params) &&
                tac_compare_instruction(a->u.function.body, b->u.function.body);
     case TAC_TOPLEVEL_STATIC_VARIABLE:

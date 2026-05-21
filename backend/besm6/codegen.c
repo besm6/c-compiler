@@ -52,6 +52,12 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
 {
     const char *name = tl->u.function.name;
 
+    int num_params = 0;
+    for (const Tac_Param *p = tl->u.function.params; p; p = p->next)
+        num_params++;
+    bool needs_param_setup = (num_params >= 2) || tl->u.function.variadic;
+    bool is_empty          = (tl->u.function.body == NULL);
+
     Besm_Module *module = besm_new_module(name);
     Besm_Func   *func   = besm_new_func(name, BESM_CC_BESM6_C);
     module->funcs       = func;
@@ -61,49 +67,69 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
 
     Besm_Instr *tail = NULL;
 
-    // Subprogram header directives.
     Besm_Instr *iname = emit(block, &tail, BESM_INSTR_NAME);
     iname->u.name     = xstrdup(name);
 
-    // Prologue: push last argument + capture return address, then call b/save,
-    // then extend the stack by the number of auto-variable slots.
-    Besm_Instr *its13          = emit(block, &tail, BESM_INSTR_MEM);
-    its13->u.mem.kind          = BESM_MEM_ITS;
-    its13->u.mem.u.ireg        = REG_RET;
+    if (is_empty) {
+        // Optimized prologue for empty functions: no b/save or b/ret.
+        if (needs_param_setup) {
+            // 14 ,utc, 1
+            Besm_Instr *utc14              = emit(block, &tail, BESM_INSTR_MOD);
+            utc14->u.mod.kind              = BESM_MOD_UTC;
+            utc14->u.mod.addr.kind         = BESM_MEM_ADDR_REG;
+            utc14->u.mod.addr.reg.num      = REG_CNT;
+            utc14->u.mod.addr.u.offset     = 1;
+            // 15 ,utm,
+            Besm_Instr *utm15              = emit(block, &tail, BESM_INSTR_REG);
+            utm15->u.reg.kind              = BESM_REG_UTM;
+            utm15->u.reg.u.vtm.dst.num     = REG_SP;
+            utm15->u.reg.u.vtm.value       = 0;
+        }
+        // 13 ,uj,
+        Besm_Instr *uj13                   = emit(block, &tail, BESM_INSTR_BRANCH);
+        uj13->u.branch.kind                = BESM_BRANCH_UJ;
+        uj13->u.branch.u.addr.kind         = BESM_MEM_ADDR_REG;
+        uj13->u.branch.u.addr.reg.num      = REG_RET;
+        uj13->u.branch.u.addr.u.offset     = 0;
+        emit(block, &tail, BESM_INSTR_END);
+    } else {
+        // Full prologue: push last argument + capture return address, call b/save,
+        // then extend the stack by the number of auto-variable slots.
+        Besm_Instr *its13          = emit(block, &tail, BESM_INSTR_MEM);
+        its13->u.mem.kind          = BESM_MEM_ITS;
+        its13->u.mem.u.ireg        = REG_RET;
 
-    Besm_Instr *vjm_csave                             = emit(block, &tail, BESM_INSTR_BRANCH);
-    vjm_csave->u.branch.kind                          = BESM_BRANCH_VJM;
-    vjm_csave->u.branch.u.jump.reg.num                = REG_RET;
-    vjm_csave->u.branch.u.jump.tgt.kind               = BESM_TARGET_LABEL;
-    vjm_csave->u.branch.u.jump.tgt.u.name             = xstrdup("b/save");
+        Besm_Instr *vjm_csave                      = emit(block, &tail, BESM_INSTR_BRANCH);
+        vjm_csave->u.branch.kind                   = BESM_BRANCH_VJM;
+        vjm_csave->u.branch.u.jump.reg.num         = REG_RET;
+        vjm_csave->u.branch.u.jump.tgt.kind        = BESM_TARGET_LABEL;
+        vjm_csave->u.branch.u.jump.tgt.u.name      = xstrdup("b/save");
 
-    // Build frame map (params → REG_PAR slots, temporaries → REG_AUTO slots).
-    Frame *f      = frame_build(tl);
-    int num_autos = frame_num_autos(f);
-    if (num_autos > 0) {
-        Besm_Instr *utm_sp               = emit(block, &tail, BESM_INSTR_REG);
-        utm_sp->u.reg.kind               = BESM_REG_UTM;
-        utm_sp->u.reg.u.vtm.dst.num      = REG_SP;
-        utm_sp->u.reg.u.vtm.value        = num_autos;
+        Frame *f      = frame_build(tl);
+        int num_autos = frame_num_autos(f);
+        if (num_autos > 0) {
+            Besm_Instr *utm_sp               = emit(block, &tail, BESM_INSTR_REG);
+            utm_sp->u.reg.kind               = BESM_REG_UTM;
+            utm_sp->u.reg.u.vtm.dst.num      = REG_SP;
+            utm_sp->u.reg.u.vtm.value        = num_autos;
+        }
+
+        for (const Tac_Instruction *instr = tl->u.function.body; instr; instr = instr->next)
+            codegen_instr(instr, f, block, &tail);
+
+        Besm_Instr *uj_cret                     = emit(block, &tail, BESM_INSTR_BRANCH);
+        uj_cret->u.branch.kind                  = BESM_BRANCH_UJ;
+        uj_cret->u.branch.u.addr.kind           = BESM_MEM_ADDR_LABEL;
+        uj_cret->u.branch.u.addr.reg.num        = 0;
+        uj_cret->u.branch.u.addr.u.name         = xstrdup("b/ret");
+
+        emit(block, &tail, BESM_INSTR_END);
+
+        frame_free(f);
     }
 
-    // Instruction selection — each TAC instruction is a Phase B stub.
-    for (const Tac_Instruction *instr = tl->u.function.body; instr; instr = instr->next)
-        codegen_instr(instr, f, block, &tail);
-
-    // Epilogue: return via b/ret.
-    Besm_Instr *uj_cret                         = emit(block, &tail, BESM_INSTR_BRANCH);
-    uj_cret->u.branch.kind                      = BESM_BRANCH_UJ;
-    uj_cret->u.branch.u.addr.kind               = BESM_MEM_ADDR_LABEL;
-    uj_cret->u.branch.u.addr.reg.num            = 0;
-    uj_cret->u.branch.u.addr.u.name             = xstrdup("b/ret");
-
-    emit(block, &tail, BESM_INSTR_END);
-
     emit_madlen_module(out, module);
-
     besm_free_module(module);
-    frame_free(f);
 }
 
 // Phase B stubs — one per TAC instruction kind.

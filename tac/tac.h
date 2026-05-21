@@ -48,6 +48,7 @@ typedef struct Tac_TopLevel {
         struct {
             char *name;
             bool global;
+            bool variadic;
             Tac_Param *params;     // Linked list of identifiers
             Tac_Instruction *body; // Linked list of instructions
         } function;
