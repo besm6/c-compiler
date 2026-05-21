@@ -248,7 +248,7 @@ TEST_F(CodegenTest, CallOkno)
     std::string output = CompileToMadlen("void OKHO(void); void foo() { OKHO(); }");
     EXPECT_EQ(R"(c Module: foo
       foo:   ,name,
-             ,subp, b/ret
+    b/ret:   ,subp,
              ,its, 13
              ,call, b/save
              ,call, OKHO
