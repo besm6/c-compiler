@@ -95,15 +95,15 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
     } else {
         // Full prologue: push last argument + capture return address, call b/save,
         // then extend the stack by the number of auto-variable slots.
+        Besm_Instr *subp_cret = emit(block, &tail, BESM_INSTR_SUBP);
+        subp_cret->u.name     = xstrdup("b/ret");
+
         Besm_Instr *its13          = emit(block, &tail, BESM_INSTR_MEM);
         its13->u.mem.kind          = BESM_MEM_ITS;
         its13->u.mem.u.ireg        = REG_RET;
 
-        Besm_Instr *vjm_csave                      = emit(block, &tail, BESM_INSTR_BRANCH);
-        vjm_csave->u.branch.kind                   = BESM_BRANCH_VJM;
-        vjm_csave->u.branch.u.jump.reg.num         = REG_RET;
-        vjm_csave->u.branch.u.jump.tgt.kind        = BESM_TARGET_LABEL;
-        vjm_csave->u.branch.u.jump.tgt.u.name      = xstrdup("b/save");
+        Besm_Instr *call_csave = emit(block, &tail, BESM_INSTR_CALL);
+        call_csave->u.name     = xstrdup("b/save");
 
         Frame *f      = frame_build(tl);
         int num_autos = frame_num_autos(f);

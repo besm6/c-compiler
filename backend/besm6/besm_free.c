@@ -86,6 +86,7 @@ void besm_free_instr(Besm_Instr *instr)
     case BESM_INSTR_LABEL:
     case BESM_INSTR_NAME:
     case BESM_INSTR_CALL:
+    case BESM_INSTR_SUBP:
     case BESM_INSTR_ENTRY:
         xfree(instr->u.name);
         break;

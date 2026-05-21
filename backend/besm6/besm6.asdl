@@ -413,7 +413,8 @@ module Besm6 {
         | ILabel(string name)          -- assembly label definition
         | IName(string name)           -- ,NAME, directive (subprogram name)
         | IRel                         -- ,REL, directive (relocatable basing)
-        | ICall(string name)           -- ,CALL, name (declare external ref.)
+        | ICall(string name)           -- ,CALL, name (declare and call external subprogram)
+        | ISubp(string name)           -- ,SUBP, name (declare external subprogram)
         | IEntry(string name)          -- ,ENTRY, name (export as global symbol)
         | IEnd                         -- ,END, directive (end of subprogram)
 

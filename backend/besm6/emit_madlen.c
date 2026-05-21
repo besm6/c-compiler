@@ -325,6 +325,9 @@ void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
         case BESM_INSTR_CALL:
             emit_line(out, NULL, 0, "call", instr->u.name);
             break;
+        case BESM_INSTR_SUBP:
+            emit_line(out, NULL, 0, "subp", instr->u.name);
+            break;
         case BESM_INSTR_ENTRY:
             emit_line(out, NULL, 0, "entry", instr->u.name);
             break;

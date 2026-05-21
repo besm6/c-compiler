@@ -254,6 +254,7 @@ typedef enum {
     BESM_INSTR_NAME,   // IName(string name)
     BESM_INSTR_REL,    // IRel  (no payload)
     BESM_INSTR_CALL,   // ICall(string name)
+    BESM_INSTR_SUBP,   // ISubp(string name)
     BESM_INSTR_ENTRY,  // IEntry(string name)
     BESM_INSTR_END,    // IEnd  (no payload)
 } Besm_InstrKind;
