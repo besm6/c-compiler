@@ -40,8 +40,6 @@ register.  The pattern is: load from frame → operate → store to frame.
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 17 | Copy, Load, Store, GetAddress | **Copy**: `6\|7 ,XTA, src_off` + `6\|7 ,ATX, dst_off`. **Load** (dereference): load pointer, `,ATI, 1`, then `1 ,XTA, 0`. **Store** (write-through): load pointer, `,ATI, 1`, load src, `1 ,ATX, 0`. **GetAddress**: `7 ,MTJ, 1` + `1 ,UTM, off` + `,ITA, 1` + store. | M |
-| 18 | Integer Add, Subtract | Integers are in INT format. `NTR` must be placed immediately before the arithmetic instruction — `XTA` clears bit 1 of R when it sets ω mode, so `,NTR, 001B` (norm_disable) must follow the last load. Sequence: `6\|7 ,XTA, src1` / `,NTR, 001B` / `6\|7 ,A+X, src2` / `6\|7 ,ATX, dst`. Subtract uses `,A-X,`. | M |
 | 19 | Integer Multiply | `A*X` on two INT-format operands gives FP exponent 104+104−64 = 144. Correct with `,E-N, 150B` (E −= 40; 144−40 = 104). Sequence: `6\|7 ,XTA, src1` / `6\|7 ,A*X, src2` / `,E-N, 150B` / `6\|7 ,ATX, dst`. | M |
 | 20 | Integer Divide and Remainder | FP divide on INT operands yields exponent 64 (fractional); integer truncation requires a runtime routine. Implement `b/idiv` and `b/imod` in `backend/besm6/runtime.mad`: pop dividend and divisor, extract signs, FP-divide absolute values, adjust exponent with `,E+N, 150B` (E += 40), apply sign. `b/imod` = a − (a÷b)×b. | L |
 | 21 | Integer Negate, Complement, Not | **Negate**: `6\|7 ,XTA, src` / `,NTR, 001B` / `,X-A, 0` (0−A; mem[0]=0 architecturally) / `6\|7 ,ATX, dst`. **Complement** (bitwise NOT): `6\|7 ,XTA, src` / `,AEX, __allones` / `6\|7 ,ATX, dst`. **Not** (logical): `6\|7 ,XTA, src`; in logical ω mode test with `UZA`/branch; load 0 or `__one`. | S |

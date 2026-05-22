@@ -52,6 +52,14 @@ static void emit_atx(Besm_Block *b, Besm_Instr **t, int reg, int off)
     i->addr       = off;
 }
 
+// Emit an arithmetic instruction: A op= mem[reg + off].
+static void emit_arith(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind, int reg, int off)
+{
+    Besm_Instr *i = emit(b, t, kind);
+    i->reg        = reg;
+    i->addr       = off;
+}
+
 // Frame lookup with fatal_error on miss.
 static void lookup(const Frame *f, const char *name, int *reg, int *off)
 {
@@ -254,6 +262,40 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         ati->addr       = 1;
         emit_xta(block, tail, sr, so);
         emit_atx(block, tail, 1, 0);
+        break;
+    }
+    // BINARY  dst = src1 op src2
+    //
+    // For integer add/subtract, R=7 after b/save suppresses normalization and
+    // rounding, so the arithmetic instructions work directly on INT-format values.
+    // No NTR is needed.
+    //
+    // BESM-6 sequence:
+    //   reg_src1 ,XTA, off_src1   — load src1 from its frame slot into A
+    //   reg_src2 ,A+X, off_src2   — A = A + src2  (A-X for subtract)
+    //   reg_dst  ,ATX, off_dst    — store A into dst's frame slot
+    //
+    // Constants as operands need INT-format encoding; deferred to task #21.
+    case TAC_INSTRUCTION_BINARY: {
+        const Tac_Val *src1 = instr->u.binary.src1;
+        const Tac_Val *src2 = instr->u.binary.src2;
+        const Tac_Val *dst  = instr->u.binary.dst;
+        if (src1->kind != TAC_VAL_VAR || src2->kind != TAC_VAL_VAR)
+            fatal_error("TODO: BINARY from constant (Phase B task 21)");
+        int r1, o1, r2, o2, rd, od;
+        lookup(f, src1->u.var_name, &r1, &o1);
+        lookup(f, src2->u.var_name, &r2, &o2);
+        lookup(f, dst->u.var_name,  &rd, &od);
+        Besm_InstrKind op_kind;
+        switch (instr->u.binary.op) {
+        case TAC_BINARY_ADD:      op_kind = BESM_ARITH_ADD; break;
+        case TAC_BINARY_SUBTRACT: op_kind = BESM_ARITH_SUB; break;
+        default:
+            fatal_error("TODO: binary op %d (Phase B)", (int)instr->u.binary.op);
+        }
+        emit_xta(block, tail, r1, o1);
+        emit_arith(block, tail, op_kind, r2, o2);
+        emit_atx(block, tail, rd, od);
         break;
     }
     // FUN_CALL  [dst =] fun(args...)

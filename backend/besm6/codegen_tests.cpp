@@ -298,3 +298,87 @@ TEST_F(CodegenTest, LoadAndStoreThroughPtr)
              ,end,
 )", output);
 }
+
+TEST_F(CodegenTest, AddTwoParams)
+{
+    // binary ADD src1=a(6,0) src2=b(6,1) dst=t.0 then copy t.0→c
+    // frame: a@(6,0), b@(6,1), t.0@(7,0), c@(7,1); num_autos=2
+    std::string output = CompileToMadlen("void foo(int a, int b) { int c; c = a + b; }");
+    EXPECT_EQ(R"(c Module: foo
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 2
+           6 ,xta,
+           6 ,a+x, 1
+           7 ,atx,
+           7 ,xta,
+           7 ,atx, 1
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, SubTwoParams)
+{
+    // binary SUBTRACT src1=a(6,0) src2=b(6,1) dst=t.0 then copy t.0→c
+    // frame: a@(6,0), b@(6,1), t.0@(7,0), c@(7,1); num_autos=2
+    std::string output = CompileToMadlen("void foo(int a, int b) { int c; c = a - b; }");
+    EXPECT_EQ(R"(c Module: foo
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 2
+           6 ,xta,
+           6 ,a-x, 1
+           7 ,atx,
+           7 ,xta,
+           7 ,atx, 1
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, AddAutoAndParam)
+{
+    // c = b + c: binary ADD src1=b(param) src2=c(auto) dst=t.0; copy t.0→c
+    // frame scan: b@(6,0), c first seen as src2 → c@(7,0), t.0@(7,1); num_autos=2
+    std::string output = CompileToMadlen("void foo(int b) { int c; c = b + c; }");
+    EXPECT_EQ(R"(c Module: foo
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 2
+           6 ,xta,
+           7 ,a+x,
+           7 ,atx, 1
+           7 ,xta, 1
+           7 ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, AddTwoAutos)
+{
+    // c = a + b: all locals; binary ADD src1=a src2=b dst=t.0; copy t.0→c
+    // frame scan: a@(7,0), b@(7,1), t.0@(7,2), c@(7,3); num_autos=4
+    std::string output = CompileToMadlen("void foo(void) { int a; int b; int c; c = a + b; }");
+    EXPECT_EQ(R"(c Module: foo
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 4
+           7 ,xta,
+           7 ,a+x, 1
+           7 ,atx, 2
+           7 ,xta, 2
+           7 ,atx, 3
+             ,uj, b/ret
+             ,end,
+)", output);
+}
