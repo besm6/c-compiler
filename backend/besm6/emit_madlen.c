@@ -10,31 +10,20 @@ void mad_fresh_label(char *buf, size_t n, const char *prefix)
 }
 
 //
-// Fill buf with the address-field string for a mem_addr.
-// The reg field is emitted separately into the M column; only the offset/name
-// goes into buf.  buf is zeroed by callers so an empty address needs no write.
+// Build the address-field string from (name, addr).
+// name+addr → "name+N", name-addr → "name-N", name only → "name",
+// addr only → "N", both zero/null → "" (buf already zeroed by caller).
 //
-static void mem_addr_str(char *buf, size_t n, const Besm_MemAddr *addr)
+static void addr_str(char *buf, size_t n, const char *name, int addr)
 {
-    switch (addr->kind) {
-    case BESM_MEM_ADDR_REG:
-    case BESM_MEM_ADDR_SEG_REG:
-        if (addr->u.offset)
-            snprintf(buf, n, "%d", addr->u.offset);
-        break;
-    case BESM_MEM_ADDR_LABEL:
-    case BESM_MEM_ADDR_SEG_LABEL:
-        snprintf(buf, n, "%s", addr->u.name);
-        break;
-    }
-}
-
-static void target_str(char *buf, size_t n, const Besm_Target *tgt)
-{
-    if (tgt->kind == BESM_TARGET_LABEL)
-        snprintf(buf, n, "%s", tgt->u.name);
-    else
-        snprintf(buf, n, "%d", tgt->u.offset);
+    if (name && addr > 0)
+        snprintf(buf, n, "%s+%d", name, addr);
+    else if (name && addr < 0)
+        snprintf(buf, n, "%s-%d", name, -addr);
+    else if (name)
+        snprintf(buf, n, "%s", name);
+    else if (addr)
+        snprintf(buf, n, "%d", addr);
 }
 
 //
@@ -59,279 +48,236 @@ static void emit_line(FILE *out, const char *label, int mreg,
     fputc('\n', out);
 }
 
-// ---------------------------------------------------------------------------
-// Sub-instruction emitters (all static)
-// ---------------------------------------------------------------------------
-
-static void emit_mem_instr(FILE *out, const Besm_MemInstr *mem)
-{
-    char addr[64] = "";
-    switch (mem->kind) {
-    case BESM_MEM_XTA:
-        mem_addr_str(addr, sizeof(addr), &mem->u.addr);
-        emit_line(out, NULL, mem->u.addr.reg, "xta", addr);
-        break;
-    case BESM_MEM_ATX:
-        mem_addr_str(addr, sizeof(addr), &mem->u.addr);
-        emit_line(out, NULL, mem->u.addr.reg, "atx", addr);
-        break;
-    case BESM_MEM_STX:
-        mem_addr_str(addr, sizeof(addr), &mem->u.addr);
-        emit_line(out, NULL, mem->u.addr.reg, "stx", addr);
-        break;
-    case BESM_MEM_XTS:
-        mem_addr_str(addr, sizeof(addr), &mem->u.addr);
-        emit_line(out, NULL, mem->u.addr.reg, "xts", addr);
-        break;
-    case BESM_MEM_ITA:
-        snprintf(addr, sizeof(addr), "%d", mem->u.ireg);
-        emit_line(out, NULL, 0, "ita", addr);
-        break;
-    case BESM_MEM_ATI:
-        snprintf(addr, sizeof(addr), "%d", mem->u.ireg);
-        emit_line(out, NULL, 0, "ati", addr);
-        break;
-    case BESM_MEM_ITS:
-        snprintf(addr, sizeof(addr), "%d", mem->u.ireg);
-        emit_line(out, NULL, 0, "its", addr);
-        break;
-    case BESM_MEM_STI:
-        snprintf(addr, sizeof(addr), "%d", mem->u.ireg);
-        emit_line(out, NULL, 0, "sti", addr);
-        break;
-    case BESM_MEM_MTJ:
-        snprintf(addr, sizeof(addr), "%d", mem->u.mtj.dst_j);
-        emit_line(out, NULL, mem->u.mtj.src, "mtj", addr);
-        break;
-    }
-}
-
-static void emit_arith_instr(FILE *out, const Besm_ArithInstr *arith)
-{
-    char addr[64] = "";
-    const char *mnem;
-    mem_addr_str(addr, sizeof(addr), &arith->addr);
-    switch (arith->kind) {
-    case BESM_ARITH_ADD:    mnem = "a+x"; break;
-    case BESM_ARITH_SUB:    mnem = "a-x"; break;
-    case BESM_ARITH_RSUB:   mnem = "x-a"; break;
-    case BESM_ARITH_ABSSUB: mnem = "amx"; break;
-    case BESM_ARITH_MUL:    mnem = "a*x"; break;
-    case BESM_ARITH_DIV:    mnem = "a/x"; break;
-    case BESM_ARITH_CNEG:   mnem = "avx"; break;
-    default:                mnem = "";    break;
-    }
-    emit_line(out, NULL, arith->addr.reg, mnem, addr);
-}
-
-static void emit_log_instr(FILE *out, const Besm_LogInstr *log)
-{
-    char addr[64] = "";
-    const char *mnem;
-    mem_addr_str(addr, sizeof(addr), &log->addr);
-    switch (log->kind) {
-    case BESM_LOG_AAX: mnem = "aax"; break;
-    case BESM_LOG_AOX: mnem = "aox"; break;
-    case BESM_LOG_AEX: mnem = "aex"; break;
-    case BESM_LOG_ARX: mnem = "arx"; break;
-    case BESM_LOG_APX: mnem = "apx"; break;
-    case BESM_LOG_AUX: mnem = "aux"; break;
-    case BESM_LOG_ACX: mnem = "acx"; break;
-    case BESM_LOG_ANX: mnem = "anx"; break;
-    default:           mnem = "";    break;
-    }
-    emit_line(out, NULL, log->addr.reg, mnem, addr);
-}
-
-static void emit_exp_instr(FILE *out, const Besm_ExpInstr *exp)
-{
-    char addr[64] = "";
-    const char *mnem;
-    switch (exp->kind) {
-    case BESM_EXP_EADDX:
-        mem_addr_str(addr, sizeof(addr), &exp->u.addr);
-        emit_line(out, NULL, exp->u.addr.reg, "e+x", addr);
-        return;
-    case BESM_EXP_ESUBX:
-        mem_addr_str(addr, sizeof(addr), &exp->u.addr);
-        emit_line(out, NULL, exp->u.addr.reg, "e-x", addr);
-        return;
-    case BESM_EXP_SHIFTX:
-        mem_addr_str(addr, sizeof(addr), &exp->u.addr);
-        emit_line(out, NULL, exp->u.addr.reg, "asx", addr);
-        return;
-    case BESM_EXP_SETRMEM:
-        mem_addr_str(addr, sizeof(addr), &exp->u.addr);
-        emit_line(out, NULL, exp->u.addr.reg, "xtr", addr);
-        return;
-    case BESM_EXP_GETR:   snprintf(addr, sizeof(addr), "%d", exp->u.imm); mnem = "rte"; break;
-    case BESM_EXP_YTA:    snprintf(addr, sizeof(addr), "%d", exp->u.imm); mnem = "yta"; break;
-    case BESM_EXP_EADDN:  snprintf(addr, sizeof(addr), "%d", exp->u.imm); mnem = "e+n"; break;
-    case BESM_EXP_ESUBN:  snprintf(addr, sizeof(addr), "%d", exp->u.imm); mnem = "e-n"; break;
-    case BESM_EXP_SHIFTN: snprintf(addr, sizeof(addr), "%d", exp->u.imm); mnem = "asn"; break;
-    case BESM_EXP_SETR:   snprintf(addr, sizeof(addr), "%d", exp->u.imm); mnem = "ntr"; break;
-    default:              mnem = ""; break;
-    }
-    emit_line(out, NULL, 0, mnem, addr);
-}
-
-static void emit_reg_instr(FILE *out, const Besm_RegInstr *reg)
-{
-    char addr[64] = "";
-    switch (reg->kind) {
-    case BESM_REG_VTM:
-        snprintf(addr, sizeof(addr), "%d", reg->u.vtm.value);
-        emit_line(out, NULL, reg->u.vtm.dst, "vtm", addr);
-        break;
-    case BESM_REG_UTM:
-        if (reg->u.vtm.value)
-            snprintf(addr, sizeof(addr), "%d", reg->u.vtm.value);
-        emit_line(out, NULL, reg->u.vtm.dst, "utm", addr);
-        break;
-    case BESM_REG_JADDM:
-        snprintf(addr, sizeof(addr), "%d", reg->u.jaddm.dst_j);
-        emit_line(out, NULL, reg->u.jaddm.src, "j+m", addr);
-        break;
-    }
-}
-
-static void emit_mod_instr(FILE *out, const Besm_ModInstr *mod)
-{
-    char addr[64] = "";
-    const char *mnem;
-    mem_addr_str(addr, sizeof(addr), &mod->addr);
-    switch (mod->kind) {
-    case BESM_MOD_UTC: mnem = "utc"; break;
-    case BESM_MOD_WTC: mnem = "wtc"; break;
-    default:           mnem = "";    break;
-    }
-    emit_line(out, NULL, mod->addr.reg, mnem, addr);
-}
-
-static void emit_branch_instr(FILE *out, const Besm_BranchInstr *branch)
-{
-    char addr[64] = "";
-    switch (branch->kind) {
-    case BESM_BRANCH_UZA:
-        mem_addr_str(addr, sizeof(addr), &branch->u.addr);
-        emit_line(out, NULL, branch->u.addr.reg, "uza", addr);
-        break;
-    case BESM_BRANCH_U1A:
-        mem_addr_str(addr, sizeof(addr), &branch->u.addr);
-        emit_line(out, NULL, branch->u.addr.reg, "u1a", addr);
-        break;
-    case BESM_BRANCH_UJ:
-        mem_addr_str(addr, sizeof(addr), &branch->u.addr);
-        emit_line(out, NULL, branch->u.addr.reg, "uj", addr);
-        break;
-    case BESM_BRANCH_VJM:
-        target_str(addr, sizeof(addr), &branch->u.jump.tgt);
-        emit_line(out, NULL, branch->u.jump.reg, "vjm", addr);
-        break;
-    case BESM_BRANCH_VZM:
-        target_str(addr, sizeof(addr), &branch->u.jump.tgt);
-        emit_line(out, NULL, branch->u.jump.reg, "vzm", addr);
-        break;
-    case BESM_BRANCH_V1M:
-        target_str(addr, sizeof(addr), &branch->u.jump.tgt);
-        emit_line(out, NULL, branch->u.jump.reg, "v1m", addr);
-        break;
-    case BESM_BRANCH_VLM:
-        target_str(addr, sizeof(addr), &branch->u.jump.tgt);
-        emit_line(out, NULL, branch->u.jump.reg, "vlm", addr);
-        break;
-    case BESM_BRANCH_STOP:
-        emit_line(out, NULL, 0, "stop", "");
-        break;
-    }
-}
-
-static void emit_extra_instr(FILE *out, const Besm_ExtraInstr *extra)
-{
-    char mnem_buf[8];
-    char addr[64] = "";
-    const char *mnem;
-    const Besm_MemAddr *a;
-
-    if (extra->kind == BESM_EXTRA_ESYS) {
-        snprintf(mnem_buf, sizeof(mnem_buf), "*%02o", extra->u.esys.opcode);
-        mnem = mnem_buf;
-        a    = &extra->u.esys.addr;
-    } else {
-        switch (extra->kind) {
-        case BESM_EXTRA_ESQRT:  mnem = "*50"; break;
-        case BESM_EXTRA_ESIN:   mnem = "*51"; break;
-        case BESM_EXTRA_ECOS:   mnem = "*52"; break;
-        case BESM_EXTRA_EATAN:  mnem = "*53"; break;
-        case BESM_EXTRA_EASIN:  mnem = "*54"; break;
-        case BESM_EXTRA_ELN:    mnem = "*55"; break;
-        case BESM_EXTRA_EEXP:   mnem = "*56"; break;
-        case BESM_EXTRA_ETAPE:  mnem = "*57"; break;
-        case BESM_EXTRA_EIN:    mnem = "*60"; break;
-        case BESM_EXTRA_EOUT:   mnem = "*61"; break;
-        case BESM_EXTRA_ETXTIO: mnem = "*63"; break;
-        case BESM_EXTRA_EPRINT: mnem = "*64"; break;
-        case BESM_EXTRA_ETIME:  mnem = "*75"; break;
-        case BESM_EXTRA_ETIMEH: mnem = "*76"; break;
-        default:                mnem = "";    break;
-        }
-        a = &extra->u.addr;
-    }
-    mem_addr_str(addr, sizeof(addr), a);
-    emit_line(out, NULL, a->reg, mnem, addr);
-}
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
 void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
 {
     for (; instr; instr = instr->next) {
+        char a[64] = "";
         switch (instr->kind) {
-        case BESM_INSTR_MEM:
-            emit_mem_instr(out, &instr->u.mem);
+        // Load / store
+        case BESM_MEM_XTA:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "xta", a);
             break;
-        case BESM_INSTR_ARITH:
-            emit_arith_instr(out, &instr->u.arith);
+        case BESM_MEM_ATX:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "atx", a);
             break;
-        case BESM_INSTR_LOG:
-            emit_log_instr(out, &instr->u.log_);
+        case BESM_MEM_STX:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "stx", a);
             break;
-        case BESM_INSTR_EXP:
-            emit_exp_instr(out, &instr->u.exp);
+        case BESM_MEM_XTS:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "xts", a);
             break;
-        case BESM_INSTR_REG:
-            emit_reg_instr(out, &instr->u.reg);
+        // Index-register transfer (addr = ireg number)
+        case BESM_MEM_ITA:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, 0, "ita", a);
             break;
-        case BESM_INSTR_MOD:
-            emit_mod_instr(out, &instr->u.mod);
+        case BESM_MEM_ATI:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, 0, "ati", a);
             break;
-        case BESM_INSTR_BRANCH:
-            emit_branch_instr(out, &instr->u.branch);
+        case BESM_MEM_ITS:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, 0, "its", a);
             break;
-        case BESM_INSTR_EXTRA:
-            emit_extra_instr(out, &instr->u.extra);
+        case BESM_MEM_STI:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, 0, "sti", a);
             break;
-        case BESM_INSTR_LABEL:
-            emit_line(out, instr->u.name, 0, "bss", "");
+        // MTJ: reg=src, addr=dst_j
+        case BESM_MEM_MTJ:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, instr->reg, "mtj", a);
             break;
-        case BESM_INSTR_NAME:
-            emit_line(out, instr->u.name, 0, "name", "");
+
+        // Floating-point arithmetic
+        case BESM_ARITH_ADD:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "a+x", a);
             break;
-        case BESM_INSTR_REL:
-            emit_line(out, NULL, 0, "rel", "");
+        case BESM_ARITH_SUB:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "a-x", a);
             break;
-        case BESM_INSTR_CALL:
-            emit_line(out, NULL, 0, "call", instr->u.name);
+        case BESM_ARITH_RSUB:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "x-a", a);
             break;
-        case BESM_INSTR_SUBP:
-            emit_line(out, instr->u.name, 0, "subp", "");
+        case BESM_ARITH_ABSSUB:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "amx", a);
             break;
-        case BESM_INSTR_ENTRY:
-            emit_line(out, NULL, 0, "entry", instr->u.name);
+        case BESM_ARITH_MUL:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "a*x", a);
             break;
-        case BESM_INSTR_END:
+        case BESM_ARITH_DIV:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "a/x", a);
+            break;
+        case BESM_ARITH_CNEG:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "avx", a);
+            break;
+
+        // Logical / bit-manipulation
+        case BESM_LOG_AAX:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "aax", a);
+            break;
+        case BESM_LOG_AOX:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "aox", a);
+            break;
+        case BESM_LOG_AEX:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "aex", a);
+            break;
+        case BESM_LOG_ARX:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "arx", a);
+            break;
+        case BESM_LOG_APX:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "apx", a);
+            break;
+        case BESM_LOG_AUX:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "aux", a);
+            break;
+        case BESM_LOG_ACX:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "acx", a);
+            break;
+        case BESM_LOG_ANX:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "anx", a);
+            break;
+
+        // Exponent / shift (memory operand)
+        case BESM_EXP_EADDX:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "e+x", a);
+            break;
+        case BESM_EXP_ESUBX:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "e-x", a);
+            break;
+        case BESM_EXP_SHIFTX:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "asx", a);
+            break;
+        case BESM_EXP_SETRMEM:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "xtr", a);
+            break;
+        // Exponent / shift (immediate: addr = immediate value)
+        case BESM_EXP_GETR:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, 0, "rte", a);
+            break;
+        case BESM_EXP_YTA:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, 0, "yta", a);
+            break;
+        case BESM_EXP_EADDN:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, 0, "e+n", a);
+            break;
+        case BESM_EXP_ESUBN:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, 0, "e-n", a);
+            break;
+        case BESM_EXP_SHIFTN:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, 0, "asn", a);
+            break;
+        case BESM_EXP_SETR:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, 0, "ntr", a);
+            break;
+
+        // Index-register manipulation (reg=dst, addr=value or dst_j)
+        case BESM_REG_VTM:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, instr->reg, "vtm", a);
+            break;
+        case BESM_REG_UTM:
+            if (instr->addr)
+                snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, instr->reg, "utm", a);
+            break;
+        case BESM_REG_JADDM:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, instr->reg, "j+m", a);
+            break;
+
+        // C register
+        case BESM_MOD_UTC:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "utc", a);
+            break;
+        case BESM_MOD_WTC:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "wtc", a);
+            break;
+
+        // Control flow
+        case BESM_BRANCH_UZA:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "uza", a);
+            break;
+        case BESM_BRANCH_U1A:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "u1a", a);
+            break;
+        case BESM_BRANCH_UJ:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "uj", a);
+            break;
+        case BESM_BRANCH_VJM:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "vjm", a);
+            break;
+        case BESM_BRANCH_VZM:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "vzm", a);
+            break;
+        case BESM_BRANCH_V1M:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "v1m", a);
+            break;
+        case BESM_BRANCH_VLM:
+            addr_str(a, sizeof(a), instr->name, instr->addr);
+            emit_line(out, NULL, instr->reg, "vlm", a);
+            break;
+        case BESM_BRANCH_STOP:
+            emit_line(out, NULL, 0, "stop", "");
+            break;
+
+        // Assembly directives
+        case BESM_STMT_LABEL:
+            emit_line(out, instr->name, 0, "bss", "");
+            break;
+        case BESM_STMT_NAME:
+            emit_line(out, instr->name, 0, "name", "");
+            break;
+        case BESM_STMT_BASE:
+            emit_line(out, NULL, instr->reg, "base", instr->name);
+            break;
+        case BESM_BRANCH_CALL:
+            emit_line(out, NULL, 0, "call", instr->name);
+            break;
+        case BESM_STMT_SUBP:
+            emit_line(out, instr->name, 0, "subp", "");
+            break;
+        case BESM_STMT_ENTRY:
+            emit_line(out, NULL, 0, "entry", instr->name);
+            break;
+        case BESM_STMT_END:
             emit_line(out, NULL, 0, "end", "");
             break;
         }

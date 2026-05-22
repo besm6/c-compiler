@@ -39,21 +39,17 @@ static Besm_Instr *emit(Besm_Block *block, Besm_Instr **tail, Besm_InstrKind kin
 // Emit XTA: A = mem[reg + off].
 static void emit_xta(Besm_Block *b, Besm_Instr **t, int reg, int off)
 {
-    Besm_Instr *i            = emit(b, t, BESM_INSTR_MEM);
-    i->u.mem.kind            = BESM_MEM_XTA;
-    i->u.mem.u.addr.kind     = BESM_MEM_ADDR_REG;
-    i->u.mem.u.addr.reg  = reg;
-    i->u.mem.u.addr.u.offset = off;
+    Besm_Instr *i = emit(b, t, BESM_MEM_XTA);
+    i->reg        = reg;
+    i->addr       = off;
 }
 
 // Emit ATX: mem[reg + off] = A.
 static void emit_atx(Besm_Block *b, Besm_Instr **t, int reg, int off)
 {
-    Besm_Instr *i            = emit(b, t, BESM_INSTR_MEM);
-    i->u.mem.kind            = BESM_MEM_ATX;
-    i->u.mem.u.addr.kind     = BESM_MEM_ADDR_REG;
-    i->u.mem.u.addr.reg  = reg;
-    i->u.mem.u.addr.u.offset = off;
+    Besm_Instr *i = emit(b, t, BESM_MEM_ATX);
+    i->reg        = reg;
+    i->addr       = off;
 }
 
 // Frame lookup with fatal_error on miss.
@@ -94,63 +90,50 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
 
     Besm_Instr *tail = NULL;
 
-    Besm_Instr *iname = emit(block, &tail, BESM_INSTR_NAME);
-    iname->u.name     = xstrdup(name);
+    Besm_Instr *iname = emit(block, &tail, BESM_STMT_NAME);
+    iname->name       = xstrdup(name);
 
     if (is_empty) {
         // Optimized prologue for empty functions: no b/save or b/ret.
         if (needs_param_setup) {
             // 14 ,utc, 1
-            Besm_Instr *utc14              = emit(block, &tail, BESM_INSTR_MOD);
-            utc14->u.mod.kind              = BESM_MOD_UTC;
-            utc14->u.mod.addr.kind         = BESM_MEM_ADDR_REG;
-            utc14->u.mod.addr.reg      = REG_CNT;
-            utc14->u.mod.addr.u.offset     = 1;
+            Besm_Instr *utc14 = emit(block, &tail, BESM_MOD_UTC);
+            utc14->reg        = REG_CNT;
+            utc14->addr       = 1;
             // 15 ,utm,
-            Besm_Instr *utm15              = emit(block, &tail, BESM_INSTR_REG);
-            utm15->u.reg.kind              = BESM_REG_UTM;
-            utm15->u.reg.u.vtm.dst     = REG_SP;
-            utm15->u.reg.u.vtm.value       = 0;
+            Besm_Instr *utm15 = emit(block, &tail, BESM_REG_UTM);
+            utm15->reg        = REG_SP;
         }
         // 13 ,uj,
-        Besm_Instr *uj13                   = emit(block, &tail, BESM_INSTR_BRANCH);
-        uj13->u.branch.kind                = BESM_BRANCH_UJ;
-        uj13->u.branch.u.addr.kind         = BESM_MEM_ADDR_REG;
-        uj13->u.branch.u.addr.reg      = REG_RET;
-        uj13->u.branch.u.addr.u.offset     = 0;
-        emit(block, &tail, BESM_INSTR_END);
+        Besm_Instr *uj13 = emit(block, &tail, BESM_BRANCH_UJ);
+        uj13->reg        = REG_RET;
+        emit(block, &tail, BESM_STMT_END);
     } else {
         // Full prologue: push last argument + capture return address, call b/save,
         // then extend the stack by the number of auto-variable slots.
-        Besm_Instr *subp_cret = emit(block, &tail, BESM_INSTR_SUBP);
-        subp_cret->u.name     = xstrdup("b/ret");
+        Besm_Instr *subp_cret = emit(block, &tail, BESM_STMT_SUBP);
+        subp_cret->name       = xstrdup("b/ret");
 
-        Besm_Instr *its13          = emit(block, &tail, BESM_INSTR_MEM);
-        its13->u.mem.kind          = BESM_MEM_ITS;
-        its13->u.mem.u.ireg        = REG_RET;
+        Besm_Instr *its13 = emit(block, &tail, BESM_MEM_ITS);
+        its13->addr       = REG_RET;
 
-        Besm_Instr *call_csave = emit(block, &tail, BESM_INSTR_CALL);
-        call_csave->u.name     = xstrdup("b/save");
+        Besm_Instr *call_csave = emit(block, &tail, BESM_BRANCH_CALL);
+        call_csave->name       = xstrdup("b/save");
 
         Frame *f      = frame_build(tl);
         int num_autos = frame_num_autos(f);
         if (num_autos > 0) {
-            Besm_Instr *utm_sp               = emit(block, &tail, BESM_INSTR_REG);
-            utm_sp->u.reg.kind               = BESM_REG_UTM;
-            utm_sp->u.reg.u.vtm.dst      = REG_SP;
-            utm_sp->u.reg.u.vtm.value        = num_autos;
+            Besm_Instr *utm_sp = emit(block, &tail, BESM_REG_UTM);
+            utm_sp->reg        = REG_SP;
+            utm_sp->addr       = num_autos;
         }
 
         for (const Tac_Instruction *instr = tl->u.function.body; instr; instr = instr->next)
             codegen_instr(instr, f, block, &tail);
 
-        Besm_Instr *uj_cret                     = emit(block, &tail, BESM_INSTR_BRANCH);
-        uj_cret->u.branch.kind                  = BESM_BRANCH_UJ;
-        uj_cret->u.branch.u.addr.kind           = BESM_MEM_ADDR_LABEL;
-        uj_cret->u.branch.u.addr.reg        = 0;
-        uj_cret->u.branch.u.addr.u.name         = xstrdup("b/ret");
-
-        emit(block, &tail, BESM_INSTR_END);
+        Besm_Instr *uj_cret = emit(block, &tail, BESM_BRANCH_UJ);
+        uj_cret->name       = xstrdup("b/ret");
+        emit(block, &tail, BESM_STMT_END);
 
         frame_free(f);
     }
@@ -211,17 +194,14 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         int sr, so, dr, doff;
         lookup(f, instr->u.get_address.src->u.var_name, &sr, &so);
         lookup(f, instr->u.get_address.dst->u.var_name, &dr, &doff);
-        Besm_Instr *mtj          = emit(block, tail, BESM_INSTR_MEM);
-        mtj->u.mem.kind          = BESM_MEM_MTJ;
-        mtj->u.mem.u.mtj.src = sr;
-        mtj->u.mem.u.mtj.dst_j   = 1;
-        Besm_Instr *utm          = emit(block, tail, BESM_INSTR_REG);
-        utm->u.reg.kind          = BESM_REG_UTM;
-        utm->u.reg.u.vtm.dst = 1;
-        utm->u.reg.u.vtm.value   = so;
-        Besm_Instr *ita   = emit(block, tail, BESM_INSTR_MEM);
-        ita->u.mem.kind   = BESM_MEM_ITA;
-        ita->u.mem.u.ireg = 1;
+        Besm_Instr *mtj = emit(block, tail, BESM_MEM_MTJ);
+        mtj->reg        = sr;
+        mtj->addr       = 1; // dst_j
+        Besm_Instr *utm = emit(block, tail, BESM_REG_UTM);
+        utm->reg        = 1;
+        utm->addr       = so;
+        Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);
+        ita->addr       = 1;
         emit_atx(block, tail, dr, doff);
         break;
     }
@@ -245,9 +225,8 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         lookup(f, instr->u.load.src_ptr->u.var_name, &pr, &po);
         lookup(f, instr->u.load.dst->u.var_name, &dr, &doff);
         emit_xta(block, tail, pr, po);
-        Besm_Instr *ati   = emit(block, tail, BESM_INSTR_MEM);
-        ati->u.mem.kind   = BESM_MEM_ATI;
-        ati->u.mem.u.ireg = 1;
+        Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
+        ati->addr       = 1;
         emit_xta(block, tail, 1, 0);
         emit_atx(block, tail, dr, doff);
         break;
@@ -271,9 +250,8 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         lookup(f, instr->u.store.dst_ptr->u.var_name, &pr, &po);
         lookup(f, instr->u.store.src->u.var_name, &sr, &so);
         emit_xta(block, tail, pr, po);
-        Besm_Instr *ati   = emit(block, tail, BESM_INSTR_MEM);
-        ati->u.mem.kind   = BESM_MEM_ATI;
-        ati->u.mem.u.ireg = 1;
+        Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
+        ati->addr       = 1;
         emit_xta(block, tail, sr, so);
         emit_atx(block, tail, 1, 0);
         break;
@@ -291,8 +269,8 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
     // CALL instruction is emitted; the callee's prologue (ITS 13 / CALL b/save)
     // handles the rest of the calling convention.
     case TAC_INSTRUCTION_FUN_CALL: {
-        Besm_Instr *call = emit(block, tail, BESM_INSTR_CALL);
-        call->u.name     = xstrdup(instr->u.fun_call.fun_name);
+        Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
+        call->name       = xstrdup(instr->u.fun_call.fun_name);
         break;
     }
     default:

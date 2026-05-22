@@ -40,125 +40,88 @@ TEST_F(CodegenTest, ScalFunction)
     };
 
     // scal: ,name,
-    auto *iname      = add(besm_new_instr(BESM_INSTR_NAME));
-    iname->u.name    = xstrdup("scal");
+    auto *iname  = add(besm_new_instr(BESM_STMT_NAME));
+    iname->name  = xstrdup("scal");
 
     // ,sti, 14
-    auto *sti14            = add(besm_new_instr(BESM_INSTR_MEM));
-    sti14->u.mem.kind      = BESM_MEM_STI;
-    sti14->u.mem.u.ireg    = 14;
+    auto *sti14  = add(besm_new_instr(BESM_MEM_STI));
+    sti14->addr  = 14;
 
     // ,sti, 12
-    auto *sti12            = add(besm_new_instr(BESM_INSTR_MEM));
-    sti12->u.mem.kind      = BESM_MEM_STI;
-    sti12->u.mem.u.ireg    = 12;
+    auto *sti12  = add(besm_new_instr(BESM_MEM_STI));
+    sti12->addr  = 12;
 
     // ,ati, 11
-    auto *ati11            = add(besm_new_instr(BESM_INSTR_MEM));
-    ati11->u.mem.kind      = BESM_MEM_ATI;
-    ati11->u.mem.u.ireg    = 11;
+    auto *ati11  = add(besm_new_instr(BESM_MEM_ATI));
+    ati11->addr  = 11;
 
     // ,ntr, 3
-    auto *ntr3             = add(besm_new_instr(BESM_INSTR_EXP));
-    ntr3->u.exp.kind       = BESM_EXP_SETR;
-    ntr3->u.exp.u.imm      = 3;
+    auto *ntr3   = add(besm_new_instr(BESM_EXP_SETR));
+    ntr3->addr   = 3;
 
     // 14 ,xta,
-    auto *xta14                       = add(besm_new_instr(BESM_INSTR_MEM));
-    xta14->u.mem.kind                 = BESM_MEM_XTA;
-    xta14->u.mem.u.addr.kind          = BESM_MEM_ADDR_REG;
-    xta14->u.mem.u.addr.reg       = 14;
-    xta14->u.mem.u.addr.u.offset      = 0;
+    auto *xta14  = add(besm_new_instr(BESM_MEM_XTA));
+    xta14->reg   = 14;
 
     // ,utc, =i1
-    auto *utc                    = add(besm_new_instr(BESM_INSTR_MOD));
-    utc->u.mod.kind              = BESM_MOD_UTC;
-    utc->u.mod.addr.kind         = BESM_MEM_ADDR_LABEL;
-    utc->u.mod.addr.reg      = 0;
-    utc->u.mod.addr.u.name       = xstrdup("=i1");
+    auto *utc    = add(besm_new_instr(BESM_MOD_UTC));
+    utc->name    = xstrdup("=i1");
 
     // ,x-a,
-    auto *rsub                      = add(besm_new_instr(BESM_INSTR_ARITH));
-    rsub->u.arith.kind              = BESM_ARITH_RSUB;
-    rsub->u.arith.addr.kind         = BESM_MEM_ADDR_REG;
-    rsub->u.arith.addr.reg      = 0;
-    rsub->u.arith.addr.u.offset     = 0;
+    add(besm_new_instr(BESM_ARITH_RSUB));
 
     // ,ati, 14
-    auto *ati14            = add(besm_new_instr(BESM_INSTR_MEM));
-    ati14->u.mem.kind      = BESM_MEM_ATI;
-    ati14->u.mem.u.ireg    = 14;
+    auto *ati14  = add(besm_new_instr(BESM_MEM_ATI));
+    ati14->addr  = 14;
 
     // ,ntr, 18
-    auto *ntr18            = add(besm_new_instr(BESM_INSTR_EXP));
-    ntr18->u.exp.kind      = BESM_EXP_SETR;
-    ntr18->u.exp.u.imm     = 18;
+    auto *ntr18  = add(besm_new_instr(BESM_EXP_SETR));
+    ntr18->addr  = 18;
 
     // ,xta,   (load mem[0] = 0, i.e. A ← 0)
-    auto *xta0                       = add(besm_new_instr(BESM_INSTR_MEM));
-    xta0->u.mem.kind                 = BESM_MEM_XTA;
-    xta0->u.mem.u.addr.kind          = BESM_MEM_ADDR_REG;
-    xta0->u.mem.u.addr.reg       = 0;
-    xta0->u.mem.u.addr.u.offset      = 0;
+    add(besm_new_instr(BESM_MEM_XTA));
 
     // *1: ,bss,   (loop label)
-    auto *lbl1      = add(besm_new_instr(BESM_INSTR_LABEL));
-    lbl1->u.name    = xstrdup("*1");
+    auto *lbl1   = add(besm_new_instr(BESM_STMT_LABEL));
+    lbl1->name   = xstrdup("*1");
 
     // 11 ,xts,
-    auto *xts11                       = add(besm_new_instr(BESM_INSTR_MEM));
-    xts11->u.mem.kind                 = BESM_MEM_XTS;
-    xts11->u.mem.u.addr.kind          = BESM_MEM_ADDR_REG;
-    xts11->u.mem.u.addr.reg       = 11;
-    xts11->u.mem.u.addr.u.offset      = 0;
+    auto *xts11  = add(besm_new_instr(BESM_MEM_XTS));
+    xts11->reg   = 11;
 
     // 12 ,a*x,
-    auto *mul12                       = add(besm_new_instr(BESM_INSTR_ARITH));
-    mul12->u.arith.kind               = BESM_ARITH_MUL;
-    mul12->u.arith.addr.kind          = BESM_MEM_ADDR_REG;
-    mul12->u.arith.addr.reg       = 12;
-    mul12->u.arith.addr.u.offset      = 0;
+    auto *mul12  = add(besm_new_instr(BESM_ARITH_MUL));
+    mul12->reg   = 12;
 
     // 11 ,utm, 1
-    auto *utm11                  = add(besm_new_instr(BESM_INSTR_REG));
-    utm11->u.reg.kind            = BESM_REG_UTM;
-    utm11->u.reg.u.vtm.dst   = 11;
-    utm11->u.reg.u.vtm.value     = 1;
+    auto *utm11  = add(besm_new_instr(BESM_REG_UTM));
+    utm11->reg   = 11;
+    utm11->addr  = 1;
 
     // 12 ,utm, 1
-    auto *utm12                  = add(besm_new_instr(BESM_INSTR_REG));
-    utm12->u.reg.kind            = BESM_REG_UTM;
-    utm12->u.reg.u.vtm.dst   = 12;
-    utm12->u.reg.u.vtm.value     = 1;
+    auto *utm12  = add(besm_new_instr(BESM_REG_UTM));
+    utm12->reg   = 12;
+    utm12->addr  = 1;
 
     // 15 ,a+x,
-    auto *add15                       = add(besm_new_instr(BESM_INSTR_ARITH));
-    add15->u.arith.kind               = BESM_ARITH_ADD;
-    add15->u.arith.addr.kind          = BESM_MEM_ADDR_REG;
-    add15->u.arith.addr.reg       = 15;
-    add15->u.arith.addr.u.offset      = 0;
+    auto *add15  = add(besm_new_instr(BESM_ARITH_ADD));
+    add15->reg   = 15;
 
     // 14 ,vlm, *1
-    auto *vlm14                            = add(besm_new_instr(BESM_INSTR_BRANCH));
-    vlm14->u.branch.kind                   = BESM_BRANCH_VLM;
-    vlm14->u.branch.u.jump.reg         = 14;
-    vlm14->u.branch.u.jump.tgt.kind        = BESM_TARGET_LABEL;
-    vlm14->u.branch.u.jump.tgt.u.name      = xstrdup("*1");
+    auto *vlm14  = add(besm_new_instr(BESM_BRANCH_VLM));
+    vlm14->reg   = 14;
+    vlm14->name  = xstrdup("*1");
 
     // ,ntr, 6
-    auto *ntr6             = add(besm_new_instr(BESM_INSTR_EXP));
-    ntr6->u.exp.kind       = BESM_EXP_SETR;
-    ntr6->u.exp.u.imm      = 6;
+    auto *ntr6   = add(besm_new_instr(BESM_EXP_SETR));
+    ntr6->addr   = 6;
 
     // 13 ,uj,
-    auto *uj13                         = add(besm_new_instr(BESM_INSTR_BRANCH));
-    uj13->u.branch.kind                = BESM_BRANCH_UJ;
-    uj13->u.branch.u.addr.kind         = BESM_MEM_ADDR_REG;
-    uj13->u.branch.u.addr.reg      = 13;
-    uj13->u.branch.u.addr.u.offset     = 0;
+    auto *uj13   = add(besm_new_instr(BESM_BRANCH_UJ));
+    uj13->reg    = 13;
 
     // ,end,
-    add(besm_new_instr(BESM_INSTR_END));
+    add(besm_new_instr(BESM_STMT_END));
 
     std::string out = capture(module);
     besm_free_module(module);
