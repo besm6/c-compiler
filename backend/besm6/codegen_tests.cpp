@@ -248,9 +248,7 @@ TEST_F(CodegenTest, GetAddressAuto)
              ,its, 13
              ,call, b/save
           15 ,utm, 3
-           7 ,mtj, 1
-           1 ,utm,
-             ,ita, 1
+             ,ita, 7
            7 ,atx, 1
            7 ,xta, 1
            7 ,atx, 2

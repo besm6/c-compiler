@@ -179,29 +179,29 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
     // TAC:   get_address src → dst   (src is the variable being addressed;
     //                                 dst receives its runtime word address)
     //
-    // BESM-6 sequence (r1 is a scratch index register):
-    //   reg_src ,MTJ, 1      — M[1] = M[reg_src]: copy the frame base pointer
-    //                           (r6 for params, r7 for autos) into r1
-    //   1 ,UTM, off_src      — M[1] += off_src: advance r1 to the exact slot
-    //                           so r1 now holds the word address of src
-    //   ,ITA, 1              — A = M[1]: load that address into the accumulator
+    // BESM-6 sequence (r14 is a scratch index register):
+    //   reg_src ,UTC, off_src — C = M[reg_src] + off_src: copy
+    //                           the word address of src into C
+    //   14 ,VTM,              — M[14] = C, so r14 now holds the word address of src
+    //   ,ITA, 14              — A = M[14]: load that address into the accumulator
     //   reg_dst ,ATX, off_dst — store A (the address) into dst's frame slot
     //
-    // The UTM instruction is emitted unconditionally; when off_src == 0 the
-    // Madlen emitter omits the address field ("1 ,utm,") but the instruction
-    // is still present for uniformity.
     case TAC_INSTRUCTION_GET_ADDRESS: {
         int sr, so, dr, doff;
         lookup(f, instr->u.get_address.src->u.var_name, &sr, &so);
         lookup(f, instr->u.get_address.dst->u.var_name, &dr, &doff);
-        Besm_Instr *mtj = emit(block, tail, BESM_MEM_MTJ);
-        mtj->reg        = sr;
-        mtj->addr       = 1; // dst_j
-        Besm_Instr *utm = emit(block, tail, BESM_REG_UTM);
-        utm->reg        = 1;
-        utm->addr       = so;
-        Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);
-        ita->addr       = 1;
+        if (so == 0) {
+            Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);
+            ita->addr       = sr;
+        } else {
+            Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
+            utc->reg        = sr;
+            utc->addr       = so;
+            Besm_Instr *vtm = emit(block, tail, BESM_REG_VTM);
+            vtm->reg        = 14;
+            Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);
+            ita->addr       = 14;
+        }
         emit_atx(block, tail, dr, doff);
         break;
     }
