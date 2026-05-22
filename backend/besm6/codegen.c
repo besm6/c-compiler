@@ -42,7 +42,7 @@ static void emit_xta(Besm_Block *b, Besm_Instr **t, int reg, int off)
     Besm_Instr *i            = emit(b, t, BESM_INSTR_MEM);
     i->u.mem.kind            = BESM_MEM_XTA;
     i->u.mem.u.addr.kind     = BESM_MEM_ADDR_REG;
-    i->u.mem.u.addr.reg.num  = reg;
+    i->u.mem.u.addr.reg  = reg;
     i->u.mem.u.addr.u.offset = off;
 }
 
@@ -52,7 +52,7 @@ static void emit_atx(Besm_Block *b, Besm_Instr **t, int reg, int off)
     Besm_Instr *i            = emit(b, t, BESM_INSTR_MEM);
     i->u.mem.kind            = BESM_MEM_ATX;
     i->u.mem.u.addr.kind     = BESM_MEM_ADDR_REG;
-    i->u.mem.u.addr.reg.num  = reg;
+    i->u.mem.u.addr.reg  = reg;
     i->u.mem.u.addr.u.offset = off;
 }
 
@@ -104,19 +104,19 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
             Besm_Instr *utc14              = emit(block, &tail, BESM_INSTR_MOD);
             utc14->u.mod.kind              = BESM_MOD_UTC;
             utc14->u.mod.addr.kind         = BESM_MEM_ADDR_REG;
-            utc14->u.mod.addr.reg.num      = REG_CNT;
+            utc14->u.mod.addr.reg      = REG_CNT;
             utc14->u.mod.addr.u.offset     = 1;
             // 15 ,utm,
             Besm_Instr *utm15              = emit(block, &tail, BESM_INSTR_REG);
             utm15->u.reg.kind              = BESM_REG_UTM;
-            utm15->u.reg.u.vtm.dst.num     = REG_SP;
+            utm15->u.reg.u.vtm.dst     = REG_SP;
             utm15->u.reg.u.vtm.value       = 0;
         }
         // 13 ,uj,
         Besm_Instr *uj13                   = emit(block, &tail, BESM_INSTR_BRANCH);
         uj13->u.branch.kind                = BESM_BRANCH_UJ;
         uj13->u.branch.u.addr.kind         = BESM_MEM_ADDR_REG;
-        uj13->u.branch.u.addr.reg.num      = REG_RET;
+        uj13->u.branch.u.addr.reg      = REG_RET;
         uj13->u.branch.u.addr.u.offset     = 0;
         emit(block, &tail, BESM_INSTR_END);
     } else {
@@ -137,7 +137,7 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
         if (num_autos > 0) {
             Besm_Instr *utm_sp               = emit(block, &tail, BESM_INSTR_REG);
             utm_sp->u.reg.kind               = BESM_REG_UTM;
-            utm_sp->u.reg.u.vtm.dst.num      = REG_SP;
+            utm_sp->u.reg.u.vtm.dst      = REG_SP;
             utm_sp->u.reg.u.vtm.value        = num_autos;
         }
 
@@ -147,7 +147,7 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
         Besm_Instr *uj_cret                     = emit(block, &tail, BESM_INSTR_BRANCH);
         uj_cret->u.branch.kind                  = BESM_BRANCH_UJ;
         uj_cret->u.branch.u.addr.kind           = BESM_MEM_ADDR_LABEL;
-        uj_cret->u.branch.u.addr.reg.num        = 0;
+        uj_cret->u.branch.u.addr.reg        = 0;
         uj_cret->u.branch.u.addr.u.name         = xstrdup("b/ret");
 
         emit(block, &tail, BESM_INSTR_END);
@@ -213,11 +213,11 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         lookup(f, instr->u.get_address.dst->u.var_name, &dr, &doff);
         Besm_Instr *mtj          = emit(block, tail, BESM_INSTR_MEM);
         mtj->u.mem.kind          = BESM_MEM_MTJ;
-        mtj->u.mem.u.mtj.src.num = sr;
+        mtj->u.mem.u.mtj.src = sr;
         mtj->u.mem.u.mtj.dst_j   = 1;
         Besm_Instr *utm          = emit(block, tail, BESM_INSTR_REG);
         utm->u.reg.kind          = BESM_REG_UTM;
-        utm->u.reg.u.vtm.dst.num = 1;
+        utm->u.reg.u.vtm.dst = 1;
         utm->u.reg.u.vtm.value   = so;
         Besm_Instr *ita   = emit(block, tail, BESM_INSTR_MEM);
         ita->u.mem.kind   = BESM_MEM_ITA;

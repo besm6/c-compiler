@@ -69,19 +69,19 @@ static void emit_mem_instr(FILE *out, const Besm_MemInstr *mem)
     switch (mem->kind) {
     case BESM_MEM_XTA:
         mem_addr_str(addr, sizeof(addr), &mem->u.addr);
-        emit_line(out, NULL, mem->u.addr.reg.num, "xta", addr);
+        emit_line(out, NULL, mem->u.addr.reg, "xta", addr);
         break;
     case BESM_MEM_ATX:
         mem_addr_str(addr, sizeof(addr), &mem->u.addr);
-        emit_line(out, NULL, mem->u.addr.reg.num, "atx", addr);
+        emit_line(out, NULL, mem->u.addr.reg, "atx", addr);
         break;
     case BESM_MEM_STX:
         mem_addr_str(addr, sizeof(addr), &mem->u.addr);
-        emit_line(out, NULL, mem->u.addr.reg.num, "stx", addr);
+        emit_line(out, NULL, mem->u.addr.reg, "stx", addr);
         break;
     case BESM_MEM_XTS:
         mem_addr_str(addr, sizeof(addr), &mem->u.addr);
-        emit_line(out, NULL, mem->u.addr.reg.num, "xts", addr);
+        emit_line(out, NULL, mem->u.addr.reg, "xts", addr);
         break;
     case BESM_MEM_ITA:
         snprintf(addr, sizeof(addr), "%d", mem->u.ireg);
@@ -101,7 +101,7 @@ static void emit_mem_instr(FILE *out, const Besm_MemInstr *mem)
         break;
     case BESM_MEM_MTJ:
         snprintf(addr, sizeof(addr), "%d", mem->u.mtj.dst_j);
-        emit_line(out, NULL, mem->u.mtj.src.num, "mtj", addr);
+        emit_line(out, NULL, mem->u.mtj.src, "mtj", addr);
         break;
     }
 }
@@ -121,7 +121,7 @@ static void emit_arith_instr(FILE *out, const Besm_ArithInstr *arith)
     case BESM_ARITH_CNEG:   mnem = "avx"; break;
     default:                mnem = "";    break;
     }
-    emit_line(out, NULL, arith->addr.reg.num, mnem, addr);
+    emit_line(out, NULL, arith->addr.reg, mnem, addr);
 }
 
 static void emit_log_instr(FILE *out, const Besm_LogInstr *log)
@@ -140,7 +140,7 @@ static void emit_log_instr(FILE *out, const Besm_LogInstr *log)
     case BESM_LOG_ANX: mnem = "anx"; break;
     default:           mnem = "";    break;
     }
-    emit_line(out, NULL, log->addr.reg.num, mnem, addr);
+    emit_line(out, NULL, log->addr.reg, mnem, addr);
 }
 
 static void emit_exp_instr(FILE *out, const Besm_ExpInstr *exp)
@@ -150,19 +150,19 @@ static void emit_exp_instr(FILE *out, const Besm_ExpInstr *exp)
     switch (exp->kind) {
     case BESM_EXP_EADDX:
         mem_addr_str(addr, sizeof(addr), &exp->u.addr);
-        emit_line(out, NULL, exp->u.addr.reg.num, "e+x", addr);
+        emit_line(out, NULL, exp->u.addr.reg, "e+x", addr);
         return;
     case BESM_EXP_ESUBX:
         mem_addr_str(addr, sizeof(addr), &exp->u.addr);
-        emit_line(out, NULL, exp->u.addr.reg.num, "e-x", addr);
+        emit_line(out, NULL, exp->u.addr.reg, "e-x", addr);
         return;
     case BESM_EXP_SHIFTX:
         mem_addr_str(addr, sizeof(addr), &exp->u.addr);
-        emit_line(out, NULL, exp->u.addr.reg.num, "asx", addr);
+        emit_line(out, NULL, exp->u.addr.reg, "asx", addr);
         return;
     case BESM_EXP_SETRMEM:
         mem_addr_str(addr, sizeof(addr), &exp->u.addr);
-        emit_line(out, NULL, exp->u.addr.reg.num, "xtr", addr);
+        emit_line(out, NULL, exp->u.addr.reg, "xtr", addr);
         return;
     case BESM_EXP_GETR:   snprintf(addr, sizeof(addr), "%d", exp->u.imm); mnem = "rte"; break;
     case BESM_EXP_YTA:    snprintf(addr, sizeof(addr), "%d", exp->u.imm); mnem = "yta"; break;
@@ -181,16 +181,16 @@ static void emit_reg_instr(FILE *out, const Besm_RegInstr *reg)
     switch (reg->kind) {
     case BESM_REG_VTM:
         snprintf(addr, sizeof(addr), "%d", reg->u.vtm.value);
-        emit_line(out, NULL, reg->u.vtm.dst.num, "vtm", addr);
+        emit_line(out, NULL, reg->u.vtm.dst, "vtm", addr);
         break;
     case BESM_REG_UTM:
         if (reg->u.vtm.value)
             snprintf(addr, sizeof(addr), "%d", reg->u.vtm.value);
-        emit_line(out, NULL, reg->u.vtm.dst.num, "utm", addr);
+        emit_line(out, NULL, reg->u.vtm.dst, "utm", addr);
         break;
     case BESM_REG_JADDM:
         snprintf(addr, sizeof(addr), "%d", reg->u.jaddm.dst_j);
-        emit_line(out, NULL, reg->u.jaddm.src.num, "j+m", addr);
+        emit_line(out, NULL, reg->u.jaddm.src, "j+m", addr);
         break;
     }
 }
@@ -205,7 +205,7 @@ static void emit_mod_instr(FILE *out, const Besm_ModInstr *mod)
     case BESM_MOD_WTC: mnem = "wtc"; break;
     default:           mnem = "";    break;
     }
-    emit_line(out, NULL, mod->addr.reg.num, mnem, addr);
+    emit_line(out, NULL, mod->addr.reg, mnem, addr);
 }
 
 static void emit_branch_instr(FILE *out, const Besm_BranchInstr *branch)
@@ -214,31 +214,31 @@ static void emit_branch_instr(FILE *out, const Besm_BranchInstr *branch)
     switch (branch->kind) {
     case BESM_BRANCH_UZA:
         mem_addr_str(addr, sizeof(addr), &branch->u.addr);
-        emit_line(out, NULL, branch->u.addr.reg.num, "uza", addr);
+        emit_line(out, NULL, branch->u.addr.reg, "uza", addr);
         break;
     case BESM_BRANCH_U1A:
         mem_addr_str(addr, sizeof(addr), &branch->u.addr);
-        emit_line(out, NULL, branch->u.addr.reg.num, "u1a", addr);
+        emit_line(out, NULL, branch->u.addr.reg, "u1a", addr);
         break;
     case BESM_BRANCH_UJ:
         mem_addr_str(addr, sizeof(addr), &branch->u.addr);
-        emit_line(out, NULL, branch->u.addr.reg.num, "uj", addr);
+        emit_line(out, NULL, branch->u.addr.reg, "uj", addr);
         break;
     case BESM_BRANCH_VJM:
         target_str(addr, sizeof(addr), &branch->u.jump.tgt);
-        emit_line(out, NULL, branch->u.jump.reg.num, "vjm", addr);
+        emit_line(out, NULL, branch->u.jump.reg, "vjm", addr);
         break;
     case BESM_BRANCH_VZM:
         target_str(addr, sizeof(addr), &branch->u.jump.tgt);
-        emit_line(out, NULL, branch->u.jump.reg.num, "vzm", addr);
+        emit_line(out, NULL, branch->u.jump.reg, "vzm", addr);
         break;
     case BESM_BRANCH_V1M:
         target_str(addr, sizeof(addr), &branch->u.jump.tgt);
-        emit_line(out, NULL, branch->u.jump.reg.num, "v1m", addr);
+        emit_line(out, NULL, branch->u.jump.reg, "v1m", addr);
         break;
     case BESM_BRANCH_VLM:
         target_str(addr, sizeof(addr), &branch->u.jump.tgt);
-        emit_line(out, NULL, branch->u.jump.reg.num, "vlm", addr);
+        emit_line(out, NULL, branch->u.jump.reg, "vlm", addr);
         break;
     case BESM_BRANCH_STOP:
         emit_line(out, NULL, 0, "stop", "");
@@ -278,7 +278,7 @@ static void emit_extra_instr(FILE *out, const Besm_ExtraInstr *extra)
         a = &extra->u.addr;
     }
     mem_addr_str(addr, sizeof(addr), a);
-    emit_line(out, NULL, a->reg.num, mnem, addr);
+    emit_line(out, NULL, a->reg, mnem, addr);
 }
 
 // ---------------------------------------------------------------------------

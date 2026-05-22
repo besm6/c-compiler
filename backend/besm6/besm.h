@@ -15,13 +15,6 @@ typedef struct Besm_DataItem Besm_DataItem;
 typedef struct Besm_DataSection Besm_DataSection;
 
 //
-// mreg = MReg(int num)   -- num ∈ 0..15
-//
-typedef struct {
-    int num;
-} Besm_MReg;
-
-//
 // mem_addr — memory address operand (Format 1 / Format 2)
 //
 typedef enum {
@@ -33,7 +26,7 @@ typedef enum {
 
 typedef struct {
     Besm_MemAddrKind kind;
-    Besm_MReg reg;
+    unsigned reg;    // mreg ∈ 0..15
     union {
         int offset;  // AddrReg, AddrSegReg
         char *name;  // AddrLabel, AddrSegLabel (heap-owned)
@@ -77,7 +70,7 @@ typedef struct {
         Besm_MemAddr addr; // XTA, ATX, STX, XTS
         int ireg;          // ITA, ATI, ITS, STI; ireg ∈ 0..15
         struct {
-            Besm_MReg src;
+            unsigned src;
             int dst_j;
         } mtj;
     } u;
@@ -157,11 +150,11 @@ typedef struct {
     Besm_RegInstrKind kind;
     union {
         struct {
-            Besm_MReg dst;
+            unsigned dst;
             int value;
         } vtm; // VTM, UTM
         struct {
-            Besm_MReg src;
+            unsigned src;
             int dst_j;
         } jaddm;
     } u;
@@ -199,7 +192,7 @@ typedef struct {
     union {
         Besm_MemAddr addr; // UZA, U1A, UJ
         struct {
-            Besm_MReg reg; // link/test/cnt register
+            unsigned reg; // link/test/cnt register
             Besm_Target tgt;
         } jump; // VJM, VZM, V1M, VLM
         // STOP: no payload

@@ -67,21 +67,21 @@ TEST_F(CodegenTest, ScalFunction)
     auto *xta14                       = add(besm_new_instr(BESM_INSTR_MEM));
     xta14->u.mem.kind                 = BESM_MEM_XTA;
     xta14->u.mem.u.addr.kind          = BESM_MEM_ADDR_REG;
-    xta14->u.mem.u.addr.reg.num       = 14;
+    xta14->u.mem.u.addr.reg       = 14;
     xta14->u.mem.u.addr.u.offset      = 0;
 
     // ,utc, =i1
     auto *utc                    = add(besm_new_instr(BESM_INSTR_MOD));
     utc->u.mod.kind              = BESM_MOD_UTC;
     utc->u.mod.addr.kind         = BESM_MEM_ADDR_LABEL;
-    utc->u.mod.addr.reg.num      = 0;
+    utc->u.mod.addr.reg      = 0;
     utc->u.mod.addr.u.name       = xstrdup("=i1");
 
     // ,x-a,
     auto *rsub                      = add(besm_new_instr(BESM_INSTR_ARITH));
     rsub->u.arith.kind              = BESM_ARITH_RSUB;
     rsub->u.arith.addr.kind         = BESM_MEM_ADDR_REG;
-    rsub->u.arith.addr.reg.num      = 0;
+    rsub->u.arith.addr.reg      = 0;
     rsub->u.arith.addr.u.offset     = 0;
 
     // ,ati, 14
@@ -98,7 +98,7 @@ TEST_F(CodegenTest, ScalFunction)
     auto *xta0                       = add(besm_new_instr(BESM_INSTR_MEM));
     xta0->u.mem.kind                 = BESM_MEM_XTA;
     xta0->u.mem.u.addr.kind          = BESM_MEM_ADDR_REG;
-    xta0->u.mem.u.addr.reg.num       = 0;
+    xta0->u.mem.u.addr.reg       = 0;
     xta0->u.mem.u.addr.u.offset      = 0;
 
     // *1: ,bss,   (loop label)
@@ -109,39 +109,39 @@ TEST_F(CodegenTest, ScalFunction)
     auto *xts11                       = add(besm_new_instr(BESM_INSTR_MEM));
     xts11->u.mem.kind                 = BESM_MEM_XTS;
     xts11->u.mem.u.addr.kind          = BESM_MEM_ADDR_REG;
-    xts11->u.mem.u.addr.reg.num       = 11;
+    xts11->u.mem.u.addr.reg       = 11;
     xts11->u.mem.u.addr.u.offset      = 0;
 
     // 12 ,a*x,
     auto *mul12                       = add(besm_new_instr(BESM_INSTR_ARITH));
     mul12->u.arith.kind               = BESM_ARITH_MUL;
     mul12->u.arith.addr.kind          = BESM_MEM_ADDR_REG;
-    mul12->u.arith.addr.reg.num       = 12;
+    mul12->u.arith.addr.reg       = 12;
     mul12->u.arith.addr.u.offset      = 0;
 
     // 11 ,utm, 1
     auto *utm11                  = add(besm_new_instr(BESM_INSTR_REG));
     utm11->u.reg.kind            = BESM_REG_UTM;
-    utm11->u.reg.u.vtm.dst.num   = 11;
+    utm11->u.reg.u.vtm.dst   = 11;
     utm11->u.reg.u.vtm.value     = 1;
 
     // 12 ,utm, 1
     auto *utm12                  = add(besm_new_instr(BESM_INSTR_REG));
     utm12->u.reg.kind            = BESM_REG_UTM;
-    utm12->u.reg.u.vtm.dst.num   = 12;
+    utm12->u.reg.u.vtm.dst   = 12;
     utm12->u.reg.u.vtm.value     = 1;
 
     // 15 ,a+x,
     auto *add15                       = add(besm_new_instr(BESM_INSTR_ARITH));
     add15->u.arith.kind               = BESM_ARITH_ADD;
     add15->u.arith.addr.kind          = BESM_MEM_ADDR_REG;
-    add15->u.arith.addr.reg.num       = 15;
+    add15->u.arith.addr.reg       = 15;
     add15->u.arith.addr.u.offset      = 0;
 
     // 14 ,vlm, *1
     auto *vlm14                            = add(besm_new_instr(BESM_INSTR_BRANCH));
     vlm14->u.branch.kind                   = BESM_BRANCH_VLM;
-    vlm14->u.branch.u.jump.reg.num         = 14;
+    vlm14->u.branch.u.jump.reg         = 14;
     vlm14->u.branch.u.jump.tgt.kind        = BESM_TARGET_LABEL;
     vlm14->u.branch.u.jump.tgt.u.name      = xstrdup("*1");
 
@@ -154,7 +154,7 @@ TEST_F(CodegenTest, ScalFunction)
     auto *uj13                         = add(besm_new_instr(BESM_INSTR_BRANCH));
     uj13->u.branch.kind                = BESM_BRANCH_UJ;
     uj13->u.branch.u.addr.kind         = BESM_MEM_ADDR_REG;
-    uj13->u.branch.u.addr.reg.num      = 13;
+    uj13->u.branch.u.addr.reg      = 13;
     uj13->u.branch.u.addr.u.offset     = 0;
 
     // ,end,
