@@ -382,3 +382,34 @@ TEST_F(CodegenTest, AddTwoAutos)
              ,end,
 )", output);
 }
+
+TEST_F(CodegenTest, RunRev)
+{
+    char in_path[]  = "/tmp/rev_input_XXXXXX";
+    int  in_fd      = mkstemp(in_path);
+    ASSERT_GE(in_fd, 0);
+    const char *input = "hello\nworld\nfoo\n";
+    write(in_fd, input, strlen(input));
+    close(in_fd);
+
+    char out_path[] = "/tmp/rev_output_XXXXXX";
+    int  out_fd     = mkstemp(out_path);
+    ASSERT_GE(out_fd, 0);
+    close(out_fd);
+
+    RunExternalProgram("rev", {in_path}, out_path);
+
+    FILE *f = fopen(out_path, "r");
+    ASSERT_NE(nullptr, f);
+    fseek(f, 0, SEEK_END);
+    long len = ftell(f);
+    rewind(f);
+    std::string got(static_cast<size_t>(len), '\0');
+    fread(&got[0], 1, static_cast<size_t>(len), f);
+    fclose(f);
+
+    EXPECT_EQ(got, "olleh\ndlrow\noof\n");
+
+    unlink(in_path);
+    unlink(out_path);
+}

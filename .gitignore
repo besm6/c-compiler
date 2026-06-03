@@ -3,3 +3,4 @@ build
 *.c-
 *.h-
 *.log
+tmp/

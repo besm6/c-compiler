@@ -2,9 +2,16 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <stdexcept>
 #include <string>
+#include <vector>
+
+#include <fcntl.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include "besm.h"
 #include "codegen.h"
@@ -102,5 +109,74 @@ protected:
             decls = next;
         }
         return result;
+    }
+
+    // Fork a child, exec prog_path with input_filenames as arguments,
+    // and redirect its stdout to output_filename.
+    // Throws std::runtime_error on any failure.
+    static void RunExternalProgram(const std::string &prog_path,
+                                   const std::vector<std::string> &input_filenames,
+                                   const std::string &output_filename)
+    {
+        enum {
+            STATUS_OK              = EXIT_SUCCESS,
+            STATUS_COMPILER_FAILED = EXIT_FAILURE,
+            STATUS_CANNOT_READ_INPUT,
+            STATUS_CANNOT_WRITE_OUTPUT,
+            STATUS_CANNOT_RUN_PROGRAM,
+        };
+
+        pid_t pid = fork();
+        if (pid < 0)
+            throw std::runtime_error("Cannot fork");
+
+        if (pid == 0) {
+            int in_fd = open(input_filenames[0].c_str(), O_RDONLY);
+            if (in_fd < 0)
+                exit(STATUS_CANNOT_READ_INPUT);
+            close(in_fd);
+
+            int out_fd = open(output_filename.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (out_fd < 0)
+                exit(STATUS_CANNOT_WRITE_OUTPUT);
+            dup2(out_fd, STDOUT_FILENO);
+            close(out_fd);
+
+            auto argv = build_argv(prog_path, input_filenames);
+            execvp(argv[0], const_cast<char *const *>(argv.data()));
+            exit(STATUS_CANNOT_RUN_PROGRAM);
+        }
+
+        int wait_status;
+        if (waitpid(pid, &wait_status, 0) < 0)
+            throw std::runtime_error("Lost child process #" + std::to_string(pid));
+
+        int exit_code = WEXITSTATUS(wait_status);
+        switch (exit_code) {
+        case STATUS_OK:
+            return;
+        case STATUS_CANNOT_READ_INPUT:
+            throw std::runtime_error("Cannot read " + input_filenames[0]);
+        case STATUS_CANNOT_WRITE_OUTPUT:
+            throw std::runtime_error("Cannot write " + output_filename);
+        case STATUS_CANNOT_RUN_PROGRAM:
+            throw std::runtime_error("Cannot execute " + prog_path);
+        default:
+            throw std::runtime_error("Program failed with status " + std::to_string(exit_code));
+        }
+    }
+
+private:
+    // Build a null-terminated argv vector: [prog_path, file0, file1, ..., nullptr].
+    static std::vector<const char *> build_argv(const std::string &prog,
+                                                const std::vector<std::string> &files)
+    {
+        std::vector<const char *> argv;
+        argv.reserve(files.size() + 2);
+        argv.push_back(prog.c_str());
+        std::transform(files.begin(), files.end(), std::back_inserter(argv),
+                       [](const std::string &s) { return s.c_str(); });
+        argv.push_back(nullptr);
+        return argv;
     }
 };
