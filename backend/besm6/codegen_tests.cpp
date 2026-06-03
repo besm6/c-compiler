@@ -413,3 +413,9 @@ TEST_F(CodegenTest, RunRev)
     unlink(in_path);
     unlink(out_path);
 }
+
+TEST_F(CodegenTest, EmptyProgram)
+{
+    std::string result = CompileAndRun("void program() {}");
+    EXPECT_EQ("", result);
+}

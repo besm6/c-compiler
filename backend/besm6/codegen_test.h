@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -109,6 +110,83 @@ protected:
             decls = next;
         }
         return result;
+    }
+
+    // Compile C source, run it under the Dubna simulator, and return the program output.
+    // Returns "ERROR" on compile failure, simulator failure, or malformed listing.
+    std::string CompileAndRun(const std::string &src)
+    {
+        std::string madlen = CompileToMadlen(src.c_str());
+
+        std::string job =
+            "*name .\n"
+            "*tape:7/b,40\n"
+            "*library:40\n"
+            "*call setftn:one,long\n"
+            "*assem\n";
+        job += madlen;
+        job += "*execute\n"
+               "*end file\n";
+
+        const char *test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        std::string dub_path  = std::string(TEST_DIR "/") + test_name + ".dub";
+        std::string lst_path  = std::string(TEST_DIR "/") + test_name + ".lst";
+
+        {
+            std::ofstream dub(dub_path);
+            if (!dub)
+                return "ERROR";
+            dub << job;
+        }
+
+        try {
+            RunExternalProgram("dubna", {dub_path}, lst_path);
+        } catch (...) {
+            return "ERROR";
+        }
+
+        std::ifstream lst(lst_path);
+        if (!lst)
+            return "ERROR";
+        std::string listing((std::istreambuf_iterator<char>(lst)), {});
+
+        // Find second "≠" line (U+2260, UTF-8: 3 bytes).
+        const std::string NE = "\xe2\x89\xa0";
+        int    ne_count      = 0;
+        size_t pos           = 0;
+        size_t content_start = std::string::npos;
+        while (pos <= listing.size()) {
+            size_t nl       = listing.find('\n', pos);
+            size_t line_end = (nl == std::string::npos) ? listing.size() : nl;
+            if (listing.substr(pos, line_end - pos) == NE) {
+                if (++ne_count == 2) {
+                    content_start = (nl == std::string::npos) ? listing.size() : nl + 1;
+                    break;
+                }
+            }
+            if (nl == std::string::npos)
+                break;
+            pos = nl + 1;
+        }
+        if (content_start == std::string::npos)
+            return "ERROR";
+
+        std::string content = listing.substr(content_start);
+
+        // Truncate at the "----" separator line.
+        pos = 0;
+        while (pos < content.size()) {
+            size_t nl       = content.find('\n', pos);
+            size_t line_end = (nl == std::string::npos) ? content.size() : nl;
+            if (content.substr(pos, line_end - pos).substr(0, 4) == "----") {
+                content.resize(pos);
+                break;
+            }
+            if (nl == std::string::npos)
+                break;
+            pos = nl + 1;
+        }
+        return content;
     }
 
     // Fork a child, exec prog_path with input_filenames as arguments,
