@@ -67,6 +67,57 @@ static void lookup(const Frame *f, const char *name, int *reg, int *off)
         fatal_error("variable '%s' not in frame", name);
 }
 
+// Extract the integer value from a TAC constant (integer and char kinds only).
+static long long get_const_int_val(const Tac_Const *c)
+{
+    switch (c->kind) {
+    case TAC_CONST_INT:        return c->u.int_val;
+    case TAC_CONST_LONG:       return c->u.long_val;
+    case TAC_CONST_LONG_LONG:  return c->u.long_long_val;
+    case TAC_CONST_UINT:       return (long long)c->u.uint_val;
+    case TAC_CONST_ULONG:      return (long long)c->u.ulong_val;
+    case TAC_CONST_ULONG_LONG: return (long long)c->u.ulong_long_val;
+    case TAC_CONST_CHAR:       return c->u.char_val;
+    case TAC_CONST_UCHAR:      return c->u.uchar_val;
+    default:
+        fatal_error("TODO: float constant in function-call argument");
+    }
+}
+
+// Emit XTA for a TAC value: variable from frame, or octal literal =N for a constant.
+static void emit_xta_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *v)
+{
+    if (v->kind == TAC_VAL_VAR) {
+        int reg, off;
+        lookup(f, v->u.var_name, &reg, &off);
+        emit_xta(b, t, reg, off);
+    } else {
+        long long ival = get_const_int_val(v->u.constant);
+        char name[32];
+        snprintf(name, sizeof(name), "=%llo", (unsigned long long)ival);
+        Besm_Instr *i = emit(b, t, BESM_MEM_XTA);
+        i->name       = xstrdup(name);
+    }
+}
+
+// Emit XTS for a TAC value (push A to stack, load v into A) — used for args 1..N-1.
+static void emit_xts_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *v)
+{
+    if (v->kind == TAC_VAL_VAR) {
+        int reg, off;
+        lookup(f, v->u.var_name, &reg, &off);
+        Besm_Instr *i = emit(b, t, BESM_MEM_XTS);
+        i->reg        = reg;
+        i->addr       = off;
+    } else {
+        long long ival = get_const_int_val(v->u.constant);
+        char name[32];
+        snprintf(name, sizeof(name), "=%llo", (unsigned long long)ival);
+        Besm_Instr *i = emit(b, t, BESM_MEM_XTS);
+        i->name       = xstrdup(name);
+    }
+}
+
 void codegen_program(const Tac_TopLevel *tl, FILE *out)
 {
     switch (tl->kind) {
@@ -300,19 +351,51 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
     }
     // FUN_CALL  [dst =] fun(args...)
     //
-    // In C:  OKHO();
-    // TAC:   fun_call fun_name [args] [→ dst]
-    //
-    // BESM-6 sequence (zero-arg call, task #16):
-    //   ,CALL, fun_name   — set r13 = return address, jump to fun_name
-    //
-    // Full argument marshalling (XTS per arg, VTM for arg count) and return-value
-    // capture (ATX into dst) are implemented in task #28.  For now only the bare
-    // CALL instruction is emitted; the callee's prologue (ITS 13 / CALL b/save)
-    // handles the rest of the calling convention.
+    // BESM-6 sequence (N args):
+    //   ,XTA, arg0         — load first arg into A (=N for integer constants)
+    //   ,XTS, arg1 ... argN-1  — push each subsequent arg (XTS: stack←A, A←argI)
+    //   14 ,VTM, -N        — set r14 = -N (negative arg count); omitted if N=0
+    //   ,CALL, fun_name    — call; r13 ← return address
+    //   reg ,ATX, off      — store result (A) into dst frame slot, if dst present
     case TAC_INSTRUCTION_FUN_CALL: {
+        const char    *fun_name = instr->u.fun_call.fun_name;
+        const Tac_Val *args     = instr->u.fun_call.args;
+        const Tac_Val *dst      = instr->u.fun_call.dst;
+
+        int nargs = 0;
+        for (const Tac_Val *a = args; a; a = a->next)
+            nargs++;
+
+        if (nargs > 0) {
+            emit_xta_val(block, tail, f, args);
+            for (const Tac_Val *a = args->next; a; a = a->next)
+                emit_xts_val(block, tail, f, a);
+            Besm_Instr *vtm = emit(block, tail, BESM_REG_VTM);
+            vtm->reg        = REG_CNT;
+            vtm->addr       = -nargs;
+        }
+
         Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
-        call->name       = xstrdup(instr->u.fun_call.fun_name);
+        call->name       = xstrdup(fun_name);
+
+        if (dst && dst->kind == TAC_VAL_VAR) {
+            int dr, doff;
+            lookup(f, dst->u.var_name, &dr, &doff);
+            emit_atx(block, tail, dr, doff);
+        }
+        break;
+    }
+    // RETURN  [src]
+    //
+    // Load return value into A (if any), then jump to the return label.
+    // Void functions do not emit this instruction; non-void functions emit it
+    // before the unconditional epilogue jump (the duplicate UJ is dead code).
+    case TAC_INSTRUCTION_RETURN: {
+        const Tac_Val *src = instr->u.return_.src;
+        if (src)
+            emit_xta_val(block, tail, f, src);
+        Besm_Instr *uj = emit(block, tail, BESM_BRANCH_UJ);
+        uj->name       = xstrdup("b/ret");
         break;
     }
     default:
