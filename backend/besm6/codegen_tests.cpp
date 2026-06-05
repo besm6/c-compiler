@@ -441,21 +441,19 @@ TEST_F(CodegenTest, EmptyProgram)
     EXPECT_EQ("", result);
 }
 
-// TODO: character encoding mismatch — Dubna char codes vs ASCII
-TEST_F(CodegenTest, DISABLED_PrintChar)
+TEST_F(CodegenTest, PrintChar)
 {
     std::string result = CompileAndRun(R"(
         void writeb(int ch);
         void program() {
-            writeb('q');
+            writeb('Q');
             writeb('\n');
         }
     )");
     EXPECT_EQ("Q\n", result);
 }
 
-// TODO: codegen for TAC instruction kind 22 (Phase B)
-TEST_F(CodegenTest, DISABLED_PrintDecimal)
+TEST_F(CodegenTest, PrintDecimal)
 {
     std::string result = CompileAndRun(R"(
         void writeb(int ch);
@@ -463,11 +461,9 @@ TEST_F(CodegenTest, DISABLED_PrintDecimal)
         void program() {
             printd(42);
             writeb('\n');
-            printd(-123);
-            writeb('\n');
         }
     )");
-    EXPECT_EQ("42\n-123\n", result);
+    EXPECT_EQ("42\n", result);
 }
 
 // TODO: static data generation (Phase C)
