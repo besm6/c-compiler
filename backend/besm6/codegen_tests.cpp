@@ -126,7 +126,7 @@ TEST_F(CodegenTest, ScalFunction)
     std::string out = capture(module);
     besm_free_module(module);
 
-    EXPECT_EQ(R"(c Module: test
+    EXPECT_EQ(R"(c
      scal:   ,name,
              ,sti, 14
              ,sti, 12
@@ -165,7 +165,7 @@ TEST_F(CodegenTest, EmptyFunctionNoArgs)
 
     tac_free_toplevel(tl);
 
-    EXPECT_EQ(R"(c Module: foo
+    EXPECT_EQ(R"(c
       foo:   ,name,
           13 ,uj,
              ,end,
@@ -175,7 +175,7 @@ TEST_F(CodegenTest, EmptyFunctionNoArgs)
 TEST_F(CodegenTest, EmptyFunctionOneParam)
 {
     std::string output = CompileToMadlen("void foo(int bar) {}");
-    EXPECT_EQ(R"(c Module: foo
+    EXPECT_EQ(R"(c
       foo:   ,name,
           13 ,uj,
              ,end,
@@ -185,7 +185,7 @@ TEST_F(CodegenTest, EmptyFunctionOneParam)
 TEST_F(CodegenTest, EmptyFunctionTwoParams)
 {
     std::string output = CompileToMadlen("void foo(int bar, int quz) {}");
-    EXPECT_EQ(R"(c Module: foo
+    EXPECT_EQ(R"(c
       foo:   ,name,
           14 ,utc, 1
           15 ,utm,
@@ -197,7 +197,7 @@ TEST_F(CodegenTest, EmptyFunctionTwoParams)
 TEST_F(CodegenTest, EmptyFunctionVariadic)
 {
     std::string output = CompileToMadlen("void foo(int bar, ...) {}");
-    EXPECT_EQ(R"(c Module: foo
+    EXPECT_EQ(R"(c
       foo:   ,name,
           14 ,utc, 1
           15 ,utm,
@@ -209,7 +209,7 @@ TEST_F(CodegenTest, EmptyFunctionVariadic)
 TEST_F(CodegenTest, CallOkno)
 {
     std::string output = CompileToMadlen("void OKHO(void); void foo() { OKHO(); }");
-    EXPECT_EQ(R"(c Module: foo
+    EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
              ,its, 13
@@ -224,7 +224,7 @@ TEST_F(CodegenTest, CopyParamToAuto)
 {
     // copy a → b: src=param a@(6,0), dst=auto b@(7,0); num_autos=1
     std::string output = CompileToMadlen("void foo(int a) { int b; b = a; }");
-    EXPECT_EQ(R"(c Module: foo
+    EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
              ,its, 13
@@ -242,7 +242,7 @@ TEST_F(CodegenTest, GetAddressAuto)
     // get_address a → t.0, copy t.0 → p
     // autos: a@(7,0), t.0@(7,1), p@(7,2); num_autos=3
     std::string output = CompileToMadlen("void foo(void) { int a; int *p = &a; }");
-    EXPECT_EQ(R"(c Module: foo
+    EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
              ,its, 13
@@ -261,7 +261,7 @@ TEST_F(CodegenTest, StoreThroughPtr)
 {
     // store src=a → dst_ptr=p: params p@(6,0), a@(6,1); num_autos=0
     std::string output = CompileToMadlen("void foo(int *p, int a) { *p = a; }");
-    EXPECT_EQ(R"(c Module: foo
+    EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
              ,its, 13
@@ -280,7 +280,7 @@ TEST_F(CodegenTest, LoadAndStoreThroughPtr)
     // load *p → t.0, store t.0 → *q
     // params: p@(6,0), q@(6,1); auto: t.0@(7,0); num_autos=1
     std::string output = CompileToMadlen("void foo(int *p, int *q) { *q = *p; }");
-    EXPECT_EQ(R"(c Module: foo
+    EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
              ,its, 13
@@ -304,7 +304,7 @@ TEST_F(CodegenTest, AddTwoParams)
     // binary ADD src1=a(6,0) src2=b(6,1) dst=t.0 then copy t.0→c
     // frame: a@(6,0), b@(6,1), t.0@(7,0), c@(7,1); num_autos=2
     std::string output = CompileToMadlen("void foo(int a, int b) { int c; c = a + b; }");
-    EXPECT_EQ(R"(c Module: foo
+    EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
              ,its, 13
@@ -325,7 +325,7 @@ TEST_F(CodegenTest, SubTwoParams)
     // binary SUBTRACT src1=a(6,0) src2=b(6,1) dst=t.0 then copy t.0→c
     // frame: a@(6,0), b@(6,1), t.0@(7,0), c@(7,1); num_autos=2
     std::string output = CompileToMadlen("void foo(int a, int b) { int c; c = a - b; }");
-    EXPECT_EQ(R"(c Module: foo
+    EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
              ,its, 13
@@ -346,7 +346,7 @@ TEST_F(CodegenTest, AddAutoAndParam)
     // c = b + c: binary ADD src1=b(param) src2=c(auto) dst=t.0; copy t.0→c
     // frame scan: b@(6,0), c first seen as src2 → c@(7,0), t.0@(7,1); num_autos=2
     std::string output = CompileToMadlen("void foo(int b) { int c; c = b + c; }");
-    EXPECT_EQ(R"(c Module: foo
+    EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
              ,its, 13
@@ -367,7 +367,7 @@ TEST_F(CodegenTest, AddTwoAutos)
     // c = a + b: all locals; binary ADD src1=a src2=b dst=t.0; copy t.0→c
     // frame scan: a@(7,0), b@(7,1), t.0@(7,2), c@(7,3); num_autos=4
     std::string output = CompileToMadlen("void foo(void) { int a; int b; int c; c = a + b; }");
-    EXPECT_EQ(R"(c Module: foo
+    EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
              ,its, 13
@@ -391,7 +391,7 @@ TEST_F(CodegenTest, FuncArg1)
             foo(42);
         }
     )");
-    EXPECT_EQ(R"(c Module: quz
+    EXPECT_EQ(R"(c
       quz:   ,name,
     b/ret:   ,subp,
              ,its, 13
@@ -472,7 +472,7 @@ TEST_F(CodegenTest, DISABLED_PrintTwoLines)
     std::string result = CompileAndRun(R"(
         int printf(const char *format, ...);
         void program() {
-            printf("First line.\nSecond line.\n");
+            printf("FIRST LINE.\nSECOND LINE.\n");
         }
     )");
     EXPECT_EQ("FIRST LINE.\nSECOND LINE.\n", result);
