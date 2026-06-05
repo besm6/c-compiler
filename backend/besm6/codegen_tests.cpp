@@ -383,6 +383,27 @@ TEST_F(CodegenTest, AddTwoAutos)
 )", output);
 }
 
+TEST_F(CodegenTest, FuncArg1)
+{
+    std::string output = CompileToMadlen(R"(
+        void foo(int bar);
+        void quz() {
+            foo(42);
+        }
+    )");
+    EXPECT_EQ(R"(c Module: quz
+      quz:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+             ,xta, =52
+          14 ,vtm, -1
+             ,call, foo
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
 TEST_F(CodegenTest, RunRev)
 {
     char in_path[]  = "/tmp/rev_input_XXXXXX";
@@ -418,4 +439,44 @@ TEST_F(CodegenTest, EmptyProgram)
 {
     std::string result = CompileAndRun("void program() {}");
     EXPECT_EQ("", result);
+}
+
+TEST_F(CodegenTest, PrintChar)
+{
+    std::string result = CompileAndRun(R"(
+        void writeb(int ch);
+        void program() {
+            writeb('q');
+            writeb('\n');
+        }
+    )");
+    EXPECT_EQ("Q\n", result);
+}
+
+// TODO: codegen for TAC instruction kind 22 (Phase B)
+TEST_F(CodegenTest, DISABLED_PrintDecimal)
+{
+    std::string result = CompileAndRun(R"(
+        void writeb(int ch);
+        int printd(int num);
+        void program() {
+            printd(42);
+            writeb('\n');
+            printd(-123);
+            writeb('\n');
+        }
+    )");
+    EXPECT_EQ("42\n-123\n", result);
+}
+
+// TODO: static data generation (Phase C)
+TEST_F(CodegenTest, DISABLED_PrintTwoLines)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            printf("First line.\nSecond line.\n");
+        }
+    )");
+    EXPECT_EQ("FIRST LINE.\nSECOND LINE.\n", result);
 }
