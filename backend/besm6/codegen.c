@@ -177,7 +177,7 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
         its13->addr       = REG_RET;
 
         Besm_Instr *call_csave = emit(block, &tail, BESM_BRANCH_CALL);
-        call_csave->name       = xstrdup("b/save");
+        call_csave->name       = xstrdup(num_params == 0 ? "b/save0" : "b/save");
 
         Frame *f      = frame_build(tl);
         int num_autos = frame_num_autos(f);

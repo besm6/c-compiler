@@ -213,7 +213,7 @@ TEST_F(CodegenTest, CallOkno)
       foo:   ,name,
     b/ret:   ,subp,
              ,its, 13
-             ,call, b/save
+             ,call, b/save0
              ,call, OKHO
              ,uj, b/ret
              ,end,
@@ -246,7 +246,7 @@ TEST_F(CodegenTest, GetAddressAuto)
       foo:   ,name,
     b/ret:   ,subp,
              ,its, 13
-             ,call, b/save
+             ,call, b/save0
           15 ,utm, 3
              ,ita, 7
            7 ,atx, 1
@@ -371,7 +371,7 @@ TEST_F(CodegenTest, AddTwoAutos)
       foo:   ,name,
     b/ret:   ,subp,
              ,its, 13
-             ,call, b/save
+             ,call, b/save0
           15 ,utm, 4
            7 ,xta,
            7 ,a+x, 1
@@ -395,7 +395,7 @@ TEST_F(CodegenTest, FuncArg1)
       quz:   ,name,
     b/ret:   ,subp,
              ,its, 13
-             ,call, b/save
+             ,call, b/save0
              ,xta, =52
           14 ,vtm, -1
              ,call, foo
