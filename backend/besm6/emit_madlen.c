@@ -313,10 +313,6 @@ static void emit_data_item_labeled(FILE *out, const Besm_DataItem *item,
         snprintf(addr, sizeof(addr), "%g", (double)item->u.real_val);
         emit_line(out, label, 0, "real", addr);
         break;
-    case BESM_DATA_OCT:
-        snprintf(addr, sizeof(addr), "%o", (unsigned)item->u.oct_val);
-        emit_line(out, label, 0, "oct", addr);
-        break;
     case BESM_DATA_LOG:
         snprintf(addr, sizeof(addr), "%o", (unsigned)item->u.log_val);
         emit_line(out, label, 0, "log", addr);

@@ -127,14 +127,13 @@ struct Besm_Func {
 // data_item — Madlen data directives (linked list)
 //
 typedef enum {
-    BESM_DATA_INT,    // DI_Int(int value)    -- ,INT, value
-    BESM_DATA_REAL,   // DI_Real(float value) -- ,REAL, value
-    BESM_DATA_OCT,    // DI_Oct(int value)    -- ,OCT, value (raw 48-bit octal)
-    BESM_DATA_LOG,    // DI_Log(int value)    -- ,LOG, value (logical constant)
-    BESM_DATA_BSS,    // DI_Bss(int words)    -- ,BSS, count (zero words)
-    BESM_DATA_EQU,    // DI_Equ(int value)    -- ,EQU, value (symbolic constant)
-    BESM_DATA_REF,    // DI_Ref(string name)  -- word-wide label reference
-    BESM_DATA_STRING, // DI_String(string s)  -- one word per char, null-terminated
+    BESM_DATA_INT,    // DI_Int(int value)     -- ,INT, value
+    BESM_DATA_REAL,   // DI_Real(double value) -- ,REAL, value
+    BESM_DATA_LOG,    // DI_Log(int value)     -- ,LOG, value (logical constant)
+    BESM_DATA_BSS,    // DI_Bss(int words)     -- ,BSS, count (zero words)
+    BESM_DATA_EQU,    // DI_Equ(int value)     -- ,EQU, value (symbolic constant)
+    BESM_DATA_REF,    // DI_Ref(string name)   -- word-wide label reference
+    BESM_DATA_STRING, // DI_String(string s)   -- one word per char, null-terminated
 } Besm_DataItemKind;
 
 struct Besm_DataItem {
@@ -142,8 +141,7 @@ struct Besm_DataItem {
     Besm_DataItemKind kind;
     union {
         int int_val;      // DI_Int
-        float real_val;   // DI_Real
-        int oct_val;      // DI_Oct
+        double real_val;  // DI_Real
         int log_val;      // DI_Log
         int bss_words;    // DI_Bss
         int equ_val;      // DI_Equ

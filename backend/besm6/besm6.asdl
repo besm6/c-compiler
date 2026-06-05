@@ -245,21 +245,18 @@ module Besm6 {
   --                             Used for integer variables and constants.
   -- DI_Real:   ,REAL, value   — BESM-6 floating-point encoding.
   --                             Used for double variables and constants.
-  -- DI_Oct:    ,OCT, value    — raw 48-bit octal constant (no interpretation).
-  --                             Used for bitmasks (e.g., __allones = 7777777777777777).
-  -- DI_Log:    ,LOG, value    — logical 48-bit constant.
+  -- DI_Log:    ,LOG, value    — raw 48-bit octal constant (zeroes appended to the left).
   --                             Used for pointer values and raw word literals.
   -- DI_Bss:    ,BSS, count    — count zero-filled words (uninitialised storage).
   -- DI_Equ:    ,EQU, value    — symbolic constant; no storage allocated.
   -- DI_Ref:    reference to label as a word-wide pointer address.
-  --            Emitted as ",OCT, <label>" in Madlen when the label is known;
+  --            Emitted as ",LOG, <label>" in Madlen when the label is known;
   --            used for function pointers and pointer-to-data initialisers.
-  -- DI_String: null-terminated string; one word per character, each as ,INT,.
-  --            ASCII value stored in INT format.  Null terminator = ,INT, 0.
-  data_item = DI_Int(int value)         -- ,INT, value
-            | DI_Real(float value)      -- ,REAL, value
-            | DI_Oct(int value)         -- ,OCT, value  (raw 48-bit octal)
-            | DI_Log(int value)         -- ,LOG, value  (logical constant)
+  -- DI_String: null-terminated string; big endian, six bytes per word, each as ,LOG,.
+  --            ASCII values stored in LOG format.  Null terminator = byte 0.
+  data_item = DI_Int(int value)         -- ,INT, value  (integer with exponent)
+            | DI_Real(double value)     -- ,REAL, value
+            | DI_Log(int value)         -- ,LOG, value  (raw word literals)
             | DI_Bss(int words)         -- ,BSS, count  (zero words)
             | DI_Equ(int value)         -- ,EQU, value  (symbolic constant)
             | DI_Ref(string name)       -- word-wide label reference
