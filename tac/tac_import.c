@@ -133,8 +133,10 @@ static Tac_Type *import_type(WFILE *in)
         check_input(in, "array size");
         break;
     case TAC_TYPE_STRUCTURE:
-        t->u.structure.tag = wgetstr(in);
+        t->u.structure.tag  = wgetstr(in);
         check_input(in, "structure tag");
+        t->u.structure.size = (int)wgetw(in);
+        check_input(in, "structure size");
         break;
     default:
         break;

@@ -44,6 +44,106 @@ TEST_F(CodegenTest, VarVoidPtrTentative)
 )", output);
 }
 
+TEST_F(CodegenTest, VarIntArrayTentative)
+{
+    std::string output = CompileToMadlen("int arr[5];");
+    EXPECT_EQ(R"(c
+      arr:   ,name,
+             ,bss, 5
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, VarCharArrayTentative)
+{
+    std::string output = CompileToMadlen("char arr[10];");
+    EXPECT_EQ(R"(c
+      arr:   ,name,
+             ,bss, 2
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, VarPtrArrayTentative)
+{
+    std::string output = CompileToMadlen("int *arr[4];");
+    EXPECT_EQ(R"(c
+      arr:   ,name,
+             ,bss, 4
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, VarDoubleArrayTentative)
+{
+    std::string output = CompileToMadlen("double arr[3];");
+    EXPECT_EQ(R"(c
+      arr:   ,name,
+             ,bss, 3
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, Var2DArrayTentative)
+{
+    std::string output = CompileToMadlen("int arr[2][3];");
+    EXPECT_EQ(R"(c
+      arr:   ,name,
+             ,bss, 6
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, VarStruct1FieldTentative)
+{
+    std::string output = CompileToMadlen("struct { int x; } s;");
+    EXPECT_EQ(R"(c
+        s:   ,name,
+             ,bss, 1
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, VarStruct2FieldTentative)
+{
+    std::string output = CompileToMadlen("struct { int x; int y; } s;");
+    EXPECT_EQ(R"(c
+        s:   ,name,
+             ,bss, 2
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, VarStruct3FieldTentative)
+{
+    std::string output = CompileToMadlen("struct { int x; int y; int z; } s;");
+    EXPECT_EQ(R"(c
+        s:   ,name,
+             ,bss, 3
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, VarStructMixedTentative)
+{
+    std::string output = CompileToMadlen("struct { char c; int n; double d; } s;");
+    EXPECT_EQ(R"(c
+        s:   ,name,
+             ,bss, 3
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, VarNamedStructTentative)
+{
+    std::string output = CompileToMadlen("struct pt { int x; int y; }; struct pt s;");
+    EXPECT_EQ(R"(c
+        s:   ,name,
+             ,bss, 2
+             ,end,
+)", output);
+}
+
 TEST_F(CodegenTest, DISABLED_VarIntInit)
 {
     std::string output = CompileToMadlen("int foo = 42;");
@@ -96,12 +196,8 @@ TEST_F(CodegenTest, DISABLED_VarUnsignedInit)
 
 TEST_F(CodegenTest, DISABLED_VarIntPtrInit)
 {
-    std::string output = CompileToMadlen("int foo; int *bar = &foo;");
+    std::string output = CompileToMadlen("extern int foo; int *bar = &foo;");
     EXPECT_EQ(R"(c
-      foo:   ,name,
-             ,bss, 1
-             ,end,
-c
       bar:   ,name,
       foo:   ,subp,
              ,z00,
@@ -112,12 +208,8 @@ c
 
 TEST_F(CodegenTest, DISABLED_VarCharPtrInit)
 {
-    std::string output = CompileToMadlen("char foo; char *bar = &fooh;");
+    std::string output = CompileToMadlen("extern char foo; char *bar = &fooh;");
     EXPECT_EQ(R"(c
-      foo:   ,name,
-             ,bss, 1
-             ,end,
-c
       bar:   ,name,
       foo:   ,subp,
            8 ,z00,
@@ -128,12 +220,8 @@ c
 
 TEST_F(CodegenTest, DISABLED_VarVoidPtrInit)
 {
-    std::string output = CompileToMadlen("char foo; void *bar = &foo;");
+    std::string output = CompileToMadlen("extern char foo; void *bar = &foo;");
     EXPECT_EQ(R"(c
-      foo:   ,name,
-             ,bss, 1
-             ,end,
-c
       bar:   ,name,
       foo:   ,subp,
            8 ,z00,

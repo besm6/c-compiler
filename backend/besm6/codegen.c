@@ -131,7 +131,7 @@ static void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
     module->sections          = section;
 
     Besm_DataItem *item = besm_new_data_item(BESM_DATA_BSS);
-    item->u.bss_words   = 1;
+    item->u.bss_words   = codegen_sizeof(tl->u.static_variable.type);
     section->items      = item;
 
     emit_madlen_module(out, module);

@@ -33,7 +33,13 @@ static inline int codegen_sizeof(const Tac_Type *t)
     case TAC_TYPE_POINTER:
         return 1;
     case TAC_TYPE_ARRAY:
+        if (t->u.array.elem_type->kind == TAC_TYPE_CHAR  ||
+            t->u.array.elem_type->kind == TAC_TYPE_SCHAR ||
+            t->u.array.elem_type->kind == TAC_TYPE_UCHAR)
+            return (t->u.array.size + 5) / 6;
         return codegen_sizeof(t->u.array.elem_type) * t->u.array.size;
+    case TAC_TYPE_STRUCTURE:
+        return t->u.structure.size;
     default:
         return 1;
     }

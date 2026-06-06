@@ -178,6 +178,7 @@ char *symtab_add_string(const char *s)
 // Precondition: name is a non-null string.
 // Postcondition: A Symbol with SYM_ENUM, name, type int, and integer value is added.
 //
+// cppcheck-suppress shadowVariable
 void symtab_add_enum_const(const char *name, int val, int scope_level)
 {
     Type *t         = new_type(TYPE_INT, __func__, __FILE__, __LINE__);

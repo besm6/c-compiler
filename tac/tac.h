@@ -375,6 +375,7 @@ typedef struct Tac_Type {
         } array;
         struct {
             char *tag;
+            int size; // BESM-6 word count
         } structure;
     } u;
 } Tac_Type;

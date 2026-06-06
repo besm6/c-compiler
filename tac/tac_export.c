@@ -251,6 +251,7 @@ static void export_type(WFILE *out, const Tac_Type *t)
         break;
     case TAC_TYPE_STRUCTURE:
         wputstr(t->u.structure.tag ? t->u.structure.tag : "", out);
+        wputw((size_t)t->u.structure.size, out);
         break;
     default:
         break;

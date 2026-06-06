@@ -46,6 +46,7 @@ void typetab_destroy()
 // Precondition: name is a non-null string, type is a valid Type*.
 // Postcondition: A TypeDef with the name and a clone of type is added/replaced.
 //
+// cppcheck-suppress shadowVariable
 void typetab_add(const char *name, const Type *type, int scope_level)
 {
     if (semantic_debug) {
