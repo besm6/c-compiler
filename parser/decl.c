@@ -33,13 +33,12 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
     enum { SIGNED_SIGNED, SIGNED_UNSIGNED };
 
     /* State for tracking type specifiers */
-    TypeKind base_kind           = -1; /* Unset */
+    int base_kind                = -1; /* Unset; holds TypeKind values */
     int signedness               = -1; /* Unset */
     int int_count                = 0;  /* For int */
     int long_count               = 0;  /* For long, long long */
     bool is_complex              = false;
     bool is_imaginary            = false;
-    int specifier_count          = 0;
     const TypeSpec *struct_spec  = NULL;
     const TypeSpec *union_spec   = NULL;
     const TypeSpec *enum_spec    = NULL;
@@ -48,7 +47,6 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
 
     /* Collect specifiers */
     for (const TypeSpec *s = specs; s; s = s->next) {
-        specifier_count++;
         if (s->kind == TYPE_SPEC_BASIC) {
             switch (s->u.basic->kind) {
             case TYPE_VOID:
@@ -263,12 +261,12 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
         /* Create Type based on base_kind */
         if (is_complex) {
             result                 = new_type(TYPE_COMPLEX, __func__, __FILE__, __LINE__);
-            result->u.complex.base = new_type(base_kind, __func__, __FILE__, __LINE__);
+            result->u.complex.base = new_type((TypeKind)base_kind, __func__, __FILE__, __LINE__);
         } else if (is_imaginary) {
             result                 = new_type(TYPE_IMAGINARY, __func__, __FILE__, __LINE__);
-            result->u.complex.base = new_type(base_kind, __func__, __FILE__, __LINE__);
+            result->u.complex.base = new_type((TypeKind)base_kind, __func__, __FILE__, __LINE__);
         } else {
-            result = new_type(base_kind, __func__, __FILE__, __LINE__);
+            result = new_type((TypeKind)base_kind, __func__, __FILE__, __LINE__);
         }
     }
     return result;

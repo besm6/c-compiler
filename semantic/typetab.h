@@ -25,7 +25,7 @@ void typetab_destroy(void);
 // Postcondition: All TypeDef and Type memory is freed, table is empty.
 
 // Add a typedef mapping
-void typetab_add(const char *name, const Type *type, int scope_level);
+void typetab_add(const char *ident, const Type *type, int level);
 // Precondition: name is a non-null string, type is a valid Type*.
 // Postcondition: A TypeDef with the name and a clone of type is added/replaced.
 

@@ -16,7 +16,7 @@ static void label_statement(Stmt *stmt, LabelFrame *stack, int *depth);
 //
 // Annotate loops and break/continue statements.
 //
-void label_loops(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
+void label_loops(const ExternalDecl *ast)
 {
     label_seq = 0;
     if (!ast || ast->kind != EXTERNAL_DECL_FUNCTION || !ast->u.function.body) {

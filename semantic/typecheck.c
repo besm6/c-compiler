@@ -476,7 +476,7 @@ void typecheck_decl(ExternalDecl *d)
 }
 
 // Type-check an entire program.
-void typecheck_program(Program *p)
+void typecheck_program(const Program *p)
 {
     for (ExternalDecl *d = p->decls; d; d = d->next) {
         typecheck_decl(d);

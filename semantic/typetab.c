@@ -46,18 +46,17 @@ void typetab_destroy()
 // Precondition: name is a non-null string, type is a valid Type*.
 // Postcondition: A TypeDef with the name and a clone of type is added/replaced.
 //
-// cppcheck-suppress shadowVariable
-void typetab_add(const char *name, const Type *type, int scope_level)
+void typetab_add(const char *ident, const Type *type, int level)
 {
     if (semantic_debug) {
-        printf("--- %s() %s\n", __func__, name);
+        printf("--- %s() %s\n", __func__, ident);
         print_type(stdout, type, 4);
     }
     TypeDef *def = xalloc(sizeof(TypeDef), __func__, __FILE__, __LINE__);
-    def->name    = xstrdup(name);
+    def->name    = xstrdup(ident);
     def->type    = clone_type(type, __func__, __FILE__, __LINE__);
 
-    map_insert_free(&typetab, name, (intptr_t)def, scope_level, typetab_destroy_callback);
+    map_insert_free(&typetab, ident, (intptr_t)def, level, typetab_destroy_callback);
 }
 
 //

@@ -53,6 +53,7 @@ void print_symbol(const Symbol *sym)
 
 static void symtab_print_callback(intptr_t ptr, const void *arg)
 {
+    (void)arg;
     print_symbol((Symbol *)ptr);
 }
 

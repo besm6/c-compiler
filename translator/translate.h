@@ -80,7 +80,7 @@ void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset,
 //
 // Convert the AST to TAC.
 //
-Tac_TopLevel *translate(ExternalDecl *ast);
+Tac_TopLevel *translate(const ExternalDecl *ast);
 
 #ifdef __cplusplus
 }

@@ -92,7 +92,7 @@ again:
 // Consume a character and add to yytext
 static void consume_char(void)
 {
-    if (yyleng < sizeof(yytext) - 1) {
+    if (yyleng < (int)(sizeof(yytext) - 1)) {
         yytext[yyleng++] = next_char;
         yytext[yyleng]   = '\0';
     }

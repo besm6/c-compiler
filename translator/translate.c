@@ -435,7 +435,7 @@ Tac_Type *ast_type_to_tac_type(const Type *t)
 // Top-level translation
 //
 
-static Tac_TopLevel *translate_fn(ExternalDecl *ast)
+static Tac_TopLevel *translate_fn(const ExternalDecl *ast)
 {
     const char *name  = ast->u.function.name;
     const Symbol *sym = symtab_get(name);
@@ -493,7 +493,7 @@ static Tac_TopLevel *translate_decl(const Declaration *decl)
     return head;
 }
 
-static Tac_TopLevel *translate_external_decl(ExternalDecl *ast)
+static Tac_TopLevel *translate_external_decl(const ExternalDecl *ast)
 {
     if (!ast)
         return NULL;
@@ -509,7 +509,7 @@ static Tac_TopLevel *translate_external_decl(ExternalDecl *ast)
 //
 // Convert the AST to TAC.
 //
-Tac_TopLevel *translate(ExternalDecl *ast) // cppcheck-suppress constParameterPointer
+Tac_TopLevel *translate(const ExternalDecl *ast)
 {
     return translate_external_decl(ast);
 }

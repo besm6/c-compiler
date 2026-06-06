@@ -88,7 +88,7 @@ void symtab_add_fun(const char *name, const Type *t, bool global, bool defined);
 char *symtab_add_string(const char *s);
 
 // Add an enum constant
-void symtab_add_enum_const(const char *name, int val, int scope_level);
+void symtab_add_enum_const(const char *ident, int val, int level);
 // Precondition: name is a non-null string.
 // Postcondition: A Symbol with SYM_ENUM, name, type int, and integer value is added.
 

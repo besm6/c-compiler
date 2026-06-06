@@ -16,6 +16,7 @@ static void print_typedef(const TypeDef *def)
 
 static void typetab_print_callback(intptr_t ptr, const void *arg)
 {
+    (void)arg;
     print_typedef((const TypeDef *)ptr);
 }
 

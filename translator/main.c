@@ -209,6 +209,7 @@ static void open_input_output(const Args *args)
 
 static void close_output(const Args *args)
 {
+    (void)args;
     close(input_fd);
     if (output_file != stdout) {
         fclose(output_file);

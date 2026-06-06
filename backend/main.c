@@ -149,6 +149,7 @@ static void open_output(const Args *args)
 
 static void close_output(const Args *args)
 {
+    (void)args;
     if (output_file != stdout) {
         fclose(output_file);
     }

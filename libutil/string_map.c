@@ -42,7 +42,7 @@
 #include "xalloc.h"
 
 // Get the height of a node (0 for NULL)
-int map_node_height(StringNode *node)
+int map_node_height(const StringNode *node)
 {
     return node ? node->height : 0;
 }
@@ -59,7 +59,7 @@ static void update_height(StringNode *node)
 }
 
 // Get the balance factor of a node
-static int balance_factor(StringNode *node)
+static int balance_factor(const StringNode *node)
 {
     return node ? map_node_height(node->left) - map_node_height(node->right) : 0;
 }

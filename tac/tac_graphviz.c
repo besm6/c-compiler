@@ -10,9 +10,6 @@ static int gen_node_id()
     return node_id++;
 }
 
-static void export_dot_val(FILE *fd, const Tac_Val *val, int parent_id, const char *edge_label);
-static void export_dot_type(FILE *fd, const Tac_Type *type, int parent_id, const char *edge_label);
-
 static void emit_string(FILE *fd, const char *str)
 {
     if (!str)
@@ -106,6 +103,9 @@ static void emit_const(FILE *fd, const Tac_Const *c, int parent_id)
     case TAC_CONST_DOUBLE:
         fprintf(fd, "double %a", c->u.double_val);
         break;
+    case TAC_CONST_LONG_DOUBLE:
+        fprintf(fd, "long_double %La", c->u.long_double_val);
+        break;
     case TAC_CONST_CHAR:
         fprintf(fd, "char %d", c->u.char_val);
         break;
@@ -180,6 +180,9 @@ static void emit_type(FILE *fd, const Tac_Type *type, int parent_id, const char 
     case TAC_TYPE_DOUBLE:
         fprintf(fd, "double");
         break;
+    case TAC_TYPE_LONG_DOUBLE:
+        fprintf(fd, "long_double");
+        break;
     case TAC_TYPE_VOID:
         fprintf(fd, "void");
         break;
@@ -252,6 +255,9 @@ static void emit_static_init(FILE *fd, const Tac_StaticInit *init, int parent_id
         case TAC_STATIC_INIT_DOUBLE:
             fprintf(fd, "double %a", init->u.double_val);
             break;
+        case TAC_STATIC_INIT_LONG_DOUBLE:
+            fprintf(fd, "long_double %La", init->u.long_double_val);
+            break;
         case TAC_STATIC_INIT_ZERO:
             fprintf(fd, "zero %d", init->u.zero_bytes);
             break;
@@ -316,6 +322,30 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
         break;
     case TAC_INSTRUCTION_FLOAT_TO_UINT:
         fprintf(fd, "FloatToUInt");
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+        fprintf(fd, "LongDoubleToInt");
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+        fprintf(fd, "LongDoubleToUInt");
+        break;
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+        fprintf(fd, "IntToLongDouble");
+        break;
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+        fprintf(fd, "UIntToLongDouble");
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+        fprintf(fd, "LongDoubleToDouble");
+        break;
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+        fprintf(fd, "DoubleToLongDouble");
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+        fprintf(fd, "LongDoubleToFloat");
+        break;
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+        fprintf(fd, "FloatToLongDouble");
         break;
     case TAC_INSTRUCTION_UNARY:
         fprintf(fd, "Unary: %s", unary_op_name(instr->u.unary.op));
@@ -426,6 +456,38 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
     case TAC_INSTRUCTION_FLOAT_TO_UINT:
         emit_val(fd, instr->u.float_to_uint.src, id, "src");
         emit_val(fd, instr->u.float_to_uint.dst, id, "dst");
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+        emit_val(fd, instr->u.long_double_to_int.src, id, "src");
+        emit_val(fd, instr->u.long_double_to_int.dst, id, "dst");
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+        emit_val(fd, instr->u.long_double_to_uint.src, id, "src");
+        emit_val(fd, instr->u.long_double_to_uint.dst, id, "dst");
+        break;
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+        emit_val(fd, instr->u.int_to_long_double.src, id, "src");
+        emit_val(fd, instr->u.int_to_long_double.dst, id, "dst");
+        break;
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+        emit_val(fd, instr->u.uint_to_long_double.src, id, "src");
+        emit_val(fd, instr->u.uint_to_long_double.dst, id, "dst");
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+        emit_val(fd, instr->u.long_double_to_double.src, id, "src");
+        emit_val(fd, instr->u.long_double_to_double.dst, id, "dst");
+        break;
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+        emit_val(fd, instr->u.double_to_long_double.src, id, "src");
+        emit_val(fd, instr->u.double_to_long_double.dst, id, "dst");
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+        emit_val(fd, instr->u.long_double_to_float.src, id, "src");
+        emit_val(fd, instr->u.long_double_to_float.dst, id, "dst");
+        break;
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+        emit_val(fd, instr->u.float_to_long_double.src, id, "src");
+        emit_val(fd, instr->u.float_to_long_double.dst, id, "dst");
         break;
     case TAC_INSTRUCTION_UNARY:
         emit_val(fd, instr->u.unary.src, id, "src");

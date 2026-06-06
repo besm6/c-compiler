@@ -21,10 +21,10 @@ extern int xalloc_debug;
 
 // Semantic analysis entry points: type-check and label loops.
 void typecheck_decl(ExternalDecl *d);
-void typecheck_program(Program *p);
+void typecheck_program(const Program *p);
 
 // Annotate loops and break/continue statements.
-void label_loops(ExternalDecl *ast);
+void label_loops(const ExternalDecl *ast);
 
 // Error handling.
 _Noreturn void fatal_error(const char *message, ...);

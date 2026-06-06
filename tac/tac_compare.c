@@ -124,12 +124,16 @@ bool tac_compare_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b)
     switch (a->kind) {
     case TAC_STATIC_INIT_I8:
         return a->u.char_val == b->u.char_val;
+    case TAC_STATIC_INIT_I16:
+        return a->u.short_val == b->u.short_val;
     case TAC_STATIC_INIT_I32:
         return a->u.int_val == b->u.int_val;
     case TAC_STATIC_INIT_I64:
         return a->u.long_val == b->u.long_val;
     case TAC_STATIC_INIT_U8:
         return a->u.uchar_val == b->u.uchar_val;
+    case TAC_STATIC_INIT_U16:
+        return a->u.ushort_val == b->u.ushort_val;
     case TAC_STATIC_INIT_U32:
         return a->u.uint_val == b->u.uint_val;
     case TAC_STATIC_INIT_U64:
@@ -138,6 +142,8 @@ bool tac_compare_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b)
         return a->u.float_val == b->u.float_val;
     case TAC_STATIC_INIT_DOUBLE:
         return a->u.double_val == b->u.double_val;
+    case TAC_STATIC_INIT_LONG_DOUBLE:
+        return a->u.long_double_val == b->u.long_double_val;
     case TAC_STATIC_INIT_ZERO:
         return a->u.zero_bytes == b->u.zero_bytes;
     case TAC_STATIC_INIT_STRING:
@@ -175,6 +181,20 @@ bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b)
     case TAC_INSTRUCTION_DOUBLE_TO_UINT:
     case TAC_INSTRUCTION_INT_TO_DOUBLE:
     case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
         return tac_compare_val(a->u.sign_extend.src, b->u.sign_extend.src) &&
                tac_compare_val(a->u.sign_extend.dst, b->u.sign_extend.dst);
     case TAC_INSTRUCTION_UNARY:
