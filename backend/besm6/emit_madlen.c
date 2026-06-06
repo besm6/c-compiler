@@ -352,12 +352,10 @@ void emit_madlen_data_item(FILE *out, const Besm_DataItem *item)
 void emit_madlen_data_section(FILE *out, const Besm_DataSection *section)
 {
     for (; section; section = section->next) {
-        const Besm_DataItem *item  = section->items;
-        const char          *label = section->name;
-        for (; item; item = item->next) {
-            emit_data_item_labeled(out, item, label);
-            label = NULL; // only first item gets the section label
-        }
+        emit_line(out, section->name, 0, "name", "");
+        for (const Besm_DataItem *item = section->items; item; item = item->next)
+            emit_data_item_labeled(out, item, NULL);
+        emit_line(out, NULL, 0, "end", "");
     }
 }
 

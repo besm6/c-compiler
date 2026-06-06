@@ -118,6 +118,26 @@ static void emit_xts_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Ta
     }
 }
 
+static void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
+{
+    if (tl->u.static_variable.init_list != NULL)
+        fatal_error("TODO: initialized static variable (Phase C)");
+
+    const char *name = tl->u.static_variable.name;
+
+    Besm_Module      *module  = besm_new_module(name);
+    Besm_DataSection *section = besm_new_data_section(BESM_SK_BSS);
+    section->name             = xstrdup(name);
+    module->sections          = section;
+
+    Besm_DataItem *item = besm_new_data_item(BESM_DATA_BSS);
+    item->u.bss_words   = 1;
+    section->items      = item;
+
+    emit_madlen_module(out, module);
+    besm_free_module(module);
+}
+
 void codegen_program(const Tac_TopLevel *tl, FILE *out)
 {
     switch (tl->kind) {
@@ -125,8 +145,10 @@ void codegen_program(const Tac_TopLevel *tl, FILE *out)
         codegen_function(tl, out);
         break;
     case TAC_TOPLEVEL_STATIC_VARIABLE:
+        codegen_static_variable(tl, out);
+        break;
     case TAC_TOPLEVEL_STATIC_CONSTANT:
-        fatal_error("TODO: static data generation (Phase C)");
+        fatal_error("TODO: static constant (Phase C)");
     }
 }
 

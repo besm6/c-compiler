@@ -60,9 +60,9 @@ register.  The pattern is: load from frame → operate → store to frame.
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 30 | Static variables | `StaticVariable`: emit `,ENTRY, name` if global; emit one word per `StaticInit`: `IntInit`/`CharInit` → `,INT,`; `DoubleInit` → `,REAL,`; `ZeroInit` → `,BSS, words`; `StringInit` → one `,INT, char_code` per character (1 word/char); `PointerInit` → `,OCT, addr`. | M |
+| 30 | Static variables | `StaticVariable`: emit `name:,NAME, ... ,END,`. Emit one word per `StaticInit`: `IntInit`/`CharInit` → `,LOG,`; `DoubleInit` → `,REAL,`; `ZeroInit` → `,BSS, words`; `StringInit` → six characters per `,LOG,` word; `PointerInit` → `,Z00,; ,Z00, addr`. | M |
 | 31 | Static constants | `StaticConstant`: same as StaticVariable for a single init word. Madlen has no hardware write-protection; distinguish by convention (comment). | S |
-| 32 | String constants and text encoding | Simple first implementation: one word per character, ASCII value as `,INT, code`; null terminator as `,INT, 0`. Later optimization: pack 8 characters per word in 6-bit GOST encoding with a `char`→GOST mapping table. | M |
+| 32 | String constants and text encoding | Pack six characters per one word, as `,LOG, code`; null terminator as byte 0. Use a UTF8-KOI7 mapping table. | M |
 
 ---
 

@@ -18,6 +18,7 @@ add_executable(besm-tests EXCLUDE_FROM_ALL
     label_tests.cpp
     frame_tests.cpp
     codegen_tests.cpp
+    init_tests.cpp
 )
 target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
 add_definitions(-DTEST_DIR="${CMAKE_CURRENT_BINARY_DIR}")
