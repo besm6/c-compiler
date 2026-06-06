@@ -166,7 +166,7 @@ bit; the full word represents a value from 0 to 2⁴⁸ − 1.
 
 ### `long long`
 
-`long long` occupies two consecutive words and provides 80 bits of two's-complement
+`long long` occupies two consecutive words and provides 81 bits of two's-complement
 precision. Software routines implement all arithmetic.
 
 **Word 0 (high word):**
@@ -190,8 +190,7 @@ Bit:  48     42  41 40                       1
 - Bits 48–41: Unused (ignored by arithmetic routines).
 - Bits 40–1: Lower 40 bits of the two's-complement representation.
 
-The 80 data bits (1 sign + 40 high + 40 low − 1 overlap at the sign boundary = 80
-effective bits) give the range −2⁷⁹ to 2⁷⁹ − 1.
+The 81 data bits (1 sign + 40 high + 40 low) give the range −2⁸⁰ to 2⁸⁰ − 1.
 
 `sizeof(long long) == 12` (twelve char-units, two words).
 
@@ -448,9 +447,9 @@ Sizes and alignments in words (1 word = 48 bits). `sizeof` values in char-units:
 | `INT_MIN` | −1,099,511,627,776 | −2⁴⁰ |
 | `INT_MAX` | 1,099,511,627,775 | 2⁴⁰ − 1 |
 | `UINT_MAX` | 281,474,976,710,655 | 2⁴⁸ − 1 |
-| `LLONG_MIN` | −2⁷⁹ | Two-word signed |
-| `LLONG_MAX` | 2⁷⁹ − 1 | Two-word signed |
-| `ULLONG_MAX` | 2⁸⁰ − 1 | Two-word unsigned |
+| `LLONG_MIN` | −2⁸⁰ | Two-word signed |
+| `LLONG_MAX` | 2⁸⁰ − 1 | Two-word signed |
+| `ULLONG_MAX` | 2⁹⁶ − 1 | Two-word unsigned |
 
 ### `sizeof` in char-units
 
