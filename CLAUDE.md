@@ -136,6 +136,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - [docs/Word_Oriented_IO.md](docs/Word_Oriented_IO.md) — word-oriented I/O (`wio`) for binary IR streams
 - [backend/x86/TODO.md](backend/x86/TODO.md) — x86_64 backend work plan with effort estimates
 - [backend/besm6/TODO.md](backend/besm6/TODO.md) — BESM-6 backend work plan with effort estimates
+- [docs/Besm6_Data_Representation.md](docs/Besm6_Data_Representation.md) — BESM-6 data representation: bit layouts, ranges, and sizeof for every C scalar type
 - [docs/Besm6_Calling_Conventions.md](docs/Besm6_Calling_Conventions.md) — BESM-6 C calling convention (registers, c/save, c/ret)
 - [docs/Besm6_Instruction_Set.md](docs/Besm6_Instruction_Set.md) — BESM-6 instruction set reference
 - [docs/Madlen.md](docs/Madlen.md) — Madlen assembler syntax for the Dubna monitor
