@@ -194,7 +194,7 @@ TEST_F(CodegenTest, VarUnsignedInit)
 )", output);
 }
 
-TEST_F(CodegenTest, VarIntPtrInit)
+TEST_F(CodegenTest, VarIntPtrInitName)
 {
     std::string output = CompileToMadlen("extern int foo; int *bar = &foo;");
     EXPECT_EQ(R"(c
@@ -202,6 +202,16 @@ TEST_F(CodegenTest, VarIntPtrInit)
       foo:   ,subp,
              ,z00,
              ,z00, foo
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, VarIntPtrInitLiteral)
+{
+    std::string output = CompileToMadlen("int *bar = (int*) 42;");
+    EXPECT_EQ(R"(c
+      bar:   ,name,
+             ,log, 52
              ,end,
 )", output);
 }
