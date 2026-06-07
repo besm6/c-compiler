@@ -263,17 +263,18 @@ produce incorrect results silently, or the hardware raises a fault condition.
 ### `long double`
 
 `long double` occupies two consecutive words, extending the 40-bit mantissa with an
-additional 40 bits. Software routines implement all arithmetic, using the hardware Y
-(RMR — younger bits) register convention for intermediate double-width results.
+additional 40 bits. Also 7-bit exponent is extended with an additional 7 bits.
+Software routines implement all arithmetic, using the hardware Y (RMR — younger bits)
+register convention for intermediate double-width results.
 
 **Word 0 (high word):**
 ```
 Bit:  48     42  41 40                       1
      ┌─────────┬───┬──────────────────────────┐
-     │Exponent │ S │   Mantissa, bits 80–41   │
+     │Exp. MSB │ S │   Mantissa, bits 80–41   │
      └─────────┴───┴──────────────────────────┘
 ```
-- Bits 48–42: 7-bit biased exponent (same encoding as `double`).
+- Bits 48–42: Upper 7 bits of exponent.
 - Bit 41: Sign.
 - Bits 40–1: Upper 40 bits of the mantissa.
 
@@ -281,14 +282,17 @@ Bit:  48     42  41 40                       1
 ```
 Bit:  48     42  41 40                       1
      ┌─────────┬───┬──────────────────────────┐
-     │  Unused │   │   Mantissa, bits 40–1    │
+     │Exp. LSB │   │   Mantissa, bits 40–1    │
      └─────────┴───┴──────────────────────────┘
 ```
-- Bits 48–41: Unused (ignored).
+- Bits 48–42: Lower 7 bits of exponent.
+- Bit 41: Unused (ignored).
 - Bits 40–1: Lower 40 bits of the mantissa.
 
 The combined 80-bit mantissa gives approximately 24 significant decimal digits
 (80 × log₁₀ 2 ≈ 24.08).
+
+The combined 14-bit exponent is biased by 8192.
 
 `sizeof(long double) == 12`.
 
