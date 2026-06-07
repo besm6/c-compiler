@@ -194,7 +194,7 @@ TEST_F(CodegenTest, VarUnsignedInit)
 )", output);
 }
 
-TEST_F(CodegenTest, DISABLED_VarIntPtrInit)
+TEST_F(CodegenTest, VarIntPtrInit)
 {
     std::string output = CompileToMadlen("extern int foo; int *bar = &foo;");
     EXPECT_EQ(R"(c
@@ -208,7 +208,7 @@ TEST_F(CodegenTest, DISABLED_VarIntPtrInit)
 
 TEST_F(CodegenTest, DISABLED_VarCharPtrInit)
 {
-    std::string output = CompileToMadlen("extern char foo; char *bar = &fooh;");
+    std::string output = CompileToMadlen("extern char foo; char *bar = &foo;");
     EXPECT_EQ(R"(c
       bar:   ,name,
       foo:   ,subp,
@@ -218,13 +218,25 @@ TEST_F(CodegenTest, DISABLED_VarCharPtrInit)
 )", output);
 }
 
-TEST_F(CodegenTest, DISABLED_VarVoidPtrInit)
+TEST_F(CodegenTest, DISABLED_VarVoidPtrInitChar)
 {
     std::string output = CompileToMadlen("extern char foo; void *bar = &foo;");
     EXPECT_EQ(R"(c
       bar:   ,name,
       foo:   ,subp,
            8 ,z00,
+             ,z00, foo
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, DISABLED_VarVoidPtrInitInt)
+{
+    std::string output = CompileToMadlen("extern int foo; void *bar = &foo;");
+    EXPECT_EQ(R"(c
+      bar:   ,name,
+      foo:   ,subp,
+          13 ,z00,
              ,z00, foo
              ,end,
 )", output);
