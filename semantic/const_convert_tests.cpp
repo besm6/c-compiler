@@ -88,17 +88,17 @@ TEST_F(ConstConvertTest, UIntFromInt)
     auto lit  = int_lit(42);
     auto type = make_type(TYPE_UINT);
     result    = new_static_init_from_literal(&type, &lit);
-    EXPECT_EQ(result->kind, TAC_STATIC_INIT_U32);
-    EXPECT_EQ(result->u.uint_val, (uint32_t)42);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_U64);
+    EXPECT_EQ(result->u.ulong_val, (uint64_t)42);
 }
 
 TEST_F(ConstConvertTest, UIntFromNegInt)
 {
-    auto lit  = int_lit(-1); // wraps to UINT32_MAX
+    auto lit  = int_lit(-1); // wraps to UINT64_MAX; codegen masks to 48 bits
     auto type = make_type(TYPE_UINT);
     result    = new_static_init_from_literal(&type, &lit);
-    EXPECT_EQ(result->kind, TAC_STATIC_INIT_U32);
-    EXPECT_EQ(result->u.uint_val, (uint32_t)UINT32_MAX);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_U64);
+    EXPECT_EQ(result->u.ulong_val, (uint64_t)UINT64_MAX);
 }
 
 // TYPE_LONG

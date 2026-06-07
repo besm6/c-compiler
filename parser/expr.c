@@ -1,6 +1,7 @@
 #include "parser_internal.h"
 
 #include <ctype.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -302,9 +303,15 @@ Expr *parse_constant()
             } else if (long_count == 1) {
                 expr->u.literal->kind         = LITERAL_LONG;
                 expr->u.literal->u.long_val   = (long)v;
-            } else {
+            } else if (v <= (unsigned long long)INT_MAX) {
                 expr->u.literal->kind         = LITERAL_INT;
                 expr->u.literal->u.int_val    = (int)v;
+            } else if (v <= (unsigned long long)LONG_MAX) {
+                expr->u.literal->kind         = LITERAL_LONG;
+                expr->u.literal->u.long_val   = (long)v;
+            } else {
+                expr->u.literal->kind             = LITERAL_LONG_LONG;
+                expr->u.literal->u.long_long_val  = (long long)v;
             }
         }
         break;

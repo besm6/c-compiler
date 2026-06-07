@@ -118,21 +118,63 @@ static void emit_xts_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Ta
     }
 }
 
+static unsigned long long static_init_log_val(const Tac_StaticInit *init)
+{
+    switch (init->kind) {
+    case TAC_STATIC_INIT_I8:  return (unsigned long long)(uint8_t)init->u.char_val;
+    case TAC_STATIC_INIT_U8:  return (unsigned long long)init->u.uchar_val;
+    case TAC_STATIC_INIT_I16: return (unsigned long long)(int64_t)init->u.short_val & 0x1FFFFFFFFFF;
+    case TAC_STATIC_INIT_I32: return (unsigned long long)(int64_t)init->u.int_val   & 0x1FFFFFFFFFF;
+    case TAC_STATIC_INIT_I64: return (unsigned long long)init->u.long_val           & 0x1FFFFFFFFFF;
+    case TAC_STATIC_INIT_U16: return (unsigned long long)init->u.ushort_val;
+    case TAC_STATIC_INIT_U32: return (unsigned long long)init->u.uint_val;
+    case TAC_STATIC_INIT_U64: return init->u.ulong_val & 0xFFFFFFFFFFFF;
+    default: fatal_error("non-integer static init in log_val");
+    }
+}
+
 static void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
 {
-    if (tl->u.static_variable.init_list != NULL)
-        fatal_error("TODO: initialized static variable (Phase C)");
-
-    const char *name = tl->u.static_variable.name;
+    const char             *name = tl->u.static_variable.name;
+    const Tac_StaticInit *init   = tl->u.static_variable.init_list;
 
     Besm_Module      *module  = besm_new_module(name);
-    Besm_DataSection *section = besm_new_data_section(BESM_SK_BSS);
-    section->name             = xstrdup(name);
-    module->sections          = section;
+    Besm_DataSection *section;
 
-    Besm_DataItem *item = besm_new_data_item(BESM_DATA_BSS);
-    item->u.bss_words   = codegen_sizeof(tl->u.static_variable.type);
-    section->items      = item;
+    if (init == NULL) {
+        section           = besm_new_data_section(BESM_SK_BSS);
+        section->name     = xstrdup(name);
+        module->sections  = section;
+        Besm_DataItem *item = besm_new_data_item(BESM_DATA_BSS);
+        item->u.bss_words   = codegen_sizeof(tl->u.static_variable.type);
+        section->items      = item;
+    } else {
+        section          = besm_new_data_section(BESM_SK_DATA);
+        section->name    = xstrdup(name);
+        module->sections = section;
+
+        Besm_DataItem **tail = &section->items;
+        for (; init; init = init->next) {
+            Besm_DataItem *item;
+            switch (init->kind) {
+            case TAC_STATIC_INIT_I8:  case TAC_STATIC_INIT_I16:
+            case TAC_STATIC_INIT_I32: case TAC_STATIC_INIT_I64:
+            case TAC_STATIC_INIT_U8:  case TAC_STATIC_INIT_U16:
+            case TAC_STATIC_INIT_U32: case TAC_STATIC_INIT_U64:
+                item            = besm_new_data_item(BESM_DATA_LOG);
+                item->u.log_val = static_init_log_val(init);
+                break;
+            case TAC_STATIC_INIT_ZERO:
+                item              = besm_new_data_item(BESM_DATA_BSS);
+                item->u.bss_words = (init->u.zero_bytes + 5) / 6;
+                break;
+            default:
+                fatal_error("TODO: non-integer static init (Phase C)");
+            }
+            *tail = item;
+            tail  = &item->next;
+        }
+    }
 
     emit_madlen_module(out, module);
     besm_free_module(module);

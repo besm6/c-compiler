@@ -314,7 +314,7 @@ static void emit_data_item_labeled(FILE *out, const Besm_DataItem *item,
         emit_line(out, label, 0, "real", addr);
         break;
     case BESM_DATA_LOG:
-        snprintf(addr, sizeof(addr), "%o", (unsigned)item->u.log_val);
+        snprintf(addr, sizeof(addr), "%llo", item->u.log_val);
         emit_line(out, label, 0, "log", addr);
         break;
     case BESM_DATA_BSS:

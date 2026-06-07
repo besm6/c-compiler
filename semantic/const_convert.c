@@ -173,8 +173,8 @@ Tac_StaticInit *new_static_init_from_literal(const Type *target_type, const Lite
         break;
 
     case TYPE_UINT:
-        result             = tac_new_static_init(TAC_STATIC_INIT_U32);
-        result->u.uint_val = (uint32_t)literal_to_int64(lit);
+        result              = tac_new_static_init(TAC_STATIC_INIT_U64);
+        result->u.ulong_val = literal_to_uint64(lit);
         break;
 
     case TYPE_LONG:

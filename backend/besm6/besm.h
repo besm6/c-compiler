@@ -129,7 +129,7 @@ struct Besm_Func {
 typedef enum {
     BESM_DATA_INT,    // DI_Int(int value)     -- ,INT, value
     BESM_DATA_REAL,   // DI_Real(double value) -- ,REAL, value
-    BESM_DATA_LOG,    // DI_Log(int value)     -- ,LOG, value (logical constant)
+    BESM_DATA_LOG,    // DI_Log(unsigned long long value) -- ,LOG, value (logical constant)
     BESM_DATA_BSS,    // DI_Bss(int words)     -- ,BSS, count (zero words)
     BESM_DATA_EQU,    // DI_Equ(int value)     -- ,EQU, value (symbolic constant)
     BESM_DATA_REF,    // DI_Ref(string name)   -- word-wide label reference
@@ -142,7 +142,7 @@ struct Besm_DataItem {
     union {
         int int_val;      // DI_Int
         double real_val;  // DI_Real
-        int log_val;      // DI_Log
+        unsigned long long log_val; // DI_Log
         int bss_words;    // DI_Bss
         int equ_val;      // DI_Equ
         char *ref_name;   // DI_Ref (heap-owned)

@@ -144,7 +144,7 @@ TEST_F(CodegenTest, VarNamedStructTentative)
 )", output);
 }
 
-TEST_F(CodegenTest, DISABLED_VarIntInit)
+TEST_F(CodegenTest, VarIntInit)
 {
     std::string output = CompileToMadlen("int foo = 42;");
     EXPECT_EQ(R"(c
@@ -154,7 +154,7 @@ TEST_F(CodegenTest, DISABLED_VarIntInit)
 )", output);
 }
 
-TEST_F(CodegenTest, DISABLED_VarLongInit)
+TEST_F(CodegenTest, VarLongInit)
 {
     std::string output = CompileToMadlen("long foo = 4321;");
     EXPECT_EQ(R"(c
@@ -164,7 +164,7 @@ TEST_F(CodegenTest, DISABLED_VarLongInit)
 )", output);
 }
 
-TEST_F(CodegenTest, DISABLED_VarShortInit)
+TEST_F(CodegenTest, VarShortInit)
 {
     std::string output = CompileToMadlen("short foo = 123;");
     EXPECT_EQ(R"(c
@@ -174,7 +174,7 @@ TEST_F(CodegenTest, DISABLED_VarShortInit)
 )", output);
 }
 
-TEST_F(CodegenTest, DISABLED_VarCharInit)
+TEST_F(CodegenTest, VarCharInit)
 {
     std::string output = CompileToMadlen("char foo = '+';");
     EXPECT_EQ(R"(c
@@ -184,7 +184,7 @@ TEST_F(CodegenTest, DISABLED_VarCharInit)
 )", output);
 }
 
-TEST_F(CodegenTest, DISABLED_VarUnsignedInit)
+TEST_F(CodegenTest, VarUnsignedInit)
 {
     std::string output = CompileToMadlen("unsigned foo = 01234567076543210;");
     EXPECT_EQ(R"(c
