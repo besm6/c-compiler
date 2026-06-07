@@ -479,6 +479,8 @@ static Tac_TopLevel *translate_decl(const Declaration *decl)
 
         if (id->type->kind == TYPE_FUNCTION) {
             continue; // prototype — no TAC needed
+        } else if (sym->u.static_var.init_kind == INIT_NONE) {
+            continue; // extern-only declaration — no storage to allocate
         } else {
             tl                              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
             tl->u.static_variable.name      = xstrdup(id->name);

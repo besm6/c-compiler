@@ -32,25 +32,12 @@ void besm_free_func(Besm_Func *func)
     xfree(func);
 }
 
-void besm_free_data_item(Besm_DataItem *item)
-{
-    if (!item)
-        return;
-    if (item->kind == BESM_DATA_REF) {
-        xfree(item->u.ref_name);
-    } else if (item->kind == BESM_DATA_STRING) {
-        xfree(item->u.string_val);
-    }
-    besm_free_data_item(item->next);
-    xfree(item);
-}
-
 void besm_free_data_section(Besm_DataSection *section)
 {
     if (!section)
         return;
     xfree(section->name);
-    besm_free_data_item(section->items);
+    besm_free_instr(section->items);
     besm_free_data_section(section->next);
     xfree(section);
 }

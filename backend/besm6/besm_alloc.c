@@ -26,14 +26,6 @@ Besm_Func *besm_new_func(const char *name, Besm_CallConv cc)
     return func;
 }
 
-Besm_DataItem *besm_new_data_item(Besm_DataItemKind kind)
-{
-    Besm_DataItem *item =
-        (Besm_DataItem *)xalloc(sizeof(Besm_DataItem), __func__, __FILE__, __LINE__);
-    item->kind = kind;
-    return item;
-}
-
 Besm_DataSection *besm_new_data_section(Besm_SectionKind kind)
 {
     Besm_DataSection *section =

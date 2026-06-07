@@ -84,14 +84,26 @@ typedef enum {
     BESM_STMT_SUBP,  // name: ,subp,       — declare external subprogram
     BESM_STMT_ENTRY, //       ,entry, name — export global symbol
     BESM_STMT_END,   //       ,end,        — end of subprogram
+
+    // Data section directives
+    BESM_DATA_INT,    // addr      → ,int, value
+    BESM_DATA_REAL,   // real_val  → ,real, value
+    BESM_DATA_LOG,    // log_val   → ,log, value (logical constant)
+    BESM_DATA_BSS,    // addr      → ,bss, count  (addr=0: bare ,bss,)
+    BESM_DATA_EQU,    // addr      → ,equ, value
+    BESM_DATA_REF,    // name      → ,oct, name
+    BESM_DATA_STRING, // name      → ,int, c0 / ... / ,int, 0
+    BESM_DATA_Z00,    // reg=disp, name=sym → [reg] ,z00, [name]
 } Besm_InstrKind;
 
 struct Besm_Instr {
     struct Besm_Instr *next;
     Besm_InstrKind kind;
-    unsigned reg; // index-register 0..15, optional
-    int addr;     // offset, optional
-    char *name;   // symbolic name, optional (heap-owned)
+    unsigned reg;              // index-register 0..15, or displacement (BESM_DATA_Z00)
+    int addr;                  // offset, or integer data value (BESM_DATA_INT/BSS/EQU)
+    char *name;                // symbolic name, optional (heap-owned)
+    unsigned long long log_val; // BESM_DATA_LOG: 48-bit logical constant
+    double real_val;            // BESM_DATA_REAL
     // TODO: star plus offset
     // TODO: literal address with value (int, uns, real)
 };
@@ -124,33 +136,6 @@ struct Besm_Func {
 };
 
 //
-// data_item — Madlen data directives (linked list)
-//
-typedef enum {
-    BESM_DATA_INT,    // DI_Int(int value)     -- ,INT, value
-    BESM_DATA_REAL,   // DI_Real(double value) -- ,REAL, value
-    BESM_DATA_LOG,    // DI_Log(unsigned long long value) -- ,LOG, value (logical constant)
-    BESM_DATA_BSS,    // DI_Bss(int words)     -- ,BSS, count (zero words)
-    BESM_DATA_EQU,    // DI_Equ(int value)     -- ,EQU, value (symbolic constant)
-    BESM_DATA_REF,    // DI_Ref(string name)   -- word-wide label reference
-    BESM_DATA_STRING, // DI_String(string s)   -- one word per char, null-terminated
-} Besm_DataItemKind;
-
-struct Besm_DataItem {
-    struct Besm_DataItem *next;
-    Besm_DataItemKind kind;
-    union {
-        int int_val;      // DI_Int
-        double real_val;  // DI_Real
-        unsigned long long log_val; // DI_Log
-        int bss_words;    // DI_Bss
-        int equ_val;      // DI_Equ
-        char *ref_name;   // DI_Ref (heap-owned)
-        char *string_val; // DI_String (heap-owned)
-    } u;
-};
-
-//
 // section_kind
 //
 typedef enum {
@@ -160,13 +145,13 @@ typedef enum {
 } Besm_SectionKind;
 
 //
-// data_section = DataSection(section_kind kind, string? name, data_item* items)
+// data_section = DataSection(section_kind kind, string? name, instr* items)
 //
 struct Besm_DataSection {
     struct Besm_DataSection *next;
     Besm_SectionKind kind;
     char *name; // nullable (heap-owned)
-    Besm_DataItem *items;
+    Besm_Instr *items;
 };
 
 //
@@ -184,7 +169,6 @@ typedef struct {
 Besm_Instr *besm_new_instr(Besm_InstrKind kind);
 Besm_Block *besm_new_block(void);
 Besm_Func *besm_new_func(const char *name, Besm_CallConv cc);
-Besm_DataItem *besm_new_data_item(Besm_DataItemKind kind);
 Besm_DataSection *besm_new_data_section(Besm_SectionKind kind);
 Besm_Module *besm_new_module(const char *name);
 
@@ -194,7 +178,6 @@ Besm_Module *besm_new_module(const char *name);
 void besm_free_instr(Besm_Instr *instr);
 void besm_free_block(Besm_Block *block);
 void besm_free_func(Besm_Func *func);
-void besm_free_data_item(Besm_DataItem *item);
 void besm_free_data_section(Besm_DataSection *section);
 void besm_free_module(Besm_Module *module);
 
@@ -209,7 +192,6 @@ void mad_fresh_label(char *buf, size_t n, const char *prefix);
 void emit_madlen_instr(FILE *out, const Besm_Instr *instr);
 void emit_madlen_block(FILE *out, const Besm_Block *block);
 void emit_madlen_func(FILE *out, const Besm_Func *func);
-void emit_madlen_data_item(FILE *out, const Besm_DataItem *item);
 void emit_madlen_data_section(FILE *out, const Besm_DataSection *section);
 void emit_madlen_module(FILE *out, const Besm_Module *module);
 

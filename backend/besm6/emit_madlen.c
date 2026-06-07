@@ -280,6 +280,44 @@ void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
         case BESM_STMT_END:
             emit_line(out, NULL, 0, "end", "");
             break;
+
+        // Data section directives
+        case BESM_DATA_LOG:
+            snprintf(a, sizeof(a), "%llo", instr->log_val);
+            emit_line(out, NULL, 0, "log", a);
+            break;
+        case BESM_DATA_BSS:
+            if (instr->addr)
+                snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, 0, "bss", a);
+            break;
+        case BESM_DATA_INT:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, 0, "int", a);
+            break;
+        case BESM_DATA_REAL:
+            snprintf(a, sizeof(a), "%g", instr->real_val);
+            emit_line(out, NULL, 0, "real", a);
+            break;
+        case BESM_DATA_EQU:
+            snprintf(a, sizeof(a), "%d", instr->addr);
+            emit_line(out, NULL, 0, "equ", a);
+            break;
+        case BESM_DATA_REF:
+            emit_line(out, NULL, 0, "oct", instr->name);
+            break;
+        case BESM_DATA_STRING: {
+            const char *s = instr->name;
+            while (*s) {
+                snprintf(a, sizeof(a), "%d", (unsigned char)*s++);
+                emit_line(out, NULL, 0, "int", a);
+            }
+            emit_line(out, NULL, 0, "int", "0");
+            break;
+        }
+        case BESM_DATA_Z00:
+            emit_line(out, NULL, instr->reg, "z00", instr->name ? instr->name : "");
+            break;
         }
     }
 }
@@ -296,65 +334,11 @@ void emit_madlen_func(FILE *out, const Besm_Func *func)
         emit_madlen_block(out, func->blocks);
 }
 
-//
-// Emit one data item.  label is applied to the first output line only
-// (for DI_String, which expands to multiple lines).
-//
-static void emit_data_item_labeled(FILE *out, const Besm_DataItem *item,
-                                   const char *label)
-{
-    char addr[64] = "";
-    switch (item->kind) {
-    case BESM_DATA_INT:
-        snprintf(addr, sizeof(addr), "%d", item->u.int_val);
-        emit_line(out, label, 0, "int", addr);
-        break;
-    case BESM_DATA_REAL:
-        snprintf(addr, sizeof(addr), "%g", (double)item->u.real_val);
-        emit_line(out, label, 0, "real", addr);
-        break;
-    case BESM_DATA_LOG:
-        snprintf(addr, sizeof(addr), "%llo", item->u.log_val);
-        emit_line(out, label, 0, "log", addr);
-        break;
-    case BESM_DATA_BSS:
-        if (item->u.bss_words)
-            snprintf(addr, sizeof(addr), "%d", item->u.bss_words);
-        emit_line(out, label, 0, "bss", addr);
-        break;
-    case BESM_DATA_EQU:
-        snprintf(addr, sizeof(addr), "%d", item->u.equ_val);
-        emit_line(out, label, 0, "equ", addr);
-        break;
-    case BESM_DATA_REF:
-        emit_line(out, label, 0, "oct", item->u.ref_name);
-        break;
-    case BESM_DATA_STRING: {
-        const char *s     = item->u.string_val;
-        const char *first = label;
-        while (*s) {
-            snprintf(addr, sizeof(addr), "%d", (unsigned char)*s++);
-            emit_line(out, first, 0, "int", addr);
-            first = NULL;
-        }
-        emit_line(out, first, 0, "int", "0");
-        break;
-    }
-    }
-}
-
-void emit_madlen_data_item(FILE *out, const Besm_DataItem *item)
-{
-    for (; item; item = item->next)
-        emit_data_item_labeled(out, item, NULL);
-}
-
 void emit_madlen_data_section(FILE *out, const Besm_DataSection *section)
 {
     for (; section; section = section->next) {
         emit_line(out, section->name, 0, "name", "");
-        for (const Besm_DataItem *item = section->items; item; item = item->next)
-            emit_data_item_labeled(out, item, NULL);
+        emit_madlen_instr(out, section->items);
         emit_line(out, NULL, 0, "end", "");
     }
 }

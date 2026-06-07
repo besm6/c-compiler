@@ -142,32 +142,43 @@ static void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
     Besm_DataSection *section;
 
     if (init == NULL) {
-        section           = besm_new_data_section(BESM_SK_BSS);
-        section->name     = xstrdup(name);
-        module->sections  = section;
-        Besm_DataItem *item = besm_new_data_item(BESM_DATA_BSS);
-        item->u.bss_words   = codegen_sizeof(tl->u.static_variable.type);
-        section->items      = item;
+        section          = besm_new_data_section(BESM_SK_BSS);
+        section->name    = xstrdup(name);
+        module->sections = section;
+        Besm_Instr *item = besm_new_instr(BESM_DATA_BSS);
+        item->addr       = codegen_sizeof(tl->u.static_variable.type);
+        section->items   = item;
     } else {
         section          = besm_new_data_section(BESM_SK_DATA);
         section->name    = xstrdup(name);
         module->sections = section;
 
-        Besm_DataItem **tail = &section->items;
+        Besm_Instr **tail = &section->items;
         for (; init; init = init->next) {
-            Besm_DataItem *item;
+            Besm_Instr *item;
             switch (init->kind) {
             case TAC_STATIC_INIT_I8:  case TAC_STATIC_INIT_I16:
             case TAC_STATIC_INIT_I32: case TAC_STATIC_INIT_I64:
             case TAC_STATIC_INIT_U8:  case TAC_STATIC_INIT_U16:
             case TAC_STATIC_INIT_U32: case TAC_STATIC_INIT_U64:
-                item            = besm_new_data_item(BESM_DATA_LOG);
-                item->u.log_val = static_init_log_val(init);
+                item          = besm_new_instr(BESM_DATA_LOG);
+                item->log_val = static_init_log_val(init);
                 break;
             case TAC_STATIC_INIT_ZERO:
-                item              = besm_new_data_item(BESM_DATA_BSS);
-                item->u.bss_words = (init->u.zero_bytes + 5) / 6;
+                item       = besm_new_instr(BESM_DATA_BSS);
+                item->addr = (init->u.zero_bytes + 5) / 6;
                 break;
+            case TAC_STATIC_INIT_POINTER: {
+                Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
+                subp->name = xstrdup(init->u.pointer_name);
+                *tail = subp; tail = &subp->next;
+                Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
+                *tail = z00a; tail = &z00a->next;
+                Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
+                z00b->name = xstrdup(init->u.pointer_name);
+                *tail = z00b; tail = &z00b->next;
+                continue;
+            }
             default:
                 fatal_error("TODO: non-integer static init (Phase C)");
             }
