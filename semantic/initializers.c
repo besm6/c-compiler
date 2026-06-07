@@ -149,7 +149,7 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         const char *string_val       = init->u.expr->u.literal->u.string_val;
         char *string_id              = symtab_add_string(string_val);
         Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
-        pointer_init->u.pointer_name = string_id;
+        pointer_init->u.pointer.name = string_id;
         return pointer_init;
     }
 
@@ -169,7 +169,7 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
             fatal_error("Pointer can only be initialized by array or function");
         }
         Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
-        pointer_init->u.pointer_name = xstrdup(init->u.expr->u.var);
+        pointer_init->u.pointer.name = xstrdup(init->u.expr->u.var);
         return pointer_init;
     }
 
@@ -178,9 +178,22 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         init->u.expr->kind == EXPR_UNARY_OP &&
         init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
         init->u.expr->u.unary_op.expr->kind == EXPR_VAR) {
-        const char *var_name         = init->u.expr->u.unary_op.expr->u.var;
+        const char *var_name = init->u.expr->u.unary_op.expr->u.var;
+        const Type *ptr_target = var_type->u.pointer.target;
+        bool is_fat = (ptr_target->kind == TYPE_CHAR  || ptr_target->kind == TYPE_SCHAR ||
+                       ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
+        if (is_fat) {
+            const Symbol *sym = symtab_get(var_name);
+            bool byte_sized   = (sym->type->kind == TYPE_CHAR  ||
+                                 sym->type->kind == TYPE_SCHAR ||
+                                 sym->type->kind == TYPE_UCHAR);
+            Tac_StaticInit *fi       = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
+            fi->u.pointer.name       = xstrdup(var_name);
+            fi->u.pointer.fat_offset = byte_sized ? 0 : 5;
+            return fi;
+        }
         Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
-        pointer_init->u.pointer_name = xstrdup(var_name);
+        pointer_init->u.pointer.name = xstrdup(var_name);
         return pointer_init;
     }
 

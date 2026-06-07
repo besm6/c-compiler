@@ -153,9 +153,17 @@ bool tac_compare_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b)
             return false;
         return a->u.string.null_terminated == b->u.string.null_terminated;
     case TAC_STATIC_INIT_POINTER:
-        if ((a->u.pointer_name == NULL) != (b->u.pointer_name == NULL))
+        if ((a->u.pointer.name == NULL) != (b->u.pointer.name == NULL))
             return false;
-        if (a->u.pointer_name && strcmp(a->u.pointer_name, b->u.pointer_name) != 0)
+        if (a->u.pointer.name && strcmp(a->u.pointer.name, b->u.pointer.name) != 0)
+            return false;
+        break;
+    case TAC_STATIC_INIT_FAT_POINTER:
+        if ((a->u.pointer.name == NULL) != (b->u.pointer.name == NULL))
+            return false;
+        if (a->u.pointer.name && strcmp(a->u.pointer.name, b->u.pointer.name) != 0)
+            return false;
+        if (a->u.pointer.fat_offset != b->u.pointer.fat_offset)
             return false;
         break;
     }

@@ -280,7 +280,14 @@ static void export_yaml_static_init(FILE *fd, const Tac_StaticInit *init, int le
     case TAC_STATIC_INIT_POINTER:
         fprintf(fd, "pointer\n");
         print_indent(fd, level);
-        fprintf(fd, "name: %s\n", init->u.pointer_name ? init->u.pointer_name : "");
+        fprintf(fd, "name: %s\n", init->u.pointer.name ? init->u.pointer.name : "");
+        break;
+    case TAC_STATIC_INIT_FAT_POINTER:
+        fprintf(fd, "fat_pointer\n");
+        print_indent(fd, level);
+        fprintf(fd, "name: %s\n", init->u.pointer.name ? init->u.pointer.name : "");
+        print_indent(fd, level);
+        fprintf(fd, "fat_offset: %d\n", init->u.pointer.fat_offset);
         break;
     }
 }

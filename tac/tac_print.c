@@ -252,7 +252,12 @@ void tac_print_static_init(FILE *fd, const Tac_StaticInit *init, int depth)
         fprintf(fd, "\"\n");
         break;
     case TAC_STATIC_INIT_POINTER:
-        fprintf(fd, "pointer %s\n", init->u.pointer_name ? init->u.pointer_name : "(null)");
+        fprintf(fd, "pointer %s\n", init->u.pointer.name ? init->u.pointer.name : "(null)");
+        break;
+    case TAC_STATIC_INIT_FAT_POINTER:
+        fprintf(fd, "fat_pointer %s offset=%d\n",
+                init->u.pointer.name ? init->u.pointer.name : "(null)",
+                init->u.pointer.fat_offset);
         break;
     }
     if (init->next) {

@@ -684,7 +684,7 @@ TEST_F(TacBinaryTest, StaticVariableAllInits)
     str->u.string.val             = xstrdup("hello");
     str->u.string.null_terminated = false;
     Tac_StaticInit *ptr           = tac_new_static_init(TAC_STATIC_INIT_POINTER);
-    ptr->u.pointer_name           = xstrdup("arr");
+    ptr->u.pointer.name           = xstrdup("arr");
 
     i8->next                                 = i32;
     i32->next                                = i64;

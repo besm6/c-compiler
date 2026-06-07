@@ -149,7 +149,7 @@ static Tac_StaticInit *import_static_init(WFILE *in)
 {
     size_t tag = wgetw(in);
     check_input(in, "static_init tag");
-    if (tag < TAG_TAC_STATIC_INIT || tag > TAG_TAC_STATIC_INIT + TAC_STATIC_INIT_POINTER)
+    if (tag < TAG_TAC_STATIC_INIT || tag > TAG_TAC_STATIC_INIT + TAC_STATIC_INIT_FAT_POINTER)
         return NULL;
     Tac_StaticInit *si = tac_new_static_init((Tac_StaticInitKind)(tag - TAG_TAC_STATIC_INIT));
     switch (si->kind) {
@@ -208,8 +208,14 @@ static Tac_StaticInit *import_static_init(WFILE *in)
         check_input(in, "static_init string null_terminated");
         break;
     case TAC_STATIC_INIT_POINTER:
-        si->u.pointer_name = wgetstr(in);
+        si->u.pointer.name = wgetstr(in);
         check_input(in, "static_init pointer name");
+        break;
+    case TAC_STATIC_INIT_FAT_POINTER:
+        si->u.pointer.name = wgetstr(in);
+        check_input(in, "static_init fat_pointer name");
+        si->u.pointer.fat_offset = (int)wgetw(in);
+        check_input(in, "static_init fat_pointer offset");
         break;
     default:
         break;

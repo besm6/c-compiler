@@ -170,12 +170,24 @@ static void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
                 break;
             case TAC_STATIC_INIT_POINTER: {
                 Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
-                subp->name = xstrdup(init->u.pointer_name);
+                subp->name = xstrdup(init->u.pointer.name);
                 *tail = subp; tail = &subp->next;
                 Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
                 *tail = z00a; tail = &z00a->next;
                 Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
-                z00b->name = xstrdup(init->u.pointer_name);
+                z00b->name = xstrdup(init->u.pointer.name);
+                *tail = z00b; tail = &z00b->next;
+                continue;
+            }
+            case TAC_STATIC_INIT_FAT_POINTER: {
+                Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
+                subp->name = xstrdup(init->u.pointer.name);
+                *tail = subp; tail = &subp->next;
+                Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
+                z00a->reg = 8 + (unsigned)init->u.pointer.fat_offset;
+                *tail = z00a; tail = &z00a->next;
+                Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
+                z00b->name = xstrdup(init->u.pointer.name);
                 *tail = z00b; tail = &z00b->next;
                 continue;
             }

@@ -1070,7 +1070,7 @@ TEST_F(TacDotTest, StaticInitPointer)
     tl->u.static_variable.type   = tac_new_type(TAC_TYPE_POINTER);
     tl->u.static_variable.type->u.pointer.target_type = tac_new_type(TAC_TYPE_CHAR);
     Tac_StaticInit *init            = tac_new_static_init(TAC_STATIC_INIT_POINTER);
-    init->u.pointer_name            = xstrdup("str_const");
+    init->u.pointer.name            = xstrdup("str_const");
     tl->u.static_variable.init_list = init;
 
     std::string out = capture(tl);

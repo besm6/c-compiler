@@ -397,7 +397,8 @@ typedef enum {
     TAC_STATIC_INIT_LONG_DOUBLE,
     TAC_STATIC_INIT_ZERO,
     TAC_STATIC_INIT_STRING,
-    TAC_STATIC_INIT_POINTER
+    TAC_STATIC_INIT_POINTER,
+    TAC_STATIC_INIT_FAT_POINTER
 } Tac_StaticInitKind;
 
 typedef struct Tac_StaticInit {
@@ -420,7 +421,10 @@ typedef struct Tac_StaticInit {
             char *val;
             bool null_terminated;
         } string;            // INIT_STRING
-        char *pointer_name;  // INIT_POINTER (name of array)
+        struct {
+            char *name;
+            int   fat_offset; // INIT_FAT_POINTER: 0..5; unused for INIT_POINTER
+        } pointer;           // INIT_POINTER, INIT_FAT_POINTER
     } u;
 } Tac_StaticInit;
 

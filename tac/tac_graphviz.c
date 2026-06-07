@@ -267,7 +267,11 @@ static void emit_static_init(FILE *fd, const Tac_StaticInit *init, int parent_id
             break;
         case TAC_STATIC_INIT_POINTER:
             fprintf(fd, "pointer ");
-            emit_string(fd, init->u.pointer_name);
+            emit_string(fd, init->u.pointer.name);
+            break;
+        case TAC_STATIC_INIT_FAT_POINTER:
+            fprintf(fd, "fat_pointer offset=%d ", init->u.pointer.fat_offset);
+            emit_string(fd, init->u.pointer.name);
             break;
         }
         fprintf(fd, "\", shape=box];\n");
