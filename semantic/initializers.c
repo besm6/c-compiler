@@ -11,6 +11,42 @@
 #include "typecheck.h"
 #include "xalloc.h"
 
+// Decode a C string literal raw token (includes surrounding quotes, raw escapes)
+// to a heap-allocated C string containing the actual bytes. Caller must xfree().
+static char *decode_c_string_literal(const char *raw)
+{
+    if (!raw || *raw != '"')
+        return xstrdup(raw);
+    const char *src = raw + 1;
+    size_t n        = strlen(raw);
+    char *buf       = xalloc(n, __func__, __FILE__, __LINE__);
+    char *dst       = buf;
+    while (*src && *src != '"') {
+        if (*src == '\\' && src[1]) {
+            src++;
+            switch (*src) {
+            case 'n':  *dst++ = '\n'; break;
+            case 't':  *dst++ = '\t'; break;
+            case 'r':  *dst++ = '\r'; break;
+            case 'a':  *dst++ = '\a'; break;
+            case 'b':  *dst++ = '\b'; break;
+            case 'f':  *dst++ = '\f'; break;
+            case 'v':  *dst++ = '\v'; break;
+            case '\\': *dst++ = '\\'; break;
+            case '\'': *dst++ = '\''; break;
+            case '"':  *dst++ = '"';  break;
+            case '0':  *dst++ = '\0'; break;
+            default:   *dst++ = *src; break;
+            }
+        } else {
+            *dst++ = *src;
+        }
+        src++;
+    }
+    *dst = '\0';
+    return buf;
+}
+
 // Create a zero initializer for a type.
 static Initializer *make_zero_init(Type *t)
 {
@@ -114,8 +150,8 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
             element_type->kind != TYPE_UCHAR) {
             fatal_error("String literal can only initialize character array");
         }
-        const char *string_val = init->u.expr->u.literal->u.string_val;
-        size_t string_length   = strlen(string_val);
+        char *decoded        = decode_c_string_literal(init->u.expr->u.literal->u.string_val);
+        size_t string_length = strlen(decoded);
         size_t array_size;
         if (!var_type->u.array.size) {
             // Array size is not specified - use string size.
@@ -124,12 +160,13 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         } else {
             array_size = get_array_size(var_type);
             if (string_length > array_size) {
+                xfree(decoded);
                 fatal_error("String literal too long for array");
             }
         }
 
         Tac_StaticInit *string_init           = tac_new_static_init(TAC_STATIC_INIT_STRING);
-        string_init->u.string.val             = xstrdup(string_val);
+        string_init->u.string.val             = decoded;
         string_init->u.string.null_terminated = (array_size >= string_length + 1);
         if (array_size > string_length + 1) {
             Tac_StaticInit *zero_padding = tac_new_static_init(TAC_STATIC_INIT_ZERO);
@@ -378,8 +415,9 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
             element_type->kind != TYPE_UCHAR) {
             fatal_error("String literal can only initialize character array");
         }
-        const char *string_val = init->u.expr->u.literal->u.string_val;
-        size_t string_length   = strlen(string_val);
+        char *decoded        = decode_c_string_literal(init->u.expr->u.literal->u.string_val);
+        size_t string_length = strlen(decoded);
+        xfree(decoded);
         if (!target_type->u.array.size) {
             set_array_size(target_type, string_length + 1);
         } else {

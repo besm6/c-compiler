@@ -278,10 +278,10 @@ TEST_F(CodegenTest, VarCharPtrInitNameOffset)
 
 TEST_F(CodegenTest, VarFloatInit)
 {
-    std::string output = CompileToMadlen("float foo = 3.141;");
+    std::string output = CompileToMadlen("float foo = 3.1415;");
     EXPECT_EQ(R"(c
       foo:   ,name,
-             ,real, 3.141
+             ,real, 3.1415
              ,end,
 )", output);
 }
@@ -418,6 +418,79 @@ TEST_F(CodegenTest, StructPartialInit)
       foo:   ,name,
              ,log, 5
              ,bss, 2
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, StrEmptyInit)
+{
+    std::string output = CompileToMadlen("char foo[] = \"\";");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,log, 0
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, StrSingleCharInit)
+{
+    std::string output = CompileToMadlen("char foo[] = \"A\";");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,log, 2020000000000000
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, StrThreeCharsInit)
+{
+    std::string output = CompileToMadlen("char foo[] = \"ABC\";");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,log, 2024110300000000
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, StrSixCharsNoNullInit)
+{
+    std::string output = CompileToMadlen("char foo[6] = \"ABCDEF\";");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,log, 2024110321042506
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, StrSixCharsWithNullInit)
+{
+    std::string output = CompileToMadlen("char foo[] = \"ABCDEF\";");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,log, 2024110321042506
+             ,log, 0
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, StrSevenCharsInit)
+{
+    std::string output = CompileToMadlen("char foo[] = \"ABCDEFG\";");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,log, 2024110321042506
+             ,log, 2160000000000000
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, StrWithZeroPaddingInit)
+{
+    std::string output = CompileToMadlen("char foo[8] = \"ABC\";");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,log, 2024110300000000
+             ,bss, 1
              ,end,
 )", output);
 }

@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "abi.h"
 #include "besm.h"
@@ -205,6 +206,25 @@ static void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
                 item           = besm_new_instr(BESM_DATA_REAL);
                 item->real_val = init->u.double_val;
                 break;
+            case TAC_STATIC_INIT_STRING: {
+                const char *s = init->u.string.val;
+                size_t len    = strlen(s);
+                size_t nbytes = len + (init->u.string.null_terminated ? 1 : 0);
+                if (nbytes == 0) nbytes = 1;
+                for (size_t w = 0; w * 6 < nbytes; w++) {
+                    unsigned long long word = 0;
+                    for (int b = 0; b < 6; b++) {
+                        size_t pos      = w * 6 + b;
+                        unsigned char c = (pos < len) ? (unsigned char)s[pos] : 0;
+                        word            = (word << 8) | c;
+                    }
+                    Besm_Instr *si = besm_new_instr(BESM_DATA_LOG);
+                    si->log_val    = word;
+                    *tail = si;
+                    tail  = &si->next;
+                }
+                continue;
+            }
             default:
                 fatal_error("TODO: non-float static init (Phase C)");
             }
