@@ -189,7 +189,7 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
                                  sym->type->kind == TYPE_UCHAR);
             Tac_StaticInit *fi       = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
             fi->u.pointer.name       = xstrdup(var_name);
-            fi->u.pointer.byte_offset = byte_sized ? 0 : 5;
+            fi->u.pointer.byte_offset = byte_sized ? 5 : 0;
             return fi;
         }
         Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
@@ -217,9 +217,13 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         const Type *ptr_target = var_type->u.pointer.target;
         bool is_fat = (ptr_target->kind == TYPE_CHAR  || ptr_target->kind == TYPE_SCHAR ||
                        ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
-        if (is_fat)
-            fatal_error("TODO: fat pointer array subscript initialization not yet supported");
-        int byte_offset = (int)index * get_size(arr_sym->type->u.array.element);
+        int byte_offset = (int)index * (int)get_size(arr_sym->type->u.array.element);
+        if (is_fat) {
+            Tac_StaticInit *fi        = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
+            fi->u.pointer.name        = xstrdup(arr_name);
+            fi->u.pointer.byte_offset = byte_offset;
+            return fi;
+        }
         Tac_StaticInit *pointer_init    = tac_new_static_init(TAC_STATIC_INIT_POINTER);
         pointer_init->u.pointer.name    = xstrdup(arr_name);
         pointer_init->u.pointer.byte_offset = byte_offset;

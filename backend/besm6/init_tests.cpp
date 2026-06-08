@@ -264,14 +264,14 @@ TEST_F(CodegenTest, VarIntPtrInitNameOffset)
 )", output);
 }
 
-TEST_F(CodegenTest, DISABLED_VarCharPtrInitNameOffset)
+TEST_F(CodegenTest, VarCharPtrInitNameOffset)
 {
-    std::string output = CompileToMadlen("extern char foo[]; char *bar = &foo[7];");
+    std::string output = CompileToMadlen("extern char foo[]; char *bar = &foo[15];");
     EXPECT_EQ(R"(c
       bar:   ,name,
       foo:   ,subp,
-          12 ,z00,
-             ,z00, foo+1
+          10 ,z00,
+             ,z00, foo+2
              ,end,
 )", output);
 }

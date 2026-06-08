@@ -405,26 +405,32 @@ typedef struct Tac_StaticInit {
     struct Tac_StaticInit *next; // Linked list
     Tac_StaticInitKind kind;
     union {
-        int8_t char_val;     // INIT_I8
-        int16_t short_val;   // INIT_I16
-        int32_t int_val;     // INIT_I32
-        int64_t long_val;    // INIT_I64
-        uint8_t uchar_val;   // INIT_U8
-        uint16_t ushort_val; // INIT_U16
-        uint32_t uint_val;   // INIT_U32
-        uint64_t ulong_val;  // INIT_U64
-        float float_val;            // INIT_FLOAT
-        double double_val;          // INIT_DOUBLE
+        int8_t char_val;             // INIT_I8
+        int16_t short_val;           // INIT_I16
+        int32_t int_val;             // INIT_I32
+        int64_t long_val;            // INIT_I64
+        uint8_t uchar_val;           // INIT_U8
+        uint16_t ushort_val;         // INIT_U16
+        uint32_t uint_val;           // INIT_U32
+        uint64_t ulong_val;          // INIT_U64
+        float float_val;             // INIT_FLOAT
+        double double_val;           // INIT_DOUBLE
         long double long_double_val; // INIT_LONG_DOUBLE
-        int zero_bytes;             // INIT_ZERO
+        int zero_bytes;              // INIT_ZERO
+
+        // INIT_STRING
         struct {
             char *val;
             bool null_terminated;
-        } string;            // INIT_STRING
+        } string;
+
+        // INIT_POINTER, INIT_FAT_POINTER
         struct {
             char *name;
-            int   byte_offset; // signed byte offset; INIT_FAT_POINTER: byte pos in word (0..5); INIT_POINTER: element byte offset (0 if none)
-        } pointer;           // INIT_POINTER, INIT_FAT_POINTER
+            int byte_offset; // Total byte offset from symbol
+                             // INIT_POINTER: multiple of 6
+                             // INIT_FAT_POINTER: word*6 + byte_from_MSB
+        } pointer;
     } u;
 } Tac_StaticInit;
 
