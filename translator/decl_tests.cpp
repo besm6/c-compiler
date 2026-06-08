@@ -166,10 +166,10 @@ TEST_F(TranslateTest, StringLiteralReturned)
     kind: array
     elem_type:
       kind: char
-    size: 5
+    size: 3
   init:
     kind: string
-    value: "hi"
+    value: hi
     null_terminated: true
 - toplevel:
   kind: function
@@ -206,10 +206,10 @@ TEST_F(TranslateTest, TwoFunctionsDistinctStringLiterals)
     kind: array
     elem_type:
       kind: char
-    size: 6
+    size: 4
   init:
     kind: string
-    value: "yes"
+    value: yes
     null_terminated: true
 - toplevel:
   kind: function
@@ -236,10 +236,10 @@ TEST_F(TranslateTest, TwoFunctionsDistinctStringLiterals)
     kind: array
     elem_type:
       kind: char
-    size: 5
+    size: 3
   init:
     kind: string
-    value: "no"
+    value: no
     null_terminated: true
 - toplevel:
   kind: function

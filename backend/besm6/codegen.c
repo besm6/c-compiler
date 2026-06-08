@@ -237,6 +237,65 @@ static void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
     besm_free_module(module);
 }
 
+static void codegen_static_constant(const Tac_TopLevel *tl, FILE *out)
+{
+    const char           *name = tl->u.static_constant.name;
+    const Tac_StaticInit *init = tl->u.static_constant.init;
+
+    Besm_Module      *module  = besm_new_module(name);
+    Besm_DataSection *section = besm_new_data_section(BESM_SK_DATA);
+    section->name             = xstrdup(name);
+    module->sections          = section;
+
+    Besm_Instr **tail = &section->items;
+    for (; init; init = init->next) {
+        Besm_Instr *item;
+        switch (init->kind) {
+        case TAC_STATIC_INIT_I8:  case TAC_STATIC_INIT_I16:
+        case TAC_STATIC_INIT_I32: case TAC_STATIC_INIT_I64:
+        case TAC_STATIC_INIT_U8:  case TAC_STATIC_INIT_U16:
+        case TAC_STATIC_INIT_U32: case TAC_STATIC_INIT_U64:
+            item          = besm_new_instr(BESM_DATA_LOG);
+            item->log_val = static_init_log_val(init);
+            break;
+        case TAC_STATIC_INIT_FLOAT:
+            item           = besm_new_instr(BESM_DATA_REAL);
+            item->real_val = init->u.float_val;
+            break;
+        case TAC_STATIC_INIT_DOUBLE:
+            item           = besm_new_instr(BESM_DATA_REAL);
+            item->real_val = init->u.double_val;
+            break;
+        case TAC_STATIC_INIT_STRING: {
+            const char *s = init->u.string.val;
+            size_t len    = strlen(s);
+            size_t nbytes = len + (init->u.string.null_terminated ? 1 : 0);
+            if (nbytes == 0) nbytes = 1;
+            for (size_t w = 0; w * 6 < nbytes; w++) {
+                unsigned long long word = 0;
+                for (int b = 0; b < 6; b++) {
+                    size_t pos      = w * 6 + b;
+                    unsigned char c = (pos < len) ? (unsigned char)s[pos] : 0;
+                    word            = (word << 8) | c;
+                }
+                Besm_Instr *si = besm_new_instr(BESM_DATA_LOG);
+                si->log_val    = word;
+                *tail = si;
+                tail  = &si->next;
+            }
+            continue;
+        }
+        default:
+            fatal_error("unsupported static constant init kind %d", (int)init->kind);
+        }
+        *tail = item;
+        tail  = &item->next;
+    }
+
+    emit_madlen_module(out, module);
+    besm_free_module(module);
+}
+
 void codegen_program(const Tac_TopLevel *tl, FILE *out)
 {
     switch (tl->kind) {
@@ -247,7 +306,8 @@ void codegen_program(const Tac_TopLevel *tl, FILE *out)
         codegen_static_variable(tl, out);
         break;
     case TAC_TOPLEVEL_STATIC_CONSTANT:
-        fatal_error("TODO: static constant (Phase C)");
+        codegen_static_constant(tl, out);
+        break;
     }
 }
 

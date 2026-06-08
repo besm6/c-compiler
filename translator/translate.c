@@ -492,6 +492,32 @@ static Tac_TopLevel *translate_decl(const Declaration *decl)
         *tail = tl;
         tail  = &tl->next;
     }
+
+    // Scan each static variable's init list for POINTER entries that reference
+    // SYM_CONST symbols (string literals). Emit a TAC_TOPLEVEL_STATIC_CONSTANT
+    // for each and prepend it before the variable that uses it.
+    Tac_TopLevel *constants_head = NULL;
+    Tac_TopLevel **ctail         = &constants_head;
+    for (const Tac_TopLevel *cur = head; cur; cur = cur->next) {
+        for (const Tac_StaticInit *init = cur->u.static_variable.init_list;
+             init; init = init->next) {
+            if (init->kind != TAC_STATIC_INIT_POINTER) continue;
+            const char *sname = init->u.pointer.name;
+            Symbol *sym       = symtab_get(sname);
+            if (!sym || sym->kind != SYM_CONST || !sym->u.const_init) continue;
+            Tac_TopLevel *sc           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
+            sc->u.static_constant.name = xstrdup(sname);
+            sc->u.static_constant.type = ast_type_to_tac_type(sym->type);
+            sc->u.static_constant.init = sym->u.const_init;
+            sym->u.const_init          = NULL; // transfer ownership to TAC
+            *ctail = sc;
+            ctail  = &sc->next;
+        }
+    }
+    if (constants_head) {
+        *ctail = head;
+        return constants_head;
+    }
     return head;
 }
 

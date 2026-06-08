@@ -13,7 +13,7 @@
 
 // Decode a C string literal raw token (includes surrounding quotes, raw escapes)
 // to a heap-allocated C string containing the actual bytes. Caller must xfree().
-static char *decode_c_string_literal(const char *raw)
+char *decode_c_string_literal(const char *raw)
 {
     if (!raw || *raw != '"')
         return xstrdup(raw);
@@ -183,8 +183,9 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         if (var_type->u.pointer.target->kind != TYPE_CHAR) {
             fatal_error("String literal can only initialize pointer to char");
         }
-        const char *string_val       = init->u.expr->u.literal->u.string_val;
-        char *string_id              = symtab_add_string(string_val);
+        char *decoded  = decode_c_string_literal(init->u.expr->u.literal->u.string_val);
+        char *string_id              = symtab_add_string(decoded);
+        xfree(decoded);
         Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
         pointer_init->u.pointer.name = string_id;
         return pointer_init;

@@ -523,3 +523,161 @@ TEST_F(CodegenTest, StrWithZeroPaddingInit)
              ,end,
 )", output);
 }
+
+// ---------------------------------------------------------------------------
+// String pointer initialization — TAC_TOPLEVEL_STATIC_CONSTANT tests
+// ---------------------------------------------------------------------------
+// Each `char *p = "..."` emits two modules:
+//   1. The string constant module (_str0) with packed-char log words.
+//   2. The pointer variable module (p) with a subp/z00 reference to _str0.
+
+TEST_F(CodegenTest, StrConstantEmptyPtr)
+{
+    std::string output = CompileToMadlen("char *p = \"\";");
+    EXPECT_EQ(R"(c
+    _str0:   ,name,
+             ,log, 0
+             ,end,
+c
+        p:   ,name,
+    _str0:   ,subp,
+             ,z00,
+             ,z00, _str0
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, StrConstantSingleCharPtr)
+{
+    std::string output = CompileToMadlen("char *p = \"A\";");
+    EXPECT_EQ(R"(c
+    _str0:   ,name,
+             ,log, 2020000000000000
+             ,end,
+c
+        p:   ,name,
+    _str0:   ,subp,
+             ,z00,
+             ,z00, _str0
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, StrConstantThreeCharsPtr)
+{
+    std::string output = CompileToMadlen("char *p = \"ABC\";");
+    EXPECT_EQ(R"(c
+    _str0:   ,name,
+             ,log, 2024110300000000
+             ,end,
+c
+        p:   ,name,
+    _str0:   ,subp,
+             ,z00,
+             ,z00, _str0
+             ,end,
+)", output);
+}
+
+// "ABCDE\0" = 6 bytes, exactly one packed word (no second word needed).
+TEST_F(CodegenTest, StrConstantFiveCharsPtr)
+{
+    std::string output = CompileToMadlen("char *p = \"ABCDE\";");
+    EXPECT_EQ(R"(c
+    _str0:   ,name,
+             ,log, 2024110321042400
+             ,end,
+c
+        p:   ,name,
+    _str0:   ,subp,
+             ,z00,
+             ,z00, _str0
+             ,end,
+)", output);
+}
+
+// "ABCDEF\0" = 7 bytes → two words: full word + null-only word.
+TEST_F(CodegenTest, StrConstantSixCharsPtr)
+{
+    std::string output = CompileToMadlen("char *p = \"ABCDEF\";");
+    EXPECT_EQ(R"(c
+    _str0:   ,name,
+             ,log, 2024110321042506
+             ,log, 0
+             ,end,
+c
+        p:   ,name,
+    _str0:   ,subp,
+             ,z00,
+             ,z00, _str0
+             ,end,
+)", output);
+}
+
+// "ABCDEFG\0" = 8 bytes → two words: ABCDEF + G\0.
+TEST_F(CodegenTest, StrConstantSevenCharsPtr)
+{
+    std::string output = CompileToMadlen("char *p = \"ABCDEFG\";");
+    EXPECT_EQ(R"(c
+    _str0:   ,name,
+             ,log, 2024110321042506
+             ,log, 2160000000000000
+             ,end,
+c
+        p:   ,name,
+    _str0:   ,subp,
+             ,z00,
+             ,z00, _str0
+             ,end,
+)", output);
+}
+
+// Two declarations processed separately: each gets its own _strN constant.
+// symtab_add_string assigns unique names regardless of string content.
+TEST_F(CodegenTest, StrConstantTwoPtrs)
+{
+    std::string output = CompileToMadlen("char *p = \"ABC\"; char *q = \"ABC\";");
+    EXPECT_EQ(R"(c
+    _str0:   ,name,
+             ,log, 2024110300000000
+             ,end,
+c
+        p:   ,name,
+    _str0:   ,subp,
+             ,z00,
+             ,z00, _str0
+             ,end,
+c
+    _str1:   ,name,
+             ,log, 2024110300000000
+             ,end,
+c
+        q:   ,name,
+    _str1:   ,subp,
+             ,z00,
+             ,z00, _str1
+             ,end,
+)", output);
+}
+
+// A char array init uses TAC_STATIC_INIT_STRING directly (no static constant).
+// A char pointer init generates a separate _str0 constant module.
+TEST_F(CodegenTest, StrConstantPtrAndArray)
+{
+    std::string output = CompileToMadlen("char arr[] = \"ABC\"; char *p = \"ABC\";");
+    EXPECT_EQ(R"(c
+      arr:   ,name,
+             ,log, 2024110300000000
+             ,end,
+c
+    _str0:   ,name,
+             ,log, 2024110300000000
+             ,end,
+c
+        p:   ,name,
+    _str0:   ,subp,
+             ,z00,
+             ,z00, _str0
+             ,end,
+)", output);
+}

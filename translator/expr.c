@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "semantic.h"
 #include "translate.h"
 #include "xalloc.h"
 
@@ -310,7 +311,9 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         case LITERAL_CHAR:
             return val_int(e->u.literal->u.char_val);
         case LITERAL_STRING: {
-            const char *sname = symtab_add_string(e->u.literal->u.string_val);
+            char *decoded_str = decode_c_string_literal(e->u.literal->u.string_val);
+            const char *sname = symtab_add_string(decoded_str);
+            xfree(decoded_str);
             Symbol *sym       = symtab_get(sname);
 
             Tac_TopLevel *sc           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
