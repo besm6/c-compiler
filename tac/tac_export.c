@@ -36,7 +36,7 @@ static void export_const(WFILE *out, const Tac_Const *c)
         wputw((size_t)c->u.ulong_long_val, out);
         break;
     case TAC_CONST_FLOAT:
-        wputd((double)c->u.float_val, out);
+        wputd(c->u.float_val, out);
         break;
     case TAC_CONST_DOUBLE:
         wputd(c->u.double_val, out);
@@ -292,7 +292,7 @@ static void export_static_init(WFILE *out, const Tac_StaticInit *si)
         wputw((size_t)si->u.ulong_val, out);
         break;
     case TAC_STATIC_INIT_FLOAT:
-        wputd((double)si->u.float_val, out);
+        wputd(si->u.float_val, out);
         break;
     case TAC_STATIC_INIT_DOUBLE:
         wputd(si->u.double_val, out);

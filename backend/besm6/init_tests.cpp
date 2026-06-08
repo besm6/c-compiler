@@ -275,3 +275,23 @@ TEST_F(CodegenTest, VarCharPtrInitNameOffset)
              ,end,
 )", output);
 }
+
+TEST_F(CodegenTest, VarFloatInit)
+{
+    std::string output = CompileToMadlen("float foo = 3.141;");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,real, 3.141
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, VarDoubleInit)
+{
+    std::string output = CompileToMadlen("double foo = 2.71828e-25;");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,real, 2.71828e-25
+             ,end,
+)", output);
+}

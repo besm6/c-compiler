@@ -191,7 +191,7 @@ Tac_StaticInit *new_static_init_from_literal(const Type *target_type, const Lite
 
     case TYPE_FLOAT:
         result              = tac_new_static_init(TAC_STATIC_INIT_FLOAT);
-        result->u.float_val = (float)literal_to_double(lit);
+        result->u.float_val = literal_to_double(lit);
         break;
 
     case TYPE_DOUBLE:

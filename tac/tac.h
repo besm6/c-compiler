@@ -325,7 +325,7 @@ typedef struct Tac_Const {
         unsigned int uint_val;
         unsigned long ulong_val;
         unsigned long long ulong_long_val;
-        float float_val;
+        double float_val;
         double double_val;
         long double long_double_val;
         int char_val;
@@ -413,7 +413,7 @@ typedef struct Tac_StaticInit {
         uint16_t ushort_val;         // INIT_U16
         uint32_t uint_val;           // INIT_U32
         uint64_t ulong_val;          // INIT_U64
-        float float_val;             // INIT_FLOAT
+        double float_val;            // INIT_FLOAT
         double double_val;           // INIT_DOUBLE
         long double long_double_val; // INIT_LONG_DOUBLE
         int zero_bytes;              // INIT_ZERO

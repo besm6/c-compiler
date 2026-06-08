@@ -197,8 +197,16 @@ static void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
                 *tail = z00b; tail = &z00b->next;
                 continue;
             }
+            case TAC_STATIC_INIT_FLOAT:
+                item           = besm_new_instr(BESM_DATA_REAL);
+                item->real_val = init->u.float_val;
+                break;
+            case TAC_STATIC_INIT_DOUBLE:
+                item           = besm_new_instr(BESM_DATA_REAL);
+                item->real_val = init->u.double_val;
+                break;
             default:
-                fatal_error("TODO: non-integer static init (Phase C)");
+                fatal_error("TODO: non-float static init (Phase C)");
             }
             *tail = item;
             tail  = &item->next;

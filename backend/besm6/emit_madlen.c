@@ -296,7 +296,7 @@ void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
             emit_line(out, NULL, 0, "int", a);
             break;
         case BESM_DATA_REAL:
-            snprintf(a, sizeof(a), "%g", instr->real_val);
+            snprintf(a, sizeof(a), "%.13g", instr->real_val);
             emit_line(out, NULL, 0, "real", a);
             break;
         case BESM_DATA_EQU:

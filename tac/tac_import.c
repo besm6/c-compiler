@@ -52,7 +52,7 @@ static Tac_Const *import_const(WFILE *in)
         check_input(in, "const ulong_long");
         break;
     case TAC_CONST_FLOAT:
-        c->u.float_val = (float)wgetd(in);
+        c->u.float_val = wgetd(in);
         check_input(in, "const float");
         break;
     case TAC_CONST_DOUBLE:
@@ -186,7 +186,7 @@ static Tac_StaticInit *import_static_init(WFILE *in)
         check_input(in, "static_init u64");
         break;
     case TAC_STATIC_INIT_FLOAT:
-        si->u.float_val = (float)wgetd(in);
+        si->u.float_val = wgetd(in);
         check_input(in, "static_init float");
         break;
     case TAC_STATIC_INIT_DOUBLE:
