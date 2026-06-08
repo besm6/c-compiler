@@ -9,6 +9,20 @@ void mad_fresh_label(char *buf, size_t n, const char *prefix)
     snprintf(buf, n, "%s.%d", prefix, counter++);
 }
 
+// Sanitize a Madlen identifier: replace '_'→'*', '$'→'/', truncate to 8 chars.
+static void sanitize_name(char *dst, size_t n, const char *src)
+{
+    size_t lim = n - 1 < 8 ? n - 1 : 8;
+    size_t i = 0;
+    for (; *src && i < lim; src++, i++) {
+        char c = *src;
+        if (c == '_') c = '*';
+        else if (c == '$') c = '/';
+        dst[i] = c;
+    }
+    dst[i] = '\0';
+}
+
 //
 // Build the address-field string from (name, addr).
 // name+addr → "name+N", name-addr → "name-N", name only → "name",
@@ -16,12 +30,15 @@ void mad_fresh_label(char *buf, size_t n, const char *prefix)
 //
 static void addr_str(char *buf, size_t n, const char *name, int addr)
 {
+    char sname[9];
+    if (name)
+        sanitize_name(sname, sizeof(sname), name);
     if (name && addr > 0)
-        snprintf(buf, n, "%s+%d", name, addr);
+        snprintf(buf, n, "%s+%d", sname, addr);
     else if (name && addr < 0)
-        snprintf(buf, n, "%s-%d", name, -addr);
+        snprintf(buf, n, "%s-%d", sname, -addr);
     else if (name)
-        snprintf(buf, n, "%s", name);
+        snprintf(buf, n, "%s", sname);
     else if (addr)
         snprintf(buf, n, "%d", addr);
 }
@@ -33,7 +50,9 @@ static void emit_line(FILE *out, const char *label, int mreg,
                       const char *mnem, const char *addr)
 {
     if (label) {
-        fprintf(out, " %8s:", label);
+        char sl[9];
+        sanitize_name(sl, sizeof(sl), label);
+        fprintf(out, " %8s:", sl);
     } else {
         fprintf(out, "          ");
     }
@@ -266,16 +285,19 @@ void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
             emit_line(out, instr->name, 0, "name", "");
             break;
         case BESM_STMT_BASE:
-            emit_line(out, NULL, instr->reg, "base", instr->name);
+            sanitize_name(a, sizeof(a), instr->name);
+            emit_line(out, NULL, instr->reg, "base", a);
             break;
         case BESM_BRANCH_CALL:
-            emit_line(out, NULL, 0, "call", instr->name);
+            sanitize_name(a, sizeof(a), instr->name);
+            emit_line(out, NULL, 0, "call", a);
             break;
         case BESM_STMT_SUBP:
             emit_line(out, instr->name, 0, "subp", "");
             break;
         case BESM_STMT_ENTRY:
-            emit_line(out, NULL, 0, "entry", instr->name);
+            sanitize_name(a, sizeof(a), instr->name);
+            emit_line(out, NULL, 0, "entry", a);
             break;
         case BESM_STMT_END:
             emit_line(out, NULL, 0, "end", "");
@@ -304,7 +326,8 @@ void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
             emit_line(out, NULL, 0, "equ", a);
             break;
         case BESM_DATA_REF:
-            emit_line(out, NULL, 0, "oct", instr->name);
+            sanitize_name(a, sizeof(a), instr->name);
+            emit_line(out, NULL, 0, "oct", a);
             break;
         case BESM_DATA_STRING: {
             const char *s = instr->name;

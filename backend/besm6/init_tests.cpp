@@ -550,14 +550,14 @@ TEST_F(CodegenTest, StrConstantEmptyPtr)
 {
     std::string output = CompileToMadlen("char *p = \"\";");
     EXPECT_EQ(R"(c
-    _str0:   ,name,
+    *str0:   ,name,
              ,log, 0
              ,end,
 c
         p:   ,name,
-    _str0:   ,subp,
+    *str0:   ,subp,
              ,z00,
-             ,z00, _str0
+             ,z00, *str0
              ,end,
 )", output);
 }
@@ -566,14 +566,14 @@ TEST_F(CodegenTest, StrConstantSingleCharPtr)
 {
     std::string output = CompileToMadlen("char *p = \"A\";");
     EXPECT_EQ(R"(c
-    _str0:   ,name,
+    *str0:   ,name,
              ,log, 2020000000000000
              ,end,
 c
         p:   ,name,
-    _str0:   ,subp,
+    *str0:   ,subp,
              ,z00,
-             ,z00, _str0
+             ,z00, *str0
              ,end,
 )", output);
 }
@@ -582,14 +582,14 @@ TEST_F(CodegenTest, StrConstantThreeCharsPtr)
 {
     std::string output = CompileToMadlen("char *p = \"ABC\";");
     EXPECT_EQ(R"(c
-    _str0:   ,name,
+    *str0:   ,name,
              ,log, 2024110300000000
              ,end,
 c
         p:   ,name,
-    _str0:   ,subp,
+    *str0:   ,subp,
              ,z00,
-             ,z00, _str0
+             ,z00, *str0
              ,end,
 )", output);
 }
@@ -599,14 +599,14 @@ TEST_F(CodegenTest, StrConstantFiveCharsPtr)
 {
     std::string output = CompileToMadlen("char *p = \"ABCDE\";");
     EXPECT_EQ(R"(c
-    _str0:   ,name,
+    *str0:   ,name,
              ,log, 2024110321042400
              ,end,
 c
         p:   ,name,
-    _str0:   ,subp,
+    *str0:   ,subp,
              ,z00,
-             ,z00, _str0
+             ,z00, *str0
              ,end,
 )", output);
 }
@@ -616,15 +616,15 @@ TEST_F(CodegenTest, StrConstantSixCharsPtr)
 {
     std::string output = CompileToMadlen("char *p = \"ABCDEF\";");
     EXPECT_EQ(R"(c
-    _str0:   ,name,
+    *str0:   ,name,
              ,log, 2024110321042506
              ,log, 0
              ,end,
 c
         p:   ,name,
-    _str0:   ,subp,
+    *str0:   ,subp,
              ,z00,
-             ,z00, _str0
+             ,z00, *str0
              ,end,
 )", output);
 }
@@ -634,15 +634,15 @@ TEST_F(CodegenTest, StrConstantSevenCharsPtr)
 {
     std::string output = CompileToMadlen("char *p = \"ABCDEFG\";");
     EXPECT_EQ(R"(c
-    _str0:   ,name,
+    *str0:   ,name,
              ,log, 2024110321042506
              ,log, 2160000000000000
              ,end,
 c
         p:   ,name,
-    _str0:   ,subp,
+    *str0:   ,subp,
              ,z00,
-             ,z00, _str0
+             ,z00, *str0
              ,end,
 )", output);
 }
@@ -653,24 +653,24 @@ TEST_F(CodegenTest, StrConstantTwoPtrs)
 {
     std::string output = CompileToMadlen("char *p = \"ABC\"; char *q = \"ABC\";");
     EXPECT_EQ(R"(c
-    _str0:   ,name,
+    *str0:   ,name,
              ,log, 2024110300000000
              ,end,
 c
         p:   ,name,
-    _str0:   ,subp,
+    *str0:   ,subp,
              ,z00,
-             ,z00, _str0
+             ,z00, *str0
              ,end,
 c
-    _str1:   ,name,
+    *str1:   ,name,
              ,log, 2024110300000000
              ,end,
 c
         q:   ,name,
-    _str1:   ,subp,
+    *str1:   ,subp,
              ,z00,
-             ,z00, _str1
+             ,z00, *str1
              ,end,
 )", output);
 }
@@ -685,14 +685,14 @@ TEST_F(CodegenTest, StrConstantPtrAndArray)
              ,log, 2024110300000000
              ,end,
 c
-    _str0:   ,name,
+    *str0:   ,name,
              ,log, 2024110300000000
              ,end,
 c
         p:   ,name,
-    _str0:   ,subp,
+    *str0:   ,subp,
              ,z00,
-             ,z00, _str0
+             ,z00, *str0
              ,end,
 )", output);
 }
