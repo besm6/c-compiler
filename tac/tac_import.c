@@ -210,11 +210,13 @@ static Tac_StaticInit *import_static_init(WFILE *in)
     case TAC_STATIC_INIT_POINTER:
         si->u.pointer.name = wgetstr(in);
         check_input(in, "static_init pointer name");
+        si->u.pointer.byte_offset = (int)wgetw(in);
+        check_input(in, "static_init pointer offset");
         break;
     case TAC_STATIC_INIT_FAT_POINTER:
         si->u.pointer.name = wgetstr(in);
         check_input(in, "static_init fat_pointer name");
-        si->u.pointer.fat_offset = (int)wgetw(in);
+        si->u.pointer.byte_offset = (int)wgetw(in);
         check_input(in, "static_init fat_pointer offset");
         break;
     default:

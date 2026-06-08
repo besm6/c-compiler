@@ -157,13 +157,15 @@ bool tac_compare_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b)
             return false;
         if (a->u.pointer.name && strcmp(a->u.pointer.name, b->u.pointer.name) != 0)
             return false;
+        if (a->u.pointer.byte_offset != b->u.pointer.byte_offset)
+            return false;
         break;
     case TAC_STATIC_INIT_FAT_POINTER:
         if ((a->u.pointer.name == NULL) != (b->u.pointer.name == NULL))
             return false;
         if (a->u.pointer.name && strcmp(a->u.pointer.name, b->u.pointer.name) != 0)
             return false;
-        if (a->u.pointer.fat_offset != b->u.pointer.fat_offset)
+        if (a->u.pointer.byte_offset != b->u.pointer.byte_offset)
             return false;
         break;
     }

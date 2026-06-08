@@ -21,6 +21,7 @@
 #include "structtab.h"
 #include "symtab.h"
 #include "tac.h"
+#include "target.h"
 #include "translate.h"
 #include "typetab.h"
 #include "xalloc.h"
@@ -34,6 +35,7 @@ class CodegenTest : public ::testing::Test {
 protected:
     void SetUp() override
     {
+        target_config = target_lookup("besm6");
         input_file = tmpfile();
         ASSERT_NE(nullptr, input_file);
     }

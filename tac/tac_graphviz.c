@@ -266,11 +266,14 @@ static void emit_static_init(FILE *fd, const Tac_StaticInit *init, int parent_id
             emit_string(fd, init->u.string.val);
             break;
         case TAC_STATIC_INIT_POINTER:
-            fprintf(fd, "pointer ");
+            if (init->u.pointer.byte_offset)
+                fprintf(fd, "pointer offset=%d ", init->u.pointer.byte_offset);
+            else
+                fprintf(fd, "pointer ");
             emit_string(fd, init->u.pointer.name);
             break;
         case TAC_STATIC_INIT_FAT_POINTER:
-            fprintf(fd, "fat_pointer offset=%d ", init->u.pointer.fat_offset);
+            fprintf(fd, "fat_pointer offset=%d ", init->u.pointer.byte_offset);
             emit_string(fd, init->u.pointer.name);
             break;
         }

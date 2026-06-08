@@ -189,11 +189,40 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
                                  sym->type->kind == TYPE_UCHAR);
             Tac_StaticInit *fi       = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
             fi->u.pointer.name       = xstrdup(var_name);
-            fi->u.pointer.fat_offset = byte_sized ? 0 : 5;
+            fi->u.pointer.byte_offset = byte_sized ? 0 : 5;
             return fi;
         }
         Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
         pointer_init->u.pointer.name = xstrdup(var_name);
+        return pointer_init;
+    }
+
+    // Handle pointer initialized with address-of an array element (&arr[N]).
+    if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
+        init->u.expr->kind == EXPR_UNARY_OP &&
+        init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
+        init->u.expr->u.unary_op.expr->kind == EXPR_SUBSCRIPT &&
+        init->u.expr->u.unary_op.expr->u.subscript.left->kind == EXPR_VAR) {
+        const Expr *subscript    = init->u.expr->u.unary_op.expr;
+        const char *arr_name     = subscript->u.subscript.left->u.var;
+        const Expr *index_expr   = subscript->u.subscript.right;
+        long index;
+        if (!try_eval_const_int(index_expr, &index))
+            fatal_error("Array subscript in static initializer must be a compile-time constant");
+        const Symbol *arr_sym = symtab_get(arr_name);
+        if (arr_sym->type->kind != TYPE_ARRAY)
+            fatal_error("Subscript of non-array type in static initializer");
+        if (!compatible_type(var_type->u.pointer.target, arr_sym->type->u.array.element))
+            fatal_error("Incompatible types in pointer initialization with array element");
+        const Type *ptr_target = var_type->u.pointer.target;
+        bool is_fat = (ptr_target->kind == TYPE_CHAR  || ptr_target->kind == TYPE_SCHAR ||
+                       ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
+        if (is_fat)
+            fatal_error("TODO: fat pointer array subscript initialization not yet supported");
+        int byte_offset = (int)index * get_size(arr_sym->type->u.array.element);
+        Tac_StaticInit *pointer_init    = tac_new_static_init(TAC_STATIC_INIT_POINTER);
+        pointer_init->u.pointer.name    = xstrdup(arr_name);
+        pointer_init->u.pointer.byte_offset = byte_offset;
         return pointer_init;
     }
 

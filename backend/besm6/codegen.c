@@ -169,6 +169,9 @@ static void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
                 item->addr = (init->u.zero_bytes + 5) / 6;
                 break;
             case TAC_STATIC_INIT_POINTER: {
+                int byte_offset = init->u.pointer.byte_offset;
+                if (byte_offset % 6 != 0)
+                    fatal_error("Pointer byte offset is not a multiple of word size");
                 Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
                 subp->name = xstrdup(init->u.pointer.name);
                 *tail = subp; tail = &subp->next;
@@ -176,6 +179,7 @@ static void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
                 *tail = z00a; tail = &z00a->next;
                 Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
                 z00b->name = xstrdup(init->u.pointer.name);
+                z00b->addr = byte_offset / 6;
                 *tail = z00b; tail = &z00b->next;
                 continue;
             }
@@ -184,7 +188,7 @@ static void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
                 subp->name = xstrdup(init->u.pointer.name);
                 *tail = subp; tail = &subp->next;
                 Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
-                z00a->reg = 8 + (unsigned)init->u.pointer.fat_offset;
+                z00a->reg = 8 + (unsigned)init->u.pointer.byte_offset;
                 *tail = z00a; tail = &z00a->next;
                 Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
                 z00b->name = xstrdup(init->u.pointer.name);

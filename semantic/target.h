@@ -1,6 +1,10 @@
 #pragma once
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 //
 // Target descriptor: size and alignment of primitive scalar types for one
 // supported architecture.  All values are in bytes (C addressable units,
@@ -30,3 +34,7 @@ const Target *target_lookup(const char *name);
 
 // Print all known target names to stderr, one per line.
 void target_list(void);
+
+#ifdef __cplusplus
+}
+#endif

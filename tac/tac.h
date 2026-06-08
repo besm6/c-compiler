@@ -423,7 +423,7 @@ typedef struct Tac_StaticInit {
         } string;            // INIT_STRING
         struct {
             char *name;
-            int   fat_offset; // INIT_FAT_POINTER: 0..5; unused for INIT_POINTER
+            int   byte_offset; // signed byte offset; INIT_FAT_POINTER: byte pos in word (0..5); INIT_POINTER: element byte offset (0 if none)
         } pointer;           // INIT_POINTER, INIT_FAT_POINTER
     } u;
 } Tac_StaticInit;

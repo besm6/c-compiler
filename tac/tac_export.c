@@ -309,10 +309,11 @@ static void export_static_init(WFILE *out, const Tac_StaticInit *si)
         break;
     case TAC_STATIC_INIT_POINTER:
         wputstr(si->u.pointer.name ? si->u.pointer.name : "", out);
+        wputw(si->u.pointer.byte_offset, out);
         break;
     case TAC_STATIC_INIT_FAT_POINTER:
         wputstr(si->u.pointer.name ? si->u.pointer.name : "", out);
-        wputw(si->u.pointer.fat_offset, out);
+        wputw(si->u.pointer.byte_offset, out);
         break;
     default:
         break;
