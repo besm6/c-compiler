@@ -524,6 +524,21 @@ TEST_F(CodegenTest, StrWithZeroPaddingInit)
 )", output);
 }
 
+TEST_F(CodegenTest, StrCyrillicInit)
+{
+    // "Абракадабра" — 11 Cyrillic chars + NUL = 12 bytes = 2 BESM-6 words.
+    // UTF-8 → KOI7: А→41 б→62 р→50 а→41 к→4B а→41 | д→64 а→41 б→62 р→50 а→41 00
+    std::string output = CompileToMadlen(R"(
+        char foo[] = "Абракадабра";
+)");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,log, 2026112020245501
+             ,log, 3104054224040400
+             ,end,
+)", output);
+}
+
 // ---------------------------------------------------------------------------
 // String pointer initialization — TAC_TOPLEVEL_STATIC_CONSTANT tests
 // ---------------------------------------------------------------------------

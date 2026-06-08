@@ -7,6 +7,7 @@
 #include "besm.h"
 #include "codegen.h"
 #include "frame.h"
+#include "utf8_to_koi7.h"
 #include "xalloc.h"
 
 // Forward declarations.
@@ -207,7 +208,10 @@ static void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
                 item->real_val = init->u.double_val;
                 break;
             case TAC_STATIC_INIT_STRING: {
-                const char *s = init->u.string.val;
+                const char *raw = init->u.string.val;
+                char *koi7      = xalloc(strlen(raw) + 1, __func__, __FILE__, __LINE__);
+                utf8_to_koi7(raw, koi7);
+                const char *s = koi7;
                 size_t len    = strlen(s);
                 size_t nbytes = len + (init->u.string.null_terminated ? 1 : 0);
                 if (nbytes == 0) nbytes = 1;
@@ -223,6 +227,7 @@ static void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
                     *tail = si;
                     tail  = &si->next;
                 }
+                xfree(koi7);
                 continue;
             }
             default:
@@ -267,7 +272,10 @@ static void codegen_static_constant(const Tac_TopLevel *tl, FILE *out)
             item->real_val = init->u.double_val;
             break;
         case TAC_STATIC_INIT_STRING: {
-            const char *s = init->u.string.val;
+            const char *raw = init->u.string.val;
+            char *koi7      = xalloc(strlen(raw) + 1, __func__, __FILE__, __LINE__);
+            utf8_to_koi7(raw, koi7);
+            const char *s = koi7;
             size_t len    = strlen(s);
             size_t nbytes = len + (init->u.string.null_terminated ? 1 : 0);
             if (nbytes == 0) nbytes = 1;
@@ -283,6 +291,7 @@ static void codegen_static_constant(const Tac_TopLevel *tl, FILE *out)
                 *tail = si;
                 tail  = &si->next;
             }
+            xfree(koi7);
             continue;
         }
         default:
