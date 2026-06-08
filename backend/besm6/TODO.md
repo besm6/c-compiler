@@ -60,7 +60,6 @@ register.  The pattern is: load from frame → operate → store to frame.
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 30 | Static variables | `StaticVariable`: emit `name:,NAME, ... ,END,`. Emit one word per `StaticInit`: `IntInit`/`CharInit` → `,LOG,`; `DoubleInit` → `,REAL,`; `ZeroInit` → `,BSS, words`; `StringInit` → six characters per `,LOG,` word; `PointerInit` → `,Z00,; ,Z00, addr`. | M |
 | 31 | Static constants | `StaticConstant`: same as StaticVariable for a single init word. Madlen has no hardware write-protection; distinguish by convention (comment). | S |
 | 32 | String constants and text encoding | Pack six characters per one word, as `,LOG, code`; null terminator as byte 0. Use a UTF8-KOI7 mapping table. | M |
 

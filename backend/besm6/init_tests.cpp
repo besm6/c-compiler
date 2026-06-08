@@ -136,7 +136,13 @@ TEST_F(CodegenTest, VarStructMixedTentative)
 
 TEST_F(CodegenTest, VarNamedStructTentative)
 {
-    std::string output = CompileToMadlen("struct pt { int x; int y; }; struct pt s;");
+    std::string output = CompileToMadlen(R"(
+        struct pt {
+            int x;
+            int y;
+        };
+        struct pt s;
+)");
     EXPECT_EQ(R"(c
         s:   ,name,
              ,bss, 2
@@ -348,8 +354,12 @@ TEST_F(CodegenTest, Array2DIntInit)
 
 TEST_F(CodegenTest, ArrayStructInit)
 {
-    std::string output = CompileToMadlen(
-        "struct pt { int x, y; }; struct pt foo[] = { {1, 2}, {3, 4} };");
+    std::string output = CompileToMadlen(R"(
+        struct pt {
+            int x, y;
+        };
+        struct pt foo[] = { {1, 2}, {3, 4} };
+)");
     EXPECT_EQ(R"(c
       foo:   ,name,
              ,log, 1
@@ -362,8 +372,11 @@ TEST_F(CodegenTest, ArrayStructInit)
 
 TEST_F(CodegenTest, StructArrayInit)
 {
-    std::string output = CompileToMadlen(
-        "struct { int arr[3]; } foo = { {10, 20, 30} };");
+    std::string output = CompileToMadlen(R"(
+        struct {
+            int arr[3];
+        } foo = { {10, 20, 30} };
+)");
     EXPECT_EQ(R"(c
       foo:   ,name,
              ,log, 12
@@ -375,8 +388,12 @@ TEST_F(CodegenTest, StructArrayInit)
 
 TEST_F(CodegenTest, StructMixedInit)
 {
-    std::string output = CompileToMadlen(
-        "struct { int n; double d; } foo = { 7, 2.5 };");
+    std::string output = CompileToMadlen(R"(
+        struct {
+            int n;
+            double d;
+        } foo = { 7, 2.5 };
+)");
     EXPECT_EQ(R"(c
       foo:   ,name,
              ,log, 7
@@ -387,8 +404,15 @@ TEST_F(CodegenTest, StructMixedInit)
 
 TEST_F(CodegenTest, StructNestedInit)
 {
-    std::string output = CompileToMadlen(
-        "struct pt { int x, y; }; struct { struct pt p; int z; } foo = { {1, 2}, 3 };");
+    std::string output = CompileToMadlen(R"(
+        struct pt {
+            int x, y;
+        };
+        struct {
+            struct pt p;
+            int z;
+        } foo = { {1, 2}, 3 };
+)");
     EXPECT_EQ(R"(c
       foo:   ,name,
              ,log, 1
@@ -412,8 +436,13 @@ TEST_F(CodegenTest, ArrayPartialInit)
 
 TEST_F(CodegenTest, StructPartialInit)
 {
-    std::string output = CompileToMadlen(
-        "struct { int a; int b; int c; } foo = { 5 };");
+    std::string output = CompileToMadlen(R"(
+        struct {
+            int a;
+            int b;
+            int c;
+        } foo = { 5 };
+)");
     EXPECT_EQ(R"(c
       foo:   ,name,
              ,log, 5
