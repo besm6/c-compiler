@@ -466,13 +466,12 @@ TEST_F(CodegenTest, PrintDecimal)
     EXPECT_EQ("42\n", result);
 }
 
-// TODO: static data generation (Phase C)
-TEST_F(CodegenTest, DISABLED_PrintTwoLines)
+TEST_F(CodegenTest, PrintTwoLines)
 {
     std::string result = CompileAndRun(R"(
         int printf(const char *format, ...);
         void program() {
-            printf("FIRST LINE.\nSECOND LINE.\n");
+            printf("First line.\nSecond line.\n");
         }
     )");
     EXPECT_EQ("FIRST LINE.\nSECOND LINE.\n", result);

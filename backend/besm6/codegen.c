@@ -360,8 +360,27 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
     } else {
         // Full prologue: push last argument + capture return address, call b/save,
         // then extend the stack by the number of auto-variable slots.
+        //
+        // Build the frame early so we can declare SUBP references for static
+        // constants before the first instruction that uses them (single-pass assembler).
+        Frame *f      = frame_build(tl);
+        int num_autos = frame_num_autos(f);
+
         Besm_Instr *subp_cret = emit(block, &tail, BESM_STMT_SUBP);
         subp_cret->name       = xstrdup("b/ret");
+
+        // Declare each static constant referenced via GET_ADDRESS as a SUBP word.
+        // SUBP allocates no memory; it just tells the assembler the name is external.
+        // Must appear before the XTA that loads the address (single-pass assembler).
+        for (const Tac_Instruction *instr = tl->u.function.body; instr; instr = instr->next) {
+            if (instr->kind != TAC_INSTRUCTION_GET_ADDRESS) continue;
+            const char *sname = instr->u.get_address.src->u.var_name;
+            int sr, so;
+            if (!frame_lookup(f, sname, &sr, &so)) {
+                Besm_Instr *ssubp = emit(block, &tail, BESM_STMT_SUBP);
+                ssubp->name       = xstrdup(sname);
+            }
+        }
 
         Besm_Instr *its13 = emit(block, &tail, BESM_MEM_ITS);
         its13->addr       = REG_RET;
@@ -369,8 +388,6 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
         Besm_Instr *call_csave = emit(block, &tail, BESM_BRANCH_CALL);
         call_csave->name       = xstrdup(num_params == 0 ? "b/save0" : "b/save");
 
-        Frame *f      = frame_build(tl);
-        int num_autos = frame_num_autos(f);
         if (num_autos > 0) {
             Besm_Instr *utm_sp = emit(block, &tail, BESM_REG_UTM);
             utm_sp->reg        = REG_SP;
@@ -436,16 +453,29 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
     //   reg_dst ,ATX, off_dst — store A (the address) into dst's frame slot
     //
     case TAC_INSTRUCTION_GET_ADDRESS: {
-        int sr, so, dr, doff;
-        lookup(f, instr->u.get_address.src->u.var_name, &sr, &so);
+        int dr, doff;
         lookup(f, instr->u.get_address.dst->u.var_name, &dr, &doff);
-        if (so == 0) {
-            Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);
-            ita->addr       = sr;
+        const char *src_name = instr->u.get_address.src->u.var_name;
+        int sr, so;
+        if (frame_lookup(f, src_name, &sr, &so)) {
+            // Local variable: compute address from its frame slot.
+            if (so == 0) {
+                Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);
+                ita->addr       = sr;
+            } else {
+                Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
+                utc->reg        = sr;
+                utc->addr       = so;
+                Besm_Instr *vtm = emit(block, tail, BESM_REG_VTM);
+                vtm->reg        = 14;
+                Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);
+                ita->addr       = 14;
+            }
         } else {
+            // Module-level static: M[0]=0 architecturally, so UTC 0,name gives C = label addr.
+            // The SUBP declaration for src_name is emitted before the prologue (single-pass).
             Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
-            utc->reg        = sr;
-            utc->addr       = so;
+            utc->name       = xstrdup(src_name);
             Besm_Instr *vtm = emit(block, tail, BESM_REG_VTM);
             vtm->reg        = 14;
             Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);

@@ -147,7 +147,10 @@ static void collect_instr(Frame *f, const Tac_Instruction *instr, int *auto_coun
         collect_vals(f, instr->u.copy.dst, auto_count);
         break;
     case TAC_INSTRUCTION_GET_ADDRESS:
-        collect_vals(f, instr->u.get_address.src, auto_count);
+        // Static string constants (_str*) are module-level labels, not frame slots.
+        if (instr->u.get_address.src->kind == TAC_VAL_VAR &&
+            strncmp(instr->u.get_address.src->u.var_name, "_str", 4) != 0)
+            assign_if_new(f, instr->u.get_address.src->u.var_name, REG_AUTO, auto_count);
         collect_vals(f, instr->u.get_address.dst, auto_count);
         break;
     case TAC_INSTRUCTION_LOAD:
