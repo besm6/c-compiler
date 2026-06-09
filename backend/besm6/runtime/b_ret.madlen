@@ -1,0 +1,15 @@
+     b/ret: ,name,
+c
+c Restore registers from the stack.
+c Called on exit from a C function.
+c
+          6 ,mtj, 14
+          7 ,mtj, 15
+          7 ,stx, -5
+            ,sti, 5
+            ,sti, 6
+            ,sti, 7
+            ,sti, 13
+         14 ,mtj, 15
+         13 ,uj,
+            ,end,

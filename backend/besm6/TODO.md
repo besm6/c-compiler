@@ -6,59 +6,150 @@ Effort: S = half day, M = 1–2 days, L = 3–5 days, XL = 1–2 weeks.
 ## BESM-6 Backend
 
 The backend consumes binary TAC produced by `lower` and emits Madlen assembly (`.mad` files)
-for the Dubna monitor system.
+for the Dubna monitor system. The shared frontend phases (scan/parse/typecheck/lower) are
+complete; this list covers the BESM-6 instruction-selection backend only.
+
+### Status
+
+**Done:** frame allocation, prologue/epilogue (`b/save`, `b/save0`, `b/ret`), static
+variables and constants (integers, strings with UTF-8→KOI7, regular and fat pointers,
+floats/doubles), the `main` program entry point, and the TAC instructions `COPY`,
+`GET_ADDRESS`, word-pointer `LOAD`/`STORE`, `BINARY` add/subtract (variable operands only),
+`FUN_CALL`, and `RETURN`.
+
+**Remaining:** everything in the phases below.
 
 ### Madlen statement format
 
 Every Madlen statement follows the form `<label> : <index_reg> ,<mnemonic>, <address>`.
-The **two commas are mandatory**.  The index register selector (0–15) precedes the first comma;
-the mnemonic is between the two commas; the address follows the second comma.
+The **two commas are mandatory**. The index-register selector (0–15) precedes the first
+comma; the mnemonic is between the two commas; the address follows the second comma.
 
 ### Calling convention summary (`docs/Besm6_Calling_Conventions.md`)
 
 | Register | Role |
 |----------|------|
-| r13 | Return address — set by `,CALL, fun` on each call |
+| r13 | Return address — set by `,VJM, fun` (`,CALL,`) on each call |
 | r14 | Negative argument count — set by caller |
 | r15 | Stack pointer — grows toward higher addresses |
 | r6 | Parameter pointer — set by `b/save`; `r6+i` = param[i] |
-| r7 | Auto-variable pointer — set by `b/save` or `b/save0`; `r7+j` = local[j] |
+| r7 | Auto-variable pointer — set by `b/save`/`b/save0`; `r7+j` = local[j] |
 | r1–r7 | Callee-saved |
 
 Caller pushes arguments in direct order with `XTA`/`XTS` (last arg stays in A), sets
-`14 ,VTM, -N`, then calls `,CALL, fun`.  Every callee starts with `,ITS, 13` (push last
-arg, load r13) then `,CALL, b/save` (saves r13/r7/r6, sets r6 and r7).  When callee has no parameters,
-`,CALL, b/save0` is used instead (same as b/save but no r14 and r6).
-
-Return value goes
-in A; epilogue is `,UJ, b/ret`.  Reading address 0 yields 0 — an architectural guarantee of
-the BESM-6/Dubna system; no `__zero` constant is needed.
+`14 ,VTM, -N`, then calls `,CALL, fun`. Every callee starts with `,ITS, 13` then
+`,CALL, b/save` (saves r13/r7/r6, sets r6/r7); `b/save0` is used when the callee has no
+parameters. Return value goes in A; epilogue is `,UJ, b/ret`. Reading address 0 yields 0
+(an architectural guarantee of BESM-6/Dubna), so no `__zero` constant is needed.
 
 ---
 
-### Phase B — Instruction Selection
+### Data-representation invariants (read before implementing arithmetic)
 
-All TAC variables live in the frame (params via r6, autos via r7).  A is the sole computation
-register.  The pattern is: load from frame → operate → store to frame.
+These supersede the historical "INT-format" assumptions of the old plan. See
+[docs/Besm6_Data_Representation.md](../../docs/Besm6_Data_Representation.md).
 
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 19 | Integer Multiply | `A*X` on two INT-format operands gives FP exponent 104+104−64 = 144. Correct with `,E-N, 150B` (E −= 40; 144−40 = 104). Sequence: `6\|7 ,XTA, src1` / `6\|7 ,A*X, src2` / `,E-N, 150B` / `6\|7 ,ATX, dst`. | M |
-| 20 | Integer Divide and Remainder | FP divide on INT operands yields exponent 64 (fractional); integer truncation requires a runtime routine. Implement `b/idiv` and `b/imod` in `backend/besm6/runtime.mad`: pop dividend and divisor, extract signs, FP-divide absolute values, adjust exponent with `,E+N, 150B` (E += 40), apply sign. `b/imod` = a − (a÷b)×b. | L |
-| 21 | Integer Negate, Complement, Not | **Negate**: `6\|7 ,XTA, src` / `,NTR, 001B` / `,X-A, 0` (0−A; mem[0]=0 architecturally) / `6\|7 ,ATX, dst`. **Complement** (bitwise NOT): `6\|7 ,XTA, src` / `,AEX, __allones` / `6\|7 ,ATX, dst`. **Not** (logical): `6\|7 ,XTA, src`; in logical ω mode test with `UZA`/branch; load 0 or `b/true`. | S |
-| 22 | Bitwise And, Or, Xor | Direct: `6\|7 ,XTA, s1` / `6\|7 ,AAX\|AOX\|AEX, s2` / `6\|7 ,ATX, dst`. No `NTR` needed; bitwise instructions do not involve normalization. | S |
-| 23 | LeftShift, RightShift | `ASN N` shifts by N−64 bits (left shift by k: N = 64−k; right shift by k: N = 64+k). For constant shift counts, emit `,ASN, (64±k)B` directly. For variable counts, build an ASX control word whose exponent field encodes the shift. Arithmetic right shift: follow logical shift with sign-fill via `,AOX,` and a sign-extension mask. | M |
-| 24 | Integer comparisons | All comparisons produce INT-format 0 or 1. **Equal**: `6\|7 ,AEX, src2` (XOR; A=0 iff equal); test with `UZA`; load `b/true` or 0. **LessThan** (signed): `,NTR, 001B` / `6\|7 ,A-X, src2`; ω=Additive; `U1A` branches if A[41] set (negative). GreaterThan: swap operands. LessOrEqual: invert branch. Unsigned: `b/ucmp` runtime helper. | M |
-| 25 | Floating-point arithmetic | FP Add/Subtract/Multiply/Divide map directly to `A+X`, `A-X`, `A*X`, `A/X`. No `NTR` needed. FP comparisons: `A-X` sets ω=Additive; `U1A` branches if A<0. FP negate: `,X-A, 0` (mem[0] = 0.0 in FP). | M |
-| 26 | Type conversions | **Truncate**: `6\|7 ,XTA, src` / `,AAX, __maskN` (AND with N-bit mask). **ZeroExtend**: same with target-width mask. **SignExtend**: mask, test sign bit, OR fill if negative. **IntToDouble**: INT word is already valid BESM-6 FP; `,A+X, 0` forces normalization. **DoubleToInt**: runtime `b/dtoi` (extract exponent, shift mantissa by 104−exp via `ASN`). UInt variants handle sign bit specially. | L |
-| 27 | Label, Jump, JumpIfZero, JumpIfNotZero | **Label**: buffer; prepend to next emitted instruction. **Jump**: `,UJ, target`. **JumpIfZero**: `6\|7 ,XTA, cond` (sets ω=Logical) / `,UZA, target`. **JumpIfNotZero**: same with `,U1A,`. No `NTR` needed; `XTA` sets logical ω mode automatically. | S |
-| 29 | AddPtr, CopyToOffset, CopyFromOffset | **AddPtr**: for power-of-2 scale k, `,ASN, (64-k)B` on index; `,NTR, 001B` + `6\|7 ,A+X, ptr`. Non-power: call `b/imul`. **CopyToOffset/FromOffset**: `7 ,MTJ, 1` + `1 ,UTM, base_off` + `1 ,UTM, field_off`; then `1 ,ATX\|XTA, 0` for write/read. | M |
+- **Integers are raw two's complement with the exponent field (bits 48–42) = 0.** They are
+  *not* stored in the historical INT-format (exponent 104 / `0150B`). `b/save` leaves the
+  AU mode register **R = 7** (logical ω + suppress-normalization + suppress-rounding), so
+  integer `A+X`/`A-X` and every bitwise op act directly on raw words with no `NTR`.
+- **`BESM_INT_EXP` (`0150B`) in [abi.h](abi.h) is a transient bridge** used only *inside*
+  the multiply/divide runtime helpers to borrow the hardware FP unit; it is never the
+  storage format.
+- **Signed `int` uses 41 bits** (sign + 40 value); **unsigned uses the full 48 bits**.
+  This is why unsigned divide/modulo/compare and logical right-shift need distinct handling
+  from their signed counterparts (Phase E adds the TAC op kinds that carry this distinction).
+- **`float` ≡ `double`** (same 48-bit native FP format); the `FLOAT_TO_DOUBLE` /
+  `DOUBLE_TO_FLOAT` conversions are copies. `short` ≡ `long` ≡ `int` (single word).
+- **Floating-point ops need normalization**, so FP code must temporarily clear R's
+  suppress bits (via `NTR`) around `A+X`/`A-X`/`A*X`/`A/X`.
+
+### Runtime-helper convention
+
+Runtime helpers **do not follow the C ABI**, for efficiency. Per the convention already
+documented in [docs/Besm6_Runtime_Library.md](../../docs/Besm6_Runtime_Library.md): the
+first operand `a` is on the stack top (r15 just past it), the second operand `b` is in A,
+and the result is left in A (r15 unchanged — the caller adjusts the stack after the call).
+Helpers may freely use scratch index registers but must preserve r6/r7. The arithmetic and
+relational/logical helpers (`b/mul`, `b/div`, `b/mod`, `b/eq`, `b/ne`, `b/lt`, `b/le`,
+`b/gt`, `b/ge`, `b/not`) are already specified there alongside `b/save`/`b/save0`/`b/ret`/
+`b/true`; the new unsigned and conversion helpers reuse the same convention and `b/` prefix.
+
+### Notes on instruction sequences and testing
+
+The BESM-6 sequences below are sketches; final `NTR`/mode-bit placement is validated against
+the Dubna simulator. Each task adds GoogleTest coverage in
+[codegen_tests.cpp](codegen_tests.cpp): `CompileToMadlen` assertions for Madlen shape, and
+`CompileAndRun` for runtime behavior where the simulator is available.
 
 ---
 
-### Phase D — Runtime Support Library
+### Phase E — TAC prerequisite (frontend)
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 33 | Runtime helpers (`backend/besm6/runtime/*.madlen`) | Implement in Madlen routines defined in `docs/Besm6_Runtime_Library.md`. Add other routines as required. | L |
+| 1 | Unsigned/logical TAC op kinds | The backend cannot currently distinguish signed from unsigned operations: `translator/expr.c` maps both to the same `TAC_BINARY_DIVIDE`/`TAC_BINARY_LESS_THAN`/`TAC_BINARY_RIGHT_SHIFT`. Add `TAC_BINARY_DIVIDE_UNSIGNED`, `TAC_BINARY_REMAINDER_UNSIGNED`, `TAC_BINARY_LESS_THAN_UNSIGNED`, `TAC_BINARY_LESS_OR_EQUAL_UNSIGNED`, `TAC_BINARY_GREATER_THAN_UNSIGNED`, `TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED`, `TAC_BINARY_RIGHT_SHIFT_LOGICAL` to `tac/tac.h`. Update YAML names (`tac/tac_yaml.c`); binary export/import already store the op as a number. In `translator/expr.c`, emit the unsigned/logical variant when the operand type is unsigned (both the normal and compound-assign op maps). `==`/`!=`, `+`/`-`/`*`, bitwise, and `<<` are signedness-independent and unchanged. Add tac + translator tests. | M |
 
+### Phase F — Control flow & constants
+
+Unblocks `if`/`while`/`for`/`switch` and almost every later task.
+
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 2 | Label / Jump / JumpIfZero / JumpIfNotZero | **Label**: emit `name: ,bss,` definition point (`BESM_STMT_LABEL`). **Jump**: `,UJ, target`. **JumpIfZero**: load condition (`XTA` sets logical ω) then `,UZA, target`. **JumpIfNotZero**: `,U1A, target`. No `NTR` needed; `XTA` selects logical ω automatically. | S |
+| 3 | Constant materialization | Make the `COPY`/`BINARY`/argument paths accept constant operands (they currently `fatal_error`). Integer/char constants: emit `=N` literal as **raw two's complement masked to 48 bits** — fix the sign bug in `emit_xta_val` where a negative octal literal prints a 64-bit pattern. Float/double constants: emit a `,real,` literal word and load it (replaces the float `fatal_error` in `get_const_int_val`). | M |
+
+### Phase G — Comparisons & switch
+
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 4 | Integer comparisons (signed + unsigned) | All produce raw 0/1 in A. Use the documented relational helpers `b/eq`, `b/ne`, `b/lt`, `b/le`, `b/gt`, `b/ge` (each loads `b/true`/0 via the two-branch template). The backend pushes `a`, leaves `b` in A, and calls the helper. **Unsigned compares**: the helpers' subtraction sign test is invalid over the full 48-bit range, so add analogous unsigned helpers `b/ult`, `b/ule`, `b/ugt`, `b/uge` (e.g. `ARX`-based 48-bit unsigned compare); `b/eq`/`b/ne` are signedness-independent. A later peephole may inline trivial signed compares (`XTA`/`A-X`/`U1A`). | M |
+| 5 | Switch statement | TAC lowers `switch` to compare + `JUMP_IF_*` chains (there is no dedicated switch TAC node), so it is functionally covered by tasks 2 & 4 — add end-to-end `CompileAndRun` tests for dense, sparse, `default`, and fall-through cases. **Optional**: a jump-table optimization for dense case ranges (index-scaled `UTC`/`UJ` through a table of `,oct, label` words). | S (M with jump table) |
+
+### Phase H — Integer arithmetic & bitwise (single word)
+
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 6 | Unary: negate, complement, not | **Negate**: `XTA src` / `X-A 0` (0−A; `mem[0]=0` architecturally) / `ATX dst`. **Complement** (`~`): `XTA src` / `AEX =allones48` / `ATX dst`. **Not** (`!`): use the documented `b/not` helper (or inline: test against zero in logical ω, load `b/true`/0). | S |
+| 7 | Bitwise and/or/xor | Direct: `XTA s1` / `AAX`\|`AOX`\|`AEX s2` / `ATX dst`. No normalization involved. | S |
+| 8 | Shifts (left / arith right / logical right) | Constant counts: `,ASN, (64±k)B` (`ASN` shifts by N−64: left by k → 64−k, right by k → 64+k). Variable counts: build an `ASX` control word whose exponent field encodes the count, or a small runtime helper. **Left** and **logical right** (`RIGHT_SHIFT_LOGICAL`, unsigned) are plain `ASN`/`ASX`. **Arithmetic right** (signed): logical shift, then sign-fill the vacated high bits via `AOX` with a sign-extension mask when the operand is negative. | M |
+| 9 | Multiply | The single-word low product is identical for signed and unsigned. Use the documented `b/mul` helper: bridge raw operands to INT-format (exponent `0150B`), `A*X`, correct the exponent (`E-N 150B`), strip back to raw, mask to 48 bits. Emit `,CALL, b/mul` (or inline the sequence for small/constant multipliers). | M |
+| 10 | Signed divide & remainder | Use the documented `b/div`/`b/mod` helpers: extract operand signs, FP-divide the absolute values with exponent adjustment, truncate toward zero, reapply the sign; `b/mod` = a − (a÷b)·b. | L |
+| 11 | Unsigned divide & remainder | Add `b/udiv`/`b/umod` (the signed FP-divide trick mishandles the top bit over the full 48-bit unsigned range). Implement via a shift/subtract restoring-division loop, or by normalizing as a non-negative FP value. Selected for the `*_UNSIGNED` TAC ops from task 1. | L |
+
+### Phase I — Floating point (single word; `float` ≡ `double`)
+
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 12 | FP arithmetic | Add/Sub/Mul/Div map to `A+X`/`A-X`/`A*X`/`A/X` **with normalization enabled** — temporarily clear R's suppress bits via `NTR` around the FP op (integer mode leaves R=7), then restore. FP negate: `X-A 0`. | M |
+| 13 | FP comparisons | `A-X` sets additive ω; `U1A`/`UZA` on the sign for `<`/`>`/`<=`/`>=`; `AEX`+`UZA` for `==`/`!=`. Produce raw 0/1. | S |
+
+### Phase J — Type conversions
+
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 14 | Integer width conversions | `TRUNCATE`/`ZERO_EXTEND`: `AAX` with an N-bit mask (8-bit for `char`, 48-bit otherwise; since `short`≡`long`≡`int`, most width conversions are no-ops/copies). `SIGN_EXTEND`: mask, test the source sign bit, `AOX` the high-fill mask when negative (relevant for `signed char`). | M |
+| 15 | Int ↔ double conversions | `INT_TO_DOUBLE`/`UINT_TO_DOUBLE`: normalize the raw integer into FP (set the INT-format exponent, then `NTR`+`A+X 0`). `DOUBLE_TO_INT`/`DOUBLE_TO_UINT`: runtime `b/dtoi`/`b/dtou` (shift the mantissa by 104−exp). `FLOAT_*` ≡ `DOUBLE_*`, and `*_TO_FLOAT`/`FLOAT_TO_DOUBLE` are copies. | L |
+
+### Phase K — Pointers, arrays, structs, fat pointers
+
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 16 | AddPtr | Power-of-2 word scale k: `,ASN, (64-k)B` on the index, then `A+X ptr`. Scale 1: plain add. Non-power-of-2: `b/mul` by the scale. Result is a word address. | M |
+| 17 | CopyToOffset / CopyFromOffset | Aggregate member access: base from frame + constant word offset via `UTC`/an index register, then `ATX`/`XTA` at the offset. | M |
+| 18 | Fat-pointer `char` access | `char*`/`void*` are fat pointers (bit 48 set, byte offset in bits 47–45). **Load byte**: `WTC ptr` / `XTA 0` / `ASX ptr` (shift by offset×8) / `AAX =0377`. **Store byte**: read-modify-write the containing word (mask out the target byte, OR in the new byte shifted into place). | L |
+| 19 | `char*` arithmetic & pointer casts | `char*` increment decrements the 3-bit byte offset, borrowing into the word address when it wraps 0→5. Casts: `int*`→`char*` sets the fat marker + offset 5; `char*`→`int*` clears them; `char*`↔`void*` is a bit-pattern copy. | M |
+
+### Phase L — Runtime support library
+
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 20 | Madlen runtime sources | Provide assembled bodies for every helper, as Madlen files under `backend/besm6/runtime/`. Already specified in [docs/Besm6_Runtime_Library.md](../../docs/Besm6_Runtime_Library.md): `b/save`, `b/save0`, `b/ret`, `b/true`, `b/mul`, `b/div`, `b/mod`, `b/eq`, `b/ne`, `b/lt`, `b/le`, `b/gt`, `b/ge`, `b/not`. New helpers to add and document there: unsigned `b/udiv`, `b/umod`, `b/ult`, `b/ule`, `b/ugt`, `b/uge`, and the double↔int conversions `b/dtoi`, `b/dtou`. Also correct the doc's stale "36-bit / B-language" wording to the 48-bit C reality. Wire them into the assembler job used by `CompileAndRun`, or confirm which already live in the external Dubna library (`*library:40`). | L |
+
+### Phase M — Deferred / future
+
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 21 | Two-word `long long` / `unsigned long long` | Two-word load/store and software add/sub/mul/div/compare. First fix `codegen_sizeof` in [abi.h](abi.h), which currently returns 1 word for these two-word types. | XL |
+| 22 | Two-word `long double` | Two-word native-FP arithmetic (80-bit mantissa, 14-bit exponent biased 8192) via runtime helpers, using the Y/RMR register for double-width intermediates. | XL |
+| 23 | Optimizations | Peephole rewrites, redundant load/store elimination, frame-slot reuse for dead temporaries, and switch jump tables (if not done in task 5). | L |
