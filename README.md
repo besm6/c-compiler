@@ -20,7 +20,7 @@ A C11 compiler with a shared frontend and pluggable machine backends. Current ba
 | **`lower`** | Reads a binary AST stream and, per top-level declaration, runs **typecheck → `translate` → emit**. Output can be **binary TAC** (default), **YAML-like listing** via the TAC pretty-printer, or **Graphviz DOT** (`tac_graphviz`). Semantic analysis handles `typedef` (scoped `typetab`) and full `switch` validation (integer controlling expression with integer promotion; constant integer case values; duplicate-case and multiple-default rejection). TAC lowering is **complete**: arithmetic, control flow, functions (direct and indirect), pointers, arrays, structs, casts, `_Generic`, compound literals, and aggregate initializers all lower correctly. |
 | **TAC** | `tac/` builds **alloc/print/free/compare**, **`tac_export`** and **`tac_import`** (binary stream), **`tac_export_yaml`** (YAML listing), and **`tac_graphviz`** (DOT graph). Lowering lives in **`translator/translate.c`**. |
 | **x86_64 backend (`genx86`)** | Planned. Work plan in [backend/x86/TODO.md](backend/x86/TODO.md). |
-| **BESM-6 backend (`genbesm`)** | In progress. IR structs (`besm.h`) and Madlen emitter implemented; instruction selection planned. Work plan in [backend/besm6/TODO.md](backend/besm6/TODO.md). |
+| **BESM-6 backend (`genbesm`)** | In progress. Frame allocation, static variables/constants (integers, strings with UTF-8→KOI7, pointers, floats/doubles), `main()` entry point, and core instruction selection (`COPY`, `GET_ADDRESS`, `LOAD`/`STORE`, `BINARY` add/subtract, `FUN_CALL`, `RETURN`) implemented. Work plan in [backend/besm6/TODO.md](backend/besm6/TODO.md). |
 | **AArch64 / RISC-V / ARM32 backends** | Planned (not started). |
 | **Preprocessor, assembler, linker** | Not in this repo. |
 
@@ -124,8 +124,9 @@ For debug logging, verbose mode, and full `lower` behavior, see [docs/Technical_
 | [backend/x86/TODO.md](backend/x86/TODO.md) | x86_64 backend work plan |
 | [backend/besm6/TODO.md](backend/besm6/TODO.md) | BESM-6 backend work plan |
 | [docs/Besm6_Data_Representation.md](docs/Besm6_Data_Representation.md) | BESM-6 data representation: bit layouts, ranges, and sizeof for every C scalar type |
-| [docs/Besm6_Calling_Conventions.md](docs/Besm6_Calling_Conventions.md) | BESM-6 C calling convention (registers, c/save, c/ret) |
+| [docs/Besm6_Calling_Conventions.md](docs/Besm6_Calling_Conventions.md) | BESM-6 C calling convention (registers, b/save, b/ret) |
 | [docs/Besm6_Instruction_Set.md](docs/Besm6_Instruction_Set.md) | BESM-6 instruction set reference |
+| [docs/Besm6_Runtime_Library.md](docs/Besm6_Runtime_Library.md) | BESM-6 runtime helper library (`b/save`, `b/mul`, `b/div`, comparisons, and other helpers) |
 | [docs/Madlen.md](docs/Madlen.md) | Madlen assembler syntax for the Dubna monitor |
 | [docs/Type_Coercion.md](docs/Type_Coercion.md) | C11 type coercion and arithmetic conversion rules |
 | [docs/Type_Sizes_Alignment.md](docs/Type_Sizes_Alignment.md) | Type sizes and alignment per target architecture |
