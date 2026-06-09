@@ -1,134 +1,373 @@
 ## Compiler-Support Routines
 
-These routines are emitted automatically by the compiler. They implement the B calling
+These routines are emitted automatically by the compiler. They implement the C calling
 convention and the operators that have no direct BESM-6 instruction equivalents.
 
 For a detailed description of the calling convention, see
-[Besm6-Calling-Conventions.md](Besm6-Calling-Conventions.md).
+[Besm6_Calling_Conventions.md](Besm6_Calling_Conventions.md).
+For the integer storage model, see
+[Besm6_Data_Representation.md](Besm6_Data_Representation.md).
+
+### Integer model
+
+C integers are stored as raw words with the exponent field (bits 48–42) = 0:
+
+- **Signed `int`**: 41-bit sign-magnitude; bit 41 = sign, bits 40:1 = magnitude.
+  Range −2⁴⁰ … 2⁴⁰−1.
+- **Unsigned `int`**: full 48-bit unsigned value. Range 0 … 2⁴⁸−1.
+
+`b/save` leaves the AU mode register **R = 7** (binary `000111`):
+
+- Bits 5–3 = `001`: **Logical** ω mode — after logical operations (XOR, AND, OR, loads),
+  `UZA`/`U1A` test whether A = 0 / A ≠ 0.
+- Bit 2 = 1: suppress rounding after normalization.
+- Bit 1 = 1: suppress normalization after arithmetic.
+
+After subtraction instructions (`A-X`, `X-A`, `A+X`), the hardware automatically switches
+R to **Additive** ω mode (bits 5–3 = `100`): `UZA` then branches when A ≥ 0 (bit 41 = 0),
+`U1A` when A < 0 (bit 41 = 1).
+
+The arithmetic helpers (`b/mul`, `b/div`, `b/mod`, and their unsigned counterparts)
+borrow the FP unit by temporarily converting operands to **INT-format** (exponent field
+set to `0150B` = 104 decimal), which places the mantissa where `A*X` / `A/X` expect it.
+This is a transient representation used only inside those helpers; it is never the
+storage format for C values.
 
 ---
 
-### `b/save` — [b_save.madlen](../besm6/libb/b_save.madlen)
+### Runtime Helper Convention
 
-Called on entry to every B function that has **one or more parameters**.
+All arithmetic, comparison, and conversion helpers use a lightweight calling convention
+distinct from the full C ABI:
+
+- **First operand `a`**: at the stack top — r15 points one word past it, so `a` is at
+  `mem[r15−1]`.
+- **Second operand `b`**: in the accumulator (A).
+- **Result**: left in A; r15 is not modified (the compiler adjusts the stack after the
+  call).
+- **Register contract**: helpers may freely modify scratch index registers (including r14)
+  but must preserve r6 and r7.
+- **Invocation**: a plain `13 ,UJ, b/xxx` jump — not the full `ITS`/`VJM`/`b/save`
+  protocol. The return address is in r13 on entry to the helper.
+
+`b/save`, `b/save0`, and `b/ret` follow the full C ABI described below; they are separate
+from the helper convention.
+
+---
+
+### `b/save` — [b_save.madlen](../backend/besm6/runtime/b_save.madlen)
+
+Called on entry to every C function that has **one or more parameters**.
 
 The compiler emits:
 
 ```
-   ,its, 13        ; push return address
-13 ,vjm, b/save    ; call b/save
+   ,its, 13         ; push return-to-caller address (in r13) onto the stack
+13 ,vjm, b/save     ; call b/save; r13 ← address of the first instruction of the function body
 ```
 
-**Actions:**
-
-1. Adjusts r15 (stack pointer) by the argument count from r14: `r15 += r14`
-   (since r14 is negative, this *decrements* r15 past the arguments already on the stack).
-2. Saves r7, r6, and the accumulator (which holds return address r13) to the stack.
-3. Sets r6 = address of argument #1 (the parameter pointer).
-4. Sets r7 = current r15 (the auto-variable pointer, pointing just above the saved registers).
-5. Extracts the real return address from the saved value and puts it in r13.
-6. Jumps to r13 to continue the function body.
-
----
-
-### `b/save0` — [b_save0.madlen](../besm6/libb/b_save0.madlen)
-
-Called on entry to every B function with **no parameters**.
-
-The compiler emits:
+**Source walkthrough:**
 
 ```
-   ,its, 13        ; push return address
-13 ,vjm, b/save0   ; call b/save0
+15 ,j+m, 14         ; r15 += r14  (r14 = −N; rewinds r15 past the N argument slots)
+   ,its, 7          ; push r7 (caller's auto-variable pointer)
+   ,its, 6          ; push r6 (caller's parameter pointer)
+   ,its, 5          ; push r5 (caller's scratch register)
+   ,its,            ; push A  (= last argument argN, passed in the accumulator)
+14 ,mtj, 6          ; r6 = r14  (set parameter pointer; r6+i addresses param[i])
+15 ,mtj, 7          ; r7 = r15  (set auto-variable pointer; r7+j addresses local[j])
+   ,ntr, 7          ; R = 7: Logical ω + suppress normalization + suppress rounding
+13 ,uj,             ; jump to r13 (the function body's first instruction)
 ```
 
-Identical to `b/save` except that it first increments r15 by 1 to allocate a dummy
-argument slot, so that the resulting stack frame layout is uniform with parameterized
-functions. This allows `b/ret` to use the same unwind logic regardless of parameter count.
+**After `b/save`:**
+
+- r6 = parameter pointer; `r6 + i` addresses the i-th argument.
+- r7 = auto-variable pointer; `r7 + j` addresses the j-th local variable.
+- The stack holds the saved r7, r6, r5 from the caller, plus argN.
+- R = 7 (integer arithmetic mode).
 
 ---
 
-### `b/ret` — [b_ret.madlen](../besm6/libb/b_ret.madlen)
+### `b/save0` — [b_save0.madlen](../backend/besm6/runtime/b_save0.madlen)
 
-Called at every exit point of a B function. The return value must be in the accumulator
-before the jump to `b/ret`.
+Called on entry to every C function with **no parameters**.
 
-**Actions:**
+The compiler emits the same `ITS`/`VJM` prologue as for `b/save`. Because no arguments
+were pushed, `b/save0` synthesises a valid r6 without the `j+m` adjustment:
 
-1. Computes the number of arguments from r6 and r7 to determine how far to unwind r15.
-2. Restores saved r6, r7, r13 from the stack frame.
-3. Restores r15 to the caller's stack level.
-4. Jumps to r13 (the caller's return address).
+```
+15 ,mtj, 14         ; r14 = r15  (save current stack top into r14)
+14 ,utm, -1         ; r14 -= 1   (one below the current stack top)
+   ,its, 7          ; push r7
+   ,its, 6          ; push r6
+   ,its, 5          ; push r5
+   ,its,            ; push A     (no meaningful last argument; frame stays uniform)
+14 ,mtj, 6          ; r6 = r14   (parameter pointer set to the synthesised base)
+15 ,mtj, 7          ; r7 = r15
+   ,ntr, 7          ; R = 7
+13 ,uj,             ; continue to function body
+```
 
----
-
-### `b/true` — [b_true.madlen](../besm6/libb/b_true.madlen)
-
-A single word containing the integer value `1`, used as the canonical "true" result
-by all relational and logical operators. Because BESM-6 has no load-immediate instruction
-for arbitrary values, the operators load this word with `xta b/true`.
-
----
-
-### Arithmetic Operators
-
-Each routine receives two arguments in the standard way:
-
-- The first operand (`a`) is at the top of the stack (r15 points just past it).
-- The second operand (`b`) is in the accumulator.
-
-The result is left in the accumulator; r15 is not changed (the compiler adjusts the
-stack after the call). Results are masked to 36 bits to match B integer width.
-
-#### `b/mul` — [b_mul.madlen](../besm6/libb/b_mul.madlen)
-
-Computes `a * b`.
-
-Uses the BESM-6 `a*x` (multiply) instruction with 36-bit normalization via `ntr` and
-`a+x =:64`. The final result is masked with `=37 7777 7777 7777` to keep only the
-lower 36 bits.
-
-#### `b/div` — [b_div.madlen](../besm6/libb/b_div.madlen)
-
-Computes `a / b`.
-
-BESM-6 division (`a/x`) operates on normalized floating-point representations.
-The routine converts both operands to the required form using `ntr` (normalize) and
-`avx` (absolute value exchange), performs the division, then extracts the 36-bit integer
-result.
-
-#### `b/mod` — [b_mod.madlen](../besm6/libb/b_mod.madlen)
-
-Computes `a % b` (remainder).
-
-Implemented as `a - (a / b) * b`, using the same sign-normalizing sequence as `b/div`.
-Both `a` and the intermediate `a / b` are preserved on the stack during the computation.
+The synthesised r14/r6 value makes the frame layout identical to a one-argument call,
+so `b/ret` can use the same unwind calculation regardless of parameter count.
 
 ---
 
-### Relational and Logical Operators
+### `b/ret` — [b_ret.madlen](../backend/besm6/runtime/b_ret.madlen)
 
-Each routine receives two arguments the same way as the arithmetic operators.
-It returns `1` (loaded from `b/true`) if the condition is true, or `0` otherwise.
+Called at every exit point of a C function. The return value must be in A before
+jumping to `b/ret`.
 
-All seven routines share the same two-branch template:
+```
+ 6 ,mtj, 14         ; r14 = r6  (save parameter-base index for stack unwind)
+ 7 ,mtj, 15         ; r15 = r7  (reset stack pointer to the saved-register block)
+ 7 ,stx, -5         ; locate the saved-register block relative to r7
+   ,sti, 5          ; pop saved r5
+   ,sti, 6          ; pop saved r6  (caller's parameter pointer)
+   ,sti, 7          ; pop saved r7  (caller's auto-variable pointer)
+   ,sti, 13         ; pop saved return address into r13
+14 ,mtj, 15         ; r15 = r14  (restore caller's pre-argument stack level)
+13 ,uj,             ; return to caller
+```
 
-1. Perform a subtraction or exchange to set the accumulator sign.
-2. Branch to `true` on the appropriate sign condition (`uza` = branch if zero,
-   `u1a` = branch if non-zero/positive).
-3. Fall-through path: load `0` from the accumulator's implicit zero and return.
-4. `true` path: load `1` via `xta b/true` and return.
+**Actions:** restores the caller's r5, r6, r7, and r13; unwinds r15 to the level it had
+before any arguments were pushed; then jumps to r13.
 
-| Routine | Source | B op | Computation | Branch |
-|---------|--------|------|-------------|--------|
-| `b/not` | [b_not.madlen](../besm6/libb/b_not.madlen) | `!` | `aex` (swap A and X) | `uza`: branch if `b == 0` |
-| `b/eq` | [b_eq.madlen](../besm6/libb/b_eq.madlen) | `==` | `aex` (swap A and X, then `a-x`) | `uza`: branch if `a == b` |
-| `b/ne` | [b_ne.madlen](../besm6/libb/b_ne.madlen) | `!=` | `aex` | `u1a`: branch if `a != b` |
-| `b/lt` | [b_lt.madlen](../besm6/libb/b_lt.madlen) | `<` | `x-a` (compute `stack - acc`) | `u1a`: branch if `a < b` |
-| `b/le` | [b_le.madlen](../besm6/libb/b_le.madlen) | `<=` | `a-x` (compute `acc - stack`) | `uza`: branch if `a <= b` |
-| `b/gt` | [b_gt.madlen](../besm6/libb/b_gt.madlen) | `>` | `a-x` | `u1a`: branch if `a > b` |
-| `b/ge` | [b_ge.madlen](../besm6/libb/b_ge.madlen) | `>=` | `x-a` | `uza`: branch if `a >= b` |
+---
 
-> **Note on `b/eq`:** The `aex` instruction exchanges accumulator A and extension register X.
-> For equality, `aex` followed by `uza` tests whether the original stack value (now in A)
-> equals the accumulator value (now in X) — effectively `a - b == 0` after the exchange.
+### `b/true` — [b_true.madlen](../backend/besm6/runtime/b_true.madlen)
+
+A single word containing the raw integer 1:
+
+```
+,log, 1
+```
+
+BESM-6 has no load-immediate instruction for arbitrary integer values. All relational and
+logical helpers load the "true" result (1) with `xta b/true` rather than constructing it
+inline.
+
+---
+
+### Signed Integer Arithmetic
+
+Operands are raw 48-bit words with exponent field = 0. The signed helpers convert them to
+**INT-format** by ORing in the base exponent `=:64` (which sets the bits of the 7-bit
+exponent field to the value `0150B` = 104 decimal). This allows the hardware FP multiply
+and divide units to operate on the integer values. After the operation, the product or
+quotient exponent is corrected with `a+x, =:64`, and the exponent field is stripped with
+`aax, =37 7777 7777 7777` — a 42-bit mask (14 octal digits) that zeroes bits 48–42 and
+leaves the 41-bit signed result (sign bit 41 + 40-bit magnitude) in A.
+
+#### `b/mul` — [b_mul.madlen](../backend/besm6/runtime/b_mul.madlen)
+
+Computes `a * b` (signed, low 41-bit result).
+
+```
+14 ,base,*          ; set up local basing in r14 for the literal pool
+   ,aox, =:64       ; A |= INT-exponent  →  b in INT-format
+15 ,stx,            ; exchange A with mem[r15−1]: A ← a (raw), stacks INT-form b
+   ,aox, =:64       ; A |= INT-exponent  →  a in INT-format
+   ,ntr, 2          ; R = 2: enable normalization (required for FP multiply)
+15 ,a*x, 1          ; A ← INT-form a × INT-form b  (FP multiply; reads stacked INT-form b)
+   ,ntr, 3          ; R = 3: restore suppress-normalization + suppress-rounding
+   ,a+x, =:64       ; correct product exponent (subtract the doubled INT-exponent)
+   ,aax, =37 7777 7777 7777  ; mask to 41-bit signed result (strip exponent field)
+13 ,uj,             ; return
+```
+
+The signed and unsigned low products are identical (both fit in 41 bits); `b/mul` serves
+both.
+
+#### `b/div` — [b_div.madlen](../backend/besm6/runtime/b_div.madlen)
+
+Computes `a / b` (signed, truncated toward zero).
+
+Uses `ntr,` to clear the mode, then `aox, =:64` + `avx` (absolute-value exchange) to
+convert each signed operand to FP-divide-compatible INT-format while recording its sign.
+`a/x` performs the FP division. The same exponent-correction (`a+x, =:64`) and mask
+(`aax, =37 7777 7777 7777`) extract the signed quotient. The sign of the result is derived
+from the signs of the operands.
+
+#### `b/mod` — [b_mod.madlen](../backend/besm6/runtime/b_mod.madlen)
+
+Computes `a % b` (signed remainder; result has the same sign as the dividend).
+
+Extends the `b/div` algorithm. After converting both operands to INT-format:
+
+```
+   ,ntr,
+   ,aox, =:64
+   ,avx,                    . convert b to INT-format; record sign
+15 ,stx,                    . exchange: A ← a (raw), save INT-form b on stack   . B slot
+   ,aox, =:64
+   ,avx,                    . convert a to INT-format; record sign               . A
+15 ,atx, 2                  . save INT-form a at frame slot 2
+15 ,a/x, 1                  . quotient ← INT-form a ÷ INT-form b
+   ,ntr, 3
+   ,a+x, =:64               . correct quotient exponent
+   ,ntr,
+15 ,a*x, 1                  . product ← quotient × INT-form b
+15 ,x-a, 2                  . remainder ← saved INT-form a − product
+   ,ntr, 3
+   ,a+x, =:64
+   ,aax, =37 7777 7777 7777
+13 ,uj,
+```
+
+The identity `a % b = a − (a÷b)·b` is computed with two saves: the original `a` at frame
+slot 2 and `b` at the stack position used by the divide.
+
+---
+
+### Unsigned Integer Arithmetic
+
+The signed helpers' INT-format trick mishandles unsigned operands whose top bit (bit 48)
+is set: the FP unit interprets bit 48 as the number's sign, producing incorrect results.
+Separate helpers are required for the full 48-bit unsigned range.
+
+#### `b/udiv` — [b_udiv.madlen](../backend/besm6/runtime/b_udiv.madlen) — `a / b` (unsigned) — **to be implemented**
+
+Receives two 48-bit unsigned values (`a` at `mem[r15−1]`, `b` in A). Returns the
+unsigned quotient in A, truncated toward zero.
+
+Intended algorithm: a software restoring long-division loop operating on the full 48-bit
+representation, or normalisation of the value as a non-negative FP mantissa followed by
+FP division. Division by zero has implementation-defined behaviour.
+
+#### `b/umod` — [b_umod.madlen](../backend/besm6/runtime/b_umod.madlen) — `a % b` (unsigned) — **to be implemented**
+
+Returns the unsigned remainder `a − (a÷b)·b` using `b/udiv`. Both operands and the
+result span the full 48-bit unsigned range.
+
+---
+
+### Signed Relational and Logical Operators
+
+Each helper receives `a` at `mem[r15−1]` and `b` in A. It returns 1 (loaded from
+`b/true`) if the condition holds, 0 otherwise.
+
+All seven routines follow the same two-branch template:
+
+1. Perform a comparison operation (subtraction or XOR) that sets the ω mode.
+2. Branch to the `true` path on the appropriate ω condition.
+3. Fall-through: `xta,` loads 0 from address 0 (BESM-6 guarantees `mem[0] = 0`).
+4. `true` path: `xta b/true` loads 1; return.
+
+Inside each source file, `b/true` is declared as a `,subp,` alias that shares the
+constant from [b_true.madlen](../backend/besm6/runtime/b_true.madlen).
+
+#### Branch condition details
+
+Two instruction classes are used, each setting a different ω mode automatically:
+
+**`AEX` (bitwise XOR, opcode 012) → Logical ω mode (bits 5–3 = `001`):**
+After `AEX`, `UZA` branches when A = 0 (all bits zero); `U1A` when A ≠ 0.
+
+**Subtraction (`A-X`, `X-A`) → Additive ω mode (bits 5–3 = `100`):**
+After subtraction, `UZA` branches when A ≥ 0 (bit 41 = 0); `U1A` when A < 0 (bit 41 = 1).
+
+`aex` with no explicit address reads from `mem[0] = 0`, so A = b XOR 0 = b; the result
+tests whether b itself is zero. `15 ,aex,` reads `mem[r15−1]` = a (via pre-decrement on
+r15=017), computing A = b XOR a.
+
+`15 ,x-a,` computes A = mem[r15−1] − A = a − b (pre-decrement on r15, X operand minus A).
+`15 ,a-x,` computes A = A − mem[r15−1] = b − a.
+
+#### Operator table
+
+| Routine | Source | C op | Key instruction | ω mode | Branch taken when |
+|---------|--------|------|-----------------|--------|-------------------|
+| `b/not` | [b_not.madlen](../backend/besm6/runtime/b_not.madlen) | `!b` | `aex` → A = b XOR 0 = b | Logical | `uza`: A = 0 (b = 0) |
+| `b/eq` | [b_eq.madlen](../backend/besm6/runtime/b_eq.madlen) | `a == b` | `15 ,aex,` → A = b XOR a | Logical | `uza`: A = 0 (a = b) |
+| `b/ne` | [b_ne.madlen](../backend/besm6/runtime/b_ne.madlen) | `a != b` | `15 ,aex,` → A = b XOR a | Logical | `u1a`: A ≠ 0 (a ≠ b) |
+| `b/lt` | [b_lt.madlen](../backend/besm6/runtime/b_lt.madlen) | `a < b` | `15 ,x-a,` → A = a − b | Additive | `u1a`: A < 0 (a < b) |
+| `b/le` | [b_le.madlen](../backend/besm6/runtime/b_le.madlen) | `a <= b` | `15 ,a-x,` → A = b − a | Additive | `uza`: A ≥ 0 (b ≥ a) |
+| `b/gt` | [b_gt.madlen](../backend/besm6/runtime/b_gt.madlen) | `a > b` | `15 ,a-x,` → A = b − a | Additive | `u1a`: A < 0 (b < a) |
+| `b/ge` | [b_ge.madlen](../backend/besm6/runtime/b_ge.madlen) | `a >= b` | `15 ,x-a,` → A = a − b | Additive | `uza`: A ≥ 0 (a ≥ b) |
+
+**Why pairs share an instruction:** `b/lt`/`b/ge` both compute `a − b` and test opposite
+ω conditions (`U1A` vs `UZA`). `b/le`/`b/gt` both compute `b − a` and test opposite
+conditions. `b/eq`/`b/ne` both XOR the operands and test A = 0 vs A ≠ 0.
+
+**Limitation for unsigned operands:** the Additive sign test (bit 41 = sign) is valid only
+for 41-bit signed integers. If either operand spans the full 48-bit unsigned range (bit 48
+set), the subtraction sign test gives the wrong answer. `b/eq` and `b/ne` are
+signedness-independent (XOR tests bitwise equality) and are reused for unsigned equality.
+The four unsigned ordering helpers below handle the remaining cases.
+
+---
+
+### Unsigned Relational Operators
+
+The subtraction sign-bit test used by `b/lt`, `b/le`, `b/gt`, `b/ge` is only valid within
+the 41-bit signed range. For unsigned values in the full 48-bit range, a different
+comparison is needed — for example, carry/borrow detection via `ARX` (cyclic add, opcode
+013), or normalising both values as non-negative FP numbers and comparing exponents.
+
+#### `b/ult` — [b_ult.madlen](../backend/besm6/runtime/b_ult.madlen) — `a < b` (unsigned) — **to be implemented**
+
+#### `b/ule` — [b_ule.madlen](../backend/besm6/runtime/b_ule.madlen) — `a <= b` (unsigned) — **to be implemented**
+
+#### `b/ugt` — [b_ugt.madlen](../backend/besm6/runtime/b_ugt.madlen) — `a > b` (unsigned) — **to be implemented**
+
+#### `b/uge` — [b_uge.madlen](../backend/besm6/runtime/b_uge.madlen) — `a >= b` (unsigned) — **to be implemented**
+
+Each receives the two 48-bit unsigned operands in the standard helper convention
+(`a` at `mem[r15−1]`, `b` in A) and returns 0 or 1 in A.
+
+---
+
+### Type Conversion Helpers
+
+These routines convert between the native BESM-6 floating-point format (`float` ≡
+`double`, a single 48-bit word with 7-bit exponent and 40-bit mantissa) and C integer
+types. INT_TO_DOUBLE and UINT_TO_DOUBLE are short inline sequences (set the INT-format
+exponent, then `NTR` to normalise) and do not need a helper call. DOUBLE_TO_INT and
+DOUBLE_TO_UINT require extracting the mantissa at the correct shift, which is more
+involved.
+
+#### `b/dtoi` — [b_dtoi.madlen](../backend/besm6/runtime/b_dtoi.madlen) — `double` → signed `int` — **to be implemented**
+
+Receives the 48-bit native FP value in A (no first operand on the stack). Returns the
+truncated 41-bit signed integer in A.
+
+Algorithm: extract the 7-bit exponent field (bits 48–42); compute the right-shift as
+`104 − exp` (where 104 = `0150B` is the INT-format base exponent for 1.0); shift the
+40-bit mantissa right by that amount using `ASX` or `ASN`; apply the FP sign bit. Values
+outside [−2⁴⁰, 2⁴⁰−1] have implementation-defined behaviour (C11 §6.3.1.4).
+
+`float` and `double` use the same 48-bit format on BESM-6, so `b/dtoi` serves both
+`(int)f` and `(int)d`.
+
+#### `b/dtou` — [b_dtou.madlen](../backend/besm6/runtime/b_dtou.madlen) — `double` → unsigned `int` — **to be implemented**
+
+Same mantissa-shift algorithm as `b/dtoi` but without sign handling; returns the full
+48-bit unsigned result in A. Values outside [0, 2⁴⁸−1] have implementation-defined
+behaviour.
+
+---
+
+### I/O Routines
+
+#### `b/tout` — [b_tout.madlen](../backend/besm6/runtime/b_tout.madlen)
+
+Writes a line to stdout via BESM-6 extracode 71 (Dubna monitor print-line service).
+
+The caller places the KOI7-encoded string address in A before jumping to `b/tout`
+(no arguments on the stack; this is not a C ABI call).
+
+```madlen
+   ,ati, 12          ; r12 ← A  (string word-address → index register 12)
+   ,utc, info        ; unconditional transfer to the extracode dispatch block
+   ,*71,             ; extracode 71: write line to stdout
+13 ,uj,              ; return to caller
+
+info: 12 ,040,       ; extracode control word: opcode 040, address modifier = r12
+         ,   ,       ; second word of the extracode parameter block (padding)
+```
+
+`ATI` stores A into an index register. `UTC` is an unconditional transfer that sets up the
+extracode parameter base at the address `info`. `*71` is the Dubna system call that outputs
+the string whose word address is recorded in the `info` control word via r12.
