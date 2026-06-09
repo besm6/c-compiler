@@ -248,6 +248,7 @@ static void codegen_static_constant(const Tac_TopLevel *tl, FILE *out)
     const Tac_StaticInit *init = tl->u.static_constant.init;
 
     Besm_Module      *module  = besm_new_module(name);
+    module->comment           = xstrdup("const");
     Besm_DataSection *section = besm_new_data_section(BESM_SK_DATA);
     section->name             = xstrdup(name);
     module->sections          = section;
@@ -263,6 +264,39 @@ static void codegen_static_constant(const Tac_TopLevel *tl, FILE *out)
             item          = besm_new_instr(BESM_DATA_LOG);
             item->log_val = static_init_log_val(init);
             break;
+        case TAC_STATIC_INIT_ZERO:
+            item       = besm_new_instr(BESM_DATA_BSS);
+            item->addr = (init->u.zero_bytes + 5) / 6;
+            break;
+        case TAC_STATIC_INIT_POINTER: {
+            int byte_offset = init->u.pointer.byte_offset;
+            if (byte_offset % 6 != 0)
+                fatal_error("Pointer byte offset is not a multiple of word size");
+            Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
+            subp->name = xstrdup(init->u.pointer.name);
+            *tail = subp; tail = &subp->next;
+            Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
+            *tail = z00a; tail = &z00a->next;
+            Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
+            z00b->name = xstrdup(init->u.pointer.name);
+            z00b->addr = byte_offset / 6;
+            *tail = z00b; tail = &z00b->next;
+            continue;
+        }
+        case TAC_STATIC_INIT_FAT_POINTER: {
+            int byte_off = init->u.pointer.byte_offset;
+            Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
+            subp->name = xstrdup(init->u.pointer.name);
+            *tail = subp; tail = &subp->next;
+            Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
+            z00a->reg = 8 + (unsigned)(5 - byte_off % 6);
+            *tail = z00a; tail = &z00a->next;
+            Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
+            z00b->name = xstrdup(init->u.pointer.name);
+            z00b->addr = byte_off / 6;
+            *tail = z00b; tail = &z00b->next;
+            continue;
+        }
         case TAC_STATIC_INIT_FLOAT:
             item           = besm_new_instr(BESM_DATA_REAL);
             item->real_val = init->u.float_val;

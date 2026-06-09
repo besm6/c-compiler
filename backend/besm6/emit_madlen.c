@@ -369,8 +369,10 @@ void emit_madlen_data_section(FILE *out, const Besm_DataSection *section)
 
 void emit_madlen_module(FILE *out, const Besm_Module *module)
 {
-    // Separator.
-    fprintf(out, "c\n");
+    if (module->comment)
+        fprintf(out, "c  %s\n", module->comment);
+    else
+        fprintf(out, "c\n");
 
     emit_madlen_func(out, module->funcs);
     emit_madlen_data_section(out, module->sections);

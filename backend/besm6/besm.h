@@ -158,7 +158,8 @@ struct Besm_DataSection {
 // module = Module(string name, func* funcs, data_section* sections)
 //
 typedef struct {
-    char *name; // heap-owned
+    char *name;     // heap-owned
+    char *comment;  // heap-owned, nullable — emitted on the c-line separator
     Besm_Func *funcs;
     Besm_DataSection *sections;
 } Besm_Module;

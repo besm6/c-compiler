@@ -549,7 +549,7 @@ TEST_F(CodegenTest, StrCyrillicInit)
 TEST_F(CodegenTest, StrConstantEmptyPtr)
 {
     std::string output = CompileToMadlen("char *p = \"\";");
-    EXPECT_EQ(R"(c
+    EXPECT_EQ(R"(c  const
     *str0:   ,name,
              ,log, 0
              ,end,
@@ -565,7 +565,7 @@ c
 TEST_F(CodegenTest, StrConstantSingleCharPtr)
 {
     std::string output = CompileToMadlen("char *p = \"A\";");
-    EXPECT_EQ(R"(c
+    EXPECT_EQ(R"(c  const
     *str0:   ,name,
              ,log, 2020000000000000
              ,end,
@@ -581,7 +581,7 @@ c
 TEST_F(CodegenTest, StrConstantThreeCharsPtr)
 {
     std::string output = CompileToMadlen("char *p = \"ABC\";");
-    EXPECT_EQ(R"(c
+    EXPECT_EQ(R"(c  const
     *str0:   ,name,
              ,log, 2024110300000000
              ,end,
@@ -598,7 +598,7 @@ c
 TEST_F(CodegenTest, StrConstantFiveCharsPtr)
 {
     std::string output = CompileToMadlen("char *p = \"ABCDE\";");
-    EXPECT_EQ(R"(c
+    EXPECT_EQ(R"(c  const
     *str0:   ,name,
              ,log, 2024110321042400
              ,end,
@@ -615,7 +615,7 @@ c
 TEST_F(CodegenTest, StrConstantSixCharsPtr)
 {
     std::string output = CompileToMadlen("char *p = \"ABCDEF\";");
-    EXPECT_EQ(R"(c
+    EXPECT_EQ(R"(c  const
     *str0:   ,name,
              ,log, 2024110321042506
              ,log, 0
@@ -633,7 +633,7 @@ c
 TEST_F(CodegenTest, StrConstantSevenCharsPtr)
 {
     std::string output = CompileToMadlen("char *p = \"ABCDEFG\";");
-    EXPECT_EQ(R"(c
+    EXPECT_EQ(R"(c  const
     *str0:   ,name,
              ,log, 2024110321042506
              ,log, 2160000000000000
@@ -652,7 +652,7 @@ c
 TEST_F(CodegenTest, StrConstantTwoPtrs)
 {
     std::string output = CompileToMadlen("char *p = \"ABC\"; char *q = \"ABC\";");
-    EXPECT_EQ(R"(c
+    EXPECT_EQ(R"(c  const
     *str0:   ,name,
              ,log, 2024110300000000
              ,end,
@@ -662,7 +662,7 @@ c
              ,z00,
              ,z00, *str0
              ,end,
-c
+c  const
     *str1:   ,name,
              ,log, 2024110300000000
              ,end,
@@ -684,7 +684,7 @@ TEST_F(CodegenTest, StrConstantPtrAndArray)
       arr:   ,name,
              ,log, 2024110300000000
              ,end,
-c
+c  const
     *str0:   ,name,
              ,log, 2024110300000000
              ,end,

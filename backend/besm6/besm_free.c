@@ -47,6 +47,7 @@ void besm_free_module(Besm_Module *module)
     if (!module)
         return;
     xfree(module->name);
+    xfree(module->comment);
     besm_free_func(module->funcs);
     besm_free_data_section(module->sections);
     xfree(module);

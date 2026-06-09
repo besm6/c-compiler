@@ -56,17 +56,9 @@ register.  The pattern is: load from frame → operate → store to frame.
 
 ---
 
-### Phase C — Static Data
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 31 | Static constants | `StaticConstant`: same as StaticVariable for a single init word. Madlen has no hardware write-protection; distinguish by convention (comment). | S |
-
----
-
 ### Phase D — Runtime Support Library
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 33 | Runtime helpers (`backend/besm6/runtime.mad`) | Implement in Madlen using the standard C calling convention: `b/idiv` (truncated signed divide); `b/imod` (remainder); `b/imul` (for non-constant-scale use); `b/udiv`, `b/umod`, `b/ucmp` (unsigned variants); `b/dtoi` (double-to-integer). Also define constants: `__one : ,INT, 1`; `__allones : ,OCT, 7777777777777777`; truncation masks `__mask8 : ,INT, 255`, `__mask16 : ,INT, 65535`. No `__zero` needed — use `,XTA, 0`. | L |
-| 34 | Program entry point (`backend/besm6/startup.mad`) | Emit the `main` subprogram that calls the C-compiled `b/main`: set r14=0, `,CALL, b/main`, then `,STOP,`. Declare `b/main` external with `,SUBP,`. Link `startup.mad` first so the Dubna loader finds the `main` entry point. | M |
+| 33 | Runtime helpers (`backend/besm6/runtime/*.madlen`) | Implement in Madlen routines defined in `docs/Besm6_Runtime_Library.md`. Add other routines as required. | L |
+| 34 | Program entry point | By convention in Madlen execution begins with `program()` routine. In C it's `main()` though. We can align these tho conventions by adding a second entry to main. When a "main" routine is emitted, please add a line ` program: ,ENTRY,` right after "b/ret: ,SUBP,". | M |
