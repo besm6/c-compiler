@@ -82,7 +82,7 @@ typedef enum {
     BESM_STMT_NAME,  // name: ,name,       — subprogram name
     BESM_STMT_BASE,  //   reg ,base, name  — relocatable basing
     BESM_STMT_SUBP,  // name: ,subp,       — declare external subprogram
-    BESM_STMT_ENTRY, //       ,entry, name — export global symbol
+    BESM_STMT_ENTRY, // name: ,entry,      — secondary entry point
     BESM_STMT_END,   //       ,end,        — end of subprogram
 
     // Data section directives

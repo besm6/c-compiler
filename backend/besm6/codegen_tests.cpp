@@ -206,6 +206,33 @@ TEST_F(CodegenTest, EmptyFunctionVariadic)
 )", output);
 }
 
+TEST_F(CodegenTest, MainEntryPointInt)
+{
+    std::string output = CompileToMadlen("int main() { return 0; }");
+    EXPECT_EQ(R"(c
+     main:   ,name,
+    b/ret:   ,subp,
+  program:   ,entry,
+             ,its, 13
+             ,call, b/save0
+             ,xta, =0
+             ,uj, b/ret
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, MainEntryPointVoid)
+{
+    std::string output = CompileToMadlen("void main() {}");
+    EXPECT_EQ(R"(c
+     main:   ,name,
+  program:   ,entry,
+          13 ,uj,
+             ,end,
+)", output);
+}
+
 TEST_F(CodegenTest, CallOkno)
 {
     std::string output = CompileToMadlen("void OKHO(void); void foo() { OKHO(); }");

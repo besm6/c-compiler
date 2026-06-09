@@ -378,6 +378,10 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
 
     if (is_empty) {
         // Optimized prologue for empty functions: no b/save or b/ret.
+        if (strcmp(name, "main") == 0) {
+            Besm_Instr *entry_prog = emit(block, &tail, BESM_STMT_ENTRY);
+            entry_prog->name       = xstrdup("program");
+        }
         if (needs_param_setup) {
             // 14 ,utc, 1
             Besm_Instr *utc14 = emit(block, &tail, BESM_MOD_UTC);
@@ -402,6 +406,11 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
 
         Besm_Instr *subp_cret = emit(block, &tail, BESM_STMT_SUBP);
         subp_cret->name       = xstrdup("b/ret");
+
+        if (strcmp(name, "main") == 0) {
+            Besm_Instr *entry_prog = emit(block, &tail, BESM_STMT_ENTRY);
+            entry_prog->name       = xstrdup("program");
+        }
 
         // Declare each static constant referenced via GET_ADDRESS as a SUBP word.
         // SUBP allocates no memory; it just tells the assembler the name is external.
