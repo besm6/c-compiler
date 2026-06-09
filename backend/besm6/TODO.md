@@ -84,12 +84,6 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 ---
 
-### Phase E — TAC prerequisite (frontend)
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 1 | Unsigned/logical TAC op kinds | The backend cannot currently distinguish signed from unsigned operations: `translator/expr.c` maps both to the same `TAC_BINARY_DIVIDE`/`TAC_BINARY_LESS_THAN`/`TAC_BINARY_RIGHT_SHIFT`. Add `TAC_BINARY_DIVIDE_UNSIGNED`, `TAC_BINARY_REMAINDER_UNSIGNED`, `TAC_BINARY_LESS_THAN_UNSIGNED`, `TAC_BINARY_LESS_OR_EQUAL_UNSIGNED`, `TAC_BINARY_GREATER_THAN_UNSIGNED`, `TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED`, `TAC_BINARY_RIGHT_SHIFT_LOGICAL` to `tac/tac.h`. Update YAML names (`tac/tac_yaml.c`); binary export/import already store the op as a number. In `translator/expr.c`, emit the unsigned/logical variant when the operand type is unsigned (both the normal and compound-assign op maps). `==`/`!=`, `+`/`-`/`*`, bitwise, and `<<` are signedness-independent and unchanged. Add tac + translator tests. | M |
-
 ### Phase F — Control flow & constants
 
 Unblocks `if`/`while`/`for`/`switch` and almost every later task.

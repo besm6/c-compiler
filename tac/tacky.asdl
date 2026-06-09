@@ -50,6 +50,10 @@ module TAC {
     BinaryOperator = Add | Subtract | Multiply | Divide | Remainder | Equal | NotEqual
                    | LessThan | LessOrEqual | GreaterThan | GreaterOrEqual
                    | BitwiseAnd | BitwiseOr | BitwiseXor | LeftShift | RightShift
+                   | DivideUnsigned | RemainderUnsigned
+                   | LessThanUnsigned | LessOrEqualUnsigned
+                   | GreaterThanUnsigned | GreaterOrEqualUnsigned
+                   | RightShiftLogical
 
     Type = Char | SChar | UChar | Short | UShort | Int | Long | LongLong | UInt | ULong | ULongLong
          | Float | Double | LongDouble | Void

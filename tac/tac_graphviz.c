@@ -70,6 +70,20 @@ static const char *binary_op_name(Tac_BinaryOperator op)
         return "left_shift";
     case TAC_BINARY_RIGHT_SHIFT:
         return "right_shift";
+    case TAC_BINARY_DIVIDE_UNSIGNED:
+        return "divide_unsigned";
+    case TAC_BINARY_REMAINDER_UNSIGNED:
+        return "remainder_unsigned";
+    case TAC_BINARY_LESS_THAN_UNSIGNED:
+        return "less_than_unsigned";
+    case TAC_BINARY_LESS_OR_EQUAL_UNSIGNED:
+        return "less_or_equal_unsigned";
+    case TAC_BINARY_GREATER_THAN_UNSIGNED:
+        return "greater_than_unsigned";
+    case TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED:
+        return "greater_or_equal_unsigned";
+    case TAC_BINARY_RIGHT_SHIFT_LOGICAL:
+        return "right_shift_logical";
     }
     return "?";
 }

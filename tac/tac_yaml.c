@@ -584,6 +584,27 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         case TAC_BINARY_RIGHT_SHIFT:
             fprintf(fd, "right_shift\n");
             break;
+        case TAC_BINARY_DIVIDE_UNSIGNED:
+            fprintf(fd, "divide_unsigned\n");
+            break;
+        case TAC_BINARY_REMAINDER_UNSIGNED:
+            fprintf(fd, "remainder_unsigned\n");
+            break;
+        case TAC_BINARY_LESS_THAN_UNSIGNED:
+            fprintf(fd, "less_than_unsigned\n");
+            break;
+        case TAC_BINARY_LESS_OR_EQUAL_UNSIGNED:
+            fprintf(fd, "less_or_equal_unsigned\n");
+            break;
+        case TAC_BINARY_GREATER_THAN_UNSIGNED:
+            fprintf(fd, "greater_than_unsigned\n");
+            break;
+        case TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED:
+            fprintf(fd, "greater_or_equal_unsigned\n");
+            break;
+        case TAC_BINARY_RIGHT_SHIFT_LOGICAL:
+            fprintf(fd, "right_shift_logical\n");
+            break;
         }
         print_indent(fd, level);
         fprintf(fd, "src1:\n");

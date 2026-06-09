@@ -365,6 +365,13 @@ TEST_F(TacYamlTest, BinaryInstructions)
         { TAC_BINARY_BITWISE_XOR, "bitwise_xor" },
         { TAC_BINARY_LEFT_SHIFT, "left_shift" },
         { TAC_BINARY_RIGHT_SHIFT, "right_shift" },
+        { TAC_BINARY_DIVIDE_UNSIGNED, "divide_unsigned" },
+        { TAC_BINARY_REMAINDER_UNSIGNED, "remainder_unsigned" },
+        { TAC_BINARY_LESS_THAN_UNSIGNED, "less_than_unsigned" },
+        { TAC_BINARY_LESS_OR_EQUAL_UNSIGNED, "less_or_equal_unsigned" },
+        { TAC_BINARY_GREATER_THAN_UNSIGNED, "greater_than_unsigned" },
+        { TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED, "greater_or_equal_unsigned" },
+        { TAC_BINARY_RIGHT_SHIFT_LOGICAL, "right_shift_logical" },
     };
 
     for (const auto &tc : cases) {

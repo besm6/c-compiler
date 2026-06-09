@@ -813,3 +813,41 @@ TEST_F(TranslateTest, ULongLiteral)
     EXPECT_NE(yaml.find("kind: ulong"), std::string::npos);
     EXPECT_NE(yaml.find("value: 10"), std::string::npos);
 }
+
+// ---------------------------------------------------------------------------
+// Unsigned / logical TAC op kinds — task #1 (Phase E)
+// ---------------------------------------------------------------------------
+
+// Unsigned operands select divide_unsigned, not divide.
+TEST_F(TranslateTest, UnsignedDivide)
+{
+    std::string yaml =
+        CompileToYaml("unsigned int f(unsigned int a, unsigned int b) { return a / b; }");
+    EXPECT_NE(yaml.find("op: divide_unsigned"), std::string::npos);
+    EXPECT_EQ(yaml.find("op: divide\n"), std::string::npos);
+}
+
+// Unsigned operands select less_than_unsigned, not less_than.
+TEST_F(TranslateTest, UnsignedLessThan)
+{
+    std::string yaml =
+        CompileToYaml("int f(unsigned int a, unsigned int b) { return a < b; }");
+    EXPECT_NE(yaml.find("op: less_than_unsigned"), std::string::npos);
+    EXPECT_EQ(yaml.find("op: less_than\n"), std::string::npos);
+}
+
+// Unsigned left operand selects right_shift_logical, not right_shift.
+TEST_F(TranslateTest, LogicalRightShift)
+{
+    std::string yaml = CompileToYaml("unsigned int f(unsigned int a) { return a >> 2; }");
+    EXPECT_NE(yaml.find("op: right_shift_logical"), std::string::npos);
+    EXPECT_EQ(yaml.find("op: right_shift\n"), std::string::npos);
+}
+
+// Signed operands still select the signed variants.
+TEST_F(TranslateTest, SignedDivideUnchanged)
+{
+    std::string yaml = CompileToYaml("int f(int a, int b) { return a / b; }");
+    EXPECT_NE(yaml.find("op: divide\n"), std::string::npos);
+    EXPECT_EQ(yaml.find("op: divide_unsigned"), std::string::npos);
+}
