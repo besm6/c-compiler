@@ -12,6 +12,8 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 - Phase 1 verification
 - Task 6 — Unary folding
 - Task 7 — Binary folding (integer)
+- Task 8 — Binary folding (floating-point)
+- Task 9 — Type conversion folding
 
 ---
 

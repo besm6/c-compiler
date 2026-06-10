@@ -83,6 +83,79 @@ static Tac_Instruction *make_return(Tac_Val *src)
     return i;
 }
 
+static Tac_Val *make_const_char(int v)
+{
+    Tac_Const *c   = tac_new_const(TAC_CONST_CHAR);
+    c->u.char_val  = (int)(int8_t)v;
+    Tac_Val *val   = tac_new_val(TAC_VAL_CONSTANT);
+    val->u.constant = c;
+    return val;
+}
+
+static Tac_Val *make_const_uchar(unsigned char v)
+{
+    Tac_Const *c    = tac_new_const(TAC_CONST_UCHAR);
+    c->u.uchar_val  = v;
+    Tac_Val *val    = tac_new_val(TAC_VAL_CONSTANT);
+    val->u.constant = c;
+    return val;
+}
+
+static Tac_Val *make_const_long(long v)
+{
+    Tac_Const *c   = tac_new_const(TAC_CONST_LONG);
+    c->u.long_val  = v;
+    Tac_Val *val   = tac_new_val(TAC_VAL_CONSTANT);
+    val->u.constant = c;
+    return val;
+}
+
+static Tac_Val *make_const_long_long(long long v)
+{
+    Tac_Const *c        = tac_new_const(TAC_CONST_LONG_LONG);
+    c->u.long_long_val  = v;
+    Tac_Val *val        = tac_new_val(TAC_VAL_CONSTANT);
+    val->u.constant     = c;
+    return val;
+}
+
+static Tac_Val *make_const_uint(unsigned v)
+{
+    Tac_Const *c   = tac_new_const(TAC_CONST_UINT);
+    c->u.uint_val  = v;
+    Tac_Val *val   = tac_new_val(TAC_VAL_CONSTANT);
+    val->u.constant = c;
+    return val;
+}
+
+static Tac_Val *make_const_ulong(unsigned long v)
+{
+    Tac_Const *c   = tac_new_const(TAC_CONST_ULONG);
+    c->u.ulong_val = v;
+    Tac_Val *val   = tac_new_val(TAC_VAL_CONSTANT);
+    val->u.constant = c;
+    return val;
+}
+
+static Tac_Val *make_const_ulong_long(unsigned long long v)
+{
+    Tac_Const *c         = tac_new_const(TAC_CONST_ULONG_LONG);
+    c->u.ulong_long_val  = v;
+    Tac_Val *val         = tac_new_val(TAC_VAL_CONSTANT);
+    val->u.constant      = c;
+    return val;
+}
+
+// All 21 conversion instructions share the same {src, dst} layout; sign_extend is the proxy.
+static Tac_Instruction *make_conversion(Tac_InstructionKind kind,
+                                        Tac_Val *src, Tac_Val *dst)
+{
+    Tac_Instruction *i   = tac_new_instruction(kind);
+    i->u.sign_extend.src = src;
+    i->u.sign_extend.dst = dst;
+    return i;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -445,6 +518,752 @@ TEST(OptimizerTest, BinaryFoldLongDoubleAdd)
     EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
     EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_LONG_DOUBLE);
     EXPECT_DOUBLE_EQ((double)body->u.copy.src->u.constant->u.long_double_val, 4.0);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// ---------------------------------------------------------------------------
+// Type conversion folding tests (task 9)
+// ---------------------------------------------------------------------------
+
+// --- SIGN_EXTEND ---
+
+// SignExtend(ConstInt(3))  →  Copy(ConstLong(3), t)
+TEST(OptimizerTest, ConvSignExtendIntToLong)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_SIGN_EXTEND,
+                                            make_const_int(3), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    ASSERT_NE(body->u.copy.src, nullptr);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_LONG);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.long_val, 3L);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// SignExtend(ConstInt(-5))  →  Copy(ConstLong(-5), t)  — negative preserves sign
+TEST(OptimizerTest, ConvSignExtendIntNegToLong)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_SIGN_EXTEND,
+                                            make_const_int(-5), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_LONG);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.long_val, -5L);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// SignExtend(ConstChar(127))  →  Copy(ConstInt(127), t)
+TEST(OptimizerTest, ConvSignExtendCharToInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_SIGN_EXTEND,
+                                            make_const_char(127), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, 127);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// SignExtend(ConstChar(-128))  →  Copy(ConstInt(-128), t)  — min negative char
+TEST(OptimizerTest, ConvSignExtendCharNegToInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_SIGN_EXTEND,
+                                            make_const_char(-128), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, -128);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// SignExtend(ConstLong(42))  →  Copy(ConstLongLong(42), t)
+TEST(OptimizerTest, ConvSignExtendLongToLongLong)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_SIGN_EXTEND,
+                                            make_const_long(42L), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_LONG_LONG);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.long_long_val, 42LL);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// SignExtend(Var)  →  instruction unchanged
+TEST(OptimizerTest, ConvSignExtendVarUnchanged)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_SIGN_EXTEND,
+                                            make_var("x"), make_var("t"));
+    Tac_Instruction *orig = body;
+    body = constant_fold(body);
+
+    EXPECT_EQ(body, orig);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_SIGN_EXTEND);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// SignExtend(ConstFloat)  →  instruction unchanged (wrong src type)
+TEST(OptimizerTest, ConvSignExtendWrongTypeUnchanged)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_SIGN_EXTEND,
+                                            make_const_float(1.0), make_var("t"));
+    Tac_Instruction *orig = body;
+    body = constant_fold(body);
+
+    EXPECT_EQ(body, orig);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_SIGN_EXTEND);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// --- ZERO_EXTEND ---
+
+// ZeroExtend(ConstUChar(200))  →  Copy(ConstUInt(200), t)  — >127 shows zero-extension
+TEST(OptimizerTest, ConvZeroExtendUCharToUInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_ZERO_EXTEND,
+                                            make_const_uchar(200), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_UINT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.uint_val, 200u);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// ZeroExtend(ConstUInt(100000))  →  Copy(ConstULong(100000), t)
+TEST(OptimizerTest, ConvZeroExtendUIntToULong)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_ZERO_EXTEND,
+                                            make_const_uint(100000u), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_ULONG);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.ulong_val, 100000UL);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// ZeroExtend(ConstULong(1234567890))  →  Copy(ConstULongLong(1234567890), t)
+TEST(OptimizerTest, ConvZeroExtendULongToULongLong)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_ZERO_EXTEND,
+                                            make_const_ulong(1234567890UL), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_ULONG_LONG);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.ulong_long_val, 1234567890ULL);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// ZeroExtend(Var)  →  instruction unchanged
+TEST(OptimizerTest, ConvZeroExtendVarUnchanged)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_ZERO_EXTEND,
+                                            make_var("x"), make_var("t"));
+    Tac_Instruction *orig = body;
+    body = constant_fold(body);
+
+    EXPECT_EQ(body, orig);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_ZERO_EXTEND);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// --- TRUNCATE ---
+
+// Truncate(ConstLong(263))  →  Copy(ConstInt(263), t)  — value fits in 32 bits
+TEST(OptimizerTest, ConvTruncateLongToInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_TRUNCATE,
+                                            make_const_long(263L), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, 263);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Truncate(ConstLong(0x100000007))  →  Copy(ConstInt(7), t)  — high bits cut off
+TEST(OptimizerTest, ConvTruncateLongHighBitsToInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_TRUNCATE,
+                                            make_const_long(0x100000007L), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, 7);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Truncate(ConstLongLong(0x100000009))  →  Copy(ConstInt(9), t)
+TEST(OptimizerTest, ConvTruncateLongLongToInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_TRUNCATE,
+                                            make_const_long_long(0x100000009LL), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, 9);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Truncate(ConstInt(263))  →  Copy(ConstChar(7), t)  — (int8_t)(263 & 0xFF) = 7
+TEST(OptimizerTest, ConvTruncateIntToChar)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_TRUNCATE,
+                                            make_const_int(263), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_CHAR);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.char_val, 7);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Truncate(ConstInt(-1))  →  Copy(ConstChar(-1), t)  — negative preserved
+TEST(OptimizerTest, ConvTruncateIntNegToChar)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_TRUNCATE,
+                                            make_const_int(-1), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_CHAR);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.char_val, -1);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Truncate(ConstULongLong(0x100000003))  →  Copy(ConstUInt(3), t)
+TEST(OptimizerTest, ConvTruncateULongLongToUInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_TRUNCATE,
+                                            make_const_ulong_long(0x100000003ULL), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_UINT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.uint_val, 3u);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Truncate(ConstULong(0x100000005))  →  Copy(ConstUInt(5), t)
+TEST(OptimizerTest, ConvTruncateULongToUInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_TRUNCATE,
+                                            make_const_ulong(0x100000005UL), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_UINT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.uint_val, 5u);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Truncate(ConstUInt(300))  →  Copy(ConstUChar(44), t)  — 300 & 0xFF = 44
+TEST(OptimizerTest, ConvTruncateUIntToUChar)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_TRUNCATE,
+                                            make_const_uint(300u), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_UCHAR);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.uchar_val, (unsigned char)44);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Truncate(Var)  →  instruction unchanged
+TEST(OptimizerTest, ConvTruncateVarUnchanged)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_TRUNCATE,
+                                            make_var("x"), make_var("t"));
+    Tac_Instruction *orig = body;
+    body = constant_fold(body);
+
+    EXPECT_EQ(body, orig);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_TRUNCATE);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// --- Integer → floating-point ---
+
+// IntToDouble(ConstInt(42))  →  Copy(ConstDouble(42.0), t)
+TEST(OptimizerTest, ConvIntToDouble)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_INT_TO_DOUBLE,
+                                            make_const_int(42), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_DOUBLE);
+    EXPECT_DOUBLE_EQ(body->u.copy.src->u.constant->u.double_val, 42.0);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// IntToDouble(ConstInt(-7))  →  Copy(ConstDouble(-7.0), t)
+TEST(OptimizerTest, ConvIntNegToDouble)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_INT_TO_DOUBLE,
+                                            make_const_int(-7), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_DOUBLE);
+    EXPECT_DOUBLE_EQ(body->u.copy.src->u.constant->u.double_val, -7.0);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// UIntToDouble(ConstUInt(1000000))  →  Copy(ConstDouble(1e6), t)
+TEST(OptimizerTest, ConvUIntToDouble)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_UINT_TO_DOUBLE,
+                                            make_const_uint(1000000u), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_DOUBLE);
+    EXPECT_DOUBLE_EQ(body->u.copy.src->u.constant->u.double_val, 1e6);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// IntToFloat(ConstInt(5))  →  Copy(ConstFloat(5.0), t)
+TEST(OptimizerTest, ConvIntToFloat)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_INT_TO_FLOAT,
+                                            make_const_int(5), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_FLOAT);
+    EXPECT_DOUBLE_EQ(body->u.copy.src->u.constant->u.float_val, 5.0);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// UIntToFloat(ConstUInt(100))  →  Copy(ConstFloat(100.0), t)
+TEST(OptimizerTest, ConvUIntToFloat)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_UINT_TO_FLOAT,
+                                            make_const_uint(100u), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_FLOAT);
+    EXPECT_DOUBLE_EQ(body->u.copy.src->u.constant->u.float_val, 100.0);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// IntToLongDouble(ConstInt(3))  →  Copy(ConstLongDouble(3.0L), t)
+TEST(OptimizerTest, ConvIntToLongDouble)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_INT_TO_LONG_DOUBLE,
+                                            make_const_int(3), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_LONG_DOUBLE);
+    EXPECT_DOUBLE_EQ((double)body->u.copy.src->u.constant->u.long_double_val, 3.0);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// UIntToLongDouble(ConstUInt(7))  →  Copy(ConstLongDouble(7.0L), t)
+TEST(OptimizerTest, ConvUIntToLongDouble)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE,
+                                            make_const_uint(7u), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_LONG_DOUBLE);
+    EXPECT_DOUBLE_EQ((double)body->u.copy.src->u.constant->u.long_double_val, 7.0);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// IntToDouble(ConstFloat)  →  instruction unchanged (wrong src type)
+TEST(OptimizerTest, ConvIntToDoubleWrongSrcUnchanged)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_INT_TO_DOUBLE,
+                                            make_const_float(1.0), make_var("t"));
+    Tac_Instruction *orig = body;
+    body = constant_fold(body);
+
+    EXPECT_EQ(body, orig);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_INT_TO_DOUBLE);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// --- Floating-point → integer (truncate toward zero) ---
+
+// DoubleToInt(ConstDouble(3.7))  →  Copy(ConstInt(3), t)
+TEST(OptimizerTest, ConvDoubleToInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_DOUBLE_TO_INT,
+                                            make_const_double(3.7), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, 3);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// DoubleToInt(ConstDouble(-3.7))  →  Copy(ConstInt(-3), t)  — truncation toward zero
+TEST(OptimizerTest, ConvDoubleNegToInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_DOUBLE_TO_INT,
+                                            make_const_double(-3.7), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, -3);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// DoubleToInt(ConstFloat(2.9))  →  Copy(ConstInt(2), t)  — float src also accepted
+TEST(OptimizerTest, ConvDoubleToIntFromFloat)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_DOUBLE_TO_INT,
+                                            make_const_float(2.9), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, 2);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// FloatToInt(ConstFloat(2.9))  →  Copy(ConstInt(2), t)
+TEST(OptimizerTest, ConvFloatToInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_FLOAT_TO_INT,
+                                            make_const_float(2.9), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, 2);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// FloatToInt(ConstFloat(-1.9))  →  Copy(ConstInt(-1), t)  — truncation toward zero
+TEST(OptimizerTest, ConvFloatNegToInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_FLOAT_TO_INT,
+                                            make_const_float(-1.9), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, -1);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// DoubleToUInt(ConstDouble(3.9))  →  Copy(ConstUInt(3), t)
+TEST(OptimizerTest, ConvDoubleToUInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_DOUBLE_TO_UINT,
+                                            make_const_double(3.9), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_UINT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.uint_val, 3u);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// FloatToUInt(ConstFloat(100.1))  →  Copy(ConstUInt(100), t)
+TEST(OptimizerTest, ConvFloatToUInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_FLOAT_TO_UINT,
+                                            make_const_float(100.1), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_UINT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.uint_val, 100u);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// LongDoubleToInt(ConstLongDouble(4.5L))  →  Copy(ConstInt(4), t)
+TEST(OptimizerTest, ConvLongDoubleToInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_LONG_DOUBLE_TO_INT,
+                                            make_const_long_double(4.5L), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, 4);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// LongDoubleToInt(ConstLongDouble(-9.9L))  →  Copy(ConstInt(-9), t)
+TEST(OptimizerTest, ConvLongDoubleNegToInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_LONG_DOUBLE_TO_INT,
+                                            make_const_long_double(-9.9L), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, -9);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// LongDoubleToUInt(ConstLongDouble(9.9L))  →  Copy(ConstUInt(9), t)
+TEST(OptimizerTest, ConvLongDoubleToUInt)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT,
+                                            make_const_long_double(9.9L), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_UINT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.uint_val, 9u);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// DoubleToInt(ConstInt)  →  instruction unchanged (wrong src type)
+TEST(OptimizerTest, ConvDoubleToIntWrongSrcUnchanged)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_DOUBLE_TO_INT,
+                                            make_const_int(3), make_var("t"));
+    Tac_Instruction *orig = body;
+    body = constant_fold(body);
+
+    EXPECT_EQ(body, orig);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_DOUBLE_TO_INT);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// --- Float ↔ float ---
+
+// FloatToDouble(ConstFloat(1.5))  →  Copy(ConstDouble(1.5), t)
+TEST(OptimizerTest, ConvFloatToDouble)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_FLOAT_TO_DOUBLE,
+                                            make_const_float(1.5), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_DOUBLE);
+    EXPECT_DOUBLE_EQ(body->u.copy.src->u.constant->u.double_val, 1.5);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// FloatToDouble(ConstDouble)  →  instruction unchanged (wrong src type)
+TEST(OptimizerTest, ConvFloatToDoubleWrongSrcUnchanged)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_FLOAT_TO_DOUBLE,
+                                            make_const_double(1.0), make_var("t"));
+    Tac_Instruction *orig = body;
+    body = constant_fold(body);
+
+    EXPECT_EQ(body, orig);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_FLOAT_TO_DOUBLE);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// DoubleToFloat(ConstDouble(2.0))  →  Copy(ConstFloat(2.0), t)
+TEST(OptimizerTest, ConvDoubleToFloat)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_DOUBLE_TO_FLOAT,
+                                            make_const_double(2.0), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_FLOAT);
+    EXPECT_DOUBLE_EQ(body->u.copy.src->u.constant->u.float_val, 2.0);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// FloatToLongDouble(ConstFloat(3.14))  →  Copy(ConstLongDouble(≈3.14), t)
+TEST(OptimizerTest, ConvFloatToLongDouble)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE,
+                                            make_const_float(3.14), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_LONG_DOUBLE);
+    EXPECT_NEAR((double)body->u.copy.src->u.constant->u.long_double_val, 3.14, 1e-5);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// LongDoubleToFloat(ConstLongDouble(2.5L))  →  Copy(ConstFloat(2.5), t)
+TEST(OptimizerTest, ConvLongDoubleToFloat)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT,
+                                            make_const_long_double(2.5L), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_FLOAT);
+    EXPECT_DOUBLE_EQ(body->u.copy.src->u.constant->u.float_val, 2.5);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// DoubleToLongDouble(ConstDouble(1.5))  →  Copy(ConstLongDouble(1.5L), t)
+TEST(OptimizerTest, ConvDoubleToLongDouble)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE,
+                                            make_const_double(1.5), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_LONG_DOUBLE);
+    EXPECT_DOUBLE_EQ((double)body->u.copy.src->u.constant->u.long_double_val, 1.5);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// LongDoubleToDouble(ConstLongDouble(1.5L))  →  Copy(ConstDouble(1.5), t)
+TEST(OptimizerTest, ConvLongDoubleToDouble)
+{
+    Tac_Instruction *body = make_conversion(TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE,
+                                            make_const_long_double(1.5L), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_DOUBLE);
+    EXPECT_DOUBLE_EQ(body->u.copy.src->u.constant->u.double_val, 1.5);
 
     tac_free_instruction(body);
     EXPECT_EQ(xtotal_allocated_size(), 0);

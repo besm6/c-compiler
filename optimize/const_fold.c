@@ -262,6 +262,213 @@ static Tac_Val *fold_binary_const(Tac_BinaryOperator op,
     return make_int_const_val(c1->kind, result);
 }
 
+static bool is_conversion(Tac_InstructionKind k)
+{
+    switch (k) {
+    case TAC_INSTRUCTION_SIGN_EXTEND:
+    case TAC_INSTRUCTION_ZERO_EXTEND:
+    case TAC_INSTRUCTION_TRUNCATE:
+    case TAC_INSTRUCTION_INT_TO_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src)
+{
+    Tac_Const *rc = NULL;
+
+    switch (kind) {
+
+    /* ---- integer width conversions ---- */
+
+    case TAC_INSTRUCTION_SIGN_EXTEND:
+        rc = tac_new_const(src->kind == TAC_CONST_CHAR ? TAC_CONST_INT :
+                           src->kind == TAC_CONST_INT  ? TAC_CONST_LONG :
+                           src->kind == TAC_CONST_LONG ? TAC_CONST_LONG_LONG : TAC_CONST_INT);
+        switch (src->kind) {
+        case TAC_CONST_CHAR:      rc->u.int_val       = (int)(int8_t)src->u.char_val;             break;
+        case TAC_CONST_INT:       rc->u.long_val      = (long)src->u.int_val;                     break;
+        case TAC_CONST_LONG:      rc->u.long_long_val = (long long)src->u.long_val;               break;
+        default: tac_free_const(rc); return NULL;
+        }
+        break;
+
+    case TAC_INSTRUCTION_ZERO_EXTEND:
+        rc = tac_new_const(src->kind == TAC_CONST_UCHAR ? TAC_CONST_UINT :
+                           src->kind == TAC_CONST_UINT  ? TAC_CONST_ULONG :
+                           src->kind == TAC_CONST_ULONG ? TAC_CONST_ULONG_LONG : TAC_CONST_UINT);
+        switch (src->kind) {
+        case TAC_CONST_UCHAR: rc->u.uint_val       = (unsigned)src->u.uchar_val;                  break;
+        case TAC_CONST_UINT:  rc->u.ulong_val      = (unsigned long)src->u.uint_val;              break;
+        case TAC_CONST_ULONG: rc->u.ulong_long_val = (unsigned long long)src->u.ulong_val;        break;
+        default: tac_free_const(rc); return NULL;
+        }
+        break;
+
+    case TAC_INSTRUCTION_TRUNCATE:
+        switch (src->kind) {
+        case TAC_CONST_LONG:
+        case TAC_CONST_LONG_LONG:
+            rc = tac_new_const(TAC_CONST_INT);
+            rc->u.int_val = (int)const_to_int64(src);
+            break;
+        case TAC_CONST_ULONG:
+        case TAC_CONST_ULONG_LONG:
+            rc = tac_new_const(TAC_CONST_UINT);
+            rc->u.uint_val = (unsigned)const_to_uint64(src);
+            break;
+        case TAC_CONST_INT:
+            rc = tac_new_const(TAC_CONST_CHAR);
+            rc->u.char_val = (int)(int8_t)src->u.int_val;
+            break;
+        case TAC_CONST_UINT:
+            rc = tac_new_const(TAC_CONST_UCHAR);
+            rc->u.uchar_val = (unsigned char)src->u.uint_val;
+            break;
+        default: return NULL;
+        }
+        break;
+
+    /* ---- integer → floating-point ---- */
+
+    case TAC_INSTRUCTION_INT_TO_DOUBLE:
+        if (!const_is_integer_kind(src->kind)) return NULL;
+        rc = tac_new_const(TAC_CONST_DOUBLE);
+        rc->u.double_val = (double)const_to_int64(src);
+        break;
+
+    case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+        if (!const_is_integer_kind(src->kind)) return NULL;
+        rc = tac_new_const(TAC_CONST_DOUBLE);
+        rc->u.double_val = (double)const_to_uint64(src);
+        break;
+
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+        if (!const_is_integer_kind(src->kind)) return NULL;
+        rc = tac_new_const(TAC_CONST_FLOAT);
+        rc->u.float_val = (double)(float)const_to_int64(src);
+        break;
+
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+        if (!const_is_integer_kind(src->kind)) return NULL;
+        rc = tac_new_const(TAC_CONST_FLOAT);
+        rc->u.float_val = (double)(float)const_to_uint64(src);
+        break;
+
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+        if (!const_is_integer_kind(src->kind)) return NULL;
+        rc = tac_new_const(TAC_CONST_LONG_DOUBLE);
+        rc->u.long_double_val = (long double)const_to_int64(src);
+        break;
+
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+        if (!const_is_integer_kind(src->kind)) return NULL;
+        rc = tac_new_const(TAC_CONST_LONG_DOUBLE);
+        rc->u.long_double_val = (long double)const_to_uint64(src);
+        break;
+
+    /* ---- floating-point → integer (truncate toward zero) ---- */
+
+    case TAC_INSTRUCTION_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_FLOAT_TO_INT: {
+        double d;
+        if      (src->kind == TAC_CONST_FLOAT)  d = src->u.float_val;
+        else if (src->kind == TAC_CONST_DOUBLE) d = src->u.double_val;
+        else return NULL;
+        rc = tac_new_const(TAC_CONST_INT);
+        rc->u.int_val = (int)d;
+        break;
+    }
+
+    case TAC_INSTRUCTION_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_FLOAT_TO_UINT: {
+        double d;
+        if      (src->kind == TAC_CONST_FLOAT)  d = src->u.float_val;
+        else if (src->kind == TAC_CONST_DOUBLE) d = src->u.double_val;
+        else return NULL;
+        rc = tac_new_const(TAC_CONST_UINT);
+        rc->u.uint_val = (unsigned)d;
+        break;
+    }
+
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+        if (src->kind != TAC_CONST_LONG_DOUBLE) return NULL;
+        rc = tac_new_const(TAC_CONST_INT);
+        rc->u.int_val = (int)src->u.long_double_val;
+        break;
+
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+        if (src->kind != TAC_CONST_LONG_DOUBLE) return NULL;
+        rc = tac_new_const(TAC_CONST_UINT);
+        rc->u.uint_val = (unsigned)src->u.long_double_val;
+        break;
+
+    /* ---- floating-point ↔ floating-point ---- */
+
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+        if (src->kind != TAC_CONST_FLOAT) return NULL;
+        rc = tac_new_const(TAC_CONST_DOUBLE);
+        rc->u.double_val = src->u.float_val; // float_val already stored as double
+        break;
+
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+        if (src->kind != TAC_CONST_DOUBLE) return NULL;
+        rc = tac_new_const(TAC_CONST_FLOAT);
+        rc->u.float_val = src->u.double_val;
+        break;
+
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+        if (src->kind != TAC_CONST_FLOAT) return NULL;
+        rc = tac_new_const(TAC_CONST_LONG_DOUBLE);
+        rc->u.long_double_val = (long double)src->u.float_val;
+        break;
+
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+        if (src->kind != TAC_CONST_LONG_DOUBLE) return NULL;
+        rc = tac_new_const(TAC_CONST_FLOAT);
+        rc->u.float_val = (double)src->u.long_double_val;
+        break;
+
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+        if (src->kind != TAC_CONST_DOUBLE) return NULL;
+        rc = tac_new_const(TAC_CONST_LONG_DOUBLE);
+        rc->u.long_double_val = (long double)src->u.double_val;
+        break;
+
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+        if (src->kind != TAC_CONST_LONG_DOUBLE) return NULL;
+        rc = tac_new_const(TAC_CONST_DOUBLE);
+        rc->u.double_val = (double)src->u.long_double_val;
+        break;
+
+    default:
+        return NULL;
+    }
+
+    Tac_Val *rv    = tac_new_val(TAC_VAL_CONSTANT);
+    rv->u.constant = rc;
+    return rv;
+}
+
 Tac_Instruction *constant_fold(Tac_Instruction *body)
 {
     Tac_Instruction *prev = NULL;
@@ -311,6 +518,32 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
 
                 cur->u.binary.dst = NULL; // prevent double-free in tac_free_instruction
                 cur->next         = NULL; // prevent cascade-free
+                tac_free_instruction(cur);
+
+                if (prev)
+                    prev->next = copy;
+                else
+                    body = copy;
+
+                prev = copy;
+                cur  = next;
+                continue;
+            }
+        }
+
+        if (is_conversion(cur->kind) &&
+            cur->u.sign_extend.src->kind == TAC_VAL_CONSTANT) {
+
+            Tac_Val *folded = fold_conversion(cur->kind,
+                                              cur->u.sign_extend.src->u.constant);
+            if (folded) {
+                Tac_Instruction *copy = tac_new_instruction(TAC_INSTRUCTION_COPY);
+                copy->u.copy.src      = folded;
+                copy->u.copy.dst      = cur->u.sign_extend.dst; // steal dst
+                copy->next            = next;
+
+                cur->u.sign_extend.dst = NULL; // prevent double-free
+                cur->next              = NULL; // prevent cascade-free
                 tac_free_instruction(cur);
 
                 if (prev)
