@@ -206,7 +206,7 @@ static Tac_Instruction *make_jump(const char *target)
 // ---------------------------------------------------------------------------
 
 TEST(OptimizerTest, NullBodyReturnsNull) {
-    EXPECT_EQ(optimize_function(nullptr, opt_flags_default()), nullptr);
+    EXPECT_EQ(optimize_function(nullptr, opt_flags_default(), nullptr), nullptr);
     EXPECT_EQ(xtotal_allocated_size(), 0);
 }
 
@@ -442,7 +442,7 @@ TEST(OptimizerTest, BinaryFixedPoint)
                                         make_const_int(3), make_const_int(4), make_var("t"));
     head->next = ret;
 
-    Tac_Instruction *result = optimize_function(head, opt_flags_default());
+    Tac_Instruction *result = optimize_function(head, opt_flags_default(), nullptr);
 
     ASSERT_NE(result, nullptr);
     EXPECT_EQ(result->kind, TAC_INSTRUCTION_COPY);
@@ -461,7 +461,7 @@ TEST(OptimizerTest, UnaryFixedPoint)
                                        make_const_int(0), make_var("t"));
     head->next = ret;
 
-    Tac_Instruction *result = optimize_function(head, opt_flags_default());
+    Tac_Instruction *result = optimize_function(head, opt_flags_default(), nullptr);
 
     ASSERT_NE(result, nullptr);
     EXPECT_EQ(result->kind, TAC_INSTRUCTION_COPY);
@@ -1477,7 +1477,7 @@ TEST(OptimizerTest, UnreachableDeadElseBranch)
     OptFlags flags         = opt_flags_default();
     flags.copy_propagation = false;
     flags.dead_store_elim  = false;
-    Tac_Instruction *result = optimize_function(entry, flags);
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
         "- instruction:\n"

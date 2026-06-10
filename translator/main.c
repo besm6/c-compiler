@@ -322,7 +322,7 @@ void process_file(const Args *args)
                     flags.copy_propagation = !args->no_copy_prop;
                     flags.dead_store_elim  = !args->no_dead_store;
                     t->u.function.body =
-                        optimize_function(t->u.function.body, flags);
+                        optimize_function(t->u.function.body, flags, tac);
                 }
                 if (args->debug) {
                     tac_print_toplevel(stdout, t, 0);

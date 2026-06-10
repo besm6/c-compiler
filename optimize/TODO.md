@@ -22,6 +22,7 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 - Task 14 — Post-removal cleanup
 - Task 15 — Tests for unreachable elimination
 - Phase 3 verification
+- Task 16 — Alias pre-analysis
 
 ---
 
