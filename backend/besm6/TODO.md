@@ -90,7 +90,7 @@ Unblocks `if`/`while`/`for`/`switch` and almost every later task.
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 3 | Constant materialization | Make the `COPY`/`BINARY`/argument paths accept constant operands (they currently `fatal_error`). Integer/char constants: emit `=N` literal as **raw two's complement masked to 48 bits** — fix the sign bug in `emit_xta_val` where a negative octal literal prints a 64-bit pattern. Float/double constants: emit a `,real,` literal word and load it (replaces the float `fatal_error` in `get_const_int_val`). | M |
+| 3 | Constant materialization | Make the `COPY`/`BINARY`/argument paths accept constant operands (they currently `fatal_error`). Signed integer/char constants: emit `=N` literal as **raw two's complement masked to 41 bits**. Unsigned integer/char constants: emit `=N` literal as **raw two's complement masked to 48 bits**. Fix the sign bug in `emit_xta_val` where a negative octal literal prints a 64-bit pattern. Float/double constants: emit a `=rX` literal where X is a traditional real number like `-12.34e56`. | M |
 
 ### Phase G — Comparisons & switch
 
