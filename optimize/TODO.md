@@ -4,7 +4,8 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 
 ## Completed
 
-_(none yet)_
+- Task 1 — Directory and build system
+- Task 2 — Public API header
 
 ---
 
