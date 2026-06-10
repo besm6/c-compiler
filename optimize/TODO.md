@@ -8,6 +8,9 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 - Task 2 — Public API header
 - Task 3 — Pipeline loop skeleton
 - Task 4 — CLI flags
+- Task 5 — Test harness stub
+- Phase 1 verification
+- Task 6 — Unary folding
 
 ---
 
