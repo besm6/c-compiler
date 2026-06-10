@@ -24,6 +24,7 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 - Phase 3 verification
 - Task 16 — Alias pre-analysis
 - Task 17 — Reaching-copies dataflow
+- Task 18 — Substitution
 
 ---
 

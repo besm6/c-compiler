@@ -303,6 +303,142 @@ static bool copy_set_equal(const StringMap *a, const StringMap *b)
 }
 
 // ============================================================================
+// dup_val: deep-copy a single Tac_Val node without following .next.
+// ============================================================================
+
+static Tac_Val *dup_val(const Tac_Val *v)
+{
+    Tac_Val *nv = tac_new_val(v->kind);
+    if (v->kind == TAC_VAL_CONSTANT) {
+        Tac_Const *nc = tac_new_const(v->u.constant->kind);
+        *nc = *v->u.constant;
+        nv->u.constant = nc;
+    } else {
+        nv->u.var_name = xstrdup(v->u.var_name);
+    }
+    return nv;
+}
+
+// ============================================================================
+// subst_val: if *vp is Var(x) and cs maps x→src, replace *vp with dup of src.
+// ============================================================================
+
+static void subst_val(Tac_Val **vp, const StringMap *cs)
+{
+    Tac_Val *v = *vp;
+    if (!v || v->kind != TAC_VAL_VAR) return;
+    intptr_t oval = 0;
+    if (!map_get((StringMap *)cs, v->u.var_name, &oval)) return;
+    const CopyPair *p = (const CopyPair *)oval;
+    Tac_Val *repl = dup_val(p->src);
+    v->next = NULL;    // isolate before freeing; tac_free_val follows .next
+    tac_free_val(v);
+    *vp = repl;
+}
+
+// ============================================================================
+// subst_args: substitute each element of the fun_call.args linked list.
+// ============================================================================
+
+static void subst_args(Tac_Val **head, const StringMap *cs)
+{
+    while (*head) {
+        Tac_Val *arg = *head;
+        if (arg->kind == TAC_VAL_VAR) {
+            intptr_t oval = 0;
+            if (map_get((StringMap *)cs, arg->u.var_name, &oval)) {
+                const CopyPair *p  = (const CopyPair *)oval;
+                Tac_Val        *repl = dup_val(p->src);
+                repl->next = arg->next;
+                *head      = repl;
+                arg->next  = NULL;
+                tac_free_val(arg);
+                head = &repl->next;
+                continue;
+            }
+        }
+        head = &(*head)->next;
+    }
+}
+
+// ============================================================================
+// subst_instruction: substitute all source operands (not dst) of one instruction.
+// GET_ADDRESS.src is intentionally excluded: it is address-taken, not a value use.
+// ============================================================================
+
+static void subst_instruction(Tac_Instruction *ins, const StringMap *cs)
+{
+    switch (ins->kind) {
+    case TAC_INSTRUCTION_RETURN:
+        if (ins->u.return_.src)
+            subst_val(&ins->u.return_.src, cs);
+        break;
+    case TAC_INSTRUCTION_SIGN_EXTEND:
+    case TAC_INSTRUCTION_TRUNCATE:
+    case TAC_INSTRUCTION_ZERO_EXTEND:
+    case TAC_INSTRUCTION_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+        subst_val(&ins->u.sign_extend.src, cs);
+        break;
+    case TAC_INSTRUCTION_UNARY:
+        subst_val(&ins->u.unary.src, cs);
+        break;
+    case TAC_INSTRUCTION_BINARY:
+        subst_val(&ins->u.binary.src1, cs);
+        subst_val(&ins->u.binary.src2, cs);
+        break;
+    case TAC_INSTRUCTION_COPY:
+        subst_val(&ins->u.copy.src, cs);
+        break;
+    case TAC_INSTRUCTION_GET_ADDRESS:
+        break;
+    case TAC_INSTRUCTION_LOAD:
+        subst_val(&ins->u.load.src_ptr, cs);
+        break;
+    case TAC_INSTRUCTION_STORE:
+        subst_val(&ins->u.store.src, cs);
+        subst_val(&ins->u.store.dst_ptr, cs);
+        break;
+    case TAC_INSTRUCTION_ADD_PTR:
+        subst_val(&ins->u.add_ptr.ptr, cs);
+        subst_val(&ins->u.add_ptr.index, cs);
+        break;
+    case TAC_INSTRUCTION_COPY_TO_OFFSET:
+        subst_val(&ins->u.copy_to_offset.src, cs);
+        break;
+    case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+        break;
+    case TAC_INSTRUCTION_JUMP_IF_ZERO:
+        subst_val(&ins->u.jump_if_zero.condition, cs);
+        break;
+    case TAC_INSTRUCTION_JUMP_IF_NOT_ZERO:
+        subst_val(&ins->u.jump_if_not_zero.condition, cs);
+        break;
+    case TAC_INSTRUCTION_FUN_CALL:
+        subst_args(&ins->u.fun_call.args, cs);
+        break;
+    default:
+        break;
+    }
+}
+
+// ============================================================================
 // propagate_copies: main entry point.
 // ============================================================================
 
@@ -403,13 +539,48 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
         }
     }
 
-    // Task 18: substitution (TODO)
-    // Walk each reachable block. At each instruction, maintain current_in by
-    // starting from in_sets[b] and applying apply_transfer instruction-by-
-    // instruction. For each Var operand x, if current_in maps x→src, replace
-    // the operand with a freshly allocated duplicate of src (tac_new_val /
-    // tac_new_const). After substitution, detect and remove Copy(x,x)
-    // self-copies.
+    // Task 18: substitution
+    for (int i = 0; i < n; i++) {
+        OptBlock *b = cfg->blocks[i];
+        if (!b->reachable || !b->first)
+            continue;
+
+        StringMap current_in;
+        map_init(&current_in);
+        copy_set_copy(&current_in, &in_sets[i]);
+
+        Tac_Instruction *prev = NULL;
+        Tac_Instruction *ins  = b->first;
+        while (ins) {
+            Tac_Instruction *next = ins->next;
+
+            subst_instruction(ins, &current_in);
+
+            // Remove self-copies: Copy(Var(x), Var(x))
+            if (ins->kind == TAC_INSTRUCTION_COPY &&
+                ins->u.copy.src->kind == TAC_VAL_VAR &&
+                ins->u.copy.dst->kind == TAC_VAL_VAR &&
+                strcmp(ins->u.copy.src->u.var_name,
+                       ins->u.copy.dst->u.var_name) == 0) {
+                if (prev)
+                    prev->next = next;
+                else
+                    b->first = next;
+                if (b->last == ins)
+                    b->last = prev;
+                ins->next = NULL;
+                tac_free_instruction(ins);
+                ins = next;
+                continue;
+            }
+
+            apply_transfer(&current_in, ins, &static_names, &address_taken);
+            prev = ins;
+            ins  = next;
+        }
+
+        copy_set_destroy(&current_in);
+    }
 
     // Cleanup.
     for (int i = 0; i < n; i++) {
