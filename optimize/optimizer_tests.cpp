@@ -156,6 +156,22 @@ static Tac_Instruction *make_conversion(Tac_InstructionKind kind,
     return i;
 }
 
+static Tac_Instruction *make_jump_if_zero(Tac_Val *cond, const char *target)
+{
+    Tac_Instruction *i          = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
+    i->u.jump_if_zero.condition = cond;
+    i->u.jump_if_zero.target    = xstrdup(target);
+    return i;
+}
+
+static Tac_Instruction *make_jump_if_not_zero(Tac_Val *cond, const char *target)
+{
+    Tac_Instruction *i              = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
+    i->u.jump_if_not_zero.condition = cond;
+    i->u.jump_if_not_zero.target    = xstrdup(target);
+    return i;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -1264,6 +1280,92 @@ TEST(OptimizerTest, ConvLongDoubleToDouble)
     EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
     EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_DOUBLE);
     EXPECT_DOUBLE_EQ(body->u.copy.src->u.constant->u.double_val, 1.5);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// JumpIfZero(ConstInt(0), "T")  →  Jump("T")
+TEST(OptimizerTest, JumpFoldJIZZero)
+{
+    Tac_Instruction *body = make_jump_if_zero(make_const_int(0), "T");
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_JUMP);
+    EXPECT_STREQ(body->u.jump.target, "T");
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// JumpIfZero(ConstInt(1), "T")  →  deleted
+TEST(OptimizerTest, JumpFoldJIZNonzero)
+{
+    Tac_Instruction *ret  = make_return(nullptr);
+    Tac_Instruction *body = make_jump_if_zero(make_const_int(1), "T");
+    body->next = ret;
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_RETURN);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// JumpIfNotZero(ConstInt(1), "T")  →  Jump("T")
+TEST(OptimizerTest, JumpFoldJINZNonzero)
+{
+    Tac_Instruction *body = make_jump_if_not_zero(make_const_int(1), "T");
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_JUMP);
+    EXPECT_STREQ(body->u.jump.target, "T");
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// JumpIfNotZero(ConstInt(0), "T")  →  deleted
+TEST(OptimizerTest, JumpFoldJINZZero)
+{
+    Tac_Instruction *ret  = make_return(nullptr);
+    Tac_Instruction *body = make_jump_if_not_zero(make_const_int(0), "T");
+    body->next = ret;
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_RETURN);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// JumpIfZero(ConstDouble(0.0), "T")  →  Jump("T")
+TEST(OptimizerTest, JumpFoldJIZDoubleZero)
+{
+    Tac_Instruction *body = make_jump_if_zero(make_const_double(0.0), "T");
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_JUMP);
+    EXPECT_STREQ(body->u.jump.target, "T");
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// JumpIfZero(Var("x"), "T")  →  unchanged
+TEST(OptimizerTest, JumpFoldJIZVarUnchanged)
+{
+    Tac_Instruction *body = make_jump_if_zero(make_var("x"), "T");
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_JUMP_IF_ZERO);
+    EXPECT_EQ(body->u.jump_if_zero.condition->kind, TAC_VAL_VAR);
 
     tac_free_instruction(body);
     EXPECT_EQ(xtotal_allocated_size(), 0);

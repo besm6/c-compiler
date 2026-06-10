@@ -557,6 +557,35 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
             }
         }
 
+        if ((cur->kind == TAC_INSTRUCTION_JUMP_IF_ZERO ||
+             cur->kind == TAC_INSTRUCTION_JUMP_IF_NOT_ZERO) &&
+            cur->u.jump_if_zero.condition->kind == TAC_VAL_CONSTANT) {
+
+            bool is_zero = const_is_zero(cur->u.jump_if_zero.condition->u.constant);
+            bool take = (cur->kind == TAC_INSTRUCTION_JUMP_IF_ZERO) ? is_zero : !is_zero;
+
+            if (take) {
+                Tac_Instruction *jmp  = tac_new_instruction(TAC_INSTRUCTION_JUMP);
+                jmp->u.jump.target    = cur->u.jump_if_zero.target; // steal
+                jmp->next             = next;
+
+                tac_free_val(cur->u.jump_if_zero.condition);
+                cur->u.jump_if_zero.condition = NULL;
+                cur->u.jump_if_zero.target    = NULL;
+                cur->next                     = NULL;
+                tac_free_instruction(cur);
+
+                if (prev) prev->next = jmp; else body = jmp;
+                prev = jmp;
+            } else {
+                if (prev) prev->next = next; else body = next;
+                cur->next = NULL;
+                tac_free_instruction(cur);
+            }
+            cur = next;
+            continue;
+        }
+
         prev = cur;
         cur  = next;
     }

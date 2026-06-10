@@ -14,6 +14,8 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 - Task 7 — Binary folding (integer)
 - Task 8 — Binary folding (floating-point)
 - Task 9 — Type conversion folding
+- Task 10 — Conditional jump folding
+- Task 11 — Tests for constant folding
 
 ---
 
