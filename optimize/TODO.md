@@ -7,6 +7,7 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 - Task 1 — Directory and build system
 - Task 2 — Public API header
 - Task 3 — Pipeline loop skeleton
+- Task 4 — CLI flags
 
 ---
 

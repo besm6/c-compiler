@@ -10,6 +10,7 @@
 #define STDOUT_FILENO 1
 #endif
 
+#include "optimize.h"
 #include "semantic.h"
 #include "structtab.h"
 #include "symtab.h"
@@ -41,6 +42,9 @@ typedef struct {
     const char *target_name; // -t/--target
     char *input_file;       // Input filename
     char *output_file;      // Output filename (optional)
+    int no_unreachable;     // --no-unreachable
+    int no_copy_prop;       // --no-copy-prop
+    int no_dead_store;      // --no-dead-store
 } Args;
 
 //
@@ -58,6 +62,9 @@ static void print_usage(const char *prog_name)
     fprintf(stderr, "    --tac               Emit TAC in binary format (default)\n");
     fprintf(stderr, "    --yaml              Emit YAML format\n");
     fprintf(stderr, "    --dot               Emit Graphviz DOT script\n");
+    fprintf(stderr, "    --no-unreachable    Disable unreachable code elimination\n");
+    fprintf(stderr, "    --no-copy-prop      Disable copy propagation\n");
+    fprintf(stderr, "    --no-dead-store     Disable dead store elimination\n");
     fprintf(stderr, "    -t, --target NAME   Target architecture (default: x86_64)\n");
     fprintf(stderr, "    -v, --verbose       Enable verbose mode\n");
     fprintf(stderr, "    -D, --debug         Print debug information\n");
@@ -71,13 +78,16 @@ static void print_usage(const char *prog_name)
 //
 static void init_args(Args *args)
 {
-    args->verbose      = 0;
-    args->help         = 0;
-    args->debug        = 0;
-    args->format       = FORMAT_TAC; // Default format
-    args->target_name  = "x86_64";
-    args->input_file   = NULL;
-    args->output_file  = NULL;
+    args->verbose        = 0;
+    args->help           = 0;
+    args->debug          = 0;
+    args->format         = FORMAT_TAC; // Default format
+    args->target_name    = "x86_64";
+    args->input_file     = NULL;
+    args->output_file    = NULL;
+    args->no_unreachable = 0;
+    args->no_copy_prop   = 0;
+    args->no_dead_store  = 0;
 }
 
 //
@@ -112,14 +122,17 @@ static char *generate_output_filename(const char *input_file, OutputFormat forma
 static int parse_args(int argc, char *argv[], Args *args)
 {
     static struct option long_options[] = {
-        { "verbose", no_argument,       0, 'v' }, //
-        { "help",    no_argument,       0, 'h' }, //
-        { "debug",   no_argument,       0, 'D' }, //
-        { "tac",     no_argument,       0, 'T' }, //
-        { "yaml",    no_argument,       0, 'y' }, //
-        { "dot",     no_argument,       0, 'd' }, //
-        { "target",  required_argument, 0, 't' }, //
-        {},                                       //
+        { "verbose",        no_argument,       0, 'v'  }, //
+        { "help",           no_argument,       0, 'h'  }, //
+        { "debug",          no_argument,       0, 'D'  }, //
+        { "tac",            no_argument,       0, 'T'  }, //
+        { "yaml",           no_argument,       0, 'y'  }, //
+        { "dot",            no_argument,       0, 'd'  }, //
+        { "target",         required_argument, 0, 't'  }, //
+        { "no-unreachable", no_argument,       0, 256  }, //
+        { "no-copy-prop",   no_argument,       0, 257  }, //
+        { "no-dead-store",  no_argument,       0, 258  }, //
+        {},                                              //
     };
 
     int opt;
@@ -153,6 +166,15 @@ static int parse_args(int argc, char *argv[], Args *args)
             break;
         case 'T':
             args->format = FORMAT_TAC;
+            break;
+        case 256:
+            args->no_unreachable = 1;
+            break;
+        case 257:
+            args->no_copy_prop = 1;
+            break;
+        case 258:
+            args->no_dead_store = 1;
             break;
         case '?': // Unknown option
             return -1;
@@ -293,7 +315,15 @@ void process_file(const Args *args)
         Tac_TopLevel *tac = translate(ast);
         free_external_decl(ast);
         if (tac) {
-            for (const Tac_TopLevel *t = tac; t; t = t->next) {
+            for (Tac_TopLevel *t = tac; t; t = t->next) {
+                if (t->kind == TAC_TOPLEVEL_FUNCTION) {
+                    OptFlags flags = opt_flags_default();
+                    flags.unreachable_elim = !args->no_unreachable;
+                    flags.copy_propagation = !args->no_copy_prop;
+                    flags.dead_store_elim  = !args->no_dead_store;
+                    t->u.function.body =
+                        optimize_function(t->u.function.body, flags);
+                }
                 if (args->debug) {
                     tac_print_toplevel(stdout, t, 0);
                 }
