@@ -56,6 +56,7 @@ add_subdirectory(parser)
 add_subdirectory(tac)
 add_subdirectory(semantic)
 add_subdirectory(translator)
+add_subdirectory(optimize)
 add_subdirectory(backend)
 
 add_custom_target(build_tests
@@ -68,6 +69,7 @@ add_custom_target(build_tests
         semantic-tests
         translate-tests
         besm-tests
+        optimizer-tests
 )
 
 #
@@ -84,4 +86,4 @@ target_link_libraries(parse parser scanner)
 add_executable(lower
     translator/main.c
 )
-target_link_libraries(lower translator)
+target_link_libraries(lower optimize translator)
