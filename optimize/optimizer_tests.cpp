@@ -2,10 +2,12 @@
 
 extern "C" {
 #include "optimize.h"
+#include "cfg.h"
 #include "xalloc.h"
 
 // Exposed for direct unit-testing of the folding pass.
 Tac_Instruction *constant_fold(Tac_Instruction *body);
+void eliminate_unreachable(OptCfg *cfg);
 }
 
 // ---------------------------------------------------------------------------
@@ -169,6 +171,20 @@ static Tac_Instruction *make_jump_if_not_zero(Tac_Val *cond, const char *target)
     Tac_Instruction *i              = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
     i->u.jump_if_not_zero.condition = cond;
     i->u.jump_if_not_zero.target    = xstrdup(target);
+    return i;
+}
+
+static Tac_Instruction *make_label(const char *name)
+{
+    Tac_Instruction *i = tac_new_instruction(TAC_INSTRUCTION_LABEL);
+    i->u.label.name    = xstrdup(name);
+    return i;
+}
+
+static Tac_Instruction *make_jump(const char *target)
+{
+    Tac_Instruction *i = tac_new_instruction(TAC_INSTRUCTION_JUMP);
+    i->u.jump.target   = xstrdup(target);
     return i;
 }
 
@@ -1368,5 +1384,59 @@ TEST(OptimizerTest, JumpFoldJIZVarUnchanged)
     EXPECT_EQ(body->u.jump_if_zero.condition->kind, TAC_VAL_VAR);
 
     tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Label("fn") → Return(Var("x")) → Return(NULL)  →  backstop Return(NULL) removed.
+TEST(OptimizerTest, UnreachableBackstopReturn)
+{
+    Tac_Instruction *lbl  = make_label("fn");
+    Tac_Instruction *ret1 = make_return(make_var("x"));
+    Tac_Instruction *ret2 = make_return(nullptr);
+    lbl->next  = ret1;
+    ret1->next = ret2;
+
+    OptCfg *cfg = cfg_build(lbl);
+    eliminate_unreachable(cfg);
+    Tac_Instruction *result = cfg_flatten(cfg);
+    cfg_free(cfg);
+
+    // Expect: Label("fn") → Return(Var("x")), nothing after.
+    ASSERT_NE(result, nullptr);
+    EXPECT_EQ(result->kind, TAC_INSTRUCTION_LABEL);
+    ASSERT_NE(result->next, nullptr);
+    EXPECT_EQ(result->next->kind, TAC_INSTRUCTION_RETURN);
+    ASSERT_NE(result->next->u.return_.src, nullptr);
+    EXPECT_EQ(result->next->u.return_.src->kind, TAC_VAL_VAR);
+    EXPECT_EQ(result->next->next, nullptr);
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Label("fn") → Jump("End") → Return(Var("x")) → Label("End") → Return(NULL)
+// The block containing Return(Var("x")) is unreachable.
+TEST(OptimizerTest, UnreachableDeadBranch)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *jmp   = make_jump("End");
+    Tac_Instruction *ret_x = make_return(make_var("x"));
+    Tac_Instruction *lbl   = make_label("End");
+    Tac_Instruction *ret0  = make_return(nullptr);
+    entry->next = jmp;
+    jmp->next   = ret_x;
+    ret_x->next = lbl;
+    lbl->next   = ret0;
+
+    OptCfg *cfg = cfg_build(entry);
+    eliminate_unreachable(cfg);
+    Tac_Instruction *result = cfg_flatten(cfg);
+    cfg_free(cfg);
+
+    // Dead branch (Return(Var("x"))) must be gone.
+    for (Tac_Instruction *i = result; i; i = i->next)
+        EXPECT_FALSE(i->kind == TAC_INSTRUCTION_RETURN && i->u.return_.src != nullptr);
+
+    tac_free_instruction(result);
     EXPECT_EQ(xtotal_allocated_size(), 0);
 }
