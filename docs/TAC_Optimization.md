@@ -311,7 +311,9 @@ Within one iteration, constant folding runs first on the flat list because it is
 
 ### Command-line control
 
-A `-O1` flag enables all four passes. Individual passes can be toggled for debugging. With `-O0` (the default until the optimizer is implemented), the body passes through unchanged.
+By default all four passes are enabled. Individual passes can be disabled for debugging, except constant folding.
+For each pass, a separate CLI option exists in the `lower` binary.
+The constant folding is always enabled, to simplify the subsequent code generation.
 
 ## Implementation plan
 
