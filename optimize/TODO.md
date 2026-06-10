@@ -21,6 +21,7 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 - Task 13 — BFS reachability
 - Task 14 — Post-removal cleanup
 - Task 15 — Tests for unreachable elimination
+- Phase 3 verification
 
 ---
 
