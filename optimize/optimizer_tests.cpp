@@ -21,6 +21,33 @@ static Tac_Val *make_const_int(int v)
     return val;
 }
 
+static Tac_Val *make_const_float(double v)
+{
+    Tac_Const *c   = tac_new_const(TAC_CONST_FLOAT);
+    c->u.float_val = v;
+    Tac_Val *val   = tac_new_val(TAC_VAL_CONSTANT);
+    val->u.constant = c;
+    return val;
+}
+
+static Tac_Val *make_const_double(double v)
+{
+    Tac_Const *c    = tac_new_const(TAC_CONST_DOUBLE);
+    c->u.double_val = v;
+    Tac_Val *val    = tac_new_val(TAC_VAL_CONSTANT);
+    val->u.constant = c;
+    return val;
+}
+
+static Tac_Val *make_const_long_double(long double v)
+{
+    Tac_Const *c         = tac_new_const(TAC_CONST_LONG_DOUBLE);
+    c->u.long_double_val = v;
+    Tac_Val *val         = tac_new_val(TAC_VAL_CONSTANT);
+    val->u.constant      = c;
+    return val;
+}
+
 static Tac_Val *make_var(const char *name)
 {
     Tac_Val *val    = tac_new_val(TAC_VAL_VAR);
@@ -323,5 +350,102 @@ TEST(OptimizerTest, UnaryFixedPoint)
     EXPECT_EQ(result->u.copy.src->u.constant->u.int_val, 1);
 
     tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// 1.5f + 2.5f  →  Copy(ConstFloat(4.0), t)
+TEST(OptimizerTest, BinaryFoldFloatAdd)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_ADD,
+                                        make_const_float(1.5), make_const_float(2.5), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    ASSERT_NE(body->u.copy.src, nullptr);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_FLOAT);
+    EXPECT_DOUBLE_EQ(body->u.copy.src->u.constant->u.float_val, 4.0);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// 5.0 - 3.0  →  Copy(ConstDouble(2.0), t)
+TEST(OptimizerTest, BinaryFoldDoubleSubtract)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_SUBTRACT,
+                                        make_const_double(5.0), make_const_double(3.0), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_DOUBLE);
+    EXPECT_DOUBLE_EQ(body->u.copy.src->u.constant->u.double_val, 2.0);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// 2.0 * 3.0  →  Copy(ConstDouble(6.0), t)
+TEST(OptimizerTest, BinaryFoldDoubleMultiply)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_MULTIPLY,
+                                        make_const_double(2.0), make_const_double(3.0), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_DOUBLE);
+    EXPECT_DOUBLE_EQ(body->u.copy.src->u.constant->u.double_val, 6.0);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// 1.0 / 0.0  →  Copy(ConstDouble(inf), t)  — IEEE division by zero is defined, never skipped.
+TEST(OptimizerTest, BinaryFoldDoubleDivideByZero)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_DIVIDE,
+                                        make_const_double(1.0), make_const_double(0.0), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_DOUBLE);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// 3.0 == 3.0  →  Copy(ConstInt(1), t)  — comparison always yields ConstInt
+TEST(OptimizerTest, BinaryFoldDoubleEqual)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_EQUAL,
+                                        make_const_double(3.0), make_const_double(3.0), make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, 1);
+
+    tac_free_instruction(body);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// 1.5L + 2.5L  →  Copy(ConstLongDouble(4.0L), t)
+TEST(OptimizerTest, BinaryFoldLongDoubleAdd)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_ADD,
+                                        make_const_long_double(1.5L), make_const_long_double(2.5L),
+                                        make_var("t"));
+    body = constant_fold(body);
+
+    ASSERT_NE(body, nullptr);
+    EXPECT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_LONG_DOUBLE);
+    EXPECT_DOUBLE_EQ((double)body->u.copy.src->u.constant->u.long_double_val, 4.0);
+
+    tac_free_instruction(body);
     EXPECT_EQ(xtotal_allocated_size(), 0);
 }

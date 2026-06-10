@@ -140,13 +140,72 @@ static Tac_Val *make_int_const_val(Tac_ConstKind kind, uint64_t bits)
     return rv;
 }
 
+static Tac_Val *fold_binary_float(Tac_BinaryOperator op,
+                                   const Tac_Const *c1,
+                                   const Tac_Const *c2)
+{
+    if (c1->kind != c2->kind)
+        return NULL;
+
+    if (c1->kind == TAC_CONST_LONG_DOUBLE) {
+        long double ld1 = c1->u.long_double_val, ld2 = c2->u.long_double_val;
+        long double ldr;
+        switch (op) {
+        case TAC_BINARY_ADD:              ldr = ld1 + ld2; break;
+        case TAC_BINARY_SUBTRACT:         ldr = ld1 - ld2; break;
+        case TAC_BINARY_MULTIPLY:         ldr = ld1 * ld2; break;
+        case TAC_BINARY_DIVIDE:           ldr = ld1 / ld2; break;
+        case TAC_BINARY_EQUAL:            return make_int_const_val(TAC_CONST_INT, ld1 == ld2);
+        case TAC_BINARY_NOT_EQUAL:        return make_int_const_val(TAC_CONST_INT, ld1 != ld2);
+        case TAC_BINARY_LESS_THAN:        return make_int_const_val(TAC_CONST_INT, ld1 <  ld2);
+        case TAC_BINARY_LESS_OR_EQUAL:    return make_int_const_val(TAC_CONST_INT, ld1 <= ld2);
+        case TAC_BINARY_GREATER_THAN:     return make_int_const_val(TAC_CONST_INT, ld1 >  ld2);
+        case TAC_BINARY_GREATER_OR_EQUAL: return make_int_const_val(TAC_CONST_INT, ld1 >= ld2);
+        default: return NULL;
+        }
+        Tac_Const *rc = tac_new_const(TAC_CONST_LONG_DOUBLE);
+        rc->u.long_double_val = ldr;
+        Tac_Val *rv = tac_new_val(TAC_VAL_CONSTANT);
+        rv->u.constant = rc;
+        return rv;
+    }
+
+    if (c1->kind != TAC_CONST_FLOAT && c1->kind != TAC_CONST_DOUBLE)
+        return NULL;
+
+    double dv1 = (c1->kind == TAC_CONST_FLOAT) ? c1->u.float_val : c1->u.double_val;
+    double dv2 = (c2->kind == TAC_CONST_FLOAT) ? c2->u.float_val : c2->u.double_val;
+    double dr;
+    switch (op) {
+    case TAC_BINARY_ADD:              dr = dv1 + dv2; break;
+    case TAC_BINARY_SUBTRACT:         dr = dv1 - dv2; break;
+    case TAC_BINARY_MULTIPLY:         dr = dv1 * dv2; break;
+    case TAC_BINARY_DIVIDE:           dr = dv1 / dv2; break;
+    case TAC_BINARY_EQUAL:            return make_int_const_val(TAC_CONST_INT, dv1 == dv2);
+    case TAC_BINARY_NOT_EQUAL:        return make_int_const_val(TAC_CONST_INT, dv1 != dv2);
+    case TAC_BINARY_LESS_THAN:        return make_int_const_val(TAC_CONST_INT, dv1 <  dv2);
+    case TAC_BINARY_LESS_OR_EQUAL:    return make_int_const_val(TAC_CONST_INT, dv1 <= dv2);
+    case TAC_BINARY_GREATER_THAN:     return make_int_const_val(TAC_CONST_INT, dv1 >  dv2);
+    case TAC_BINARY_GREATER_OR_EQUAL: return make_int_const_val(TAC_CONST_INT, dv1 >= dv2);
+    default: return NULL;
+    }
+    Tac_Const *rc = tac_new_const(c1->kind);
+    if (c1->kind == TAC_CONST_FLOAT)
+        rc->u.float_val = dr;
+    else
+        rc->u.double_val = dr;
+    Tac_Val *rv = tac_new_val(TAC_VAL_CONSTANT);
+    rv->u.constant = rc;
+    return rv;
+}
+
 // Returns a new Tac_Val for the folded result, or NULL if not foldable.
 static Tac_Val *fold_binary_const(Tac_BinaryOperator op,
                                    const Tac_Const *c1,
                                    const Tac_Const *c2)
 {
     if (!const_is_integer_kind(c1->kind) || !const_is_integer_kind(c2->kind))
-        return NULL;
+        return fold_binary_float(op, c1, c2);
 
     if ((op == TAC_BINARY_DIVIDE          || op == TAC_BINARY_REMAINDER ||
          op == TAC_BINARY_DIVIDE_UNSIGNED || op == TAC_BINARY_REMAINDER_UNSIGNED) &&
