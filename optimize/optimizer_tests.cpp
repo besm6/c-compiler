@@ -14,6 +14,19 @@ void eliminate_unreachable(OptCfg *cfg);
 // Helpers
 // ---------------------------------------------------------------------------
 
+static std::string capture_instructions(const Tac_Instruction *body)
+{
+    FILE *f = tmpfile();
+    EXPECT_NE(f, nullptr);
+    tac_export_yaml_instruction_list(f, body, 0);
+    long len = ftell(f);
+    rewind(f);
+    std::string yaml(static_cast<size_t>(len), '\0');
+    EXPECT_TRUE(fread(&yaml[0], 1, static_cast<size_t>(len), f));
+    fclose(f);
+    return yaml;
+}
+
 static Tac_Val *make_const_int(int v)
 {
     Tac_Const *c  = tac_new_const(TAC_CONST_INT);
@@ -1401,14 +1414,15 @@ TEST(OptimizerTest, UnreachableBackstopReturn)
     Tac_Instruction *result = cfg_flatten(cfg);
     cfg_free(cfg);
 
-    // Expect: Label("fn") → Return(Var("x")), nothing after.
-    ASSERT_NE(result, nullptr);
-    EXPECT_EQ(result->kind, TAC_INSTRUCTION_LABEL);
-    ASSERT_NE(result->next, nullptr);
-    EXPECT_EQ(result->next->kind, TAC_INSTRUCTION_RETURN);
-    ASSERT_NE(result->next->u.return_.src, nullptr);
-    EXPECT_EQ(result->next->u.return_.src->kind, TAC_VAL_VAR);
-    EXPECT_EQ(result->next->next, nullptr);
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: x\n");
 
     tac_free_instruction(result);
     EXPECT_EQ(xtotal_allocated_size(), 0);
@@ -1433,9 +1447,49 @@ TEST(OptimizerTest, UnreachableDeadBranch)
     Tac_Instruction *result = cfg_flatten(cfg);
     cfg_free(cfg);
 
-    // Dead branch (Return(Var("x"))) must be gone.
-    for (Tac_Instruction *i = result; i; i = i->next)
-        EXPECT_FALSE(i->kind == TAC_INSTRUCTION_RETURN && i->u.return_.src != nullptr);
+    // Dead block gone; useless Jump("End") and unused Label("End") also cleaned up.
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: return\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Label("fn") → JumpIfZero(ConstInt(0), "Else") → Return(ConstInt(1)) → Label("Else") → Return(ConstInt(0))
+// constant_fold turns JIZ(0,"Else") into Jump("Else"); unreachable elim removes the
+// dead then-block; post-cleanup removes the useless Jump and unused Label("Else").
+TEST(OptimizerTest, UnreachableDeadElseBranch)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *jiz   = make_jump_if_zero(make_const_int(0), "Else");
+    Tac_Instruction *ret1  = make_return(make_const_int(1));
+    Tac_Instruction *lbl   = make_label("Else");
+    Tac_Instruction *ret0  = make_return(make_const_int(0));
+    entry->next = jiz;
+    jiz->next   = ret1;
+    ret1->next  = lbl;
+    lbl->next   = ret0;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    flags.dead_store_elim  = false;
+    Tac_Instruction *result = optimize_function(entry, flags);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
 
     tac_free_instruction(result);
     EXPECT_EQ(xtotal_allocated_size(), 0);

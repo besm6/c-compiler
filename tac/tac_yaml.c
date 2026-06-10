@@ -734,7 +734,7 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
     }
 }
 
-static void export_yaml_instruction_list(FILE *fd, const Tac_Instruction *instr, int level)
+void tac_export_yaml_instruction_list(FILE *fd, const Tac_Instruction *instr, int level)
 {
     while (instr) {
         print_indent(fd, level);
@@ -760,7 +760,7 @@ void tac_export_yaml(FILE *fd, const Tac_TopLevel *tl)
         }
         if (tl->u.function.body) {
             fprintf(fd, "  body:\n");
-            export_yaml_instruction_list(fd, tl->u.function.body, 2);
+            tac_export_yaml_instruction_list(fd, tl->u.function.body, 2);
         }
         break;
     case TAC_TOPLEVEL_STATIC_VARIABLE:

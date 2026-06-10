@@ -20,6 +20,7 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 - Task 12 — CFG data structures
 - Task 13 — BFS reachability
 - Task 14 — Post-removal cleanup
+- Task 15 — Tests for unreachable elimination
 
 ---
 

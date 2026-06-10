@@ -513,6 +513,7 @@ Tac_Program *tac_import_program(WFILE *in);
 // YAML export
 //
 void tac_export_yaml(FILE *fd, const Tac_TopLevel *tl);
+void tac_export_yaml_instruction_list(FILE *fd, const Tac_Instruction *instr, int level);
 
 #ifdef __cplusplus
 }
