@@ -661,6 +661,41 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         uj->name       = xstrdup("b/ret");
         break;
     }
+    // LABEL  name:
+    //
+    // Emit an inline label definition point.  No storage is allocated.
+    case TAC_INSTRUCTION_LABEL: {
+        Besm_Instr *lbl = emit(block, tail, BESM_STMT_LABEL);
+        lbl->name       = xstrdup(instr->u.label.name);
+        break;
+    }
+    // JUMP  target
+    //
+    // Unconditional branch: ,UJ, target.
+    case TAC_INSTRUCTION_JUMP: {
+        Besm_Instr *uj = emit(block, tail, BESM_BRANCH_UJ);
+        uj->name       = xstrdup(instr->u.jump.target);
+        break;
+    }
+    // JUMP_IF_ZERO  condition → target
+    //
+    // XTA sets logical ω from the loaded value (ω=0 iff A=0).
+    // UZA branches when ω=0 (condition is zero).  No NTR needed.
+    case TAC_INSTRUCTION_JUMP_IF_ZERO: {
+        emit_xta_val(block, tail, f, instr->u.jump_if_zero.condition);
+        Besm_Instr *uza = emit(block, tail, BESM_BRANCH_UZA);
+        uza->name       = xstrdup(instr->u.jump_if_zero.target);
+        break;
+    }
+    // JUMP_IF_NOT_ZERO  condition → target
+    //
+    // Same as above but U1A branches when ω≠0 (condition is non-zero).
+    case TAC_INSTRUCTION_JUMP_IF_NOT_ZERO: {
+        emit_xta_val(block, tail, f, instr->u.jump_if_not_zero.condition);
+        Besm_Instr *u1a = emit(block, tail, BESM_BRANCH_U1A);
+        u1a->name       = xstrdup(instr->u.jump_if_not_zero.target);
+        break;
+    }
     default:
         fatal_error("TODO: codegen for TAC instruction kind %d (Phase B)", (int)instr->kind);
     }

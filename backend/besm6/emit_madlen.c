@@ -18,6 +18,7 @@ static void sanitize_name(char *dst, size_t n, const char *src)
         char c = *src;
         if (c == '_') c = '*';
         else if (c == '$') c = '/';
+        else if (c == '.') c = '*';
         dst[i] = c;
     }
     dst[i] = '\0';

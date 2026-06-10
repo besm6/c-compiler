@@ -90,7 +90,6 @@ Unblocks `if`/`while`/`for`/`switch` and almost every later task.
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 2 | Label / Jump / JumpIfZero / JumpIfNotZero | **Label**: emit `name: ,bss,` definition point (`BESM_STMT_LABEL`). **Jump**: `,UJ, target`. **JumpIfZero**: load condition (`XTA` sets logical ω) then `,UZA, target`. **JumpIfNotZero**: `,U1A, target`. No `NTR` needed; `XTA` selects logical ω automatically. | S |
 | 3 | Constant materialization | Make the `COPY`/`BINARY`/argument paths accept constant operands (they currently `fatal_error`). Integer/char constants: emit `=N` literal as **raw two's complement masked to 48 bits** — fix the sign bug in `emit_xta_val` where a negative octal literal prints a 64-bit pattern. Float/double constants: emit a `,real,` literal word and load it (replaces the float `fatal_error` in `get_const_int_val`). | M |
 
 ### Phase G — Comparisons & switch

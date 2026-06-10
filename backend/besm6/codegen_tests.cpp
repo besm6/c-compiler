@@ -410,6 +410,61 @@ TEST_F(CodegenTest, AddTwoAutos)
 )", output);
 }
 
+TEST_F(CodegenTest, LabelJump)
+{
+    std::string output = CompileToMadlen("void foo(void) { goto end; end: ; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,uj, end
+      end:   ,bss,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// label_loops() resets label_seq=0 per function; STMT_WHILE allocates .L0 (end)
+// then .L1 (continue), so the continue label (loop top) is .L1 and end is .L0.
+TEST_F(CodegenTest, WhileLoopJumpIfZero)
+{
+    std::string output = CompileToMadlen("void foo(int x) { while (x) {} }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+      *L1:   ,bss,
+           6 ,xta,
+             ,uza, *L0
+             ,uj, *L1
+      *L0:   ,bss,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// new_temp() allocates "t.0" for the do-while loop-top label;
+// label_loops assigns .L0 (end) and .L1 (continue).
+TEST_F(CodegenTest, DoWhileJumpIfNotZero)
+{
+    std::string output = CompileToMadlen("void foo(int x) { do {} while (x); }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+      t*0:   ,bss,
+      *L1:   ,bss,
+           6 ,xta,
+             ,u1a, t*0
+      *L0:   ,bss,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
 TEST_F(CodegenTest, FuncArg1)
 {
     std::string output = CompileToMadlen(R"(
