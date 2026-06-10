@@ -16,6 +16,8 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 - Task 9 — Type conversion folding
 - Task 10 — Conditional jump folding
 - Task 11 — Tests for constant folding
+- Phase 2 verification
+- Task 12 — CFG data structures
 
 ---
 
