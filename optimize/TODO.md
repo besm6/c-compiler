@@ -11,6 +11,7 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 - Task 5 — Test harness stub
 - Phase 1 verification
 - Task 6 — Unary folding
+- Task 7 — Binary folding (integer)
 
 ---
 
