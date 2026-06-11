@@ -84,6 +84,22 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 ---
 
+### Phase E — Module-level static (global) variable access
+
+Global variables and arrays (TAC `StaticVariable` and `StaticConstant` toplevels) are
+addressed by their module-level assembly labels, not via the stack frame. The current
+`frame_build` does not distinguish global names from local temporaries, so globals
+inadvertently receive auto slots and are addressed incorrectly. This phase fixes that
+root cause and enables direct COPY load/store of global scalars; global array element
+access then follows once AddPtr (task 16) lands.
+
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 1 | Frame discipline for module-level statics | `frame_build` assigns auto slots to every `Var` name it encounters in instruction operands, including names of `StaticVariable` / `StaticConstant` toplevels. When a global name gets a frame slot, `GET_ADDRESS` codegen takes the frame-slot address path instead of the UTC/VTM/ITA sequence that already exists for globals. Fix: before calling `frame_build`, collect the set of module-level names visible from the function (all `StaticVariable` and `StaticConstant` entries in the program); pass that set to `frame_build` so those names are skipped when assigning auto slots. Side-effect: `GET_ADDRESS` now correctly fires the UTC/VTM/ITA path for all globals (not only `_str*` string constants); the SUBP pre-declaration loop already handles names absent from the frame. | S |
+| 2 | COPY to/from global scalar variables | Depends on task 1. Once globals are excluded from the auto pool, `frame_lookup` returns false for them and `COPY`'s current `lookup()` call would `fatal_error`. Add global-operand handling to `codegen_instr COPY`: **Load global → local** (`COPY global → tmp`): `0 ,UTC, name` / `14 ,VTM,` / `14 ,XTA, 0` / `reg_dst ,ATX, off_dst`. **Store local → global** (`COPY tmp → global`): `0 ,UTC, name` / `14 ,VTM,` / `reg_src ,XTA, off_src` / `14 ,ATX, 0` (C is reset by VTM before the source XTA, so there is no C-register interference). **Copy global → global**: hold one address in r14, a second in r8, load source, store to destination. Extend the SUBP pre-declaration loop to cover module-level names appearing in COPY operands (mirrors the existing GET_ADDRESS loop). Tests: `CompileToMadlen` for instruction shape; `CompileAndRun` for global scalar read, write, and global-to-global copy. | S |
+
+---
+
 ### Phase F — Control flow & constants
 
 Unblocks `if`/`while`/`for`/`switch` and almost every later task.
@@ -128,7 +144,7 @@ Unblocks `if`/`while`/`for`/`switch` and almost every later task.
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 16 | AddPtr | Power-of-2 word scale k: `,ASN, (64-k)B` on the index, then `A+X ptr`. Scale 1: plain add. Non-power-of-2: `b/mul` by the scale. Result is a word address. | M |
+| 16 | AddPtr | Power-of-2 word scale k: `,ASN, (64-k)B` on the index, then `A+X ptr`. Scale 1: plain add. Non-power-of-2: `b/mul` by the scale. Result is a word address. Global array element access chains tasks 1–2 (GET_ADDRESS yields the array label's address via UTC/VTM/ITA) with ADD_PTR for index scaling, then the existing LOAD/STORE. Include `CompileAndRun` tests for `int arr[N]; arr[i] = v;` and `x = arr[i];` with a global array. | M |
 | 17 | CopyToOffset / CopyFromOffset | Aggregate member access: base from frame + constant word offset via `UTC`/an index register, then `ATX`/`XTA` at the offset. | M |
 | 18 | Fat-pointer `char` access | `char*`/`void*` are fat pointers (bit 48 set, byte offset in bits 47–45). **Load byte**: `WTC ptr` / `XTA 0` / `ASX ptr` (shift by offset×8) / `AAX =0377`. **Store byte**: read-modify-write the containing word (mask out the target byte, OR in the new byte shifted into place). | L |
 | 19 | `char*` arithmetic & pointer casts | `char*` increment decrements the 3-bit byte offset, borrowing into the word address when it wraps 0→5. Casts: `int*`→`char*` sets the fat marker + offset 5; `char*`→`int*` clears them; `char*`↔`void*` is a bit-pattern copy. | M |
