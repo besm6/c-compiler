@@ -31,11 +31,13 @@ extern "C" int xalloc_debug;
 class CodegenTest : public ::testing::Test {
     FILE    *input_file{};
     Program *program{};
+    OptFlags opt_flags{};
 
 protected:
     void SetUp() override
     {
         target_config = target_lookup("besm6");
+        opt_flags = opt_flags_default();
         input_file = tmpfile();
         ASSERT_NE(nullptr, input_file);
     }
@@ -52,6 +54,12 @@ protected:
         xreport_lost_memory();
         EXPECT_EQ(xtotal_allocated_size(), 0);
         xfree_all();
+    }
+
+    // Disable optimization.
+    void DisableOptimization()
+    {
+        opt_flags = {};
     }
 
     // Capture Madlen output from a pre-built Besm_Module (used by Madlen-level tests).
@@ -107,7 +115,7 @@ protected:
             ExternalDecl *next = decls->next;
             decls->next        = nullptr;
             typecheck_decl(decls);
-            Tac_TopLevel *tac = translate(decls, opt_flags_default(), all_tac);
+            Tac_TopLevel *tac = translate(decls, opt_flags, all_tac);
             free_external_decl(decls);
             if (tac) {
                 Tac_TopLevel *t = tac;

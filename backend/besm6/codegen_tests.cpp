@@ -279,16 +279,34 @@ c
 
 TEST_F(CodegenTest, GetAddressGlobalInt)
 {
-        // p is assigned the address of g but never used — the optimizer correctly
-    // eliminates the dead GET_ADDRESS and COPY, leaving an empty function body.
-    std::string output = CompileToMadlen("int g; void foo(void) { int *p = &g; }");
+    // p is a global pointer — the store p = &g survives DSE (globals are live at
+    // exit), which also keeps get_address g → t.0 alive.  Exercises the
+    // global-src GET_ADDRESS (UTC/VTM/ITA) and local→global COPY (XTA/UTC/ATX).
+    std::string output = CompileToMadlen("int g; int *p; void foo(void) { p = &g; }");
     EXPECT_EQ(R"(c
         g:   ,name,
              ,bss, 1
              ,end,
 c
+        p:   ,name,
+             ,bss, 1
+             ,end,
+c
       foo:   ,name,
-          13 ,uj,
+    b/ret:   ,subp,
+        g:   ,subp,
+        p:   ,subp,
+             ,its, 13
+             ,call, b/save0
+          15 ,utm, 1
+             ,utc, g
+          14 ,vtm, 0
+             ,ita, 14
+           7 ,atx,
+           7 ,xta,
+             ,utc, p
+             ,atx,
+             ,uj, b/ret
              ,end,
 )", output);
 }
@@ -630,6 +648,7 @@ TEST_F(CodegenTest, PrintTwoLines)
 // Global → local: x = g where x is never used — optimizer removes the dead store.
 TEST_F(CodegenTest, CopyGlobalToLocal)
 {
+    DisableOptimization();
     std::string output = CompileToMadlen("int g; void foo(void) { int x; x = g; }");
     EXPECT_EQ(R"(c
         g:   ,name,
@@ -637,7 +656,15 @@ TEST_F(CodegenTest, CopyGlobalToLocal)
              ,end,
 c
       foo:   ,name,
-          13 ,uj,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save0
+          15 ,utm, 1
+             ,utc, g
+             ,xta,
+           7 ,atx,
+             ,uj, b/ret
              ,end,
 )", output);
 }
