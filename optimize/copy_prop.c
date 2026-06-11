@@ -526,13 +526,13 @@ static void subst_instruction(Tac_Instruction *ins, const StringMap *cs)
 // dataflow scaffolding before returning.
 // ============================================================================
 
-void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
+void propagate_copies(OptCfg *cfg, const Tac_TopLevel *fn)
 {
     if (cfg->nblocks == 0) return;
 
     // Stage 1: identify variables that must be treated conservatively.
     StringMap static_names, address_taken;
-    collect_alias_sets(cfg, toplevel, &static_names, &address_taken);
+    collect_alias_sets(cfg, fn, &static_names, &address_taken);
 
     // Stage 2: the forward reaching-copies dataflow.
     int n = cfg->nblocks;

@@ -324,8 +324,9 @@ void process_file(const Args *args)
         // Annotate loops and break/continue statements.
         typecheck_decl(ast);
 
-        // Convert the AST to TAC and optimize.
-        Tac_TopLevel *tac = translate(ast, flags, NULL);
+        // Convert the AST to TAC and optimize. Each function carries its own
+        // params + locals, so the optimizer needs no whole-program context.
+        Tac_TopLevel *tac = translate(ast, flags);
         free_external_decl(ast);
         if (tac) {
             for (const Tac_TopLevel *t = tac; t; t = t->next) {

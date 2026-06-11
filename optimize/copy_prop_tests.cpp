@@ -116,7 +116,9 @@ TEST_F(OptimizerTest, CopyPropFunCallKillsStaticCopy)
     copy->next  = call;
     call->next  = ret;
 
-    const Tac_TopLevel *tl = make_static_tl("g");
+    // No locals → "g" is observable; the call kills the (g→5) copy so the
+    // Return(g) is not rewritten to Return(5).
+    const Tac_TopLevel *tl = make_fn_tl({});
 
     OptFlags flags        = opt_flags_default();
     flags.dead_store_elim = false;

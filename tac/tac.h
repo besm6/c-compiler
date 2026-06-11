@@ -50,6 +50,9 @@ typedef struct Tac_TopLevel {
             bool global;
             bool variadic;
             Tac_Param *params;     // Linked list of identifiers
+            Tac_Param *locals;     // Automatic local names (in-memory only; the
+                                   // optimizer uses these to tell locals from
+                                   // observable globals). Not serialized.
             Tac_Instruction *body; // Linked list of instructions
         } function;
         struct {

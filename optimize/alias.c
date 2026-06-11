@@ -6,14 +6,18 @@
 // while the variable cannot be changed by something we are not tracking. Two
 // categories of variables can be, and so must be handled conservatively:
 //
-//   - Static-duration variables (TAC_TOPLEVEL_STATIC_VARIABLE names, including
-//     local `static`s): any function call might read or write them.
+//   - Observable variables: anything with static storage duration (file-scope
+//     globals, `extern`s, local `static`s). Any function call might read or
+//     write them, and their final value is visible after we return.
 //   - Address-taken variables: any variable whose address is taken with
 //     GET_ADDRESS may be read or written through the resulting pointer.
 //
-// This module collects both name sets once per function so the passes can apply
-// the conservative kill/liven rules. Temporaries (t.N) never appear in either
-// set — their address is never taken — and so are propagated freely.
+// We do not carry the whole program's global list to each function. Instead we
+// classify *locally*: in TAC a local and a global are both a bare name, but a
+// name is observable exactly when it is neither a temporary (t.N, always
+// compiler-generated and private) nor one of this function's parameters or
+// automatic locals. The translator records those on the function toplevel; the
+// no-shadowing rule makes the classification unambiguous program-wide.
 //
 // See docs/TAC_Optimization.md §"Conservatism around aliased variables".
 // ============================================================================
@@ -21,27 +25,158 @@
 #include "alias.h"
 #include "optimize.h"
 
-// Populate static_names and address_taken (both freshly initialised here). The
-// names are borrowed from the TAC nodes — the maps store the same pointers, so
-// they stay valid only as long as the underlying instructions/top-levels do.
-void collect_alias_sets(const OptCfg *cfg, const Tac_TopLevel *toplevel,
-                        StringMap *static_names, StringMap *address_taken)
+// Compiler temporaries are named "t.N" and are always private to the function.
+static bool is_temp_name(const char *n)
 {
-    // Static-duration variables: scan the program's top-level declarations.
-    map_init(static_names);
-    int n_static = 0;
-    for (const Tac_TopLevel *t = toplevel; t; t = t->next) {
-        if (t->kind == TAC_TOPLEVEL_STATIC_VARIABLE) {
-            const char *n = t->u.static_variable.name;
-            map_insert(static_names, n, (intptr_t)n, 0);
-            OPT_TRACE("[alias] static: %s\n", n);
-            n_static++;
-        }
+    return n && n[0] == 't' && n[1] == '.';
+}
+
+// Insert `name` into `observable` (borrowing the pointer) unless it is a
+// temporary or one of the function's private (param/local) names.
+static void note_name(StringMap *observable, const StringMap *private_set,
+                      const char *name)
+{
+    if (!name || is_temp_name(name))
+        return;
+    if (map_get((StringMap *)private_set, name, NULL))
+        return;
+    if (!map_get(observable, name, NULL))
+        map_insert(observable, name, (intptr_t)name, 0);
+}
+
+// Note every Var in a value list (covers FUN_CALL argument lists too).
+static void note_vals(StringMap *observable, const StringMap *private_set,
+                      const Tac_Val *v)
+{
+    for (; v; v = v->next)
+        if (v->kind == TAC_VAL_VAR)
+            note_name(observable, private_set, v->u.var_name);
+}
+
+// Walk every Var operand of one instruction, recording the observable ones.
+// COPY_TO_OFFSET.dst and COPY_FROM_OFFSET.src are bare names (char*), not
+// Tac_Val*, and may also denote a global struct/array — note them directly.
+static void note_instr(StringMap *observable, const StringMap *private_set,
+                       const Tac_Instruction *ins)
+{
+    switch (ins->kind) {
+    case TAC_INSTRUCTION_RETURN:
+        note_vals(observable, private_set, ins->u.return_.src);
+        break;
+    // Every type-conversion instruction follows the {src, dst} layout.
+    case TAC_INSTRUCTION_SIGN_EXTEND:
+    case TAC_INSTRUCTION_TRUNCATE:
+    case TAC_INSTRUCTION_ZERO_EXTEND:
+    case TAC_INSTRUCTION_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+        note_vals(observable, private_set, ins->u.sign_extend.src);
+        note_vals(observable, private_set, ins->u.sign_extend.dst);
+        break;
+    case TAC_INSTRUCTION_UNARY:
+        note_vals(observable, private_set, ins->u.unary.src);
+        note_vals(observable, private_set, ins->u.unary.dst);
+        break;
+    case TAC_INSTRUCTION_BINARY:
+        note_vals(observable, private_set, ins->u.binary.src1);
+        note_vals(observable, private_set, ins->u.binary.src2);
+        note_vals(observable, private_set, ins->u.binary.dst);
+        break;
+    case TAC_INSTRUCTION_COPY:
+        note_vals(observable, private_set, ins->u.copy.src);
+        note_vals(observable, private_set, ins->u.copy.dst);
+        break;
+    case TAC_INSTRUCTION_GET_ADDRESS:
+        note_vals(observable, private_set, ins->u.get_address.src);
+        note_vals(observable, private_set, ins->u.get_address.dst);
+        break;
+    case TAC_INSTRUCTION_LOAD:
+        note_vals(observable, private_set, ins->u.load.src_ptr);
+        note_vals(observable, private_set, ins->u.load.dst);
+        break;
+    case TAC_INSTRUCTION_STORE:
+        note_vals(observable, private_set, ins->u.store.src);
+        note_vals(observable, private_set, ins->u.store.dst_ptr);
+        break;
+    case TAC_INSTRUCTION_ADD_PTR:
+        note_vals(observable, private_set, ins->u.add_ptr.ptr);
+        note_vals(observable, private_set, ins->u.add_ptr.index);
+        note_vals(observable, private_set, ins->u.add_ptr.dst);
+        break;
+    case TAC_INSTRUCTION_COPY_TO_OFFSET:
+        note_vals(observable, private_set, ins->u.copy_to_offset.src);
+        note_name(observable, private_set, ins->u.copy_to_offset.dst);
+        break;
+    case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+        note_name(observable, private_set, ins->u.copy_from_offset.src);
+        note_vals(observable, private_set, ins->u.copy_from_offset.dst);
+        break;
+    case TAC_INSTRUCTION_JUMP_IF_ZERO:
+        note_vals(observable, private_set, ins->u.jump_if_zero.condition);
+        break;
+    case TAC_INSTRUCTION_JUMP_IF_NOT_ZERO:
+        note_vals(observable, private_set, ins->u.jump_if_not_zero.condition);
+        break;
+    case TAC_INSTRUCTION_FUN_CALL:
+        // fun_name is a function symbol, not a data variable — ignore it.
+        note_vals(observable, private_set, ins->u.fun_call.args);
+        note_vals(observable, private_set, ins->u.fun_call.dst);
+        break;
+    case TAC_INSTRUCTION_JUMP:
+    case TAC_INSTRUCTION_LABEL:
+        break;
     }
-    OPT_TRACE("[alias] static_names: %d entries\n", n_static);
+}
+
+// Populate observable and address_taken (both freshly initialised here). The
+// names are borrowed from the TAC nodes — the maps store the same pointers, so
+// they stay valid only as long as the underlying instructions do.
+void collect_alias_sets(const OptCfg *cfg, const Tac_TopLevel *fn,
+                        StringMap *observable, StringMap *address_taken)
+{
+    map_init(observable);
+    map_init(address_taken);
+
+    // Build the private set (params ∪ automatic locals) for this function. With
+    // no function context (NULL, or a non-function toplevel) we cannot classify,
+    // so the observable set is left empty — matching the conservative-free
+    // behaviour unit tests rely on.
+    StringMap private_set;
+    map_init(&private_set);
+    if (fn && fn->kind == TAC_TOPLEVEL_FUNCTION) {
+        for (const Tac_Param *p = fn->u.function.params; p; p = p->next)
+            if (p->name)
+                map_insert(&private_set, p->name, (intptr_t)p->name, 0);
+        for (const Tac_Param *p = fn->u.function.locals; p; p = p->next)
+            if (p->name)
+                map_insert(&private_set, p->name, (intptr_t)p->name, 0);
+
+        for (int i = 0; i < cfg->nblocks; i++) {
+            const OptBlock *b = cfg->blocks[i];
+            for (const Tac_Instruction *ins = b->first; ins; ins = ins->next)
+                note_instr(observable, &private_set, ins);
+        }
+    } else {
+        OPT_TRACE("[alias] no function context: observable empty\n");
+    }
+    map_destroy(&private_set);
 
     // Address-taken variables: every Var that is the source of a GET_ADDRESS.
-    map_init(address_taken);
     int n_taken = 0;
     for (int i = 0; i < cfg->nblocks; i++) {
         const OptBlock *b = cfg->blocks[i];

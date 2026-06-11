@@ -27,5 +27,8 @@ void opt_trace_instr(const char *prefix, const Tac_Instruction *ins);
 
 // Returns the optimized body in place (modifies the list).
 // Caller owns the result; caller freed the original list.
+// `fn` is the function's own toplevel — its params and automatic locals let the
+// CFG passes tell private locals from observable globals. Pass NULL when no such
+// context is available (the optimizer then makes no global-vs-local distinction).
 Tac_Instruction *optimize_function(Tac_Instruction *body, OptFlags flags,
-                                   const Tac_TopLevel *toplevel);
+                                   const Tac_TopLevel *fn);

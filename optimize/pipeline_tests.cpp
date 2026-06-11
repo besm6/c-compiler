@@ -87,7 +87,7 @@ protected:
             ExternalDecl *next = decls->next;
             decls->next        = nullptr;
             typecheck_decl(decls);
-            Tac_TopLevel *tac = translate(decls, flags, nullptr);
+            Tac_TopLevel *tac = translate(decls, flags);
             free_external_decl(decls);
             if (tac) {
                 for (const Tac_TopLevel *t = tac; t; t = t->next) {
@@ -329,4 +329,61 @@ TEST_F(PipelineTest, DeadStoreKeepsIndirectCallTarget)
         "  src:\n"
         "    kind: var\n"
         "    name: t.1\n");
+}
+
+// ---------------------------------------------------------------------------
+// Writes to observable variables survive dead-store elimination
+// ---------------------------------------------------------------------------
+
+// Regression: a write to a file-scope global must survive even though the
+// global is declared in a separate external declaration. The optimizer learns
+// that "g" is not a local of f (f has no automatic locals named g) and so keeps
+// the store.
+TEST_F(PipelineTest, GlobalWriteSurvivesDeadStore)
+{
+    EXPECT_EQ(OptimizeYaml("int g; void f(void) { g = 5; }"),
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 5\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: g\n");
+}
+
+// An `extern` global has no static_variable toplevel at all, yet the per-function
+// classification still recognises it as non-local and preserves the store.
+TEST_F(PipelineTest, ExternGlobalWriteSurvives)
+{
+    EXPECT_EQ(OptimizeYaml("extern int g; void f(void) { g = 5; }"),
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 5\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: g\n");
+}
+
+// Negative control: the dead local `x` is still removed; only the global write
+// survives. Guards against over-preserving once globals are kept.
+TEST_F(PipelineTest, DeadLocalRemovedAlongsideGlobalWrite)
+{
+    EXPECT_EQ(OptimizeYaml("int g; void f(void) { int x = 7; g = 5; }"),
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 5\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: g\n");
 }

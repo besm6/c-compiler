@@ -34,6 +34,22 @@ char *new_temp(TacCtx *ctx)
     return xstruniq("t.", &ctx->temp_id);
 }
 
+// Record an automatic local variable name on the function being lowered. The
+// optimizer reads this list to distinguish private locals (whose dead stores
+// may be removed) from observable globals (whose stores must be preserved).
+void tac_record_local(TacCtx *ctx, const char *name)
+{
+    Tac_Param *p = tac_new_param();
+    p->name      = xstrdup(name);
+    p->next      = NULL;
+    if (!ctx->locals)
+        ctx->locals = ctx->locals_tail = p;
+    else {
+        ctx->locals_tail->next = p;
+        ctx->locals_tail       = p;
+    }
+}
+
 Tac_Val *val_int(int v)
 {
     Tac_Val *tv    = tac_new_val(TAC_VAL_CONSTANT);
@@ -449,9 +465,10 @@ static Tac_TopLevel *translate_fn(const ExternalDecl *ast)
                               ast->u.function.type->u.function.variadic;
 
     if (ast->u.function.body) {
-        TacCtx ctx = { NULL, NULL, 0, NULL };
+        TacCtx ctx = { NULL, NULL, 0, NULL, NULL, NULL };
         gen_stmt(&ctx, ast->u.function.body);
-        tl->u.function.body = ctx.head;
+        tl->u.function.body   = ctx.head;
+        tl->u.function.locals = ctx.locals;
 
         if (ctx.static_constants) {
             Tac_TopLevel *last = ctx.static_constants;
@@ -537,14 +554,14 @@ static Tac_TopLevel *translate_external_decl(const ExternalDecl *ast)
 //
 // Convert the AST to TAC.
 //
-Tac_TopLevel *translate(const ExternalDecl *ast, OptFlags flags,
-                        const Tac_TopLevel *program)
+Tac_TopLevel *translate(const ExternalDecl *ast, OptFlags flags)
 {
     Tac_TopLevel *tac = translate_external_decl(ast);
     for (Tac_TopLevel *t = tac; t; t = t->next) {
+        // Each function is optimized against its own toplevel, which carries the
+        // params + automatic locals needed to tell private locals from globals.
         if (t->kind == TAC_TOPLEVEL_FUNCTION)
-            t->u.function.body = optimize_function(t->u.function.body, flags,
-                                                   program ? program : tac);
+            t->u.function.body = optimize_function(t->u.function.body, flags, t);
     }
     return tac;
 }

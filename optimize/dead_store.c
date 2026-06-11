@@ -336,13 +336,13 @@ static bool is_removable(Tac_InstructionKind kind)
 // liveness fixpoint, then the removal walk, and frees all scaffolding.
 // ============================================================================
 
-void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel)
+void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *fn)
 {
     if (cfg->nblocks == 0) return;
 
     // Stage 1: variables that must be treated as live across calls / at exit.
     StringMap static_names, address_taken;
-    collect_alias_sets(cfg, toplevel, &static_names, &address_taken);
+    collect_alias_sets(cfg, fn, &static_names, &address_taken);
 
     // Stage 2: the backward liveness dataflow.
     int n = cfg->nblocks;

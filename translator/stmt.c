@@ -88,6 +88,19 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
 {
     if (decl->kind != DECL_VAR)
         return;
+    // Variables with automatic storage are private to this function; record
+    // their names so the optimizer does not mistake them for observable globals.
+    // static/extern/typedef/thread-local declarators are not automatics: a
+    // static or extern name denotes observable storage and must be left out.
+    StorageClass storage =
+        decl->u.var.specifiers ? decl->u.var.specifiers->storage : STORAGE_CLASS_NONE;
+    bool is_automatic = storage == STORAGE_CLASS_NONE ||
+                        storage == STORAGE_CLASS_AUTO ||
+                        storage == STORAGE_CLASS_REGISTER;
+    for (const InitDeclarator *id = decl->u.var.declarators; id; id = id->next) {
+        if (is_automatic && id->name)
+            tac_record_local(ctx, id->name);
+    }
     for (InitDeclarator *id = decl->u.var.declarators; id; id = id->next) {
         if (id->init && id->init->kind == INITIALIZER_SINGLE) {
             Tac_Val *src        = gen_expr(ctx, id->init->u.expr);

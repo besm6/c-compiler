@@ -202,11 +202,11 @@ Once the analysis converges, each use of a variable `x` is replaced by `src` if 
 
 Two categories of variables must be treated conservatively:
 
-1. **Static-duration variables** (`TAC_TOPLEVEL_STATIC_VARIABLE` names, or local `static` variables). A `FunCall` instruction may call any function, which may read or modify a global variable. At every `FunCall`, all copies involving static variables are killed from the reaching set.
+1. **Observable variables** — anything with static storage duration (file-scope globals, `extern`s, local `static`s). A `FunCall` instruction may call any function, which may read or modify such a variable. At every `FunCall`, all copies involving observable variables are killed from the reaching set.
 
 2. **Address-taken variables**. Any variable that appears as the `src` of a `GetAddress` instruction may be modified through the resulting pointer. At every `Store` or `FunCall`, copies involving such variables are killed.
 
-Temporary variables (`t.0`, `t.1`, …) are always private to the function — their address is never taken — and can be propagated freely.
+The optimizer classifies a name *locally*, without consulting the rest of the program: in TAC a local and a global are both bare names, but a name is **observable** exactly when it is neither a temporary (`t.0`, `t.1`, … — always compiler-generated and private) nor one of the function's parameters or automatic locals. The translator records those names on the function toplevel (`Tac_TopLevel.function.locals`); the no-shadowing rule makes the classification unambiguous program-wide. See `optimize/alias.c`.
 
 ### Self-copies
 
@@ -234,7 +234,7 @@ A variable is **live** at a program point if there exists a path from that point
 
 The lattice element for each program point is a set of live variable names.
 
-- **Initial value:** the live set at Exit is empty (or, for conservative correctness, the set of all static-duration and address-taken variables, since they may be observed after the function returns).
+- **Initial value:** the live set at Exit is empty (or, for conservative correctness, the set of all observable and address-taken variables, since they may be observed after the function returns).
 - **Meet (join at merge points):** union — a variable is live if it is live on any outgoing path.
 - **Transfer function for a single instruction, applied backward:**
   - Remove `def(i)` from the live set (the instruction's destination is no longer live *before* the instruction if it was defined here).
@@ -260,7 +260,7 @@ Not every instruction with a destination variable can be removed when the destin
 
 ### Conservatism around aliased variables
 
-Static-duration variables and address-taken variables must be treated as live at Exit (they may be read by the caller or by another function). At every `FunCall`, they must be treated as potentially redefined (the callee might write them), which restores their liveness.
+Observable variables (globals, `extern`s, local `static`s) and address-taken variables must be treated as live at Exit (they may be read by the caller or by another function), so a store to one is never dead. At every `FunCall`, they must be treated as potentially redefined (the callee might write them), which restores their liveness. Observability is determined per function: a name is observable when it is neither a temporary nor one of the function's parameters or automatic locals (see `optimize/alias.c`).
 
 ## The optimization pipeline
 

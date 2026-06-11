@@ -29,8 +29,8 @@
 // Pass entry points, implemented in the sibling translation units.
 Tac_Instruction *constant_fold(Tac_Instruction *body);
 void eliminate_unreachable(OptCfg *cfg);
-void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel);
-void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel);
+void propagate_copies(OptCfg *cfg, const Tac_TopLevel *fn);
+void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *fn);
 
 // Process-global trace switch (see optimize.h). Default off.
 int optimize_debug;
@@ -61,10 +61,10 @@ OptFlags opt_flags_default(void) {
 // Run the pipeline on one function body to a fixed point and return the
 // optimized list. The body is transformed in place across iterations; the
 // caller owns the returned list. Each TAC_TOPLEVEL_FUNCTION is optimized
-// independently (intraprocedural); `toplevel` is the program's top-level list,
-// needed only so the CFG passes can identify static-duration variables.
+// independently (intraprocedural); `fn` is the function's own toplevel, supplying
+// its params + locals so the CFG passes can tell private locals from globals.
 Tac_Instruction *optimize_function(Tac_Instruction *body, OptFlags flags,
-                                   const Tac_TopLevel *toplevel) {
+                                   const Tac_TopLevel *fn) {
     if (!body) return NULL;
 
     optimize_debug = flags.debug ? 1 : 0;
@@ -90,13 +90,13 @@ Tac_Instruction *optimize_function(Tac_Instruction *body, OptFlags flags,
         }
         if (flags.copy_propagation) {
             OPT_TRACE("[optimize] running pass: copy-prop\n");
-            propagate_copies(cfg, toplevel);
+            propagate_copies(cfg, fn);
         } else {
             OPT_TRACE("[optimize] pass copy-prop: skipped (disabled)\n");
         }
         if (flags.dead_store_elim) {
             OPT_TRACE("[optimize] running pass: dead-store-elim\n");
-            eliminate_dead_stores(cfg, toplevel);
+            eliminate_dead_stores(cfg, fn);
         } else {
             OPT_TRACE("[optimize] pass dead-store-elim: skipped (disabled)\n");
         }

@@ -1,5 +1,6 @@
 #pragma once
 #include <gtest/gtest.h>
+#include <initializer_list>
 
 extern "C" {
 #include "optimize.h"
@@ -304,10 +305,21 @@ protected:
         return i;
     }
 
-    static Tac_TopLevel *make_static_tl(const char *name)
+    // A function toplevel carrying an explicit set of automatic-local names. The
+    // optimizer treats any non-temporary name that is not a param/local as an
+    // observable global; pass {} to mark every named var (e.g. "g") observable.
+    static Tac_TopLevel *make_fn_tl(std::initializer_list<const char *> locals)
     {
-        Tac_TopLevel *tl           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
-        tl->u.static_variable.name = xstrdup(name);
+        Tac_TopLevel *tl       = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
+        tl->u.function.name    = xstrdup("fn");
+        Tac_Param **tail       = &tl->u.function.locals;
+        for (const char *name : locals) {
+            Tac_Param *p = tac_new_param();
+            p->name      = xstrdup(name);
+            p->next      = nullptr;
+            *tail        = p;
+            tail         = &p->next;
+        }
         return tl;
     }
 

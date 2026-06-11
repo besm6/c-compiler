@@ -201,6 +201,7 @@ void tac_free_toplevel(Tac_TopLevel *toplevel)
             xfree(toplevel->u.function.name);
         }
         tac_free_param(toplevel->u.function.params);
+        tac_free_param(toplevel->u.function.locals);
         tac_free_instruction(toplevel->u.function.body);
         break;
     case TAC_TOPLEVEL_STATIC_VARIABLE:

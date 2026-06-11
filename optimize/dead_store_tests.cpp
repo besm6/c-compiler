@@ -181,7 +181,8 @@ TEST_F(OptimizerTest, DeadStoreStaticSurvives)
     entry->next = cp;
     cp->next    = ret;
 
-    const Tac_TopLevel *tl = make_static_tl("g");
+    // No locals → "g" is a non-temp, non-local name ⇒ observable global.
+    const Tac_TopLevel *tl = make_fn_tl({});
 
     OptFlags flags         = opt_flags_default();
 
@@ -211,6 +212,73 @@ TEST_F(OptimizerTest, DeadStoreStaticSurvives)
         "      value: 0\n");
 }
 
+// Label("fn") → Copy(3, g) → Return(ConstInt(0)); g is a global (not a local).
+// The function toplevel lists no locals, so "g" — a non-temp, non-local name — is
+// classified as an observable global and seeded live at Exit. The store must survive.
+TEST_F(OptimizerTest, DeadStoreGlobalSurvivesWithFnContext)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *cp    = make_copy(make_const_int(3), make_var("g"));
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = cp;
+    cp->next    = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    const Tac_TopLevel *tl = make_fn_tl({});
+    Tac_Instruction *result = optimize_function(entry, flags, tl);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 3\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: g\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}
+
+// Counterpart: a named *local* (in the function's locals list) whose store is dead
+// IS removed — confirms the classification does not over-preserve.
+TEST_F(OptimizerTest, DeadStoreLocalRemovedWithFnContext)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *cp    = make_copy(make_const_int(3), make_var("x"));
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = cp;
+    cp->next    = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    const Tac_TopLevel *tl = make_fn_tl({ "x" });
+    Tac_Instruction *result = optimize_function(entry, flags, tl);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}
+
 // Label("fn") → Copy(5, g) → FunCall("bar") → Return(ConstInt(0));  g is a static variable.
 // At FunCall, static names are re-livened (callee may read them); Copy(5, g) is not a dead store.
 TEST_F(OptimizerTest, DeadStoreStaticBeforeFunCallSurvives)
@@ -223,7 +291,8 @@ TEST_F(OptimizerTest, DeadStoreStaticBeforeFunCallSurvives)
     cp->next    = call;
     call->next  = ret;
 
-    const Tac_TopLevel *tl = make_static_tl("g");
+    // No locals → "g" is observable; its store before the call must survive.
+    const Tac_TopLevel *tl = make_fn_tl({});
 
     OptFlags flags         = opt_flags_default();
     flags.copy_propagation = false;

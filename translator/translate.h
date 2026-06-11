@@ -22,6 +22,8 @@ typedef struct {
     Tac_Instruction *tail;
     int temp_id;
     Tac_TopLevel *static_constants; // strings accumulated during body lowering
+    Tac_Param *locals;              // automatic local names, for the optimizer
+    Tac_Param *locals_tail;         // tail of `locals` for O(1) append
 } TacCtx;
 
 //
@@ -51,6 +53,7 @@ extern int xalloc_debug;
 //
 void tac_append(TacCtx *ctx, Tac_Instruction *instr);
 char *new_temp(TacCtx *ctx);
+void tac_record_local(TacCtx *ctx, const char *name);
 Tac_Val *val_int(int v);
 Tac_Val *val_long(long v);
 Tac_Val *val_long_long(long long v);
@@ -79,14 +82,11 @@ void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset,
                        const Initializer *init);
 
 //
-// Convert the AST to TAC.
-// `program` is the accumulated TAC for all previously-translated declarations
-// in the same translation unit; it lets the optimizer identify module-level
-// static variables so it does not treat stores to globals as dead.
-// Pass NULL when no prior context exists (optimizer is conservative).
+// Convert one external declaration to TAC and optimize each function it yields.
+// Each function self-describes its params and automatic locals, so the optimizer
+// classifies locals vs. globals per function — no whole-program context needed.
 //
-Tac_TopLevel *translate(const ExternalDecl *ast, OptFlags flags,
-                        const Tac_TopLevel *program);
+Tac_TopLevel *translate(const ExternalDecl *ast, OptFlags flags);
 
 #ifdef __cplusplus
 }
