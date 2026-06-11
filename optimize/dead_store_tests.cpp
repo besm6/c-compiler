@@ -211,6 +211,50 @@ TEST_F(OptimizerTest, DeadStoreStaticSurvives)
         "      value: 0\n");
 }
 
+// Label("fn") → Copy(5, g) → FunCall("bar") → Return(ConstInt(0));  g is a static variable.
+// At FunCall, static names are re-livened (callee may read them); Copy(5, g) is not a dead store.
+TEST_F(OptimizerTest, DeadStoreStaticBeforeFunCallSurvives)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *cp    = make_copy(make_const_int(5), make_var("g"));
+    Tac_Instruction *call  = make_fun_call("bar");
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = cp;
+    cp->next    = call;
+    call->next  = ret;
+
+    const Tac_TopLevel *tl = make_static_tl("g");
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, tl);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 5\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: g\n"
+        "- instruction:\n"
+        "  kind: fun_call\n"
+        "  fun_name: bar\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}
+
 // Label("fn") → Binary(ADD, a, b, t.0) → Unary(NEGATE, t.0, t.1) → Return(ConstInt(0))
 // t.1 is dead → Unary removed; that leaves t.0 dead → Binary removed in the same pass.
 TEST_F(OptimizerTest, DeadStoreCascade)
