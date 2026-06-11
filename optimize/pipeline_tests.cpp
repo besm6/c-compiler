@@ -294,3 +294,39 @@ TEST_F(PipelineTest, NoOptNeeded)
         "    kind: var\n"
         "    name: x\n");
 }
+
+// ---------------------------------------------------------------------------
+// Dead store elimination must not remove loads used as indirect call targets
+// ---------------------------------------------------------------------------
+
+// load fp→t.0 must survive: t.0 is the callee in an indirect fun_call.
+// Bug: DSE does not count fun_call.fun_name as a use when it is a variable.
+TEST_F(PipelineTest, DeadStoreKeepsIndirectCallTarget)
+{
+    EXPECT_EQ(OptimizeYaml("int f(int (*fp)(int)) { return (*fp)(42); }"),
+        "- instruction:\n"
+        "  kind: load\n"
+        "  src_ptr:\n"
+        "    kind: var\n"
+        "    name: fp\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: t.0\n"
+        "- instruction:\n"
+        "  kind: fun_call\n"
+        "  fun_name: t.0\n"
+        "  args:\n"
+        "    - val:\n"
+        "      kind: constant\n"
+        "      const:\n"
+        "        kind: int\n"
+        "        value: 42\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: t.1\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: t.1\n");
+}

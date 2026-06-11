@@ -210,6 +210,7 @@ static void live_transfer_backward(StringMap *ls, const Tac_Instruction *ins,
         live_set_union(ls, address_taken);
         for (const Tac_Val *a = ins->u.fun_call.args; a; a = a->next)
             live_add_val(ls, a);
+        live_add(ls, ins->u.fun_call.fun_name); // indirect call: fun_name is a var
         // FUN_CALL: no defined variable to kill.
         return;
     }
