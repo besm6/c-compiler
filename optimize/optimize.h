@@ -1,14 +1,29 @@
 #pragma once
 #include <stdbool.h>
+#include <stdio.h>
 #include "tac.h"
 
 typedef struct {
     bool unreachable_elim;   // --no-unreachable disables
     bool copy_propagation;   // --no-copy-prop disables
     bool dead_store_elim;    // --no-dead-store disables
+    bool debug;              // --opt-debug enables the optimizer trace
 } OptFlags;
 
 OptFlags opt_flags_default(void);
+
+// Process-global trace switch, modelled on translator_debug. The pass entry
+// points do not take OptFlags (some are called directly by the test fixture), so
+// the trace is gated by this global instead. optimize_function sets it from
+// OptFlags.debug at entry; tests may set it directly. Trace output goes to stdout.
+extern int optimize_debug;
+
+// Gated trace print: emits to stdout only when optimize_debug is set.
+#define OPT_TRACE(...) do { if (optimize_debug) printf(__VA_ARGS__); } while (0)
+
+// Dump one instruction (via tac_print_instruction) under `prefix`, gated by
+// optimize_debug. Used to show an instruction before/after a rewrite.
+void opt_trace_instr(const char *prefix, const Tac_Instruction *ins);
 
 // Returns the optimized body in place (modifies the list).
 // Caller owns the result; caller freed the original list.

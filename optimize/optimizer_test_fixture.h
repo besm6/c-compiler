@@ -9,7 +9,21 @@ extern "C" {
 // Exposed for direct unit-testing of the folding pass.
 Tac_Instruction *constant_fold(Tac_Instruction *body);
 void eliminate_unreachable(OptCfg *cfg);
+
+// Process-global optimizer trace switch (defined in optimize.c).
+// Set to 1 in a test to enable stdout trace for that test's optimizer calls.
+extern int optimize_debug;
 }
+
+// RAII guard: enables optimizer tracing for the lifetime of the scope.
+// Usage:  OptDebugScope dbg;   // trace on for this test
+// The saved value is restored in the destructor, so the setting does not leak
+// to sibling tests even if the test fails or exits early.
+struct OptDebugScope {
+    int saved;
+    explicit OptDebugScope(int on = 1) : saved(optimize_debug) { optimize_debug = on; }
+    ~OptDebugScope() { optimize_debug = saved; }
+};
 
 // ---------------------------------------------------------------------------
 // Test fixture

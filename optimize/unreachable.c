@@ -21,6 +21,7 @@
 // ============================================================================
 
 #include "cfg.h"
+#include "optimize.h"
 #include "string_map.h"
 #include "xalloc.h"
 #include <string.h>
@@ -52,6 +53,7 @@ static void remove_useless_jumps(OptCfg *cfg)
 
         // Unlink the trailing Jump. If it was the block's only instruction the
         // block becomes empty; otherwise walk to its predecessor and re-terminate.
+        OPT_TRACE("[unreach] block %d: dropping useless jump to %s\n", i, target);
         Tac_Instruction *jmp = b->last;
         if (b->first == b->last) {
             b->first = b->last = NULL;
@@ -113,6 +115,8 @@ static void remove_unused_labels(OptCfg *cfg)
         if (map_get(&targets, lbl->u.label.name, &dummy))
             continue;
 
+        OPT_TRACE("[unreach] block %d: dropping unused label %s\n",
+                  i, lbl->u.label.name);
         Tac_Instruction *new_first = lbl->next;
         lbl->next = NULL;
         tac_free_instruction(lbl);
@@ -139,6 +143,7 @@ void eliminate_unreachable(OptCfg *cfg)
 
     while (head < tail) {
         OptBlock *b = queue[head++];
+        OPT_TRACE("[unreach] reachable: block %d\n", b->id);
         for (int i = 0; i < b->nsucc; i++) {
             OptBlock *succ = b->succs[i];
             if (!succ->reachable) {
@@ -155,6 +160,7 @@ void eliminate_unreachable(OptCfg *cfg)
     for (int i = 0; i < cfg->nblocks; i++) {
         OptBlock *b = cfg->blocks[i];
         if (!b->reachable) {
+            OPT_TRACE("[unreach] freeing unreachable block %d\n", i);
             tac_free_instruction(b->first);
             b->first = NULL;
             b->last  = NULL;

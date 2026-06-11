@@ -32,6 +32,7 @@
 #include <string.h>
 #include "alias.h"
 #include "cfg.h"
+#include "optimize.h"
 #include "string_map.h"
 #include "tac.h"
 #include "xalloc.h"
@@ -254,11 +255,15 @@ static void apply_transfer(StringMap *cs, const Tac_Instruction *ins,
         // Copy(src, dst): Kill old copies mentioning dst, then Gen (dst → src).
         const Tac_Val *dst = ins->u.copy.dst;
         if (dst->kind == TAC_VAL_VAR) {
+            OPT_TRACE("[copy-prop] kill copies involving %s\n", dst->u.var_name);
             kill_name(cs, dst->u.var_name);
             CopyPair *p = xalloc(sizeof(CopyPair), __func__, __FILE__, __LINE__);
             p->name = xstrdup(dst->u.var_name);
             p->src  = ins->u.copy.src;
             map_insert_free(cs, p->name, (intptr_t)p, 0, pair_free);
+            OPT_TRACE("[copy-prop] gen copy: %s → %s\n", dst->u.var_name,
+                      ins->u.copy.src->kind == TAC_VAL_VAR
+                          ? ins->u.copy.src->u.var_name : "<const>");
         }
         return;
     }
@@ -266,25 +271,32 @@ static void apply_transfer(StringMap *cs, const Tac_Instruction *ins,
     if (ins->kind == TAC_INSTRUCTION_FUN_CALL) {
         // A call may read or write any static or address-taken variable, so all
         // copies involving them become invalid; also kill the call's own result.
+        OPT_TRACE("[copy-prop] fun-call %s: kill static+address-taken copies\n",
+                  ins->u.fun_call.fun_name);
         kill_alias_set(cs, static_names);
         kill_alias_set(cs, address_taken);
         const Tac_Val *dst = ins->u.fun_call.dst;
-        if (dst && dst->kind == TAC_VAL_VAR)
+        if (dst && dst->kind == TAC_VAL_VAR) {
+            OPT_TRACE("[copy-prop] fun-call: kill dst %s\n", dst->u.var_name);
             kill_name(cs, dst->u.var_name);
+        }
         return;
     }
 
     if (ins->kind == TAC_INSTRUCTION_STORE) {
         // A store writes through a pointer, which may alias any address-taken
         // variable: kill copies involving them. (Store defines no named var.)
+        OPT_TRACE("[copy-prop] store: kill address-taken copies\n");
         kill_alias_set(cs, address_taken);
         return;
     }
 
     // Every other defining instruction just Kills copies mentioning its dst.
     const Tac_Val *dst = get_defining_dst(ins);
-    if (dst && dst->kind == TAC_VAL_VAR)
+    if (dst && dst->kind == TAC_VAL_VAR) {
+        OPT_TRACE("[copy-prop] kill copies involving %s\n", dst->u.var_name);
         kill_name(cs, dst->u.var_name);
+    }
 }
 
 // ============================================================================
@@ -554,8 +566,11 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
     // Forward analysis, so blocks are visited in ascending (roughly topological)
     // order for faster convergence.
     bool changed = true;
+    int cp_iter = 0;
     while (changed) {
         changed = false;
+        cp_iter++;
+        OPT_TRACE("[copy-prop] fixpoint iteration %d\n", cp_iter);
         for (int i = 0; i < n; i++) {
             const OptBlock *b = cfg->blocks[i];
             if (!b->reachable || !b->first)
@@ -578,8 +593,10 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
             for (const Tac_Instruction *ins = b->first; ins; ins = ins->next)
                 apply_transfer(&new_out, ins, &static_names, &address_taken);
 
-            if (!copy_set_equal(&new_out, &out_sets[i]))
+            if (!copy_set_equal(&new_out, &out_sets[i])) {
+                OPT_TRACE("[copy-prop] block %d out-set changed\n", i);
                 changed = true;
+            }
 
             copy_set_destroy(&in_sets[i]);
             copy_set_destroy(&out_sets[i]);
@@ -587,6 +604,7 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
             out_sets[i] = new_out;
         }
     }
+    OPT_TRACE("[copy-prop] fixpoint converged after %d iteration(s)\n", cp_iter);
 
     // Stage 3: substitution. Replay the transfer within each block, but now
     // rewrite source operands using the copies in effect at each instruction.
@@ -606,7 +624,9 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
         while (ins) {
             Tac_Instruction *next = ins->next;
 
+            opt_trace_instr("[copy-prop] subst before:", ins);
             subst_instruction(ins, &current_in);
+            opt_trace_instr("[copy-prop] subst after: ", ins);
 
             // Substitution may have produced a self-copy Copy(Var(x), Var(x)),
             // a no-op — unlink and free it.
@@ -615,6 +635,8 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
                 ins->u.copy.dst->kind == TAC_VAL_VAR &&
                 strcmp(ins->u.copy.src->u.var_name,
                        ins->u.copy.dst->u.var_name) == 0) {
+                OPT_TRACE("[copy-prop] removed self-copy %s = %s\n",
+                          ins->u.copy.dst->u.var_name, ins->u.copy.src->u.var_name);
                 if (prev)
                     prev->next = next;
                 else

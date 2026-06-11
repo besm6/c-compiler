@@ -32,12 +32,30 @@ void eliminate_unreachable(OptCfg *cfg);
 void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel);
 void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel);
 
-// Default flags: every CLI-toggleable pass is enabled. Constant folding has no
-// flag — it always runs, to keep the downstream code generators simpler.
+// Process-global trace switch (see optimize.h). Default off.
+int optimize_debug;
+
+// Print one instruction under `prefix`, gated by optimize_debug. tac_print_instruction
+// emits its own trailing newline, so the line reads "<prefix> <instruction>".
+void opt_trace_instr(const char *prefix, const Tac_Instruction *ins)
+{
+    if (!optimize_debug)
+        return;
+    printf("%s ", prefix);
+    if (ins)
+        tac_print_instruction(stdout, ins, 0);
+    else
+        printf("(null)\n");
+}
+
+// Default flags: every CLI-toggleable pass is enabled, tracing off. Constant
+// folding has no flag — it always runs, to keep the downstream code generators
+// simpler.
 OptFlags opt_flags_default(void) {
     return (OptFlags){ .unreachable_elim = true,
                        .copy_propagation = true,
-                       .dead_store_elim  = true };
+                       .dead_store_elim  = true,
+                       .debug            = false };
 }
 
 // Run the pipeline on one function body to a fixed point and return the
@@ -48,19 +66,40 @@ OptFlags opt_flags_default(void) {
 Tac_Instruction *optimize_function(Tac_Instruction *body, OptFlags flags,
                                    const Tac_TopLevel *toplevel) {
     if (!body) return NULL;
+
+    optimize_debug = flags.debug ? 1 : 0;
+
+    int iter = 0;
     for (;;) {
+        iter++;
+        OPT_TRACE("[optimize] iteration %d\n", iter);
+
         // Constant folding first, on the flat list (no CFG required).
+        OPT_TRACE("[optimize] running pass: const-fold\n");
         body = constant_fold(body);
 
         // Split into basic blocks for the three CFG-based passes.
         OptCfg *cfg = cfg_build(body);
+        OPT_TRACE("[optimize] cfg built: %d blocks\n", cfg->nblocks);
 
-        if (flags.unreachable_elim)
+        if (flags.unreachable_elim) {
+            OPT_TRACE("[optimize] running pass: unreachable-elim\n");
             eliminate_unreachable(cfg);
-        if (flags.copy_propagation)
+        } else {
+            OPT_TRACE("[optimize] pass unreachable-elim: skipped (disabled)\n");
+        }
+        if (flags.copy_propagation) {
+            OPT_TRACE("[optimize] running pass: copy-prop\n");
             propagate_copies(cfg, toplevel);
-        if (flags.dead_store_elim)
+        } else {
+            OPT_TRACE("[optimize] pass copy-prop: skipped (disabled)\n");
+        }
+        if (flags.dead_store_elim) {
+            OPT_TRACE("[optimize] running pass: dead-store-elim\n");
             eliminate_dead_stores(cfg, toplevel);
+        } else {
+            OPT_TRACE("[optimize] pass dead-store-elim: skipped (disabled)\n");
+        }
 
         // A pass (e.g. dead_store_elim) may remove the entry block's first
         // instruction, freeing it and leaving `body` dangling. When that
@@ -75,16 +114,26 @@ Tac_Instruction *optimize_function(Tac_Instruction *body, OptFlags flags,
         cfg_free(cfg);
 
         // An empty result is also a terminal condition: nothing left to iterate.
-        if (!new_body) return new_body;
+        if (!new_body) {
+            OPT_TRACE("[optimize] converged (empty body) after %d iteration(s)\n", iter);
+            return new_body;
+        }
+
         // Fixed point: when this iteration produced a structurally identical
         // list, the loop has converged and we return. Otherwise free the now-
         // superseded old body and iterate again on the new one. (When the entry
         // instruction was freed by a pass, `body` is already gone, so we skip
         // both the comparison and the free.)
-        if (!body_freed && tac_compare_instruction(new_body, body))
+        if (!body_freed && tac_compare_instruction(new_body, body)) {
+            OPT_TRACE("[optimize] fixed point reached after %d iteration(s)\n", iter);
             return new_body;
-        if (!body_freed)
+        }
+        if (body_freed) {
+            OPT_TRACE("[optimize] entry instruction freed by a pass; iterating\n");
+        } else {
+            OPT_TRACE("[optimize] body changed; iterating\n");
             tac_free_instruction(body);
+        }
         body = new_body;
     }
 }

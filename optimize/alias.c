@@ -19,6 +19,7 @@
 // ============================================================================
 
 #include "alias.h"
+#include "optimize.h"
 
 // Populate static_names and address_taken (both freshly initialised here). The
 // names are borrowed from the TAC nodes — the maps store the same pointers, so
@@ -28,15 +29,20 @@ void collect_alias_sets(const OptCfg *cfg, const Tac_TopLevel *toplevel,
 {
     // Static-duration variables: scan the program's top-level declarations.
     map_init(static_names);
+    int n_static = 0;
     for (const Tac_TopLevel *t = toplevel; t; t = t->next) {
         if (t->kind == TAC_TOPLEVEL_STATIC_VARIABLE) {
             const char *n = t->u.static_variable.name;
             map_insert(static_names, n, (intptr_t)n, 0);
+            OPT_TRACE("[alias] static: %s\n", n);
+            n_static++;
         }
     }
+    OPT_TRACE("[alias] static_names: %d entries\n", n_static);
 
     // Address-taken variables: every Var that is the source of a GET_ADDRESS.
     map_init(address_taken);
+    int n_taken = 0;
     for (int i = 0; i < cfg->nblocks; i++) {
         const OptBlock *b = cfg->blocks[i];
         for (const Tac_Instruction *ins = b->first; ins; ins = ins->next) {
@@ -45,8 +51,11 @@ void collect_alias_sets(const OptCfg *cfg, const Tac_TopLevel *toplevel,
                 if (src->kind == TAC_VAL_VAR) {
                     const char *n = src->u.var_name;
                     map_insert(address_taken, n, (intptr_t)n, 0);
+                    OPT_TRACE("[alias] address-taken: %s\n", n);
+                    n_taken++;
                 }
             }
         }
     }
+    OPT_TRACE("[alias] address_taken: %d entries\n", n_taken);
 }

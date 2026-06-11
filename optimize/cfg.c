@@ -15,6 +15,7 @@
 // ============================================================================
 
 #include "cfg.h"
+#include "optimize.h"
 #include "xalloc.h"
 #include "string_map.h"
 
@@ -45,6 +46,7 @@ static int count_blocks(const Tac_Instruction *body)
 OptCfg *cfg_build(Tac_Instruction *body)
 {
     int nblocks = count_blocks(body);
+    OPT_TRACE("[cfg] block count: %d\n", nblocks);
 
     OptCfg *cfg = xalloc(sizeof(OptCfg), __func__, __FILE__, __LINE__);
     cfg->nblocks = nblocks;
@@ -97,6 +99,7 @@ OptCfg *cfg_build(Tac_Instruction *body)
             cfg->blocks[i]->succs = xalloc(sizeof(OptBlock *), __func__, __FILE__, __LINE__);
             cfg->blocks[i]->succs[0] = cfg->blocks[target_id];
             cfg->blocks[i]->nsucc = 1;
+            OPT_TRACE("[cfg] block %d -[jump]-> block %d\n", i, (int)target_id);
         } else if (term->kind == TAC_INSTRUCTION_JUMP_IF_ZERO ||
                    term->kind == TAC_INSTRUCTION_JUMP_IF_NOT_ZERO) {
             // Conditional jump: two edges — the branch target (condition met)
@@ -110,15 +113,19 @@ OptCfg *cfg_build(Tac_Instruction *body)
             cfg->blocks[i]->succs[0] = cfg->blocks[target_id];
             cfg->blocks[i]->succs[1] = cfg->blocks[i + 1];
             cfg->blocks[i]->nsucc = 2;
+            OPT_TRACE("[cfg] block %d -[cond-taken]-> block %d\n", i, (int)target_id);
+            OPT_TRACE("[cfg] block %d -[cond-fallthru]-> block %d\n", i, i + 1);
         } else if (term->kind == TAC_INSTRUCTION_RETURN) {
             // Return: no successors — this is an edge to the implicit Exit.
             cfg->blocks[i]->nsucc = 0;
+            OPT_TRACE("[cfg] block %d -[return]-> exit\n", i);
         } else if (i + 1 < nblocks) {
             // No terminator (block ended only because a label followed):
             // fall through to the next block.
             cfg->blocks[i]->succs = xalloc(sizeof(OptBlock *), __func__, __FILE__, __LINE__);
             cfg->blocks[i]->succs[0] = cfg->blocks[i + 1];
             cfg->blocks[i]->nsucc = 1;
+            OPT_TRACE("[cfg] block %d -[fallthru]-> block %d\n", i, i + 1);
         }
     }
 
@@ -135,8 +142,10 @@ Tac_Instruction *cfg_flatten(OptCfg *cfg)
     Tac_Instruction *tail_last = NULL;
 
     for (int i = 0; i < cfg->nblocks; i++) {
-        if (!cfg->blocks[i]->first)
+        if (!cfg->blocks[i]->first) {
+            OPT_TRACE("[cfg] flatten: block %d is empty, skipping\n", i);
             continue;
+        }
         if (!head)
             head = cfg->blocks[i]->first;
         else

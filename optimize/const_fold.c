@@ -23,6 +23,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include "optimize.h"
 #include "tac.h"
 
 // Truthiness test: is this constant equal to zero? Used both to fold the logical
@@ -565,6 +566,7 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
             Tac_Val *folded = fold_unary_const(cur->u.unary.op,
                                                cur->u.unary.src->u.constant);
             if (folded) {
+                opt_trace_instr("[const-fold] unary fold:", cur);
                 Tac_Instruction *copy = tac_new_instruction(TAC_INSTRUCTION_COPY);
                 copy->u.copy.src = folded;
                 copy->u.copy.dst = cur->u.unary.dst; // steal dst
@@ -579,6 +581,7 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
                 else
                     body = copy;
 
+                opt_trace_instr("[const-fold]          →", copy);
                 prev = copy;
                 cur  = next;
                 continue;
@@ -594,6 +597,7 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
                                                 cur->u.binary.src1->u.constant,
                                                 cur->u.binary.src2->u.constant);
             if (folded) {
+                opt_trace_instr("[const-fold] binary fold:", cur);
                 Tac_Instruction *copy = tac_new_instruction(TAC_INSTRUCTION_COPY);
                 copy->u.copy.src = folded;
                 copy->u.copy.dst = cur->u.binary.dst; // steal dst
@@ -608,6 +612,7 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
                 else
                     body = copy;
 
+                opt_trace_instr("[const-fold]           →", copy);
                 prev = copy;
                 cur  = next;
                 continue;
@@ -622,6 +627,7 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
             Tac_Val *folded = fold_conversion(cur->kind,
                                               cur->u.sign_extend.src->u.constant);
             if (folded) {
+                opt_trace_instr("[const-fold] conversion fold:", cur);
                 Tac_Instruction *copy = tac_new_instruction(TAC_INSTRUCTION_COPY);
                 copy->u.copy.src      = folded;
                 copy->u.copy.dst      = cur->u.sign_extend.dst; // steal dst
@@ -636,6 +642,7 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
                 else
                     body = copy;
 
+                opt_trace_instr("[const-fold]              →", copy);
                 prev = copy;
                 cur  = next;
                 continue;
@@ -657,6 +664,9 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
 
             if (take) {
                 // Always taken: build a Jump, stealing the target label string.
+                opt_trace_instr("[const-fold] cond-jump always taken:", cur);
+                OPT_TRACE("[const-fold]   → unconditional jump to %s\n",
+                          cur->u.jump_if_zero.target);
                 Tac_Instruction *jmp  = tac_new_instruction(TAC_INSTRUCTION_JUMP);
                 jmp->u.jump.target    = cur->u.jump_if_zero.target; // steal
                 jmp->next             = next;
@@ -671,6 +681,7 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
                 prev = jmp;
             } else {
                 // Never taken: unlink and free the conditional jump entirely.
+                opt_trace_instr("[const-fold] cond-jump never taken → deleted:", cur);
                 if (prev) prev->next = next; else body = next;
                 cur->next = NULL;
                 tac_free_instruction(cur);

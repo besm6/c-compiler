@@ -30,6 +30,7 @@
 #include <stdbool.h>
 #include "alias.h"
 #include "cfg.h"
+#include "optimize.h"
 #include "string_map.h"
 #include "tac.h"
 #include "xalloc.h"
@@ -377,8 +378,11 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel)
     // visiting blocks in descending order (a backward analysis converges faster
     // bottom-up), until no in-set changes.
     bool changed = true;
+    int ds_iter = 0;
     while (changed) {
         changed = false;
+        ds_iter++;
+        OPT_TRACE("[dead-store] fixpoint iteration %d\n", ds_iter);
         for (int i = n - 1; i >= 0; i--) {
             const OptBlock *b = cfg->blocks[i];
             if (!b->reachable || !b->first)
@@ -391,6 +395,7 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel)
                 live_set_union(&new_out, &in_sets[b->succs[j]->id]);
             // Exit block (no successors): seed with variables observable after return.
             if (b->nsucc == 0) {
+                OPT_TRACE("[dead-store] block %d is exit: seeding live with static+address-taken\n", i);
                 live_set_union(&new_out, &static_names);
                 live_set_union(&new_out, &address_taken);
             }
@@ -403,8 +408,10 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel)
                 live_transfer_backward(&new_in, block_insts[i][j],
                                        &static_names, &address_taken);
 
-            if (!live_set_equal(&new_in, &in_sets[i]))
+            if (!live_set_equal(&new_in, &in_sets[i])) {
+                OPT_TRACE("[dead-store] block %d in-set changed\n", i);
                 changed = true;
+            }
 
             live_set_destroy(&in_sets[i]);
             live_set_destroy(&out_sets[i]);
@@ -412,6 +419,7 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel)
             out_sets[i] = new_out;
         }
     }
+    OPT_TRACE("[dead-store] fixpoint converged after %d iteration(s)\n", ds_iter);
 
     // Dead store removal: walk each block backward, pruning instructions whose
     // defined variable is dead on exit and which have no observable side-effects.
@@ -434,6 +442,8 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel)
             // the transfer, so its sources are not revived — that is what lets
             // chains of dead defs collapse in this single backward pass).
             if (dst && is_removable(ins->kind) && !map_get(&live, dst, NULL)) {
+                OPT_TRACE("[dead-store] block %d: dst '%s' is dead", i, dst);
+                opt_trace_instr(" removing:", ins);
                 Tac_Instruction *prev = (j > 0) ? block_insts[i][j - 1] : NULL;
                 if (prev)
                     prev->next = ins->next;
