@@ -645,11 +645,16 @@ TEST_F(CodegenTest, PrintTwoLines)
     EXPECT_EQ("FIRST LINE.\nSECOND LINE.\n", result);
 }
 
-// Global → local: x = g where x is never used — optimizer removes the dead store.
+// Global → local: x = g where x is never used — mark it as volatile.
 TEST_F(CodegenTest, CopyGlobalToLocal)
 {
-    DisableOptimization();
-    std::string output = CompileToMadlen("int g; void foo(void) { int x; x = g; }");
+    std::string output = CompileToMadlen(R"(
+        int g;
+        void foo(void) {
+            volatile int x;
+            x = g;
+        }
+    )");
     EXPECT_EQ(R"(c
         g:   ,name,
              ,bss, 1
