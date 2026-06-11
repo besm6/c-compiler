@@ -19,6 +19,7 @@ Run a single test binary directly (semantic and translator tests live in subdire
 ./build/semantic/semantic-tests
 ./build/translator/translate-tests
 ./build/backend/besm6/besm-tests
+./build/optimize/optimizer-tests
 ```
 
 Run a specific GoogleTest case:
@@ -61,14 +62,14 @@ This is a multi-platform C11 compiler. The shared frontend emits TAC; machine ba
 ```
 Source (.c)
   → [parse]      Scanner → Parser → AST (binary/YAML/DOT)
-  → [lower]      Typecheck → Translate → TAC (binary/YAML/DOT)
+  → [lower]      Typecheck → Translate → Optimize → TAC (binary/YAML/DOT)
   → [genx86]     Frame alloc → Instruction select → GNU AT&T assembly (.s)
   → [genbesm]    Frame alloc → Instruction select → Madlen assembly (.mad)
 ```
 
 **`parse`** (`parser/main.c`): Lexes and parses a C source file, outputs a binary AST stream (via `wio`) to stdout, or `--yaml`/`--dot` for human-readable forms.
 
-**`lower`** (`translator/main.c`): Reads the binary AST, runs semantic analysis and TAC lowering, outputs TAC. Lowering is complete. The TAC YAML format is documented in [docs/Technical_Reference.md](docs/Technical_Reference.md).
+**`lower`** (`translator/main.c`): Reads the binary AST, runs semantic analysis and TAC lowering, then runs the TAC optimizer, and outputs TAC. Lowering is complete. The optimizer runs four passes in a fixed-point loop: constant folding, unreachable code elimination, copy propagation, and dead store elimination. Optimizer flags: `--no-unreachable`, `--no-copy-prop`, `--no-dead-store`, `--opt-debug`. The TAC YAML format is documented in [docs/Technical_Reference.md](docs/Technical_Reference.md).
 
 ### Compiler phases
 
@@ -81,8 +82,9 @@ Source (.c)
 | Loop labeling | `semantic/label_loops.c` | Complete |
 | Const conversion | `semantic/const_convert.c` | Complete |
 | AST → TAC lowering | `translator/translate.c`, `expr.c`, `stmt.c` | Complete |
+| TAC optimizer | `optimize/` | Complete (const fold, unreachable elim, copy prop, dead store elim) |
 | x86_64 code gen | `backend/x86/` | Planned |
-| BESM-6 code gen | `backend/besm6/` | In progress (frame alloc, static data, UTF-8→KOI7, main entry, COPY/GET_ADDRESS/LOAD/STORE/BINARY/FUN_CALL/RETURN done) |
+| BESM-6 code gen | `backend/besm6/` | In progress (frame alloc, static data, UTF-8→KOI7, main entry, global variable access, COPY/GET_ADDRESS/LOAD/STORE/BINARY/FUN_CALL/RETURN/LABEL/JUMP/JUMP_IF_ZERO/JUMP_IF_NOT_ZERO done) |
 | AArch64 / RISC-V / ARM32 code gen | — | Planned |
 
 ### Key data structures
@@ -125,6 +127,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` → `semantic-tests`
 - `backend/besm6/codegen_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp` → `besm-tests`
 - `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`
+- `optimize/const_fold_tests.cpp`, `jump_unreachable_tests.cpp`, `copy_prop_tests.cpp`, `dead_store_tests.cpp`, `type_conv_tests.cpp`, `pipeline_tests.cpp` → `optimizer-tests`
 - `libutil/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-tests`
 
 ## Documentation

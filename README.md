@@ -17,10 +17,10 @@ A C11 compiler with a shared frontend and pluggable machine backends. Current ba
 |------|--------|
 | **Build** | CMake-based build; optional `Makefile` wrapper. Unit tests via GoogleTest. |
 | **`parse`** | Reads C source and writes an abstract syntax tree (AST): binary `.ast`, or `--yaml` / `--dot` for inspection and graphs. |
-| **`lower`** | Reads a binary AST stream and, per top-level declaration, runs **typecheck → `translate` → emit**. Output can be **binary TAC** (default), **YAML-like listing** via the TAC pretty-printer, or **Graphviz DOT** (`tac_graphviz`). Semantic analysis handles `typedef` (scoped `typetab`) and full `switch` validation (integer controlling expression with integer promotion; constant integer case values; duplicate-case and multiple-default rejection). TAC lowering is **complete**: arithmetic, control flow, functions (direct and indirect), pointers, arrays, structs, casts, `_Generic`, compound literals, and aggregate initializers all lower correctly. |
+| **`lower`** | Reads a binary AST stream and, per top-level declaration, runs **typecheck → `translate` → optimize → emit**. Output can be **binary TAC** (default), **YAML-like listing** via the TAC pretty-printer, or **Graphviz DOT** (`tac_graphviz`). Semantic analysis handles `typedef` (scoped `typetab`) and full `switch` validation (integer controlling expression with integer promotion; constant integer case values; duplicate-case and multiple-default rejection). TAC lowering is **complete**: arithmetic, control flow, functions (direct and indirect), pointers, arrays, structs, casts, `_Generic`, compound literals, and aggregate initializers all lower correctly. After lowering, the **TAC optimizer** runs four passes in a fixed-point loop: constant folding, unreachable code elimination, copy propagation, and dead store elimination. Flags: `--no-unreachable`, `--no-copy-prop`, `--no-dead-store`, `--opt-debug`. |
 | **TAC** | `tac/` builds **alloc/print/free/compare**, **`tac_export`** and **`tac_import`** (binary stream), **`tac_export_yaml`** (YAML listing), and **`tac_graphviz`** (DOT graph). Lowering lives in **`translator/translate.c`**. |
 | **x86_64 backend (`genx86`)** | Planned. Work plan in [backend/x86/TODO.md](backend/x86/TODO.md). |
-| **BESM-6 backend (`genbesm`)** | In progress. Frame allocation, static variables/constants (integers, strings with UTF-8→KOI7, pointers, floats/doubles), `main()` entry point, and core instruction selection (`COPY`, `GET_ADDRESS`, `LOAD`/`STORE`, `BINARY` add/subtract, `FUN_CALL`, `RETURN`) implemented. Work plan in [backend/besm6/TODO.md](backend/besm6/TODO.md). |
+| **BESM-6 backend (`genbesm`)** | In progress. Frame allocation, static variables/constants (integers, strings with UTF-8→KOI7, pointers, floats/doubles), `main()` entry point, global variable access, and core instruction selection (`COPY`, `GET_ADDRESS`, `LOAD`/`STORE`, `BINARY` add/subtract, `FUN_CALL`, `RETURN`, `LABEL`, `JUMP`, `JUMP_IF_ZERO`, `JUMP_IF_NOT_ZERO`) implemented. Work plan in [backend/besm6/TODO.md](backend/besm6/TODO.md). |
 | **AArch64 / RISC-V / ARM32 backends** | Planned (not started). |
 | **Preprocessor, assembler, linker** | Not in this repo. |
 
@@ -38,7 +38,7 @@ A compiler is usually described as a pipeline. You can think of it like an assem
 4. **Intermediate code** (here, *three-address code*, TAC) is a machine-neutral form that is easier to optimize and translate than raw C syntax.
 5. **Backend** translates TAC into target-specific assembly. Current targets: **x86_64** (`genx86`, System V AMD64 ABI) and **BESM-6** (`genbesm`, Madlen / Dubna). Planned: AArch64, RISC-V, ARM32.
 
-Stages 1–3 are fully in place. Stage 4 is **complete**: the entire C11 is lowered to TAC. TAC can be emitted as **binary** or re-imported, listed as **YAML** (`--yaml`), or rendered as **DOT** (`--dot`). Stage 5 is planned for x86_64 and BESM-6.
+Stages 1–3 are fully in place. Stage 4 is **complete**: the entire C11 is lowered to TAC, then the TAC optimizer runs four passes (constant folding, unreachable code elimination, copy propagation, dead store elimination). TAC can be emitted as **binary** or re-imported, listed as **YAML** (`--yaml`), or rendered as **DOT** (`--dot`). Stage 5 is **in progress** for BESM-6 and **planned** for x86_64.
 
 ```mermaid
 flowchart LR
@@ -48,14 +48,15 @@ flowchart LR
         Parser[Parser]
         AST[AST]
         Semantic[Semantic passes]
-        TACGen[TAC lowering and export]
-        SourceCode --> Scanner --> Parser --> AST --> Semantic --> TACGen
+        TACGen[TAC lowering]
+        Optimizer[TAC optimizer]
+        SourceCode --> Scanner --> Parser --> AST --> Semantic --> TACGen --> Optimizer
     end
     subgraph progress [Backends — in progress]
         X86[x86_64 backend]
         BESM6[BESM-6 backend]
-        TACGen --> X86
-        TACGen --> BESM6
+        Optimizer --> X86
+        Optimizer --> BESM6
     end
     subgraph future [Backends — planned]
         AA64[AArch64]
@@ -130,6 +131,7 @@ For debug logging, verbose mode, and full `lower` behavior, see [docs/Technical_
 | [docs/Madlen.md](docs/Madlen.md) | Madlen assembler syntax for the Dubna monitor |
 | [docs/Type_Coercion.md](docs/Type_Coercion.md) | C11 type coercion and arithmetic conversion rules |
 | [docs/Type_Sizes_Alignment.md](docs/Type_Sizes_Alignment.md) | Type sizes and alignment per target architecture |
+| [docs/TAC_Optimization.md](docs/TAC_Optimization.md) | TAC optimization passes: constant folding, unreachable code elimination, copy propagation, dead store elimination |
 
 ## License
 
