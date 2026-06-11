@@ -7,6 +7,7 @@
 #include "besm.h"
 #include "codegen.h"
 #include "frame.h"
+#include "string_map.h"
 #include "utf8_to_koi7.h"
 #include "xalloc.h"
 
@@ -414,18 +415,34 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
             entry_prog->name       = xstrdup("program");
         }
 
-        // Declare each static constant referenced via GET_ADDRESS as a SUBP word.
-        // SUBP allocates no memory; it just tells the assembler the name is external.
-        // Must appear before the XTA that loads the address (single-pass assembler).
+        // Declare each module-level name referenced via GET_ADDRESS or COPY as a SUBP
+        // word. SUBP allocates no memory; it just tells the assembler the name is
+        // external. Must appear before the first instruction that uses the name
+        // (single-pass assembler). Use a map to avoid duplicate declarations.
+        StringMap declared;
+        map_init(&declared);
         for (const Tac_Instruction *instr = tl->u.function.body; instr; instr = instr->next) {
-            if (instr->kind != TAC_INSTRUCTION_GET_ADDRESS) continue;
-            const char *sname = instr->u.get_address.src->u.var_name;
-            int sr, so;
-            if (!frame_lookup(f, sname, &sr, &so)) {
-                Besm_Instr *ssubp = emit(block, &tail, BESM_STMT_SUBP);
-                ssubp->name       = xstrdup(sname);
+            const char *names[2] = { NULL, NULL };
+            if (instr->kind == TAC_INSTRUCTION_GET_ADDRESS) {
+                names[0] = instr->u.get_address.src->u.var_name;
+            } else if (instr->kind == TAC_INSTRUCTION_COPY &&
+                       instr->u.copy.src->kind == TAC_VAL_VAR) {
+                names[0] = instr->u.copy.src->u.var_name;
+                names[1] = instr->u.copy.dst->u.var_name;
+            }
+            for (int ni = 0; ni < 2; ni++) {
+                const char *sname = names[ni];
+                if (!sname) continue;
+                int sr, so;
+                intptr_t dummy;
+                if (!frame_lookup(f, sname, &sr, &so) && !map_get(&declared, sname, &dummy)) {
+                    Besm_Instr *ssubp = emit(block, &tail, BESM_STMT_SUBP);
+                    ssubp->name       = xstrdup(sname);
+                    map_insert(&declared, sname, 1, 0);
+                }
             }
         }
+        map_destroy(&declared);
 
         Besm_Instr *its13 = emit(block, &tail, BESM_MEM_ITS);
         its13->addr       = REG_RET;
@@ -460,28 +477,50 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
     // COPY  dst = src
     //
     // In C:  b = a;
-    // TAC:   copy src → dst   (both src and dst are TAC_VAL_VAR frame slots)
+    // TAC:   copy src → dst
     //
-    // BESM-6 sequence:
-    //   reg_src ,XTA, off_src   — load src from its frame slot into A
-    //   reg_dst ,ATX, off_dst   — store A into dst's frame slot
+    // Four sub-cases depending on whether each operand is a local (frame slot) or a
+    // module-level global (addressed via UTC/XTA or UTC/ATX through C):
     //
-    // frame_lookup resolves each name to (reg, offset) where reg is REG_PAR (r6)
-    // for function parameters or REG_AUTO (r7) for local variables.
-    // The XTA/ATX pair works uniformly regardless of which base register is used.
+    //   local  → local : reg_src ,XTA, off_src  /  reg_dst ,ATX, off_dst
+    //   global → local : ,UTC, src_name  /  ,XTA,  /  reg_dst ,ATX, off_dst
+    //   local  → global: reg_src ,XTA, off_src  /  ,UTC, dst_name  /  ,ATX,
+    //   global → global: ,UTC, src_name  /  ,XTA,  /  ,UTC, dst_name  /  ,ATX,
     //
-    // COPY from a constant (e.g. b = 0) requires INT-format encoding and is
-    // deferred to task #21.
+    // Bare ,XTA, / ,ATX, (reg=0, addr=0) load/store the word whose address is in C.
+    // UTC sets C = address of the named global (using mem[0]=0 architecturally as base).
+    // UTC does not disturb A, so the local→global order (XTA before UTC) is safe.
+    //
+    // COPY from a constant (e.g. b = 0) is deferred to task #3.
     case TAC_INSTRUCTION_COPY: {
         const Tac_Val *src = instr->u.copy.src;
         const Tac_Val *dst = instr->u.copy.dst;
         if (src->kind != TAC_VAL_VAR)
-            fatal_error("TODO: COPY from constant (Phase B task 21)");
+            fatal_error("TODO: COPY from constant (Phase C task 3)");
         int sr, so, dr, doff;
-        lookup(f, src->u.var_name, &sr, &so);
-        lookup(f, dst->u.var_name, &dr, &doff);
-        emit_xta(block, tail, sr, so);
-        emit_atx(block, tail, dr, doff);
+        bool src_local = frame_lookup(f, src->u.var_name, &sr, &so);
+        bool dst_local = frame_lookup(f, dst->u.var_name, &dr, &doff);
+        if (src_local && dst_local) {
+            emit_xta(block, tail, sr, so);
+            emit_atx(block, tail, dr, doff);
+        } else if (!src_local && dst_local) {
+            Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
+            utc->name       = xstrdup(src->u.var_name);
+            emit(block, tail, BESM_MEM_XTA);
+            emit_atx(block, tail, dr, doff);
+        } else if (src_local && !dst_local) {
+            emit_xta(block, tail, sr, so);
+            Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
+            utc->name       = xstrdup(dst->u.var_name);
+            emit(block, tail, BESM_MEM_ATX);
+        } else {
+            Besm_Instr *utcs = emit(block, tail, BESM_MOD_UTC);
+            utcs->name       = xstrdup(src->u.var_name);
+            emit(block, tail, BESM_MEM_XTA);
+            Besm_Instr *utcd = emit(block, tail, BESM_MOD_UTC);
+            utcd->name       = xstrdup(dst->u.var_name);
+            emit(block, tail, BESM_MEM_ATX);
+        }
         break;
     }
     // GET_ADDRESS  dst = &src

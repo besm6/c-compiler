@@ -586,3 +586,89 @@ TEST_F(CodegenTest, PrintTwoLines)
     )");
     EXPECT_EQ("FIRST LINE.\nSECOND LINE.\n", result);
 }
+
+// Global → local: COPY g → x (Case B)
+TEST_F(CodegenTest, CopyGlobalToLocal)
+{
+    std::string output = CompileToMadlen("int g; void foo(void) { int x; x = g; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save0
+          15 ,utm, 1
+             ,utc, g
+             ,xta,
+           7 ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// Local → global: COPY a → g (Case C)
+TEST_F(CodegenTest, CopyLocalToGlobal)
+{
+    std::string output = CompileToMadlen("int g; void foo(int a) { g = a; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// Global → global: COPY g → h (Case D)
+TEST_F(CodegenTest, CopyGlobalToGlobal)
+{
+    std::string output = CompileToMadlen("int g, h; void foo(void) { h = g; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+        h:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+        h:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,utc, g
+             ,xta,
+             ,utc, h
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// Runtime: write to global, copy global→global, read back via local.
+TEST_F(CodegenTest, GlobalScalarReadWrite)
+{
+    std::string result = CompileAndRun(R"(
+        void writeb(int ch);
+        int g, h;
+        void copy_to_h(int v) { g = v; h = g; }
+        void write_h(void) { int x; x = h; writeb(x); writeb('\n'); }
+        void program() { copy_to_h('M'); write_h(); }
+    )");
+    EXPECT_EQ("M\n", result);
+}
