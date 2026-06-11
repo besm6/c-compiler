@@ -71,24 +71,58 @@ static void lookup(const Frame *f, const char *name, int *reg, int *off)
         fatal_error("variable '%s' not in frame", name);
 }
 
-// Extract the integer value from a TAC constant (integer and char kinds only).
-static long long get_const_int_val(const Tac_Const *c)
+// Build a heap-allocated Madlen literal-address string for a TAC constant.
+// Signed int/char/long: masked to 41 bits (raw two's-complement, exponent=0).
+// Unsigned uint/ulong/uchar: masked to 48 bits.
+// Float/double: "=r<value>" in %.13g format.
+static char *const_lit_name(const Tac_Const *c)
 {
+    char buf[64];
     switch (c->kind) {
-    case TAC_CONST_INT:        return c->u.int_val;
-    case TAC_CONST_LONG:       return c->u.long_val;
-    case TAC_CONST_LONG_LONG:  return c->u.long_long_val;
-    case TAC_CONST_UINT:       return (long long)c->u.uint_val;
-    case TAC_CONST_ULONG:      return (long long)c->u.ulong_val;
-    case TAC_CONST_ULONG_LONG: return (long long)c->u.ulong_long_val;
-    case TAC_CONST_CHAR:       return c->u.char_val;
-    case TAC_CONST_UCHAR:      return c->u.uchar_val;
+    case TAC_CONST_INT:
+        snprintf(buf, sizeof(buf), "=%llo",
+                 (unsigned long long)((long long)c->u.int_val & (long long)0x1FFFFFFFFFF));
+        break;
+    case TAC_CONST_LONG:
+        snprintf(buf, sizeof(buf), "=%llo",
+                 (unsigned long long)(c->u.long_val & (long long)0x1FFFFFFFFFF));
+        break;
+    case TAC_CONST_LONG_LONG:
+        snprintf(buf, sizeof(buf), "=%llo",
+                 (unsigned long long)(c->u.long_long_val & (long long)0x1FFFFFFFFFF));
+        break;
+    case TAC_CONST_CHAR:
+        snprintf(buf, sizeof(buf), "=%llo",
+                 (unsigned long long)((long long)c->u.char_val & (long long)0x1FFFFFFFFFF));
+        break;
+    case TAC_CONST_UINT:
+        snprintf(buf, sizeof(buf), "=%llo",
+                 (unsigned long long)(c->u.uint_val & 0xFFFFFFFFFFFFULL));
+        break;
+    case TAC_CONST_ULONG:
+        snprintf(buf, sizeof(buf), "=%llo",
+                 (unsigned long long)(c->u.ulong_val & 0xFFFFFFFFFFFFULL));
+        break;
+    case TAC_CONST_ULONG_LONG:
+        snprintf(buf, sizeof(buf), "=%llo",
+                 (unsigned long long)(c->u.ulong_long_val & 0xFFFFFFFFFFFFULL));
+        break;
+    case TAC_CONST_UCHAR:
+        snprintf(buf, sizeof(buf), "=%llo", (unsigned long long)c->u.uchar_val);
+        break;
+    case TAC_CONST_FLOAT:
+        snprintf(buf, sizeof(buf), "=r%.13g", (double)c->u.float_val);
+        break;
+    case TAC_CONST_DOUBLE:
+        snprintf(buf, sizeof(buf), "=r%.13g", c->u.double_val);
+        break;
     default:
-        fatal_error("TODO: float constant in function-call argument");
+        fatal_error("unsupported constant kind %d", (int)c->kind);
     }
+    return xstrdup(buf);
 }
 
-// Emit XTA for a TAC value: variable from frame, UTC+XTA for a global, or octal =N for a constant.
+// Emit XTA for a TAC value: variable from frame, UTC+XTA for a global, or =N/=rX for a constant.
 static void emit_xta_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *v)
 {
     if (v->kind == TAC_VAL_VAR) {
@@ -101,11 +135,8 @@ static void emit_xta_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Ta
             emit_xta(b, t, 0, 0);
         }
     } else {
-        long long ival = get_const_int_val(v->u.constant);
-        char name[32];
-        snprintf(name, sizeof(name), "=%llo", (unsigned long long)ival);
         Besm_Instr *i = emit(b, t, BESM_MEM_XTA);
-        i->name       = xstrdup(name);
+        i->name       = const_lit_name(v->u.constant);
     }
 }
 
@@ -126,11 +157,27 @@ static void emit_xts_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Ta
             (void)i;   // reg=0, addr=0 → XTS mem[C+0]
         }
     } else {
-        long long ival = get_const_int_val(v->u.constant);
-        char name[32];
-        snprintf(name, sizeof(name), "=%llo", (unsigned long long)ival);
         Besm_Instr *i = emit(b, t, BESM_MEM_XTS);
-        i->name       = xstrdup(name);
+        i->name       = const_lit_name(v->u.constant);
+    }
+}
+
+// Emit an arithmetic instruction for a TAC value: local, global (via UTC), or constant literal.
+static void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind,
+                           const Frame *f, const Tac_Val *v)
+{
+    if (v->kind == TAC_VAL_VAR) {
+        int reg, off;
+        if (frame_lookup(f, v->u.var_name, &reg, &off)) {
+            emit_arith(b, t, kind, reg, off);
+        } else {
+            Besm_Instr *utc = emit(b, t, BESM_MOD_UTC);
+            utc->name       = xstrdup(v->u.var_name);
+            emit(b, t, kind);   // reg=0, addr=0 → op mem[C+0]
+        }
+    } else {
+        Besm_Instr *i = emit(b, t, kind);
+        i->name       = const_lit_name(v->u.constant);
     }
 }
 
@@ -437,9 +484,9 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
             const char *names[2] = { NULL, NULL };
             if (instr->kind == TAC_INSTRUCTION_GET_ADDRESS) {
                 names[0] = instr->u.get_address.src->u.var_name;
-            } else if (instr->kind == TAC_INSTRUCTION_COPY &&
-                       instr->u.copy.src->kind == TAC_VAL_VAR) {
-                names[0] = instr->u.copy.src->u.var_name;
+            } else if (instr->kind == TAC_INSTRUCTION_COPY) {
+                if (instr->u.copy.src->kind == TAC_VAL_VAR)
+                    names[0] = instr->u.copy.src->u.var_name;
                 names[1] = instr->u.copy.dst->u.var_name;
             }
             for (int ni = 0; ni < 2; ni++) {
@@ -519,34 +566,16 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
     // UTC sets C = address of the named global (using mem[0]=0 architecturally as base).
     // UTC does not disturb A, so the local→global order (XTA before UTC) is safe.
     //
-    // COPY from a constant (e.g. b = 0) is deferred to task #3.
     case TAC_INSTRUCTION_COPY: {
         const Tac_Val *src = instr->u.copy.src;
         const Tac_Val *dst = instr->u.copy.dst;
-        if (src->kind != TAC_VAL_VAR)
-            fatal_error("TODO: COPY from constant (Phase C task 3)");
-        int sr, so, dr, doff;
-        bool src_local = frame_lookup(f, src->u.var_name, &sr, &so);
-        bool dst_local = frame_lookup(f, dst->u.var_name, &dr, &doff);
-        if (src_local && dst_local) {
-            emit_xta(block, tail, sr, so);
+        emit_xta_val(block, tail, f, src);
+        int dr, doff;
+        if (frame_lookup(f, dst->u.var_name, &dr, &doff)) {
             emit_atx(block, tail, dr, doff);
-        } else if (!src_local && dst_local) {
-            Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
-            utc->name       = xstrdup(src->u.var_name);
-            emit(block, tail, BESM_MEM_XTA);
-            emit_atx(block, tail, dr, doff);
-        } else if (src_local && !dst_local) {
-            emit_xta(block, tail, sr, so);
+        } else {
             Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
             utc->name       = xstrdup(dst->u.var_name);
-            emit(block, tail, BESM_MEM_ATX);
-        } else {
-            Besm_Instr *utcs = emit(block, tail, BESM_MOD_UTC);
-            utcs->name       = xstrdup(src->u.var_name);
-            emit(block, tail, BESM_MEM_XTA);
-            Besm_Instr *utcd = emit(block, tail, BESM_MOD_UTC);
-            utcd->name       = xstrdup(dst->u.var_name);
             emit(block, tail, BESM_MEM_ATX);
         }
         break;
@@ -658,17 +687,12 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
     //   reg_src2 ,A+X, off_src2   — A = A + src2  (A-X for subtract)
     //   reg_dst  ,ATX, off_dst    — store A into dst's frame slot
     //
-    // Constants as operands need INT-format encoding; deferred to task #21.
     case TAC_INSTRUCTION_BINARY: {
         const Tac_Val *src1 = instr->u.binary.src1;
         const Tac_Val *src2 = instr->u.binary.src2;
         const Tac_Val *dst  = instr->u.binary.dst;
-        if (src1->kind != TAC_VAL_VAR || src2->kind != TAC_VAL_VAR)
-            fatal_error("TODO: BINARY from constant (Phase B task 21)");
-        int r1, o1, r2, o2, rd, od;
-        lookup(f, src1->u.var_name, &r1, &o1);
-        lookup(f, src2->u.var_name, &r2, &o2);
-        lookup(f, dst->u.var_name,  &rd, &od);
+        int rd, od;
+        lookup(f, dst->u.var_name, &rd, &od);
         Besm_InstrKind op_kind;
         switch (instr->u.binary.op) {
         case TAC_BINARY_ADD:      op_kind = BESM_ARITH_ADD; break;
@@ -676,8 +700,8 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         default:
             fatal_error("TODO: binary op %d (Phase B)", (int)instr->u.binary.op);
         }
-        emit_xta(block, tail, r1, o1);
-        emit_arith(block, tail, op_kind, r2, o2);
+        emit_xta_val(block, tail, f, src1);
+        emit_arith_val(block, tail, op_kind, f, src2);
         emit_atx(block, tail, rd, od);
         break;
     }

@@ -29,17 +29,23 @@ static void sanitize_name(char *dst, size_t n, const char *src)
 // name+addr → "name+N", name-addr → "name-N", name only → "name",
 // addr only → "N", both zero/null → "" (buf already zeroed by caller).
 //
+// Names beginning with '=' are Madlen literal-address expressions (=N, =rX),
+// not identifiers; they are passed through without sanitization or truncation.
+//
 static void addr_str(char *buf, size_t n, const char *name, int addr)
 {
     char sname[9];
-    if (name)
+    const char *aname = name;
+    if (name && name[0] != '=') {
         sanitize_name(sname, sizeof(sname), name);
+        aname = sname;
+    }
     if (name && addr > 0)
-        snprintf(buf, n, "%s+%d", sname, addr);
+        snprintf(buf, n, "%s+%d", aname, addr);
     else if (name && addr < 0)
-        snprintf(buf, n, "%s-%d", sname, -addr);
+        snprintf(buf, n, "%s-%d", aname, -addr);
     else if (name)
-        snprintf(buf, n, "%s", sname);
+        snprintf(buf, n, "%s", aname);
     else if (addr)
         snprintf(buf, n, "%d", addr);
 }

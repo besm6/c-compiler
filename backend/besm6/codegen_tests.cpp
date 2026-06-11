@@ -736,3 +736,144 @@ TEST_F(CodegenTest, GlobalScalarReadWrite)
     )");
     EXPECT_EQ("M\n", result);
 }
+
+// COPY from integer constant to a local variable.
+// 42 decimal = 52 octal → literal =52.
+TEST_F(CodegenTest, CopyConstToLocal)
+{
+    std::string output = CompileToMadlen(R"(
+        void foo(void) {
+            volatile int x;
+            x = 42;
+        }
+    )");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+          15 ,utm, 1
+             ,xta, =52
+           7 ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// COPY from integer constant 0 to a global variable.
+TEST_F(CodegenTest, CopyConstToGlobal)
+{
+    std::string output = CompileToMadlen("int g; void foo(void) { g = 0; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,xta, =0
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// COPY from negative integer constant: -1 must be masked to 41 bits
+// (0x1FFFFFFFFFF = 37777777777777 octal), not emitted as a 64-bit pattern.
+TEST_F(CodegenTest, CopyNegConst)
+{
+    std::string output = CompileToMadlen("int g; void foo(void) { g = -1; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,xta, =37777777777777
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// BINARY with a constant right operand: g = a + 5.
+TEST_F(CodegenTest, BinaryConstSrc2)
+{
+    std::string output = CompileToMadlen("int g; void foo(int a) { g = a + 5; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,a+x, =5
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// BINARY with a constant left operand: g = 5 + a.
+TEST_F(CodegenTest, BinaryConstSrc1)
+{
+    std::string output = CompileToMadlen("int g; void foo(int a) { g = 5 + a; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+             ,xta, =5
+           6 ,a+x,
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// Float constant in a function-call argument.
+// 1.5 as double → "=r1.5" literal.
+TEST_F(CodegenTest, FuncArgFloat)
+{
+    std::string output = CompileToMadlen(R"(
+        void foo(double x);
+        void quz(void) { foo(1.5); }
+    )");
+    EXPECT_EQ(R"(c
+      quz:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,xta, =r1.5
+          14 ,vtm, -1
+             ,call, foo
+             ,uj, b/ret
+             ,end,
+)", output);
+}
