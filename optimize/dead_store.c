@@ -1,7 +1,257 @@
+#include <stdbool.h>
 #include "alias.h"
 #include "cfg.h"
 #include "string_map.h"
 #include "tac.h"
+#include "xalloc.h"
+
+// ============================================================================
+// Live-set primitives: StringMap (name → xstrdup(name)).
+// The name is mirrored as the value so map_iterate callbacks can read it —
+// map_iterate delivers only the value, not the key.
+// ============================================================================
+
+static void live_name_free(intptr_t v) { xfree((char *)v); }
+
+static void live_set_destroy(StringMap *ls)
+{
+    map_destroy_free(ls, live_name_free);
+}
+
+// Skip insert when key already present (avoids duplicate xstrdup).
+static void live_add(StringMap *ls, const char *name)
+{
+    if (!name || map_get(ls, name, NULL)) return;
+    const char *dup = xstrdup(name);
+    map_insert(ls, dup, (intptr_t)dup, 0);
+}
+
+static void live_add_val(StringMap *ls, const Tac_Val *v)
+{
+    if (v && v->kind == TAC_VAL_VAR)
+        live_add(ls, v->u.var_name);
+}
+
+static void live_remove(StringMap *ls, const char *name)
+{
+    if (!name) return;
+    intptr_t oval = 0;
+    if (!map_get(ls, name, &oval)) return;
+    map_remove_key(ls, name);
+    live_name_free(oval);
+}
+
+// ============================================================================
+// live_set_copy / live_set_union
+// ============================================================================
+
+typedef struct { StringMap *dst; } LiveCtx;
+
+static void live_copy_cb(intptr_t value, const void *arg)
+{
+    live_add(((const LiveCtx *)arg)->dst, (const char *)value);
+}
+
+static void live_set_copy(StringMap *dst, const StringMap *src)
+{
+    LiveCtx ctx = { dst };
+    map_iterate((StringMap *)src, live_copy_cb, &ctx);
+}
+
+static void live_set_union(StringMap *result, const StringMap *other)
+{
+    LiveCtx ctx = { result };
+    map_iterate((StringMap *)other, live_copy_cb, &ctx);
+}
+
+// ============================================================================
+// live_set_equal
+// ============================================================================
+
+typedef struct {
+    bool            *equal;
+    const StringMap *other;
+} LiveEqualCtx;
+
+static void live_equal_cb(intptr_t value, const void *arg)
+{
+    const LiveEqualCtx *ctx = (const LiveEqualCtx *)arg;
+    if (!*ctx->equal) return;
+    if (!map_get((StringMap *)ctx->other, (const char *)value, NULL))
+        *ctx->equal = false;
+}
+
+static bool live_set_equal(const StringMap *a, const StringMap *b)
+{
+    bool         eq  = true;
+    LiveEqualCtx ctx = { &eq, b };
+    map_iterate((StringMap *)a, live_equal_cb, &ctx);
+    if (!eq) return false;
+    ctx.other = a;
+    map_iterate((StringMap *)b, live_equal_cb, &ctx);
+    return eq;
+}
+
+// ============================================================================
+// live_get_dst_name: variable defined by this instruction (or NULL).
+// STORE and FUN_CALL are side-effecting: not killed.
+// COPY_TO_OFFSET.dst is char* (direct name, not Tac_Val*).
+// ============================================================================
+
+static const char *live_get_dst_name(const Tac_Instruction *ins)
+{
+    switch (ins->kind) {
+    case TAC_INSTRUCTION_COPY:
+        if (ins->u.copy.dst->kind == TAC_VAL_VAR)
+            return ins->u.copy.dst->u.var_name;
+        return NULL;
+    case TAC_INSTRUCTION_UNARY:
+        if (ins->u.unary.dst->kind == TAC_VAL_VAR)
+            return ins->u.unary.dst->u.var_name;
+        return NULL;
+    case TAC_INSTRUCTION_BINARY:
+        if (ins->u.binary.dst->kind == TAC_VAL_VAR)
+            return ins->u.binary.dst->u.var_name;
+        return NULL;
+    case TAC_INSTRUCTION_SIGN_EXTEND:
+    case TAC_INSTRUCTION_TRUNCATE:
+    case TAC_INSTRUCTION_ZERO_EXTEND:
+    case TAC_INSTRUCTION_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+        if (ins->u.sign_extend.dst->kind == TAC_VAL_VAR)
+            return ins->u.sign_extend.dst->u.var_name;
+        return NULL;
+    case TAC_INSTRUCTION_GET_ADDRESS:
+        if (ins->u.get_address.dst->kind == TAC_VAL_VAR)
+            return ins->u.get_address.dst->u.var_name;
+        return NULL;
+    case TAC_INSTRUCTION_LOAD:
+        if (ins->u.load.dst->kind == TAC_VAL_VAR)
+            return ins->u.load.dst->u.var_name;
+        return NULL;
+    case TAC_INSTRUCTION_ADD_PTR:
+        if (ins->u.add_ptr.dst->kind == TAC_VAL_VAR)
+            return ins->u.add_ptr.dst->u.var_name;
+        return NULL;
+    case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+        if (ins->u.copy_from_offset.dst->kind == TAC_VAL_VAR)
+            return ins->u.copy_from_offset.dst->u.var_name;
+        return NULL;
+    case TAC_INSTRUCTION_COPY_TO_OFFSET:
+        return ins->u.copy_to_offset.dst;  // char* directly
+    default:
+        return NULL;
+    }
+}
+
+// ============================================================================
+// live_transfer_backward: update live set in place for one instruction.
+// Caller processes instructions from last to first within a block.
+// ============================================================================
+
+static void live_transfer_backward(StringMap *ls, const Tac_Instruction *ins,
+                                   const StringMap *static_names,
+                                   const StringMap *address_taken)
+{
+    if (ins->kind == TAC_INSTRUCTION_FUN_CALL) {
+        // Callee may read any static or address-taken variable.
+        live_set_union(ls, static_names);
+        live_set_union(ls, address_taken);
+        for (const Tac_Val *a = ins->u.fun_call.args; a; a = a->next)
+            live_add_val(ls, a);
+        // FUN_CALL: no defined variable to kill.
+        return;
+    }
+
+    live_remove(ls, live_get_dst_name(ins));
+
+    switch (ins->kind) {
+    case TAC_INSTRUCTION_RETURN:
+        live_add_val(ls, ins->u.return_.src);
+        break;
+    case TAC_INSTRUCTION_SIGN_EXTEND:
+    case TAC_INSTRUCTION_TRUNCATE:
+    case TAC_INSTRUCTION_ZERO_EXTEND:
+    case TAC_INSTRUCTION_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+        live_add_val(ls, ins->u.sign_extend.src);
+        break;
+    case TAC_INSTRUCTION_UNARY:
+        live_add_val(ls, ins->u.unary.src);
+        break;
+    case TAC_INSTRUCTION_BINARY:
+        live_add_val(ls, ins->u.binary.src1);
+        live_add_val(ls, ins->u.binary.src2);
+        break;
+    case TAC_INSTRUCTION_COPY:
+        live_add_val(ls, ins->u.copy.src);
+        break;
+    case TAC_INSTRUCTION_GET_ADDRESS:
+        live_add_val(ls, ins->u.get_address.src);
+        break;
+    case TAC_INSTRUCTION_LOAD:
+        live_add_val(ls, ins->u.load.src_ptr);
+        break;
+    case TAC_INSTRUCTION_STORE:
+        live_add_val(ls, ins->u.store.src);
+        live_add_val(ls, ins->u.store.dst_ptr);
+        break;
+    case TAC_INSTRUCTION_ADD_PTR:
+        live_add_val(ls, ins->u.add_ptr.ptr);
+        live_add_val(ls, ins->u.add_ptr.index);
+        break;
+    case TAC_INSTRUCTION_COPY_TO_OFFSET:
+        live_add_val(ls, ins->u.copy_to_offset.src);
+        break;
+    case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+        live_add(ls, ins->u.copy_from_offset.src);  // char*, not Tac_Val*
+        break;
+    case TAC_INSTRUCTION_JUMP_IF_ZERO:
+        live_add_val(ls, ins->u.jump_if_zero.condition);
+        break;
+    case TAC_INSTRUCTION_JUMP_IF_NOT_ZERO:
+        live_add_val(ls, ins->u.jump_if_not_zero.condition);
+        break;
+    default:
+        break;
+    }
+}
+
+// ============================================================================
+// eliminate_dead_stores: main entry point.
+// ============================================================================
 
 void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel)
 {
@@ -11,6 +261,88 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel)
     StringMap static_names, address_taken;
     collect_alias_sets(cfg, toplevel, &static_names, &address_taken);
 
+    // Task 21: liveness dataflow ----------------------------------------
+
+    int n = cfg->nblocks;
+
+    // Build per-block instruction pointer arrays once (blocks are immutable
+    // during analysis; avoids repeated allocation inside the fixpoint loop).
+    int                       *block_nins  = xalloc(n * sizeof(int),
+                                                    __func__, __FILE__, __LINE__);
+    const Tac_Instruction   ***block_insts = xalloc(n * sizeof(const Tac_Instruction **),
+                                                    __func__, __FILE__, __LINE__);
+    for (int i = 0; i < n; i++) {
+        const OptBlock *b = cfg->blocks[i];
+        int cnt = 0;
+        for (const Tac_Instruction *ins = b->first; ins; ins = ins->next)
+            cnt++;
+        block_nins[i]  = cnt;
+        block_insts[i] = cnt
+            ? xalloc(cnt * sizeof(const Tac_Instruction *), __func__, __FILE__, __LINE__)
+            : NULL;
+        int k = 0;
+        for (const Tac_Instruction *ins = b->first; ins; ins = ins->next)
+            block_insts[i][k++] = ins;
+    }
+
+    // Allocate in/out sets (start empty — all variables initially not live).
+    StringMap *in_sets  = xalloc(n * sizeof(StringMap), __func__, __FILE__, __LINE__);
+    StringMap *out_sets = xalloc(n * sizeof(StringMap), __func__, __FILE__, __LINE__);
+    for (int i = 0; i < n; i++) {
+        map_init(&in_sets[i]);
+        map_init(&out_sets[i]);
+    }
+
+    // Backward fixpoint iteration.
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        for (int i = n - 1; i >= 0; i--) {
+            const OptBlock *b = cfg->blocks[i];
+            if (!b->reachable || !b->first)
+                continue;
+
+            // Meet: out[b] = union of in[s] for all successors s.
+            StringMap new_out;
+            map_init(&new_out);
+            for (int j = 0; j < b->nsucc; j++)
+                live_set_union(&new_out, &in_sets[b->succs[j]->id]);
+            // Exit block (no successors): seed with variables observable after return.
+            if (b->nsucc == 0) {
+                live_set_union(&new_out, &static_names);
+                live_set_union(&new_out, &address_taken);
+            }
+
+            // Transfer: in[b] = backward_transfer(out[b]).
+            StringMap new_in;
+            map_init(&new_in);
+            live_set_copy(&new_in, &new_out);
+            for (int j = block_nins[i] - 1; j >= 0; j--)
+                live_transfer_backward(&new_in, block_insts[i][j],
+                                       &static_names, &address_taken);
+
+            if (!live_set_equal(&new_in, &in_sets[i]))
+                changed = true;
+
+            live_set_destroy(&in_sets[i]);
+            live_set_destroy(&out_sets[i]);
+            in_sets[i]  = new_in;
+            out_sets[i] = new_out;
+        }
+    }
+
+    // Task 22: dead store removal (TODO).
+
+    // Cleanup.
+    for (int i = 0; i < n; i++) {
+        live_set_destroy(&in_sets[i]);
+        live_set_destroy(&out_sets[i]);
+        xfree(block_insts[i]);
+    }
+    xfree(in_sets);
+    xfree(out_sets);
+    xfree(block_insts);
+    xfree(block_nins);
     map_destroy(&static_names);
     map_destroy(&address_taken);
 }
