@@ -265,6 +265,23 @@ protected:
         return i;
     }
 
+    static Tac_Instruction *make_load(Tac_Val *src_ptr, Tac_Val *dst)
+    {
+        Tac_Instruction *i = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+        i->u.load.src_ptr  = src_ptr;
+        i->u.load.dst      = dst;
+        return i;
+    }
+
+    static Tac_Instruction *make_copy_to_offset(Tac_Val *src, const char *dst_name, int offset)
+    {
+        Tac_Instruction *i         = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
+        i->u.copy_to_offset.src    = src;
+        i->u.copy_to_offset.dst    = xstrdup(dst_name);
+        i->u.copy_to_offset.offset = offset;
+        return i;
+    }
+
     static Tac_TopLevel *make_static_tl(const char *name)
     {
         Tac_TopLevel *tl           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);

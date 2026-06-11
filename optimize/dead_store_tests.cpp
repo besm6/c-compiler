@@ -242,6 +242,345 @@ TEST_F(OptimizerTest, DeadStoreCascade)
         "      value: 0\n");
 }
 
+// Label("fn") → Unary(NEGATE, a, t.0) → Return(ConstInt(0))
+// t.0 is never used; Unary is removable → removed.
+TEST_F(OptimizerTest, DeadStoreUnaryRemoved)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *un    = make_unary(TAC_UNARY_NEGATE, make_var("a"), make_var("t.0"));
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = un;
+    un->next    = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}
+
+// Label("fn") → SignExtend(x, t.0) → Return(ConstInt(0))
+// t.0 is never used; conversion instructions are removable → removed.
+TEST_F(OptimizerTest, DeadStoreConversionRemoved)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *conv  = make_conversion(TAC_INSTRUCTION_SIGN_EXTEND,
+                                             make_var("x"), make_var("t.0"));
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = conv;
+    conv->next  = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}
+
+// Label("fn") → SignExtend(x, t.0) → Return(t.0)
+// t.0 is live at Return → SignExtend survives.
+TEST_F(OptimizerTest, DeadStoreConversionSurvives)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *conv  = make_conversion(TAC_INSTRUCTION_SIGN_EXTEND,
+                                             make_var("x"), make_var("t.0"));
+    Tac_Instruction *ret   = make_return(make_var("t.0"));
+    entry->next = conv;
+    conv->next  = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: sign_extend\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: t.0\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: t.0\n");
+}
+
+// Label("fn") → Load(ptr, t.0) → Return(ConstInt(0))
+// t.0 is never used; LOAD is removable → removed (ptr never added to live).
+TEST_F(OptimizerTest, DeadStoreLoadRemoved)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *load  = make_load(make_var("ptr"), make_var("t.0"));
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = load;
+    load->next  = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}
+
+// Label("fn") → Load(ptr, t.0) → Return(t.0)
+// t.0 is live at Return → Load survives.
+TEST_F(OptimizerTest, DeadStoreLoadSurvives)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *load  = make_load(make_var("ptr"), make_var("t.0"));
+    Tac_Instruction *ret   = make_return(make_var("t.0"));
+    entry->next = load;
+    load->next  = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: load\n"
+        "  src_ptr:\n"
+        "    kind: var\n"
+        "    name: ptr\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: t.0\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: t.0\n");
+}
+
+// Label("fn") → GetAddress(x, ptr) → Return(ConstInt(0))
+// ptr (the dst) is dead; GET_ADDRESS is removable → removed.
+TEST_F(OptimizerTest, DeadStoreGetAddressRemoved)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *ga    = make_get_address(make_var("x"), make_var("ptr"));
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = ga;
+    ga->next    = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}
+
+// Label("fn") → CopyToOffset(val, "s", 0) → Return(ConstInt(0))
+// COPY_TO_OFFSET is a memory mutation and is not in is_removable → always survives.
+TEST_F(OptimizerTest, DeadStoreCopyToOffsetNotRemoved)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *cto   = make_copy_to_offset(make_var("val"), "s", 0);
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = cto;
+    cto->next   = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy_to_offset\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: val\n"
+        "  dst: s\n"
+        "  offset: 0\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}
+
+// Label("fn") → GetAddress(x, ptr) → Copy(5, x) → Return(ConstInt(0))
+// Alias analysis marks x as address-taken; x is seeded live at function exit.
+// Copy(5, x) survives because x IS live; GetAddress is removed because ptr is dead.
+TEST_F(OptimizerTest, DeadStoreAddressTakenSurvives)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *ga    = make_get_address(make_var("x"), make_var("ptr"));
+    Tac_Instruction *cp    = make_copy(make_const_int(5), make_var("x"));
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = ga;
+    ga->next    = cp;
+    cp->next    = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 5\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}
+
+// Label("fn") → Copy(1, t.0) → Copy(2, t.0) → Return(t.0)
+// Two consecutive assignments to t.0; only the last one is live at Return.
+// Backward pass: Copy(2, t.0) survives; Copy(1, t.0) becomes dead → removed.
+TEST_F(OptimizerTest, DeadStoreDoubleOverwrite)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *cp1   = make_copy(make_const_int(1), make_var("t.0"));
+    Tac_Instruction *cp2   = make_copy(make_const_int(2), make_var("t.0"));
+    Tac_Instruction *ret   = make_return(make_var("t.0"));
+    entry->next = cp1;
+    cp1->next   = cp2;
+    cp2->next   = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 2\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: t.0\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: t.0\n");
+}
+
+// Block 0: Label("fn") → Copy(5, t.0) → JIZ(cond, "B")
+// Block 1: Return(ConstInt(1))
+// Block 2: Label("B") → Return(ConstInt(0))
+// t.0 is dead in both successors; liveness analysis computes out[block0]=∅ → Copy removed.
+TEST_F(OptimizerTest, DeadStoreDeadInAllBranches)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *cp    = make_copy(make_const_int(5), make_var("t.0"));
+    Tac_Instruction *jiz   = make_jump_if_zero(make_var("cond"), "B");
+    Tac_Instruction *ret1  = make_return(make_const_int(1));
+    Tac_Instruction *lbl   = make_label("B");
+    Tac_Instruction *ret0  = make_return(make_const_int(0));
+    entry->next = cp;
+    cp->next    = jiz;
+    jiz->next   = ret1;
+    ret1->next  = lbl;
+    lbl->next   = ret0;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: jump_if_zero\n"
+        "  condition:\n"
+        "    kind: var\n"
+        "    name: cond\n"
+        "  target: B\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 1\n"
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: B\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}
+
 // Block 0: Label("fn") → Copy(3, t.0) → Jump("use")
 // Block 1: Label("use") → Return(t.0)
 // t.0 is live in the successor block; Copy in block 0 must not be removed.

@@ -30,6 +30,7 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 - Task 20 — Alias pre-analysis
 - Task 21 — Liveness dataflow
 - Task 22 — Dead store removal
+- Task 23 — Tests for dead store elimination
 
 ---
 
