@@ -7,7 +7,7 @@ add_library(translator STATIC
     stmt.c
 )
 target_include_directories(translator PUBLIC .)
-target_link_libraries(translator semantic tac ast libutil)
+target_link_libraries(translator optimize semantic tac ast libutil)
 
 #
 # Tests for translate

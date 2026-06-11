@@ -87,19 +87,12 @@ protected:
             ExternalDecl *next = decls->next;
             decls->next        = nullptr;
             typecheck_decl(decls);
-            Tac_TopLevel *tac = translate(decls);
+            Tac_TopLevel *tac = translate(decls, flags);
             free_external_decl(decls);
             if (tac) {
-                for (Tac_TopLevel *t = tac; t; t = t->next) {
-                    if (t->kind == TAC_TOPLEVEL_FUNCTION) {
-                        Tac_Instruction *body = t->u.function.body;
-                        t->u.function.body    = nullptr;
-                        Tac_Instruction *opt  = optimize_function(body, flags, tac);
-                        if (opt) {
-                            result += capture_instructions(opt);
-                            tac_free_instruction(opt);
-                        }
-                    }
+                for (const Tac_TopLevel *t = tac; t; t = t->next) {
+                    if (t->kind == TAC_TOPLEVEL_FUNCTION && t->u.function.body)
+                        result += capture_instructions(t->u.function.body);
                 }
                 tac_free_toplevel(tac);
             }

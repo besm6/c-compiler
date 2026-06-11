@@ -275,6 +275,12 @@ void process_file(const Args *args)
         exit(1);
     }
 
+    OptFlags flags = opt_flags_default();
+    flags.unreachable_elim = !args->no_unreachable;
+    flags.copy_propagation = !args->no_copy_prop;
+    flags.dead_store_elim  = !args->no_dead_store;
+    flags.debug            = args->opt_debug;
+
     if (args->verbose) {
         printf("Processing %s in verbose mode\n", args->input_file);
     }
@@ -318,20 +324,11 @@ void process_file(const Args *args)
         // Annotate loops and break/continue statements.
         typecheck_decl(ast);
 
-        // Convert the AST to TAC.
-        Tac_TopLevel *tac = translate(ast);
+        // Convert the AST to TAC and optimize.
+        Tac_TopLevel *tac = translate(ast, flags);
         free_external_decl(ast);
         if (tac) {
-            for (Tac_TopLevel *t = tac; t; t = t->next) {
-                if (t->kind == TAC_TOPLEVEL_FUNCTION) {
-                    OptFlags flags = opt_flags_default();
-                    flags.unreachable_elim = !args->no_unreachable;
-                    flags.copy_propagation = !args->no_copy_prop;
-                    flags.dead_store_elim  = !args->no_dead_store;
-                    flags.debug            = args->opt_debug;
-                    t->u.function.body =
-                        optimize_function(t->u.function.body, flags, tac);
-                }
+            for (const Tac_TopLevel *t = tac; t; t = t->next) {
                 if (args->debug) {
                     tac_print_toplevel(stdout, t, 0);
                 }

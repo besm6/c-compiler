@@ -228,11 +228,11 @@ TEST_F(TranslateTest, LocalStructCast)
   global: true
   body:
     - instruction:
-      kind: sign_extend
+      kind: copy
       src:
         kind: constant
         const:
-          kind: int
+          kind: long
           value: 0
       dst:
         kind: var

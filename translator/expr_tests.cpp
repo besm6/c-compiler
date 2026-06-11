@@ -705,11 +705,11 @@ TEST_F(TranslateTest, CompoundLiteralArraySubscript)
         kind: var
         name: t.1
     - instruction:
-      kind: sign_extend
+      kind: copy
       src:
         kind: constant
         const:
-          kind: int
+          kind: long
           value: 1
       dst:
         kind: var

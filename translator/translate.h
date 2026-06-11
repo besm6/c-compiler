@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 #include "ast.h"
+#include "optimize.h"
 #include "semantic.h"
 #include "symtab.h"
 #include "tac.h"
@@ -80,7 +81,7 @@ void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset,
 //
 // Convert the AST to TAC.
 //
-Tac_TopLevel *translate(const ExternalDecl *ast);
+Tac_TopLevel *translate(const ExternalDecl *ast, OptFlags flags);
 
 #ifdef __cplusplus
 }

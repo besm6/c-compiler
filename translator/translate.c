@@ -537,7 +537,12 @@ static Tac_TopLevel *translate_external_decl(const ExternalDecl *ast)
 //
 // Convert the AST to TAC.
 //
-Tac_TopLevel *translate(const ExternalDecl *ast)
+Tac_TopLevel *translate(const ExternalDecl *ast, OptFlags flags)
 {
-    return translate_external_decl(ast);
+    Tac_TopLevel *tac = translate_external_decl(ast);
+    for (Tac_TopLevel *t = tac; t; t = t->next) {
+        if (t->kind == TAC_TOPLEVEL_FUNCTION)
+            t->u.function.body = optimize_function(t->u.function.body, flags, tac);
+    }
+    return tac;
 }
