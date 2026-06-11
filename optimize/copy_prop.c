@@ -1,3 +1,34 @@
+// ============================================================================
+// copy_prop.c — copy propagation via reaching-copies analysis.
+//
+// After `Copy(src, dst)`, later uses of `dst` can be replaced by `src` — but
+// only where we know `dst` has not been reassigned on any path reaching the use.
+// We establish that with a forward dataflow analysis, "reaching copies":
+//
+//   - Lattice element: a set of (dst → src) copy pairs that hold on *every* path
+//     reaching the program point.
+//   - Initial value at entry: empty.
+//   - Meet at merge points: intersection — a copy reaches only if it holds on
+//     all incoming paths (and agrees on the same src).
+//   - Transfer for one instruction:
+//       Gen:  a Copy(src, dst) adds the pair (dst → src).
+//       Kill: assigning to a variable v removes every pair mentioning v as
+//             either dst or src (the old value is no longer valid).
+//
+// Iterating the transfer over the CFG to a fixed point yields, at each point,
+// the copies guaranteed valid there. We then substitute: a use of x is replaced
+// by src when a reaching copy (x → src) is in effect. Substitution can create
+// Copy(x, x) self-copies, which are no-ops and removed on the spot.
+//
+// Conservatism around aliasing (see alias.c): static-duration and address-taken
+// variables may be changed behind our back. A FunCall may touch any static or
+// address-taken variable, so it kills all copies involving them; a Store writes
+// through a pointer, so it kills copies involving address-taken variables.
+// Temporaries (t.N) are never address-taken and propagate freely.
+//
+// See docs/TAC_Optimization.md §"Copy propagation".
+// ============================================================================
+
 #include <string.h>
 #include "alias.h"
 #include "cfg.h"
@@ -6,12 +37,14 @@
 #include "xalloc.h"
 
 // ============================================================================
-// CopyPair: stored as intptr_t value in StringMap; embeds the key for
-// iteration access (map_iterate callbacks only receive the value, not the key).
+// CopyPair — one reaching copy (dst → src). A copy set is a StringMap keyed by
+// the destination variable name; the CopyPair is stored as the map's intptr_t
+// value. The destination name is mirrored inside the pair because map_iterate
+// callbacks receive only the value, not the key.
 // ============================================================================
 
 typedef struct {
-    char *name;    // owned (xstrdup); same string as the map key
+    char *name;    // owned (xstrdup); the destination name, == the map key
     Tac_Val *src;  // borrowed — points into the live instruction stream
 } CopyPair;
 
@@ -29,8 +62,10 @@ static void copy_set_destroy(StringMap *cs)
 }
 
 // ============================================================================
-// KeyBuf: dynamic array for deferred key removal (cannot modify the AVL tree
-// during map_iterate).
+// KeyBuf — a growable list of keys to delete *after* iterating. StringMap is an
+// AVL tree; removing nodes from it while map_iterate is walking it would corrupt
+// the traversal. So the kill/intersect callbacks only *collect* keys here, and
+// keybuf_flush performs the actual removals once iteration has finished.
 // ============================================================================
 
 typedef struct {
@@ -72,7 +107,9 @@ static void keybuf_flush(KeyBuf *kb, StringMap *cs)
 
 // ============================================================================
 // copy_set_copy: deep-copy src into dst (dst must be a freshly initialised
-// empty map).
+// empty map). Each CopyPair is duplicated (its name re-xstrdup'd); the borrowed
+// `src` Tac_Val pointer is shared, since it points into the instruction stream.
+// Used to seed a block's in-set from a predecessor's out-set.
 // ============================================================================
 
 typedef struct { StringMap *dst; } CopyCtx;
@@ -94,7 +131,9 @@ static void copy_set_copy(StringMap *dst, const StringMap *src)
 }
 
 // ============================================================================
-// kill_name: remove all entries where key == name or src is Var(name).
+// kill_name: the Kill rule for a single variable. Assigning to `name`
+// invalidates every copy that mentions it — both (name → ...) where it is the
+// destination and (... → Var(name)) where it is the propagated source.
 // ============================================================================
 
 typedef struct {
@@ -122,7 +161,10 @@ static void kill_name(StringMap *cs, const char *name)
 }
 
 // ============================================================================
-// kill_alias_set: remove all entries where key or src-var is in alias map.
+// kill_alias_set: the Kill rule for a whole class of variables at once — every
+// copy whose dst or src-var is in `alias` is removed. Used at FunCall (alias =
+// static names and address-taken names) and Store (alias = address-taken names),
+// where a variable may have been modified out from under us.
 // ============================================================================
 
 typedef struct {
@@ -151,8 +193,10 @@ static void kill_alias_set(StringMap *cs, const StringMap *alias)
 
 // ============================================================================
 // get_defining_dst: returns the dst Tac_Val* for instructions that define a
-// named variable (excludes COPY, FUN_CALL, STORE — handled separately).
-// Returns NULL for non-defining instructions.
+// named variable, so the transfer function knows which copies to Kill. COPY,
+// FUN_CALL and STORE are handled separately by apply_transfer (COPY also Gens a
+// pair; FUN_CALL/STORE additionally kill aliased copies). Returns NULL for
+// instructions that define nothing (control flow, the side-effecting writes).
 // ============================================================================
 
 static const Tac_Val *get_defining_dst(const Tac_Instruction *ins)
@@ -198,7 +242,8 @@ static const Tac_Val *get_defining_dst(const Tac_Instruction *ins)
 }
 
 // ============================================================================
-// apply_transfer: update copy-set cs in place for one instruction.
+// apply_transfer: the reaching-copies transfer function for one instruction,
+// updating copy-set `cs` in place. This is both the Gen and Kill of the lattice.
 // ============================================================================
 
 static void apply_transfer(StringMap *cs, const Tac_Instruction *ins,
@@ -206,6 +251,7 @@ static void apply_transfer(StringMap *cs, const Tac_Instruction *ins,
                             const StringMap *address_taken)
 {
     if (ins->kind == TAC_INSTRUCTION_COPY) {
+        // Copy(src, dst): Kill old copies mentioning dst, then Gen (dst → src).
         const Tac_Val *dst = ins->u.copy.dst;
         if (dst->kind == TAC_VAL_VAR) {
             kill_name(cs, dst->u.var_name);
@@ -218,6 +264,8 @@ static void apply_transfer(StringMap *cs, const Tac_Instruction *ins,
     }
 
     if (ins->kind == TAC_INSTRUCTION_FUN_CALL) {
+        // A call may read or write any static or address-taken variable, so all
+        // copies involving them become invalid; also kill the call's own result.
         kill_alias_set(cs, static_names);
         kill_alias_set(cs, address_taken);
         const Tac_Val *dst = ins->u.fun_call.dst;
@@ -227,18 +275,23 @@ static void apply_transfer(StringMap *cs, const Tac_Instruction *ins,
     }
 
     if (ins->kind == TAC_INSTRUCTION_STORE) {
+        // A store writes through a pointer, which may alias any address-taken
+        // variable: kill copies involving them. (Store defines no named var.)
         kill_alias_set(cs, address_taken);
         return;
     }
 
+    // Every other defining instruction just Kills copies mentioning its dst.
     const Tac_Val *dst = get_defining_dst(ins);
     if (dst && dst->kind == TAC_VAL_VAR)
         kill_name(cs, dst->u.var_name);
 }
 
 // ============================================================================
-// copy_set_intersect: restrict result to entries that agree with other
-// (same key and src); removes any entry absent or conflicting in other.
+// copy_set_intersect: the meet operator. Restrict `result` to entries also
+// present in `other` with the *same* src; drop any entry that is missing from
+// `other` or that disagrees on its src. This is how copies from multiple
+// predecessors are combined — a copy survives only if every path agrees on it.
 // ============================================================================
 
 typedef struct {
@@ -270,6 +323,9 @@ static void copy_set_intersect(StringMap *result, const StringMap *other)
 
 // ============================================================================
 // copy_set_equal: returns true iff a and b have identical (name, src) entries.
+// The fixed-point test for the dataflow loop — iteration stops when a block's
+// out-set stops changing. Checked in both directions to catch entries present
+// in one set but not the other.
 // ============================================================================
 
 typedef struct {
@@ -304,7 +360,9 @@ static bool copy_set_equal(const StringMap *a, const StringMap *b)
 }
 
 // ============================================================================
-// dup_val: deep-copy a single Tac_Val node without following .next.
+// dup_val: deep-copy a single Tac_Val node without following .next. Needed when
+// substituting, because the copy's src is borrowed and may be propagated into
+// several use sites — each site must own an independent Tac_Val.
 // ============================================================================
 
 static Tac_Val *dup_val(const Tac_Val *v)
@@ -321,7 +379,9 @@ static Tac_Val *dup_val(const Tac_Val *v)
 }
 
 // ============================================================================
-// subst_val: if *vp is Var(x) and cs maps x→src, replace *vp with dup of src.
+// subst_val: the substitution step. If *vp is Var(x) and a copy (x → src)
+// reaches here, replace the operand with a fresh duplicate of src and free the
+// old Var node. This is where copy propagation actually rewrites the code.
 // ============================================================================
 
 static void subst_val(Tac_Val **vp, const StringMap *cs)
@@ -338,7 +398,8 @@ static void subst_val(Tac_Val **vp, const StringMap *cs)
 }
 
 // ============================================================================
-// subst_args: substitute each element of the fun_call.args linked list.
+// subst_args: subst_val applied to each element of a FunCall's args list. Done
+// in-place, relinking the list when an argument node is replaced.
 // ============================================================================
 
 static void subst_args(Tac_Val **head, const StringMap *cs)
@@ -440,23 +501,24 @@ static void subst_instruction(Tac_Instruction *ins, const StringMap *cs)
 }
 
 // ============================================================================
-// propagate_copies: main entry point.
+// propagate_copies: entry point. Runs the three stages — alias pre-analysis,
+// the forward reaching-copies fixpoint, then substitution — and frees all the
+// dataflow scaffolding before returning.
 // ============================================================================
 
 void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
 {
     if (cfg->nblocks == 0) return;
 
-    // Task 16: alias pre-analysis ----------------------------------------
-
+    // Stage 1: identify variables that must be treated conservatively.
     StringMap static_names, address_taken;
     collect_alias_sets(cfg, toplevel, &static_names, &address_taken);
 
-    // Task 17: reaching-copies dataflow ----------------------------------
-
+    // Stage 2: the forward reaching-copies dataflow.
     int n = cfg->nblocks;
 
-    // Build predecessor lists from successor edges.
+    // The meet combines predecessors' out-sets, so build predecessor lists by
+    // inverting the successor edges. First count preds, then fill them.
     int  *npreds = xalloc(n * sizeof(int),   __func__, __FILE__, __LINE__);
     int **preds  = xalloc(n * sizeof(int *), __func__, __FILE__, __LINE__);
     for (int i = 0; i < n; i++)
@@ -488,7 +550,9 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
         map_init(&out_sets[i]);
     }
 
-    // Fixpoint iteration: repeat until no out-set changes.
+    // Fixpoint iteration: recompute each block's in/out until nothing changes.
+    // Forward analysis, so blocks are visited in ascending (roughly topological)
+    // order for faster convergence.
     bool changed = true;
     while (changed) {
         changed = false;
@@ -497,7 +561,8 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
             if (!b->reachable || !b->first)
                 continue;
 
-            // Compute new in[b] = intersection of out[pred] for all preds.
+            // in[b] = meet (intersection) of out[pred] over all predecessors.
+            // Seed from the first predecessor, then intersect the rest.
             StringMap new_in;
             map_init(&new_in);
             if (npreds[i] > 0) {
@@ -506,7 +571,7 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
                     copy_set_intersect(&new_in, &out_sets[preds[i][k]]);
             }
 
-            // Compute new out[b] = transfer(new_in, block instructions).
+            // out[b] = transfer(in[b]): apply the Gen/Kill rules in order.
             StringMap new_out;
             map_init(&new_out);
             copy_set_copy(&new_out, &new_in);
@@ -523,7 +588,10 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
         }
     }
 
-    // Task 18: substitution
+    // Stage 3: substitution. Replay the transfer within each block, but now
+    // rewrite source operands using the copies in effect at each instruction.
+    // `current_in` tracks the reaching set as we move forward through the block,
+    // starting from the converged in-set and updated by apply_transfer per step.
     for (int i = 0; i < n; i++) {
         OptBlock *b = cfg->blocks[i];
         if (!b->reachable || !b->first)
@@ -540,7 +608,8 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
 
             subst_instruction(ins, &current_in);
 
-            // Remove self-copies: Copy(Var(x), Var(x))
+            // Substitution may have produced a self-copy Copy(Var(x), Var(x)),
+            // a no-op — unlink and free it.
             if (ins->kind == TAC_INSTRUCTION_COPY &&
                 ins->u.copy.src->kind == TAC_VAL_VAR &&
                 ins->u.copy.dst->kind == TAC_VAL_VAR &&
@@ -558,6 +627,8 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
                 continue;
             }
 
+            // Advance the running reaching set past this (post-substitution)
+            // instruction before moving on.
             apply_transfer(&current_in, ins, &static_names, &address_taken);
             prev = ins;
             ins  = next;
@@ -566,7 +637,7 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
         copy_set_destroy(&current_in);
     }
 
-    // Cleanup.
+    // Free all dataflow scaffolding and the alias maps.
     for (int i = 0; i < n; i++) {
         copy_set_destroy(&in_sets[i]);
         copy_set_destroy(&out_sets[i]);

@@ -1,7 +1,32 @@
+// ============================================================================
+// const_fold.c — constant folding.
+//
+// Constant folding evaluates expressions whose operands are all constants at
+// compile time and replaces the instruction with a simpler one:
+//
+//   - A Unary or Binary with constant operand(s) becomes a Copy of the folded
+//     result:   t.0 = 6 / 2  →  t.0 = 3 ;   t.2 = a == a stays (a is a Var).
+//   - A type-conversion instruction with a constant source becomes a Copy of a
+//     new constant of the target kind:  SignExtend(ConstInt 3) → Copy(ConstLong 3).
+//   - A conditional jump with a constant condition becomes an unconditional
+//     Jump (always taken) or is deleted entirely (never taken) — which in turn
+//     hands unreachable-code elimination fresh dead blocks to remove.
+//
+// This is the only pass that walks the flat Tac_Instruction list directly and
+// needs no control-flow graph. Integer folding is done in 64-bit and the result
+// is re-narrowed to the operand kind, so overflow wraps at the C type boundary
+// (defined for unsigned, the implementation-defined wrap our target uses for
+// signed). Floating-point folding uses the host's float/double/long-double.
+//
+// See docs/TAC_Optimization.md §"Constant folding".
+// ============================================================================
+
 #include <stdbool.h>
 #include <stdint.h>
 #include "tac.h"
 
+// Truthiness test: is this constant equal to zero? Used both to fold the logical
+// NOT operator and to resolve conditional jumps. Covers all 11 scalar kinds.
 static bool const_is_zero(const Tac_Const *c)
 {
     switch (c->kind) {
@@ -20,7 +45,12 @@ static bool const_is_zero(const Tac_Const *c)
     return false;
 }
 
-// Returns a new Tac_Val for the folded result, or NULL if not foldable.
+// Fold a unary operator applied to a constant. Returns a new constant-valued
+// Tac_Val for the result, or NULL if the operation is not foldable.
+//   - NOT yields an int 0/1 (the C logical-negation result type).
+//   - NEGATE and COMPLEMENT preserve the source kind; the result is computed in
+//     that kind so it wraps exactly as C would. Bitwise complement is undefined
+//     for floating-point and so is rejected (NULL) for those kinds.
 static Tac_Val *fold_unary_const(Tac_UnaryOperator op, const Tac_Const *src)
 {
     Tac_Const *rc = NULL;
@@ -73,6 +103,8 @@ static Tac_Val *fold_unary_const(Tac_UnaryOperator op, const Tac_Const *src)
     return rv;
 }
 
+// True for the eight integer constant kinds (everything except the three
+// floating-point kinds). Integer and float folding follow different rules.
 static bool const_is_integer_kind(Tac_ConstKind k)
 {
     return k == TAC_CONST_INT  || k == TAC_CONST_LONG     || k == TAC_CONST_LONG_LONG  ||
@@ -80,6 +112,9 @@ static bool const_is_integer_kind(Tac_ConstKind k)
            k == TAC_CONST_CHAR || k == TAC_CONST_UCHAR;
 }
 
+// Widen any integer constant to a signed 64-bit value (sign-extending the
+// signed kinds, zero-extending the unsigned ones). Signed binary operators are
+// evaluated through this view.
 static int64_t const_to_int64(const Tac_Const *c)
 {
     switch (c->kind) {
@@ -95,6 +130,9 @@ static int64_t const_to_int64(const Tac_Const *c)
     }
 }
 
+// Widen any integer constant to a 64-bit bit pattern. Unsigned operators and
+// the wrapping arithmetic operators (add/sub/mul, bitwise, shifts) are evaluated
+// through this view; the result is re-narrowed by make_int_const_val.
 static uint64_t const_to_uint64(const Tac_Const *c)
 {
     switch (c->kind) {
@@ -110,6 +148,9 @@ static uint64_t const_to_uint64(const Tac_Const *c)
     }
 }
 
+// Mask applied to a shift count so it stays in [0, width). C leaves shifts by
+// the type width or more undefined; we fold them by masking the count to the
+// operand width, matching the behavior of the target hardware's shift unit.
 static int const_shift_mask(Tac_ConstKind k)
 {
     switch (k) {
@@ -121,6 +162,9 @@ static int const_shift_mask(Tac_ConstKind k)
     }
 }
 
+// Build a constant-valued Tac_Val of `kind` from a 64-bit result `bits`,
+// narrowing to the kind's width. This is where overflow wrapping happens: the
+// store into the narrow field discards the high bits exactly as C requires.
 static Tac_Val *make_int_const_val(Tac_ConstKind kind, uint64_t bits)
 {
     Tac_Const *rc = tac_new_const(kind);
@@ -140,6 +184,10 @@ static Tac_Val *make_int_const_val(Tac_ConstKind kind, uint64_t bits)
     return rv;
 }
 
+// Fold a binary operator on two floating-point constants of the *same* kind.
+// Arithmetic operators produce a constant of that kind; the relational and
+// equality operators produce an int 0/1 (the C comparison result type). Returns
+// NULL when the kinds differ or the operator is not a float operator.
 static Tac_Val *fold_binary_float(Tac_BinaryOperator op,
                                    const Tac_Const *c1,
                                    const Tac_Const *c2)
@@ -199,7 +247,15 @@ static Tac_Val *fold_binary_float(Tac_BinaryOperator op,
     return rv;
 }
 
-// Returns a new Tac_Val for the folded result, or NULL if not foldable.
+// Fold a binary operator on two constant operands. Returns a new constant-valued
+// Tac_Val, or NULL if not foldable. If either operand is floating-point the work
+// is delegated to fold_binary_float; the rest of this function handles integers.
+//
+// Division and remainder by a zero constant are *not* folded (returns NULL): we
+// leave the instruction in place rather than invoke undefined behavior at
+// compile time. Comparisons produce an int 0/1; the signed/unsigned operator
+// variants pick the signed (s1/s2) or unsigned (u1/u2) 64-bit view accordingly.
+// Wrapping arithmetic is done in uint64 and narrowed back to c1's kind.
 static Tac_Val *fold_binary_const(Tac_BinaryOperator op,
                                    const Tac_Const *c1,
                                    const Tac_Const *c2)
@@ -212,6 +268,8 @@ static Tac_Val *fold_binary_const(Tac_BinaryOperator op,
         const_is_zero(c2))
         return NULL;
 
+    // Both a signed and an unsigned 64-bit view of each operand; operators pick
+    // whichever matches their C semantics.
     int64_t  s1  = const_to_int64(c1),  s2  = const_to_int64(c2);
     uint64_t u1  = const_to_uint64(c1), u2  = const_to_uint64(c2);
     uint64_t result;
@@ -247,11 +305,14 @@ static Tac_Val *fold_binary_const(Tac_BinaryOperator op,
         break;
     }
     case TAC_BINARY_RIGHT_SHIFT: {
+        // Arithmetic right shift: operate on the signed view so the sign bit
+        // is replicated (sign-preserving), matching signed >> in C.
         int amt = (int)((unsigned)u2 & (unsigned)const_shift_mask(c1->kind));
         result = (uint64_t)(s1 >> amt);
         break;
     }
     case TAC_BINARY_RIGHT_SHIFT_LOGICAL: {
+        // Logical right shift: operate on the unsigned view (zero-fill).
         int amt = (int)((unsigned)u2 & (unsigned)const_shift_mask(c1->kind));
         result = u1 >> (unsigned)amt;
         break;
@@ -262,6 +323,9 @@ static Tac_Val *fold_binary_const(Tac_BinaryOperator op,
     return make_int_const_val(c1->kind, result);
 }
 
+// True for all 14 type-conversion instruction kinds (the three integer-width
+// conversions plus the twelve floating-point conversions). They all share the
+// same {src, dst} union layout, so the driver can treat them uniformly.
 static bool is_conversion(Tac_InstructionKind k)
 {
     switch (k) {
@@ -292,6 +356,13 @@ static bool is_conversion(Tac_InstructionKind k)
     }
 }
 
+// Fold a type conversion of a constant source into a new constant of the target
+// kind. Returns NULL if the source kind does not match what the conversion
+// expects (e.g. a Truncate applied to a float). The target kind is implied by
+// the conversion instruction: SignExtend widens char→int→long→long long;
+// ZeroExtend does the unsigned ladder; Truncate narrows; the *To* conversions
+// move between integer and floating-point. Float→int conversions truncate
+// toward zero, as C casts do.
 static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src)
 {
     Tac_Const *rc = NULL;
@@ -469,6 +540,16 @@ static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src)
     return rv;
 }
 
+// Walk the flat instruction list once, folding every instruction whose operands
+// are all constant. Returns the (possibly new) head of the list.
+//
+// For Unary/Binary/conversion instructions the replacement pattern is uniform
+// and worth describing once: build a fresh Copy whose source is the folded
+// constant and whose destination is *stolen* from the original instruction (the
+// dst Tac_Val is moved, not copied). Before freeing the original we NULL out the
+// stolen dst field so tac_free_instruction does not free it (it now belongs to
+// the Copy), and NULL out `cur->next` so the recursive free does not cascade
+// into the rest of the list. The Copy is then spliced in where the original was.
 Tac_Instruction *constant_fold(Tac_Instruction *body)
 {
     Tac_Instruction *prev = NULL;
@@ -477,6 +558,7 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
     while (cur) {
         Tac_Instruction *next = cur->next;
 
+        // Unary with a constant operand → Copy of the folded result.
         if (cur->kind == TAC_INSTRUCTION_UNARY &&
             cur->u.unary.src->kind == TAC_VAL_CONSTANT) {
 
@@ -503,6 +585,7 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
             }
         }
 
+        // Binary with two constant operands → Copy of the folded result.
         if (cur->kind == TAC_INSTRUCTION_BINARY &&
             cur->u.binary.src1->kind == TAC_VAL_CONSTANT &&
             cur->u.binary.src2->kind == TAC_VAL_CONSTANT) {
@@ -531,6 +614,8 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
             }
         }
 
+        // Any conversion of a constant source → Copy of the new constant.
+        // All 14 conversions share the sign_extend {src, dst} layout.
         if (is_conversion(cur->kind) &&
             cur->u.sign_extend.src->kind == TAC_VAL_CONSTANT) {
 
@@ -557,6 +642,12 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
             }
         }
 
+        // Conditional jump with a constant condition → resolve it statically.
+        // (JumpIfZero and JumpIfNotZero share the jump_if_zero union layout.)
+        // If the branch is always taken, replace it with an unconditional Jump
+        // to the same target; if never taken, delete it. Either way the block
+        // structure simplifies, which gives unreachable-code elimination new
+        // dead blocks to remove on the next CFG pass.
         if ((cur->kind == TAC_INSTRUCTION_JUMP_IF_ZERO ||
              cur->kind == TAC_INSTRUCTION_JUMP_IF_NOT_ZERO) &&
             cur->u.jump_if_zero.condition->kind == TAC_VAL_CONSTANT) {
@@ -565,19 +656,21 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
             bool take = (cur->kind == TAC_INSTRUCTION_JUMP_IF_ZERO) ? is_zero : !is_zero;
 
             if (take) {
+                // Always taken: build a Jump, stealing the target label string.
                 Tac_Instruction *jmp  = tac_new_instruction(TAC_INSTRUCTION_JUMP);
                 jmp->u.jump.target    = cur->u.jump_if_zero.target; // steal
                 jmp->next             = next;
 
                 tac_free_val(cur->u.jump_if_zero.condition);
                 cur->u.jump_if_zero.condition = NULL;
-                cur->u.jump_if_zero.target    = NULL;
+                cur->u.jump_if_zero.target    = NULL;  // stolen; don't free it
                 cur->next                     = NULL;
                 tac_free_instruction(cur);
 
                 if (prev) prev->next = jmp; else body = jmp;
                 prev = jmp;
             } else {
+                // Never taken: unlink and free the conditional jump entirely.
                 if (prev) prev->next = next; else body = next;
                 cur->next = NULL;
                 tac_free_instruction(cur);
