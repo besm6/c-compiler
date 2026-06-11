@@ -10,7 +10,7 @@ add_library(optimize STATIC
 target_include_directories(optimize PUBLIC .)
 target_link_libraries(optimize tac libutil)
 
-add_executable(optimizer-tests EXCLUDE_FROM_ALL
+add_executable(optimizer-tests
     const_fold_tests.cpp
     type_conv_tests.cpp
     jump_unreachable_tests.cpp

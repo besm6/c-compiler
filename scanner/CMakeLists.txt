@@ -9,7 +9,7 @@ target_include_directories(scanner PUBLIC .)
 #
 # Tests for scanner
 #
-add_executable(scanner-tests EXCLUDE_FROM_ALL
+add_executable(scanner-tests
     tests.cpp
 )
 target_link_libraries(scanner-tests scanner GTest::gtest_main)

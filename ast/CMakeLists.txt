@@ -18,7 +18,7 @@ target_link_libraries(ast libutil)
 #
 # Tests for AST
 #
-add_executable(ast-tests EXCLUDE_FROM_ALL
+add_executable(ast-tests
     clone_tests.cpp
 )
 target_link_libraries(ast-tests ast libutil GTest::gtest_main)
