@@ -33,7 +33,7 @@ static bool is_terminal(Tac_InstructionKind k)
 static int count_blocks(const Tac_Instruction *body)
 {
     int n = 1;
-    bool prev_terminal = false;
+    bool prev_terminal = is_terminal(body->kind);
     for (const Tac_Instruction *i = body->next; i; i = i->next) {
         if (prev_terminal || i->kind == TAC_INSTRUCTION_LABEL)
             n++;

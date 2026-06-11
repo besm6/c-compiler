@@ -262,7 +262,7 @@ TEST_F(PipelineTest, DeadStoreOverwrite)
 // ---------------------------------------------------------------------------
 
 // if(0): fold JIZ(0,"L")→Jump("L"); then-block unreachable → removed.
-TEST_F(PipelineTest, DISABLED_DeadBranchIfZero)
+TEST_F(PipelineTest, DeadBranchIfZero)
 {
     EXPECT_EQ(OptimizeYaml("int h(int x) { if (0) return 1; return 2; }"),
         "- instruction:\n"
@@ -275,7 +275,7 @@ TEST_F(PipelineTest, DISABLED_DeadBranchIfZero)
 }
 
 // if(1): fold JIZ(1,"L")→deleted; else-block unreachable → removed.
-TEST_F(PipelineTest, DISABLED_DeadBranchIfOne)
+TEST_F(PipelineTest, DeadBranchIfOne)
 {
     EXPECT_EQ(OptimizeYaml("int h(int x) { if (1) return 42; return 0; }"),
         "- instruction:\n"
