@@ -27,6 +27,9 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 - Task 18 — Substitution
 - Task 19 — Tests for copy propagation
 - Phase 4 verification
+- Task 20 — Alias pre-analysis
+- Task 21 — Liveness dataflow
+- Task 22 — Dead store removal
 
 ---
 

@@ -250,6 +250,47 @@ static void live_transfer_backward(StringMap *ls, const Tac_Instruction *ins,
 }
 
 // ============================================================================
+// is_removable: pure instructions whose result can be dropped when dead.
+// ============================================================================
+
+static bool is_removable(Tac_InstructionKind kind)
+{
+    switch (kind) {
+    case TAC_INSTRUCTION_COPY:
+    case TAC_INSTRUCTION_UNARY:
+    case TAC_INSTRUCTION_BINARY:
+    case TAC_INSTRUCTION_SIGN_EXTEND:
+    case TAC_INSTRUCTION_TRUNCATE:
+    case TAC_INSTRUCTION_ZERO_EXTEND:
+    case TAC_INSTRUCTION_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_ADD_PTR:
+    case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// ============================================================================
 // eliminate_dead_stores: main entry point.
 // ============================================================================
 
@@ -267,21 +308,21 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel)
 
     // Build per-block instruction pointer arrays once (blocks are immutable
     // during analysis; avoids repeated allocation inside the fixpoint loop).
-    int                       *block_nins  = xalloc(n * sizeof(int),
-                                                    __func__, __FILE__, __LINE__);
-    const Tac_Instruction   ***block_insts = xalloc(n * sizeof(const Tac_Instruction **),
-                                                    __func__, __FILE__, __LINE__);
+    int                  *block_nins  = xalloc(n * sizeof(int),
+                                              __func__, __FILE__, __LINE__);
+    Tac_Instruction    ***block_insts = xalloc(n * sizeof(Tac_Instruction **),
+                                              __func__, __FILE__, __LINE__);
     for (int i = 0; i < n; i++) {
-        const OptBlock *b = cfg->blocks[i];
+        OptBlock *b = cfg->blocks[i];
         int cnt = 0;
         for (const Tac_Instruction *ins = b->first; ins; ins = ins->next)
             cnt++;
         block_nins[i]  = cnt;
         block_insts[i] = cnt
-            ? xalloc(cnt * sizeof(const Tac_Instruction *), __func__, __FILE__, __LINE__)
+            ? xalloc(cnt * sizeof(Tac_Instruction *), __func__, __FILE__, __LINE__)
             : NULL;
         int k = 0;
-        for (const Tac_Instruction *ins = b->first; ins; ins = ins->next)
+        for (Tac_Instruction *ins = b->first; ins; ins = ins->next)
             block_insts[i][k++] = ins;
     }
 
@@ -331,7 +372,38 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel)
         }
     }
 
-    // Task 22: dead store removal (TODO).
+    // Dead store removal: walk each block backward, pruning instructions whose
+    // defined variable is dead on exit and which have no observable side-effects.
+    // Backward order lets a single pass cascade: when a dead instruction is
+    // removed its sources are not added to live, making earlier defs candidates too.
+    for (int i = 0; i < n; i++) {
+        OptBlock *b   = cfg->blocks[i];
+        int       nins = block_nins[i];
+        if (!b->reachable || nins == 0) continue;
+
+        StringMap live;
+        map_init(&live);
+        live_set_copy(&live, &out_sets[i]);
+
+        for (int j = nins - 1; j >= 0; j--) {
+            Tac_Instruction *ins = block_insts[i][j];
+            const char *dst = live_get_dst_name(ins);
+            if (dst && is_removable(ins->kind) && !map_get(&live, dst, NULL)) {
+                Tac_Instruction *prev = (j > 0) ? block_insts[i][j - 1] : NULL;
+                if (prev)
+                    prev->next = ins->next;
+                else
+                    b->first = ins->next;
+                if (b->last == ins)
+                    b->last = prev;
+                ins->next = NULL;
+                tac_free_instruction(ins);
+            } else {
+                live_transfer_backward(&live, ins, &static_names, &address_taken);
+            }
+        }
+        live_set_destroy(&live);
+    }
 
     // Cleanup.
     for (int i = 0; i < n; i++) {

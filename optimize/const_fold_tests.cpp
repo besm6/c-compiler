@@ -184,6 +184,7 @@ TEST_F(OptimizerTest, BinaryFoldVarUnchanged)
 }
 
 // optimize_function on a constant binary folds it and reaches fixed point.
+// const_fold: Binary(ADD,3,4,t) → Copy(7,t); copy_prop: Return(7); dead_store: Copy removed.
 TEST_F(OptimizerTest, BinaryFixedPoint)
 {
     // Body: Binary(ADD, ConstInt(3), ConstInt(4), Var("t")) → Return(Var("t"))
@@ -195,12 +196,13 @@ TEST_F(OptimizerTest, BinaryFixedPoint)
     Tac_Instruction *result = optimize_function(head, opt_flags_default(), nullptr);
 
     ASSERT_NE(result, nullptr);
-    EXPECT_EQ(result->kind, TAC_INSTRUCTION_COPY);
-    EXPECT_EQ(result->u.copy.src->u.constant->u.int_val, 7);
+    EXPECT_EQ(result->kind, TAC_INSTRUCTION_RETURN);
+    EXPECT_EQ(result->u.return_.src->u.constant->u.int_val, 7);
 
 }
 
 // optimize_function on a constant unary folds it and reaches fixed point.
+// const_fold: Unary(NOT,0,t) → Copy(1,t); copy_prop: Return(1); dead_store: Copy removed.
 TEST_F(OptimizerTest, UnaryFixedPoint)
 {
     // Body: Unary(NOT, ConstInt(0), Var("t")) → Return(Var("t"))
@@ -212,8 +214,8 @@ TEST_F(OptimizerTest, UnaryFixedPoint)
     Tac_Instruction *result = optimize_function(head, opt_flags_default(), nullptr);
 
     ASSERT_NE(result, nullptr);
-    EXPECT_EQ(result->kind, TAC_INSTRUCTION_COPY);
-    EXPECT_EQ(result->u.copy.src->u.constant->u.int_val, 1);
+    EXPECT_EQ(result->kind, TAC_INSTRUCTION_RETURN);
+    EXPECT_EQ(result->u.return_.src->u.constant->u.int_val, 1);
 
 }
 

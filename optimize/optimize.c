@@ -27,13 +27,19 @@ Tac_Instruction *optimize_function(Tac_Instruction *body, OptFlags flags,
         if (flags.dead_store_elim)
             eliminate_dead_stores(cfg, toplevel);
 
+        // A pass (e.g. dead_store_elim) may remove the entry block's first
+        // instruction, freeing it and making `body` a dangling pointer.
+        // Check before cfg_flatten so we can safely skip the comparison.
+        bool body_freed = (cfg->blocks[0]->first != body);
+
         Tac_Instruction *new_body = cfg_flatten(cfg);
         cfg_free(cfg);
 
-        if (!new_body || tac_compare_instruction(new_body, body))
+        if (!new_body) return new_body;
+        if (!body_freed && tac_compare_instruction(new_body, body))
             return new_body;
-
-        tac_free_instruction(body);
+        if (!body_freed)
+            tac_free_instruction(body);
         body = new_body;
     }
 }
