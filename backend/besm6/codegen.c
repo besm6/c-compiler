@@ -88,13 +88,18 @@ static long long get_const_int_val(const Tac_Const *c)
     }
 }
 
-// Emit XTA for a TAC value: variable from frame, or octal literal =N for a constant.
+// Emit XTA for a TAC value: variable from frame, UTC+XTA for a global, or octal =N for a constant.
 static void emit_xta_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *v)
 {
     if (v->kind == TAC_VAL_VAR) {
         int reg, off;
-        lookup(f, v->u.var_name, &reg, &off);
-        emit_xta(b, t, reg, off);
+        if (frame_lookup(f, v->u.var_name, &reg, &off)) {
+            emit_xta(b, t, reg, off);
+        } else {
+            Besm_Instr *utc = emit(b, t, BESM_MOD_UTC);
+            utc->name       = xstrdup(v->u.var_name);
+            emit_xta(b, t, 0, 0);
+        }
     } else {
         long long ival = get_const_int_val(v->u.constant);
         char name[32];
@@ -105,14 +110,21 @@ static void emit_xta_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Ta
 }
 
 // Emit XTS for a TAC value (push A to stack, load v into A) — used for args 1..N-1.
+// For a global variable: UTC sets C to the global's address, then XTS loads mem[C+0].
 static void emit_xts_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *v)
 {
     if (v->kind == TAC_VAL_VAR) {
         int reg, off;
-        lookup(f, v->u.var_name, &reg, &off);
-        Besm_Instr *i = emit(b, t, BESM_MEM_XTS);
-        i->reg        = reg;
-        i->addr       = off;
+        if (frame_lookup(f, v->u.var_name, &reg, &off)) {
+            Besm_Instr *i = emit(b, t, BESM_MEM_XTS);
+            i->reg        = reg;
+            i->addr       = off;
+        } else {
+            Besm_Instr *utc = emit(b, t, BESM_MOD_UTC);
+            utc->name       = xstrdup(v->u.var_name);
+            Besm_Instr *i   = emit(b, t, BESM_MEM_XTS);
+            (void)i;   // reg=0, addr=0 → XTS mem[C+0]
+        }
     } else {
         long long ival = get_const_int_val(v->u.constant);
         char name[32];
@@ -415,10 +427,10 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
             entry_prog->name       = xstrdup("program");
         }
 
-        // Declare each module-level name referenced via GET_ADDRESS or COPY as a SUBP
-        // word. SUBP allocates no memory; it just tells the assembler the name is
-        // external. Must appear before the first instruction that uses the name
-        // (single-pass assembler). Use a map to avoid duplicate declarations.
+        // Declare each module-level name referenced via GET_ADDRESS, COPY, or FUN_CALL
+        // arguments as a SUBP word.  SUBP allocates no memory; it just tells the
+        // assembler the name is external.  Must appear before the first instruction
+        // that uses the name (single-pass assembler).  Use a map to avoid duplicates.
         StringMap declared;
         map_init(&declared);
         for (const Tac_Instruction *instr = tl->u.function.body; instr; instr = instr->next) {
@@ -439,6 +451,22 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
                     Besm_Instr *ssubp = emit(block, &tail, BESM_STMT_SUBP);
                     ssubp->name       = xstrdup(sname);
                     map_insert(&declared, sname, 1, 0);
+                }
+            }
+            // After copy propagation, a global may appear directly as a FUN_CALL
+            // argument (UTC/XTA sequence).  Declare it here so the assembler sees
+            // the SUBP before the first UTC that references it.
+            if (instr->kind == TAC_INSTRUCTION_FUN_CALL) {
+                for (const Tac_Val *a = instr->u.fun_call.args; a; a = a->next) {
+                    if (a->kind != TAC_VAL_VAR) continue;
+                    const char *sname = a->u.var_name;
+                    int sr, so;
+                    intptr_t dummy;
+                    if (!frame_lookup(f, sname, &sr, &so) && !map_get(&declared, sname, &dummy)) {
+                        Besm_Instr *ssubp = emit(block, &tail, BESM_STMT_SUBP);
+                        ssubp->name       = xstrdup(sname);
+                        map_insert(&declared, sname, 1, 0);
+                    }
                 }
             }
         }

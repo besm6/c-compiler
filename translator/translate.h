@@ -80,8 +80,13 @@ void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset,
 
 //
 // Convert the AST to TAC.
+// `program` is the accumulated TAC for all previously-translated declarations
+// in the same translation unit; it lets the optimizer identify module-level
+// static variables so it does not treat stores to globals as dead.
+// Pass NULL when no prior context exists (optimizer is conservative).
 //
-Tac_TopLevel *translate(const ExternalDecl *ast, OptFlags flags);
+Tac_TopLevel *translate(const ExternalDecl *ast, OptFlags flags,
+                        const Tac_TopLevel *program);
 
 #ifdef __cplusplus
 }

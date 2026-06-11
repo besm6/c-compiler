@@ -107,7 +107,7 @@ protected:
             ExternalDecl *next = decls->next;
             decls->next        = nullptr;
             typecheck_decl(decls);
-            Tac_TopLevel *tac = translate(decls, OptFlags{});
+            Tac_TopLevel *tac = translate(decls, opt_flags_default(), all_tac);
             free_external_decl(decls);
             if (tac) {
                 Tac_TopLevel *t = tac;

@@ -325,7 +325,7 @@ void process_file(const Args *args)
         typecheck_decl(ast);
 
         // Convert the AST to TAC and optimize.
-        Tac_TopLevel *tac = translate(ast, flags);
+        Tac_TopLevel *tac = translate(ast, flags, NULL);
         free_external_decl(ast);
         if (tac) {
             for (const Tac_TopLevel *t = tac; t; t = t->next) {

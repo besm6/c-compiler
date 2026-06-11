@@ -249,16 +249,29 @@ TEST_F(CodegenTest, CallOkno)
 
 TEST_F(CodegenTest, CopyParamToAuto)
 {
-    // copy a → b: src=param a@(6,0), dst=auto b@(7,0); num_autos=1
-    std::string output = CompileToMadlen("void foo(int a) { int b; b = a; }");
+    // copy a → g, b → h: two params stored to two globals; no autos
+    std::string output = CompileToMadlen("int g, h; void foo(int a, int b) { g = a; h = b; }");
     EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+        h:   ,name,
+             ,bss, 1
+             ,end,
+c
       foo:   ,name,
     b/ret:   ,subp,
+        g:   ,subp,
+        h:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
-           7 ,atx,
+             ,utc, g
+             ,atx,
+           6 ,xta, 1
+             ,utc, h
+             ,atx,
              ,uj, b/ret
              ,end,
 )", output);
@@ -266,10 +279,25 @@ TEST_F(CodegenTest, CopyParamToAuto)
 
 TEST_F(CodegenTest, GetAddressGlobalInt)
 {
-    // 'g' is a module-level static. Before the fix, frame_build incorrectly
-    // assigned 'g' an auto slot, causing GET_ADDRESS to emit the frame-slot
-    // path instead of the UTC/VTM/ITA sequence for module-level labels.
+        // p is assigned the address of g but never used — the optimizer correctly
+    // eliminates the dead GET_ADDRESS and COPY, leaving an empty function body.
     std::string output = CompileToMadlen("int g; void foo(void) { int *p = &g; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+          13 ,uj,
+             ,end,
+)", output);
+}
+
+TEST_F(CodegenTest, GetAddressAuto)
+{
+    // get_address a → t.0 (ITA), copy t.0 → global g (local→global)
+    // autos: a@(7,0), t.0@(7,1); num_autos=2
+    std::string output = CompileToMadlen("int *g; void foo(void) { int a; g = &a; }");
     EXPECT_EQ(R"(c
         g:   ,name,
              ,bss, 1
@@ -281,32 +309,11 @@ c
              ,its, 13
              ,call, b/save0
           15 ,utm, 2
-             ,utc, g
-          14 ,vtm, 0
-             ,ita, 14
-           7 ,atx,
-           7 ,xta,
-           7 ,atx, 1
-             ,uj, b/ret
-             ,end,
-)", output);
-}
-
-TEST_F(CodegenTest, GetAddressAuto)
-{
-    // get_address a → t.0, copy t.0 → p
-    // autos: a@(7,0), t.0@(7,1), p@(7,2); num_autos=3
-    std::string output = CompileToMadlen("void foo(void) { int a; int *p = &a; }");
-    EXPECT_EQ(R"(c
-      foo:   ,name,
-    b/ret:   ,subp,
-             ,its, 13
-             ,call, b/save0
-          15 ,utm, 3
              ,ita, 7
            7 ,atx, 1
            7 ,xta, 1
-           7 ,atx, 2
+             ,utc, g
+             ,atx,
              ,uj, b/ret
              ,end,
 )", output);
@@ -356,20 +363,26 @@ TEST_F(CodegenTest, LoadAndStoreThroughPtr)
 
 TEST_F(CodegenTest, AddTwoParams)
 {
-    // binary ADD src1=a(6,0) src2=b(6,1) dst=t.0 then copy t.0→c
-    // frame: a@(6,0), b@(6,1), t.0@(7,0), c@(7,1); num_autos=2
-    std::string output = CompileToMadlen("void foo(int a, int b) { int c; c = a + b; }");
+    // binary ADD src1=a(6,0) src2=b(6,1) dst=t.0; copy t.0 → global g
+    // frame: a@(6,0), b@(6,1), t.0@(7,0); num_autos=1
+    std::string output = CompileToMadlen("int g; void foo(int a, int b) { g = a + b; }");
     EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
       foo:   ,name,
     b/ret:   ,subp,
+        g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 2
+          15 ,utm, 1
            6 ,xta,
            6 ,a+x, 1
            7 ,atx,
            7 ,xta,
-           7 ,atx, 1
+             ,utc, g
+             ,atx,
              ,uj, b/ret
              ,end,
 )", output);
@@ -377,20 +390,26 @@ TEST_F(CodegenTest, AddTwoParams)
 
 TEST_F(CodegenTest, SubTwoParams)
 {
-    // binary SUBTRACT src1=a(6,0) src2=b(6,1) dst=t.0 then copy t.0→c
-    // frame: a@(6,0), b@(6,1), t.0@(7,0), c@(7,1); num_autos=2
-    std::string output = CompileToMadlen("void foo(int a, int b) { int c; c = a - b; }");
+    // binary SUBTRACT src1=a(6,0) src2=b(6,1) dst=t.0; copy t.0 → global g
+    // frame: a@(6,0), b@(6,1), t.0@(7,0); num_autos=1
+    std::string output = CompileToMadlen("int g; void foo(int a, int b) { g = a - b; }");
     EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
       foo:   ,name,
     b/ret:   ,subp,
+        g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 2
+          15 ,utm, 1
            6 ,xta,
            6 ,a-x, 1
            7 ,atx,
            7 ,xta,
-           7 ,atx, 1
+             ,utc, g
+             ,atx,
              ,uj, b/ret
              ,end,
 )", output);
@@ -398,12 +417,17 @@ TEST_F(CodegenTest, SubTwoParams)
 
 TEST_F(CodegenTest, AddAutoAndParam)
 {
-    // c = b + c: binary ADD src1=b(param) src2=c(auto) dst=t.0; copy t.0→c
-    // frame scan: b@(6,0), c first seen as src2 → c@(7,0), t.0@(7,1); num_autos=2
-    std::string output = CompileToMadlen("void foo(int b) { int c; c = b + c; }");
+    // binary ADD src1=b(param) src2=c(auto) dst=t.0; copy t.0 → global g
+    // frame: b@(6,0), c@(7,0), t.0@(7,1); num_autos=2
+    std::string output = CompileToMadlen("int g; void foo(int b) { int c; g = b + c; }");
     EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
       foo:   ,name,
     b/ret:   ,subp,
+        g:   ,subp,
              ,its, 13
              ,call, b/save
           15 ,utm, 2
@@ -411,7 +435,8 @@ TEST_F(CodegenTest, AddAutoAndParam)
            7 ,a+x,
            7 ,atx, 1
            7 ,xta, 1
-           7 ,atx,
+             ,utc, g
+             ,atx,
              ,uj, b/ret
              ,end,
 )", output);
@@ -419,20 +444,26 @@ TEST_F(CodegenTest, AddAutoAndParam)
 
 TEST_F(CodegenTest, AddTwoAutos)
 {
-    // c = a + b: all locals; binary ADD src1=a src2=b dst=t.0; copy t.0→c
-    // frame scan: a@(7,0), b@(7,1), t.0@(7,2), c@(7,3); num_autos=4
-    std::string output = CompileToMadlen("void foo(void) { int a; int b; int c; c = a + b; }");
+    // binary ADD src1=a(auto) src2=b(auto) dst=t.0; copy t.0 → global g
+    // frame: a@(7,0), b@(7,1), t.0@(7,2); num_autos=3
+    std::string output = CompileToMadlen("int g; void foo(void) { int a; int b; g = a + b; }");
     EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
       foo:   ,name,
     b/ret:   ,subp,
+        g:   ,subp,
              ,its, 13
              ,call, b/save0
-          15 ,utm, 4
+          15 ,utm, 3
            7 ,xta,
            7 ,a+x, 1
            7 ,atx, 2
            7 ,xta, 2
-           7 ,atx, 3
+             ,utc, g
+             ,atx,
              ,uj, b/ret
              ,end,
 )", output);
@@ -440,14 +471,22 @@ TEST_F(CodegenTest, AddTwoAutos)
 
 TEST_F(CodegenTest, LabelJump)
 {
-    std::string output = CompileToMadlen("void foo(void) { goto end; end: ; }");
+    // goto end; end: g = x — the trivial forward goto is folded away by the optimizer
+    // (end: is immediately next), leaving just the param→global copy
+    std::string output = CompileToMadlen("int g; void foo(int x) { goto end; end: g = x; }");
     EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
       foo:   ,name,
     b/ret:   ,subp,
+        g:   ,subp,
              ,its, 13
-             ,call, b/save0
-             ,uj, end
-      end:   ,bss,
+             ,call, b/save
+           6 ,xta,
+             ,utc, g
+             ,atx,
              ,uj, b/ret
              ,end,
 )", output);
@@ -474,20 +513,21 @@ TEST_F(CodegenTest, WhileLoopJumpIfZero)
 }
 
 // new_temp() allocates "t.0" for the do-while loop-top label;
-// label_loops assigns .L0 (end) and .L1 (continue).
+// label_loops assigns .L0 (end) and .L1 (continue) — both dead (no break/continue),
+// so the optimizer removes them; bar() call keeps the loop body non-empty.
 TEST_F(CodegenTest, DoWhileJumpIfNotZero)
 {
-    std::string output = CompileToMadlen("void foo(int x) { do {} while (x); }");
+    std::string output = CompileToMadlen(
+        "void bar(void); void foo(int x) { do { bar(); } while (x); }");
     EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save
       t*0:   ,bss,
-      *L1:   ,bss,
+             ,call, bar
            6 ,xta,
              ,u1a, t*0
-      *L0:   ,bss,
              ,uj, b/ret
              ,end,
 )", output);
@@ -587,7 +627,7 @@ TEST_F(CodegenTest, PrintTwoLines)
     EXPECT_EQ("FIRST LINE.\nSECOND LINE.\n", result);
 }
 
-// Global → local: COPY g → x (Case B)
+// Global → local: x = g where x is never used — optimizer removes the dead store.
 TEST_F(CodegenTest, CopyGlobalToLocal)
 {
     std::string output = CompileToMadlen("int g; void foo(void) { int x; x = g; }");
@@ -597,15 +637,7 @@ TEST_F(CodegenTest, CopyGlobalToLocal)
              ,end,
 c
       foo:   ,name,
-    b/ret:   ,subp,
-        g:   ,subp,
-             ,its, 13
-             ,call, b/save0
-          15 ,utm, 1
-             ,utc, g
-             ,xta,
-           7 ,atx,
-             ,uj, b/ret
+          13 ,uj,
              ,end,
 )", output);
 }
