@@ -4,7 +4,7 @@
 Tac_Instruction *constant_fold(Tac_Instruction *body);
 void eliminate_unreachable(OptCfg *cfg);
 void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel);
-void eliminate_dead_stores(OptCfg *cfg);
+void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel);
 
 OptFlags opt_flags_default(void) {
     return (OptFlags){ .unreachable_elim = true,
@@ -25,7 +25,7 @@ Tac_Instruction *optimize_function(Tac_Instruction *body, OptFlags flags,
         if (flags.copy_propagation)
             propagate_copies(cfg, toplevel);
         if (flags.dead_store_elim)
-            eliminate_dead_stores(cfg);
+            eliminate_dead_stores(cfg, toplevel);
 
         Tac_Instruction *new_body = cfg_flatten(cfg);
         cfg_free(cfg);

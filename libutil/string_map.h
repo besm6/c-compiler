@@ -1,3 +1,4 @@
+#pragma once
 //
 // Implementation of string-to-int map using an AVL tree, with self-balancing.
 //

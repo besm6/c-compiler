@@ -3,6 +3,7 @@ add_library(optimize STATIC
     const_fold.c
     cfg.c
     unreachable.c
+    alias.c
     copy_prop.c
     dead_store.c
 )

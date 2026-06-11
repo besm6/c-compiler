@@ -1,4 +1,5 @@
 #include <string.h>
+#include "alias.h"
 #include "cfg.h"
 #include "string_map.h"
 #include "tac.h"
@@ -448,25 +449,8 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *toplevel)
 
     // Task 16: alias pre-analysis ----------------------------------------
 
-    StringMap static_names;
-    map_init(&static_names);
-    for (const Tac_TopLevel *t = toplevel; t; t = t->next) {
-        if (t->kind == TAC_TOPLEVEL_STATIC_VARIABLE)
-            map_insert(&static_names, t->u.static_variable.name, 1, 0);
-    }
-
-    StringMap address_taken;
-    map_init(&address_taken);
-    for (int i = 0; i < cfg->nblocks; i++) {
-        const OptBlock *b = cfg->blocks[i];
-        for (const Tac_Instruction *ins = b->first; ins; ins = ins->next) {
-            if (ins->kind == TAC_INSTRUCTION_GET_ADDRESS) {
-                const Tac_Val *src = ins->u.get_address.src;
-                if (src->kind == TAC_VAL_VAR)
-                    map_insert(&address_taken, src->u.var_name, 1, 0);
-            }
-        }
-    }
+    StringMap static_names, address_taken;
+    collect_alias_sets(cfg, toplevel, &static_names, &address_taken);
 
     // Task 17: reaching-copies dataflow ----------------------------------
 
