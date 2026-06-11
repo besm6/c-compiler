@@ -123,7 +123,7 @@ TEST(FrameTest, ParamsBeforeAutos)
     copy->next            = ret;
 
     Tac_TopLevel *fn = make_fn(px, copy);
-    Frame *f = frame_build(fn);
+    Frame *f = frame_build(fn, fn);
 
     int reg, off;
 
@@ -153,7 +153,7 @@ TEST(FrameTest, NoParams)
     copy->next            = ret;
 
     Tac_TopLevel *fn = make_fn(nullptr, copy);
-    Frame *f = frame_build(fn);
+    Frame *f = frame_build(fn, fn);
 
     int reg, off;
 
@@ -175,7 +175,7 @@ TEST(FrameTest, NoParams)
 TEST(FrameTest, MissReturnsFalse)
 {
     Tac_TopLevel *fn = make_fn(nullptr, nullptr);
-    Frame *f = frame_build(fn);
+    Frame *f = frame_build(fn, fn);
 
     int reg = -1, off = -1;
     EXPECT_FALSE(frame_lookup(f, "nonexistent", &reg, &off));
@@ -194,7 +194,7 @@ TEST(FrameTest, NoDuplicateSlots)
     i1->next            = i2;
 
     Tac_TopLevel *fn = make_fn(nullptr, i1);
-    Frame *f = frame_build(fn);
+    Frame *f = frame_build(fn, fn);
 
     int rx, ox, ry, oy, rz, oz;
     ASSERT_TRUE(frame_lookup(f, "x", &rx, &ox));

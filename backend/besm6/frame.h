@@ -25,7 +25,10 @@ extern "C" {
 typedef struct Frame Frame;
 
 // Build frame for a function toplevel node.
-Frame *frame_build(const Tac_TopLevel *fn);
+// `program` is the full list of toplevels in the translation unit; it is used
+// to identify module-level names (StaticVariable/StaticConstant) so they are
+// not assigned auto slots.
+Frame *frame_build(const Tac_TopLevel *fn, const Tac_TopLevel *program);
 
 // Look up a variable name. Returns true and fills *reg and *offset on hit.
 bool frame_lookup(const Frame *f, const char *name, int *reg, int *offset);

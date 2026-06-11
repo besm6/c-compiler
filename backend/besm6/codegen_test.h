@@ -68,12 +68,12 @@ protected:
         return result;
     }
 
-    // Capture Madlen output from a pre-built TAC toplevel (used by codegen-level tests).
-    static std::string capture(const Tac_TopLevel *tl)
+    // Capture Madlen output from a pre-built TAC toplevel with full program context.
+    static std::string capture(const Tac_TopLevel *prog, const Tac_TopLevel *tl)
     {
         FILE *f = tmpfile();
         EXPECT_NE(nullptr, f);
-        codegen_program(tl, f);
+        codegen_program(prog, tl, f);
         long len = ftell(f);
         if (len == 0) {
             fclose(f);
@@ -86,6 +86,9 @@ protected:
         return result;
     }
 
+    // Backward-compatible overload: single pre-built toplevel acts as its own program.
+    static std::string capture(const Tac_TopLevel *tl) { return capture(tl, tl); }
+
     // Parse C source, run full typecheck+translate+codegen pipeline, and
     // return the concatenated Madlen assembly for every translated toplevel.
     std::string CompileToMadlen(const char *src)
@@ -95,9 +98,11 @@ protected:
         program = parse(input_file);
         EXPECT_NE(nullptr, program);
 
-        std::string result;
-        ExternalDecl *decls = program->decls;
-        program->decls      = nullptr;
+        // Phase 1: translate all declarations and collect the full TAC chain.
+        // The full chain is needed so frame_build can identify module-level names.
+        Tac_TopLevel *all_tac = nullptr, **tac_tail = &all_tac;
+        ExternalDecl *decls   = program->decls;
+        program->decls        = nullptr;
         while (decls) {
             ExternalDecl *next = decls->next;
             decls->next        = nullptr;
@@ -105,12 +110,19 @@ protected:
             Tac_TopLevel *tac = translate(decls, OptFlags{});
             free_external_decl(decls);
             if (tac) {
-                for (const Tac_TopLevel *t = tac; t; t = t->next)
-                    result += capture(t);
-                tac_free_toplevel(tac);
+                Tac_TopLevel *t = tac;
+                while (t->next) t = t->next;
+                *tac_tail = tac;
+                tac_tail  = &t->next;
             }
             decls = next;
         }
+
+        // Phase 2: codegen each toplevel with the full program chain as context.
+        std::string result;
+        for (const Tac_TopLevel *t = all_tac; t; t = t->next)
+            result += capture(all_tac, t);
+        tac_free_toplevel(all_tac);
         return result;
     }
 

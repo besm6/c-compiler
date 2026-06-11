@@ -175,20 +175,24 @@ void process_file(const Args *args)
     WFILE input;
     wopen(&input, args->input_file, "r");
 
+    // Phase 1: read all toplevels into a linked chain for global-name resolution.
+    Tac_TopLevel *head = NULL, **tail_ptr = &head;
     for (;;) {
         Tac_TopLevel *tac = tac_import_toplevel(&input);
         if (!tac)
             break;
-        if (args->debug) {
-            tac_print_toplevel(stdout, tac, 0);
-        }
-
-        // Convert TAC to assembler.
-        codegen_program(tac, output_file);
-
-        tac_free_toplevel(tac);
+        *tail_ptr = tac;
+        tail_ptr  = &tac->next;
     }
     wclose(&input);
+
+    // Phase 2: codegen each toplevel with the full program chain as context.
+    for (const Tac_TopLevel *tl = head; tl; tl = tl->next) {
+        if (args->debug)
+            tac_print_toplevel(stdout, tl, 0);
+        codegen_program(head, tl, output_file);
+    }
+    tac_free_toplevel(head);
     close_output(args);
 
     if (args->debug) {

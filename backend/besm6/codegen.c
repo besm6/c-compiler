@@ -11,7 +11,8 @@
 #include "xalloc.h"
 
 // Forward declarations.
-static void codegen_function(const Tac_TopLevel *tl, FILE *out);
+static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl,
+                             FILE *out);
 static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
                           Besm_Block *block, Besm_Instr **tail);
 
@@ -339,11 +340,11 @@ static void codegen_static_constant(const Tac_TopLevel *tl, FILE *out)
     besm_free_module(module);
 }
 
-void codegen_program(const Tac_TopLevel *tl, FILE *out)
+void codegen_program(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out)
 {
     switch (tl->kind) {
     case TAC_TOPLEVEL_FUNCTION:
-        codegen_function(tl, out);
+        codegen_function(program, tl, out);
         break;
     case TAC_TOPLEVEL_STATIC_VARIABLE:
         codegen_static_variable(tl, out);
@@ -354,7 +355,8 @@ void codegen_program(const Tac_TopLevel *tl, FILE *out)
     }
 }
 
-static void codegen_function(const Tac_TopLevel *tl, FILE *out)
+static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl,
+                             FILE *out)
 {
     const char *name = tl->u.function.name;
 
@@ -401,7 +403,7 @@ static void codegen_function(const Tac_TopLevel *tl, FILE *out)
         //
         // Build the frame early so we can declare SUBP references for static
         // constants before the first instruction that uses them (single-pass assembler).
-        Frame *f      = frame_build(tl);
+        Frame *f      = frame_build(tl, program);
         int num_autos = frame_num_autos(f);
 
         Besm_Instr *subp_cret = emit(block, &tail, BESM_STMT_SUBP);

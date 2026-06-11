@@ -264,6 +264,34 @@ TEST_F(CodegenTest, CopyParamToAuto)
 )", output);
 }
 
+TEST_F(CodegenTest, GetAddressGlobalInt)
+{
+    // 'g' is a module-level static. Before the fix, frame_build incorrectly
+    // assigned 'g' an auto slot, causing GET_ADDRESS to emit the frame-slot
+    // path instead of the UTC/VTM/ITA sequence for module-level labels.
+    std::string output = CompileToMadlen("int g; void foo(void) { int *p = &g; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save0
+          15 ,utm, 2
+             ,utc, g
+          14 ,vtm, 0
+             ,ita, 14
+           7 ,atx,
+           7 ,xta,
+           7 ,atx, 1
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
 TEST_F(CodegenTest, GetAddressAuto)
 {
     // get_address a → t.0, copy t.0 → p
