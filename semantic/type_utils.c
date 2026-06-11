@@ -166,6 +166,33 @@ bool is_signed(const Type *t)
     return false; // Unreachable
 }
 
+// Return true if a qualifier list contains the volatile qualifier.
+static bool has_volatile_qualifier(const TypeQualifier *q)
+{
+    for (; q; q = q->next)
+        if (q->kind == TYPE_QUALIFIER_VOLATILE)
+            return true;
+    return false;
+}
+
+// Return true if accessing an object of this type is a volatile access.
+// Checks the type's own qualifier list, plus the pointer/array object's own
+// qualifiers (the `int * volatile p` case). Volatility of a pointee is *not*
+// considered here: it surfaces at the dereference site via that expression's
+// own (pointee) type. Typedefs are already resolved before lowering.
+bool type_is_volatile(const Type *t)
+{
+    if (!t)
+        return false;
+    if (has_volatile_qualifier(t->qualifiers))
+        return true;
+    if (t->kind == TYPE_POINTER)
+        return has_volatile_qualifier(t->u.pointer.qualifiers);
+    if (t->kind == TYPE_ARRAY)
+        return has_volatile_qualifier(t->u.array.qualifiers);
+    return false;
+}
+
 bool is_pointer(const Type *t)
 {
     return t->kind == TYPE_POINTER;

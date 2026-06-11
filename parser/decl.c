@@ -425,6 +425,13 @@ DeclSpec *parse_declaration_specifiers(Type **base_type_result)
     }
     *base_type_result = fuse_type_specifiers(type_specs);
     free_type_spec(type_specs);
+    // Qualifiers from the declaration specifiers (const/volatile/...) qualify the
+    // base type being declared. Attach them to the base type so every declarator
+    // built from it inherits them via clone_type (e.g. `volatile int *p` yields a
+    // pointer to volatile int). Pointer-level qualifiers are handled separately by
+    // type_apply_pointers. Mirrors parse_type_name's handling of the same case.
+    if (*base_type_result && ds->qualifiers)
+        (*base_type_result)->qualifiers = clone_type_qualifier(ds->qualifiers);
     if (!ds->storage && !ds->qualifiers && !ds->func_specs && !ds->align_spec) {
         free_decl_spec(ds);
         return NULL;

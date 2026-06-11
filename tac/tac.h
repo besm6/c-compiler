@@ -139,6 +139,10 @@ typedef enum {
 typedef struct Tac_Instruction {
     struct Tac_Instruction *next; // Linked list
     Tac_InstructionKind kind;
+    // Set on a memory access (LOAD/STORE/COPY/COPY_TO_OFFSET/COPY_FROM_OFFSET)
+    // that touches a volatile-qualified object. The optimizer must preserve such
+    // an access verbatim: never eliminate, duplicate, reorder, or propagate it.
+    bool is_volatile;
     union {
         struct {
             Tac_Val *src;

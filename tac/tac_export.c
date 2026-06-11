@@ -76,7 +76,12 @@ static void export_instr(WFILE *out, const Tac_Instruction *instr)
         wputw(TAG_EOL, out);
         return;
     }
-    wputw(TAG_TAC_INSTR + instr->kind, out);
+    {
+        size_t tag = TAG_TAC_INSTR + instr->kind;
+        if (instr->is_volatile)
+            tag |= TAG_INSTR_VOLATILE;
+        wputw(tag, out);
+    }
     switch (instr->kind) {
     case TAC_INSTRUCTION_RETURN:
         export_val(out, instr->u.return_.src);

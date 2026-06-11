@@ -667,3 +667,161 @@ TEST_F(OptimizerTest, DeadStoreCrossBlockNotRemoved)
         "    kind: var\n"
         "    name: t.0\n");
 }
+
+// ---------------------------------------------------------------------------
+// Volatile accesses must never be removed, even when their destination is dead.
+// ---------------------------------------------------------------------------
+
+// Label("fn") → Load(p, t.0) [volatile] → Return(0)
+// t.0 is never read. A plain Load would be removed (it is removable), but a
+// volatile load has an observable side effect and must survive.
+TEST_F(OptimizerTest, DeadStoreVolatileLoadSurvives)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *ld    = as_volatile(make_load(make_var("p"), make_var("t.0")));
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = ld;
+    ld->next    = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: load\n"
+        "  volatile: true\n"
+        "  src_ptr:\n"
+        "    kind: var\n"
+        "    name: p\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: t.0\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}
+
+// Control for the test above: the same Load WITHOUT the volatile flag is a dead
+// store (t.0 never read) and is removed.
+TEST_F(OptimizerTest, DeadStoreNonVolatileLoadRemoved)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *ld    = make_load(make_var("p"), make_var("t.0"));
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = ld;
+    ld->next    = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}
+
+// Label("fn") → Copy(5, x) [volatile] → Return(0)
+// x is never read, so a plain Copy would be a dead store and removed. A volatile
+// copy models a write to a volatile object and must survive.
+TEST_F(OptimizerTest, DeadStoreVolatileCopySurvives)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *cp    = as_volatile(make_copy(make_const_int(5), make_var("x")));
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = cp;
+    cp->next    = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  volatile: true\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 5\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}
+
+// Two volatile writes to the same object: neither may be coalesced away. Without
+// the volatile flag, Copy(1, x) would be a dead store (overwritten by Copy(2, x)).
+TEST_F(OptimizerTest, DeadStoreVolatileDoubleWriteBothSurvive)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *cp1   = as_volatile(make_copy(make_const_int(1), make_var("x")));
+    Tac_Instruction *cp2   = as_volatile(make_copy(make_const_int(2), make_var("x")));
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = cp1;
+    cp1->next   = cp2;
+    cp2->next   = ret;
+
+    OptFlags flags         = opt_flags_default();
+    flags.copy_propagation = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  volatile: true\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 1\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  volatile: true\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 2\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+}

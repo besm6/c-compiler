@@ -619,6 +619,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
     }
     case TAC_INSTRUCTION_COPY:
         fprintf(fd, "copy\n");
+        if (instr->is_volatile) {
+            print_indent(fd, level);
+            fprintf(fd, "volatile: true\n");
+        }
         print_indent(fd, level);
         fprintf(fd, "src:\n");
         export_yaml_val(fd, instr->u.copy.src, level + 1);
@@ -637,6 +641,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         break;
     case TAC_INSTRUCTION_LOAD:
         fprintf(fd, "load\n");
+        if (instr->is_volatile) {
+            print_indent(fd, level);
+            fprintf(fd, "volatile: true\n");
+        }
         print_indent(fd, level);
         fprintf(fd, "src_ptr:\n");
         export_yaml_val(fd, instr->u.load.src_ptr, level + 1);
@@ -646,6 +654,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         break;
     case TAC_INSTRUCTION_STORE:
         fprintf(fd, "store\n");
+        if (instr->is_volatile) {
+            print_indent(fd, level);
+            fprintf(fd, "volatile: true\n");
+        }
         print_indent(fd, level);
         fprintf(fd, "src:\n");
         export_yaml_val(fd, instr->u.store.src, level + 1);
@@ -669,6 +681,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
         fprintf(fd, "copy_to_offset\n");
+        if (instr->is_volatile) {
+            print_indent(fd, level);
+            fprintf(fd, "volatile: true\n");
+        }
         print_indent(fd, level);
         fprintf(fd, "src:\n");
         export_yaml_val(fd, instr->u.copy_to_offset.src, level + 1);
@@ -679,6 +695,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
         fprintf(fd, "copy_from_offset\n");
+        if (instr->is_volatile) {
+            print_indent(fd, level);
+            fprintf(fd, "volatile: true\n");
+        }
         print_indent(fd, level);
         fprintf(fd, "src: %s\n",
                 instr->u.copy_from_offset.src ? instr->u.copy_from_offset.src : "");

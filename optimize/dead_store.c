@@ -442,7 +442,8 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *toplevel)
             // pure instruction we may drop. Unlink and free it (and do NOT run
             // the transfer, so its sources are not revived — that is what lets
             // chains of dead defs collapse in this single backward pass).
-            if (dst && is_removable(ins->kind) && !map_get(&live, dst, NULL)) {
+            if (dst && is_removable(ins->kind) && !ins->is_volatile &&
+                !map_get(&live, dst, NULL)) {
                 OPT_TRACE("[dead-store] block %d: dst '%s' is dead", i, dst);
                 opt_trace_instr(" removing:", ins);
                 Tac_Instruction *prev = (j > 0) ? block_insts[i][j - 1] : NULL;

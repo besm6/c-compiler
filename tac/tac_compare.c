@@ -181,6 +181,8 @@ bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b)
         return false;
     if (a->kind != b->kind)
         return false;
+    if (a->is_volatile != b->is_volatile)
+        return false;
     switch (a->kind) {
     case TAC_INSTRUCTION_RETURN:
         return tac_compare_val(a->u.return_.src, b->u.return_.src);

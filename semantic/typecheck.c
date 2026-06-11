@@ -296,11 +296,23 @@ bool compatible_type(const Type *target, const Type *src)
     }
     case TYPE_POINTER:
         return compatible_type(target->u.pointer.target, src->u.pointer.target);
+    case TYPE_ARRAY:
+        return compatible_type(target->u.array.element, src->u.array.element);
+    case TYPE_COMPLEX:
+    case TYPE_IMAGINARY:
+        return compatible_type(target->u.complex.base, src->u.complex.base);
+    case TYPE_ATOMIC:
+        return compatible_type(target->u.atomic.base, src->u.atomic.base);
     case TYPE_STRUCT:
     case TYPE_UNION:
         return strcmp(target->u.struct_t.name, src->u.struct_t.name) == 0;
     default:
-        return compare_type(target, src);
+        // Leaf types (scalars, enum, void, typedef name): the kind equality
+        // checked above is sufficient. Type qualifiers (const/volatile/...) are
+        // deliberately ignored: C assignment and argument compatibility operate
+        // on the unqualified value type, so e.g. `char *` is compatible with
+        // `const char *`. (compare_type is qualifier-strict and unsuitable here.)
+        return true;
     }
 }
 

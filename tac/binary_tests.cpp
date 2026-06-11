@@ -364,6 +364,70 @@ TEST_F(TacBinaryTest, LoadAndStore)
 }
 
 // ---------------------------------------------------------------------------
+// Volatile flag
+// ---------------------------------------------------------------------------
+
+TEST_F(TacBinaryTest, VolatileFlagRoundTrip)
+{
+    // A volatile load survives the binary round-trip with the flag preserved.
+    {
+        Tac_Program *orig            = tac_new_program();
+        orig->decls                  = make_empty_function("f", true);
+        Tac_Instruction *instr       = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+        instr->is_volatile           = true;
+        instr->u.load.src_ptr        = make_var("ptr");
+        instr->u.load.dst            = make_var("val");
+        orig->decls->u.function.body = instr;
+
+        Tac_Program *copy = roundtrip(orig);
+        EXPECT_TRUE(tac_compare_program(orig, copy));
+        ASSERT_NE(copy->decls->u.function.body, nullptr);
+        EXPECT_TRUE(copy->decls->u.function.body->is_volatile);
+        tac_free_program(orig);
+        tac_free_program(copy);
+    }
+    // A volatile store too.
+    {
+        Tac_Program *orig            = tac_new_program();
+        orig->decls                  = make_empty_function("f", true);
+        Tac_Instruction *instr       = tac_new_instruction(TAC_INSTRUCTION_STORE);
+        instr->is_volatile           = true;
+        instr->u.store.src           = make_var("val");
+        instr->u.store.dst_ptr       = make_var("ptr");
+        orig->decls->u.function.body = instr;
+
+        Tac_Program *copy = roundtrip(orig);
+        EXPECT_TRUE(tac_compare_program(orig, copy));
+        ASSERT_NE(copy->decls->u.function.body, nullptr);
+        EXPECT_TRUE(copy->decls->u.function.body->is_volatile);
+        tac_free_program(orig);
+        tac_free_program(copy);
+    }
+    // The flag is significant: an otherwise-identical volatile vs non-volatile
+    // instruction must NOT compare equal (guards against silently dropping it).
+    {
+        Tac_Program *vol            = tac_new_program();
+        vol->decls                  = make_empty_function("f", true);
+        Tac_Instruction *vi         = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+        vi->is_volatile             = true;
+        vi->u.load.src_ptr          = make_var("ptr");
+        vi->u.load.dst              = make_var("val");
+        vol->decls->u.function.body = vi;
+
+        Tac_Program *plain            = tac_new_program();
+        plain->decls                  = make_empty_function("f", true);
+        Tac_Instruction *pi           = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+        pi->u.load.src_ptr            = make_var("ptr");
+        pi->u.load.dst                = make_var("val");
+        plain->decls->u.function.body = pi;
+
+        EXPECT_FALSE(tac_compare_program(vol, plain));
+        tac_free_program(vol);
+        tac_free_program(plain);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // AddPtr
 // ---------------------------------------------------------------------------
 

@@ -559,6 +559,13 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
     while (cur) {
         Tac_Instruction *next = cur->next;
 
+        // Never fold or rewrite a volatile access: it must execute verbatim.
+        if (cur->is_volatile) {
+            prev = cur;
+            cur  = next;
+            continue;
+        }
+
         // Unary with a constant operand → Copy of the folded result.
         if (cur->kind == TAC_INSTRUCTION_UNARY &&
             cur->u.unary.src->kind == TAC_VAL_CONSTANT) {

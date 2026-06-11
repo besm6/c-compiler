@@ -686,3 +686,90 @@ TEST_F(OptimizerTest, CopyPropCrossBlock)
         "      value: 42\n");
 
 }
+
+// ---------------------------------------------------------------------------
+// Volatile accesses must not participate in copy propagation.
+// ---------------------------------------------------------------------------
+
+// Label("fn") → Copy(a, b) [volatile] → Return(b)
+// A volatile copy is not a propagatable copy: it generates no (b → a) pair, so
+// the Return keeps reading b rather than being rewritten to read a.
+TEST_F(OptimizerTest, CopyPropVolatileCopyNotPropagated)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *copy  = as_volatile(make_copy(make_var("a"), make_var("b")));
+    Tac_Instruction *ret   = make_return(make_var("b"));
+    entry->next = copy;
+    copy->next  = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  volatile: true\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: a\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: b\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: b\n");
+}
+
+// Label("fn") → Copy(7, p) → Load(p, t.0) [volatile] → Return(t.0)
+// The plain Copy makes (p → 7) available, but a volatile load's operands must
+// not be rewritten: its src_ptr stays p (it re-reads through the pointer), it is
+// not turned into a load from the constant 7.
+TEST_F(OptimizerTest, CopyPropVolatileLoadOperandNotSubstituted)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *copy  = make_copy(make_const_int(7), make_var("p"));
+    Tac_Instruction *ld    = as_volatile(make_load(make_var("p"), make_var("t.0")));
+    Tac_Instruction *ret   = make_return(make_var("t.0"));
+    entry->next = copy;
+    copy->next  = ld;
+    ld->next    = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 7\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: p\n"
+        "- instruction:\n"
+        "  kind: load\n"
+        "  volatile: true\n"
+        "  src_ptr:\n"
+        "    kind: var\n"
+        "    name: p\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: t.0\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: t.0\n");
+}

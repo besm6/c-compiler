@@ -344,6 +344,18 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             fatal_error("Unsupported literal in TAC lowering");
         }
     case EXPR_VAR:
+        // A read of a volatile scalar variable must re-read memory on every use.
+        // Materialize it into a volatile COPY so the optimizer cannot fold or
+        // propagate the value away. Aggregates are read via field access instead.
+        if (type_is_volatile(e->type) && is_scalar(e->type)) {
+            Tac_Val *dst        = new_var_val(ctx);
+            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
+            in->is_volatile     = true;
+            in->u.copy.src      = val_var(e->u.var);
+            in->u.copy.dst      = dst;
+            tac_append(ctx, in);
+            return val_var(dst->u.var_name);
+        }
         return val_var(e->u.var);
     case EXPR_UNARY_OP:
         if (e->u.unary_op.op == UNARY_PLUS)
@@ -354,6 +366,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             Tac_Val *addr       = gen_lval(ctx, e);
             Tac_Val *dst        = new_var_val(ctx);
             Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+            in->is_volatile     = type_is_volatile(e->type);
             in->u.load.src_ptr  = addr;
             in->u.load.dst      = dst;
             tac_append(ctx, in);
@@ -373,14 +386,17 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 bin->u.binary.dst    = vd;
                 tac_append(ctx, bin);
                 Tac_Instruction *cp = tac_new_instruction(TAC_INSTRUCTION_COPY);
+                cp->is_volatile     = type_is_volatile(inner->type);
                 cp->u.copy.src      = val_var(vd->u.var_name);
                 cp->u.copy.dst      = val_var(var);
                 tac_append(ctx, cp);
                 return val_var(vd->u.var_name);
             } else {
+                bool vol            = type_is_volatile(inner->type);
                 Tac_Val *addr_raw   = gen_lval(ctx, inner);
                 Tac_Val *loaded     = new_var_val(ctx);
                 Tac_Instruction *ld = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+                ld->is_volatile     = vol;
                 ld->u.load.src_ptr  = addr_raw;
                 ld->u.load.dst      = loaded;
                 tac_append(ctx, ld);
@@ -392,6 +408,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 bin->u.binary.dst    = result;
                 tac_append(ctx, bin);
                 Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
+                st->is_volatile     = vol;
                 st->u.store.src     = val_var(result->u.var_name);
                 st->u.store.dst_ptr = val_var(addr_raw->u.var_name);
                 tac_append(ctx, st);
@@ -410,8 +427,10 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         Tac_Val *src = gen_expr(ctx, e->u.assign.value);
         if (target->kind == EXPR_VAR) {
             const char *dst = target->u.var;
+            bool vol = type_is_volatile(target->type);
             if (e->u.assign.op == ASSIGN_SIMPLE) {
                 Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
+                in->is_volatile     = vol;
                 in->u.copy.src      = src;
                 in->u.copy.dst      = val_var(dst);
                 tac_append(ctx, in);
@@ -424,6 +443,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 bin->u.binary.dst    = vd;
                 tac_append(ctx, bin);
                 Tac_Instruction *cp = tac_new_instruction(TAC_INSTRUCTION_COPY);
+                cp->is_volatile     = vol;
                 cp->u.copy.src      = val_var(vd->u.var_name);
                 cp->u.copy.dst      = val_var(dst);
                 tac_append(ctx, cp);
@@ -435,15 +455,19 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             const char *var_name = target->u.field_access.expr->u.var;
             int offset       = target->u.field_access.offset;
             Tac_Instruction *in         = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
+            in->is_volatile             = type_is_volatile(target->type) ||
+                                  type_is_volatile(target->u.field_access.expr->type);
             in->u.copy_to_offset.src    = src;
             in->u.copy_to_offset.dst    = xstrdup(var_name);
             in->u.copy_to_offset.offset = offset;
             tac_append(ctx, in);
             return val_var(var_name);
         } else {
+            bool vol          = type_is_volatile(target->type);
             Tac_Val *addr_raw = gen_lval(ctx, target);
             if (e->u.assign.op == ASSIGN_SIMPLE) {
                 Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
+                st->is_volatile     = vol;
                 st->u.store.src     = src;
                 st->u.store.dst_ptr = addr_raw;
                 tac_append(ctx, st);
@@ -451,6 +475,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             } else {
                 Tac_Val *loaded     = new_var_val(ctx);
                 Tac_Instruction *ld = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+                ld->is_volatile     = vol;
                 ld->u.load.src_ptr  = addr_raw;
                 ld->u.load.dst      = loaded;
                 tac_append(ctx, ld);
@@ -462,6 +487,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 bin->u.binary.dst    = result;
                 tac_append(ctx, bin);
                 Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
+                st->is_volatile     = vol;
                 st->u.store.src     = val_var(result->u.var_name);
                 st->u.store.dst_ptr = val_var(addr_raw->u.var_name);
                 tac_append(ctx, st);
@@ -549,9 +575,11 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         Tac_BinaryOperator inc_op =
             (e->kind == EXPR_POST_INC) ? TAC_BINARY_ADD : TAC_BINARY_SUBTRACT;
         if (inner->kind == EXPR_VAR) {
+            bool vol             = type_is_volatile(inner->type);
             const char *var      = inner->u.var;
             Tac_Val *old         = new_var_val(ctx);
             Tac_Instruction *cp1 = tac_new_instruction(TAC_INSTRUCTION_COPY);
+            cp1->is_volatile     = vol;
             cp1->u.copy.src      = val_var(var);
             cp1->u.copy.dst      = old;
             tac_append(ctx, cp1);
@@ -563,14 +591,17 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             bin->u.binary.dst    = vd;
             tac_append(ctx, bin);
             Tac_Instruction *cp2 = tac_new_instruction(TAC_INSTRUCTION_COPY);
+            cp2->is_volatile     = vol;
             cp2->u.copy.src      = val_var(vd->u.var_name);
             cp2->u.copy.dst      = val_var(var);
             tac_append(ctx, cp2);
             return val_var(old->u.var_name);
         } else {
+            bool vol            = type_is_volatile(inner->type);
             Tac_Val *addr_raw   = gen_lval(ctx, inner);
             Tac_Val *old        = new_var_val(ctx);
             Tac_Instruction *ld = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+            ld->is_volatile     = vol;
             ld->u.load.src_ptr  = addr_raw;
             ld->u.load.dst      = old;
             tac_append(ctx, ld);
@@ -582,6 +613,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             bin->u.binary.dst    = result;
             tac_append(ctx, bin);
             Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
+            st->is_volatile     = vol;
             st->u.store.src     = val_var(result->u.var_name);
             st->u.store.dst_ptr = val_var(addr_raw->u.var_name);
             tac_append(ctx, st);
@@ -592,6 +624,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         Tac_Val *addr       = gen_lval(ctx, e);
         Tac_Val *dst        = new_var_val(ctx);
         Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+        in->is_volatile     = type_is_volatile(e->type);
         in->u.load.src_ptr  = addr;
         in->u.load.dst      = dst;
         tac_append(ctx, in);
@@ -609,6 +642,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         if (base->kind == EXPR_VAR) {
             Tac_Val *dst                  = new_var_val(ctx);
             Tac_Instruction *in           = tac_new_instruction(TAC_INSTRUCTION_COPY_FROM_OFFSET);
+            in->is_volatile               = type_is_volatile(e->type) || type_is_volatile(base->type);
             in->u.copy_from_offset.src    = xstrdup(base->u.var);
             in->u.copy_from_offset.offset = offset;
             in->u.copy_from_offset.dst    = dst;
@@ -618,6 +652,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             Tac_Val *addr       = gen_lval(ctx, e);
             Tac_Val *dst        = new_var_val(ctx);
             Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+            in->is_volatile     = type_is_volatile(e->type);
             in->u.load.src_ptr  = addr;
             in->u.load.dst      = dst;
             tac_append(ctx, in);
@@ -628,6 +663,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         Tac_Val *addr       = gen_lval(ctx, e);
         Tac_Val *dst        = new_var_val(ctx);
         Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+        in->is_volatile     = type_is_volatile(e->type);
         in->u.load.src_ptr  = addr;
         in->u.load.dst      = dst;
         tac_append(ctx, in);

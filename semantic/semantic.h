@@ -49,6 +49,7 @@ bool is_character(const Type *t);
 bool is_pointer(const Type *t);
 bool is_complete_pointer(const Type *t);
 bool is_signed(const Type *t);
+bool type_is_volatile(const Type *t);
 int round_away_from_zero(int alignment, int size);
 Type *resolve_typedef_names(Type *t);
 

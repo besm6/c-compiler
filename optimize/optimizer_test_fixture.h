@@ -287,6 +287,14 @@ protected:
         return i;
     }
 
+    // Mark an instruction as a volatile memory access (in place) and return it,
+    // so any maker can be wrapped: as_volatile(make_load(...)).
+    static Tac_Instruction *as_volatile(Tac_Instruction *i)
+    {
+        i->is_volatile = true;
+        return i;
+    }
+
     static Tac_Instruction *make_copy_to_offset(Tac_Val *src, const char *dst_name, int offset)
     {
         Tac_Instruction *i         = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);

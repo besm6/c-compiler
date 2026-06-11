@@ -257,6 +257,10 @@ static void apply_transfer(StringMap *cs, const Tac_Instruction *ins,
         if (dst->kind == TAC_VAL_VAR) {
             OPT_TRACE("[copy-prop] kill copies involving %s\n", dst->u.var_name);
             kill_name(cs, dst->u.var_name);
+            // A volatile copy must re-execute its exact read on every use, so it
+            // is not a propagatable copy: kill, but do not Gen a (dst → src) pair.
+            if (ins->is_volatile)
+                return;
             CopyPair *p = xalloc(sizeof(CopyPair), __func__, __FILE__, __LINE__);
             p->name = xstrdup(dst->u.var_name);
             p->src  = ins->u.copy.src;
@@ -442,6 +446,10 @@ static void subst_args(Tac_Val **head, const StringMap *cs)
 
 static void subst_instruction(Tac_Instruction *ins, const StringMap *cs)
 {
+    // A volatile access must read its exact operand from memory every time; never
+    // rewrite its operands with a propagated value.
+    if (ins->is_volatile)
+        return;
     switch (ins->kind) {
     case TAC_INSTRUCTION_RETURN:
         if (ins->u.return_.src)

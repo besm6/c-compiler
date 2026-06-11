@@ -387,3 +387,157 @@ TEST_F(TranslateTest, SubscriptPostInc)
         name: t.0
 )");
 }
+
+// ---------------------------------------------------------------------------
+// Volatile accesses — the lowered memory ops carry the volatile flag so the
+// optimizer preserves them. (DerefPointer above is the non-volatile control.)
+// ---------------------------------------------------------------------------
+
+// *p where p is `volatile int *` lowers to a volatile LOAD.
+TEST_F(TranslateTest, VolatileDerefLoad)
+{
+    std::string yaml = CompileToYaml("void f(void) { volatile int *p; int y = *p; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: load
+      volatile: true
+      src_ptr:
+        kind: var
+        name: p
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: copy
+      src:
+        kind: var
+        name: t.0
+      dst:
+        kind: var
+        name: y
+)");
+}
+
+// *p = 1 where p is `volatile int *` lowers to a volatile STORE.
+TEST_F(TranslateTest, VolatileDerefStore)
+{
+    std::string yaml = CompileToYaml("void f(void) { volatile int *p; *p = 1; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: store
+      volatile: true
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst_ptr:
+        kind: var
+        name: p
+)");
+}
+
+// Writing a volatile scalar variable lowers to a volatile COPY.
+TEST_F(TranslateTest, VolatileScalarWrite)
+{
+    std::string yaml = CompileToYaml("void f(void) { volatile int x; x = 7; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy
+      volatile: true
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 7
+      dst:
+        kind: var
+        name: x
+)");
+}
+
+// Reading a volatile scalar variable is materialized into a volatile COPY so the
+// read re-executes on every use (strict C11 read semantics).
+TEST_F(TranslateTest, VolatileScalarReadMaterialized)
+{
+    std::string yaml = CompileToYaml("void f(void) { volatile int x; int y = x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy
+      volatile: true
+      src:
+        kind: var
+        name: x
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: copy
+      src:
+        kind: var
+        name: t.0
+      dst:
+        kind: var
+        name: y
+)");
+}
+
+// (*p)++ through a volatile pointer flags BOTH the load and the store halves.
+TEST_F(TranslateTest, VolatileDerefPostIncLoadAndStore)
+{
+    std::string yaml = CompileToYaml("void f(void) { volatile int *p; (*p)++; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: load
+      volatile: true
+      src_ptr:
+        kind: var
+        name: p
+      dst:
+        kind: var
+        name: t.0
+    - instruction:
+      kind: binary
+      op: add
+      src1:
+        kind: var
+        name: t.0
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst:
+        kind: var
+        name: t.1
+    - instruction:
+      kind: store
+      volatile: true
+      src:
+        kind: var
+        name: t.1
+      dst_ptr:
+        kind: var
+        name: p
+)");
+}

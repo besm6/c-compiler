@@ -8,3 +8,9 @@ enum {
     TAG_TAC_TYPE        = 0x74747970, // 'ttyp' - for struct Tac_Type
     TAG_TAC_VAL         = 0x7476616c, // 'tval' - for struct Tac_Val
 };
+
+// High-bit flag OR'd into a TAG_TAC_INSTR header word when the instruction is a
+// volatile memory access. Old streams have this bit clear, so reading them yields
+// is_volatile = false (backward compatible). Defined as a macro (not an enum
+// constant) because 0x80000000 is not representable as a plain int.
+#define TAG_INSTR_VOLATILE ((size_t)0x80000000)

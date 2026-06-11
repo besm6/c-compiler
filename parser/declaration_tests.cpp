@@ -672,3 +672,33 @@ TEST_F(ParserTest, ParseStaticAssertInUnion)
     EXPECT_EQ(FIELD_MEMBER, f2->kind);
     EXPECT_STREQ("x", f2->u.member.name);
 }
+
+// A `volatile` qualifier in the declaration specifiers attaches to the declared
+// base type, so the declarator's type carries it (not just the DeclSpec).
+TEST_F(ParserTest, ParseVolatileScalarDeclaration)
+{
+    Declaration *decl = GetDeclaration("volatile int x;");
+
+    EXPECT_EQ(DECL_VAR, decl->kind);
+    Type *type = decl->u.var.declarators->type;
+    ASSERT_EQ(TYPE_INT, type->kind);
+    ASSERT_NE(nullptr, type->qualifiers);
+    EXPECT_EQ(TYPE_QUALIFIER_VOLATILE, type->qualifiers->kind);
+    EXPECT_EQ(nullptr, type->qualifiers->next);
+}
+
+// `volatile int *p` is a pointer to volatile int: the volatile lands on the
+// pointee (pointer target), not on the pointer object itself.
+TEST_F(ParserTest, ParseVolatilePointeeDeclaration)
+{
+    Declaration *decl = GetDeclaration("volatile int *p;");
+
+    EXPECT_EQ(DECL_VAR, decl->kind);
+    Type *type = decl->u.var.declarators->type;
+    ASSERT_EQ(TYPE_POINTER, type->kind);
+    EXPECT_EQ(nullptr, type->u.pointer.qualifiers);
+    Type *target = type->u.pointer.target;
+    ASSERT_EQ(TYPE_INT, target->kind);
+    ASSERT_NE(nullptr, target->qualifiers);
+    EXPECT_EQ(TYPE_QUALIFIER_VOLATILE, target->qualifiers->kind);
+}
