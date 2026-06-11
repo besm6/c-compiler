@@ -25,6 +25,8 @@ Reference: [docs/TAC_Optimization.md](../docs/TAC_Optimization.md)
 - Task 16 — Alias pre-analysis
 - Task 17 — Reaching-copies dataflow
 - Task 18 — Substitution
+- Task 19 — Tests for copy propagation
+- Phase 4 verification
 
 ---
 
@@ -420,8 +422,10 @@ After dataflow converges, make a second pass:
 
 ### Phase 4 verification
 
-- `make test` passes.
-- Simple constant-return function reduces to a single `Return(const)` in YAML.
+- `make test` passes — 993/993 tests.
+- `int f(void) { int t = 3; return t; }` lowers to `Return(ConstInt(3))` (copy
+  propagation substitutes `t` with the constant). The dead `Copy(3, t)` instruction
+  is left to Phase 5 (dead store elimination).
 
 ---
 

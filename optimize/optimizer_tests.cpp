@@ -201,6 +201,52 @@ static Tac_Instruction *make_jump(const char *target)
     return i;
 }
 
+static Tac_Instruction *make_copy(Tac_Val *src, Tac_Val *dst)
+{
+    Tac_Instruction *i = tac_new_instruction(TAC_INSTRUCTION_COPY);
+    i->u.copy.src = src;
+    i->u.copy.dst = dst;
+    return i;
+}
+
+static Tac_Instruction *make_fun_call(const char *name)
+{
+    Tac_Instruction *i         = tac_new_instruction(TAC_INSTRUCTION_FUN_CALL);
+    i->u.fun_call.fun_name     = xstrdup(name);
+    return i;
+}
+
+static Tac_TopLevel *make_static_tl(const char *name)
+{
+    Tac_TopLevel *tl               = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    tl->u.static_variable.name     = xstrdup(name);
+    return tl;
+}
+
+static Tac_Instruction *make_get_address(Tac_Val *src, Tac_Val *dst)
+{
+    Tac_Instruction *i   = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
+    i->u.get_address.src = src;
+    i->u.get_address.dst = dst;
+    return i;
+}
+
+static Tac_Instruction *make_store(Tac_Val *src, Tac_Val *dst_ptr)
+{
+    Tac_Instruction *i = tac_new_instruction(TAC_INSTRUCTION_STORE);
+    i->u.store.src     = src;
+    i->u.store.dst_ptr = dst_ptr;
+    return i;
+}
+
+static Tac_Instruction *make_fun_call_with_arg(const char *name, Tac_Val *arg)
+{
+    Tac_Instruction *i     = tac_new_instruction(TAC_INSTRUCTION_FUN_CALL);
+    i->u.fun_call.fun_name = xstrdup(name);
+    i->u.fun_call.args     = arg;
+    return i;
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -1490,6 +1536,722 @@ TEST(OptimizerTest, UnreachableDeadElseBranch)
         "    const:\n"
         "      kind: int\n"
         "      value: 0\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// ---------------------------------------------------------------------------
+// Copy propagation tests
+// ---------------------------------------------------------------------------
+
+// Label("fn") → Copy(ConstInt(3), t.0) → Return(Var("t.0"))
+// copy_prop substitutes t.0 → ConstInt(3) at the Return; the Copy survives
+// (dead-store elimination is off).
+TEST(OptimizerTest, CopyPropBasicConst)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *copy  = make_copy(make_const_int(3), make_var("t.0"));
+    Tac_Instruction *ret   = make_return(make_var("t.0"));
+    entry->next = copy;
+    copy->next  = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 3\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: t.0\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 3\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Label("fn") → Copy(4,t.0) → JIZ(flag,"Else") → Copy(3,t.0) → Label("Else") → Return(t.0)
+// The two incoming copies for t.0 at "Else" disagree (4 vs 3), so Return is NOT rewritten.
+TEST(OptimizerTest, CopyPropCrossBranchNotPropagated)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *cp4   = make_copy(make_const_int(4), make_var("t.0"));
+    Tac_Instruction *jiz   = make_jump_if_zero(make_var("flag"), "Else");
+    Tac_Instruction *cp3   = make_copy(make_const_int(3), make_var("t.0"));
+    Tac_Instruction *lbl   = make_label("Else");
+    Tac_Instruction *ret   = make_return(make_var("t.0"));
+    entry->next = cp4;
+    cp4->next   = jiz;
+    jiz->next   = cp3;
+    cp3->next   = lbl;
+    lbl->next   = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 4\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: t.0\n"
+        "- instruction:\n"
+        "  kind: jump_if_zero\n"
+        "  condition:\n"
+        "    kind: var\n"
+        "    name: flag\n"
+        "  target: Else\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 3\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: t.0\n"
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: Else\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: t.0\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Label("fn") → Copy(5, g) → FunCall("bar") → Return(g)
+// g is declared as a static variable; FunCall kills its copy.  Return(g) must NOT be rewritten.
+TEST(OptimizerTest, CopyPropFunCallKillsStaticCopy)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *copy  = make_copy(make_const_int(5), make_var("g"));
+    Tac_Instruction *call  = make_fun_call("bar");
+    Tac_Instruction *ret   = make_return(make_var("g"));
+    entry->next = copy;
+    copy->next  = call;
+    call->next  = ret;
+
+    Tac_TopLevel *tl      = make_static_tl("g");
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, tl);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 5\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: g\n"
+        "- instruction:\n"
+        "  kind: fun_call\n"
+        "  fun_name: bar\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: g\n");
+
+    tac_free_instruction(result);
+    tac_free_toplevel(tl);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Label("fn") → Copy(Var("t.0"), Var("t.0")) → Return(ConstInt(0))
+// The self-copy is detected and removed; Return is unchanged.
+TEST(OptimizerTest, CopyPropSelfCopyRemoved)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *self  = make_copy(make_var("t.0"), make_var("t.0"));
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = self;
+    self->next  = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// ---------------------------------------------------------------------------
+// Copy propagation — extended coverage
+// ---------------------------------------------------------------------------
+
+// Copy(Var("a"), Var("b")) → Return(Var("b"))
+// Variable-to-variable copy: Return substitutes b → a.
+TEST(OptimizerTest, CopyPropVarToVar)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *copy  = make_copy(make_var("a"), make_var("b"));
+    Tac_Instruction *ret   = make_return(make_var("b"));
+    entry->next = copy;
+    copy->next  = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: a\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: b\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: a\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Copy(3, x) → Copy(x, y) → Return(y)
+// The second Copy's src is substituted before apply_transfer records it,
+// so {y → 3} is generated in one pass; Return(y) then becomes Return(3).
+TEST(OptimizerTest, CopyPropChain)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *cp_x  = make_copy(make_const_int(3), make_var("x"));
+    Tac_Instruction *cp_y  = make_copy(make_var("x"), make_var("y"));
+    Tac_Instruction *ret   = make_return(make_var("y"));
+    entry->next = cp_x;
+    cp_x->next  = cp_y;
+    cp_y->next  = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 3\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 3\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: y\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 3\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Copy(3, t.0) → Unary(NEGATE, x, t.0) → Return(t.0)
+// The Unary redefines t.0; apply_transfer kills {t.0→3}; Return is not substituted.
+TEST(OptimizerTest, CopyPropKilledByRedefine)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *copy  = make_copy(make_const_int(3), make_var("t.0"));
+    Tac_Instruction *unary = make_unary(TAC_UNARY_NEGATE, make_var("x"), make_var("t.0"));
+    Tac_Instruction *ret   = make_return(make_var("t.0"));
+    entry->next = copy;
+    copy->next  = unary;
+    unary->next = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 3\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: t.0\n"
+        "- instruction:\n"
+        "  kind: unary\n"
+        "  op: negate\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: t.0\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: t.0\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Copy(a, b) → Copy(c, a) → Return(b)
+// Redefining "a" also kills {b→a} because its src-var is "a".
+// Return(b) is NOT substituted — prevents the unsound propagation Return(a).
+TEST(OptimizerTest, CopyPropSrcVarKilledOnSrcRedefine)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *cp1   = make_copy(make_var("a"), make_var("b"));
+    Tac_Instruction *cp2   = make_copy(make_var("c"), make_var("a"));
+    Tac_Instruction *ret   = make_return(make_var("b"));
+    entry->next = cp1;
+    cp1->next   = cp2;
+    cp2->next   = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: a\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: b\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: c\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: a\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: b\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Copy(y, x) → GetAddress(x, ptr) → Return(ptr)
+// subst_instruction intentionally skips the src of GET_ADDRESS: replacing &x
+// with &y would be semantically wrong.  GetAddress src stays Var("x").
+TEST(OptimizerTest, CopyPropGetAddrSrcNotSubstituted)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *copy  = make_copy(make_var("y"), make_var("x"));
+    Tac_Instruction *ga    = make_get_address(make_var("x"), make_var("ptr"));
+    Tac_Instruction *ret   = make_return(make_var("ptr"));
+    entry->next = copy;
+    copy->next  = ga;
+    ga->next    = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: y\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "- instruction:\n"
+        "  kind: get_address\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: ptr\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: ptr\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// GetAddress(x, ptr) → Copy(5, x) → Store(val, ptr) → Return(x)
+// Pre-analysis marks x as address-taken; apply_transfer for Store kills {x→5}.
+// Return(x) is not substituted.
+TEST(OptimizerTest, CopyPropAddressTakenKilledByStore)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *ga    = make_get_address(make_var("x"), make_var("ptr"));
+    Tac_Instruction *copy  = make_copy(make_const_int(5), make_var("x"));
+    Tac_Instruction *store = make_store(make_var("val"), make_var("ptr"));
+    Tac_Instruction *ret   = make_return(make_var("x"));
+    entry->next = ga;
+    ga->next    = copy;
+    copy->next  = store;
+    store->next = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: get_address\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: ptr\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 5\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "- instruction:\n"
+        "  kind: store\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: val\n"
+        "  dst_ptr:\n"
+        "    kind: var\n"
+        "    name: ptr\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: x\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// GetAddress(x, ptr) → Copy(5, x) → FunCall("bar") → Return(x)
+// x is address-taken; apply_transfer for FunCall kills copies of address-taken vars.
+// Return(x) is not substituted.
+TEST(OptimizerTest, CopyPropFunCallKillsAddressTaken)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *ga    = make_get_address(make_var("x"), make_var("ptr"));
+    Tac_Instruction *copy  = make_copy(make_const_int(5), make_var("x"));
+    Tac_Instruction *call  = make_fun_call("bar");
+    Tac_Instruction *ret   = make_return(make_var("x"));
+    entry->next = ga;
+    ga->next    = copy;
+    copy->next  = call;
+    call->next  = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: get_address\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: ptr\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 5\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "- instruction:\n"
+        "  kind: fun_call\n"
+        "  fun_name: bar\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: x\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Copy(1, flag) → JIZ(flag, "Else") → Return(1) → Label("Else") → Return(0)
+// copy_prop substitutes flag→1 into the JIZ condition (Var→ConstInt).
+// constant_fold only folds JIZ(0,…) → Jump; JIZ(nonzero) is left as-is,
+// so the Else block remains reachable.  The important observable is that the
+// condition operand changed from Var("flag") to ConstInt(1).
+TEST(OptimizerTest, CopyPropSubstInCondition)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *copy  = make_copy(make_const_int(1), make_var("flag"));
+    Tac_Instruction *jiz   = make_jump_if_zero(make_var("flag"), "Else");
+    Tac_Instruction *ret1  = make_return(make_const_int(1));
+    Tac_Instruction *lbl   = make_label("Else");
+    Tac_Instruction *ret0  = make_return(make_const_int(0));
+    entry->next = copy;
+    copy->next  = jiz;
+    jiz->next   = ret1;
+    ret1->next  = lbl;
+    lbl->next   = ret0;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 1\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: flag\n"
+        "- instruction:\n"
+        "  kind: jump_if_zero\n"
+        "  condition:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 1\n"
+        "  target: Else\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 1\n"
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: Else\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Copy(7, x) → FunCall("bar", args=[x]) → Return(0)
+// copy_prop substitutes x→7 in the FunCall's arg list.
+TEST(OptimizerTest, CopyPropSubstInFunCallArgs)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *copy  = make_copy(make_const_int(7), make_var("x"));
+    Tac_Instruction *call  = make_fun_call_with_arg("bar", make_var("x"));
+    Tac_Instruction *ret   = make_return(make_const_int(0));
+    entry->next = copy;
+    copy->next  = call;
+    call->next  = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 7\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "- instruction:\n"
+        "  kind: fun_call\n"
+        "  fun_name: bar\n"
+        "  args:\n"
+        "    - val:\n"
+        "      kind: constant\n"
+        "      const:\n"
+        "        kind: int\n"
+        "        value: 7\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 0\n");
+
+    tac_free_instruction(result);
+    EXPECT_EQ(xtotal_allocated_size(), 0);
+}
+
+// Copy(42, x) → JIZ(cond, "End") → Unary(NEGATE, y, z) → Label("End") → Return(x)
+// Out-set of both predecessors of "End" contains {x→42}; meet preserves it.
+// Return(x) is substituted to Return(ConstInt(42)).
+TEST(OptimizerTest, CopyPropCrossBlock)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *copy  = make_copy(make_const_int(42), make_var("x"));
+    Tac_Instruction *jiz   = make_jump_if_zero(make_var("cond"), "End");
+    Tac_Instruction *unary = make_unary(TAC_UNARY_NEGATE, make_var("y"), make_var("z"));
+    Tac_Instruction *lbl   = make_label("End");
+    Tac_Instruction *ret   = make_return(make_var("x"));
+    entry->next = copy;
+    copy->next  = jiz;
+    jiz->next   = unary;
+    unary->next = lbl;
+    lbl->next   = ret;
+
+    OptFlags flags        = opt_flags_default();
+    flags.dead_store_elim = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: fn\n"
+        "- instruction:\n"
+        "  kind: copy\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 42\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: x\n"
+        "- instruction:\n"
+        "  kind: jump_if_zero\n"
+        "  condition:\n"
+        "    kind: var\n"
+        "    name: cond\n"
+        "  target: End\n"
+        "- instruction:\n"
+        "  kind: unary\n"
+        "  op: negate\n"
+        "  src:\n"
+        "    kind: var\n"
+        "    name: y\n"
+        "  dst:\n"
+        "    kind: var\n"
+        "    name: z\n"
+        "- instruction:\n"
+        "  kind: label\n"
+        "  name: End\n"
+        "- instruction:\n"
+        "  kind: return\n"
+        "  src:\n"
+        "    kind: constant\n"
+        "    const:\n"
+        "      kind: int\n"
+        "      value: 42\n");
 
     tac_free_instruction(result);
     EXPECT_EQ(xtotal_allocated_size(), 0);
