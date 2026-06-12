@@ -51,8 +51,8 @@ TAC is beautifully simple: every instruction has at most two source operands and
 That's it. No nested expressions. No complex addressing modes. Just:
 
 ```
-t.1 = b * 2
-t.2 = a + t.1
+.1 = b * 2
+.2 = a + .1
 ```
 
 This format is *close enough to hardware* that backends can translate it mechanically, but *far enough

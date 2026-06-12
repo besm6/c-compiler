@@ -41,12 +41,12 @@ TEST_F(TranslateTest, LocalVarWithIntInit)
           value: 42
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: return
       src:
         kind: var
-        name: x
+        name: .x
 )");
 }
 
@@ -68,7 +68,7 @@ TEST_F(TranslateTest, TwoLocalVars)
           value: 1
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: copy
       src:
@@ -78,12 +78,12 @@ TEST_F(TranslateTest, TwoLocalVars)
           value: 2
       dst:
         kind: var
-        name: y
+        name: .y
     - instruction:
       kind: return
       src:
         kind: var
-        name: x
+        name: .x
 )");
 }
 
@@ -105,13 +105,13 @@ TEST_F(TranslateTest, LocalVarUsedInBinaryExpr)
           value: 10
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: binary
       op: add
       src1:
         kind: var
-        name: x
+        name: .x
       src2:
         kind: constant
         const:
@@ -119,12 +119,12 @@ TEST_F(TranslateTest, LocalVarUsedInBinaryExpr)
           value: 1
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.0
+        name: .0
 )");
 }
 
@@ -183,12 +183,12 @@ TEST_F(TranslateTest, StringLiteralReturned)
         name: _str0
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.0
+        name: .0
 )");
 }
 
@@ -223,12 +223,12 @@ TEST_F(TranslateTest, TwoFunctionsDistinctStringLiterals)
         name: _str0
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.0
+        name: .0
 - toplevel:
   kind: static_constant
   name: _str1
@@ -253,12 +253,12 @@ TEST_F(TranslateTest, TwoFunctionsDistinctStringLiterals)
         name: _str1
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.0
+        name: .0
 )");
 }
 
@@ -341,21 +341,21 @@ TEST_F(TranslateTest, ForLoopInitDecl)
           value: 5
       dst:
         kind: var
-        name: i
+        name: .i
     - instruction:
       kind: label
-      name: t.0
+      name: .0
     - instruction:
       kind: return
       src:
         kind: var
-        name: i
+        name: .i
     - instruction:
       kind: label
       name: .L1
     - instruction:
       kind: jump
-      target: t.0
+      target: .0
     - instruction:
       kind: label
       name: .L0
@@ -538,12 +538,12 @@ TEST_F(TranslateTest, TypedefLocalVar)
           value: 42
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: return
       src:
         kind: var
-        name: x
+        name: .x
 )");
 }
 
@@ -569,7 +569,7 @@ TEST_F(TranslateTest, LocalStructCompoundInit)
         const:
           kind: int
           value: 1
-      dst: s
+      dst: .s
       offset: 0
     - instruction:
       kind: copy_to_offset
@@ -578,7 +578,7 @@ TEST_F(TranslateTest, LocalStructCompoundInit)
         const:
           kind: int
           value: 2
-      dst: s
+      dst: .s
       offset: 4
 )");
 }
@@ -600,7 +600,7 @@ TEST_F(TranslateTest, LocalArrayCompoundInit)
         const:
           kind: int
           value: 10
-      dst: arr
+      dst: .arr
       offset: 0
     - instruction:
       kind: copy_to_offset
@@ -609,7 +609,7 @@ TEST_F(TranslateTest, LocalArrayCompoundInit)
         const:
           kind: int
           value: 20
-      dst: arr
+      dst: .arr
       offset: 4
     - instruction:
       kind: copy_to_offset
@@ -618,7 +618,7 @@ TEST_F(TranslateTest, LocalArrayCompoundInit)
         const:
           kind: int
           value: 30
-      dst: arr
+      dst: .arr
       offset: 8
 )");
 }
@@ -642,7 +642,7 @@ TEST_F(TranslateTest, LocalNestedStructInit)
         const:
           kind: int
           value: 1
-      dst: o
+      dst: .o
       offset: 0
     - instruction:
       kind: copy_to_offset
@@ -651,7 +651,7 @@ TEST_F(TranslateTest, LocalNestedStructInit)
         const:
           kind: int
           value: 2
-      dst: o
+      dst: .o
       offset: 4
     - instruction:
       kind: copy_to_offset
@@ -660,7 +660,7 @@ TEST_F(TranslateTest, LocalNestedStructInit)
         const:
           kind: int
           value: 3
-      dst: o
+      dst: .o
       offset: 8
 )");
 }

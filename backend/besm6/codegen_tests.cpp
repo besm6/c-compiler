@@ -378,3 +378,25 @@ TEST_F(CodegenTest, LoadAndStoreThroughPtr)
              ,end,
 )", output);
 }
+
+TEST_F(CodegenTest, ExternVarReturn)
+{
+    std::string output = CompileToMadlen(R"(
+        extern int foo;
+        int bar() {
+            return foo;
+        }
+    )");
+    EXPECT_EQ(R"(c
+      bar:   ,name,
+    b/ret:   ,subp,
+      foo:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,utc, foo
+             ,xta,
+             ,uj, b/ret
+             ,uj, b/ret
+             ,end,
+)", output);
+}

@@ -5,7 +5,7 @@
 
 // Populates two freshly-initialised StringMaps for the function `fn`:
 //   observable     — names a caller/callee can observe: every Var operand in the
-//                    body that is neither a temporary (t.N) nor one of the
+//                    body that is neither a temporary (.N) nor one of the
 //                    function's parameters or automatic locals. These are the
 //                    globals / externs / static locals whose stores must be kept
 //                    and whose copies a call may invalidate.

@@ -14,7 +14,7 @@
 //
 // We do not carry the whole program's global list to each function. Instead we
 // classify *locally*: in TAC a local and a global are both a bare name, but a
-// name is observable exactly when it is neither a temporary (t.N, always
+// name is observable exactly when it is neither a temporary (.N, always
 // compiler-generated and private) nor one of this function's parameters or
 // automatic locals. The translator records those on the function toplevel; the
 // no-shadowing rule makes the classification unambiguous program-wide.
@@ -22,13 +22,17 @@
 // See docs/TAC_Optimization.md §"Conservatism around aliased variables".
 // ============================================================================
 
+#include <ctype.h>
+
 #include "alias.h"
 #include "optimize.h"
 
-// Compiler temporaries are named "t.N" and are always private to the function.
+// Compiler temporaries are named ".N" (dot + digit) and are always private to
+// the function. Named locals and params are ".name" (dot + letter/underscore)
+// and are caught by the params/locals private-set instead.
 static bool is_temp_name(const char *n)
 {
-    return n && n[0] == 't' && n[1] == '.';
+    return n && n[0] == '.' && isdigit((unsigned char)n[1]);
 }
 
 // Insert `name` into `observable` (borrowing the pointer) unless it is a

@@ -219,7 +219,7 @@ TEST_F(PipelineTest, CopyPropSimple)
         "  kind: return\n"
         "  src:\n"
         "    kind: var\n"
-        "    name: x\n");
+        "    name: .x\n");
 }
 
 // Chain a=x, b=a → Return(b) fully propagated to Return(x).
@@ -230,7 +230,7 @@ TEST_F(PipelineTest, CopyPropChain)
         "  kind: return\n"
         "  src:\n"
         "    kind: var\n"
-        "    name: x\n");
+        "    name: .x\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -292,7 +292,7 @@ TEST_F(PipelineTest, NoOptNeeded)
         "  kind: return\n"
         "  src:\n"
         "    kind: var\n"
-        "    name: x\n");
+        "    name: .x\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -308,13 +308,13 @@ TEST_F(PipelineTest, DeadStoreKeepsIndirectCallTarget)
         "  kind: load\n"
         "  src_ptr:\n"
         "    kind: var\n"
-        "    name: fp\n"
+        "    name: .fp\n"
         "  dst:\n"
         "    kind: var\n"
-        "    name: t.0\n"
+        "    name: .0\n"
         "- instruction:\n"
         "  kind: fun_call\n"
-        "  fun_name: t.0\n"
+        "  fun_name: .0\n"
         "  args:\n"
         "    - val:\n"
         "      kind: constant\n"
@@ -323,12 +323,12 @@ TEST_F(PipelineTest, DeadStoreKeepsIndirectCallTarget)
         "        value: 42\n"
         "  dst:\n"
         "    kind: var\n"
-        "    name: t.1\n"
+        "    name: .1\n"
         "- instruction:\n"
         "  kind: return\n"
         "  src:\n"
         "    kind: var\n"
-        "    name: t.1\n");
+        "    name: .1\n");
 }
 
 // ---------------------------------------------------------------------------

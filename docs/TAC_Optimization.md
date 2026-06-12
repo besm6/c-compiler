@@ -31,7 +31,7 @@ Val = Constant(Const val)
 
 A `Constant` embeds a `Tac_Const` with one of eleven scalar kinds: `ConstInt`, `ConstLong`, `ConstLongLong`, `ConstUInt`, `ConstULong`, `ConstULongLong`, `ConstFloat`, `ConstDouble`, `ConstLongDouble`, `ConstChar`, `ConstUChar`.
 
-A `Var` holds a string name. The translator generates temporaries as `t.0`, `t.1`, `t.2`, … using `new_temp()` in `translator/translate.c`. Named variables correspond to C source identifiers.
+A `Var` holds a string name. The translator generates temporaries as `.0`, `.1`, `.2`, … using `new_temp()` in `translator/translate.c`. Named variables correspond to C source identifiers.
 
 Control flow is explicit in the instruction stream:
 
@@ -55,17 +55,17 @@ Constant folding evaluates expressions whose operands are all constants at compi
 A `Binary` instruction with two constant operands is replaced by a `Copy` of the folded result:
 
 ```
-t.0 = 6 / 2          →    t.0 = 3
-t.1 = 5 * 4          →    t.1 = 20
-t.2 = a == a         →    t.2 = 1
+.0 = 6 / 2          →    .0 = 3
+.1 = 5 * 4          →    .1 = 20
+.2 = a == a         →    .2 = 1
 ```
 
 A `Unary` instruction with a constant operand is similarly folded:
 
 ```
-t.0 = -3             →    t.0 = -3   (already a constant; emitted as Copy)
-t.1 = !0             →    t.1 = 1
-t.2 = ~0xFF          →    t.2 = ...  (bitwise complement, type-dependent)
+.0 = -3             →    .0 = -3   (already a constant; emitted as Copy)
+.1 = !0             →    .1 = 1
+.2 = ~0xFF          →    .2 = ...  (bitwise complement, type-dependent)
 ```
 
 Integer folding must respect the width of the result type encoded in `Tac_ConstKind`; overflow wraps at the C type's boundary, matching C's defined behavior for unsigned arithmetic and the implementation-defined wrapping our target uses for signed types.
@@ -155,32 +155,32 @@ When the instruction `Copy(src, dst)` appears, later uses of `dst` can often be 
 ### A simple example
 
 ```
-t.0 = 3
-Return(t.0)
+.0 = 3
+Return(.0)
 ```
 
-Since `t.0` holds the value `3` at the `Return`, we can substitute:
+Since `.0` holds the value `3` at the `Return`, we can substitute:
 
 ```
-t.0 = 3
+.0 = 3
 Return(3)
 ```
 
-The assignment to `t.0` is now a dead store (see below). After dead store elimination removes it, the function reduces to a single `Return(3)`.
+The assignment to `.0` is now a dead store (see below). After dead store elimination removes it, the function reduces to a single `Return(3)`.
 
 ### The safety problem
 
 Substituting freely is only safe when we know the value of `dst` has not been changed on any path that reaches the use. Consider:
 
 ```
-t.0 = 4
+.0 = 4
 JumpIfZero(flag, Else)
-t.0 = 3
+.0 = 3
 Else:
-Return(t.0)
+Return(.0)
 ```
 
-When `Return(t.0)` executes, `t.0` is either `3` or `4`, depending on `flag`. We cannot substitute either constant. The copy `t.0 = 4` does not *reach* the `Return` on all paths.
+When `Return(.0)` executes, `.0` is either `3` or `4`, depending on `flag`. We cannot substitute either constant. The copy `.0 = 4` does not *reach* the `Return` on all paths.
 
 ### Reaching-copies analysis
 
@@ -206,7 +206,7 @@ Two categories of variables must be treated conservatively:
 
 2. **Address-taken variables**. Any variable that appears as the `src` of a `GetAddress` instruction may be modified through the resulting pointer. At every `Store` or `FunCall`, copies involving such variables are killed.
 
-The optimizer classifies a name *locally*, without consulting the rest of the program: in TAC a local and a global are both bare names, but a name is **observable** exactly when it is neither a temporary (`t.0`, `t.1`, … — always compiler-generated and private) nor one of the function's parameters or automatic locals. The translator records those names on the function toplevel (`Tac_TopLevel.function.locals`); the no-shadowing rule makes the classification unambiguous program-wide. See `optimize/alias.c`.
+The optimizer classifies a name *locally*, without consulting the rest of the program: in TAC a local and a global are both bare names, but a name is **observable** exactly when it is neither a temporary (`.0`, `.1`, … — always compiler-generated and private) nor one of the function's parameters or automatic locals. The translator records those names on the function toplevel (`Tac_TopLevel.function.locals`); the no-shadowing rule makes the classification unambiguous program-wide. See `optimize/alias.c`.
 
 ### Self-copies
 
@@ -219,12 +219,12 @@ An instruction is a **dead store** if it assigns a value to a variable that is n
 ### A simple example
 
 ```
-t.0 = a + b
-t.0 = 2
-Return(t.0)
+.0 = a + b
+.0 = 2
+Return(.0)
 ```
 
-The first instruction's result is immediately overwritten by the second. The value of `a + b` is never used, so `t.0 = a + b` is a dead store and can be removed.
+The first instruction's result is immediately overwritten by the second. The value of `a + b` is never used, so `.0 = a + b` is a dead store and can be removed.
 
 ### Liveness analysis
 

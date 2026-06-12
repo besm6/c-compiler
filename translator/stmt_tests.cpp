@@ -66,7 +66,7 @@ TEST_F(TranslateTest, LabeledStatementEmitsLabel)
           value: 1
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: label
       name: loop
@@ -79,12 +79,12 @@ TEST_F(TranslateTest, LabeledStatementEmitsLabel)
           value: 2
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: return
       src:
         kind: var
-        name: x
+        name: .x
 )");
 }
 
@@ -121,12 +121,12 @@ TEST_F(TranslateTest, CallReturningInt)
       fun_name: g
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.0
+        name: .0
 )");
 }
 
@@ -155,12 +155,12 @@ TEST_F(TranslateTest, CallWithArgs)
             value: 2
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.0
+        name: .0
 )");
 }
 
@@ -178,13 +178,13 @@ TEST_F(TranslateTest, CallResultInExpression)
       fun_name: g
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: binary
       op: add
       src1:
         kind: var
-        name: t.0
+        name: .0
       src2:
         kind: constant
         const:
@@ -192,12 +192,12 @@ TEST_F(TranslateTest, CallResultInExpression)
           value: 1
       dst:
         kind: var
-        name: t.1
+        name: .1
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.1
+        name: .1
 )");
 }
 
@@ -210,7 +210,7 @@ TEST_F(TranslateTest, IndirectCallViaFunctionPointer)
   name: f
   global: true
   params:
-    - param: fp
+    - param: .fp
   body:
     - instruction:
       kind: fun_call
@@ -223,12 +223,12 @@ TEST_F(TranslateTest, IndirectCallViaFunctionPointer)
             value: 42
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.0
+        name: .0
 )");
 }
 
@@ -242,19 +242,19 @@ TEST_F(TranslateTest, IndirectCallViaExplicitDeref)
   name: f
   global: true
   params:
-    - param: fp
+    - param: .fp
   body:
     - instruction:
       kind: load
       src_ptr:
         kind: var
-        name: fp
+        name: .fp
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: fun_call
-      fun_name: t.0
+      fun_name: .0
       args:
         - val:
           kind: constant
@@ -263,12 +263,12 @@ TEST_F(TranslateTest, IndirectCallViaExplicitDeref)
             value: 42
       dst:
         kind: var
-        name: t.1
+        name: .1
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.1
+        name: .1
 )");
 }
 

@@ -24,7 +24,7 @@
 // variables may be changed behind our back. A FunCall may touch any static or
 // address-taken variable, so it kills all copies involving them; a Store writes
 // through a pointer, so it kills copies involving address-taken variables.
-// Temporaries (t.N) are never address-taken and propagate freely.
+// Temporaries (.N) are never address-taken and propagate freely.
 //
 // See docs/TAC_Optimization.md §"Copy propagation".
 // ============================================================================

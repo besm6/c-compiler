@@ -5,7 +5,7 @@
 // compile time and replaces the instruction with a simpler one:
 //
 //   - A Unary or Binary with constant operand(s) becomes a Copy of the folded
-//     result:   t.0 = 6 / 2  →  t.0 = 3 ;   t.2 = a == a stays (a is a Var).
+//     result:   .0 = 6 / 2  →  .0 = 3 ;   .2 = a == a stays (a is a Var).
 //   - A type-conversion instruction with a constant source becomes a Copy of a
 //     new constant of the target kind:  SignExtend(ConstInt 3) → Copy(ConstLong 3).
 //   - A conditional jump with a constant condition becomes an unconditional

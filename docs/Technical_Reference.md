@@ -161,6 +161,11 @@ Tests: `decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `
 
 IR hierarchy: `Besm_Module` → `Besm_Func` (calling convention: `BESM6_C` or `INTERNAL`) → `Besm_Block` → `Besm_Instr` (8 instruction categories: mem, arith, log, exp, reg, mod, branch, extra). Data lives in `Besm_DataSection` → `Besm_DataItem` (8 kinds: Int, Real, Oct, Log, Bss, Equ, Ref, String).
 
+Frame allocation (`frame.c`) assigns a stack slot to every TAC name beginning with `.`
+(parameters and automatic locals — see the variable name convention below); any other
+referenced name is a module-level global, accessed via `,utc, name` and pre-declared with
+a `,subp,` directive.
+
 ### TAC YAML format
 
 `tac_export_yaml()` (`tac/tac_yaml.c`) emits one `- toplevel:` block per call. Indentation is 2 spaces per level. **Not re-importable** — debug/test use only.
@@ -207,7 +212,7 @@ IR hierarchy: `Besm_Module` → `Besm_Func` (calling convention: `BESM6_C` or `I
 
 ```yaml
 kind: var
-name: x
+name: .x
 
 kind: constant
 const:
@@ -215,6 +220,23 @@ const:
                  # | char | uchar | float | double | long_double
   value: 42      # float/double/long_double use %a (hex float) format
 ```
+
+**Variable name convention.** A `var` name encodes its storage class by its first
+character, so a backend can classify it from the name alone (the in-memory `locals`
+list is not serialized):
+
+| First char | Meaning | Examples |
+|------------|---------|----------|
+| `.` + digit | compiler temporary | `.0`, `.1` |
+| `.` + letter/`_` | parameter or automatic local | `.x`, `._buf` |
+| letter / `_` / `$` | module-level global, static, string constant, or function | `g`, `_str0`, `printf` |
+
+The translator establishes this in two steps: `new_temp()` mints temporaries already
+dotted, and a per-function pass (`dot_locals_in_function` in `translator/translate.c`,
+run just before the optimizer) prefixes every parameter and automatic-local name — in
+the body and in the stored `params`/`locals` lists — with `.`. The BESM-6 frame
+allocator (`backend/besm6/frame.c`) then assigns a stack slot to any `.`-prefixed name
+and treats every other referenced name as an external global.
 
 **Instructions** (all have `- instruction:` header; fields follow at +2 indent)
 

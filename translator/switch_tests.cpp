@@ -21,22 +21,22 @@ TEST_F(TranslateTest, SwitchWithDefaultAndCases)
   name: f
   global: true
   params:
-    - param: x
+    - param: .x
   body:
     - instruction:
       kind: copy
       src:
         kind: var
-        name: x
+        name: .x
       dst:
         kind: var
-        name: t.3
+        name: .3
     - instruction:
       kind: binary
       op: equal
       src1:
         kind: var
-        name: t.3
+        name: .3
       src2:
         kind: constant
         const:
@@ -44,19 +44,19 @@ TEST_F(TranslateTest, SwitchWithDefaultAndCases)
           value: 1
       dst:
         kind: var
-        name: t.4
+        name: .4
     - instruction:
       kind: jump_if_not_zero
       condition:
         kind: var
-        name: t.4
-      target: t.0
+        name: .4
+      target: .0
     - instruction:
       kind: binary
       op: equal
       src1:
         kind: var
-        name: t.3
+        name: .3
       src2:
         kind: constant
         const:
@@ -64,19 +64,19 @@ TEST_F(TranslateTest, SwitchWithDefaultAndCases)
           value: 2
       dst:
         kind: var
-        name: t.5
+        name: .5
     - instruction:
       kind: jump_if_not_zero
       condition:
         kind: var
-        name: t.5
-      target: t.1
+        name: .5
+      target: .1
     - instruction:
       kind: jump
-      target: t.2
+      target: .2
     - instruction:
       kind: label
-      name: t.0
+      name: .0
     - instruction:
       kind: return
       src:
@@ -86,7 +86,7 @@ TEST_F(TranslateTest, SwitchWithDefaultAndCases)
           value: 1
     - instruction:
       kind: label
-      name: t.1
+      name: .1
     - instruction:
       kind: return
       src:
@@ -96,7 +96,7 @@ TEST_F(TranslateTest, SwitchWithDefaultAndCases)
           value: 2
     - instruction:
       kind: label
-      name: t.2
+      name: .2
     - instruction:
       kind: return
       src:
@@ -123,22 +123,22 @@ TEST_F(TranslateTest, SwitchNoDefault)
   name: f
   global: true
   params:
-    - param: x
+    - param: .x
   body:
     - instruction:
       kind: copy
       src:
         kind: var
-        name: x
+        name: .x
       dst:
         kind: var
-        name: t.1
+        name: .1
     - instruction:
       kind: binary
       op: equal
       src1:
         kind: var
-        name: t.1
+        name: .1
       src2:
         kind: constant
         const:
@@ -146,19 +146,19 @@ TEST_F(TranslateTest, SwitchNoDefault)
           value: 1
       dst:
         kind: var
-        name: t.2
+        name: .2
     - instruction:
       kind: jump_if_not_zero
       condition:
         kind: var
-        name: t.2
-      target: t.0
+        name: .2
+      target: .0
     - instruction:
       kind: jump
       target: .L0
     - instruction:
       kind: label
-      name: t.0
+      name: .0
     - instruction:
       kind: return
       src:
@@ -194,7 +194,7 @@ TEST_F(TranslateTest, SwitchFallthrough)
   name: f
   global: true
   params:
-    - param: x
+    - param: .x
   body:
     - instruction:
       kind: copy
@@ -205,21 +205,21 @@ TEST_F(TranslateTest, SwitchFallthrough)
           value: 0
       dst:
         kind: var
-        name: r
+        name: .r
     - instruction:
       kind: copy
       src:
         kind: var
-        name: x
+        name: .x
       dst:
         kind: var
-        name: t.2
+        name: .2
     - instruction:
       kind: binary
       op: equal
       src1:
         kind: var
-        name: t.2
+        name: .2
       src2:
         kind: constant
         const:
@@ -227,19 +227,19 @@ TEST_F(TranslateTest, SwitchFallthrough)
           value: 1
       dst:
         kind: var
-        name: t.3
+        name: .3
     - instruction:
       kind: jump_if_not_zero
       condition:
         kind: var
-        name: t.3
-      target: t.0
+        name: .3
+      target: .0
     - instruction:
       kind: binary
       op: equal
       src1:
         kind: var
-        name: t.2
+        name: .2
       src2:
         kind: constant
         const:
@@ -247,22 +247,22 @@ TEST_F(TranslateTest, SwitchFallthrough)
           value: 2
       dst:
         kind: var
-        name: t.4
+        name: .4
     - instruction:
       kind: jump_if_not_zero
       condition:
         kind: var
-        name: t.4
-      target: t.1
+        name: .4
+      target: .1
     - instruction:
       kind: jump
       target: .L0
     - instruction:
       kind: label
-      name: t.0
+      name: .0
     - instruction:
       kind: label
-      name: t.1
+      name: .1
     - instruction:
       kind: copy
       src:
@@ -272,7 +272,7 @@ TEST_F(TranslateTest, SwitchFallthrough)
           value: 1
       dst:
         kind: var
-        name: r
+        name: .r
     - instruction:
       kind: label
       name: .L0
@@ -280,7 +280,7 @@ TEST_F(TranslateTest, SwitchFallthrough)
       kind: return
       src:
         kind: var
-        name: r
+        name: .r
 )");
 }
 
@@ -302,7 +302,7 @@ TEST_F(TranslateTest, SwitchBreakExitsEarly)
   name: f
   global: true
   params:
-    - param: x
+    - param: .x
   body:
     - instruction:
       kind: copy
@@ -313,21 +313,21 @@ TEST_F(TranslateTest, SwitchBreakExitsEarly)
           value: 0
       dst:
         kind: var
-        name: r
+        name: .r
     - instruction:
       kind: copy
       src:
         kind: var
-        name: x
+        name: .x
       dst:
         kind: var
-        name: t.2
+        name: .2
     - instruction:
       kind: binary
       op: equal
       src1:
         kind: var
-        name: t.2
+        name: .2
       src2:
         kind: constant
         const:
@@ -335,19 +335,19 @@ TEST_F(TranslateTest, SwitchBreakExitsEarly)
           value: 1
       dst:
         kind: var
-        name: t.3
+        name: .3
     - instruction:
       kind: jump_if_not_zero
       condition:
         kind: var
-        name: t.3
-      target: t.0
+        name: .3
+      target: .0
     - instruction:
       kind: binary
       op: equal
       src1:
         kind: var
-        name: t.2
+        name: .2
       src2:
         kind: constant
         const:
@@ -355,19 +355,19 @@ TEST_F(TranslateTest, SwitchBreakExitsEarly)
           value: 2
       dst:
         kind: var
-        name: t.4
+        name: .4
     - instruction:
       kind: jump_if_not_zero
       condition:
         kind: var
-        name: t.4
-      target: t.1
+        name: .4
+      target: .1
     - instruction:
       kind: jump
       target: .L0
     - instruction:
       kind: label
-      name: t.0
+      name: .0
     - instruction:
       kind: copy
       src:
@@ -377,13 +377,13 @@ TEST_F(TranslateTest, SwitchBreakExitsEarly)
           value: 1
       dst:
         kind: var
-        name: r
+        name: .r
     - instruction:
       kind: jump
       target: .L0
     - instruction:
       kind: label
-      name: t.1
+      name: .1
     - instruction:
       kind: copy
       src:
@@ -393,7 +393,7 @@ TEST_F(TranslateTest, SwitchBreakExitsEarly)
           value: 2
       dst:
         kind: var
-        name: r
+        name: .r
     - instruction:
       kind: jump
       target: .L0
@@ -404,7 +404,7 @@ TEST_F(TranslateTest, SwitchBreakExitsEarly)
       kind: return
       src:
         kind: var
-        name: r
+        name: .r
 )");
 }
 
@@ -417,16 +417,16 @@ TEST_F(TranslateTest, SwitchEmptyBody)
   name: f
   global: true
   params:
-    - param: x
+    - param: .x
   body:
     - instruction:
       kind: copy
       src:
         kind: var
-        name: x
+        name: .x
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: jump
       target: .L0

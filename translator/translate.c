@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "string_map.h"
 #include "structtab.h"
 #include "xalloc.h"
 
@@ -31,7 +32,7 @@ void tac_append(TacCtx *ctx, Tac_Instruction *instr)
 
 char *new_temp(TacCtx *ctx)
 {
-    return xstruniq("t.", &ctx->temp_id);
+    return xstruniq(".", &ctx->temp_id);
 }
 
 // Record an automatic local variable name on the function being lowered. The
@@ -551,6 +552,225 @@ static Tac_TopLevel *translate_external_decl(const ExternalDecl *ast)
     return NULL;
 }
 
+// Return a freshly allocated copy of `name` with a leading '.' prepended.
+static char *dotted_name(const char *name)
+{
+    size_t n  = strlen(name);
+    char  *out = xalloc(n + 2, __func__, __FILE__, __LINE__);
+    out[0]     = '.';
+    memcpy(out + 1, name, n + 1);
+    return out;
+}
+
+// If `v` (or any value in its ->next chain) names a frame-resident variable
+// (member of `autos`), rewrite its name with a leading '.' in place.
+static void dot_vals(Tac_Val *v, const StringMap *autos)
+{
+    intptr_t dummy;
+    for (; v; v = v->next) {
+        if (v->kind != TAC_VAL_VAR)
+            continue;
+        if (!map_get(autos, v->u.var_name, &dummy))
+            continue;
+        char *renamed = dotted_name(v->u.var_name);
+        xfree(v->u.var_name);
+        v->u.var_name = renamed;
+    }
+}
+
+// Same, for a bare char* name field (copy_to_offset.dst / copy_from_offset.src).
+static void dot_name(char **name, const StringMap *autos)
+{
+    intptr_t dummy;
+    if (!*name || !map_get(autos, *name, &dummy))
+        return;
+    char *renamed = dotted_name(*name);
+    xfree(*name);
+    *name = renamed;
+}
+
+// Visit every operand of one instruction and dot frame-resident names.
+// Mirrors backend/besm6/frame.c collect_instr's operand coverage.
+static void dot_instr(Tac_Instruction *in, const StringMap *autos)
+{
+    switch (in->kind) {
+    case TAC_INSTRUCTION_RETURN:
+        dot_vals(in->u.return_.src, autos);
+        break;
+    case TAC_INSTRUCTION_SIGN_EXTEND:
+        dot_vals(in->u.sign_extend.src, autos);
+        dot_vals(in->u.sign_extend.dst, autos);
+        break;
+    case TAC_INSTRUCTION_TRUNCATE:
+        dot_vals(in->u.truncate.src, autos);
+        dot_vals(in->u.truncate.dst, autos);
+        break;
+    case TAC_INSTRUCTION_ZERO_EXTEND:
+        dot_vals(in->u.zero_extend.src, autos);
+        dot_vals(in->u.zero_extend.dst, autos);
+        break;
+    case TAC_INSTRUCTION_DOUBLE_TO_INT:
+        dot_vals(in->u.double_to_int.src, autos);
+        dot_vals(in->u.double_to_int.dst, autos);
+        break;
+    case TAC_INSTRUCTION_DOUBLE_TO_UINT:
+        dot_vals(in->u.double_to_uint.src, autos);
+        dot_vals(in->u.double_to_uint.dst, autos);
+        break;
+    case TAC_INSTRUCTION_INT_TO_DOUBLE:
+        dot_vals(in->u.int_to_double.src, autos);
+        dot_vals(in->u.int_to_double.dst, autos);
+        break;
+    case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+        dot_vals(in->u.uint_to_double.src, autos);
+        dot_vals(in->u.uint_to_double.dst, autos);
+        break;
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+        dot_vals(in->u.float_to_double.src, autos);
+        dot_vals(in->u.float_to_double.dst, autos);
+        break;
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+        dot_vals(in->u.double_to_float.src, autos);
+        dot_vals(in->u.double_to_float.dst, autos);
+        break;
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+        dot_vals(in->u.int_to_float.src, autos);
+        dot_vals(in->u.int_to_float.dst, autos);
+        break;
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+        dot_vals(in->u.uint_to_float.src, autos);
+        dot_vals(in->u.uint_to_float.dst, autos);
+        break;
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+        dot_vals(in->u.float_to_int.src, autos);
+        dot_vals(in->u.float_to_int.dst, autos);
+        break;
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
+        dot_vals(in->u.float_to_uint.src, autos);
+        dot_vals(in->u.float_to_uint.dst, autos);
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+        dot_vals(in->u.long_double_to_int.src, autos);
+        dot_vals(in->u.long_double_to_int.dst, autos);
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+        dot_vals(in->u.long_double_to_uint.src, autos);
+        dot_vals(in->u.long_double_to_uint.dst, autos);
+        break;
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+        dot_vals(in->u.int_to_long_double.src, autos);
+        dot_vals(in->u.int_to_long_double.dst, autos);
+        break;
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+        dot_vals(in->u.uint_to_long_double.src, autos);
+        dot_vals(in->u.uint_to_long_double.dst, autos);
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+        dot_vals(in->u.long_double_to_double.src, autos);
+        dot_vals(in->u.long_double_to_double.dst, autos);
+        break;
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+        dot_vals(in->u.double_to_long_double.src, autos);
+        dot_vals(in->u.double_to_long_double.dst, autos);
+        break;
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+        dot_vals(in->u.long_double_to_float.src, autos);
+        dot_vals(in->u.long_double_to_float.dst, autos);
+        break;
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+        dot_vals(in->u.float_to_long_double.src, autos);
+        dot_vals(in->u.float_to_long_double.dst, autos);
+        break;
+    case TAC_INSTRUCTION_UNARY:
+        dot_vals(in->u.unary.src, autos);
+        dot_vals(in->u.unary.dst, autos);
+        break;
+    case TAC_INSTRUCTION_BINARY:
+        dot_vals(in->u.binary.src1, autos);
+        dot_vals(in->u.binary.src2, autos);
+        dot_vals(in->u.binary.dst, autos);
+        break;
+    case TAC_INSTRUCTION_COPY:
+        dot_vals(in->u.copy.src, autos);
+        dot_vals(in->u.copy.dst, autos);
+        break;
+    case TAC_INSTRUCTION_GET_ADDRESS:
+        dot_vals(in->u.get_address.src, autos);
+        dot_vals(in->u.get_address.dst, autos);
+        break;
+    case TAC_INSTRUCTION_LOAD:
+        dot_vals(in->u.load.src_ptr, autos);
+        dot_vals(in->u.load.dst, autos);
+        break;
+    case TAC_INSTRUCTION_STORE:
+        dot_vals(in->u.store.src, autos);
+        dot_vals(in->u.store.dst_ptr, autos);
+        break;
+    case TAC_INSTRUCTION_ADD_PTR:
+        dot_vals(in->u.add_ptr.ptr, autos);
+        dot_vals(in->u.add_ptr.index, autos);
+        dot_vals(in->u.add_ptr.dst, autos);
+        break;
+    case TAC_INSTRUCTION_COPY_TO_OFFSET:
+        dot_vals(in->u.copy_to_offset.src, autos);
+        dot_name(&in->u.copy_to_offset.dst, autos);
+        break;
+    case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+        dot_name(&in->u.copy_from_offset.src, autos);
+        dot_vals(in->u.copy_from_offset.dst, autos);
+        break;
+    case TAC_INSTRUCTION_JUMP:
+    case TAC_INSTRUCTION_LABEL:
+        break;
+    case TAC_INSTRUCTION_JUMP_IF_ZERO:
+        dot_vals(in->u.jump_if_zero.condition, autos);
+        break;
+    case TAC_INSTRUCTION_JUMP_IF_NOT_ZERO:
+        dot_vals(in->u.jump_if_not_zero.condition, autos);
+        break;
+    case TAC_INSTRUCTION_FUN_CALL:
+        dot_vals(in->u.fun_call.args, autos);
+        dot_vals(in->u.fun_call.dst, autos);
+        break;
+    }
+}
+
+// Rewrite parameter and automatic-local names with a leading '.', so the backend
+// can tell frame-resident names from module-level globals by name alone. Globals
+// and compiler temporaries (already '.'-prefixed by new_temp) are left untouched.
+// Run before optimize_function so the optimizer's private-name analysis, the
+// stored params/locals lists, and the body all agree on the dotted spelling.
+static void dot_locals_in_function(const Tac_TopLevel *fn)
+{
+    StringMap autos;
+    map_init(&autos);
+    for (const Tac_Param *p = fn->u.function.params; p; p = p->next)
+        if (p->name)
+            map_insert(&autos, p->name, 1, 0);
+    for (const Tac_Param *p = fn->u.function.locals; p; p = p->next)
+        if (p->name)
+            map_insert(&autos, p->name, 1, 0);
+
+    // Rewrite the body first (matching the still-raw names), then the lists.
+    for (Tac_Instruction *in = fn->u.function.body; in; in = in->next)
+        dot_instr(in, &autos);
+
+    for (Tac_Param *p = fn->u.function.params; p; p = p->next)
+        if (p->name) {
+            char *d = dotted_name(p->name);
+            xfree(p->name);
+            p->name = d;
+        }
+    for (Tac_Param *p = fn->u.function.locals; p; p = p->next)
+        if (p->name) {
+            char *d = dotted_name(p->name);
+            xfree(p->name);
+            p->name = d;
+        }
+
+    map_destroy(&autos);
+}
+
 //
 // Convert the AST to TAC.
 //
@@ -560,8 +780,10 @@ Tac_TopLevel *translate(const ExternalDecl *ast, OptFlags flags)
     for (Tac_TopLevel *t = tac; t; t = t->next) {
         // Each function is optimized against its own toplevel, which carries the
         // params + automatic locals needed to tell private locals from globals.
-        if (t->kind == TAC_TOPLEVEL_FUNCTION)
+        if (t->kind == TAC_TOPLEVEL_FUNCTION) {
+            dot_locals_in_function(t);
             t->u.function.body = optimize_function(t->u.function.body, flags, t);
+        }
     }
     return tac;
 }

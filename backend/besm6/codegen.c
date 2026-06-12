@@ -444,6 +444,27 @@ void codegen_program(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *
     }
 }
 
+// Declare `v` as an external (SUBP) if it is a module-level name that has no
+// frame slot and has not been declared yet.  SUBP allocates no memory; it just
+// tells the single-pass assembler the name is external, and must precede the
+// first UTC that references it.
+static void declare_global_operand(Besm_Block *block, Besm_Instr **tail,
+                                   const Frame *f, StringMap *declared,
+                                   const Tac_Val *v)
+{
+    if (!v || v->kind != TAC_VAL_VAR)
+        return;
+    int sr, so;
+    intptr_t dummy;
+    if (frame_lookup(f, v->u.var_name, &sr, &so))
+        return;                       // local / param
+    if (map_get(declared, v->u.var_name, &dummy))
+        return;                       // already declared
+    Besm_Instr *ssubp = emit(block, tail, BESM_STMT_SUBP);
+    ssubp->name       = xstrdup(v->u.var_name);
+    map_insert(declared, v->u.var_name, 1, 0);
+}
+
 static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl,
                              FILE *out)
 {
@@ -503,47 +524,62 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
             entry_prog->name       = xstrdup("program");
         }
 
-        // Declare each module-level name referenced via GET_ADDRESS, COPY, or FUN_CALL
-        // arguments as a SUBP word.  SUBP allocates no memory; it just tells the
-        // assembler the name is external.  Must appear before the first instruction
-        // that uses the name (single-pass assembler).  Use a map to avoid duplicates.
+        // Declare each module-level name a function references as a SUBP word.  SUBP
+        // allocates no memory; it just tells the assembler the name is external.  It
+        // must appear before the first instruction that uses the name (single-pass
+        // assembler), so scan every operand of every instruction up front.  A name with
+        // a frame slot is a local/param and is skipped; a map avoids duplicates.
         StringMap declared;
         map_init(&declared);
         for (const Tac_Instruction *instr = tl->u.function.body; instr; instr = instr->next) {
-            const char *names[2] = { NULL, NULL };
-            if (instr->kind == TAC_INSTRUCTION_GET_ADDRESS) {
-                names[0] = instr->u.get_address.src->u.var_name;
-            } else if (instr->kind == TAC_INSTRUCTION_COPY) {
-                if (instr->u.copy.src->kind == TAC_VAL_VAR)
-                    names[0] = instr->u.copy.src->u.var_name;
-                names[1] = instr->u.copy.dst->u.var_name;
-            }
-            for (int ni = 0; ni < 2; ni++) {
-                const char *sname = names[ni];
-                if (!sname) continue;
-                int sr, so;
-                intptr_t dummy;
-                if (!frame_lookup(f, sname, &sr, &so) && !map_get(&declared, sname, &dummy)) {
-                    Besm_Instr *ssubp = emit(block, &tail, BESM_STMT_SUBP);
-                    ssubp->name       = xstrdup(sname);
-                    map_insert(&declared, sname, 1, 0);
-                }
-            }
-            // After copy propagation, a global may appear directly as a FUN_CALL
-            // argument (UTC/XTA sequence).  Declare it here so the assembler sees
-            // the SUBP before the first UTC that references it.
-            if (instr->kind == TAC_INSTRUCTION_FUN_CALL) {
-                for (const Tac_Val *a = instr->u.fun_call.args; a; a = a->next) {
-                    if (a->kind != TAC_VAL_VAR) continue;
-                    const char *sname = a->u.var_name;
-                    int sr, so;
-                    intptr_t dummy;
-                    if (!frame_lookup(f, sname, &sr, &so) && !map_get(&declared, sname, &dummy)) {
-                        Besm_Instr *ssubp = emit(block, &tail, BESM_STMT_SUBP);
-                        ssubp->name       = xstrdup(sname);
-                        map_insert(&declared, sname, 1, 0);
-                    }
-                }
+            switch (instr->kind) {
+            case TAC_INSTRUCTION_RETURN:
+                declare_global_operand(block, &tail, f, &declared, instr->u.return_.src);
+                break;
+            case TAC_INSTRUCTION_COPY:
+                declare_global_operand(block, &tail, f, &declared, instr->u.copy.src);
+                declare_global_operand(block, &tail, f, &declared, instr->u.copy.dst);
+                break;
+            case TAC_INSTRUCTION_GET_ADDRESS:
+                declare_global_operand(block, &tail, f, &declared, instr->u.get_address.src);
+                break;
+            case TAC_INSTRUCTION_UNARY:
+                declare_global_operand(block, &tail, f, &declared, instr->u.unary.src);
+                declare_global_operand(block, &tail, f, &declared, instr->u.unary.dst);
+                break;
+            case TAC_INSTRUCTION_BINARY:
+                declare_global_operand(block, &tail, f, &declared, instr->u.binary.src1);
+                declare_global_operand(block, &tail, f, &declared, instr->u.binary.src2);
+                declare_global_operand(block, &tail, f, &declared, instr->u.binary.dst);
+                break;
+            case TAC_INSTRUCTION_LOAD:
+                declare_global_operand(block, &tail, f, &declared, instr->u.load.src_ptr);
+                declare_global_operand(block, &tail, f, &declared, instr->u.load.dst);
+                break;
+            case TAC_INSTRUCTION_STORE:
+                declare_global_operand(block, &tail, f, &declared, instr->u.store.src);
+                declare_global_operand(block, &tail, f, &declared, instr->u.store.dst_ptr);
+                break;
+            case TAC_INSTRUCTION_ADD_PTR:
+                declare_global_operand(block, &tail, f, &declared, instr->u.add_ptr.ptr);
+                declare_global_operand(block, &tail, f, &declared, instr->u.add_ptr.index);
+                declare_global_operand(block, &tail, f, &declared, instr->u.add_ptr.dst);
+                break;
+            case TAC_INSTRUCTION_JUMP_IF_ZERO:
+                declare_global_operand(block, &tail, f, &declared, instr->u.jump_if_zero.condition);
+                break;
+            case TAC_INSTRUCTION_JUMP_IF_NOT_ZERO:
+                declare_global_operand(block, &tail, f, &declared, instr->u.jump_if_not_zero.condition);
+                break;
+            case TAC_INSTRUCTION_FUN_CALL:
+                // After copy propagation, a global may appear directly as a FUN_CALL
+                // argument (UTC/XTA sequence).
+                for (const Tac_Val *a = instr->u.fun_call.args; a; a = a->next)
+                    declare_global_operand(block, &tail, f, &declared, a);
+                declare_global_operand(block, &tail, f, &declared, instr->u.fun_call.dst);
+                break;
+            default:
+                break;
             }
         }
         map_destroy(&declared);

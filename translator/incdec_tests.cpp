@@ -22,21 +22,21 @@ TEST_F(TranslateTest, PostIncReturnOldValue)
           value: 5
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: copy
       src:
         kind: var
-        name: x
+        name: .x
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: binary
       op: add
       src1:
         kind: var
-        name: x
+        name: .x
       src2:
         kind: constant
         const:
@@ -44,20 +44,20 @@ TEST_F(TranslateTest, PostIncReturnOldValue)
           value: 1
       dst:
         kind: var
-        name: t.1
+        name: .1
     - instruction:
       kind: copy
       src:
         kind: var
-        name: t.1
+        name: .1
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.0
+        name: .0
 )");
 }
 
@@ -79,21 +79,21 @@ TEST_F(TranslateTest, PostDecReturnOldValue)
           value: 5
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: copy
       src:
         kind: var
-        name: x
+        name: .x
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: binary
       op: subtract
       src1:
         kind: var
-        name: x
+        name: .x
       src2:
         kind: constant
         const:
@@ -101,20 +101,20 @@ TEST_F(TranslateTest, PostDecReturnOldValue)
           value: 1
       dst:
         kind: var
-        name: t.1
+        name: .1
     - instruction:
       kind: copy
       src:
         kind: var
-        name: t.1
+        name: .1
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.0
+        name: .0
 )");
 }
 
@@ -136,13 +136,13 @@ TEST_F(TranslateTest, PreIncReturnNewValue)
           value: 5
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: binary
       op: add
       src1:
         kind: var
-        name: x
+        name: .x
       src2:
         kind: constant
         const:
@@ -150,20 +150,20 @@ TEST_F(TranslateTest, PreIncReturnNewValue)
           value: 1
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: copy
       src:
         kind: var
-        name: t.0
+        name: .0
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.0
+        name: .0
 )");
 }
 
@@ -185,13 +185,13 @@ TEST_F(TranslateTest, PreDecReturnNewValue)
           value: 5
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: binary
       op: subtract
       src1:
         kind: var
-        name: x
+        name: .x
       src2:
         kind: constant
         const:
@@ -199,19 +199,19 @@ TEST_F(TranslateTest, PreDecReturnNewValue)
           value: 1
       dst:
         kind: var
-        name: t.0
+        name: .0
     - instruction:
       kind: copy
       src:
         kind: var
-        name: t.0
+        name: .0
       dst:
         kind: var
-        name: x
+        name: .x
     - instruction:
       kind: return
       src:
         kind: var
-        name: t.0
+        name: .0
 )");
 }
