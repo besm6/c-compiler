@@ -13,21 +13,21 @@ TEST_F(TranslateTest, CastIntToLong)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: sign_extend
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -41,21 +41,21 @@ TEST_F(TranslateTest, CastUintToUlong)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: zero_extend
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -68,21 +68,21 @@ TEST_F(TranslateTest, CastLongToInt)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: truncate
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -95,21 +95,21 @@ TEST_F(TranslateTest, CastIntToUint)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -122,21 +122,21 @@ TEST_F(TranslateTest, CastIntToDouble)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: int_to_double
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -149,21 +149,21 @@ TEST_F(TranslateTest, CastUintToDouble)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: uint_to_double
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -176,21 +176,21 @@ TEST_F(TranslateTest, CastDoubleToInt)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: double_to_int
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -203,21 +203,21 @@ TEST_F(TranslateTest, CastDoubleToUint)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: double_to_uint
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -230,21 +230,21 @@ TEST_F(TranslateTest, CastIntToShort)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: truncate
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -257,21 +257,21 @@ TEST_F(TranslateTest, CastShortToInt)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: sign_extend
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -285,21 +285,21 @@ TEST_F(TranslateTest, CastUintToUshort)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: truncate
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -313,21 +313,21 @@ TEST_F(TranslateTest, CastUshortToUint)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: zero_extend
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -340,21 +340,21 @@ TEST_F(TranslateTest, CastShortToLong)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: sign_extend
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -368,21 +368,21 @@ TEST_F(TranslateTest, CastUshortToUlong)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: zero_extend
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -395,34 +395,34 @@ TEST_F(TranslateTest, CastEmbeddedInExpr)
   name: f
   global: true
   params:
-    - param: .x
-    - param: .y
+    - param: %x
+    - param: %y
   body:
     - instruction:
       kind: sign_extend
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: binary
       op: add
       src1:
         kind: var
-        name: .0
+        name: %0
       src2:
         kind: var
-        name: .y
+        name: %y
       dst:
         kind: var
-        name: .1
+        name: %1
     - instruction:
       kind: return
       src:
         kind: var
-        name: .1
+        name: %1
 )");
 }
 
@@ -435,21 +435,21 @@ TEST_F(TranslateTest, CastIntToFloat)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: int_to_float
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -462,21 +462,21 @@ TEST_F(TranslateTest, CastFloatToInt)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: float_to_int
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -489,21 +489,21 @@ TEST_F(TranslateTest, CastFloatToDouble)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: float_to_double
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -516,21 +516,21 @@ TEST_F(TranslateTest, CastDoubleToFloat)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: double_to_float
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 

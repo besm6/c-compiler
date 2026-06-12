@@ -22,7 +22,7 @@ TEST_F(TranslateTest, AssignSimple)
           value: 0
       dst:
         kind: var
-        name: .x
+        name: %x
     - instruction:
       kind: copy
       src:
@@ -32,12 +32,12 @@ TEST_F(TranslateTest, AssignSimple)
           value: 42
       dst:
         kind: var
-        name: .x
+        name: %x
     - instruction:
       kind: return
       src:
         kind: var
-        name: .x
+        name: %x
 )");
 }
 
@@ -59,20 +59,20 @@ TEST_F(TranslateTest, AssignUsedAsExpr)
           value: 7
       dst:
         kind: var
-        name: .x
+        name: %x
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .y
+        name: %y
     - instruction:
       kind: return
       src:
         kind: var
-        name: .y
+        name: %y
 )");
 }
 
@@ -94,13 +94,13 @@ TEST_F(TranslateTest, CompoundAssignAdd)
           value: 10
       dst:
         kind: var
-        name: .x
+        name: %x
     - instruction:
       kind: binary
       op: add
       src1:
         kind: var
-        name: .x
+        name: %x
       src2:
         kind: constant
         const:
@@ -108,20 +108,20 @@ TEST_F(TranslateTest, CompoundAssignAdd)
           value: 5
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .x
+        name: %x
     - instruction:
       kind: return
       src:
         kind: var
-        name: .x
+        name: %x
 )");
 }
 
@@ -143,13 +143,13 @@ TEST_F(TranslateTest, CompoundAssignBitwiseOr)
           value: 6
       dst:
         kind: var
-        name: .x
+        name: %x
     - instruction:
       kind: binary
       op: bitwise_or
       src1:
         kind: var
-        name: .x
+        name: %x
       src2:
         kind: constant
         const:
@@ -157,20 +157,20 @@ TEST_F(TranslateTest, CompoundAssignBitwiseOr)
           value: 3
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .x
+        name: %x
     - instruction:
       kind: return
       src:
         kind: var
-        name: .x
+        name: %x
 )");
 }
 
@@ -219,13 +219,13 @@ TEST_F(TranslateTest, TernaryConstantBranches)
           value: 1
       dst:
         kind: var
-        name: .x
+        name: %x
     - instruction:
       kind: jump_if_zero
       condition:
         kind: var
-        name: .x
-      target: .0
+        name: %x
+      target: %0
     - instruction:
       kind: copy
       src:
@@ -235,13 +235,13 @@ TEST_F(TranslateTest, TernaryConstantBranches)
           value: 2
       dst:
         kind: var
-        name: .2
+        name: %2
     - instruction:
       kind: jump
-      target: .1
+      target: %1
     - instruction:
       kind: label
-      name: .0
+      name: %0
     - instruction:
       kind: copy
       src:
@@ -251,15 +251,15 @@ TEST_F(TranslateTest, TernaryConstantBranches)
           value: 3
       dst:
         kind: var
-        name: .2
+        name: %2
     - instruction:
       kind: label
-      name: .1
+      name: %1
     - instruction:
       kind: return
       src:
         kind: var
-        name: .2
+        name: %2
 )");
 }
 
@@ -272,15 +272,15 @@ TEST_F(TranslateTest, TernaryExprCondVarBranches)
   name: f
   global: true
   params:
-    - param: .x
-    - param: .y
+    - param: %x
+    - param: %y
   body:
     - instruction:
       kind: binary
       op: greater_than
       src1:
         kind: var
-        name: .x
+        name: %x
       src2:
         kind: constant
         const:
@@ -288,43 +288,43 @@ TEST_F(TranslateTest, TernaryExprCondVarBranches)
           value: 0
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: jump_if_zero
       condition:
         kind: var
-        name: .0
-      target: .1
+        name: %0
+      target: %1
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .3
+        name: %3
     - instruction:
       kind: jump
-      target: .2
+      target: %2
     - instruction:
       kind: label
-      name: .1
+      name: %1
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .y
+        name: %y
       dst:
         kind: var
-        name: .3
+        name: %3
     - instruction:
       kind: label
-      name: .2
+      name: %2
     - instruction:
       kind: return
       src:
         kind: var
-        name: .3
+        name: %3
 )");
 }
 
@@ -340,21 +340,21 @@ TEST_F(TranslateTest, LogicalAndShortCircuit)
   name: f
   global: true
   params:
-    - param: .a
-    - param: .b
+    - param: %a
+    - param: %b
   body:
     - instruction:
       kind: jump_if_zero
       condition:
         kind: var
-        name: .a
-      target: .0
+        name: %a
+      target: %0
     - instruction:
       kind: binary
       op: not_equal
       src1:
         kind: var
-        name: .b
+        name: %b
       src2:
         kind: constant
         const:
@@ -362,13 +362,13 @@ TEST_F(TranslateTest, LogicalAndShortCircuit)
           value: 0
       dst:
         kind: var
-        name: .2
+        name: %2
     - instruction:
       kind: jump
-      target: .1
+      target: %1
     - instruction:
       kind: label
-      name: .0
+      name: %0
     - instruction:
       kind: copy
       src:
@@ -378,15 +378,15 @@ TEST_F(TranslateTest, LogicalAndShortCircuit)
           value: 0
       dst:
         kind: var
-        name: .2
+        name: %2
     - instruction:
       kind: label
-      name: .1
+      name: %1
     - instruction:
       kind: return
       src:
         kind: var
-        name: .2
+        name: %2
 )");
 }
 
@@ -398,21 +398,21 @@ TEST_F(TranslateTest, LogicalOrShortCircuit)
   name: f
   global: true
   params:
-    - param: .a
-    - param: .b
+    - param: %a
+    - param: %b
   body:
     - instruction:
       kind: jump_if_not_zero
       condition:
         kind: var
-        name: .a
-      target: .0
+        name: %a
+      target: %0
     - instruction:
       kind: binary
       op: not_equal
       src1:
         kind: var
-        name: .b
+        name: %b
       src2:
         kind: constant
         const:
@@ -420,13 +420,13 @@ TEST_F(TranslateTest, LogicalOrShortCircuit)
           value: 0
       dst:
         kind: var
-        name: .2
+        name: %2
     - instruction:
       kind: jump
-      target: .1
+      target: %1
     - instruction:
       kind: label
-      name: .0
+      name: %0
     - instruction:
       kind: copy
       src:
@@ -436,15 +436,15 @@ TEST_F(TranslateTest, LogicalOrShortCircuit)
           value: 1
       dst:
         kind: var
-        name: .2
+        name: %2
     - instruction:
       kind: label
-      name: .1
+      name: %1
     - instruction:
       kind: return
       src:
         kind: var
-        name: .2
+        name: %2
 )");
 }
 
@@ -537,7 +537,7 @@ TEST_F(TranslateTest, GenericTypeMatch)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: return
@@ -558,7 +558,7 @@ TEST_F(TranslateTest, GenericDefault)
   name: f
   global: true
   params:
-    - param: .x
+    - param: %x
   body:
     - instruction:
       kind: return
@@ -611,7 +611,7 @@ TEST_F(TranslateTest, CompoundLiteralStructField)
         const:
           kind: int
           value: 1
-      dst: .0
+      dst: %0
       offset: 0
     - instruction:
       kind: copy_to_offset
@@ -620,21 +620,21 @@ TEST_F(TranslateTest, CompoundLiteralStructField)
         const:
           kind: int
           value: 2
-      dst: .0
+      dst: %0
       offset: 4
     - instruction:
       kind: get_address
       src:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .1
+        name: %1
     - instruction:
       kind: add_ptr
       ptr:
         kind: var
-        name: .1
+        name: %1
       index:
         kind: constant
         const:
@@ -643,20 +643,20 @@ TEST_F(TranslateTest, CompoundLiteralStructField)
       scale: 1
       dst:
         kind: var
-        name: .2
+        name: %2
     - instruction:
       kind: load
       src_ptr:
         kind: var
-        name: .2
+        name: %2
       dst:
         kind: var
-        name: .3
+        name: %3
     - instruction:
       kind: return
       src:
         kind: var
-        name: .3
+        name: %3
 )");
 }
 
@@ -676,7 +676,7 @@ TEST_F(TranslateTest, CompoundLiteralArraySubscript)
         const:
           kind: int
           value: 10
-      dst: .0
+      dst: %0
       offset: 0
     - instruction:
       kind: copy_to_offset
@@ -685,7 +685,7 @@ TEST_F(TranslateTest, CompoundLiteralArraySubscript)
         const:
           kind: int
           value: 20
-      dst: .0
+      dst: %0
       offset: 4
     - instruction:
       kind: copy_to_offset
@@ -694,16 +694,16 @@ TEST_F(TranslateTest, CompoundLiteralArraySubscript)
         const:
           kind: int
           value: 30
-      dst: .0
+      dst: %0
       offset: 8
     - instruction:
       kind: get_address
       src:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .1
+        name: %1
     - instruction:
       kind: copy
       src:
@@ -713,32 +713,32 @@ TEST_F(TranslateTest, CompoundLiteralArraySubscript)
           value: 1
       dst:
         kind: var
-        name: .2
+        name: %2
     - instruction:
       kind: add_ptr
       ptr:
         kind: var
-        name: .1
+        name: %1
       index:
         kind: var
-        name: .2
+        name: %2
       scale: 4
       dst:
         kind: var
-        name: .3
+        name: %3
     - instruction:
       kind: load
       src_ptr:
         kind: var
-        name: .3
+        name: %3
       dst:
         kind: var
-        name: .4
+        name: %4
     - instruction:
       kind: return
       src:
         kind: var
-        name: .4
+        name: %4
 )");
 }
 

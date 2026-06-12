@@ -17,16 +17,16 @@ TEST_F(TranslateTest, StructFieldReadFirst)
   body:
     - instruction:
       kind: copy_from_offset
-      src: .s
+      src: %s
       offset: 0
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -43,16 +43,16 @@ TEST_F(TranslateTest, StructFieldReadSecond)
   body:
     - instruction:
       kind: copy_from_offset
-      src: .s
+      src: %s
       offset: 4
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: return
       src:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -74,7 +74,7 @@ TEST_F(TranslateTest, StructFieldWrite)
         const:
           kind: int
           value: 5
-      dst: .s
+      dst: %s
       offset: 0
 )");
 }
@@ -94,13 +94,13 @@ TEST_F(TranslateTest, PtrFieldRead)
   name: f
   global: true
   params:
-    - param: .p
+    - param: %p
   body:
     - instruction:
       kind: add_ptr
       ptr:
         kind: var
-        name: .p
+        name: %p
       index:
         kind: constant
         const:
@@ -109,20 +109,20 @@ TEST_F(TranslateTest, PtrFieldRead)
       scale: 1
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: load
       src_ptr:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .1
+        name: %1
     - instruction:
       kind: return
       src:
         kind: var
-        name: .1
+        name: %1
 )");
 }
 
@@ -137,13 +137,13 @@ TEST_F(TranslateTest, PtrFieldWrite)
   name: f
   global: true
   params:
-    - param: .p
+    - param: %p
   body:
     - instruction:
       kind: add_ptr
       ptr:
         kind: var
-        name: .p
+        name: %p
       index:
         kind: constant
         const:
@@ -152,7 +152,7 @@ TEST_F(TranslateTest, PtrFieldWrite)
       scale: 1
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: store
       src:
@@ -162,7 +162,7 @@ TEST_F(TranslateTest, PtrFieldWrite)
           value: 5
       dst_ptr:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -181,15 +181,15 @@ TEST_F(TranslateTest, StructFieldAddressOf)
       kind: get_address
       src:
         kind: var
-        name: .s
+        name: %s
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: add_ptr
       ptr:
         kind: var
-        name: .0
+        name: %0
       index:
         kind: constant
         const:
@@ -198,15 +198,15 @@ TEST_F(TranslateTest, StructFieldAddressOf)
       scale: 1
       dst:
         kind: var
-        name: .1
+        name: %1
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .1
+        name: %1
       dst:
         kind: var
-        name: .p
+        name: %p
 )");
 }
 
@@ -236,20 +236,20 @@ TEST_F(TranslateTest, LocalStructCast)
           value: 0
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .quz
+        name: %quz
     - instruction:
       kind: add_ptr
       ptr:
         kind: var
-        name: .quz
+        name: %quz
       index:
         kind: constant
         const:
@@ -258,19 +258,19 @@ TEST_F(TranslateTest, LocalStructCast)
       scale: 1
       dst:
         kind: var
-        name: .1
+        name: %1
     - instruction:
       kind: load
       src_ptr:
         kind: var
-        name: .1
+        name: %1
       dst:
         kind: var
-        name: .2
+        name: %2
     - instruction:
       kind: return
       src:
         kind: var
-        name: .2
+        name: %2
 )");
 }

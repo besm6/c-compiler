@@ -212,7 +212,7 @@ a `,subp,` directive.
 
 ```yaml
 kind: var
-name: .x
+name: %x
 
 kind: constant
 const:
@@ -227,16 +227,16 @@ list is not serialized):
 
 | First char | Meaning | Examples |
 |------------|---------|----------|
-| `.` + digit | compiler temporary | `.0`, `.1` |
-| `.` + letter/`_` | parameter or automatic local | `.x`, `._buf` |
+| `%` + digit | compiler temporary | `%0`, `%1` |
+| `%` + letter/`_` | parameter or automatic local | `%x`, `%_buf` |
 | letter / `_` / `$` | module-level global, static, string constant, or function | `g`, `_str0`, `printf` |
 
 The translator establishes this in two steps: `new_temp()` mints temporaries already
-dotted, and a per-function pass (`dot_locals_in_function` in `translator/translate.c`,
-run just before the optimizer) prefixes every parameter and automatic-local name — in
-the body and in the stored `params`/`locals` lists — with `.`. The BESM-6 frame
-allocator (`backend/besm6/frame.c`) then assigns a stack slot to any `.`-prefixed name
-and treats every other referenced name as an external global.
+percent-prefixed, and a per-function pass (`percent_locals_in_function` in
+`translator/translate.c`, run just before the optimizer) prefixes every parameter and
+automatic-local name — in the body and in the stored `params`/`locals` lists — with `%`.
+The BESM-6 frame allocator (`backend/besm6/frame.c`) then assigns a stack slot to any
+`%`-prefixed name and treats every other referenced name as an external global.
 
 **Instructions** (all have `- instruction:` header; fields follow at +2 indent)
 

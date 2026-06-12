@@ -2,8 +2,8 @@
 
 TEST_F(CodegenTest, AddTwoParams)
 {
-    // binary ADD src1=a(6,0) src2=b(6,1) dst=t.0; copy t.0 → global g
-    // frame: a@(6,0), b@(6,1), t.0@(7,0); num_autos=1
+    // binary ADD src1=a(6,0) src2=b(6,1) dst=%0; copy %0 → global g
+    // frame: a@(6,0), b@(6,1), %0@(7,0); num_autos=1
     std::string output = CompileToMadlen("extern int g; void foo(int a, int b) { g = a + b; }");
     EXPECT_EQ(R"(c
       foo:   ,name,
@@ -25,8 +25,8 @@ TEST_F(CodegenTest, AddTwoParams)
 
 TEST_F(CodegenTest, SubTwoParams)
 {
-    // binary SUBTRACT src1=a(6,0) src2=b(6,1) dst=t.0; copy t.0 → global g
-    // frame: a@(6,0), b@(6,1), t.0@(7,0); num_autos=1
+    // binary SUBTRACT src1=a(6,0) src2=b(6,1) dst=%0; copy %0 → global g
+    // frame: a@(6,0), b@(6,1), %0@(7,0); num_autos=1
     std::string output = CompileToMadlen("extern int g; void foo(int a, int b) { g = a - b; }");
     EXPECT_EQ(R"(c
       foo:   ,name,
@@ -48,8 +48,8 @@ TEST_F(CodegenTest, SubTwoParams)
 
 TEST_F(CodegenTest, AddAutoAndParam)
 {
-    // binary ADD src1=b(param) src2=c(auto) dst=t.0; copy t.0 → global g
-    // frame: b@(6,0), c@(7,0), t.0@(7,1); num_autos=2
+    // binary ADD src1=b(param) src2=c(auto) dst=%0; copy %0 → global g
+    // frame: b@(6,0), c@(7,0), %0@(7,1); num_autos=2
     std::string output = CompileToMadlen("extern int g; void foo(int b) { int c; g = b + c; }");
     EXPECT_EQ(R"(c
       foo:   ,name,
@@ -71,8 +71,8 @@ TEST_F(CodegenTest, AddAutoAndParam)
 
 TEST_F(CodegenTest, AddTwoAutos)
 {
-    // binary ADD src1=a(auto) src2=b(auto) dst=t.0; copy t.0 → global g
-    // frame: a@(7,0), b@(7,1), t.0@(7,2); num_autos=3
+    // binary ADD src1=a(auto) src2=b(auto) dst=%0; copy %0 → global g
+    // frame: a@(7,0), b@(7,1), %0@(7,2); num_autos=3
     std::string output = CompileToMadlen("extern int g; void foo(void) { int a; int b; g = a + b; }");
     EXPECT_EQ(R"(c
       foo:   ,name,
@@ -266,8 +266,8 @@ TEST_F(CodegenTest, CompareMadlenShape)
 // Bitwise AND lowers to a single AAX, same XTA / op / ATX shape as ADD.
 TEST_F(CodegenTest, BitwiseAndTwoParams)
 {
-    // binary BITWISE_AND src1=a(6,0) src2=b(6,1) dst=t.0; copy t.0 → global g
-    // frame: a@(6,0), b@(6,1), t.0@(7,0); num_autos=1
+    // binary BITWISE_AND src1=a(6,0) src2=b(6,1) dst=%0; copy %0 → global g
+    // frame: a@(6,0), b@(6,1), %0@(7,0); num_autos=1
     std::string output = CompileToMadlen("extern int g; void foo(int a, int b) { g = a & b; }");
     EXPECT_EQ(R"(c
       foo:   ,name,

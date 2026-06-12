@@ -206,7 +206,7 @@ char *xstrdup(const char *str)
 
 //
 // Build a unique name by combining prefix with a counter, then increment the counter.
-// For example, xstruniq(".", &n) returns ".0", ".1", ".2", … on successive calls.
+// For example, xstruniq("%", &n) returns "%0", "%1", "%2", … on successive calls.
 // The caller owns the counter: declare it where the name series should start and reset,
 // initialize it to zero, and reset it to zero whenever a fresh series is needed.
 // The returned string is heap-allocated and must be released with xfree().

@@ -18,18 +18,18 @@ TEST_F(TranslateTest, AddressOfLocalVar)
       kind: get_address
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .p
+        name: %p
 )");
 }
 
@@ -46,18 +46,18 @@ TEST_F(TranslateTest, DerefPointer)
       kind: load
       src_ptr:
         kind: var
-        name: .p
+        name: %p
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .y
+        name: %y
 )");
 }
 
@@ -74,26 +74,26 @@ TEST_F(TranslateTest, DerefDerefLocalVar)
       kind: load
       src_ptr:
         kind: var
-        name: .pp
+        name: %pp
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: load
       src_ptr:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .1
+        name: %1
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .1
+        name: %1
       dst:
         kind: var
-        name: .y
+        name: %y
 )");
 }
 
@@ -106,7 +106,7 @@ TEST_F(TranslateTest, AssignThroughPointer)
   name: f
   global: true
   params:
-    - param: .p
+    - param: %p
   body:
     - instruction:
       kind: store
@@ -117,7 +117,7 @@ TEST_F(TranslateTest, AssignThroughPointer)
           value: 5
       dst_ptr:
         kind: var
-        name: .p
+        name: %p
 )");
 }
 
@@ -130,22 +130,22 @@ TEST_F(TranslateTest, PostIncThroughPointer)
   name: f
   global: true
   params:
-    - param: .p
+    - param: %p
   body:
     - instruction:
       kind: load
       src_ptr:
         kind: var
-        name: .p
+        name: %p
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: binary
       op: add
       src1:
         kind: var
-        name: .0
+        name: %0
       src2:
         kind: constant
         const:
@@ -153,15 +153,15 @@ TEST_F(TranslateTest, PostIncThroughPointer)
           value: 1
       dst:
         kind: var
-        name: .1
+        name: %1
     - instruction:
       kind: store
       src:
         kind: var
-        name: .1
+        name: %1
       dst_ptr:
         kind: var
-        name: .p
+        name: %p
 )");
 }
 
@@ -174,22 +174,22 @@ TEST_F(TranslateTest, CompoundAssignThroughPointer)
   name: f
   global: true
   params:
-    - param: .p
+    - param: %p
   body:
     - instruction:
       kind: load
       src_ptr:
         kind: var
-        name: .p
+        name: %p
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: binary
       op: add
       src1:
         kind: var
-        name: .0
+        name: %0
       src2:
         kind: constant
         const:
@@ -197,15 +197,15 @@ TEST_F(TranslateTest, CompoundAssignThroughPointer)
           value: 3
       dst:
         kind: var
-        name: .1
+        name: %1
     - instruction:
       kind: store
       src:
         kind: var
-        name: .1
+        name: %1
       dst_ptr:
         kind: var
-        name: .p
+        name: %p
 )");
 }
 
@@ -218,32 +218,32 @@ TEST_F(TranslateTest, DerefDerefPointer)
   name: f
   global: true
   params:
-    - param: .pp
+    - param: %pp
   body:
     - instruction:
       kind: load
       src_ptr:
         kind: var
-        name: .pp
+        name: %pp
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: load
       src_ptr:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .1
+        name: %1
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .1
+        name: %1
       dst:
         kind: var
-        name: .y
+        name: %y
 )");
 }
 
@@ -260,37 +260,37 @@ TEST_F(TranslateTest, SubscriptRead)
   name: f
   global: true
   params:
-    - param: .a
-    - param: .i
+    - param: %a
+    - param: %i
   body:
     - instruction:
       kind: add_ptr
       ptr:
         kind: var
-        name: .a
+        name: %a
       index:
         kind: var
-        name: .i
+        name: %i
       scale: 4
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: load
       src_ptr:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .1
+        name: %1
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .1
+        name: %1
       dst:
         kind: var
-        name: .y
+        name: %y
 )");
 }
 
@@ -303,21 +303,21 @@ TEST_F(TranslateTest, SubscriptWrite)
   name: f
   global: true
   params:
-    - param: .a
-    - param: .i
+    - param: %a
+    - param: %i
   body:
     - instruction:
       kind: add_ptr
       ptr:
         kind: var
-        name: .a
+        name: %a
       index:
         kind: var
-        name: .i
+        name: %i
       scale: 4
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: store
       src:
@@ -327,7 +327,7 @@ TEST_F(TranslateTest, SubscriptWrite)
           value: 5
       dst_ptr:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -340,35 +340,35 @@ TEST_F(TranslateTest, SubscriptPostInc)
   name: f
   global: true
   params:
-    - param: .a
-    - param: .i
+    - param: %a
+    - param: %i
   body:
     - instruction:
       kind: add_ptr
       ptr:
         kind: var
-        name: .a
+        name: %a
       index:
         kind: var
-        name: .i
+        name: %i
       scale: 4
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: load
       src_ptr:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .1
+        name: %1
     - instruction:
       kind: binary
       op: add
       src1:
         kind: var
-        name: .1
+        name: %1
       src2:
         kind: constant
         const:
@@ -376,15 +376,15 @@ TEST_F(TranslateTest, SubscriptPostInc)
           value: 1
       dst:
         kind: var
-        name: .2
+        name: %2
     - instruction:
       kind: store
       src:
         kind: var
-        name: .2
+        name: %2
       dst_ptr:
         kind: var
-        name: .0
+        name: %0
 )");
 }
 
@@ -407,18 +407,18 @@ TEST_F(TranslateTest, VolatileDerefLoad)
       volatile: true
       src_ptr:
         kind: var
-        name: .p
+        name: %p
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .y
+        name: %y
 )");
 }
 
@@ -441,7 +441,7 @@ TEST_F(TranslateTest, VolatileDerefStore)
           value: 1
       dst_ptr:
         kind: var
-        name: .p
+        name: %p
 )");
 }
 
@@ -464,7 +464,7 @@ TEST_F(TranslateTest, VolatileScalarWrite)
           value: 7
       dst:
         kind: var
-        name: .x
+        name: %x
 )");
 }
 
@@ -483,18 +483,18 @@ TEST_F(TranslateTest, VolatileScalarReadMaterialized)
       volatile: true
       src:
         kind: var
-        name: .x
+        name: %x
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: copy
       src:
         kind: var
-        name: .0
+        name: %0
       dst:
         kind: var
-        name: .y
+        name: %y
 )");
 }
 
@@ -512,16 +512,16 @@ TEST_F(TranslateTest, VolatileDerefPostIncLoadAndStore)
       volatile: true
       src_ptr:
         kind: var
-        name: .p
+        name: %p
       dst:
         kind: var
-        name: .0
+        name: %0
     - instruction:
       kind: binary
       op: add
       src1:
         kind: var
-        name: .0
+        name: %0
       src2:
         kind: constant
         const:
@@ -529,15 +529,15 @@ TEST_F(TranslateTest, VolatileDerefPostIncLoadAndStore)
           value: 1
       dst:
         kind: var
-        name: .1
+        name: %1
     - instruction:
       kind: store
       volatile: true
       src:
         kind: var
-        name: .1
+        name: %1
       dst_ptr:
         kind: var
-        name: .p
+        name: %p
 )");
 }

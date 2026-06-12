@@ -17,12 +17,12 @@ struct Frame {
 
 //
 // Register a frame-resident variable name in the frame unless it is already
-// present. Frame-resident names start with '.'; any other name is a parameter
+// present. Frame-resident names start with '%'; any other name is a parameter
 // (seeded directly in frame_build) or a module-level global and is skipped.
 //
 static void assign_if_new(Frame *f, const char *name, int reg, int *counter)
 {
-    if (name[0] != '.')
+    if (name[0] != '%')
         return; // parameter or module-level global — not an auto slot
     intptr_t dummy;
     if (map_get(&f->slots, name, &dummy))
@@ -195,21 +195,21 @@ static void collect_instr(Frame *f, const Tac_Instruction *instr, int *auto_coun
 
 Frame *frame_build(const Tac_TopLevel *fn, const Tac_TopLevel *program)
 {
-    (void)program; // local/global is now encoded in the name (leading '.')
+    (void)program; // local/global is now encoded in the name (leading '%')
 
     Frame *f    = (Frame *)xalloc(sizeof(Frame), __func__, __FILE__, __LINE__);
     f->num_autos = 0;
     map_init(&f->slots);
 
-    // Assign params first (REG_PAR, 0..N-1). Param names are '.'-prefixed too.
+    // Assign params first (REG_PAR, 0..N-1). Param names are '%'-prefixed too.
     int par_count = 0;
     for (const Tac_Param *p = fn->u.function.params; p; p = p->next) {
         map_insert(&f->slots, p->name, SLOT_ENCODE(REG_PAR, par_count), 0);
         par_count++;
     }
 
-    // Scan the body for '.'-prefixed names; assign auto slots (REG_AUTO) to those
-    // not already a parameter. Non-dotted names are module-level globals (skipped).
+    // Scan the body for '%'-prefixed names; assign auto slots (REG_AUTO) to those
+    // not already a parameter. Non-prefixed names are module-level globals (skipped).
     for (const Tac_Instruction *instr = fn->u.function.body; instr; instr = instr->next)
         collect_instr(f, instr, &f->num_autos);
 

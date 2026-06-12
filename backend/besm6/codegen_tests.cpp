@@ -272,7 +272,7 @@ TEST_F(CodegenTest, CopyParamToAuto)
 TEST_F(CodegenTest, GetAddressGlobalInt)
 {
     // p is a global pointer — the store p = &g survives DSE (globals are live at
-    // exit), which also keeps get_address g → t.0 alive.  Exercises the
+    // exit), which also keeps get_address g → %0 alive.  Exercises the
     // global-src GET_ADDRESS (UTC/VTM/ITA) and local→global COPY (XTA/UTC/ATX).
     std::string output = CompileToMadlen("extern int g; extern int *p; void foo(void) { p = &g; }");
     EXPECT_EQ(R"(c
@@ -297,8 +297,8 @@ TEST_F(CodegenTest, GetAddressGlobalInt)
 
 TEST_F(CodegenTest, GetAddressAuto)
 {
-    // get_address a → t.0 (ITA), copy t.0 → global g (local→global)
-    // autos: a@(7,0), t.0@(7,1); num_autos=2
+    // get_address a → %0 (ITA), copy %0 → global g (local→global)
+    // autos: a@(7,0), %0@(7,1); num_autos=2
     std::string output = CompileToMadlen("extern int *g; void foo(void) { int a; g = &a; }");
     EXPECT_EQ(R"(c
       foo:   ,name,
@@ -337,8 +337,8 @@ TEST_F(CodegenTest, StoreThroughPtr)
 
 TEST_F(CodegenTest, LoadAndStoreThroughPtr)
 {
-    // load *p → t.0, store t.0 → *q
-    // params: p@(6,0), q@(6,1); auto: t.0@(7,0); num_autos=1
+    // load *p → %0, store %0 → *q
+    // params: p@(6,0), q@(6,1); auto: %0@(7,0); num_autos=1
     std::string output = CompileToMadlen("void foo(int *p, int *q) { *q = *p; }");
     EXPECT_EQ(R"(c
       foo:   ,name,

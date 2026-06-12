@@ -30,7 +30,7 @@ void mad_format_real(char *buf, size_t n, double val)
     }
 }
 
-// Sanitize a Madlen identifier: replace '_'→'*', '$'→'/', truncate to 8 chars.
+// Sanitize a Madlen identifier: replace '_'→'*', '$'→'/', '%'→'*', truncate to 8 chars.
 static void sanitize_name(char *dst, size_t n, const char *src)
 {
     size_t lim = n - 1 < 8 ? n - 1 : 8;
@@ -39,7 +39,7 @@ static void sanitize_name(char *dst, size_t n, const char *src)
         char c = *src;
         if (c == '_') c = '*';
         else if (c == '$') c = '/';
-        else if (c == '.') c = '*';
+        else if (c == '%') c = '*';
         dst[i] = c;
     }
     dst[i] = '\0';

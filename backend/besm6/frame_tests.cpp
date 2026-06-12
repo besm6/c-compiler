@@ -112,15 +112,15 @@ static void free_fn(Tac_TopLevel *tl)
 // ---- Tests ---------------------------------------------------------------
 
 // f(x, y) { t = x; return t; }  — x,y are params; t is auto.
-// Frame-resident names carry the leading '.' the translator assigns.
+// Frame-resident names carry the leading '%' the translator assigns.
 TEST(FrameTest, ParamsBeforeAutos)
 {
-    Tac_Param *px  = make_param(".x");
-    Tac_Param *py  = make_param(".y");
+    Tac_Param *px  = make_param("%x");
+    Tac_Param *py  = make_param("%y");
     px->next       = py;
 
-    Tac_Instruction *copy = make_copy(".x", ".t");
-    Tac_Instruction *ret  = make_return(".t");
+    Tac_Instruction *copy = make_copy("%x", "%t");
+    Tac_Instruction *ret  = make_return("%t");
     copy->next            = ret;
 
     Tac_TopLevel *fn = make_fn(px, copy);
@@ -128,15 +128,15 @@ TEST(FrameTest, ParamsBeforeAutos)
 
     int reg, off;
 
-    ASSERT_TRUE(frame_lookup(f, ".x", &reg, &off));
+    ASSERT_TRUE(frame_lookup(f, "%x", &reg, &off));
     EXPECT_EQ(reg, REG_PAR);
     EXPECT_EQ(off, 0);
 
-    ASSERT_TRUE(frame_lookup(f, ".y", &reg, &off));
+    ASSERT_TRUE(frame_lookup(f, "%y", &reg, &off));
     EXPECT_EQ(reg, REG_PAR);
     EXPECT_EQ(off, 1);
 
-    ASSERT_TRUE(frame_lookup(f, ".t", &reg, &off));
+    ASSERT_TRUE(frame_lookup(f, "%t", &reg, &off));
     EXPECT_EQ(reg, REG_AUTO);
     EXPECT_EQ(off, 0);
 
@@ -149,8 +149,8 @@ TEST(FrameTest, ParamsBeforeAutos)
 // No params — every VAR becomes an auto slot.
 TEST(FrameTest, NoParams)
 {
-    Tac_Instruction *copy = make_copy(".a", ".b");
-    Tac_Instruction *ret  = make_return(".b");
+    Tac_Instruction *copy = make_copy("%a", "%b");
+    Tac_Instruction *ret  = make_return("%b");
     copy->next            = ret;
 
     Tac_TopLevel *fn = make_fn(nullptr, copy);
@@ -158,11 +158,11 @@ TEST(FrameTest, NoParams)
 
     int reg, off;
 
-    ASSERT_TRUE(frame_lookup(f, ".a", &reg, &off));
+    ASSERT_TRUE(frame_lookup(f, "%a", &reg, &off));
     EXPECT_EQ(reg, REG_AUTO);
     EXPECT_EQ(off, 0);
 
-    ASSERT_TRUE(frame_lookup(f, ".b", &reg, &off));
+    ASSERT_TRUE(frame_lookup(f, "%b", &reg, &off));
     EXPECT_EQ(reg, REG_AUTO);
     EXPECT_EQ(off, 1);
 
@@ -190,17 +190,17 @@ TEST(FrameTest, MissReturnsFalse)
 // A var that appears multiple times should get only one slot.
 TEST(FrameTest, NoDuplicateSlots)
 {
-    Tac_Instruction *i1 = make_copy(".x", ".y");
-    Tac_Instruction *i2 = make_copy(".x", ".z"); // x seen again
+    Tac_Instruction *i1 = make_copy("%x", "%y");
+    Tac_Instruction *i2 = make_copy("%x", "%z"); // x seen again
     i1->next            = i2;
 
     Tac_TopLevel *fn = make_fn(nullptr, i1);
     Frame *f = frame_build(fn, fn);
 
     int rx, ox, ry, oy, rz, oz;
-    ASSERT_TRUE(frame_lookup(f, ".x", &rx, &ox));
-    ASSERT_TRUE(frame_lookup(f, ".y", &ry, &oy));
-    ASSERT_TRUE(frame_lookup(f, ".z", &rz, &oz));
+    ASSERT_TRUE(frame_lookup(f, "%x", &rx, &ox));
+    ASSERT_TRUE(frame_lookup(f, "%y", &ry, &oy));
+    ASSERT_TRUE(frame_lookup(f, "%z", &rz, &oz));
 
     // x, y, z each get a distinct offset; x must not be duplicated.
     EXPECT_NE(ox, oy);

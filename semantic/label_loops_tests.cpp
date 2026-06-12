@@ -22,8 +22,8 @@ TEST_F(LabelLoopsTest, WhileLoopLabels)
 
     Stmt *ws = fn_first_stmt(program->decls);
     ASSERT_EQ(ws->kind, STMT_WHILE);
-    EXPECT_STREQ(ws->loop_end_label, ".L0");
-    EXPECT_STREQ(ws->loop_continue_label, ".L1");
+    EXPECT_STREQ(ws->loop_end_label, "%L0");
+    EXPECT_STREQ(ws->loop_continue_label, "%L1");
 }
 
 // for(;;){} gets end and continue labels.
@@ -33,8 +33,8 @@ TEST_F(LabelLoopsTest, ForLoopLabels)
 
     Stmt *fs = fn_first_stmt(program->decls);
     ASSERT_EQ(fs->kind, STMT_FOR);
-    EXPECT_STREQ(fs->loop_end_label, ".L0");
-    EXPECT_STREQ(fs->loop_continue_label, ".L1");
+    EXPECT_STREQ(fs->loop_end_label, "%L0");
+    EXPECT_STREQ(fs->loop_continue_label, "%L1");
 }
 
 // do{}while(1); gets end and continue labels.
@@ -44,8 +44,8 @@ TEST_F(LabelLoopsTest, DoWhileLoopLabels)
 
     Stmt *ds = fn_first_stmt(program->decls);
     ASSERT_EQ(ds->kind, STMT_DO_WHILE);
-    EXPECT_STREQ(ds->loop_end_label, ".L0");
-    EXPECT_STREQ(ds->loop_continue_label, ".L1");
+    EXPECT_STREQ(ds->loop_end_label, "%L0");
+    EXPECT_STREQ(ds->loop_continue_label, "%L1");
 }
 
 // switch gets only an end label; continue label stays NULL.
@@ -55,7 +55,7 @@ TEST_F(LabelLoopsTest, SwitchLabels)
 
     Stmt *ss = fn_first_stmt(program->decls);
     ASSERT_EQ(ss->kind, STMT_SWITCH);
-    EXPECT_STREQ(ss->loop_end_label, ".L0");
+    EXPECT_STREQ(ss->loop_end_label, "%L0");
     EXPECT_EQ(ss->loop_continue_label, nullptr);
 }
 

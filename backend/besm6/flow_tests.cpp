@@ -39,7 +39,7 @@ TEST_F(CodegenTest, WhileLoopJumpIfZero)
 )", output);
 }
 
-// new_temp() allocates ".0" for the do-while loop-top label;
+// new_temp() allocates "%0" for the do-while loop-top label;
 // label_loops assigns .L0 (end) and .L1 (continue) — both dead (no break/continue),
 // so the optimizer removes them; bar() call keeps the loop body non-empty.
 TEST_F(CodegenTest, DoWhileJumpIfNotZero)
