@@ -4,12 +4,8 @@ TEST_F(CodegenTest, AddTwoParams)
 {
     // binary ADD src1=a(6,0) src2=b(6,1) dst=t.0; copy t.0 → global g
     // frame: a@(6,0), b@(6,1), t.0@(7,0); num_autos=1
-    std::string output = CompileToMadlen("int g; void foo(int a, int b) { g = a + b; }");
+    std::string output = CompileToMadlen("extern int g; void foo(int a, int b) { g = a + b; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -31,12 +27,8 @@ TEST_F(CodegenTest, SubTwoParams)
 {
     // binary SUBTRACT src1=a(6,0) src2=b(6,1) dst=t.0; copy t.0 → global g
     // frame: a@(6,0), b@(6,1), t.0@(7,0); num_autos=1
-    std::string output = CompileToMadlen("int g; void foo(int a, int b) { g = a - b; }");
+    std::string output = CompileToMadlen("extern int g; void foo(int a, int b) { g = a - b; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -58,12 +50,8 @@ TEST_F(CodegenTest, AddAutoAndParam)
 {
     // binary ADD src1=b(param) src2=c(auto) dst=t.0; copy t.0 → global g
     // frame: b@(6,0), c@(7,0), t.0@(7,1); num_autos=2
-    std::string output = CompileToMadlen("int g; void foo(int b) { int c; g = b + c; }");
+    std::string output = CompileToMadlen("extern int g; void foo(int b) { int c; g = b + c; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -85,12 +73,8 @@ TEST_F(CodegenTest, AddTwoAutos)
 {
     // binary ADD src1=a(auto) src2=b(auto) dst=t.0; copy t.0 → global g
     // frame: a@(7,0), b@(7,1), t.0@(7,2); num_autos=3
-    std::string output = CompileToMadlen("int g; void foo(void) { int a; int b; g = a + b; }");
+    std::string output = CompileToMadlen("extern int g; void foo(void) { int a; int b; g = a + b; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -111,12 +95,8 @@ c
 // BINARY with a constant right operand: g = a + 5.
 TEST_F(CodegenTest, BinaryConstSrc2)
 {
-    std::string output = CompileToMadlen("int g; void foo(int a) { g = a + 5; }");
+    std::string output = CompileToMadlen("extern int g; void foo(int a) { g = a + 5; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -137,12 +117,8 @@ c
 // BINARY with a constant left operand: g = 5 + a.
 TEST_F(CodegenTest, BinaryConstSrc1)
 {
-    std::string output = CompileToMadlen("int g; void foo(int a) { g = 5 + a; }");
+    std::string output = CompileToMadlen("extern int g; void foo(int a) { g = 5 + a; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,

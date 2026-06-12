@@ -250,16 +250,8 @@ TEST_F(CodegenTest, CallOkno)
 TEST_F(CodegenTest, CopyParamToAuto)
 {
     // copy a → g, b → h: two params stored to two globals; no autos
-    std::string output = CompileToMadlen("int g, h; void foo(int a, int b) { g = a; h = b; }");
+    std::string output = CompileToMadlen("extern int g, h; void foo(int a, int b) { g = a; h = b; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
-        h:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -282,16 +274,8 @@ TEST_F(CodegenTest, GetAddressGlobalInt)
     // p is a global pointer — the store p = &g survives DSE (globals are live at
     // exit), which also keeps get_address g → t.0 alive.  Exercises the
     // global-src GET_ADDRESS (UTC/VTM/ITA) and local→global COPY (XTA/UTC/ATX).
-    std::string output = CompileToMadlen("int g; int *p; void foo(void) { p = &g; }");
+    std::string output = CompileToMadlen("extern int g; extern int *p; void foo(void) { p = &g; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
-        p:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -315,12 +299,8 @@ TEST_F(CodegenTest, GetAddressAuto)
 {
     // get_address a → t.0 (ITA), copy t.0 → global g (local→global)
     // autos: a@(7,0), t.0@(7,1); num_autos=2
-    std::string output = CompileToMadlen("int *g; void foo(void) { int a; g = &a; }");
+    std::string output = CompileToMadlen("extern int *g; void foo(void) { int a; g = &a; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,

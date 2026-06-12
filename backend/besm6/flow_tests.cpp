@@ -4,12 +4,8 @@ TEST_F(CodegenTest, LabelJump)
 {
     // goto end; end: g = x — the trivial forward goto is folded away by the optimizer
     // (end: is immediately next), leaving just the param→global copy
-    std::string output = CompileToMadlen("int g; void foo(int x) { goto end; end: g = x; }");
+    std::string output = CompileToMadlen("extern int g; void foo(int x) { goto end; end: g = x; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,

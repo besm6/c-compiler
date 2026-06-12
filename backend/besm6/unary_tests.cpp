@@ -22,12 +22,8 @@ TEST_F(CodegenTest, NegateSignedInt)
 // Madlen shape of the signed-int negate: load, x-a 0 (0 - A), store.
 TEST_F(CodegenTest, NegateSignedIntMadlen)
 {
-    std::string output = CompileToMadlen("int g; void foo(int a) { g = -a; }");
+    std::string output = CompileToMadlen("extern int g; void foo(int a) { g = -a; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -61,12 +57,8 @@ TEST_F(CodegenTest, NegateUnsigned)
 // Unsigned negate lowers to the b/uneg runtime helper.
 TEST_F(CodegenTest, NegateUnsignedMadlen)
 {
-    std::string output = CompileToMadlen("unsigned g; void foo(unsigned a) { g = -a; }");
+    std::string output = CompileToMadlen("extern unsigned g; void foo(unsigned a) { g = -a; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -102,12 +94,8 @@ TEST_F(CodegenTest, NegateDouble)
 // Double negate brackets x-a 0 with ntr 0 / ntr 7 to enable normalization+rounding.
 TEST_F(CodegenTest, NegateDoubleMadlen)
 {
-    std::string output = CompileToMadlen("double g; void foo(double a) { g = -a; }");
+    std::string output = CompileToMadlen("extern double g; void foo(double a) { g = -a; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -161,12 +149,8 @@ TEST_F(CodegenTest, ComplementSignedInt)
 // path is type-independent, so this also covers int.
 TEST_F(CodegenTest, ComplementMadlen)
 {
-    std::string output = CompileToMadlen("unsigned g; void foo(unsigned a) { g = ~a; }");
+    std::string output = CompileToMadlen("extern unsigned g; void foo(unsigned a) { g = ~a; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -204,12 +188,8 @@ TEST_F(CodegenTest, LogicalNot)
 // Madlen shape of logical not: load, call b/not, store.  The path is type-independent.
 TEST_F(CodegenTest, LogicalNotMadlen)
 {
-    std::string output = CompileToMadlen("unsigned g; void foo(unsigned a) { g = !a; }");
+    std::string output = CompileToMadlen("extern unsigned g; void foo(unsigned a) { g = !a; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,

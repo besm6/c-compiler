@@ -4,17 +4,13 @@
 TEST_F(CodegenTest, CopyGlobalToLocal)
 {
     std::string output = CompileToMadlen(R"(
-        int g;
+        extern int g;
         void foo(void) {
             volatile int x;
             x = g;
         }
     )");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -32,12 +28,8 @@ c
 // Local → global: COPY a → g (Case C)
 TEST_F(CodegenTest, CopyLocalToGlobal)
 {
-    std::string output = CompileToMadlen("int g; void foo(int a) { g = a; }");
+    std::string output = CompileToMadlen("extern int g; void foo(int a) { g = a; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -54,16 +46,8 @@ c
 // Global → global: COPY g → h (Case D)
 TEST_F(CodegenTest, CopyGlobalToGlobal)
 {
-    std::string output = CompileToMadlen("int g, h; void foo(void) { h = g; }");
+    std::string output = CompileToMadlen("extern int g, h; void foo(void) { h = g; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
-        h:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -118,12 +102,8 @@ TEST_F(CodegenTest, CopyConstToLocal)
 // COPY from integer constant 0 to a global variable.
 TEST_F(CodegenTest, CopyConstToGlobal)
 {
-    std::string output = CompileToMadlen("int g; void foo(void) { g = 0; }");
+    std::string output = CompileToMadlen("extern int g; void foo(void) { g = 0; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
@@ -141,12 +121,8 @@ c
 // (0x1FFFFFFFFFF = 37777777777777 octal), not emitted as a 64-bit pattern.
 TEST_F(CodegenTest, CopyNegConst)
 {
-    std::string output = CompileToMadlen("int g; void foo(void) { g = -1; }");
+    std::string output = CompileToMadlen("extern int g; void foo(void) { g = -1; }");
     EXPECT_EQ(R"(c
-        g:   ,name,
-             ,bss, 1
-             ,end,
-c
       foo:   ,name,
     b/ret:   ,subp,
         g:   ,subp,
