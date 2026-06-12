@@ -707,8 +707,11 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
     }
     // UNARY  dst = op src
     //
-    // Negate and complement are implemented (task #6); not falls through to the
-    // default fatal_error below.
+    // Negate, complement, and logical not are implemented (task #6).
+    //
+    // Logical not (!) lowers to the b/not runtime helper for every operand type: the
+    // helper tests A against zero, leaving 1 if the operand is zero and 0 otherwise.  It
+    // is a unary helper like b/uneg: operand in A, result in A, returns via 13 ,uj,.
     //
     // Negate needs three representation-specific sequences:
     //   - signed int:  X-A 0   (0 - A; mem[0]=0 architecturally).  R=7 after b/save
@@ -746,6 +749,14 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
             emit_xta_val(block, tail, f, src);
             Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
             call->name       = xstrdup("b/uneg");
+            emit_atx(block, tail, rd, od);
+            break;
+        }
+        case TAC_UNARY_NOT: {
+            // Logical NOT for any operand type: b/not returns 1 if A == 0, else 0.
+            emit_xta_val(block, tail, f, src);
+            Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
+            call->name       = xstrdup("b/not");
             emit_atx(block, tail, rd, od);
             break;
         }

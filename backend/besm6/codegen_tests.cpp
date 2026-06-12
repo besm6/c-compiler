@@ -1368,3 +1368,46 @@ c
              ,end,
 )", output);
 }
+
+// Unary logical not (!), part of task #6.  Lowers to the b/not runtime helper, which
+// returns 1 if the operand is zero and 0 otherwise, for any operand type.
+
+// !0 is 1; !5 is 0.  The helper result reaches A and is printed in decimal.
+TEST_F(CodegenTest, LogicalNot)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile int a = 0;
+            volatile int b = 5;
+            printf("%d %d\n", !a, !b);
+        }
+    )");
+    EXPECT_EQ("1 0\n", result);
+}
+
+// Madlen shape of logical not: load, call b/not, store.  The path is type-independent.
+TEST_F(CodegenTest, LogicalNotMadlen)
+{
+    std::string output = CompileToMadlen("unsigned g; void foo(unsigned a) { g = !a; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,call, b/not
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}

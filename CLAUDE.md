@@ -84,7 +84,7 @@ Source (.c)
 | AST → TAC lowering | `translator/translate.c`, `expr.c`, `stmt.c` | Complete |
 | TAC optimizer | `optimize/` | Complete (const fold, unreachable elim, copy prop, dead store elim) |
 | x86_64 code gen | `backend/x86/` | Planned |
-| BESM-6 code gen | `backend/besm6/` | In progress (frame alloc, static data, UTF-8→KOI7, main entry, global variable access, COPY/GET_ADDRESS/LOAD/STORE/BINARY/UNARY negate (int/unsigned/FP)/UNARY complement/FUN_CALL/RETURN/LABEL/JUMP/JUMP_IF_ZERO/JUMP_IF_NOT_ZERO done) |
+| BESM-6 code gen | `backend/besm6/` | In progress (frame alloc, static data, UTF-8→KOI7, main entry, global variable access, COPY/GET_ADDRESS/LOAD/STORE/BINARY/UNARY negate (int/unsigned/FP)/UNARY complement/UNARY not/FUN_CALL/RETURN/LABEL/JUMP/JUMP_IF_ZERO/JUMP_IF_NOT_ZERO done) |
 | AArch64 / RISC-V / ARM32 code gen | — | Planned |
 
 ### Key data structures
