@@ -733,10 +733,10 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         case TAC_BINARY_LESS_OR_EQUAL:             cmp_helper = "b/le"; break;
         case TAC_BINARY_GREATER_THAN:              cmp_helper = "b/gt"; break;
         case TAC_BINARY_GREATER_OR_EQUAL:          cmp_helper = "b/ge"; break;
-        case TAC_BINARY_LESS_THAN_UNSIGNED:        cmp_helper = "b/lt"; break; // TODO: b/ult
+        case TAC_BINARY_LESS_THAN_UNSIGNED:        cmp_helper = "b/ult"; break;
         case TAC_BINARY_LESS_OR_EQUAL_UNSIGNED:    cmp_helper = "b/le"; break; // TODO: b/ule
         case TAC_BINARY_GREATER_THAN_UNSIGNED:     cmp_helper = "b/gt"; break; // TODO: b/ugt
-        case TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED: cmp_helper = "b/ge"; break; // TODO: b/uge
+        case TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED: cmp_helper = "b/uge"; break;
         default: break;
         }
         if (cmp_helper) {

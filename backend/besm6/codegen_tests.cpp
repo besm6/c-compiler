@@ -979,8 +979,7 @@ TEST_F(CodegenTest, CompareSignedNegative)
 }
 
 // The four unsigned ordering ops on small values (5 vs 3): <, <=, >, >= → 0 0 1 1.
-// (Small operands fit the signed range, so the temporary signed-helper mapping holds.)
-TEST_F(CodegenTest, CompareUnsigned)
+TEST_F(CodegenTest, CompareUnsignedGreater)
 {
     std::string result = CompileAndRun(R"(
         int printf(const char *format, ...);
@@ -990,6 +989,32 @@ TEST_F(CodegenTest, CompareUnsigned)
         }
     )");
     EXPECT_EQ("0011\n", result);
+}
+
+// The four unsigned ordering ops on small values (3 vs 5): <, <=, >, >= → 1 1 0 0.
+TEST_F(CodegenTest, CompareUnsignedLess)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile unsigned x = 3, y = 5;
+            printf("%d%d%d%d\n", x < y, x <= y, x > y, x >= y);
+        }
+    )");
+    EXPECT_EQ("1100\n", result);
+}
+
+// The four unsigned ordering ops on small values (4 vs 4): <, <=, >, >= → 0 1 0 1.
+TEST_F(CodegenTest, CompareUnsignedEqual)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile unsigned x = 4, y = 4;
+            printf("%d%d%d%d\n", x < y, x <= y, x > y, x >= y);
+        }
+    )");
+    EXPECT_EQ("0101\n", result);
 }
 
 // A comparison feeding an if: the 0/1 result drives the already-working
