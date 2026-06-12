@@ -921,3 +921,105 @@ TEST_F(CodegenTest, PrintFormatChar)
     )");
     EXPECT_EQ("HELLO (-_-)\n", result);
 }
+
+// Integer comparisons (task #4).  Operands are volatile so the optimizer cannot fold
+// the comparisons at compile time; each comparison lowers to a runtime relational
+// helper call (b/lt, b/le, b/gt, b/ge, b/eq, b/ne) that leaves a raw 0/1 in A.
+
+// All six operators with a > b (5 vs 3): <, <=, >, >=, ==, != → 0 0 1 1 0 1.
+TEST_F(CodegenTest, CompareSignedGreater)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile int a = 5, b = 3;
+            printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
+        }
+    )");
+    EXPECT_EQ("001101\n", result);
+}
+
+// All six operators with a < b (3 vs 5): <, <=, >, >=, ==, != → 1 1 0 0 0 1.
+TEST_F(CodegenTest, CompareSignedLess)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile int a = 3, b = 5;
+            printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
+        }
+    )");
+    EXPECT_EQ("110001\n", result);
+}
+
+// All six operators with a == b (4 vs 4): <, <=, >, >=, ==, != → 0 1 0 1 1 0.
+TEST_F(CodegenTest, CompareSignedEqual)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile int a = 4, b = 4;
+            printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
+        }
+    )");
+    EXPECT_EQ("010110\n", result);
+}
+
+// Negative operands exercise the 41-bit signed sign test (-7 < 2).
+TEST_F(CodegenTest, CompareSignedNegative)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile int a = -7, b = 2;
+            printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
+        }
+    )");
+    EXPECT_EQ("110001\n", result);
+}
+
+// The four unsigned ordering ops on small values (5 vs 3): <, <=, >, >= → 0 0 1 1.
+// (Small operands fit the signed range, so the temporary signed-helper mapping holds.)
+TEST_F(CodegenTest, CompareUnsigned)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile unsigned x = 5, y = 3;
+            printf("%d%d%d%d\n", x < y, x <= y, x > y, x >= y);
+        }
+    )");
+    EXPECT_EQ("0011\n", result);
+}
+
+// A comparison feeding an if: the 0/1 result drives the already-working
+// JUMP_IF_ZERO control flow.
+TEST_F(CodegenTest, CompareInBranch)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile int a = 7, b = 4;
+            if (a > b)
+                printf("yes\n");
+            else
+                printf("no\n");
+        }
+    )");
+    EXPECT_EQ("YES\n", result);
+}
+
+// Madlen-level shape check: a comparison emits xta / xts / ,call, b/lt / atx, with no
+// caller-side stack pop (the helper pops its own operand).
+TEST_F(CodegenTest, CompareMadlenShape)
+{
+    std::string out = CompileToMadlen(R"(
+        int cmp(int a, int b) {
+            return a < b;
+        }
+    )");
+    EXPECT_NE(out.find(",xts,"), std::string::npos);
+    EXPECT_NE(out.find(",call, b/lt"), std::string::npos);
+    // No UTM stack adjustment is emitted around the helper call.
+    EXPECT_EQ(out.find("15 ,utm, -1"), std::string::npos);
+}

@@ -181,6 +181,33 @@ static void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind,
     }
 }
 
+// Emit an integer comparison:  dst = src1 <cmp> src2.
+//
+// Comparisons lower to the runtime relational helpers (b/eq, b/ne, b/lt, b/le, b/gt,
+// b/ge).  These follow the lightweight helper convention (NOT the C ABI):
+//   - first operand `a` sits on the stack top, second operand `b` is in A;
+//   - the helper reads `a` through the stack register (M17 pre-decrement), which both
+//     consumes `a` and pops it (r15 -= 1), so the caller emits no stack adjustment;
+//   - the raw 0/1 result is left in A; the helper returns via 13 ,uj,.
+//   - ,call, self-declares the external (like printf), so no ,subp, is needed.
+//
+// Sequence (a = src1, b = src2):
+//   XTA src1        — A = a
+//   XTS src2        — push a (r15 += 1); A = b
+//   ,call, helper   — helper pops a (r15 -= 1); result in A
+//   reg ,ATX, off   — store 0/1 into dst's frame slot
+//
+static void emit_compare(Besm_Block *b, Besm_Instr **t, const Frame *f,
+                         const Tac_Val *src1, const Tac_Val *src2,
+                         const char *helper, int dr, int doff)
+{
+    emit_xta_val(b, t, f, src1);
+    emit_xts_val(b, t, f, src2);
+    Besm_Instr *call = emit(b, t, BESM_BRANCH_CALL);
+    call->name       = xstrdup(helper);
+    emit_atx(b, t, dr, doff);
+}
+
 static unsigned long long static_init_log_val(const Tac_StaticInit *init)
 {
     switch (init->kind) {
@@ -693,6 +720,30 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         const Tac_Val *dst  = instr->u.binary.dst;
         int rd, od;
         lookup(f, dst->u.var_name, &rd, &od);
+
+        // Comparisons lower to a runtime relational helper.  The unsigned ordering ops
+        // temporarily reuse the signed helpers (correct within the 41-bit signed range)
+        // until the b/ult/b/ule/b/ugt/b/uge library lands (TODO: task #20).  b/eq/b/ne
+        // are signedness-independent.
+        const char *cmp_helper = NULL;
+        switch (instr->u.binary.op) {
+        case TAC_BINARY_EQUAL:                     cmp_helper = "b/eq"; break;
+        case TAC_BINARY_NOT_EQUAL:                 cmp_helper = "b/ne"; break;
+        case TAC_BINARY_LESS_THAN:                 cmp_helper = "b/lt"; break;
+        case TAC_BINARY_LESS_OR_EQUAL:             cmp_helper = "b/le"; break;
+        case TAC_BINARY_GREATER_THAN:              cmp_helper = "b/gt"; break;
+        case TAC_BINARY_GREATER_OR_EQUAL:          cmp_helper = "b/ge"; break;
+        case TAC_BINARY_LESS_THAN_UNSIGNED:        cmp_helper = "b/lt"; break; // TODO: b/ult
+        case TAC_BINARY_LESS_OR_EQUAL_UNSIGNED:    cmp_helper = "b/le"; break; // TODO: b/ule
+        case TAC_BINARY_GREATER_THAN_UNSIGNED:     cmp_helper = "b/gt"; break; // TODO: b/ugt
+        case TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED: cmp_helper = "b/ge"; break; // TODO: b/uge
+        default: break;
+        }
+        if (cmp_helper) {
+            emit_compare(block, tail, f, src1, src2, cmp_helper, rd, od);
+            break;
+        }
+
         Besm_InstrKind op_kind;
         switch (instr->u.binary.op) {
         case TAC_BINARY_ADD:      op_kind = BESM_ARITH_ADD; break;

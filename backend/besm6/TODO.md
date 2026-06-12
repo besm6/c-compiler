@@ -9,16 +9,6 @@ The backend consumes binary TAC produced by `lower` and emits Madlen assembly (`
 for the Dubna monitor system. The shared frontend phases (scan/parse/typecheck/lower) are
 complete; this list covers the BESM-6 instruction-selection backend only.
 
-### Status
-
-**Done:** frame allocation, prologue/epilogue (`b/save`, `b/save0`, `b/ret`), static
-variables and constants (integers, strings with UTF-8→KOI7, regular and fat pointers,
-floats/doubles), the `main` program entry point, and the TAC instructions `COPY`,
-`GET_ADDRESS`, word-pointer `LOAD`/`STORE`, `BINARY` add/subtract (variable operands only),
-`FUN_CALL`, and `RETURN`.
-
-**Remaining:** everything in the phases below.
-
 ### Madlen statement format
 
 Every Madlen statement follows the form `<label> : <index_reg> ,<mnemonic>, <address>`.
@@ -88,7 +78,7 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 4 | Integer comparisons (signed + unsigned) | All produce raw 0/1 in A. Use the documented relational helpers `b/eq`, `b/ne`, `b/lt`, `b/le`, `b/gt`, `b/ge` (each loads `b/true`/0 via the two-branch template). The backend pushes `a`, leaves `b` in A, and calls the helper. **Unsigned compares**: the helpers' subtraction sign test is invalid over the full 48-bit range, so add analogous unsigned helpers `b/ult`, `b/ule`, `b/ugt`, `b/uge` (e.g. `ARX`-based 48-bit unsigned compare); `b/eq`/`b/ne` are signedness-independent. A later peephole may inline trivial signed compares (`XTA`/`A-X`/`U1A`). | M |
+| 4 | Unsigned comparisons (full 48-bit range) | Signed and equality comparisons are **done** (routed through `b/eq`/`b/ne`/`b/lt`/`b/le`/`b/gt`/`b/ge`). The `*_UNSIGNED` ordering ops (`<`, `<=`, `>`, `>=`) currently reuse those signed helpers, valid only within the 41-bit signed range. Once task #20 provides the dedicated full-range helpers `b/ult`/`b/ule`/`b/ugt`/`b/uge` (e.g. `ARX`-based 48-bit unsigned compare), switch the `*_UNSIGNED` cases in `codegen.c` to them. **Depends on task #20.** | S |
 | 5 | Switch statement | TAC lowers `switch` to compare + `JUMP_IF_*` chains (there is no dedicated switch TAC node), so it is functionally covered by tasks 2 & 4 — add end-to-end `CompileAndRun` tests for dense, sparse, `default`, and fall-through cases. **Optional**: a jump-table optimization for dense case ranges (index-scaled `UTC`/`UJ` through a table of `,oct, label` words). | S (M with jump table) |
 
 ### Phase H — Integer arithmetic & bitwise (single word)
