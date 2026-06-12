@@ -43,6 +43,11 @@ add_executable(besm-tests
     label_tests.cpp
     frame_tests.cpp
     codegen_tests.cpp
+    arith_tests.cpp
+    copy_tests.cpp
+    flow_tests.cpp
+    run_tests.cpp
+    unary_tests.cpp
     init_tests.cpp
 )
 target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
