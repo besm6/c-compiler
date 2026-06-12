@@ -877,3 +877,47 @@ TEST_F(CodegenTest, FuncArgFloat)
              ,end,
 )", output);
 }
+
+TEST_F(CodegenTest, PrintFormatDecimal)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            printf("foo = %d, bar = %d\n", 123, -456);
+        }
+    )");
+    EXPECT_EQ("FOO = 123, BAR = -456\n", result);
+}
+
+TEST_F(CodegenTest, PrintFormatOctal)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            printf("foo = %o, bar = %o\n", 123, -456);
+        }
+    )");
+    EXPECT_EQ("FOO = 173, BAR = 37777777777070\n", result);
+}
+
+TEST_F(CodegenTest, PrintFormatString)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            printf("hello %s\n", "world");
+        }
+    )");
+    EXPECT_EQ("HELLO WORLD\n", result);
+}
+
+TEST_F(CodegenTest, PrintFormatChar)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            printf("hello %c%c%c%c%c\n", '(', '-', '_', '-', ')');
+        }
+    )");
+    EXPECT_EQ("HELLO (-_-)\n", result);
+}
