@@ -210,6 +210,49 @@ static void emit_compare(Besm_Block *b, Besm_Instr **t, const Frame *f,
     emit_atx(b, t, dr, doff);
 }
 
+// Extract the integer value of an integer constant (used for constant shift counts).
+static long tac_const_int(const Tac_Const *c)
+{
+    switch (c->kind) {
+    case TAC_CONST_INT:        return c->u.int_val;
+    case TAC_CONST_LONG:       return (long)c->u.long_val;
+    case TAC_CONST_LONG_LONG:  return (long)c->u.long_long_val;
+    case TAC_CONST_CHAR:       return c->u.char_val;
+    case TAC_CONST_UINT:       return (long)c->u.uint_val;
+    case TAC_CONST_ULONG:      return (long)c->u.ulong_val;
+    case TAC_CONST_ULONG_LONG: return (long)c->u.ulong_long_val;
+    case TAC_CONST_UCHAR:      return c->u.uchar_val;
+    default:
+        fatal_error("non-integer constant kind %d as shift count", (int)c->kind);
+    }
+}
+
+// Emit a shift:  dst = src1 << src2  (left) or  dst = src1 >> src2  (right).
+//
+// Shifts are logical for both int and unsigned, and right-shift does no sign extension.
+// BESM-6 ASN/ASX shift by (exponent_field - 64): a field > 64 shifts right, < 64 shifts
+// left.  So left by k uses field 64-k, right by k uses field 64+k.
+//
+//   - Constant count k: load the value, then a single ASN with the computed field.
+//   - Variable count: runtime-helper convention (value on stack top, count in A) — call
+//     b/lsh / b/rsh, which leave the result in A and pop the value.
+static void emit_shift(Besm_Block *b, Besm_Instr **t, const Frame *f,
+                       const Tac_Val *src1, const Tac_Val *src2,
+                       bool left, int dr, int doff)
+{
+    emit_xta_val(b, t, f, src1);
+    if (src2->kind == TAC_VAL_CONSTANT) {
+        long k = tac_const_int(src2->u.constant);
+        Besm_Instr *asn = emit(b, t, BESM_EXP_SHIFTN);
+        asn->addr       = (int)(left ? 64 - k : 64 + k);
+    } else {
+        emit_xts_val(b, t, f, src2);
+        Besm_Instr *call = emit(b, t, BESM_BRANCH_CALL);
+        call->name       = xstrdup(left ? "b/lsh" : "b/rsh");
+    }
+    emit_atx(b, t, dr, doff);
+}
+
 static unsigned long long static_init_log_val(const Tac_StaticInit *init)
 {
     switch (init->kind) {
@@ -849,6 +892,19 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         }
         if (cmp_helper) {
             emit_compare(block, tail, f, src1, src2, cmp_helper, rd, od);
+            break;
+        }
+
+        // Shifts are logical for int and unsigned alike (right-shift does no sign
+        // extension), so all three shift ops reduce to "left" or "right".  Constant
+        // counts inline an ASN; variable counts call b/lsh / b/rsh.
+        if (instr->u.binary.op == TAC_BINARY_LEFT_SHIFT) {
+            emit_shift(block, tail, f, src1, src2, /*left=*/true, rd, od);
+            break;
+        }
+        if (instr->u.binary.op == TAC_BINARY_RIGHT_SHIFT ||
+            instr->u.binary.op == TAC_BINARY_RIGHT_SHIFT_LOGICAL) {
+            emit_shift(block, tail, f, src1, src2, /*left=*/false, rd, od);
             break;
         }
 

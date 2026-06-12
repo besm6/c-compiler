@@ -1,0 +1,11 @@
+     b/lsh: ,name,
+c
+c Compute a left shift operation A << B.
+c Pop two values from stack.
+c Push result back.
+c
+            ,aex, =177              . ~B is the same as -B-1
+            ,sti, 14                . r14 = -B-1, pop A from stack
+         14 ,asn, 64 + 1            . A <<= -r14-1
+         13 ,uj,
+            ,end,

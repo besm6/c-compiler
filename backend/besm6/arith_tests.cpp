@@ -343,3 +343,132 @@ TEST_F(CodegenTest, BitwiseRun)
     )");
     EXPECT_EQ("8 14 6\n", result);
 }
+
+// Constant left shift by k inlines a single ASN with field 64-k (here 64-3 = 61).
+TEST_F(CodegenTest, LeftShiftConstant)
+{
+    std::string output = CompileToMadlen("extern int g; void foo(int a) { g = a << 3; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,asn, 61
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// Constant right shift by k inlines a single ASN with field 64+k (here 64+2 = 66).
+TEST_F(CodegenTest, RightShiftConstant)
+{
+    std::string output = CompileToMadlen("extern int g; void foo(int a) { g = a >> 2; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,asn, 66
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// Variable left shift calls the b/lsh runtime helper (value on stack, count in A).
+TEST_F(CodegenTest, LeftShiftVariable)
+{
+    std::string output = CompileToMadlen("extern int g; void foo(int a, int b) { g = a << b; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+           6 ,xts, 1
+             ,call, b/lsh
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// Variable right shift calls the b/rsh runtime helper.
+TEST_F(CodegenTest, RightShiftVariable)
+{
+    std::string output = CompileToMadlen("extern int g; void foo(int a, int b) { g = a >> b; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+           6 ,xts, 1
+             ,call, b/rsh
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// End-to-end: constant-count shifts compute the expected values at run time.
+TEST_F(CodegenTest, ShiftConstantRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile int a = 1, b = 40;
+            printf("%d %d\n", a << 5, b >> 2);
+        }
+    )");
+    EXPECT_EQ("32 10\n", result);
+}
+
+// End-to-end: variable-count shifts (via b/lsh / b/rsh) compute the expected values.
+TEST_F(CodegenTest, ShiftVariableRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile int a = 3, b = 4, c = 100, d = 3;
+            printf("%d %d\n", a << b, c >> d);
+        }
+    )");
+    EXPECT_EQ("48 12\n", result);
+}
+
+// End-to-end: unsigned right shift is logical (no sign extension) and matches int.
+TEST_F(CodegenTest, ShiftUnsignedRightRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile unsigned a = 200, b = 3;
+            printf("%d %d\n", a >> b, a << 1);
+        }
+    )");
+    EXPECT_EQ("25 400\n", result);
+}

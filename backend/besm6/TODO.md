@@ -78,7 +78,6 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 8 | Shifts (left / arith right / logical right) | Constant counts: `,ASN, (64±k)B` (`ASN` shifts by N−64: left by k → 64−k, right by k → 64+k). Variable counts: build an `ASX` control word whose exponent field encodes the count, or a small runtime helper. **Left** and **logical right** (`RIGHT_SHIFT_LOGICAL`, unsigned) are plain `ASN`/`ASX`. **Arithmetic right** (signed): logical shift, then sign-fill the vacated high bits via `AOX` with a sign-extension mask when the operand is negative. | M |
 | 9 | Multiply | The single-word low product is identical for signed and unsigned. Use the documented `b/mul` helper: bridge raw operands to INT-format (exponent `0150B`), `A*X`, correct the exponent (`E-N 150B`), strip back to raw, mask to 48 bits. Emit `,CALL, b/mul` (or inline the sequence for small/constant multipliers). | M |
 | 10 | Signed divide & remainder | Use the documented `b/div`/`b/mod` helpers: extract operand signs, FP-divide the absolute values with exponent adjustment, truncate toward zero, reapply the sign; `b/mod` = a − (a÷b)·b. | L |
 | 11 | Unsigned divide & remainder | Add `b/udiv`/`b/umod` (the signed FP-divide trick mishandles the top bit over the full 48-bit unsigned range). Implement via a shift/subtract restoring-division loop, or by normalizing as a non-negative FP value. Selected for the `*_UNSIGNED` TAC ops from task 1. | L |
