@@ -74,13 +74,6 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 ---
 
-### Phase G — Comparisons & switch
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 4 | Unsigned comparisons (full 48-bit range) | Signed and equality comparisons are **done** (routed through `b/eq`/`b/ne`/`b/lt`/`b/le`/`b/gt`/`b/ge`). The `*_UNSIGNED` ordering ops (`<`, `<=`, `>`, `>=`) currently reuse those signed helpers, valid only within the 41-bit signed range. Once task #20 provides the dedicated full-range helpers `b/ult`/`b/ule`/`b/ugt`/`b/uge` (e.g. `ARX`-based 48-bit unsigned compare), switch the `*_UNSIGNED` cases in `codegen.c` to them. **Depends on task #20.** | S |
-| 5 | Switch statement | TAC lowers `switch` to compare + `JUMP_IF_*` chains (there is no dedicated switch TAC node), so it is functionally covered by tasks 2 & 4 — add end-to-end `CompileAndRun` tests for dense, sparse, `default`, and fall-through cases. **Optional**: a jump-table optimization for dense case ranges (index-scaled `UTC`/`UJ` through a table of `,oct, label` words). | S (M with jump table) |
-
 ### Phase H — Integer arithmetic & bitwise (single word)
 
 | # | Task | Description | Effort |
@@ -119,7 +112,7 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 20 | Runtime helper stubs | The `backend/besm6/libc/*.madlen` sources are assembled into `libc.bin` by CMake and mounted by `CompileAndRun`. Eight helpers currently have placeholder stub bodies that need real implementations: unsigned `b/udiv`, `b/umod`, `b/ult`, `b/ule`, `b/ugt`, `b/uge`, and the double↔int conversions `b/dtoi`, `b/dtou`. | L |
+| 20 | Runtime helper stubs | The `backend/besm6/libc/*.madlen` sources are assembled into `libc.bin` by CMake and mounted by `CompileAndRun`. Six helpers currently have placeholder stub bodies that need real implementations: unsigned `b/udiv`, `b/umod`, `b/umul`, `b/uadd`, and the double↔int conversions `b/dtoi`, `b/dtou`. | L |
 
 ### Phase M — Deferred / future
 
@@ -127,4 +120,5 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 |---|------|-------------|--------|
 | 21 | Two-word `long long` / `unsigned long long` | Two-word load/store and software add/sub/mul/div/compare. First fix `codegen_sizeof` in [abi.h](abi.h), which currently returns 1 word for these two-word types. | XL |
 | 22 | Two-word `long double` | Two-word native-FP arithmetic (80-bit mantissa, 14-bit exponent biased 8192) via runtime helpers, using the Y/RMR register for double-width intermediates. | XL |
-| 23 | Optimizations | Peephole rewrites, redundant load/store elimination, frame-slot reuse for dead temporaries, and switch jump tables (if not done in task 5). | L |
+| 23 | Optimizations | Peephole rewrites, redundant load/store elimination, frame-slot reuse for dead temporaries. (Switch jump tables are tracked separately as task #24.) | L |
+| 24 | Switch jump-table optimization | For dense case ranges, replace the linear compare chain with an index-scaled `UTC`/`UJ` dispatch through a table of `,oct, label` words. | M |
