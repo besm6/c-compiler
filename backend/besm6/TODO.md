@@ -119,7 +119,7 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 20 | Madlen runtime sources | Provide assembled bodies for every helper, as Madlen files under `backend/besm6/runtime/`. Already specified in [docs/Besm6_Runtime_Library.md](../../docs/Besm6_Runtime_Library.md): `b/save`, `b/save0`, `b/ret`, `b/true`, `b/mul`, `b/div`, `b/mod`, `b/eq`, `b/ne`, `b/lt`, `b/le`, `b/gt`, `b/ge`, `b/not`. New helpers to add and document there: unsigned `b/udiv`, `b/umod`, `b/ult`, `b/ule`, `b/ugt`, `b/uge`, and the double↔int conversions `b/dtoi`, `b/dtou`. Also correct the doc's stale "36-bit / B-language" wording to the 48-bit C reality. Wire them into the assembler job used by `CompileAndRun`, or confirm which already live in the external Dubna library (`*library:40`). | L |
+| 20 | Madlen runtime sources | Provide assembled bodies for every helper, as Madlen files under `backend/besm6/libc/`. Already specified in [docs/Besm6_Runtime_Library.md](../../docs/Besm6_Runtime_Library.md): `b/save`, `b/save0`, `b/ret`, `b/true`, `b/mul`, `b/div`, `b/mod`, `b/eq`, `b/ne`, `b/lt`, `b/le`, `b/gt`, `b/ge`, `b/not`. New helpers to add and document there: unsigned `b/udiv`, `b/umod`, `b/ult`, `b/ule`, `b/ugt`, `b/uge`, and the double↔int conversions `b/dtoi`, `b/dtou`. Also correct the doc's stale "36-bit / B-language" wording to the 48-bit C reality. Wire them into the assembler job used by `CompileAndRun`, or confirm which already live in the external Dubna library (`*library:40`). | L |
 
 ### Phase M — Deferred / future
 

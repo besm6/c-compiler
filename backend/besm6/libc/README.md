@@ -4,6 +4,32 @@ Runtime library for C programs targeting the BESM-6 mainframe.
 
 For basing, use `r14`. No other functions must be called, and no extracodes.
 
+## I/O Functions
+
+| Function | Source | Description |
+|----------|--------|-------------|
+| `read()` | [read.b](read.b) | Read one character from stdin; returns `0` at EOF |
+| `write(ch)` | [write.b](write.b) | Append a multi-char word to the output buffer (skips leading zero bytes) |
+| `writeb(b)` | [writeb.b](writeb.b) | Append one byte to the output buffer; flushes on newline or full buffer |
+| `flush()` | [flush.b](flush.b) | Flush the output line buffer to stdout (or drum when `fout` is set) |
+| `printf(fmt, ...)` | [printf.b](printf.b) | Formatted output: `%d` decimal, `%o` octal, `%c` character, `%s` string |
+| `printd(n)` | [printd.b](printd.b) | Print a signed decimal integer |
+| `printo(n)` | [printo.b](printo.b) | Print an octal integer |
+| `b/tout(buf)` | [b_tout.madlen](b_tout.madlen) | Low-level: write a line buffer directly to stdout via extracode `*71` |
+
+## String / Character Functions
+
+| Function | Source | Description |
+|----------|--------|-------------|
+| `char(str, i)` | [char.madlen](char.madlen) | Return byte `i` of string `str` (left-to-right, 0-based) |
+| `lchar(str, i, ch)` | [lchar.madlen](lchar.madlen) | Set byte `i` of string `str` to `ch`; return `ch` |
+
+## Program Control
+
+| Function | Source | Description |
+|----------|--------|-------------|
+| `exit()` | [exit.madlen](exit.madlen) | Terminate the program (extracode `*74`) |
+
 ## Compiler-Support Routines
 
 These are internal helpers emitted by the compiler; they are not called directly from C source.

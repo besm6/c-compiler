@@ -55,7 +55,7 @@ from the helper convention.
 
 ---
 
-### `b/save` — [b_save.madlen](../backend/besm6/runtime/b_save.madlen)
+### `b/save` — [b_save.madlen](../backend/besm6/libc/b_save.madlen)
 
 Called on entry to every C function that has **one or more parameters**.
 
@@ -89,7 +89,7 @@ The compiler emits:
 
 ---
 
-### `b/save0` — [b_save0.madlen](../backend/besm6/runtime/b_save0.madlen)
+### `b/save0` — [b_save0.madlen](../backend/besm6/libc/b_save0.madlen)
 
 Called on entry to every C function with **no parameters**.
 
@@ -114,7 +114,7 @@ so `b/ret` can use the same unwind calculation regardless of parameter count.
 
 ---
 
-### `b/ret` — [b_ret.madlen](../backend/besm6/runtime/b_ret.madlen)
+### `b/ret` — [b_ret.madlen](../backend/besm6/libc/b_ret.madlen)
 
 Called at every exit point of a C function. The return value must be in A before
 jumping to `b/ret`.
@@ -136,7 +136,7 @@ before any arguments were pushed; then jumps to r13.
 
 ---
 
-### `b/true` — [b_true.madlen](../backend/besm6/runtime/b_true.madlen)
+### `b/true` — [b_true.madlen](../backend/besm6/libc/b_true.madlen)
 
 A single word containing the raw integer 1:
 
@@ -160,7 +160,7 @@ quotient exponent is corrected with `a+x, =:64`, and the exponent field is strip
 `aax, =37 7777 7777 7777` — a 42-bit mask (14 octal digits) that zeroes bits 48–42 and
 leaves the 41-bit signed result (sign bit 41 + 40-bit magnitude) in A.
 
-#### `b/mul` — [b_mul.madlen](../backend/besm6/runtime/b_mul.madlen)
+#### `b/mul` — [b_mul.madlen](../backend/besm6/libc/b_mul.madlen)
 
 Computes `a * b` (signed, low 41-bit result).
 
@@ -180,7 +180,7 @@ Computes `a * b` (signed, low 41-bit result).
 The signed and unsigned low products are identical (both fit in 41 bits); `b/mul` serves
 both.
 
-#### `b/div` — [b_div.madlen](../backend/besm6/runtime/b_div.madlen)
+#### `b/div` — [b_div.madlen](../backend/besm6/libc/b_div.madlen)
 
 Computes `a / b` (signed, truncated toward zero).
 
@@ -190,7 +190,7 @@ convert each signed operand to FP-divide-compatible INT-format while recording i
 (`aax, =37 7777 7777 7777`) extract the signed quotient. The sign of the result is derived
 from the signs of the operands.
 
-#### `b/mod` — [b_mod.madlen](../backend/besm6/runtime/b_mod.madlen)
+#### `b/mod` — [b_mod.madlen](../backend/besm6/libc/b_mod.madlen)
 
 Computes `a % b` (signed remainder; result has the same sign as the dividend).
 
@@ -227,7 +227,7 @@ The signed helpers' INT-format trick mishandles unsigned operands whose top bit 
 is set: the FP unit interprets bit 48 as the number's sign, producing incorrect results.
 Separate helpers are required for the full 48-bit unsigned range.
 
-#### `b/udiv` — [b_udiv.madlen](../backend/besm6/runtime/b_udiv.madlen) — `a / b` (unsigned) — **to be implemented**
+#### `b/udiv` — [b_udiv.madlen](../backend/besm6/libc/b_udiv.madlen) — `a / b` (unsigned) — **to be implemented**
 
 Receives two 48-bit unsigned values (`a` at `mem[r15−1]`, `b` in A). Returns the
 unsigned quotient in A, truncated toward zero.
@@ -236,7 +236,7 @@ Intended algorithm: a software restoring long-division loop operating on the ful
 representation, or normalisation of the value as a non-negative FP mantissa followed by
 FP division. Division by zero has implementation-defined behaviour.
 
-#### `b/umod` — [b_umod.madlen](../backend/besm6/runtime/b_umod.madlen) — `a % b` (unsigned) — **to be implemented**
+#### `b/umod` — [b_umod.madlen](../backend/besm6/libc/b_umod.madlen) — `a % b` (unsigned) — **to be implemented**
 
 Returns the unsigned remainder `a − (a÷b)·b` using `b/udiv`. Both operands and the
 result span the full 48-bit unsigned range.
@@ -256,7 +256,7 @@ All seven routines follow the same two-branch template:
 4. `true` path: `xta b/true` loads 1; return.
 
 Inside each source file, `b/true` is declared as a `,subp,` alias that shares the
-constant from [b_true.madlen](../backend/besm6/runtime/b_true.madlen).
+constant from [b_true.madlen](../backend/besm6/libc/b_true.madlen).
 
 #### Branch condition details
 
@@ -279,13 +279,13 @@ r15=017), computing A = b XOR a.
 
 | Routine | Source | C op | Key instruction | ω mode | Branch taken when |
 |---------|--------|------|-----------------|--------|-------------------|
-| `b/not` | [b_not.madlen](../backend/besm6/runtime/b_not.madlen) | `!b` | `aex` → A = b XOR 0 = b | Logical | `uza`: A = 0 (b = 0) |
-| `b/eq` | [b_eq.madlen](../backend/besm6/runtime/b_eq.madlen) | `a == b` | `15 ,aex,` → A = b XOR a | Logical | `uza`: A = 0 (a = b) |
-| `b/ne` | [b_ne.madlen](../backend/besm6/runtime/b_ne.madlen) | `a != b` | `15 ,aex,` → A = b XOR a | Logical | `u1a`: A ≠ 0 (a ≠ b) |
-| `b/lt` | [b_lt.madlen](../backend/besm6/runtime/b_lt.madlen) | `a < b` | `15 ,x-a,` → A = a − b | Additive | `u1a`: A < 0 (a < b) |
-| `b/le` | [b_le.madlen](../backend/besm6/runtime/b_le.madlen) | `a <= b` | `15 ,a-x,` → A = b − a | Additive | `uza`: A ≥ 0 (b ≥ a) |
-| `b/gt` | [b_gt.madlen](../backend/besm6/runtime/b_gt.madlen) | `a > b` | `15 ,a-x,` → A = b − a | Additive | `u1a`: A < 0 (b < a) |
-| `b/ge` | [b_ge.madlen](../backend/besm6/runtime/b_ge.madlen) | `a >= b` | `15 ,x-a,` → A = a − b | Additive | `uza`: A ≥ 0 (a ≥ b) |
+| `b/not` | [b_not.madlen](../backend/besm6/libc/b_not.madlen) | `!b` | `aex` → A = b XOR 0 = b | Logical | `uza`: A = 0 (b = 0) |
+| `b/eq` | [b_eq.madlen](../backend/besm6/libc/b_eq.madlen) | `a == b` | `15 ,aex,` → A = b XOR a | Logical | `uza`: A = 0 (a = b) |
+| `b/ne` | [b_ne.madlen](../backend/besm6/libc/b_ne.madlen) | `a != b` | `15 ,aex,` → A = b XOR a | Logical | `u1a`: A ≠ 0 (a ≠ b) |
+| `b/lt` | [b_lt.madlen](../backend/besm6/libc/b_lt.madlen) | `a < b` | `15 ,x-a,` → A = a − b | Additive | `u1a`: A < 0 (a < b) |
+| `b/le` | [b_le.madlen](../backend/besm6/libc/b_le.madlen) | `a <= b` | `15 ,a-x,` → A = b − a | Additive | `uza`: A ≥ 0 (b ≥ a) |
+| `b/gt` | [b_gt.madlen](../backend/besm6/libc/b_gt.madlen) | `a > b` | `15 ,a-x,` → A = b − a | Additive | `u1a`: A < 0 (b < a) |
+| `b/ge` | [b_ge.madlen](../backend/besm6/libc/b_ge.madlen) | `a >= b` | `15 ,x-a,` → A = a − b | Additive | `uza`: A ≥ 0 (a ≥ b) |
 
 **Why pairs share an instruction:** `b/lt`/`b/ge` both compute `a − b` and test opposite
 ω conditions (`U1A` vs `UZA`). `b/le`/`b/gt` both compute `b − a` and test opposite
@@ -306,13 +306,13 @@ the 41-bit signed range. For unsigned values in the full 48-bit range, a differe
 comparison is needed — for example, carry/borrow detection via `ARX` (cyclic add, opcode
 013), or normalising both values as non-negative FP numbers and comparing exponents.
 
-#### `b/ult` — [b_ult.madlen](../backend/besm6/runtime/b_ult.madlen) — `a < b` (unsigned) — **to be implemented**
+#### `b/ult` — [b_ult.madlen](../backend/besm6/libc/b_ult.madlen) — `a < b` (unsigned) — **to be implemented**
 
-#### `b/ule` — [b_ule.madlen](../backend/besm6/runtime/b_ule.madlen) — `a <= b` (unsigned) — **to be implemented**
+#### `b/ule` — [b_ule.madlen](../backend/besm6/libc/b_ule.madlen) — `a <= b` (unsigned) — **to be implemented**
 
-#### `b/ugt` — [b_ugt.madlen](../backend/besm6/runtime/b_ugt.madlen) — `a > b` (unsigned) — **to be implemented**
+#### `b/ugt` — [b_ugt.madlen](../backend/besm6/libc/b_ugt.madlen) — `a > b` (unsigned) — **to be implemented**
 
-#### `b/uge` — [b_uge.madlen](../backend/besm6/runtime/b_uge.madlen) — `a >= b` (unsigned) — **to be implemented**
+#### `b/uge` — [b_uge.madlen](../backend/besm6/libc/b_uge.madlen) — `a >= b` (unsigned) — **to be implemented**
 
 Each receives the two 48-bit unsigned operands in the standard helper convention
 (`a` at `mem[r15−1]`, `b` in A) and returns 0 or 1 in A.
@@ -328,7 +328,7 @@ exponent, then `NTR` to normalise) and do not need a helper call. DOUBLE_TO_INT 
 DOUBLE_TO_UINT require extracting the mantissa at the correct shift, which is more
 involved.
 
-#### `b/dtoi` — [b_dtoi.madlen](../backend/besm6/runtime/b_dtoi.madlen) — `double` → signed `int` — **to be implemented**
+#### `b/dtoi` — [b_dtoi.madlen](../backend/besm6/libc/b_dtoi.madlen) — `double` → signed `int` — **to be implemented**
 
 Receives the 48-bit native FP value in A (no first operand on the stack). Returns the
 truncated 41-bit signed integer in A.
@@ -341,7 +341,7 @@ outside [−2⁴⁰, 2⁴⁰−1] have implementation-defined behaviour (C11 §6
 `float` and `double` use the same 48-bit format on BESM-6, so `b/dtoi` serves both
 `(int)f` and `(int)d`.
 
-#### `b/dtou` — [b_dtou.madlen](../backend/besm6/runtime/b_dtou.madlen) — `double` → unsigned `int` — **to be implemented**
+#### `b/dtou` — [b_dtou.madlen](../backend/besm6/libc/b_dtou.madlen) — `double` → unsigned `int` — **to be implemented**
 
 Same mantissa-shift algorithm as `b/dtoi` but without sign handling; returns the full
 48-bit unsigned result in A. Values outside [0, 2⁴⁸−1] have implementation-defined
@@ -351,7 +351,7 @@ behaviour.
 
 ### I/O Routines
 
-#### `b/tout` — [b_tout.madlen](../backend/besm6/runtime/b_tout.madlen)
+#### `b/tout` — [b_tout.madlen](../backend/besm6/libc/b_tout.madlen)
 
 Writes a line to stdout via BESM-6 extracode 71 (Dubna monitor print-line service).
 
