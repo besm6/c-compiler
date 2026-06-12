@@ -707,8 +707,10 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
     }
     // UNARY  dst = op src
     //
-    // Only negate is implemented (task #6); complement and not fall through to the
-    // default fatal_error below.  Three representations need distinct sequences:
+    // Negate and complement are implemented (task #6); not falls through to the
+    // default fatal_error below.
+    //
+    // Negate needs three representation-specific sequences:
     //   - signed int:  X-A 0   (0 - A; mem[0]=0 architecturally).  R=7 after b/save
     //                  suppresses normalization/rounding, so this works directly.
     //   - unsigned:    the b/uneg runtime helper (48-bit modular negate).  It is a
@@ -716,6 +718,10 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
     //   - double:      enable normalization+rounding (NTR 0) around X-A 0, then
     //                  restore (NTR 7).  The surrounding NTRs are the temporary form;
     //                  a later pass will trim the ones that prove unnecessary.
+    //
+    // Complement is uniform for int and unsigned: AEX against an all-ones word flips
+    // all 48 bits.  For unsigned this is the exact 48-bit complement; for signed int
+    // it also flips the exponent field, yielding a non-canonical word (accepted UB).
     case TAC_INSTRUCTION_UNARY: {
         const Tac_Val *src = instr->u.unary.src;
         const Tac_Val *dst = instr->u.unary.dst;
@@ -728,6 +734,14 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
             emit(block, tail, BESM_ARITH_RSUB);
             emit_atx(block, tail, rd, od);
             break;
+        case TAC_UNARY_COMPLEMENT: {
+            // Same sequence for int and unsigned: flip all 48 bits.
+            emit_xta_val(block, tail, f, src);
+            Besm_Instr *aex = emit(block, tail, BESM_LOG_AEX);
+            aex->name       = xstrdup("=7777777777777777"); // 48 one-bits, octal
+            emit_atx(block, tail, rd, od);
+            break;
+        }
         case TAC_UNARY_NEGATE_UNSIGNED: {
             emit_xta_val(block, tail, f, src);
             Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);

@@ -1311,3 +1311,60 @@ c
              ,end,
 )", output);
 }
+
+// Unary complement (~), part of task #6.  The sequence is uniform for int and
+// unsigned: load, aex =7777777777777777 (flip all 48 bits), store.
+
+// Unsigned complement: ~5u is the exact 48-bit complement, printed in octal.
+TEST_F(CodegenTest, ComplementUnsigned)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile unsigned a = 5;
+            printf("%o\n", ~a);
+        }
+    )");
+    EXPECT_EQ("7777777777777772\n", result);
+}
+
+// Signed-int complement: flipping all 48 bits also sets the exponent field, so the
+// result word is non-canonical (accepted UB).  Print the raw word in octal.
+TEST_F(CodegenTest, ComplementSignedInt)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile int a = 5;
+            printf("%o\n", ~a);
+        }
+    )");
+    EXPECT_EQ("7777777777777772\n", result);
+}
+
+// Madlen shape of complement: load, aex against the all-ones literal, store.  The
+// path is type-independent, so this also covers int.
+TEST_F(CodegenTest, ComplementMadlen)
+{
+    std::string output = CompileToMadlen("unsigned g; void foo(unsigned a) { g = ~a; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,aex, =7777777777777777
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
