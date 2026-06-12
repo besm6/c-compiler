@@ -813,13 +813,13 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
     }
     // BINARY  dst = src1 op src2
     //
-    // For integer add/subtract, R=7 after b/save suppresses normalization and
-    // rounding, so the arithmetic instructions work directly on INT-format values.
-    // No NTR is needed.
+    // For integer add/subtract and the bitwise ops (and/or/xor), R=7 after b/save
+    // suppresses normalization and rounding, so the arithmetic and logical
+    // instructions work directly on raw words.  No NTR is needed.
     //
     // BESM-6 sequence:
     //   reg_src1 ,XTA, off_src1   — load src1 from its frame slot into A
-    //   reg_src2 ,A+X, off_src2   — A = A + src2  (A-X for subtract)
+    //   reg_src2 ,A+X, off_src2   — A = A op src2  (A-X / AAX / AOX / AEX)
     //   reg_dst  ,ATX, off_dst    — store A into dst's frame slot
     //
     case TAC_INSTRUCTION_BINARY: {
@@ -852,10 +852,17 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
             break;
         }
 
+        // Bitwise and/or/xor map directly to the logical instructions AAX/AOX/AEX,
+        // which act on raw 48-bit words with no normalization (same shape as ADD/SUB).
+        // The result is correct for both signed (exponent field = 0) and unsigned
+        // (full 48-bit) operands, so no signedness distinction is needed.
         Besm_InstrKind op_kind;
         switch (instr->u.binary.op) {
-        case TAC_BINARY_ADD:      op_kind = BESM_ARITH_ADD; break;
-        case TAC_BINARY_SUBTRACT: op_kind = BESM_ARITH_SUB; break;
+        case TAC_BINARY_ADD:         op_kind = BESM_ARITH_ADD; break;
+        case TAC_BINARY_SUBTRACT:    op_kind = BESM_ARITH_SUB; break;
+        case TAC_BINARY_BITWISE_AND: op_kind = BESM_LOG_AAX;   break;
+        case TAC_BINARY_BITWISE_OR:  op_kind = BESM_LOG_AOX;   break;
+        case TAC_BINARY_BITWISE_XOR: op_kind = BESM_LOG_AEX;   break;
         default:
             fatal_error("TODO: binary op %d (Phase B)", (int)instr->u.binary.op);
         }

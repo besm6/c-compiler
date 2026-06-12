@@ -262,3 +262,84 @@ TEST_F(CodegenTest, CompareMadlenShape)
     // No UTM stack adjustment is emitted around the helper call.
     EXPECT_EQ(out.find("15 ,utm, -1"), std::string::npos);
 }
+
+// Bitwise AND lowers to a single AAX, same XTA / op / ATX shape as ADD.
+TEST_F(CodegenTest, BitwiseAndTwoParams)
+{
+    // binary BITWISE_AND src1=a(6,0) src2=b(6,1) dst=t.0; copy t.0 → global g
+    // frame: a@(6,0), b@(6,1), t.0@(7,0); num_autos=1
+    std::string output = CompileToMadlen("extern int g; void foo(int a, int b) { g = a & b; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+           6 ,aax, 1
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// Bitwise OR lowers to a single AOX.
+TEST_F(CodegenTest, BitwiseOrTwoParams)
+{
+    std::string output = CompileToMadlen("extern int g; void foo(int a, int b) { g = a | b; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+           6 ,aox, 1
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// Bitwise XOR lowers to a single AEX.
+TEST_F(CodegenTest, BitwiseXorTwoParams)
+{
+    std::string output = CompileToMadlen("extern int g; void foo(int a, int b) { g = a ^ b; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+           6 ,aex, 1
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// End-to-end: the three bitwise ops compute the expected values at run time.
+TEST_F(CodegenTest, BitwiseRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile int a = 12, b = 10;
+            printf("%d %d %d\n", a & b, a | b, a ^ b);
+        }
+    )");
+    EXPECT_EQ("8 14 6\n", result);
+}
