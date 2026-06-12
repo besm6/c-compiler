@@ -1,5 +1,5 @@
- PRINTD:,NAME,
- PRINTD:,BSS,
+ PRINT*D:,NAME,
+ PRINT*D:,BSS,
  B/SAVE:,SUBP,
  B/RET:,SUBP,
     ,ITS,13
@@ -46,7 +46,7 @@
   15,WTC,
     ,ATX,
     ,UZA,/1
-  14,VTM,PRINTD
+  14,VTM,PRINT*D
     ,ITA,14
    7,UTC,0
   14,VTM,

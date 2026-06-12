@@ -1,0 +1,7 @@
+     b/dtou: ,name,
+c
+c Double to unsigned int. STUB - not yet implemented.
+c Operand in accumulator, result in accumulator.
+c
+         13 ,uj,
+            ,end,

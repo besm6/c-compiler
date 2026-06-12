@@ -24,7 +24,7 @@ ASM_SOURCES = \
 
 .PHONY: all install clean test
 
-all:    libb.obj
+all:    libc.obj
 
 install:
 
@@ -32,7 +32,7 @@ clean:
 	rm -f *.obj *.s *.nm *.dis *.trace *.bin *.dub *.lst
 #	rm -f $(B_ASM)
 
-libb.obj: $(ASM_SOURCES) $(B_ASM)
+libc.obj: $(ASM_SOURCES) $(B_ASM)
 	besmc -c $(ASM_SOURCES) $(B_ASM) -o $@
 
 #%.madlen: %.b

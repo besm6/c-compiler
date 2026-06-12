@@ -151,8 +151,8 @@
     ,XTS,=104
     ,CALL,B/EQ
     ,UZA,/5
- PRINTD:,SUBP,
-  14,VTM,PRINTD
+ PRINT*D:,SUBP,
+  14,VTM,PRINT*D
     ,ITA,14
    7,UTC,1
   14,VTM,
@@ -172,8 +172,8 @@
     ,XTS,=117
     ,CALL,B/EQ
     ,UZA,/7
- PRINTO:,SUBP,
-  14,VTM,PRINTO
+ PRINT*O:,SUBP,
+  14,VTM,PRINT*O
     ,ITA,14
    7,UTC,1
   14,VTM,

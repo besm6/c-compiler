@@ -625,9 +625,9 @@ TEST_F(CodegenTest, PrintDecimal)
 {
     std::string result = CompileAndRun(R"(
         void writeb(int ch);
-        int printd(int num);
+        int print_d(int num);
         void program() {
-            printd(42);
+            print_d(42);
             writeb('\n');
         }
     )");

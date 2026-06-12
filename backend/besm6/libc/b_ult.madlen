@@ -1,0 +1,8 @@
+      b/ult: ,name,
+c
+c Unsigned less than. STUB - not yet implemented.
+c Pop two values from stack, push result back.
+c
+         15 ,xta,
+         13 ,uj,
+            ,end,

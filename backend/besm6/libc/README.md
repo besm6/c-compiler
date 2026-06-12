@@ -13,8 +13,8 @@ For basing, use `r14`. No other functions must be called, and no extracodes.
 | `writeb(b)` | [writeb.b](writeb.b) | Append one byte to the output buffer; flushes on newline or full buffer |
 | `flush()` | [flush.b](flush.b) | Flush the output line buffer to stdout (or drum when `fout` is set) |
 | `printf(fmt, ...)` | [printf.b](printf.b) | Formatted output: `%d` decimal, `%o` octal, `%c` character, `%s` string |
-| `printd(n)` | [printd.b](printd.b) | Print a signed decimal integer |
-| `printo(n)` | [printo.b](printo.b) | Print an octal integer |
+| `print_d(n)` | [printd.b](printd.b) | Print a signed decimal integer |
+| `print_o(n)` | [printo.b](printo.b) | Print an octal integer |
 | `b/tout(buf)` | [b_tout.madlen](b_tout.madlen) | Low-level: write a line buffer directly to stdout via extracode `*71` |
 
 ## String / Character Functions

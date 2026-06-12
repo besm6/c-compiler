@@ -142,12 +142,13 @@ protected:
 
         std::string job =
             "*name .\n"
-            "*tape:7/b,40\n"
-            "*library:40\n"
+            "*disc:1/local\n"
+            "*file:libc,40\n"
             "*call setftn:one,long\n"
             "*assem\n";
         job += madlen;
-        job += "*execute\n"
+        job += "*library:40\n"
+               "*execute\n"
                "*end file\n";
 
         const char *test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();

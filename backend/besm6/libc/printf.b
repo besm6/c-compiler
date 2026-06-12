@@ -19,9 +19,9 @@ loop:
     }
     a = *ap;
     if (c == 'd') {
-        printd(a);
+        print_d(a);
     } else if (c == 'o') {
-        printo(a);
+        print_o(a);
     } else if (c == 'c') {
         write(a);
     } else if (c == 's') {

@@ -1,4 +1,4 @@
-printd(n) {
+print_d(n) {
     auto a;
 
     if (n < 0) {
@@ -6,7 +6,7 @@ printd(n) {
         n = -n;
     }
     if ((a = n / 10)) {
-        printd(a);
+        print_d(a);
     }
     writeb(n - a*10 + '0');
 }
