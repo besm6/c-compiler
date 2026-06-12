@@ -522,6 +522,12 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         case TAC_UNARY_NOT:
             fprintf(fd, "not\n");
             break;
+        case TAC_UNARY_NEGATE_UNSIGNED:
+            fprintf(fd, "negate_unsigned\n");
+            break;
+        case TAC_UNARY_NEGATE_DOUBLE:
+            fprintf(fd, "negate_double\n");
+            break;
         }
         print_indent(fd, level);
         fprintf(fd, "src:\n");

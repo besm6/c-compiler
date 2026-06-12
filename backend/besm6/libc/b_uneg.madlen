@@ -1,0 +1,10 @@
+    b/uneg: ,name,
+c
+c Compute unary negate operation for unsigned value.
+c
+    b/true: ,subp,
+         13 ,uza,                   . -0u -> 0u
+            ,aex, =7777 7777 7777 7777
+            ,arx, b/true            . ~x + 1
+         13 ,uj,
+            ,end,

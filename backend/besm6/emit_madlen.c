@@ -9,6 +9,27 @@ void mad_fresh_label(char *buf, size_t n, const char *prefix)
     snprintf(buf, n, "%s.%d", prefix, counter++);
 }
 
+// Format a double as the decimal-number field of a Madlen REAL constant.  Madlen
+// requires a mandatory decimal point ("2." not "2"), placed before any E exponent.
+void mad_format_real(char *buf, size_t n, double val)
+{
+    snprintf(buf, n, "%.13g", val);
+    if (strchr(buf, '.'))
+        return; // already has a decimal point
+    char  *e   = strpbrk(buf, "eE");
+    size_t len = strlen(buf);
+    if (e) {
+        size_t pos = (size_t)(e - buf);
+        if (len + 1 < n) {
+            memmove(e + 1, e, len - pos + 1); // shift exponent (incl NUL) right by one
+            *e = '.';
+        }
+    } else if (len + 1 < n) {
+        buf[len]     = '.';
+        buf[len + 1] = '\0';
+    }
+}
+
 // Sanitize a Madlen identifier: replace '_'→'*', '$'→'/', truncate to 8 chars.
 static void sanitize_name(char *dst, size_t n, const char *src)
 {
@@ -324,7 +345,7 @@ void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
             emit_line(out, NULL, 0, "int", a);
             break;
         case BESM_DATA_REAL:
-            snprintf(a, sizeof(a), "%.13g", instr->real_val);
+            mad_format_real(a, sizeof(a), instr->real_val);
             emit_line(out, NULL, 0, "real", a);
             break;
         case BESM_DATA_EQU:

@@ -1184,3 +1184,130 @@ TEST_F(CodegenTest, SwitchNoDefault)
     )");
     EXPECT_EQ("1 2 -1\n", result);
 }
+
+// Unary negate (task #6).  Operands are volatile so the optimizer cannot fold the
+// negation at compile time; each negate reaches the backend and lowers to the
+// representation-specific sequence: signed int → x-a 0, unsigned → b/uneg helper,
+// double → ntr 0 / x-a 0 / ntr 7.
+
+// Signed int negate: -5 → -5, and negating a negative restores the magnitude.
+TEST_F(CodegenTest, NegateSignedInt)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile int a = 5;
+            volatile int b = -7;
+            printf("%d %d\n", -a, -b);
+        }
+    )");
+    EXPECT_EQ("-5 7\n", result);
+}
+
+// Madlen shape of the signed-int negate: load, x-a 0 (0 - A), store.
+TEST_F(CodegenTest, NegateSignedIntMadlen)
+{
+    std::string output = CompileToMadlen("int g; void foo(int a) { g = -a; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,x-a,
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// Unsigned negate: -5u is the 48-bit modular complement, printed in octal.
+TEST_F(CodegenTest, NegateUnsigned)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile unsigned a = 5;
+            printf("%o\n", -a);
+        }
+    )");
+    EXPECT_EQ("7777777777777773\n", result);
+}
+
+// Unsigned negate lowers to the b/uneg runtime helper.
+TEST_F(CodegenTest, NegateUnsignedMadlen)
+{
+    std::string output = CompileToMadlen("unsigned g; void foo(unsigned a) { g = -a; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,call, b/uneg
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}
+
+// Double negate: flips the FP sign bit.  No %f runtime yet, so the result word is
+// printed in octal.  The operand is a global initialized through static data (a ,real,
+// word) rather than an inline FP literal, which the assembler does not yet accept.
+TEST_F(CodegenTest, NegateDouble)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        double a = 2.0;
+        void program() {
+            printf("%o %o\n", a, -a);
+        }
+    )");
+    EXPECT_EQ("4110000000000000 4060000000000000\n", result);
+}
+
+// Double negate brackets x-a 0 with ntr 0 / ntr 7 to enable normalization+rounding.
+TEST_F(CodegenTest, NegateDoubleMadlen)
+{
+    std::string output = CompileToMadlen("double g; void foo(double a) { g = -a; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 1
+             ,end,
+c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,ntr, 0
+             ,x-a,
+             ,ntr, 7
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)", output);
+}

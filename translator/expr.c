@@ -17,6 +17,11 @@ static bool is_unsigned_type(const Type *t)
            t->kind == TYPE_ULONG || t->kind == TYPE_ULONG_LONG;
 }
 
+static bool is_floating_type(const Type *t)
+{
+    return is_arithmetic(t) && !is_integer(t);
+}
+
 static Tac_BinaryOperator map_binary_op(BinaryOp op, bool is_unsigned)
 {
     switch (op) {
@@ -57,12 +62,16 @@ static Tac_BinaryOperator map_binary_op(BinaryOp op, bool is_unsigned)
     }
 }
 
-static Tac_UnaryOperator map_unary_op(UnaryOp op)
+static Tac_UnaryOperator map_unary_op(UnaryOp op, const Type *operand_type)
 {
     switch (op) {
     case UNARY_BIT_NOT:
         return TAC_UNARY_COMPLEMENT;
     case UNARY_NEG:
+        if (is_floating_type(operand_type))
+            return TAC_UNARY_NEGATE_DOUBLE;
+        if (is_unsigned_type(operand_type))
+            return TAC_UNARY_NEGATE_UNSIGNED;
         return TAC_UNARY_NEGATE;
     case UNARY_LOG_NOT:
         return TAC_UNARY_NOT;
@@ -263,7 +272,7 @@ static Tac_Val *gen_unary(TacCtx *ctx, UnaryOp op, Expr *inner)
     Tac_Val *vd  = new_var_val(ctx);
 
     Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_UNARY);
-    in->u.unary.op      = map_unary_op(op);
+    in->u.unary.op      = map_unary_op(op, inner->type);
     in->u.unary.src     = src;
     in->u.unary.dst     = vd;
     tac_append(ctx, in);

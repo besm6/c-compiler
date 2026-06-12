@@ -31,6 +31,10 @@ static const char *unary_op_name(Tac_UnaryOperator op)
         return "negate";
     case TAC_UNARY_NOT:
         return "not";
+    case TAC_UNARY_NEGATE_UNSIGNED:
+        return "negate_unsigned";
+    case TAC_UNARY_NEGATE_DOUBLE:
+        return "negate_double";
     }
     return "?";
 }

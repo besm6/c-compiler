@@ -187,6 +187,9 @@ void besm_free_module(Besm_Module *module);
 //
 void mad_fresh_label(char *buf, size_t n, const char *prefix);
 
+// Format a double as a Madlen REAL constant's decimal-number field (mandatory '.').
+void mad_format_real(char *buf, size_t n, double val);
+
 //
 // Emit Madlen assembly
 //

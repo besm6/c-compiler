@@ -111,11 +111,13 @@ static char *const_lit_name(const Tac_Const *c)
         snprintf(buf, sizeof(buf), "=%llo", (unsigned long long)c->u.uchar_val);
         break;
     case TAC_CONST_FLOAT:
-        snprintf(buf, sizeof(buf), "=r%.13g", (double)c->u.float_val);
+    case TAC_CONST_DOUBLE: {
+        double val = (c->kind == TAC_CONST_FLOAT) ? (double)c->u.float_val : c->u.double_val;
+        char   num[48];
+        mad_format_real(num, sizeof(num), val);
+        snprintf(buf, sizeof(buf), "=r%s", num);
         break;
-    case TAC_CONST_DOUBLE:
-        snprintf(buf, sizeof(buf), "=r%.13g", c->u.double_val);
-        break;
+    }
     default:
         fatal_error("unsupported constant kind %d", (int)c->kind);
     }
@@ -701,6 +703,51 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         ati->addr       = 1;
         emit_xta(block, tail, sr, so);
         emit_atx(block, tail, 1, 0);
+        break;
+    }
+    // UNARY  dst = op src
+    //
+    // Only negate is implemented (task #6); complement and not fall through to the
+    // default fatal_error below.  Three representations need distinct sequences:
+    //   - signed int:  X-A 0   (0 - A; mem[0]=0 architecturally).  R=7 after b/save
+    //                  suppresses normalization/rounding, so this works directly.
+    //   - unsigned:    the b/uneg runtime helper (48-bit modular negate).  It is a
+    //                  unary helper: operand in A, result in A, returns via 13 ,uj,.
+    //   - double:      enable normalization+rounding (NTR 0) around X-A 0, then
+    //                  restore (NTR 7).  The surrounding NTRs are the temporary form;
+    //                  a later pass will trim the ones that prove unnecessary.
+    case TAC_INSTRUCTION_UNARY: {
+        const Tac_Val *src = instr->u.unary.src;
+        const Tac_Val *dst = instr->u.unary.dst;
+        int rd, od;
+        lookup(f, dst->u.var_name, &rd, &od);
+
+        switch (instr->u.unary.op) {
+        case TAC_UNARY_NEGATE:
+            emit_xta_val(block, tail, f, src);
+            emit(block, tail, BESM_ARITH_RSUB);
+            emit_atx(block, tail, rd, od);
+            break;
+        case TAC_UNARY_NEGATE_UNSIGNED: {
+            emit_xta_val(block, tail, f, src);
+            Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
+            call->name       = xstrdup("b/uneg");
+            emit_atx(block, tail, rd, od);
+            break;
+        }
+        case TAC_UNARY_NEGATE_DOUBLE: {
+            emit_xta_val(block, tail, f, src);
+            Besm_Instr *ntr_on = emit(block, tail, BESM_EXP_SETR);
+            ntr_on->addr       = 0;
+            emit(block, tail, BESM_ARITH_RSUB);
+            Besm_Instr *ntr_off = emit(block, tail, BESM_EXP_SETR);
+            ntr_off->addr       = 7;
+            emit_atx(block, tail, rd, od);
+            break;
+        }
+        default:
+            fatal_error("TODO: unary op %d (Phase H)", (int)instr->u.unary.op);
+        }
         break;
     }
     // BINARY  dst = src1 op src2

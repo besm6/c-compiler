@@ -111,7 +111,13 @@ typedef enum {
     TAC_INSTRUCTION_FUN_CALL
 } Tac_InstructionKind;
 
-typedef enum { TAC_UNARY_COMPLEMENT, TAC_UNARY_NEGATE, TAC_UNARY_NOT } Tac_UnaryOperator;
+typedef enum {
+    TAC_UNARY_COMPLEMENT,
+    TAC_UNARY_NEGATE,
+    TAC_UNARY_NOT,
+    TAC_UNARY_NEGATE_UNSIGNED, // negate, 48-bit modular (unsigned operand)
+    TAC_UNARY_NEGATE_DOUBLE    // negate, floating-point operand
+} Tac_UnaryOperator;
 
 typedef enum {
     TAC_BINARY_ADD,

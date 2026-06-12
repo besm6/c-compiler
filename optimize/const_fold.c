@@ -62,7 +62,9 @@ static Tac_Val *fold_unary_const(Tac_UnaryOperator op, const Tac_Const *src)
         rc->u.int_val = const_is_zero(src) ? 1 : 0;
         break;
     }
-    case TAC_UNARY_NEGATE: {
+    case TAC_UNARY_NEGATE:
+    case TAC_UNARY_NEGATE_UNSIGNED:
+    case TAC_UNARY_NEGATE_DOUBLE: {
         rc = tac_new_const(src->kind);
         switch (src->kind) {
         case TAC_CONST_INT:        rc->u.int_val         = -src->u.int_val;                          break;
