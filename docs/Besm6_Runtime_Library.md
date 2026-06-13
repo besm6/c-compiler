@@ -210,12 +210,18 @@ Computes `a % b` (signed remainder; result takes the sign of the **dividend** �
 Uses the same absolute-value approach as `b/div` via the identity
 `|r| = |a| − (|a| ÷ |b|) · |b|`, then reapplies the sign of `a`:
 
-1. Convert both operands to INT-format and form normalized `|a|` (frame slot 2) and `|b|`.
+Like `b/div`, it is **push-based**: the dividend `a` arrives on the stack (its raw word
+doubles as the sign word), and the helper pushes the normalized moduli `|b|` and `|a|`,
+addressing them by negative offset and dropping all three with a final `utm` (net pop of one
+word).
+
+1. Convert each operand to INT-format (`aox, =:64`) and `avx` it against its own pushed word
+   to form the normalized modulus — `|b|` then `|a|` — leaving both on the stack.
 2. `a/x` gives the truncated magnitude `|q| = |a| ÷ |b|` (the exponent-correction `a+x,
-   =:64` drops the fraction; no separate mask is needed mid-computation).
-3. `a*x` forms `|q| · |b|`; `x-a` against the saved `|a|` yields `|r|`.
-4. `a+x, =:64` + `aax, =37 7777 7777 7777` extract `|r|` as a raw integer.
-5. `avx` against the saved raw dividend `a` reapplies its sign, then the trailing `aox`
+   =:64` under R = 3 drops the fraction; no separate mask is needed mid-computation).
+3. `a*x` forms `|q| · |b|`; `x-a` against the still-saved `|a|` yields `|r|`.
+4. `a+x, =:64` + `aax, =377777 77777777` extract `|r|` as a raw integer.
+5. `avx` against the raw dividend `a` reapplies its sign, then the trailing `aox`
    restores logical ω-mode (as in `b/div`).
 
 ---
