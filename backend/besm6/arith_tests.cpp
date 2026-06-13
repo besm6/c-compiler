@@ -620,3 +620,47 @@ TEST_F(CodegenTest, SubUnsignedRun)
         "5627246073124145\n",
         result);
 }
+
+// Madlen-level shape: signed MULTIPLY lowers to the b/mul helper (xta / xts / ,call, b/mul
+// / atx) rather than an inline A*X, and emits no caller-side stack pop.
+TEST_F(CodegenTest, MultiplyMadlenShape)
+{
+    std::string out =
+        CompileToMadlen("extern int g; void foo(int a, int b) { g = a * b; }");
+    EXPECT_NE(out.find(",xts,"), std::string::npos);
+    EXPECT_NE(out.find(",call, b/mul"), std::string::npos);
+    // Multiply must NOT inline the multiplicative unit; the helper bridges INT-format.
+    EXPECT_EQ(out.find(",a*x,"), std::string::npos);
+    // The helper pops its own operand: no UTM stack adjustment around the call.
+    EXPECT_EQ(out.find("15 ,utm, -1"), std::string::npos);
+}
+
+// End-to-end: signed multiply via b/mul.  Covers sign combinations, multiply by 0 and 1,
+// and large products that stay within the signed 41-bit range (|x| < 2^40).
+TEST_F(CodegenTest, MultiplyRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void check(int a, int b) { printf("%d\n", a * b); }
+        void program() {
+            check(3, 5);              /* 15 */
+            check(12345, 0);          /* 0 */
+            check(1, -7);             /* -7 */
+            check(-6, 7);             /* -42 */
+            check(-8, -9);            /* 72 */
+            check(1000000, 1000000);  /* 10^12, < 2^40 */
+            check(-1000000, 1000000); /* -10^12 */
+            check(-12345, -1);        /* 12345 */
+        }
+    )");
+    EXPECT_EQ(
+        "15\n"
+        "0\n"
+        "-7\n"
+        "-42\n"
+        "72\n"
+        "1000000000000\n"
+        "-1000000000000\n"
+        "12345\n",
+        result);
+}

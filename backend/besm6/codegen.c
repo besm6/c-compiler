@@ -913,6 +913,15 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
             break;
         }
 
+        // Multiply uses the b/mul runtime helper (the inline A*X needs FP normalization and
+        // INT-format bridging, which the helper encapsulates).  Correct for signed operands
+        // and for unsigned within the 41-bit range; full 48-bit unsigned multiply is task
+        // #12 (b/umul).
+        if (instr->u.binary.op == TAC_BINARY_MULTIPLY) {
+            emit_binop_helper(block, tail, f, src1, src2, "b/mul", rd, od);
+            break;
+        }
+
         // Shifts are logical for int and unsigned alike (right-shift does no sign
         // extension), so all three shift ops reduce to "left" or "right".  Constant
         // counts inline an ASN; variable counts call b/lsh / b/rsh.

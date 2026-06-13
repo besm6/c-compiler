@@ -83,7 +83,6 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 11 | Signed Multiply | The single-word low product for signed operands. Use the documented `b/mul` helper: bridge raw operands to INT-format (exponent `0150B`), `A*X`, correct the exponent (`E-N 150B`), strip back to raw, mask to 41 bits. Emit `,CALL, b/mul` (or inline the sequence for small/constant multipliers). | M |
 | 12 | Unsigned Multiply | `b/mul`'s INT-format FP trick misreads bit 48 as the sign for full 48-bit unsigned operands (same limitation as `b/udiv`). Add `b/umul`: full 48-bit low product over the unsigned range via software shift/add (or operand splitting). Selected for `MULTIPLY` on unsigned operands. | M |
 | 13 | Signed divide & remainder | Use the documented `b/div`/`b/mod` helpers: extract operand signs, FP-divide the absolute values with exponent adjustment, truncate toward zero, reapply the sign; `b/mod` = a − (a÷b)·b. | L |
 | 14 | Unsigned divide & remainder | Add `b/udiv`/`b/umod` (the signed FP-divide trick mishandles the top bit over the full 48-bit unsigned range). Implement via a shift/subtract restoring-division loop, or by normalizing as a non-negative FP value. Selected for the `*_UNSIGNED` TAC ops from task 1. | L |
