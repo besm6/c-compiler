@@ -680,16 +680,18 @@ TEST_F(CodegenTest, MultiplyUnsignedMadlenShape)
     EXPECT_EQ(out.find("15 ,utm, -1"), std::string::npos);
 }
 
-// End-to-end: unsigned multiply via b/umul.  Inputs are limited to 24 bits (task #12);
-// the full 48-bit product is printed in octal (%o prints the whole word, leading zeros
-// stripped).  Covers multiply by 0 and 1, a 24-bit boundary product (2^24), and the
-// maximum 24-bit product 0xFFFFFF * 0xFFFFFF = 2^48 - 2^25 + 1.
+// End-to-end: full 48-bit unsigned multiply via b/umul (operand splitting into 24-bit
+// halves).  The low 48 bits of the product are printed in octal (%o prints the whole word,
+// leading zeros stripped).  The first block keeps the 24-bit cases (multiply by 0/1, the
+// 2^24 boundary, and the maximum 24-bit product 0xFFFFFF^2 = 2^48 - 2^25 + 1); the second
+// block exercises full 48-bit inputs and the mod-2^48 wrap of the high half.
 TEST_F(CodegenTest, MultiplyUnsignedRun)
 {
     std::string result = CompileAndRun(R"(
         int printf(const char *format, ...);
         void check(unsigned a, unsigned b) { printf("%o\n", a * b); }
         void program() {
+            /* 24-bit inputs. */
             check(0, 0);                  /* 0 */
             check(1, 1);                  /* 1 */
             check(3, 5);                  /* 15 */
@@ -698,6 +700,15 @@ TEST_F(CodegenTest, MultiplyUnsignedRun)
             check(077777777U, 077777777U);/* 0xFFFFFF^2 = 2^48 - 2^25 + 1 */
             check(077777777U, 1);         /* 0xFFFFFF */
             check(052746757U, 04432126U); /* 0xABCDEF * 0x123456 */
+
+            /* Full 48-bit inputs (high half present). */
+            check(0x1000000U, 0x1000000U);             /* 2^24 * 2^24 = 2^48 -> 0 */
+            check(0xFFFFFFFFFFFFU, 0xFFFFFFFFFFFFU);   /* (-1)^2 mod 2^48 -> 1 */
+            check(0x800000000000U, 2U);                /* 2^47 * 2 = 2^48 -> 0 */
+            check(0xFFFFFF000000U, 2U);                /* high half doubled */
+            check(0xFFFFFFFFFFFFU, 2U);                /* -2 mod 2^48 */
+            check(0xABCDEF123456U, 0x1011U);           /* high * small */
+            check(0x123456789ABCU, 0xCBA987654321U);   /* both halves, full wrap */
         }
     )");
     EXPECT_EQ(
@@ -708,7 +719,14 @@ TEST_F(CodegenTest, MultiplyUnsignedRun)
         "477553635\n"
         "7777777600000001\n"
         "77777777\n"
-        "303363226335112\n",
+        "303363226335112\n"
+        "0\n"
+        "1\n"
+        "0\n"
+        "7777777600000000\n"
+        "7777777777777776\n"
+        "2171700336554666\n"
+        "7712534615623074\n",
         result);
 }
 

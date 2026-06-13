@@ -253,12 +253,25 @@ Returns the 48-bit modular difference `a − b` in A. Negates `b` (complement pl
 adds it to `a`, handling the bit-48 carry explicitly so the exponent-field bits participate
 as plain value bits. Underflow wraps modulo 2⁴⁸.
 
-#### `b/umul` — [b_umul.madlen](../backend/besm6/libc/b_umul.madlen) — `a * b` (unsigned) — **to be implemented**
+#### `b/umul` — [b_umul.madlen](../backend/besm6/libc/b_umul.madlen) — `a * b` (unsigned)
 
 Returns the low 48 bits of the unsigned product `a * b` in A. The INT-format FP trick used
-by `b/mul` misreads bit 48 as the sign, so `b/umul` computes the product in software (a
-shift/add loop, or by splitting each operand into halves and summing the partial products
-modulo 2⁴⁸). High-half overflow is discarded.
+by `b/mul` misreads bit 48 as the sign, so `b/umul` computes the product by **operand
+splitting**: each operand is split into 24-bit halves (`a = aH·2²⁴ + aL`,
+`b = bH·2²⁴ + bL`), and the low 48 bits are assembled from three 24×24→48 partial products
+(`aH·bH·2⁴⁸` vanishes mod 2⁴⁸):
+
+```
+lo     = (aL·bL) & 0xFFFFFF
+hi     = ( (aL·bL)>>24 + (aL·bH) + (aH·bL) ) & 0xFFFFFF
+result = (hi << 24) | lo
+```
+
+Each 24×24→48 partial product is formed by an internal `umul24` subroutine that uses the
+hardware FP multiply on the small (clean, ≤24-bit) half-operands. The three `hi` addends are
+each < 2²⁴, so their sum never carries past bit 48 and a plain `ARX` add suffices; only the
+low 24 bits of the cross products matter (they are shifted left by 24). High-half overflow is
+discarded (mod 2⁴⁸).
 
 #### `b/udiv` — [b_udiv.madlen](../backend/besm6/libc/b_udiv.madlen) — `a / b` (unsigned) — **to be implemented**
 

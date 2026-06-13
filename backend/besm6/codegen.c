@@ -920,9 +920,9 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
             break;
         }
 
-        // Unsigned multiply uses b/umul, which forms the full 48-bit product without the
-        // signed 41-bit truncation b/mul applies.  b/umul is currently limited to 24-bit
-        // inputs (48-bit result) — task #12; the full 48x48->48 range is future work.
+        // Unsigned multiply uses b/umul, which forms the full 48-bit (low) product over the
+        // entire unsigned range via operand splitting, without the signed 41-bit truncation
+        // b/mul applies.
         if (instr->u.binary.op == TAC_BINARY_MULTIPLY_UNSIGNED) {
             emit_binop_helper(block, tail, f, src1, src2, "b/umul", rd, od);
             break;

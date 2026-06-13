@@ -1,17 +1,104 @@
     b/umul: ,name,
+         14 ,base, *
 c
-c Multiply two 24-bit unsigned integers, giving 48-bit result.
-c Pop two values from stack, push result back.
-c Value a is in stack, value b on accumulator.
+c Multiply two 48-bit unsigned integers, giving the low 48 bits of the product
+c (a*b mod 2^48; the high overflow is discarded).
 c
-            ,utc, bit48
-            ,aox,                   . add exponent offset
+c Helper convention: operand a is on the stack at mem[r15-1], operand b is in the
+c accumulator A; the product is returned in A.  The caller pushed a with one XTS, so
+c this helper pops exactly one word (net r15 = entry - 1) before returning.
+c
+c A single hardware FP multiply only works for operands that fit in 24 bits (bits 24:1,
+c exponent field 0).  A full 48-bit unsigned value carries data in bits 48:42 that the FP
+c unit misreads as an exponent/sign.  So each operand is split into 24-bit halves
+c   a = aH*2^24 + aL,  b = bH*2^24 + bL
+c and the low 48 bits are assembled from three 24x24->48 partial products (aH*bH*2^48
+c vanishes mod 2^48):
+c   lo = (aL*bL) & 0xFFFFFF
+c   hi = ((aL*bL)>>24 + (aL*bH) + (aH*bL)) & 0xFFFFFF       (low 24 bits only)
+c   result = (hi << 24) | lo
+c The 24x24->48 core is the umul24 subroutine below; only its low 24 bits matter for the
+c cross terms (they are shifted left by 24).  hi sums three values each < 2^24, so it never
+c carries out of bit 48 and a plain ARX add suffices.
+c
+c           split b (in A) into 24-bit halves
+            ,atx, bsav              . save b
+            ,asn, 64+24             . A := b >> 24            -> bH
+            ,atx, bhi
+            ,xta, bsav
+            ,aax, =77777777         . A := b & 0xFFFFFF       -> bL
+            ,atx, blo
+c           split a (at mem[r15-1], left on the stack) into 24-bit halves
+         15 ,xta, -1                . A := a
+            ,atx, asav
+            ,asn, 64+24             . A := a >> 24            -> aH
+            ,atx, ahi
+            ,xta, asav
+            ,aax, =77777777         . A := a & 0xFFFFFF       -> aL
+            ,atx, alo
+c           P_ll = aL * bL
+            ,xta, alo
+         15 ,atx,                   . push operand1 = aL
+            ,xta, blo               . operand2 = bL
+          9 ,vjm, umul24
+         15 ,utm, -1                . drop the pushed operand
+            ,atx, pll
+c           P_lh = aL * bH
+            ,xta, alo
+         15 ,atx,
+            ,xta, bhi
+          9 ,vjm, umul24
+         15 ,utm, -1
+            ,atx, plh
+c           P_hl = aH * bL
+            ,xta, ahi
+         15 ,atx,
+            ,xta, blo
+          9 ,vjm, umul24
+         15 ,utm, -1
+            ,atx, phl
+c           hi = (P_ll>>24 + P_lh + P_hl) & 0xFFFFFF
+            ,xta, pll
+            ,asn, 64+24             . P_ll >> 24
+            ,atx, t2
+            ,xta, plh
+            ,aax, =77777777         . P_lh & 0xFFFFFF
+            ,atx, t1
+            ,xta, phl
+            ,aax, =77777777         . P_hl & 0xFFFFFF
+            ,arx, t1                . + P_lh low 24
+            ,arx, t2                . + P_ll>>24   (sum < 2^26, no carry past bit 48)
+            ,aax, =77777777         . hi := sum & 0xFFFFFF
+            ,asn, 64-24             . hi << 24
+            ,atx, t1
+c           lo = P_ll & 0xFFFFFF;  result = (hi<<24) | lo
+            ,xta, pll
+            ,aax, =77777777
+            ,aox, t1                . combine; leaves logical w-mode for the caller
+         15 ,utm, -1                . pop original a:  r15 := entry - 1
+         13 ,uj,
+c
+c umul24 -- multiply two 24-bit unsigned values into a 48-bit product.
+c operand1 at mem[r15-1], operand2 in A; product in A; returns via r9 (net stack 0).
+c
+   umul24:  ,aox, =:4               . add exponent offset
          15 ,a*x,                   . multiply with normalization disabled
             ,xts,                   . push bits 80:41 to stack, set logical
             ,yta,                   . get bits 40:1
          15 ,xts, -2                . get bits 80:41
             ,asn, 64-40             . shift to bits 48:41 of A
          15 ,aox,                   . add bits 40:1
-         13 ,uj,
-   bit48:   ,oct, 4
+          9 ,uj,
+c
+   bsav:    ,oct, 0
+   asav:    ,oct, 0
+   bhi:     ,oct, 0
+   blo:     ,oct, 0
+   ahi:     ,oct, 0
+   alo:     ,oct, 0
+   pll:     ,oct, 0
+   plh:     ,oct, 0
+   phl:     ,oct, 0
+   t1:      ,oct, 0
+   t2:      ,oct, 0
             ,end,

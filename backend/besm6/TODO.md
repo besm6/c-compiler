@@ -83,7 +83,6 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 12 | Unsigned Multiply (full 48-bit) | `b/umul` now multiplies **24-bit** unsigned inputs into a 48-bit product, selected for `MULTIPLY_UNSIGNED`. Remaining: extend `b/umul` to the full 48-bit input range via operand splitting. | M |
 | 14 | Unsigned divide & remainder | Add `b/udiv`/`b/umod`. Implement via a shift/subtract restoring-division loop, or by normalizing as a non-negative FP value. Selected for the `*_UNSIGNED` TAC ops from task 1. | L |
 
 ### Phase I — Floating point (single word; `float` ≡ `double`)
