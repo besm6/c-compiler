@@ -78,7 +78,6 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 9 | Unsigned Add | Signed `A+X` works only because raw integers keep the exponent field (bits 48–42) = 0, so the additive unit adds the 41-bit mantissas cleanly. Full 48-bit unsigned values carry data in that field, which `A+X` misreads as an exponent. Add `b/uadd`: true 48-bit modular add (e.g. 24-bit half-words with explicit carry propagation). Selected for `ADD` on unsigned operands. | M |
 | 10 | Unsigned Subtract | As task 9, for `A-X`. Add `b/usub`: true 48-bit modular subtract, reusing the `b/uadd` carry structure. Selected for `SUBTRACT` on unsigned operands. | S |
 | 11 | Signed Multiply | The single-word low product for signed operands. Use the documented `b/mul` helper: bridge raw operands to INT-format (exponent `0150B`), `A*X`, correct the exponent (`E-N 150B`), strip back to raw, mask to 41 bits. Emit `,CALL, b/mul` (or inline the sequence for small/constant multipliers). | M |
 | 12 | Unsigned Multiply | `b/mul`'s INT-format FP trick misreads bit 48 as the sign for full 48-bit unsigned operands (same limitation as `b/udiv`). Add `b/umul`: full 48-bit low product over the unsigned range via software shift/add (or operand splitting). Selected for `MULTIPLY` on unsigned operands. | M |
@@ -112,7 +111,7 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 23 | Runtime helper stubs | The `backend/besm6/libc/*.madlen` sources are assembled into `libc.bin` by CMake and mounted by `CompileAndRun`. Seven helpers currently have placeholder stub bodies that need real implementations: unsigned `b/udiv`, `b/umod`, `b/umul`, `b/uadd`, `b/usub`, and the double↔int conversions `b/dtoi`, `b/dtou`. | L |
+| 23 | Runtime helper stubs | The `backend/besm6/libc/*.madlen` sources are assembled into `libc.bin` by CMake and mounted by `CompileAndRun`. Seven helpers currently have placeholder stub bodies that need real implementations: unsigned `b/udiv`, `b/umod`, `b/umul`, `b/usub`, and the double↔int conversions `b/dtoi`, `b/dtou`. | L |
 
 ### Phase M — Deferred / future
 

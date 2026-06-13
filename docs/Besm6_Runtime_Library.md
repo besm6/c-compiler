@@ -236,12 +236,12 @@ additive unit misreads as an exponent — so unsigned add/subtract need software
 
 Separate helpers are therefore required for the full 48-bit unsigned range.
 
-#### `b/uadd` — [b_uadd.madlen](../backend/besm6/libc/b_uadd.madlen) — `a + b` (unsigned) — **to be implemented**
+#### `b/uadd` — [b_uadd.madlen](../backend/besm6/libc/b_uadd.madlen) — `a + b` (unsigned)
 
 Receives two 48-bit unsigned values (`a` at `mem[r15−1]`, `b` in A). Returns the 48-bit
-modular sum in A. Intended algorithm: add the two operands in 24-bit half-words with
-explicit carry propagation from the low half into the high half, so the exponent-field bits
-participate as plain value bits. Overflow wraps modulo 2⁴⁸.
+modular sum in A. Adds the two operands in 24-bit half-words with explicit carry propagation
+from the low half into the high half, so the exponent-field bits participate as plain value
+bits. Overflow wraps modulo 2⁴⁸.
 
 #### `b/usub` — [b_usub.madlen](../backend/besm6/libc/b_usub.madlen) — `a − b` (unsigned) — **to be implemented**
 

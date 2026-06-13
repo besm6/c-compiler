@@ -472,3 +472,73 @@ TEST_F(CodegenTest, ShiftUnsignedRightRun)
     )");
     EXPECT_EQ("25 400\n", result);
 }
+
+// Madlen-level shape: unsigned ADD lowers to the b/uadd helper (xta / xts / ,call, b/uadd
+// / atx) rather than the inline A+X used for signed ADD, and emits no caller-side stack pop.
+TEST_F(CodegenTest, AddUnsignedMadlenShape)
+{
+    std::string out =
+        CompileToMadlen("extern unsigned g; void foo(unsigned a, unsigned b) { g = a + b; }");
+    EXPECT_NE(out.find(",xts,"), std::string::npos);
+    EXPECT_NE(out.find(",call, b/uadd"), std::string::npos);
+    // Unsigned add must NOT use the inline additive unit.
+    EXPECT_EQ(out.find(",a+x,"), std::string::npos);
+    // The helper pops its own operand: no UTM stack adjustment around the call.
+    EXPECT_EQ(out.find("15 ,utm, -1"), std::string::npos);
+}
+
+// End-to-end: true 48-bit modular unsigned add via b/uadd.  Results are printed in octal
+// (%o prints the whole word, leading zeros stripped).  unsigned long is used so the wide
+// literals survive the frontend (host 64-bit) and reach the backend as full 48-bit values.
+TEST_F(CodegenTest, AddUnsignedRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void check(unsigned long a, unsigned long b) { printf("%o\n", a + b); }
+        void program() {
+            /* Fixed edge cases. */
+            check(0, 0);
+            check(0, 1);
+            check(1, 0);
+            check(1, 1);
+
+            /* Carry from low half into high half. */
+            check(077777777UL, 1);                       /* 0xFFFFFF + 1 */
+            check(077777777UL, 1);                       /* 0x0000FFFFFF + 1 */
+
+            /* High half boundary -> mod 2^48. */
+            check(07777777700000000UL, 0100000000UL);    /* 0xFFFFFF000000 + 0x1000000 */
+
+            /* Maximum 48-bit values. */
+            check(07777777777777777UL, 0);               /* 0xFFFFFFFFFFFF */
+            check(07777777777777777UL, 1);               /* wraps to 0 */
+            check(07777777777777777UL, 07777777777777777UL); /* wraps */
+
+            /* Halfway / pattern values. */
+            check(03777777777777777UL, 1);               /* 0x7FFFFFFFFFFF + 1 */
+            check(04000000000000000UL, 04000000000000000UL); /* 2^47 + 2^47 = 0 */
+            check(05252525252525252UL, 02525252525252525UL); /* 0xAAA.. + 0x555.. */
+            check(0443212636115274UL, 06272460731241441UL);  /* 0x123456789ABC + 0xCBA987654321 */
+
+            /* Carry chain across the 24-bit boundary exactly. */
+            check(07777777777777777UL, 1);
+        }
+    )");
+    EXPECT_EQ(
+        "0\n"
+        "1\n"
+        "1\n"
+        "2\n"
+        "100000000\n"
+        "100000000\n"
+        "0\n"
+        "7777777777777777\n"
+        "0\n"
+        "7777777777777776\n"
+        "4000000000000000\n"
+        "0\n"
+        "7777777777777777\n"
+        "6735673567356735\n"
+        "0\n",
+        result);
+}

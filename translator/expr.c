@@ -26,7 +26,7 @@ static Tac_BinaryOperator map_binary_op(BinaryOp op, bool is_unsigned)
 {
     switch (op) {
     case BINARY_ADD:
-        return TAC_BINARY_ADD;
+        return is_unsigned ? TAC_BINARY_ADD_UNSIGNED : TAC_BINARY_ADD;
     case BINARY_SUB:
         return TAC_BINARY_SUBTRACT;
     case BINARY_MUL:
@@ -84,7 +84,7 @@ static Tac_BinaryOperator map_assign_op(AssignOp op, bool is_unsigned)
 {
     switch (op) {
     case ASSIGN_ADD:
-        return TAC_BINARY_ADD;
+        return is_unsigned ? TAC_BINARY_ADD_UNSIGNED : TAC_BINARY_ADD;
     case ASSIGN_SUB:
         return TAC_BINARY_SUBTRACT;
     case ASSIGN_MUL:

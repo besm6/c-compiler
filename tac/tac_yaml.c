@@ -611,6 +611,9 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         case TAC_BINARY_RIGHT_SHIFT_LOGICAL:
             fprintf(fd, "right_shift_logical\n");
             break;
+        case TAC_BINARY_ADD_UNSIGNED:
+            fprintf(fd, "add_unsigned\n");
+            break;
         }
         print_indent(fd, level);
         fprintf(fd, "src1:\n");

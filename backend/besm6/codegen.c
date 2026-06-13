@@ -183,25 +183,26 @@ static void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind,
     }
 }
 
-// Emit an integer comparison:  dst = src1 <cmp> src2.
+// Emit a binary op that lowers to a runtime helper:  dst = helper(src1, src2).
 //
-// Comparisons lower to the runtime relational helpers (b/eq, b/ne, b/lt, b/le, b/gt,
-// b/ge).  These follow the lightweight helper convention (NOT the C ABI):
+// Used by the integer comparisons (b/eq, b/ne, b/lt, b/le, b/gt, b/ge and the unsigned
+// orderings) and by unsigned add (b/uadd).  These follow the lightweight helper
+// convention (NOT the C ABI):
 //   - first operand `a` sits on the stack top, second operand `b` is in A;
 //   - the helper reads `a` through the stack register (M17 pre-decrement), which both
 //     consumes `a` and pops it (r15 -= 1), so the caller emits no stack adjustment;
-//   - the raw 0/1 result is left in A; the helper returns via 13 ,uj,.
+//   - the result is left in A; the helper returns via 13 ,uj,.
 //   - ,call, self-declares the external (like printf), so no ,subp, is needed.
 //
 // Sequence (a = src1, b = src2):
 //   XTA src1        — A = a
 //   XTS src2        — push a (r15 += 1); A = b
 //   ,call, helper   — helper pops a (r15 -= 1); result in A
-//   reg ,ATX, off   — store 0/1 into dst's frame slot
+//   reg ,ATX, off   — store result into dst's frame slot
 //
-static void emit_compare(Besm_Block *b, Besm_Instr **t, const Frame *f,
-                         const Tac_Val *src1, const Tac_Val *src2,
-                         const char *helper, int dr, int doff)
+static void emit_binop_helper(Besm_Block *b, Besm_Instr **t, const Frame *f,
+                              const Tac_Val *src1, const Tac_Val *src2,
+                              const char *helper, int dr, int doff)
 {
     emit_xta_val(b, t, f, src1);
     emit_xts_val(b, t, f, src2);
@@ -891,7 +892,16 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         default: break;
         }
         if (cmp_helper) {
-            emit_compare(block, tail, f, src1, src2, cmp_helper, rd, od);
+            emit_binop_helper(block, tail, f, src1, src2, cmp_helper, rd, od);
+            break;
+        }
+
+        // Unsigned add cannot use the inline additive unit: full 48-bit unsigned values
+        // carry data in the exponent field (bits 48-42), which A+X misreads.  The b/uadd
+        // helper does true 48-bit modular add via 24-bit half-words with explicit carry.
+        // Signed ADD stays inline as A+X below.
+        if (instr->u.binary.op == TAC_BINARY_ADD_UNSIGNED) {
+            emit_binop_helper(block, tail, f, src1, src2, "b/uadd", rd, od);
             break;
         }
 

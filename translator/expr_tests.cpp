@@ -844,10 +844,27 @@ TEST_F(TranslateTest, LogicalRightShift)
     EXPECT_EQ(yaml.find("op: right_shift\n"), std::string::npos);
 }
 
+// Unsigned operands select add_unsigned, not add (true 48-bit modular add on BESM-6).
+TEST_F(TranslateTest, UnsignedAdd)
+{
+    std::string yaml =
+        CompileToYaml("unsigned int f(unsigned int a, unsigned int b) { return a + b; }");
+    EXPECT_NE(yaml.find("op: add_unsigned"), std::string::npos);
+    EXPECT_EQ(yaml.find("op: add\n"), std::string::npos);
+}
+
 // Signed operands still select the signed variants.
 TEST_F(TranslateTest, SignedDivideUnchanged)
 {
     std::string yaml = CompileToYaml("int f(int a, int b) { return a / b; }");
     EXPECT_NE(yaml.find("op: divide\n"), std::string::npos);
     EXPECT_EQ(yaml.find("op: divide_unsigned"), std::string::npos);
+}
+
+// Signed add still selects plain add, not add_unsigned.
+TEST_F(TranslateTest, SignedAddUnchanged)
+{
+    std::string yaml = CompileToYaml("int f(int a, int b) { return a + b; }");
+    EXPECT_NE(yaml.find("op: add\n"), std::string::npos);
+    EXPECT_EQ(yaml.find("op: add_unsigned"), std::string::npos);
 }
