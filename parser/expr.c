@@ -291,27 +291,45 @@ Expr *parse_constant()
                     break;
                 }
             }
-            if (long_count >= 2 && is_unsigned) {
-                expr->u.literal->kind             = LITERAL_ULONG_LONG;
-                expr->u.literal->u.ulong_long_val = v;
-            } else if (long_count >= 2) {
-                expr->u.literal->kind             = LITERAL_LONG_LONG;
-                expr->u.literal->u.long_long_val  = (long long)v;
-            } else if (long_count == 1 && is_unsigned) {
-                expr->u.literal->kind         = LITERAL_ULONG;
-                expr->u.literal->u.ulong_val  = (unsigned long)v;
-            } else if (long_count == 1) {
-                expr->u.literal->kind         = LITERAL_LONG;
-                expr->u.literal->u.long_val   = (long)v;
-            } else if (v <= (unsigned long long)INT_MAX) {
-                expr->u.literal->kind         = LITERAL_INT;
-                expr->u.literal->u.int_val    = (int)v;
-            } else if (v <= (unsigned long long)LONG_MAX) {
-                expr->u.literal->kind         = LITERAL_LONG;
-                expr->u.literal->u.long_val   = (long)v;
+            // C11 §6.4.4.1: pick the first type in the suffix-determined list
+            // that can hold the value. A `U` suffix selects the unsigned list
+            // (unsigned int → unsigned long → unsigned long long); without it,
+            // the signed list (int → long → long long). The `is_unsigned` flag
+            // must be honored even when no `L` suffix is present.
+            if (is_unsigned) {
+                if (long_count >= 2) {
+                    expr->u.literal->kind             = LITERAL_ULONG_LONG;
+                    expr->u.literal->u.ulong_long_val = v;
+                } else if (long_count == 1) {
+                    expr->u.literal->kind         = LITERAL_ULONG;
+                    expr->u.literal->u.ulong_val  = (unsigned long)v;
+                } else if (v <= (unsigned long long)UINT_MAX) {
+                    expr->u.literal->kind         = LITERAL_UINT;
+                    expr->u.literal->u.uint_val   = (unsigned int)v;
+                } else if (v <= (unsigned long long)ULONG_MAX) {
+                    expr->u.literal->kind         = LITERAL_ULONG;
+                    expr->u.literal->u.ulong_val  = (unsigned long)v;
+                } else {
+                    expr->u.literal->kind             = LITERAL_ULONG_LONG;
+                    expr->u.literal->u.ulong_long_val = v;
+                }
             } else {
-                expr->u.literal->kind             = LITERAL_LONG_LONG;
-                expr->u.literal->u.long_long_val  = (long long)v;
+                if (long_count >= 2) {
+                    expr->u.literal->kind             = LITERAL_LONG_LONG;
+                    expr->u.literal->u.long_long_val  = (long long)v;
+                } else if (long_count == 1) {
+                    expr->u.literal->kind         = LITERAL_LONG;
+                    expr->u.literal->u.long_val   = (long)v;
+                } else if (v <= (unsigned long long)INT_MAX) {
+                    expr->u.literal->kind         = LITERAL_INT;
+                    expr->u.literal->u.int_val    = (int)v;
+                } else if (v <= (unsigned long long)LONG_MAX) {
+                    expr->u.literal->kind         = LITERAL_LONG;
+                    expr->u.literal->u.long_val   = (long)v;
+                } else {
+                    expr->u.literal->kind             = LITERAL_LONG_LONG;
+                    expr->u.literal->u.long_long_val  = (long long)v;
+                }
             }
         }
         break;

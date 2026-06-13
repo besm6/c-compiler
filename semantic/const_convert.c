@@ -19,6 +19,8 @@ int64_t literal_to_int64(const Literal *lit)
         return (int64_t)lit->u.long_val;
     case LITERAL_LONG_LONG:
         return (int64_t)lit->u.long_long_val;
+    case LITERAL_UINT:
+        return (int64_t)lit->u.uint_val;
     case LITERAL_ULONG:
         return (int64_t)lit->u.ulong_val;
     case LITERAL_ULONG_LONG:
@@ -51,6 +53,8 @@ uint64_t literal_to_uint64(const Literal *lit)
         return (uint64_t)lit->u.long_val;
     case LITERAL_LONG_LONG:
         return (uint64_t)lit->u.long_long_val;
+    case LITERAL_UINT:
+        return (uint64_t)lit->u.uint_val;
     case LITERAL_ULONG:
         return (uint64_t)lit->u.ulong_val;
     case LITERAL_ULONG_LONG:
@@ -83,6 +87,8 @@ double literal_to_double(const Literal *lit)
         return (double)lit->u.long_val;
     case LITERAL_LONG_LONG:
         return (double)lit->u.long_long_val;
+    case LITERAL_UINT:
+        return (double)lit->u.uint_val;
     case LITERAL_ULONG:
         return (double)lit->u.ulong_val;
     case LITERAL_ULONG_LONG:
@@ -112,6 +118,8 @@ static long double literal_to_long_double(const Literal *lit)
         return (long double)lit->u.long_val;
     case LITERAL_LONG_LONG:
         return (long double)lit->u.long_long_val;
+    case LITERAL_UINT:
+        return (long double)lit->u.uint_val;
     case LITERAL_ULONG:
         return (long double)lit->u.ulong_val;
     case LITERAL_ULONG_LONG:

@@ -57,6 +57,7 @@ void tac_record_local(TacCtx *ctx, const char *name);
 Tac_Val *val_int(int v);
 Tac_Val *val_long(long v);
 Tac_Val *val_long_long(long long v);
+Tac_Val *val_uint(unsigned int v);
 Tac_Val *val_ulong(unsigned long v);
 Tac_Val *val_ulong_long(unsigned long long v);
 Tac_Val *val_float(float v);

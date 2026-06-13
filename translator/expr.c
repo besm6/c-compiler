@@ -313,6 +313,8 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             return val_long(e->u.literal->u.long_val);
         case LITERAL_LONG_LONG:
             return val_long_long(e->u.literal->u.long_long_val);
+        case LITERAL_UINT:
+            return val_uint(e->u.literal->u.uint_val);
         case LITERAL_ULONG:
             return val_ulong(e->u.literal->u.ulong_val);
         case LITERAL_ULONG_LONG:

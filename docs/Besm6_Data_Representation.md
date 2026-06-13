@@ -164,6 +164,23 @@ bit; the full word represents a value from 0 to 2⁴⁸ − 1.
 |----------|-------|
 | `UINT_MAX` | 2⁴⁸ − 1 = 281,474,976,710,655 |
 
+### Integer constants and literal suffixes
+
+The width rules above apply to integer *constants* as well. At code emission a signed
+`int`/`long` constant is masked to its 41 value bits, while an unsigned constant keeps all
+48 bits (see `const_lit_name` in `backend/besm6/codegen.c`). Two consequences:
+
+- **A signed literal that needs more than 41 bits silently loses its top 7 bits.** For
+  example `0xFFFFFFFFFFFF` (a signed value of 2⁴⁸ − 1) is masked to its low 41 bits. This is
+  expected: signed `int`/`long` *is* a 41-bit type on BESM-6, so the constant simply does not
+  fit. To keep a value wider than 41 bits, give it an unsigned type.
+
+- **A `U` suffix alone is enough to get a full 48-bit unsigned constant — the `L` is not
+  required.** Writing `0xFFFFFFFFFFFFU` yields the full 48-bit value; you do not need to add
+  `L` (`0xFFFFFFFFFFFFUL`). A wide unsigned literal automatically takes whichever unsigned
+  type is wide enough to hold all 48 bits, so the value reaches code generation intact and is
+  emitted as the full 16-octal-digit word.
+
 ### `long long`
 
 `long long` occupies two consecutive words and provides 81 bits of two's-complement
@@ -454,6 +471,9 @@ Sizes and alignments in words (1 word = 48 bits). `sizeof` values in char-units:
 | `LLONG_MIN` | −2⁸⁰ | Two-word signed |
 | `LLONG_MAX` | 2⁸⁰ − 1 | Two-word signed |
 | `ULLONG_MAX` | 2⁹⁶ − 1 | Two-word unsigned |
+
+For how integer **constants** are sized and why a `U` suffix alone keeps all 48 bits, see
+[Integer constants and literal suffixes](#integer-constants-and-literal-suffixes) in Section 5.
 
 ### `sizeof` in char-units
 

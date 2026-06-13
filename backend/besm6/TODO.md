@@ -49,6 +49,11 @@ These supersede the historical "INT-format" assumptions of the old plan. See
 - **Signed `int` uses 41 bits** (sign + 40 value); **unsigned uses the full 48 bits**.
   This is why unsigned divide/modulo/compare and logical right-shift need distinct handling
   from their signed counterparts (Phase E adds the TAC op kinds that carry this distinction).
+- **Integer constants follow the same rule.** `const_lit_name` ([codegen.c](codegen.c)) masks
+  signed constants to 41 bits and unsigned constants to 48 bits, so a signed literal wider
+  than 41 bits silently loses its top 7 bits (expected — signed `int`/`long` is a 41-bit
+  type). A `U` suffix alone yields a full 48-bit unsigned literal; the `L` is not required.
+  See [docs/Besm6_Data_Representation.md](../../docs/Besm6_Data_Representation.md) §5.
 - **`float` ≡ `double`** (same 48-bit native FP format); the `FLOAT_TO_DOUBLE` /
   `DOUBLE_TO_FLOAT` conversions are copies. `short` ≡ `long` ≡ `int` (single word).
 - **Floating-point ops need normalization**, so FP code must temporarily clear R's

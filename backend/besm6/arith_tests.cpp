@@ -487,14 +487,23 @@ TEST_F(CodegenTest, AddUnsignedMadlenShape)
     EXPECT_EQ(out.find("15 ,utm, -1"), std::string::npos);
 }
 
+// A wide unsigned literal reaches the backend with all 48 bits when written with a plain
+// `U` suffix (no `L` required): const_lit_name masks unsigned constants to 48 bits, so
+// 0xFFFFFFFFFFFFU emits the full 16-octal-digit literal rather than a 41-bit-masked value.
+TEST_F(CodegenTest, WideUnsignedLiteralUSuffix)
+{
+    std::string out = CompileToMadlen(
+        "extern unsigned g; void foo(void) { g = 0xFFFFFFFFFFFFU; }");
+    EXPECT_NE(out.find("=7777777777777777"), std::string::npos);
+}
+
 // End-to-end: true 48-bit modular unsigned add via b/uadd.  Results are printed in octal
-// (%o prints the whole word, leading zeros stripped).  unsigned long is used so the wide
-// literals survive the frontend (host 64-bit) and reach the backend as full 48-bit values.
+// (%o prints the whole word, leading zeros stripped).
 TEST_F(CodegenTest, AddUnsignedRun)
 {
     std::string result = CompileAndRun(R"(
         int printf(const char *format, ...);
-        void check(unsigned long a, unsigned long b) { printf("%o\n", a + b); }
+        void check(unsigned a, unsigned b) { printf("%o\n", a + b); }
         void program() {
             /* Fixed edge cases. */
             check(0, 0);
@@ -503,25 +512,25 @@ TEST_F(CodegenTest, AddUnsignedRun)
             check(1, 1);
 
             /* Carry from low half into high half. */
-            check(077777777UL, 1);                       /* 0xFFFFFF + 1 */
-            check(077777777UL, 1);                       /* 0x0000FFFFFF + 1 */
+            check(077777777U, 1);                           /* 0xFFFFFF + 1 */
+            check(077777777U, 1);                           /* 0x0000FFFFFF + 1 */
 
             /* High half boundary -> mod 2^48. */
-            check(07777777700000000UL, 0100000000UL);    /* 0xFFFFFF000000 + 0x1000000 */
+            check(07777777700000000U, 0100000000U);         /* 0xFFFFFF000000 + 0x1000000 */
 
             /* Maximum 48-bit values. */
-            check(07777777777777777UL, 0);               /* 0xFFFFFFFFFFFF */
-            check(07777777777777777UL, 1);               /* wraps to 0 */
-            check(07777777777777777UL, 07777777777777777UL); /* wraps */
+            check(07777777777777777U, 0);                   /* 0xFFFFFFFFFFFF */
+            check(07777777777777777U, 1);                   /* wraps to 0 */
+            check(07777777777777777U, 07777777777777777U);  /* wraps */
 
             /* Halfway / pattern values. */
-            check(03777777777777777UL, 1);               /* 0x7FFFFFFFFFFF + 1 */
-            check(04000000000000000UL, 04000000000000000UL); /* 2^47 + 2^47 = 0 */
-            check(05252525252525252UL, 02525252525252525UL); /* 0xAAA.. + 0x555.. */
-            check(0443212636115274UL, 06272460731241441UL);  /* 0x123456789ABC + 0xCBA987654321 */
+            check(03777777777777777U, 1);                   /* 0x7FFFFFFFFFFF + 1 */
+            check(04000000000000000U, 04000000000000000U);  /* 2^47 + 2^47 = 0 */
+            check(05252525252525252U, 02525252525252525U);  /* 0xAAA.. + 0x555.. */
+            check(0443212636115274U, 06272460731241441U);   /* 0x123456789ABC + 0xCBA987654321 */
 
             /* Carry chain across the 24-bit boundary exactly. */
-            check(07777777777777777UL, 1);
+            check(07777777777777777U, 1);
         }
     )");
     EXPECT_EQ(

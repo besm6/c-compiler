@@ -207,6 +207,8 @@ bool is_zero_int(const Literal *c)
         return c->u.long_val == 0;
     case LITERAL_LONG_LONG:
         return c->u.long_long_val == 0;
+    case LITERAL_UINT:
+        return c->u.uint_val == 0;
     case LITERAL_ULONG:
         return c->u.ulong_val == 0;
     case LITERAL_ULONG_LONG:
@@ -356,6 +358,9 @@ bool try_eval_const_int(const Expr *e, long *out)
             return true;
         case LITERAL_LONG_LONG:
             *out = (long)e->u.literal->u.long_long_val;
+            return true;
+        case LITERAL_UINT:
+            *out = (long)e->u.literal->u.uint_val;
             return true;
         case LITERAL_ULONG:
             *out = (long)e->u.literal->u.ulong_val;

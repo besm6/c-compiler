@@ -354,6 +354,8 @@ bool compare_literal(const Literal *a, const Literal *b)
         return a->u.long_val == b->u.long_val;
     case LITERAL_LONG_LONG:
         return a->u.long_long_val == b->u.long_long_val;
+    case LITERAL_UINT:
+        return a->u.uint_val == b->u.uint_val;
     case LITERAL_ULONG:
         return a->u.ulong_val == b->u.ulong_val;
     case LITERAL_ULONG_LONG:

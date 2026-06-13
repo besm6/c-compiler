@@ -623,6 +623,10 @@ Literal *import_literal(WFILE *input)
         lit->u.long_long_val = (long long)wgetw(input);
         check_input(input, "literal long long");
         break;
+    case LITERAL_UINT:
+        lit->u.uint_val = (unsigned int)wgetw(input);
+        check_input(input, "literal uint");
+        break;
     case LITERAL_ULONG:
         lit->u.ulong_val = (unsigned long)wgetw(input);
         check_input(input, "literal ulong");

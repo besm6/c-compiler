@@ -503,6 +503,9 @@ static void export_literal(FILE *fd, const Literal *lit, int level)
     case LITERAL_LONG_LONG:
         fprintf(fd, "long_long\n");
         break;
+    case LITERAL_UINT:
+        fprintf(fd, "uint\n");
+        break;
     case LITERAL_ULONG:
         fprintf(fd, "ulong\n");
         break;
@@ -539,6 +542,9 @@ static void export_literal(FILE *fd, const Literal *lit, int level)
         break;
     case LITERAL_LONG_LONG:
         fprintf(fd, "%lld\n", lit->u.long_long_val);
+        break;
+    case LITERAL_UINT:
+        fprintf(fd, "%u\n", lit->u.uint_val);
         break;
     case LITERAL_ULONG:
         fprintf(fd, "%lu\n", lit->u.ulong_val);

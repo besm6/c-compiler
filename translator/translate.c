@@ -78,6 +78,15 @@ Tac_Val *val_long_long(long long v)
     return tv;
 }
 
+Tac_Val *val_uint(unsigned int v)
+{
+    Tac_Val *tv    = tac_new_val(TAC_VAL_CONSTANT);
+    Tac_Const *c   = tac_new_const(TAC_CONST_UINT);
+    c->u.uint_val  = v;
+    tv->u.constant = c;
+    return tv;
+}
+
 Tac_Val *val_ulong(unsigned long v)
 {
     Tac_Val *tv    = tac_new_val(TAC_VAL_CONSTANT);

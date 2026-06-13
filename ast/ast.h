@@ -376,6 +376,7 @@ typedef enum {
     LITERAL_INT,
     LITERAL_LONG,
     LITERAL_LONG_LONG,
+    LITERAL_UINT,
     LITERAL_ULONG,
     LITERAL_ULONG_LONG,
     LITERAL_FLOAT,
@@ -392,6 +393,7 @@ struct Literal {
         int int_val;
         long long_val;
         long long long_long_val;
+        unsigned int uint_val;
         unsigned long ulong_val;
         unsigned long long ulong_long_val;
         double real_val;

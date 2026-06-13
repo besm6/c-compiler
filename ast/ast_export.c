@@ -469,6 +469,9 @@ void export_literal(WFILE *fd, const Literal *lit)
     case LITERAL_LONG_LONG:
         wputw((size_t)(unsigned long long)lit->u.long_long_val, fd);
         break;
+    case LITERAL_UINT:
+        wputw((size_t)lit->u.uint_val, fd);
+        break;
     case LITERAL_ULONG:
         wputw((size_t)lit->u.ulong_val, fd);
         break;
