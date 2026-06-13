@@ -83,8 +83,8 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 12 | Unsigned Multiply | `b/mul`'s INT-format FP trick misreads bit 48 as the sign for full 48-bit unsigned operands (same limitation as `b/udiv`). Add `b/umul`: full 48-bit low product over the unsigned range via software shift/add (or operand splitting). Selected for `MULTIPLY` on unsigned operands. | M |
-| 14 | Unsigned divide & remainder | Add `b/udiv`/`b/umod` (the signed FP-divide trick mishandles the top bit over the full 48-bit unsigned range). Implement via a shift/subtract restoring-division loop, or by normalizing as a non-negative FP value. Selected for the `*_UNSIGNED` TAC ops from task 1. | L |
+| 12 | Unsigned Multiply (full 48-bit) | `b/umul` now multiplies **24-bit** unsigned inputs into a 48-bit product, selected for `MULTIPLY_UNSIGNED`. Remaining: extend `b/umul` to the full 48-bit input range via operand splitting. | M |
+| 14 | Unsigned divide & remainder | Add `b/udiv`/`b/umod`. Implement via a shift/subtract restoring-division loop, or by normalizing as a non-negative FP value. Selected for the `*_UNSIGNED` TAC ops from task 1. | L |
 
 ### Phase I — Floating point (single word; `float` ≡ `double`)
 
@@ -113,7 +113,7 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 23 | Runtime helper stubs | The `backend/besm6/libc/*.madlen` sources are assembled into `libc.bin` by CMake and mounted by `CompileAndRun`. Several helpers currently have placeholder stub bodies that need real implementations: unsigned `b/udiv`, `b/umod`, `b/umul`, and the double↔int conversions `b/dtoi`, `b/dtou`. | L |
+| 23 | Runtime helper stubs | The `backend/besm6/libc/*.madlen` sources are assembled into `libc.bin` by CMake and mounted by `CompileAndRun`. Several helpers currently have placeholder stub bodies that need real implementations: unsigned `b/udiv`, `b/umod`, and the double↔int conversions `b/dtoi`, `b/dtou`. | L |
 
 ### Phase M — Deferred / future
 

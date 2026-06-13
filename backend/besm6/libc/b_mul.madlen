@@ -1,7 +1,7 @@
      b/mul: ,name,
          14 ,base,*
 c
-c Multiply two integers.
+c Multiply two 41-bit signed integers.
 c Pop two values from stack.
 c Push result back.
 c

@@ -914,11 +914,17 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         }
 
         // Multiply uses the b/mul runtime helper (the inline A*X needs FP normalization and
-        // INT-format bridging, which the helper encapsulates).  Correct for signed operands
-        // and for unsigned within the 41-bit range; full 48-bit unsigned multiply is task
-        // #12 (b/umul).
+        // INT-format bridging, which the helper encapsulates).  Correct for signed operands.
         if (instr->u.binary.op == TAC_BINARY_MULTIPLY) {
             emit_binop_helper(block, tail, f, src1, src2, "b/mul", rd, od);
+            break;
+        }
+
+        // Unsigned multiply uses b/umul, which forms the full 48-bit product without the
+        // signed 41-bit truncation b/mul applies.  b/umul is currently limited to 24-bit
+        // inputs (48-bit result) — task #12; the full 48x48->48 range is future work.
+        if (instr->u.binary.op == TAC_BINARY_MULTIPLY_UNSIGNED) {
+            emit_binop_helper(block, tail, f, src1, src2, "b/umul", rd, od);
             break;
         }
 

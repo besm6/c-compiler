@@ -1,0 +1,17 @@
+    b/umul: ,name,
+c
+c Multiply two 24-bit unsigned integers, giving 48-bit result.
+c Pop two values from stack, push result back.
+c Value a is in stack, value b on accumulator.
+c
+            ,utc, bit48
+            ,aox,                   . add exponent offset
+         15 ,a*x,                   . multiply with normalization disabled
+            ,xts,                   . push bits 80:41 to stack, set logical
+            ,yta,                   . get bits 40:1
+         15 ,xts, -2                . get bits 80:41
+            ,asn, 64-40             . shift to bits 48:41 of A
+         15 ,aox,                   . add bits 40:1
+         13 ,uj,
+   bit48:   ,oct, 4
+            ,end,

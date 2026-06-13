@@ -92,6 +92,8 @@ static const char *binary_op_name(Tac_BinaryOperator op)
         return "add_unsigned";
     case TAC_BINARY_SUBTRACT_UNSIGNED:
         return "subtract_unsigned";
+    case TAC_BINARY_MULTIPLY_UNSIGNED:
+        return "multiply_unsigned";
     }
     return "?";
 }

@@ -665,6 +665,53 @@ TEST_F(CodegenTest, MultiplyRun)
         result);
 }
 
+// Madlen-level shape: unsigned MULTIPLY lowers to the b/umul helper (xta / xts / ,call,
+// b/umul / atx) rather than b/mul or an inline A*X, and emits no caller-side stack pop.
+TEST_F(CodegenTest, MultiplyUnsignedMadlenShape)
+{
+    std::string out =
+        CompileToMadlen("extern unsigned g; void foo(unsigned a, unsigned b) { g = a * b; }");
+    EXPECT_NE(out.find(",xts,"), std::string::npos);
+    EXPECT_NE(out.find(",call, b/umul"), std::string::npos);
+    // Unsigned multiply must use b/umul, not the signed b/mul helper or an inline A*X.
+    EXPECT_EQ(out.find(",call, b/mul\n"), std::string::npos);
+    EXPECT_EQ(out.find(",a*x,"), std::string::npos);
+    // The helper pops its own operand: no UTM stack adjustment around the call.
+    EXPECT_EQ(out.find("15 ,utm, -1"), std::string::npos);
+}
+
+// End-to-end: unsigned multiply via b/umul.  Inputs are limited to 24 bits (task #12);
+// the full 48-bit product is printed in octal (%o prints the whole word, leading zeros
+// stripped).  Covers multiply by 0 and 1, a 24-bit boundary product (2^24), and the
+// maximum 24-bit product 0xFFFFFF * 0xFFFFFF = 2^48 - 2^25 + 1.
+TEST_F(CodegenTest, MultiplyUnsignedRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void check(unsigned a, unsigned b) { printf("%o\n", a * b); }
+        void program() {
+            check(0, 0);                  /* 0 */
+            check(1, 1);                  /* 1 */
+            check(3, 5);                  /* 15 */
+            check(010000U, 010000U);      /* 0x1000 * 0x1000 = 2^24 */
+            check(12345U, 6789U);         /* mid-range product */
+            check(077777777U, 077777777U);/* 0xFFFFFF^2 = 2^48 - 2^25 + 1 */
+            check(077777777U, 1);         /* 0xFFFFFF */
+            check(052746757U, 04432126U); /* 0xABCDEF * 0x123456 */
+        }
+    )");
+    EXPECT_EQ(
+        "0\n"
+        "1\n"
+        "17\n"
+        "100000000\n"
+        "477553635\n"
+        "7777777600000001\n"
+        "77777777\n"
+        "303363226335112\n",
+        result);
+}
+
 // Madlen-level shape: signed DIVIDE lowers to the b/div helper (xta / xts / ,call, b/div
 // / atx) rather than an inline A/X, and emits no caller-side stack pop.
 TEST_F(CodegenTest, DivideMadlenShape)
