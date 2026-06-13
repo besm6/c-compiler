@@ -551,3 +551,72 @@ TEST_F(CodegenTest, AddUnsignedRun)
         "0\n",
         result);
 }
+
+// Madlen-level shape: unsigned SUBTRACT lowers to the b/usub helper (xta / xts / ,call,
+// b/usub / atx) rather than the inline A-X used for signed SUBTRACT, with no caller pop.
+TEST_F(CodegenTest, SubUnsignedMadlenShape)
+{
+    std::string out =
+        CompileToMadlen("extern unsigned g; void foo(unsigned a, unsigned b) { g = a - b; }");
+    EXPECT_NE(out.find(",xts,"), std::string::npos);
+    EXPECT_NE(out.find(",call, b/usub"), std::string::npos);
+    // Unsigned subtract must NOT use the inline additive unit.
+    EXPECT_EQ(out.find(",a-x,"), std::string::npos);
+    // The helper pops its own operand: no UTM stack adjustment around the call.
+    EXPECT_EQ(out.find("15 ,utm, -1"), std::string::npos);
+}
+
+// End-to-end: true 48-bit modular unsigned subtract via b/usub.  Results are printed in
+// octal (%o prints the whole word, leading zeros stripped).  Exercises borrow across the
+// 24-bit boundary, wrap-around on underflow, and the bit-48-set / bit-48-clear operand
+// combinations the b/usub algorithm branches on.
+TEST_F(CodegenTest, SubUnsignedRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void check(unsigned a, unsigned b) { printf("%o\n", a - b); }
+        void program() {
+            /* Fixed edge cases. */
+            check(0, 0);
+            check(1, 0);
+            check(0, 1);                                    /* underflow -> all ones */
+            check(1, 1);
+
+            /* Borrow across the 24-bit boundary. */
+            check(0100000000U, 1);                          /* 2^24 - 1 */
+
+            /* Maximum 48-bit values. */
+            check(07777777777777777U, 07777777777777777U);  /* MAX - MAX = 0 */
+            check(0, 07777777777777777U);                   /* -MAX -> 1 */
+            check(07777777777777777U, 1);                   /* MAX - 1 */
+
+            /* Bit-48 operand combinations (2^47 has bit 48 set). */
+            check(04000000000000000U, 04000000000000000U);  /* both bit48 set */
+            check(0, 04000000000000000U);                   /* bit48 in b only -> 2^47 */
+            check(04000000000000000U, 1);                   /* bit48 in a only */
+            check(04000000000000000U, 07777777777777777U);  /* both bit48 set, underflow */
+
+            /* Pattern values. */
+            check(05252525252525252U, 02525252525252525U);  /* 0xAAA.. - 0x555.. */
+            check(02525252525252525U, 05252525252525252U);  /* 0x555.. - 0xAAA.. underflow */
+            check(06272460731241441U, 0443212636115274U);   /* big - small */
+        }
+    )");
+    EXPECT_EQ(
+        "0\n"
+        "1\n"
+        "7777777777777777\n"
+        "0\n"
+        "77777777\n"
+        "0\n"
+        "1\n"
+        "7777777777777776\n"
+        "0\n"
+        "4000000000000000\n"
+        "3777777777777777\n"
+        "4000000000000001\n"
+        "2525252525252525\n"
+        "5252525252525253\n"
+        "5627246073124145\n",
+        result);
+}

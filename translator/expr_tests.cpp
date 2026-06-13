@@ -885,3 +885,20 @@ TEST_F(TranslateTest, SignedAddUnchanged)
     EXPECT_NE(yaml.find("op: add\n"), std::string::npos);
     EXPECT_EQ(yaml.find("op: add_unsigned"), std::string::npos);
 }
+
+// Unsigned operands select subtract_unsigned, not subtract (true 48-bit modular sub).
+TEST_F(TranslateTest, UnsignedSub)
+{
+    std::string yaml =
+        CompileToYaml("unsigned int f(unsigned int a, unsigned int b) { return a - b; }");
+    EXPECT_NE(yaml.find("op: subtract_unsigned"), std::string::npos);
+    EXPECT_EQ(yaml.find("op: subtract\n"), std::string::npos);
+}
+
+// Signed subtract still selects plain subtract, not subtract_unsigned.
+TEST_F(TranslateTest, SignedSubUnchanged)
+{
+    std::string yaml = CompileToYaml("int f(int a, int b) { return a - b; }");
+    EXPECT_NE(yaml.find("op: subtract\n"), std::string::npos);
+    EXPECT_EQ(yaml.find("op: subtract_unsigned"), std::string::npos);
+}

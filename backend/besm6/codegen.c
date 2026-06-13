@@ -905,6 +905,14 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
             break;
         }
 
+        // Unsigned subtract has the same exponent-field hazard as unsigned add: A-X
+        // misreads the data in bits 48-42.  The b/usub helper does true 48-bit modular
+        // subtract.  Signed SUBTRACT stays inline as A-X below.
+        if (instr->u.binary.op == TAC_BINARY_SUBTRACT_UNSIGNED) {
+            emit_binop_helper(block, tail, f, src1, src2, "b/usub", rd, od);
+            break;
+        }
+
         // Shifts are logical for int and unsigned alike (right-shift does no sign
         // extension), so all three shift ops reduce to "left" or "right".  Constant
         // counts inline an ASN; variable counts call b/lsh / b/rsh.

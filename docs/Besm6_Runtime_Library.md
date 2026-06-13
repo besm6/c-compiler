@@ -243,10 +243,11 @@ modular sum in A. Adds the two operands in 24-bit half-words with explicit carry
 from the low half into the high half, so the exponent-field bits participate as plain value
 bits. Overflow wraps modulo 2⁴⁸.
 
-#### `b/usub` — [b_usub.madlen](../backend/besm6/libc/b_usub.madlen) — `a − b` (unsigned) — **to be implemented**
+#### `b/usub` — [b_usub.madlen](../backend/besm6/libc/b_usub.madlen) — `a − b` (unsigned)
 
-Returns the 48-bit modular difference `a − b` in A, reusing the half-word/borrow structure
-of `b/uadd`. Underflow wraps modulo 2⁴⁸.
+Returns the 48-bit modular difference `a − b` in A. Negates `b` (complement plus one) and
+adds it to `a`, handling the bit-48 carry explicitly so the exponent-field bits participate
+as plain value bits. Underflow wraps modulo 2⁴⁸.
 
 #### `b/umul` — [b_umul.madlen](../backend/besm6/libc/b_umul.madlen) — `a * b` (unsigned) — **to be implemented**
 

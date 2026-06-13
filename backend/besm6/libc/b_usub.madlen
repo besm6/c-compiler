@@ -5,7 +5,7 @@ c Pop two values from stack, push result back.
 c Value a is in stack, value b on accumulator.
 c
             ,ntr, 7                 . B is on accumulator
-            ,uza, b*nonz            . jump when B != 0
+            ,u1a, b*nonz            . jump when B != 0
             ,stx,                   . pop A from stack
          13 ,uj,                    . B == 0, nothing to subtract
 c
@@ -13,9 +13,10 @@ c
             ,aex, =7777 7777 7777 7777
             ,arx, =1                . negate: -B
 c
-            ,ntr, 8
+            ,ntr, 8+3
             ,uza, b*large           . jump when B[48] = 1
          15 ,xts, -2                . push B on stack, extract A
+            ,ntr, 8+3
             ,uza, a*large           . jump when A[48] = 1
 c
          15 ,arx,                   . add A[47:1] + B[47:1]
@@ -23,23 +24,24 @@ c
          13 ,uj,
 c
    b*large: ,bss,                   . bit B[48] == 1
-            ,e+n,                   . invert bit B[48]
+            ,aex, =:4               . invert bit B[48]
          15 ,xts, -2                . push B on stack, extract A
+            ,ntr, 8+3
             ,uza, ab*large          . jump when A[48] = 1
          15 ,arx,                   . add A[47:1] + B[47:1]
-            ,e+n,                   . invert bit 48
+            ,aex, =:4               . invert bit 48
          15 ,utm, -1                . drop A from stack
          13 ,uj,
 c
    a*large: ,bss,                   . bit A[48] == 1, bit B[48] == 0
-            ,e+n,                   . invert bit A[48]
+            ,aex, =:4               . invert bit A[48]
          15 ,arx,                   . add A[47:1] + B[47:1]
-            ,e+n,                   . invert bit 48
+            ,aex, =:4               . invert bit 48
          15 ,utm, -1                . drop A from stack
          13 ,uj,
 c
   ab*large: ,bss,                   . bit B[48] == 1, bit A[48] == 0
-            ,e+n,                   . invert bit B[48]
+            ,aex, =:4               . invert bit B[48]
          15 ,arx,                   . add A[47:1] + B[47:1]
          15 ,utm, -1                . drop A from stack
          13 ,uj,

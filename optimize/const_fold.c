@@ -280,7 +280,8 @@ static Tac_Val *fold_binary_const(Tac_BinaryOperator op,
     switch (op) {
     case TAC_BINARY_ADD:
     case TAC_BINARY_ADD_UNSIGNED: result = u1 + u2; break;
-    case TAC_BINARY_SUBTRACT:  result = u1 - u2; break;
+    case TAC_BINARY_SUBTRACT:
+    case TAC_BINARY_SUBTRACT_UNSIGNED: result = u1 - u2; break;
     case TAC_BINARY_MULTIPLY:  result = u1 * u2; break;
     case TAC_BINARY_DIVIDE:    result = (uint64_t)(s1 / s2); break;
     case TAC_BINARY_REMAINDER: result = (uint64_t)(s1 % s2); break;

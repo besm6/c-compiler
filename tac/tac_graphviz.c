@@ -90,6 +90,8 @@ static const char *binary_op_name(Tac_BinaryOperator op)
         return "right_shift_logical";
     case TAC_BINARY_ADD_UNSIGNED:
         return "add_unsigned";
+    case TAC_BINARY_SUBTRACT_UNSIGNED:
+        return "subtract_unsigned";
     }
     return "?";
 }
