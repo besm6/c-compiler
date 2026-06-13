@@ -78,44 +78,47 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 9 | Multiply | The single-word low product is identical for signed and unsigned. Use the documented `b/mul` helper: bridge raw operands to INT-format (exponent `0150B`), `A*X`, correct the exponent (`E-N 150B`), strip back to raw, mask to 48 bits. Emit `,CALL, b/mul` (or inline the sequence for small/constant multipliers). | M |
-| 10 | Signed divide & remainder | Use the documented `b/div`/`b/mod` helpers: extract operand signs, FP-divide the absolute values with exponent adjustment, truncate toward zero, reapply the sign; `b/mod` = a − (a÷b)·b. | L |
-| 11 | Unsigned divide & remainder | Add `b/udiv`/`b/umod` (the signed FP-divide trick mishandles the top bit over the full 48-bit unsigned range). Implement via a shift/subtract restoring-division loop, or by normalizing as a non-negative FP value. Selected for the `*_UNSIGNED` TAC ops from task 1. | L |
+| 9 | Unsigned Add | Signed `A+X` works only because raw integers keep the exponent field (bits 48–42) = 0, so the additive unit adds the 41-bit mantissas cleanly. Full 48-bit unsigned values carry data in that field, which `A+X` misreads as an exponent. Add `b/uadd`: true 48-bit modular add (e.g. 24-bit half-words with explicit carry propagation). Selected for `ADD` on unsigned operands. | M |
+| 10 | Unsigned Subtract | As task 9, for `A-X`. Add `b/usub`: true 48-bit modular subtract, reusing the `b/uadd` carry structure. Selected for `SUBTRACT` on unsigned operands. | S |
+| 11 | Signed Multiply | The single-word low product for signed operands. Use the documented `b/mul` helper: bridge raw operands to INT-format (exponent `0150B`), `A*X`, correct the exponent (`E-N 150B`), strip back to raw, mask to 41 bits. Emit `,CALL, b/mul` (or inline the sequence for small/constant multipliers). | M |
+| 12 | Unsigned Multiply | `b/mul`'s INT-format FP trick misreads bit 48 as the sign for full 48-bit unsigned operands (same limitation as `b/udiv`). Add `b/umul`: full 48-bit low product over the unsigned range via software shift/add (or operand splitting). Selected for `MULTIPLY` on unsigned operands. | M |
+| 13 | Signed divide & remainder | Use the documented `b/div`/`b/mod` helpers: extract operand signs, FP-divide the absolute values with exponent adjustment, truncate toward zero, reapply the sign; `b/mod` = a − (a÷b)·b. | L |
+| 14 | Unsigned divide & remainder | Add `b/udiv`/`b/umod` (the signed FP-divide trick mishandles the top bit over the full 48-bit unsigned range). Implement via a shift/subtract restoring-division loop, or by normalizing as a non-negative FP value. Selected for the `*_UNSIGNED` TAC ops from task 1. | L |
 
 ### Phase I — Floating point (single word; `float` ≡ `double`)
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 12 | FP arithmetic | Add/Sub/Mul/Div map to `A+X`/`A-X`/`A*X`/`A/X` **with normalization enabled** — temporarily clear R's suppress bits via `NTR` around the FP op (integer mode leaves R=7), then restore. FP negate: `X-A 0`. | M |
-| 13 | FP comparisons | `A-X` sets additive ω; `U1A`/`UZA` on the sign for `<`/`>`/`<=`/`>=`; `AEX`+`UZA` for `==`/`!=`. Produce raw 0/1. | S |
+| 15 | FP arithmetic | Add/Sub/Mul/Div map to `A+X`/`A-X`/`A*X`/`A/X` **with normalization enabled** — temporarily clear R's suppress bits via `NTR` around the FP op (integer mode leaves R=7), then restore. FP negate: `X-A 0`. | M |
+| 16 | FP comparisons | `A-X` sets additive ω; `U1A`/`UZA` on the sign for `<`/`>`/`<=`/`>=`; `AEX`+`UZA` for `==`/`!=`. Produce raw 0/1. | S |
 
 ### Phase J — Type conversions
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 14 | Integer width conversions | `TRUNCATE`/`ZERO_EXTEND`: `AAX` with an N-bit mask (8-bit for `char`, 48-bit otherwise; since `short`≡`long`≡`int`, most width conversions are no-ops/copies). `SIGN_EXTEND`: mask, test the source sign bit, `AOX` the high-fill mask when negative (relevant for `signed char`). | M |
-| 15 | Int ↔ double conversions | `INT_TO_DOUBLE`/`UINT_TO_DOUBLE`: normalize the raw integer into FP (set the INT-format exponent, then `NTR`+`A+X 0`). `DOUBLE_TO_INT`/`DOUBLE_TO_UINT`: runtime `b/dtoi`/`b/dtou` (shift the mantissa by 104−exp). `FLOAT_*` ≡ `DOUBLE_*`, and `*_TO_FLOAT`/`FLOAT_TO_DOUBLE` are copies. | L |
+| 17 | Integer width conversions | `TRUNCATE`/`ZERO_EXTEND`: `AAX` with an N-bit mask (8-bit for `char`, 48-bit otherwise; since `short`≡`long`≡`int`, most width conversions are no-ops/copies). `SIGN_EXTEND`: mask, test the source sign bit, `AOX` the high-fill mask when negative (relevant for `signed char`). | M |
+| 18 | Int ↔ double conversions | `INT_TO_DOUBLE`/`UINT_TO_DOUBLE`: normalize the raw integer into FP (set the INT-format exponent, then `NTR`+`A+X 0`). `DOUBLE_TO_INT`/`DOUBLE_TO_UINT`: runtime `b/dtoi`/`b/dtou` (shift the mantissa by 104−exp). `FLOAT_*` ≡ `DOUBLE_*`, and `*_TO_FLOAT`/`FLOAT_TO_DOUBLE` are copies. | L |
 
 ### Phase K — Pointers, arrays, structs, fat pointers
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 16 | AddPtr | Power-of-2 word scale k: `,ASN, (64-k)B` on the index, then `A+X ptr`. Scale 1: plain add. Non-power-of-2: `b/mul` by the scale. Result is a word address. Global array element access chains tasks 1–2 (GET_ADDRESS yields the array label's address via UTC/VTM/ITA) with ADD_PTR for index scaling, then the existing LOAD/STORE. Include `CompileAndRun` tests for `int arr[N]; arr[i] = v;` and `x = arr[i];` with a global array. | M |
-| 17 | CopyToOffset / CopyFromOffset | Aggregate member access: base from frame + constant word offset via `UTC`/an index register, then `ATX`/`XTA` at the offset. | M |
-| 18 | Fat-pointer `char` access | `char*`/`void*` are fat pointers (bit 48 set, byte offset in bits 47–45). **Load byte**: `WTC ptr` / `XTA 0` / `ASX ptr` (shift by offset×8) / `AAX =0377`. **Store byte**: read-modify-write the containing word (mask out the target byte, OR in the new byte shifted into place). | L |
-| 19 | `char*` arithmetic & pointer casts | `char*` increment decrements the 3-bit byte offset, borrowing into the word address when it wraps 0→5. Casts: `int*`→`char*` sets the fat marker + offset 5; `char*`→`int*` clears them; `char*`↔`void*` is a bit-pattern copy. | M |
+| 19 | AddPtr | Power-of-2 word scale k: `,ASN, (64-k)B` on the index, then `A+X ptr`. Scale 1: plain add. Non-power-of-2: `b/mul` by the scale. Result is a word address. Global array element access chains tasks 1–2 (GET_ADDRESS yields the array label's address via UTC/VTM/ITA) with ADD_PTR for index scaling, then the existing LOAD/STORE. Include `CompileAndRun` tests for `int arr[N]; arr[i] = v;` and `x = arr[i];` with a global array. | M |
+| 20 | CopyToOffset / CopyFromOffset | Aggregate member access: base from frame + constant word offset via `UTC`/an index register, then `ATX`/`XTA` at the offset. | M |
+| 21 | Fat-pointer `char` access | `char*`/`void*` are fat pointers (bit 48 set, byte offset in bits 47–45). **Load byte**: `WTC ptr` / `XTA 0` / `ASX ptr` (shift by offset×8) / `AAX =0377`. **Store byte**: read-modify-write the containing word (mask out the target byte, OR in the new byte shifted into place). | L |
+| 22 | `char*` arithmetic & pointer casts | `char*` increment decrements the 3-bit byte offset, borrowing into the word address when it wraps 0→5. Casts: `int*`→`char*` sets the fat marker + offset 5; `char*`→`int*` clears them; `char*`↔`void*` is a bit-pattern copy. | M |
 
 ### Phase L — Runtime support library
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 20 | Runtime helper stubs | The `backend/besm6/libc/*.madlen` sources are assembled into `libc.bin` by CMake and mounted by `CompileAndRun`. Six helpers currently have placeholder stub bodies that need real implementations: unsigned `b/udiv`, `b/umod`, `b/umul`, `b/uadd`, and the double↔int conversions `b/dtoi`, `b/dtou`. | L |
+| 23 | Runtime helper stubs | The `backend/besm6/libc/*.madlen` sources are assembled into `libc.bin` by CMake and mounted by `CompileAndRun`. Seven helpers currently have placeholder stub bodies that need real implementations: unsigned `b/udiv`, `b/umod`, `b/umul`, `b/uadd`, `b/usub`, and the double↔int conversions `b/dtoi`, `b/dtou`. | L |
 
 ### Phase M — Deferred / future
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 21 | Two-word `long long` / `unsigned long long` | Two-word load/store and software add/sub/mul/div/compare. First fix `codegen_sizeof` in [abi.h](abi.h), which currently returns 1 word for these two-word types. | XL |
-| 22 | Two-word `long double` | Two-word native-FP arithmetic (80-bit mantissa, 14-bit exponent biased 8192) via runtime helpers, using the Y/RMR register for double-width intermediates. | XL |
-| 23 | Optimizations | Peephole rewrites, redundant load/store elimination, frame-slot reuse for dead temporaries. (Switch jump tables are tracked separately as task #24.) | L |
-| 24 | Switch jump-table optimization | For dense case ranges, replace the linear compare chain with an index-scaled `UTC`/`UJ` dispatch through a table of `,oct, label` words. | M |
+| 24 | Two-word `long long` / `unsigned long long` | Two-word load/store and software add/sub/mul/div/compare. First fix `codegen_sizeof` in [abi.h](abi.h), which currently returns 1 word for these two-word types. | XL |
+| 25 | Two-word `long double` | Two-word native-FP arithmetic (80-bit mantissa, 14-bit exponent biased 8192) via runtime helpers, using the Y/RMR register for double-width intermediates. | XL |
+| 26 | Optimizations | Peephole rewrites, redundant load/store elimination, frame-slot reuse for dead temporaries. (Switch jump tables are tracked separately as task #27.) | L |
+| 27 | Switch jump-table optimization | For dense case ranges, replace the linear compare chain with an index-scaled `UTC`/`UJ` dispatch through a table of `,oct, label` words. | M |

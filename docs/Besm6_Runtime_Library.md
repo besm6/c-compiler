@@ -177,8 +177,9 @@ Computes `a * b` (signed, low 41-bit result).
 13 ,uj,             ; return
 ```
 
-The signed and unsigned low products are identical (both fit in 41 bits); `b/mul` serves
-both.
+`b/mul` is **signed only**: the INT-format bridge interprets bit 48 as the operand's sign,
+so it is valid only where each operand fits the 41-bit signed range. Unsigned multiply over
+the full 48-bit range uses `b/umul` (see *Unsigned Integer Arithmetic* below).
 
 #### `b/div` — [b_div.madlen](../backend/besm6/libc/b_div.madlen)
 
@@ -225,7 +226,34 @@ slot 2 and `b` at the stack position used by the divide.
 
 The signed helpers' INT-format trick mishandles unsigned operands whose top bit (bit 48)
 is set: the FP unit interprets bit 48 as the number's sign, producing incorrect results.
-Separate helpers are required for the full 48-bit unsigned range.
+This affects multiply and divide (`b/umul`, `b/udiv`, `b/umod`).
+
+Add and subtract fail for a related reason: signed `A+X`/`A-X` work only because raw
+41-bit integers keep the exponent field (bits 48–42) = 0, so the additive unit adds the
+mantissas directly. Full 48-bit unsigned values carry data in that field, which the
+additive unit misreads as an exponent — so unsigned add/subtract need software helpers
+(`b/uadd`, `b/usub`) that perform true 48-bit modular arithmetic.
+
+Separate helpers are therefore required for the full 48-bit unsigned range.
+
+#### `b/uadd` — [b_uadd.madlen](../backend/besm6/libc/b_uadd.madlen) — `a + b` (unsigned) — **to be implemented**
+
+Receives two 48-bit unsigned values (`a` at `mem[r15−1]`, `b` in A). Returns the 48-bit
+modular sum in A. Intended algorithm: add the two operands in 24-bit half-words with
+explicit carry propagation from the low half into the high half, so the exponent-field bits
+participate as plain value bits. Overflow wraps modulo 2⁴⁸.
+
+#### `b/usub` — [b_usub.madlen](../backend/besm6/libc/b_usub.madlen) — `a − b` (unsigned) — **to be implemented**
+
+Returns the 48-bit modular difference `a − b` in A, reusing the half-word/borrow structure
+of `b/uadd`. Underflow wraps modulo 2⁴⁸.
+
+#### `b/umul` — [b_umul.madlen](../backend/besm6/libc/b_umul.madlen) — `a * b` (unsigned) — **to be implemented**
+
+Returns the low 48 bits of the unsigned product `a * b` in A. The INT-format FP trick used
+by `b/mul` misreads bit 48 as the sign, so `b/umul` computes the product in software (a
+shift/add loop, or by splitting each operand into halves and summing the partial products
+modulo 2⁴⁸). High-half overflow is discarded.
 
 #### `b/udiv` — [b_udiv.madlen](../backend/besm6/libc/b_udiv.madlen) — `a / b` (unsigned) — **to be implemented**
 
