@@ -1,0 +1,46 @@
+    b/uadd: ,name,
+c
+c Add two 48-bit unsigned integers, modulo 2^48.
+c Pop two values from stack, push result back.
+c Value a is in stack, value b on accumulator.
+c
+c Split each operand into 24-bit halves and add with explicit
+c carry, using only integer A+X (normalization suppressed) and
+c shifts -- never relying on the additive unit for the full
+c 48-bit width, whose bits 48-42 are data, not an exponent.
+c
+            ,stx, wb               . wb = b, pop a from stack
+            ,atx, wa               . wa = a
+            ,aax, =7777 7777       . A = a & 0xFFFFFF   (a_lo)
+            ,atx, wt               . wt = a_lo
+c
+            ,xta, wb
+            ,aax, =7777 7777       . A = b & 0xFFFFFF   (b_lo)
+            ,a+x, wt               . A = a_lo + b_lo    (lo_sum, <= 2^25)
+            ,atx, wt               . wt = lo_sum
+c
+            ,xta, wa
+            ,asn, 64 + 24          . A = a >> 24        (a_hi)
+            ,atx, wa               . wa = a_hi
+c
+            ,xta, wb
+            ,asn, 64 + 24          . A = b >> 24        (b_hi)
+            ,a+x, wa               . A = a_hi + b_hi
+            ,atx, wa               . wa = a_hi + b_hi
+c
+            ,xta, wt
+            ,asn, 64 + 24          . A = lo_sum >> 24   (carry, 0 or 1)
+            ,a+x, wa               . A = a_hi + b_hi + carry  (hi_sum)
+            ,aax, =7777 7777       . A = hi_sum & 0xFFFFFF    (hi_res)
+            ,asn, 64 - 24          . A = hi_res << 24
+            ,atx, wa               . wa = hi_res << 24
+c
+            ,xta, wt
+            ,aax, =7777 7777       . A = lo_sum & 0xFFFFFF    (lo_res)
+            ,aox, wa               . A = (hi_res << 24) | lo_res  (result)
+         13 ,uj,
+c
+        wa: ,bss, 1
+        wb: ,bss, 1
+        wt: ,bss, 1
+            ,end,
