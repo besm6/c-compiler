@@ -922,6 +922,20 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
             break;
         }
 
+        // Signed divide and remainder use the b/div / b/mod runtime helpers, which bridge
+        // raw operands to INT-format, FP-divide the absolute values, correct the exponent
+        // and reapply the sign (b/mod = a - (a/b)*b).  Correct for signed operands and for
+        // unsigned within the 41-bit range; full 48-bit unsigned divide/remainder is task
+        // #14 (b/udiv / b/umod).
+        if (instr->u.binary.op == TAC_BINARY_DIVIDE) {
+            emit_binop_helper(block, tail, f, src1, src2, "b/div", rd, od);
+            break;
+        }
+        if (instr->u.binary.op == TAC_BINARY_REMAINDER) {
+            emit_binop_helper(block, tail, f, src1, src2, "b/mod", rd, od);
+            break;
+        }
+
         // Shifts are logical for int and unsigned alike (right-shift does no sign
         // extension), so all three shift ops reduce to "left" or "right".  Constant
         // counts inline an ASN; variable counts call b/lsh / b/rsh.

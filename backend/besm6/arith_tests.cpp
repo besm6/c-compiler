@@ -664,3 +664,89 @@ TEST_F(CodegenTest, MultiplyRun)
         "12345\n",
         result);
 }
+
+// Madlen-level shape: signed DIVIDE lowers to the b/div helper (xta / xts / ,call, b/div
+// / atx) rather than an inline A/X, and emits no caller-side stack pop.
+TEST_F(CodegenTest, DivideMadlenShape)
+{
+    std::string out =
+        CompileToMadlen("extern int g; void foo(int a, int b) { g = a / b; }");
+    EXPECT_NE(out.find(",xts,"), std::string::npos);
+    EXPECT_NE(out.find(",call, b/div"), std::string::npos);
+    // Divide must NOT inline the divide unit; the helper bridges INT-format.
+    EXPECT_EQ(out.find(",a/x,"), std::string::npos);
+    // The helper pops its own operand: no UTM stack adjustment around the call.
+    EXPECT_EQ(out.find("15 ,utm, -1"), std::string::npos);
+}
+
+// Madlen-level shape: signed REMAINDER lowers to the b/mod helper.
+TEST_F(CodegenTest, RemainderMadlenShape)
+{
+    std::string out =
+        CompileToMadlen("extern int g; void foo(int a, int b) { g = a % b; }");
+    EXPECT_NE(out.find(",xts,"), std::string::npos);
+    EXPECT_NE(out.find(",call, b/mod"), std::string::npos);
+    EXPECT_EQ(out.find(",a/x,"), std::string::npos);
+    EXPECT_EQ(out.find("15 ,utm, -1"), std::string::npos);
+}
+
+// End-to-end: signed divide via b/div.  Covers sign combinations (truncation toward zero),
+// divide by 1, and a zero dividend.
+TEST_F(CodegenTest, DivideRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void check(int a, int b) { printf("%d\n", a / b); }
+        void program() {
+            check(7, 2);            /* 3 */
+            check(-7, 2);           /* -3, truncates toward zero */
+            check(7, -2);           /* -3 */
+            check(-7, -2);          /* 3 */
+            check(6, 3);            /* 2 */
+            check(0, 5);            /* 0 */
+            check(1000000000, 7);   /* 142857142, multi-digit quotient */
+            check(-1000000000, 7);  /* -142857142 */
+            check(-42, 1);          /* -42 */
+        }
+    )");
+    EXPECT_EQ(
+        "3\n"
+        "-3\n"
+        "-3\n"
+        "3\n"
+        "2\n"
+        "0\n"
+        "142857142\n"
+        "-142857142\n"
+        "-42\n",
+        result);
+}
+
+// End-to-end: signed remainder via b/mod.  Result takes the sign of the dividend (C11).
+TEST_F(CodegenTest, RemainderRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void check(int a, int b) { printf("%d\n", a % b); }
+        void program() {
+            check(7, 2);            /* 1 */
+            check(-7, 2);           /* -1, sign of dividend */
+            check(7, -2);           /* 1 */
+            check(-7, -2);          /* -1 */
+            check(6, 3);            /* 0 */
+            check(0, 5);            /* 0 */
+            check(1000000007, 1000);/* 7, multi-digit dividend */
+            check(-42, 5);          /* -2 */
+        }
+    )");
+    EXPECT_EQ(
+        "1\n"
+        "-1\n"
+        "1\n"
+        "-1\n"
+        "0\n"
+        "0\n"
+        "7\n"
+        "-2\n",
+        result);
+}

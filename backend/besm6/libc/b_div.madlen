@@ -1,23 +1,38 @@
      b/div: ,name,
          14 ,base,*
 c
-c Divide two integers.
-c Pop two values from stack.
-c Push result back.
+c Divide two signed integers, truncated toward zero (C semantics).
+c Pop two values from stack, push result back.
 c
 c   result = a / b
 c
 c Value a is in stack, value b on accumulator.
 c
+c The hardware FP divide rounds the two's-complement mantissa toward -infinity,
+c so a straight signed divide would floor.  Instead divide |a| / |b| (a positive
+c quotient that masks toward zero correctly) and reapply the sign a^b.
+c
             ,ntr,
-            ,aox, =:64
-            ,avx,
-         15 ,stx,
-            ,aox, =:64
-            ,avx,
-         15 ,a/x, 1
+            ,aox, =:64              . A = INT-format b (bit41 = sign b)
+         15 ,stx,                   . mem[r15+1] = INT b; pop; A = a (raw)
+         15 ,atx, 2                 . mem[r15+2] = a (raw)
+         15 ,aex, 1                 . A = a ^ INT-b  (bit41 = sign a ^ sign b)
+         15 ,atx, 3                 . mem[r15+3] = sign word
+c                                     |b|
+         15 ,xta, 1                 . A = INT b
+         15 ,avx, 1                 . A = |INT b|, normalized
+         15 ,atx, 1                 . mem[r15+1] = |INT b|
+c                                     |a|
+         15 ,xta, 2                 . A = a (raw)
+            ,aox, =:64              . A = INT-format a
+         15 ,atx, 2                 . mem[r15+2] = INT a
+         15 ,avx, 2                 . A = |INT a|, normalized
+c                                     |a| / |b|
+         15 ,a/x, 1                 . A = |INT a| / |INT b|
             ,ntr, 3
-            ,a+x, =:64
-            ,aax, =37 7777 7777 7777
+            ,a+x, =:64              . correct quotient exponent
+            ,aax, =37 7777 7777 7777   . mask to 41-bit (truncates toward zero)
+         15 ,avx, 3                 . reapply sign: negate when a^b < 0
+            ,aox,                   . OR mem[0]=0: ACC unchanged, restore logical w-mode
          13 ,uj,
             ,end,

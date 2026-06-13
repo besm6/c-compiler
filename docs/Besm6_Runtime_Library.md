@@ -183,42 +183,40 @@ the full 48-bit range uses `b/umul` (see *Unsigned Integer Arithmetic* below).
 
 #### `b/div` — [b_div.madlen](../backend/besm6/libc/b_div.madlen)
 
-Computes `a / b` (signed, truncated toward zero).
+Computes `a / b` (signed, truncated toward zero — C11 §6.5.5).
 
-Uses `ntr,` to clear the mode, then `aox, =:64` + `avx` (absolute-value exchange) to
-convert each signed operand to FP-divide-compatible INT-format while recording its sign.
-`a/x` performs the FP division. The same exponent-correction (`a+x, =:64`) and mask
-(`aax, =37 7777 7777 7777`) extract the signed quotient. The sign of the result is derived
-from the signs of the operands.
+The hardware FP divide leaves the quotient as a two's-complement mantissa, so masking off
+the fraction rounds toward −∞ (floors). To get C truncation, the helper divides the
+**absolute values** and reapplies the sign:
+
+1. Convert `b` to INT-format (`aox, =:64`) and record the sign word `a ^ b` (its bit 41 is
+   `sign(a) ^ sign(b)`).
+2. `avx` against each INT-format operand takes its absolute value and normalizes it (the
+   FP divisor must be normalized).
+3. `a/x` divides `|a| / |b|`; `a+x, =:64` corrects the exponent and `aax, =37 7777 7777
+   7777` masks to the 41-bit result. Because the operands are non-negative, this truncates
+   toward zero.
+4. `avx` against the saved sign word negates the quotient when the operand signs differ.
+5. A final `aox` (OR with `mem[0] = 0`, leaving the accumulator unchanged) restores the
+   **logical ω-mode** that callers expect on return — the additive ω-mode left by the
+   sign-reapply `avx` would otherwise invert the next `uza`/`u1a` test in the caller (e.g.
+   printf's decimal-digit loop).
 
 #### `b/mod` — [b_mod.madlen](../backend/besm6/libc/b_mod.madlen)
 
-Computes `a % b` (signed remainder; result has the same sign as the dividend).
+Computes `a % b` (signed remainder; result takes the sign of the **dividend** — C11
+§6.5.5).
 
-Extends the `b/div` algorithm. After converting both operands to INT-format:
+Uses the same absolute-value approach as `b/div` via the identity
+`|r| = |a| − (|a| ÷ |b|) · |b|`, then reapplies the sign of `a`:
 
-```
-   ,ntr,
-   ,aox, =:64
-   ,avx,                    . convert b to INT-format; record sign
-15 ,stx,                    . exchange: A ← a (raw), save INT-form b on stack   . B slot
-   ,aox, =:64
-   ,avx,                    . convert a to INT-format; record sign               . A
-15 ,atx, 2                  . save INT-form a at frame slot 2
-15 ,a/x, 1                  . quotient ← INT-form a ÷ INT-form b
-   ,ntr, 3
-   ,a+x, =:64               . correct quotient exponent
-   ,ntr,
-15 ,a*x, 1                  . product ← quotient × INT-form b
-15 ,x-a, 2                  . remainder ← saved INT-form a − product
-   ,ntr, 3
-   ,a+x, =:64
-   ,aax, =37 7777 7777 7777
-13 ,uj,
-```
-
-The identity `a % b = a − (a÷b)·b` is computed with two saves: the original `a` at frame
-slot 2 and `b` at the stack position used by the divide.
+1. Convert both operands to INT-format and form normalized `|a|` (frame slot 2) and `|b|`.
+2. `a/x` gives the truncated magnitude `|q| = |a| ÷ |b|` (the exponent-correction `a+x,
+   =:64` drops the fraction; no separate mask is needed mid-computation).
+3. `a*x` forms `|q| · |b|`; `x-a` against the saved `|a|` yields `|r|`.
+4. `a+x, =:64` + `aax, =37 7777 7777 7777` extract `|r|` as a raw integer.
+5. `avx` against the saved raw dividend `a` reapplies its sign, then the trailing `aox`
+   restores logical ω-mode (as in `b/div`).
 
 ---
 

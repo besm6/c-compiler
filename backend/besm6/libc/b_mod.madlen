@@ -1,29 +1,35 @@
      b/mod: ,name,
          14 ,base,*
 c
-c Calculate the remainder of the division of two integers.
-c Pop two values from stack.
-c Push result back.
+c Signed remainder; the result takes the sign of the dividend (C semantics).
+c Pop two values from stack, push result back.
 c
-c   result = a % b
+c   result = a % b = |a| - (|a|/|b|)*|b|, with the sign of a reapplied
 c
 c Value a is in stack, value b on accumulator.
 c
             ,ntr,
-            ,aox, =:64
-            ,avx,                   . B
-         15 ,stx,
-            ,aox, =:64
-            ,avx,                   . A
-         15 ,atx, 2                 . store A
-         15 ,a/x, 1                 . divide by B
+            ,aox, =:64              . A = INT-format b
+         15 ,stx,                   . mem[r15+1] = INT b; pop; A = a (raw)
+         15 ,atx, 3                 . mem[r15+3] = a (raw)  . sign word
+            ,aox, =:64              . A = INT-format a
+         15 ,atx, 2                 . mem[r15+2] = INT a
+         15 ,avx, 2                 . A = |INT a|, normalized
+         15 ,atx, 2                 . mem[r15+2] = |INT a|
+         15 ,xta, 1                 . A = INT b
+         15 ,avx, 1                 . A = |INT b|, normalized
+         15 ,atx, 1                 . mem[r15+1] = |INT b|
+         15 ,xta, 2                 . A = |INT a|
+         15 ,a/x, 1                 . A = |a| / |b|
             ,ntr, 3
-            ,a+x, =:64
+            ,a+x, =:64              . |q| in INT-format (fraction truncated)
             ,ntr,
-         15 ,a*x, 1                 . multiply by B
-         15 ,x-a, 2                 . subtract from A
+         15 ,a*x, 1                 . A = |q| * |INT b|
+         15 ,x-a, 2                 . A = |INT a| - product = |r|
             ,ntr, 3
-            ,a+x, =:64
+            ,a+x, =:64              . correct remainder exponent
             ,aax, =37 7777 7777 7777
+         15 ,avx, 3                 . reapply sign of dividend
+            ,aox,                   . OR mem[0]=0: ACC unchanged, restore logical w-mode
          13 ,uj,
             ,end,

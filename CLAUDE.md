@@ -43,6 +43,34 @@ or missing library and the run tests report `ERROR`:
 cd build/backend/besm6 && ./besm-tests
 ```
 
+**Debugging a failing run with Dubna instruction tracing.** A `CompileAndRun` test leaves
+its job file `<TestName>.dub` in `build/backend/besm6`. Re-run it under the simulator with
+full instruction/register tracing via `-d c`:
+
+```sh
+cd build/backend/besm6
+dubna -d c RemainderRun.dub > RemainderRun.trace
+```
+
+The trace lists every instruction with the effective address, the memory word read/written,
+and the resulting `ACC` / `RAU` (mode register R) / index-register values, e.g.:
+
+```
+01065 R: 00 037 0000 ntr
+      RAU = 00
+01066 L: 16 015 0014 aox 14(16)
+      Memory Read [01101] = 6400 0000 0000 0000
+      ACC = 6400 0000 0000 0002
+      RAU = 04
+```
+
+Search the trace for a routine label (e.g. `B/MOD`, `B/DIV`) to follow a runtime helper and
+inspect the accumulator/exponent at each step — the fastest way to localize a wrong
+mode-bit, exponent, or addressing error in hand-written Madlen. To build a focused job by
+hand: assemble a `.mad` with `genbesm`, wrap it with the `*name/*disc/*file:libc,40/*assem
+… *library:40/*execute/*end file` boilerplate (see `codegen_test.h` `CompileAndRun`), and
+run `dubna [-d c] job.dub`.
+
 Static analysis (requires cppcheck):
 ```sh
 ctest --test-dir build -R cppcheck
@@ -92,7 +120,7 @@ Source (.c)
 | AST → TAC lowering | `translator/translate.c`, `expr.c`, `stmt.c` | Complete |
 | TAC optimizer | `optimize/` | Complete (const fold, unreachable elim, copy prop, dead store elim) |
 | x86_64 code gen | `backend/x86/` | Planned |
-| BESM-6 code gen | `backend/besm6/` | In progress (frame alloc, static data, UTF-8→KOI7, main entry, global variable access, COPY/GET_ADDRESS/LOAD/STORE/BINARY (incl. shifts, unsigned add via b/uadd, unsigned sub via b/usub, multiply via b/mul)/UNARY negate (int/unsigned/FP)/UNARY complement/UNARY not/FUN_CALL/RETURN/LABEL/JUMP/JUMP_IF_ZERO/JUMP_IF_NOT_ZERO done) |
+| BESM-6 code gen | `backend/besm6/` | In progress (frame alloc, static data, UTF-8→KOI7, main entry, global variable access, COPY/GET_ADDRESS/LOAD/STORE/BINARY (incl. shifts, unsigned add via b/uadd, unsigned sub via b/usub, multiply via b/mul, divide via b/div, remainder via b/mod)/UNARY negate (int/unsigned/FP)/UNARY complement/UNARY not/FUN_CALL/RETURN/LABEL/JUMP/JUMP_IF_ZERO/JUMP_IF_NOT_ZERO done) |
 | AArch64 / RISC-V / ARM32 code gen | — | Planned |
 
 ### Key data structures
