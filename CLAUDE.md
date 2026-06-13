@@ -35,6 +35,14 @@ cd build/semantic && ./semantic-tests
 ctest --test-dir build -R "Typecheck|Pipeline"
 ```
 
+**Always run the BESM-6 tests (`besm-tests`) from `build/backend/besm6`** — the directory
+that holds the assembled runtime library `libc.bin`. The Dubna simulator job links
+`libc.bin` from the current working directory, so running from anywhere else uses a stale
+or missing library and the run tests report `ERROR`:
+```sh
+cd build/backend/besm6 && ./besm-tests
+```
+
 Static analysis (requires cppcheck):
 ```sh
 ctest --test-dir build -R cppcheck
