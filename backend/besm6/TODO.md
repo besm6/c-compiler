@@ -83,7 +83,6 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 15 | FP arithmetic | Add/Sub/Mul/Div map to `A+X`/`A-X`/`A*X`/`A/X` **with normalization enabled** — temporarily clear R's suppress bits via `NTR` around the FP op (integer mode leaves R=7), then restore. FP negate: `X-A 0`. | M |
 | 16 | FP comparisons | `A-X` sets additive ω; `U1A`/`UZA` on the sign for `<`/`>`/`<=`/`>=`; `AEX`+`UZA` for `==`/`!=`. Produce raw 0/1. | S |
 | 18 | Int ↔ double conversions | `INT_TO_DOUBLE`/`UINT_TO_DOUBLE`: normalize the raw integer into FP (set the INT-format exponent, then `NTR`+`A+X 0`). `DOUBLE_TO_INT`/`DOUBLE_TO_UINT`: runtime `b/dtoi`/`b/dtou` (shift the mantissa by 104−exp). `FLOAT_*` ≡ `DOUBLE_*`, and `*_TO_FLOAT`/`FLOAT_TO_DOUBLE` are copies. | L |
 

@@ -55,6 +55,8 @@ module TAC {
                    | LessThanUnsigned | LessOrEqualUnsigned
                    | GreaterThanUnsigned | GreaterOrEqualUnsigned
                    | RightShiftLogical
+                   | AddUnsigned | SubtractUnsigned | MultiplyUnsigned
+                   | AddDouble | SubtractDouble | MultiplyDouble | DivideDouble
 
     Type = Char | SChar | UChar | Short | UShort | Int | Long | LongLong | UInt | ULong | ULongLong
          | Float | Double | LongDouble | Void

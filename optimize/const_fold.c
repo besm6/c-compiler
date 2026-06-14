@@ -289,15 +289,19 @@ static Tac_Val *fold_binary_float(Tac_BinaryOperator op, const Tac_Const *c1, co
         long double ldr;
         switch (op) {
         case TAC_BINARY_ADD:
+        case TAC_BINARY_ADD_DOUBLE:
             ldr = ld1 + ld2;
             break;
         case TAC_BINARY_SUBTRACT:
+        case TAC_BINARY_SUBTRACT_DOUBLE:
             ldr = ld1 - ld2;
             break;
         case TAC_BINARY_MULTIPLY:
+        case TAC_BINARY_MULTIPLY_DOUBLE:
             ldr = ld1 * ld2;
             break;
         case TAC_BINARY_DIVIDE:
+        case TAC_BINARY_DIVIDE_DOUBLE:
             ldr = ld1 / ld2;
             break;
         case TAC_BINARY_EQUAL:
@@ -330,15 +334,19 @@ static Tac_Val *fold_binary_float(Tac_BinaryOperator op, const Tac_Const *c1, co
     double dr;
     switch (op) {
     case TAC_BINARY_ADD:
+    case TAC_BINARY_ADD_DOUBLE:
         dr = dv1 + dv2;
         break;
     case TAC_BINARY_SUBTRACT:
+    case TAC_BINARY_SUBTRACT_DOUBLE:
         dr = dv1 - dv2;
         break;
     case TAC_BINARY_MULTIPLY:
+    case TAC_BINARY_MULTIPLY_DOUBLE:
         dr = dv1 * dv2;
         break;
     case TAC_BINARY_DIVIDE:
+    case TAC_BINARY_DIVIDE_DOUBLE:
         dr = dv1 / dv2;
         break;
     case TAC_BINARY_EQUAL:

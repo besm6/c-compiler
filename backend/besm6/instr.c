@@ -448,6 +448,44 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
             break;
         }
 
+        // Floating-point add/sub/mul/div.  The operands are native 48-bit FP words, so
+        // the result needs normalization and rounding — temporarily clear R's suppress
+        // bits (NTR 0) around the hardware A+X/A-X/A*X/A/X, then restore the integer mode
+        // (NTR 7) that b/save left in place.  Unlike signed integer multiply/divide, no
+        // INT-format bridging is needed: the operands are already FP.
+        {
+            Besm_InstrKind fp_kind;
+            bool is_fp = true;
+            switch (instr->u.binary.op) {
+            case TAC_BINARY_ADD_DOUBLE:
+                fp_kind = BESM_ARITH_ADD;
+                break;
+            case TAC_BINARY_SUBTRACT_DOUBLE:
+                fp_kind = BESM_ARITH_SUB;
+                break;
+            case TAC_BINARY_MULTIPLY_DOUBLE:
+                fp_kind = BESM_ARITH_MUL;
+                break;
+            case TAC_BINARY_DIVIDE_DOUBLE:
+                fp_kind = BESM_ARITH_DIV;
+                break;
+            default:
+                is_fp   = false;
+                fp_kind = BESM_ARITH_ADD;
+                break;
+            }
+            if (is_fp) {
+                emit_xta_val(block, tail, f, src1);
+                Besm_Instr *ntr_on = emit(block, tail, BESM_EXP_SETR);
+                ntr_on->addr       = 0;
+                emit_arith_val(block, tail, fp_kind, f, src2);
+                Besm_Instr *ntr_off = emit(block, tail, BESM_EXP_SETR);
+                ntr_off->addr       = 7;
+                emit_atx(block, tail, rd, od);
+                break;
+            }
+        }
+
         // Bitwise and/or/xor map directly to the logical instructions AAX/AOX/AEX,
         // which act on raw 48-bit words with no normalization (same shape as ADD/SUB).
         // The result is correct for both signed (exponent field = 0) and unsigned

@@ -146,7 +146,11 @@ typedef enum {
     TAC_BINARY_RIGHT_SHIFT_LOGICAL,
     TAC_BINARY_ADD_UNSIGNED,
     TAC_BINARY_SUBTRACT_UNSIGNED,
-    TAC_BINARY_MULTIPLY_UNSIGNED
+    TAC_BINARY_MULTIPLY_UNSIGNED,
+    TAC_BINARY_ADD_DOUBLE,      // add, floating-point operands
+    TAC_BINARY_SUBTRACT_DOUBLE, // subtract, floating-point operands
+    TAC_BINARY_MULTIPLY_DOUBLE, // multiply, floating-point operands
+    TAC_BINARY_DIVIDE_DOUBLE    // divide, floating-point operands
 } Tac_BinaryOperator;
 
 typedef struct Tac_Instruction {

@@ -259,3 +259,24 @@ TEST_F(OptimizerTest, BinaryFoldLongDoubleAdd)
 
     AssertFoldedLongDouble(body, 4.0);
 }
+
+// The FP-specific binary ops the translator now emits for double/float operands fold
+// exactly like their plain counterparts.  1.5 * 2.5 → Copy(ConstDouble(3.75), t).
+TEST_F(OptimizerTest, BinaryFoldDoubleOpVariants)
+{
+    Tac_Instruction *add = constant_fold(make_binary(
+        TAC_BINARY_ADD_DOUBLE, make_const_double(1.5), make_const_double(2.5), make_var("t")));
+    AssertFoldedDouble(add, 4.0);
+
+    Tac_Instruction *sub = constant_fold(make_binary(
+        TAC_BINARY_SUBTRACT_DOUBLE, make_const_double(5.0), make_const_double(3.0), make_var("t")));
+    AssertFoldedDouble(sub, 2.0);
+
+    Tac_Instruction *mul = constant_fold(make_binary(
+        TAC_BINARY_MULTIPLY_DOUBLE, make_const_double(1.5), make_const_double(2.5), make_var("t")));
+    AssertFoldedDouble(mul, 3.75);
+
+    Tac_Instruction *div = constant_fold(make_binary(
+        TAC_BINARY_DIVIDE_DOUBLE, make_const_double(7.0), make_const_double(2.0), make_var("t")));
+    AssertFoldedDouble(div, 3.5);
+}

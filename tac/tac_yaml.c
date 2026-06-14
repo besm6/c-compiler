@@ -622,6 +622,18 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         case TAC_BINARY_MULTIPLY_UNSIGNED:
             fprintf(fd, "multiply_unsigned\n");
             break;
+        case TAC_BINARY_ADD_DOUBLE:
+            fprintf(fd, "add_double\n");
+            break;
+        case TAC_BINARY_SUBTRACT_DOUBLE:
+            fprintf(fd, "subtract_double\n");
+            break;
+        case TAC_BINARY_MULTIPLY_DOUBLE:
+            fprintf(fd, "multiply_double\n");
+            break;
+        case TAC_BINARY_DIVIDE_DOUBLE:
+            fprintf(fd, "divide_double\n");
+            break;
         }
         print_indent(fd, level);
         fprintf(fd, "src1:\n");

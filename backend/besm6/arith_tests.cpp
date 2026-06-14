@@ -991,3 +991,169 @@ TEST_F(CodegenTest, RemainderUnsignedRun)
         "0\n",
         result);
 }
+
+// ---------------------------------------------------------------------------
+// Floating-point arithmetic (task #15).  Add/Sub/Mul/Div map to the hardware
+// A+X/A-X/A*X/A/X bracketed by NTR 0 (enable normalize+round) … NTR 7 (restore
+// the integer suppress mode left by b/save).  float == double (single word).
+// ---------------------------------------------------------------------------
+
+// Madlen shape: double ADD brackets a+x with ntr 0 / ntr 7.
+TEST_F(CodegenTest, AddDoubleMadlen)
+{
+    std::string output =
+        CompileToMadlen("extern double g; void foo(double a, double b) { g = a + b; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,ntr, 0
+           6 ,a+x, 1
+             ,ntr, 7
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// Madlen shape: double SUBTRACT brackets a-x with ntr 0 / ntr 7.
+TEST_F(CodegenTest, SubDoubleMadlen)
+{
+    std::string output =
+        CompileToMadlen("extern double g; void foo(double a, double b) { g = a - b; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,ntr, 0
+           6 ,a-x, 1
+             ,ntr, 7
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// Madlen shape: double MULTIPLY uses the inline a*x (no b/mul helper) with ntr brackets.
+TEST_F(CodegenTest, MulDoubleMadlen)
+{
+    std::string output =
+        CompileToMadlen("extern double g; void foo(double a, double b) { g = a * b; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,ntr, 0
+           6 ,a*x, 1
+             ,ntr, 7
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// Madlen shape: double DIVIDE uses the inline a/x (no b/div helper) with ntr brackets.
+// A constant divisor materializes as an =r FP literal operand.
+TEST_F(CodegenTest, DivDoubleMadlen)
+{
+    std::string output =
+        CompileToMadlen("extern double g; void foo(double a, double b) { g = a / b; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,ntr, 0
+           6 ,a/x, 1
+             ,ntr, 7
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// End-to-end: double add/sub/mul/div on the hardware FP unit.  Results are printed as
+// raw octal bit patterns (%o) — the runtime has no %f formatting — so the expected
+// values are the BESM-6 native FP encodings of the mathematical results.
+TEST_F(CodegenTest, FpArithRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void show(double x) { printf("%o\n", x); }
+        void program() {
+            double a = 1.5, b = 2.5;
+            show(a + b);    /* 4.0 */
+            show(b - a);    /* 1.0 */
+            show(a * b);    /* 3.75 */
+            show(b / a);    /* 1.666... */
+            show(a - b);    /* -1.0 */
+            show(6.0 / 2.0);/* 3.0 (constant divisor) */
+            show(0.0 + a);  /* 1.5 */
+        }
+    )");
+    EXPECT_EQ("4150000000000000\n" /* 4.0   */
+              "4050000000000000\n" /* 1.0   */
+              "4117000000000000\n" /* 3.75  */
+              "4055252525252521\n" /* 5/3   */
+              "4020000000000000\n" /* -1.0  */
+              "4114000000000000\n" /* 3.0   */
+              "4054000000000000\n" /* 1.5   */,
+              result);
+}
+
+// End-to-end: FP compound assignment (+=, -=, *=, /=) and float (== double, single
+// word) go through the same _DOUBLE ops as plain binary FP arithmetic.
+TEST_F(CodegenTest, FpCompoundAssignRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void show(double x) { printf("%o\n", x); }
+        void program() {
+            double d = 10.0;
+            d += 2.0;  show(d);   /* 12.0 */
+            d -= 4.0;  show(d);   /*  8.0 */
+            d *= 0.5;  show(d);   /*  4.0 */
+            d /= 2.0;  show(d);   /*  2.0 */
+            float f = 1.5f;
+            f = f + 0.5f;         /*  2.0 */
+            show(f);
+        }
+    )");
+    EXPECT_EQ("4214000000000000\n" /* 12.0 */
+              "4210000000000000\n" /*  8.0 */
+              "4150000000000000\n" /*  4.0 */
+              "4110000000000000\n" /*  2.0 */
+              "4110000000000000\n" /*  2.0 */,
+              result);
+}

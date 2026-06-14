@@ -22,17 +22,27 @@ static bool is_floating_type(const Type *t)
     return is_arithmetic(t) && !is_integer(t);
 }
 
-static Tac_BinaryOperator map_binary_op(BinaryOp op, bool is_unsigned)
+static Tac_BinaryOperator map_binary_op(BinaryOp op, const Type *operand_type)
 {
+    bool is_unsigned = is_unsigned_type(operand_type);
+    bool is_float    = is_floating_type(operand_type);
     switch (op) {
     case BINARY_ADD:
-        return is_unsigned ? TAC_BINARY_ADD_UNSIGNED : TAC_BINARY_ADD;
+        return is_float ? TAC_BINARY_ADD_DOUBLE
+               : is_unsigned ? TAC_BINARY_ADD_UNSIGNED
+                             : TAC_BINARY_ADD;
     case BINARY_SUB:
-        return is_unsigned ? TAC_BINARY_SUBTRACT_UNSIGNED : TAC_BINARY_SUBTRACT;
+        return is_float ? TAC_BINARY_SUBTRACT_DOUBLE
+               : is_unsigned ? TAC_BINARY_SUBTRACT_UNSIGNED
+                             : TAC_BINARY_SUBTRACT;
     case BINARY_MUL:
-        return is_unsigned ? TAC_BINARY_MULTIPLY_UNSIGNED : TAC_BINARY_MULTIPLY;
+        return is_float ? TAC_BINARY_MULTIPLY_DOUBLE
+               : is_unsigned ? TAC_BINARY_MULTIPLY_UNSIGNED
+                             : TAC_BINARY_MULTIPLY;
     case BINARY_DIV:
-        return is_unsigned ? TAC_BINARY_DIVIDE_UNSIGNED : TAC_BINARY_DIVIDE;
+        return is_float ? TAC_BINARY_DIVIDE_DOUBLE
+               : is_unsigned ? TAC_BINARY_DIVIDE_UNSIGNED
+                             : TAC_BINARY_DIVIDE;
     case BINARY_MOD:
         return is_unsigned ? TAC_BINARY_REMAINDER_UNSIGNED : TAC_BINARY_REMAINDER;
     case BINARY_LT:
@@ -80,17 +90,27 @@ static Tac_UnaryOperator map_unary_op(UnaryOp op, const Type *operand_type)
     }
 }
 
-static Tac_BinaryOperator map_assign_op(AssignOp op, bool is_unsigned)
+static Tac_BinaryOperator map_assign_op(AssignOp op, const Type *operand_type)
 {
+    bool is_unsigned = is_unsigned_type(operand_type);
+    bool is_float    = is_floating_type(operand_type);
     switch (op) {
     case ASSIGN_ADD:
-        return is_unsigned ? TAC_BINARY_ADD_UNSIGNED : TAC_BINARY_ADD;
+        return is_float ? TAC_BINARY_ADD_DOUBLE
+               : is_unsigned ? TAC_BINARY_ADD_UNSIGNED
+                             : TAC_BINARY_ADD;
     case ASSIGN_SUB:
-        return is_unsigned ? TAC_BINARY_SUBTRACT_UNSIGNED : TAC_BINARY_SUBTRACT;
+        return is_float ? TAC_BINARY_SUBTRACT_DOUBLE
+               : is_unsigned ? TAC_BINARY_SUBTRACT_UNSIGNED
+                             : TAC_BINARY_SUBTRACT;
     case ASSIGN_MUL:
-        return is_unsigned ? TAC_BINARY_MULTIPLY_UNSIGNED : TAC_BINARY_MULTIPLY;
+        return is_float ? TAC_BINARY_MULTIPLY_DOUBLE
+               : is_unsigned ? TAC_BINARY_MULTIPLY_UNSIGNED
+                             : TAC_BINARY_MULTIPLY;
     case ASSIGN_DIV:
-        return is_unsigned ? TAC_BINARY_DIVIDE_UNSIGNED : TAC_BINARY_DIVIDE;
+        return is_float ? TAC_BINARY_DIVIDE_DOUBLE
+               : is_unsigned ? TAC_BINARY_DIVIDE_UNSIGNED
+                             : TAC_BINARY_DIVIDE;
     case ASSIGN_MOD:
         return is_unsigned ? TAC_BINARY_REMAINDER_UNSIGNED : TAC_BINARY_REMAINDER;
     case ASSIGN_LEFT:
@@ -288,7 +308,7 @@ static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
     Tac_Val *vd = new_var_val(ctx);
 
     Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-    in->u.binary.op     = map_binary_op(op, is_unsigned_type(l->type));
+    in->u.binary.op     = map_binary_op(op, l->type);
     in->u.binary.src1   = vl;
     in->u.binary.src2   = vr;
     in->u.binary.dst    = vd;
@@ -448,7 +468,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             } else {
                 Tac_Val *vd          = new_var_val(ctx);
                 Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-                bin->u.binary.op   = map_assign_op(e->u.assign.op, is_unsigned_type(target->type));
+                bin->u.binary.op   = map_assign_op(e->u.assign.op, target->type);
                 bin->u.binary.src1 = val_var(dst);
                 bin->u.binary.src2 = src;
                 bin->u.binary.dst  = vd;
@@ -492,7 +512,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 tac_append(ctx, ld);
                 Tac_Val *result      = new_var_val(ctx);
                 Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-                bin->u.binary.op   = map_assign_op(e->u.assign.op, is_unsigned_type(target->type));
+                bin->u.binary.op   = map_assign_op(e->u.assign.op, target->type);
                 bin->u.binary.src1 = val_var(loaded->u.var_name);
                 bin->u.binary.src2 = src;
                 bin->u.binary.dst  = result;
