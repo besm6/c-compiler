@@ -931,14 +931,23 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         // Signed divide and remainder use the b/div / b/mod runtime helpers, which bridge
         // raw operands to INT-format, FP-divide the absolute values, correct the exponent
         // and reapply the sign (b/mod = a - (a/b)*b).  Correct for signed operands and for
-        // unsigned within the 41-bit range; full 48-bit unsigned divide/remainder is task
-        // #14 (b/udiv / b/umod).
+        // unsigned within the 41-bit range; full 48-bit unsigned remainder is task #14b
+        // (b/umod).
         if (instr->u.binary.op == TAC_BINARY_DIVIDE) {
             emit_binop_helper(block, tail, f, src1, src2, "b/div", rd, od);
             break;
         }
         if (instr->u.binary.op == TAC_BINARY_REMAINDER) {
             emit_binop_helper(block, tail, f, src1, src2, "b/mod", rd, od);
+            break;
+        }
+
+        // Unsigned divide uses b/udiv.  The signed b/div borrows the hardware FP unit
+        // (40-bit mantissa, bit 48 read as a sign), so it is wrong for unsigned operands
+        // >= 2^40 or with bit 48 set.  b/udiv instead does an integer long division over
+        // the full 48-bit word (divisor-shift / subtract loop).
+        if (instr->u.binary.op == TAC_BINARY_DIVIDE_UNSIGNED) {
+            emit_binop_helper(block, tail, f, src1, src2, "b/udiv", rd, od);
             break;
         }
 

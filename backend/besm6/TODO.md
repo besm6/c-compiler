@@ -83,7 +83,7 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 14 | Unsigned divide & remainder | Add `b/udiv`/`b/umod`. Implement via a shift/subtract restoring-division loop, or by normalizing as a non-negative FP value. Selected for the `*_UNSIGNED` TAC ops from task 1. | L |
+| 14b | Unsigned remainder | Add `b/umod`. Implement via a shift/subtract restoring-division loop (cf. the divisor-shift loop in `libc/b_udiv.madlen`), or as `a - (a/b)*b` reusing `b/udiv`. Selected for the `*_UNSIGNED` TAC op. | L |
 
 ### Phase I — Floating point (single word; `float` ≡ `double`)
 

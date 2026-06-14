@@ -815,3 +815,69 @@ TEST_F(CodegenTest, RemainderRun)
         "-2\n",
         result);
 }
+
+// Madlen-level shape: unsigned DIVIDE lowers to the b/udiv helper (xta / xts / ,call,
+// b/udiv / atx) rather than the signed b/div or an inline A/X, with no caller-side pop.
+TEST_F(CodegenTest, DivideUnsignedMadlenShape)
+{
+    std::string out =
+        CompileToMadlen("extern unsigned g; void foo(unsigned a, unsigned b) { g = a / b; }");
+    EXPECT_NE(out.find(",xts,"), std::string::npos);
+    EXPECT_NE(out.find(",call, b/udiv"), std::string::npos);
+    // Unsigned divide must use b/udiv, not the signed b/div helper or an inline A/X.
+    EXPECT_EQ(out.find(",call, b/div"), std::string::npos);
+    EXPECT_EQ(out.find(",a/x,"), std::string::npos);
+    // The helper pops its own operand: no UTM stack adjustment around the call.
+    EXPECT_EQ(out.find("15 ,utm, -1"), std::string::npos);
+}
+
+// End-to-end: full 48-bit unsigned divide via b/udiv (integer long division).  Quotients
+// are printed in octal (%o).  The first block keeps small values and a power-of-two
+// divisor; the second exercises full 48-bit operands (dividends >= 2^40 and with bit 48
+// set) where the signed b/div would give a wrong answer.
+TEST_F(CodegenTest, DivideUnsignedRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void check(unsigned a, unsigned b) { printf("%o\n", a / b); }
+        void program() {
+            /* small values */
+            check(7, 2);            /* 3 */
+            check(6, 3);            /* 2 */
+            check(17, 5);           /* 3 */
+            check(100, 10);         /* 12 octal */
+            check(0, 5);            /* 0 */
+            check(42, 1);           /* 52 octal */
+            check(1, 1);            /* 1 */
+            check(1000, 8);         /* 175 octal, power-of-two divisor */
+            check(5, 9);            /* 0, divisor > dividend */
+
+            /* full 48-bit operands */
+            check(0xFFFFFFFFFFFFU, 1);              /* -1u / 1 */
+            check(0xFFFFFFFFFFFFU, 2);              /* high bit set */
+            check(0xFFFFFFFFFFFFU, 0xFFFFFFFFFFFFU);/* 1 */
+            check(0x800000000000U, 2);              /* 2^47 / 2 = 2^46 */
+            check(0xFFFFFFFFFFFFU, 3);              /* repeating pattern */
+            check(0xABCDEF123456U, 0x1011U);        /* wide / small */
+            check(0x123456789ABCU, 0x1000000U);     /* divide by 2^24 */
+        }
+    )");
+    EXPECT_EQ(
+        "3\n"
+        "2\n"
+        "3\n"
+        "12\n"
+        "0\n"
+        "52\n"
+        "1\n"
+        "175\n"
+        "0\n"
+        "7777777777777777\n"
+        "3777777777777777\n"
+        "1\n"
+        "2000000000000000\n"
+        "2525252525252525\n"
+        "526140453247\n"
+        "4432126\n",
+        result);
+}

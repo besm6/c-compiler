@@ -1,8 +1,74 @@
-     b/udiv: ,name,
+    b/udiv: ,name,
+         14 ,base, *
 c
-c Unsigned divide. STUB - not yet implemented.
-c Pop two values from stack, push result back.
+c Divide two 48-bit unsigned integers, floor quotient:  result = a / b.
 c
-         15 ,xta,
-         13 ,uj,
-            ,end,
+c Helper convention: dividend a is on the stack at mem[r15-1], divisor b is in the
+c accumulator A, the quotient is returned in A.  The caller pushed a with one XTS, so
+c this helper pops exactly one word (net r15 = entry - 1) before returning.
+c
+c The signed b/div borrows the hardware FP unit (40-bit mantissa; bit 48 read as a sign),
+c so it is wrong for unsigned operands >= 2^40.  Here we do integer long division over the
+c full 48-bit word and never touch the FP unit: align the divisor under the top of the
+c residue and subtract, shifting the divisor down one place per step.  The residue stays
+c < 2^48 throughout (we only ever subtract from it), so there is no overflow.
+c
+c   rem = a;  quot = 0
+c   s    = 48 - msb_index(b)            . highest shift whose b<<s still fits 48 bits
+c   for (; s >= 0; s--)
+c       t = b << s
+c       if (rem >= t) { rem -= t;  quot |= 1<<s }
+c   return quot
+c
+c Full-width unsigned compare and subtract are delegated to the proven b/uge and b/usub
+c helpers; CALL clobbers r13, so the entry return address is saved on the stack first.
+c The shift count s is held negated in r11 (ASN left-shifts by -r11); r11 also drives loop
+c termination.  b/uge / b/usub touch only the operand they are handed (and the slot above
+c it), so the frame below stays intact across the calls.
+c
+c Stack frame (offsets from r15 once set up): rem=-5 b=-4 r13=-3 quot=-2 t=-1.
+c
+            15 ,atx,                . push b: mem[E]=b, r15=E+1
+            15 ,xta, -1             . reload b (sets logical w, w = b!=0)
+               ,uza, u*z            . b == 0 -> divide by zero (undefined): return 0
+               ,ita, 13             . A := saved return address (r13)
+               ,xts,                . push it: r15=E+2; A := mem[0] = 0
+            15 ,atx,                . push quot = 0: r15=E+3
+            15 ,atx,                . push t slot (= 0): r15=E+4
+c                                     frame ready: rem=-5 b=-4 r13=-3 quot=-2 t=-1
+            15 ,xta, -4             . A := b
+               ,anx,                . A := position p of b's highest set bit (1..48)
+               ,ntr, 3              . suppress normalization for the integer subtract
+               ,x-a, =1             . A := 1 - p  (= -(48 - msb_index(b)) = -s_start, <= 0)
+               ,ati, 11             . r11 := -s
+c
+     u*lp:  15 ,xta, -4             . A := b
+            11 ,asn, 64             . A := b << s          (EA = 64 + r11 = 64 - s)
+            15 ,atx, -1             . t := A
+            15 ,xta, -5             . A := rem
+            15 ,xts, -2             . push rem, A := t   (XTS loads past the new top)
+               ,call, b/uge         . A := (rem >= t) ? 1 : 0      (w = result != 0)
+               ,uza, u*sk           . rem < t -> quotient bit stays 0
+            15 ,xta, -5             . A := rem
+            15 ,xts, -2             . push rem, A := t   (XTS loads past the new top)
+               ,call, b/usub        . A := rem - t
+            15 ,atx, -5             . rem := A
+               ,xta, =1             . A := 1
+            11 ,asn, 64             . A := 1 << s
+            15 ,aox, -2             . A |= quot
+            15 ,atx, -2             . quot := A
+     u*sk:  11 ,vzm, u*dn           . s reached 0 -> done
+            11 ,utm, 1              . s -= 1   (r11 += 1)
+               ,uj, u*lp
+c
+     u*dn:  15 ,xta, -3             . A := saved return address
+               ,ati, 13             . r13 := A
+            15 ,xta, -2             . A := quot  (result, raw 48-bit)
+            15 ,utm, -5             . drop the frame: r15 := entry - 1
+            13 ,uj,                 . return to caller
+c
+c           b == 0: result is undefined; return 0 with the stack popped by one word.
+     u*z:      ,xta,                . A := 0
+            15 ,utm, -2             . r15 := entry - 1  (we had pushed b)
+            13 ,uj,
+               ,end,
