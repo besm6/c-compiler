@@ -7,6 +7,9 @@ add_library(besm STATIC
     emit_madlen.c
     frame.c
     codegen.c
+    emit.c
+    static.c
+    instr.c
     utf8_to_koi7.c
 )
 target_include_directories(besm PUBLIC .)
