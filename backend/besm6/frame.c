@@ -208,11 +208,15 @@ static void allocate_aggregate(Frame *f, const Tac_Instruction *instr, int *auto
     intptr_t dummy;
     if (map_get(&f->slots, name, &dummy))
         return; // already assigned
-    int align = instr->u.allocate_local.alignment;
-    if (align > 1 && (*auto_count % align) != 0)
-        *auto_count += align - (*auto_count % align);
+    // AllocateLocal carries target bytes; convert to whole words (round up).
+    int size_words  = (instr->u.allocate_local.size + BESM6_WORD_BYTES - 1) / BESM6_WORD_BYTES;
+    int align_words = (instr->u.allocate_local.alignment + BESM6_WORD_BYTES - 1) / BESM6_WORD_BYTES;
+    if (align_words < 1)
+        align_words = 1;
+    if (align_words > 1 && (*auto_count % align_words) != 0)
+        *auto_count += align_words - (*auto_count % align_words);
     map_insert(&f->slots, name, SLOT_ENCODE(REG_AUTO, *auto_count), 0);
-    *auto_count += instr->u.allocate_local.size;
+    *auto_count += size_words;
 }
 
 Frame *frame_build(const Tac_TopLevel *fn, const Tac_TopLevel *program)

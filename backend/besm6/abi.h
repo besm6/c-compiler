@@ -7,10 +7,16 @@
 extern "C" {
 #endif
 
+// One BESM-6 machine word is 6 eight-bit bytes.  The TAC stream is sized in target
+// bytes (CopyToOffset offsets, AddPtr scales, AllocateLocal/structure sizes); the
+// backend converts to words by dividing by this, rounding up.
+#define BESM6_WORD_BYTES 6
+
 //
-// Type sizes.
-// BESM-6 is word-addressed; every C scalar and pointer fits in one 48-bit word.
-// Arrays occupy element_size * N consecutive words.
+// Type sizes (in 48-bit words).
+// BESM-6 is word-addressed; every C scalar and pointer fits in one word.
+// Arrays occupy element_size * N consecutive words.  A structure's TAC size is in
+// target bytes, so it is divided by the word size (rounded up) to yield words.
 // Alignment is always 1 (no sub-word alignment requirement).
 //
 static inline int codegen_sizeof(const Tac_Type *t)
@@ -39,7 +45,7 @@ static inline int codegen_sizeof(const Tac_Type *t)
             return (t->u.array.size + 5) / 6;
         return codegen_sizeof(t->u.array.elem_type) * t->u.array.size;
     case TAC_TYPE_STRUCTURE:
-        return t->u.structure.size;
+        return (t->u.structure.size + BESM6_WORD_BYTES - 1) / BESM6_WORD_BYTES;
     default:
         return 1;
     }

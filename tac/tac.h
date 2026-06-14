@@ -308,8 +308,8 @@ typedef struct Tac_Instruction {
         } fun_call;
         struct {
             char *name;     // frame-resident local aggregate name
-            int size;       // slot size in BESM-6 words
-            int alignment;  // slot alignment in words (currently always 1)
+            int size;       // slot size in target bytes
+            int alignment;  // slot alignment in target bytes
         } allocate_local;
     } u;
 } Tac_Instruction;

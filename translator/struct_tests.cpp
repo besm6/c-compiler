@@ -18,8 +18,8 @@ TEST_F(TranslateTest, StructFieldReadFirst)
     - instruction:
       kind: allocate_local
       name: %s
-      size: 2
-      alignment: 1
+      size: 8
+      alignment: 4
     - instruction:
       kind: copy_from_offset
       src: %s
@@ -49,8 +49,8 @@ TEST_F(TranslateTest, StructFieldReadSecond)
     - instruction:
       kind: allocate_local
       name: %s
-      size: 2
-      alignment: 1
+      size: 8
+      alignment: 4
     - instruction:
       kind: copy_from_offset
       src: %s
@@ -80,8 +80,8 @@ TEST_F(TranslateTest, StructFieldWrite)
     - instruction:
       kind: allocate_local
       name: %s
-      size: 2
-      alignment: 1
+      size: 8
+      alignment: 4
     - instruction:
       kind: copy_to_offset
       src:
@@ -195,8 +195,8 @@ TEST_F(TranslateTest, StructFieldAddressOf)
     - instruction:
       kind: allocate_local
       name: %s
-      size: 2
-      alignment: 1
+      size: 8
+      alignment: 4
     - instruction:
       kind: get_address
       src:

@@ -101,18 +101,21 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
         if (!is_automatic || !id->name)
             continue;
         tac_record_local(ctx, id->name);
-        // Aggregate locals (arrays, structs, unions) occupy contiguous multi-word
-        // frame slots; emit an AllocateLocal so the backend reserves the full size
-        // instead of a single word. Scalars keep their implicit one-word slot.
+        // Aggregate locals (arrays, structs, unions) occupy contiguous frame slots;
+        // emit an AllocateLocal so the backend reserves the full size instead of a
+        // single slot. Scalars keep their implicit one-slot allocation. Size and
+        // alignment are in target bytes (like every other offset in the TAC stream);
+        // each backend converts to its own allocation unit (the besm6 backend divides
+        // by the 6-byte machine word).
         if (id->type && (id->type->kind == TYPE_ARRAY ||
                          id->type->kind == TYPE_STRUCT ||
                          id->type->kind == TYPE_UNION)) {
-            int words = ast_type_words(id->type);
-            if (words > 0) {
+            int bytes = (int)get_size(id->type);
+            if (bytes > 0) {
                 Tac_Instruction *in            = tac_new_instruction(TAC_INSTRUCTION_ALLOCATE_LOCAL);
                 in->u.allocate_local.name      = xstrdup(id->name);
-                in->u.allocate_local.size      = words;
-                in->u.allocate_local.alignment = 1;
+                in->u.allocate_local.size      = bytes;
+                in->u.allocate_local.alignment = (int)get_alignment(id->type);
                 tac_append(ctx, in);
             }
         }

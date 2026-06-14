@@ -344,44 +344,6 @@ static Tac_Param *params_from_type(const Type *fun_type)
     return head;
 }
 
-// Compute BESM-6 word count for an AST type.
-int ast_type_words(const Type *t)
-{
-    switch (t->kind) {
-    case TYPE_LONG_LONG:
-    case TYPE_ULONG_LONG:
-    case TYPE_LONG_DOUBLE:
-        return 2;
-    case TYPE_ARRAY: {
-        if (!t->u.array.size)
-            return 0; // incomplete array
-        int count = (int)(get_size(t) / get_size(t->u.array.element));
-        if (t->u.array.element->kind == TYPE_CHAR  ||
-            t->u.array.element->kind == TYPE_SCHAR ||
-            t->u.array.element->kind == TYPE_UCHAR)
-            return (count + 5) / 6;
-        return ast_type_words(t->u.array.element) * count;
-    }
-    case TYPE_STRUCT:
-    case TYPE_UNION: {
-        int total = 0;
-        for (const Field *f = t->u.struct_t.fields; f; f = f->next)
-            if (f->kind == FIELD_MEMBER)
-                total += ast_type_words(f->u.member.type);
-        if (total > 0)
-            return total;
-        if (t->u.struct_t.name && structtab_exists(t->u.struct_t.name)) {
-            const StructDef *sd = structtab_find(t->u.struct_t.name);
-            for (const FieldDef *fd = sd->members; fd; fd = fd->next)
-                total += ast_type_words(fd->type);
-        }
-        return total;
-    }
-    default:
-        return 1;
-    }
-}
-
 Tac_Type *ast_type_to_tac_type(const Type *t)
 {
     switch (t->kind) {
@@ -449,7 +411,7 @@ Tac_Type *ast_type_to_tac_type(const Type *t)
     case TYPE_UNION: {
         Tac_Type *ts         = tac_new_type(TAC_TYPE_STRUCTURE);
         ts->u.structure.tag  = t->u.struct_t.name ? xstrdup(t->u.struct_t.name) : NULL;
-        ts->u.structure.size = ast_type_words(t);
+        ts->u.structure.size = (int)get_size(t);
         return ts;
     }
     default:

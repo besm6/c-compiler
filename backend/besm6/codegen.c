@@ -76,10 +76,10 @@ static void lookup(const Frame *f, const char *name, int *reg, int *off)
 // is a multiple of 6.  A sub-word offset means a packed char member (task #21).
 static int member_word_offset(int byte_offset)
 {
-    if (byte_offset % 6 != 0)
+    if (byte_offset % BESM6_WORD_BYTES != 0)
         fatal_error("CopyTo/FromOffset: sub-word offset %d (char member — task #21)",
                     byte_offset);
-    return byte_offset / 6;
+    return byte_offset / BESM6_WORD_BYTES;
 }
 
 // Build a heap-allocated Madlen literal-address string for a TAC constant.

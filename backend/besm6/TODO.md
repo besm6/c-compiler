@@ -100,5 +100,5 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 |---|------|-------------|--------|
 | 24 | Two-word `long long` / `unsigned long long` | Two-word load/store and software add/sub/mul/div/compare. First fix `codegen_sizeof` in [abi.h](abi.h), which currently returns 1 word for these two-word types. | XL |
 | 25 | Two-word `long double` | Two-word native-FP arithmetic (80-bit mantissa, 14-bit exponent biased 8192) via runtime helpers, using the Y/RMR register for double-width intermediates. | XL |
-| 26 | Optimizations | Peephole rewrites, redundant load/store elimination, frame-slot reuse for dead temporaries. (Switch jump tables are tracked separately as task #27.) | L |
+| 26 | Optimizations | Peephole rewrites, redundant load/store and NTR elimination, frame-slot reuse for dead temporaries. (Switch jump tables are tracked separately as task #27.) | L |
 | 27 | Switch jump-table optimization | For dense case ranges, replace the linear compare chain with an index-scaled `UTC`/`UJ` dispatch through a table of `,oct, label` words. | M |

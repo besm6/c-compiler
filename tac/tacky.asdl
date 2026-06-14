@@ -41,7 +41,7 @@ module TAC {
                 | JumpIfNotZero(Val condition, identifier target)
                 | Label(identifier name)
                 | FunCall(identifier fun_name, Val* args, Val? dst)
-                | AllocateLocal(identifier name, int size, int alignment)
+                | AllocateLocal(identifier name, int size, int alignment) -- size/alignment in target bytes
 
     Val = Constant(Const val)
         | Var(identifier name)

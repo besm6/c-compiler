@@ -862,8 +862,8 @@ TEST_F(TacBinaryTest, AllocateLocal)
     orig->decls                             = make_empty_function("f", true);
     Tac_Instruction *instr                  = tac_new_instruction(TAC_INSTRUCTION_ALLOCATE_LOCAL);
     instr->u.allocate_local.name            = xstrdup("%s");
-    instr->u.allocate_local.size            = 10;
-    instr->u.allocate_local.alignment       = 1;
+    instr->u.allocate_local.size            = 40; // target bytes
+    instr->u.allocate_local.alignment       = 4;  // target bytes
     orig->decls->u.function.body            = instr;
 
     Tac_Program *copy = roundtrip(orig);
@@ -871,8 +871,8 @@ TEST_F(TacBinaryTest, AllocateLocal)
     EXPECT_TRUE(tac_compare_program(orig, copy));
     EXPECT_EQ(copy->decls->u.function.body->kind, TAC_INSTRUCTION_ALLOCATE_LOCAL);
     EXPECT_STREQ(copy->decls->u.function.body->u.allocate_local.name, "%s");
-    EXPECT_EQ(copy->decls->u.function.body->u.allocate_local.size, 10);
-    EXPECT_EQ(copy->decls->u.function.body->u.allocate_local.alignment, 1);
+    EXPECT_EQ(copy->decls->u.function.body->u.allocate_local.size, 40);
+    EXPECT_EQ(copy->decls->u.function.body->u.allocate_local.alignment, 4);
 
     tac_free_program(orig);
     tac_free_program(copy);

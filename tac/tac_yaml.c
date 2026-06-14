@@ -192,6 +192,8 @@ static void export_yaml_type(FILE *fd, const Tac_Type *type, int level)
         fprintf(fd, "structure\n");
         print_indent(fd, level);
         fprintf(fd, "tag: %s\n", type->u.structure.tag ? type->u.structure.tag : "");
+        print_indent(fd, level);
+        fprintf(fd, "size: %d\n", type->u.structure.size);
         break;
     }
 }
