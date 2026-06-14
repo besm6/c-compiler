@@ -8,77 +8,90 @@ c Helper convention: operand a is on the stack at mem[r15-1], operand b is in th
 c accumulator A; the product is returned in A.  The caller pushed a with one XTS, so
 c this helper pops exactly one word (net r15 = entry - 1) before returning.
 c
-c A single hardware FP multiply only works for operands that fit in 24 bits (bits 24:1,
-c exponent field 0).  A full 48-bit unsigned value carries data in bits 48:42 that the FP
-c unit misreads as an exponent/sign.  So each operand is split into 24-bit halves
-c   a = aH*2^24 + aL,  b = bH*2^24 + bL
-c and the low 48 bits are assembled from three 24x24->48 partial products (aH*bH*2^48
-c vanishes mod 2^48):
-c   lo = (aL*bL) & 0xFFFFFF
-c   hi = ((aL*bL)>>24 + (aL*bH) + (aH*bL)) & 0xFFFFFF       (low 24 bits only)
-c   result = (hi << 24) | lo
-c The 24x24->48 core is the umul24 subroutine below; only its low 24 bits matter for the
-c cross terms (they are shifted left by 24).  hi sums three values each < 2^24, so it never
-c carries out of bit 48 and a plain ARX add suffices.
+c Adapted from the two-path "u_mul_u" routine of a sibling machine (64-bit word, 52-bit
+c mantissa).  The BESM-6 A*X instruction natively forms the full 81-bit product mantissa
+c in the A:Y register pair: A = product[80:41], Y = product[40:1].  The low 48 bits are
+c then (A << 40)[48:41] | (Y & mask40) -- a single multiply suffices whenever both
+c operands fit the 40-bit mantissa.  An operand >= 2^40 has bits in 48:41 that the FP unit
+c misreads as sign/exponent, so it must be split.
 c
-c           split b (in A) into 24-bit halves
-            ,atx, bsav              . save b
-            ,asn, 64+24             . A := b >> 24            -> bH
-            ,atx, bhi
-            ,xta, bsav
-            ,aax, =77777777         . A := b & 0xFFFFFF       -> bL
-            ,atx, blo
-c           split a (at mem[r15-1], left on the stack) into 24-bit halves
-         15 ,xta, -1                . A := a
-            ,atx, asav
-            ,asn, 64+24             . A := a >> 24            -> aH
-            ,atx, ahi
-            ,xta, asav
-            ,aax, =77777777         . A := a & 0xFFFFFF       -> aL
+c   Short way (both operands < 2^40):  one 40x40 -> low-48 multiply, then repack.
+c   Long way  (some operand >= 2^40):  split a = aH*2^40 + aL, b = bH*2^40 + bL
+c     (aL,bL < 2^40; aH,bH < 2^8) and assemble the low 48 bits from
+c       result = (aL*bL) + 2^40 * ((aL*bH + aH*bL) mod 2^8)        mod 2^48
+c     The aH*bH*2^80 term and all but the low 8 bits of each cross product vanish mod 2^48.
+c
+c           push b; test whether either operand has bits above bit 40
+         15 ,atx,                . mem[r15] := b ; r15 += 1
+         15 ,aox, -2             . A := b | a              (a at mem[r15-2])
+            ,asn, 64+40          . A := (a|b) >> 40
+            ,u1a, longs          . high bits present -> long way
+c
+c           short way: single 40x40 -> low 48 (faithful port of u_mul_u short path).
+c           This is the umul24 extraction inlined: A=prod[80:41], Y=prod[40:1] ->
+c           result = (prod[80:41] << 40) | prod[40:1].
+         15 ,xta, -2             . A := a                   (operand2)
+            ,aox, =:4            . a |= exponent offset
+         15 ,a*x,                . [A,Y] := a*b             (operand1 = b at mem[r15-1])
+            ,xts,                . push bits 80:41 ; set logical w
+            ,yta,                . A := bits 40:1
+         15 ,xts, -2             . A := bits 80:41
+            ,asn, 64-40          . shift bits 80:41 to bits 48:41
+         15 ,aox,                . combine -> prod[48:1]
+         15 ,utm, -2             . net pop of one word
+         13 ,uj,                 . return
+c
+c           long way: split each operand at the 40-bit mantissa boundary
+   longs: 15 ,xta, -2             . A := a
+            ,aax, =1 7777 7777 7777 7   . aL := a & (2^40-1)
             ,atx, alo
-c           P_ll = aL * bL
+         15 ,xta, -2             . A := a
+            ,asn, 64+40          . aH := a >> 40           (<= 8 bits)
+            ,atx, ahi
+         15 ,xta, -1             . A := b
+            ,aax, =1 7777 7777 7777 7   . bL := b & (2^40-1)
+            ,atx, blo
+         15 ,xta, -1             . A := b
+            ,asn, 64+40          . bH := b >> 40
+            ,atx, bhi
+c           main term: aL*bL, low 48 bits
             ,xta, alo
-         15 ,atx,                   . push operand1 = aL
-            ,xta, blo               . operand2 = bL
+         15 ,atx,                . push operand1 = aL
+            ,xta, blo            . operand2 = bL
           9 ,vjm, umul24
-         15 ,utm, -1                . drop the pushed operand
+         15 ,utm, -1             . drop the pushed operand
             ,atx, pll
-c           P_lh = aL * bH
+c           cross term: (aL*bH + aH*bL) mod 2^8
             ,xta, alo
          15 ,atx,
             ,xta, bhi
           9 ,vjm, umul24
          15 ,utm, -1
-            ,atx, plh
-c           P_hl = aH * bL
+            ,aax, =377           . (aL*bH) & 0xFF
+            ,atx, t1
             ,xta, ahi
          15 ,atx,
             ,xta, blo
           9 ,vjm, umul24
          15 ,utm, -1
-            ,atx, phl
-c           hi = (P_ll>>24 + P_lh + P_hl) & 0xFFFFFF
-            ,xta, pll
-            ,asn, 64+24             . P_ll >> 24
-            ,atx, t2
-            ,xta, plh
-            ,aax, =77777777         . P_lh & 0xFFFFFF
+            ,aax, =377           . (aH*bL) & 0xFF
+            ,arx, t1             . + (aL*bH) & 0xFF
+            ,aax, =377           . cross := sum & 0xFF
             ,atx, t1
-            ,xta, phl
-            ,aax, =77777777         . P_hl & 0xFFFFFF
-            ,arx, t1                . + P_lh low 24
-            ,arx, t2                . + P_ll>>24   (sum < 2^26, no carry past bit 48)
-            ,aax, =77777777         . hi := sum & 0xFFFFFF
-            ,asn, 64-24             . hi << 24
-            ,atx, t1
-c           lo = P_ll & 0xFFFFFF;  result = (hi<<24) | lo
+c           result = (pll & mask40) | (((pll>>40) + cross) & 0xFF) << 40
             ,xta, pll
-            ,aax, =77777777
-            ,aox, t1                . combine; leaves logical w-mode for the caller
-         15 ,utm, -1                . pop original a:  r15 := entry - 1
+            ,asn, 64+40          . pll[48:41]
+            ,arx, t1             . + cross
+            ,aax, =377           . & 0xFF
+            ,asn, 64-40          . << 40  -> bits 48:41
+            ,atx, t1
+            ,xta, pll
+            ,aax, =1 7777 7777 7777 7   . pll low 40 bits
+            ,aox, t1             . combine high byte
+         15 ,utm, -2             . net pop of one word (a and b dropped)
          13 ,uj,
 c
-c umul24 -- multiply two 24-bit unsigned values into a 48-bit product.
+c umul24 -- multiply two unsigned values (each < 2^40) into the low 48 bits of the product.
 c operand1 at mem[r15-1], operand2 in A; product in A; returns via r9 (net stack 0).
 c
    umul24:  ,aox, =:4               . add exponent offset
@@ -90,15 +103,10 @@ c
          15 ,aox,                   . add bits 40:1
           9 ,uj,
 c
-   bsav:    ,oct, 0
-   asav:    ,oct, 0
-   bhi:     ,oct, 0
-   blo:     ,oct, 0
-   ahi:     ,oct, 0
    alo:     ,oct, 0
+   ahi:     ,oct, 0
+   blo:     ,oct, 0
+   bhi:     ,oct, 0
    pll:     ,oct, 0
-   plh:     ,oct, 0
-   phl:     ,oct, 0
    t1:      ,oct, 0
-   t2:      ,oct, 0
             ,end,

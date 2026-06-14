@@ -255,23 +255,28 @@ as plain value bits. Underflow wraps modulo 2⁴⁸.
 
 #### `b/umul` — [b_umul.madlen](../backend/besm6/libc/b_umul.madlen) — `a * b` (unsigned)
 
-Returns the low 48 bits of the unsigned product `a * b` in A. The INT-format FP trick used
-by `b/mul` misreads bit 48 as the sign, so `b/umul` computes the product by **operand
-splitting**: each operand is split into 24-bit halves (`a = aH·2²⁴ + aL`,
-`b = bH·2²⁴ + bL`), and the low 48 bits are assembled from three 24×24→48 partial products
-(`aH·bH·2⁴⁸` vanishes mod 2⁴⁸):
+Returns the low 48 bits of the unsigned product `a * b` in A. Adapted from the two-path
+`u_mul_u` routine of a sibling 64-bit/52-bit machine. The `A*X` instruction natively forms
+the full 81-bit product mantissa across the A:Y pair (`A` = product bits 80:41, `Y` = bits
+40:1), so the low 48 bits are `(A << 40)[48:41] | (Y & mask40)`. The helper branches on
+operand magnitude — `(a|b) >> 40` — because an operand `≥ 2⁴⁰` has bits in 48:41 that the FP
+unit misreads as sign/exponent and must therefore be split:
 
-```
-lo     = (aL·bL) & 0xFFFFFF
-hi     = ( (aL·bL)>>24 + (aL·bH) + (aH·bL) ) & 0xFFFFFF
-result = (hi << 24) | lo
-```
+- **Short way** (both operands `< 2⁴⁰`, the common case): a *single* 40×40→low-48 multiply
+  followed by the repack above. No subroutine call, no splitting.
+- **Long way** (some operand `≥ 2⁴⁰`): split each operand at the 40-bit mantissa boundary,
+  `a = aH·2⁴⁰ + aL`, `b = bH·2⁴⁰ + bL` (with `aL,bL < 2⁴⁰`, `aH,bH < 2⁸`), and assemble
 
-Each 24×24→48 partial product is formed by an internal `umul24` subroutine that uses the
-hardware FP multiply on the small (clean, ≤24-bit) half-operands. The three `hi` addends are
-each < 2²⁴, so their sum never carries past bit 48 and a plain `ARX` add suffices; only the
-low 24 bits of the cross products matter (they are shifted left by 24). High-half overflow is
-discarded (mod 2⁴⁸).
+  ```
+  result = (aL·bL) + 2⁴⁰ · ((aL·bH + aH·bL) mod 2⁸)        mod 2⁴⁸
+  ```
+
+  The `aH·bH·2⁸⁰` term and all but the low 8 bits of each cross product vanish mod 2⁴⁸.
+
+Both the short-way multiply and the long-way partial products use the internal `umul24`
+subroutine, which runs the hardware FP multiply on the (clean, sign-bit-free) operands and
+extracts the low 48 bits of the result from the A:Y pair. The two cross-product addends are
+each `< 2⁸`, so their sum never carries past bit 48 and a plain `ARX` add suffices.
 
 #### `b/udiv` — [b_udiv.madlen](../backend/besm6/libc/b_udiv.madlen) — `a / b` (unsigned) — **to be implemented**
 
