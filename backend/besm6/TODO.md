@@ -91,9 +91,9 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 20 | CopyToOffset / CopyFromOffset | Aggregate member access: base from frame + constant word offset via `UTC`/an index register, then `ATX`/`XTA` at the offset. | M |
 | 21 | Fat-pointer `char` access | `char*`/`void*` are fat pointers (bit 48 set, byte offset in bits 47–45). **Load byte**: `WTC ptr` / `XTA 0` / `ASX ptr` (shift by offset×8) / `AAX =0377`. **Store byte**: read-modify-write the containing word (mask out the target byte, OR in the new byte shifted into place). | L |
 | 22 | `char*` arithmetic & pointer casts | `char*` increment decrements the 3-bit byte offset, borrowing into the word address when it wraps 0→5. Casts: `int*`→`char*` sets the fat marker + offset 5; `char*`→`int*` clears them; `char*`↔`void*` is a bit-pattern copy. | M |
+| 23 | Local arrays & aggregate frame slots | Reserve contiguous multi-word frame slots for aggregate locals (`int a[10]`, local structs) instead of one word per name. The serialized TAC carries no per-local size (`Tac_Param` is name-only; the `locals` list is not serialized), so `frame.c` must learn each aggregate's word count — by extending the TAC stream to carry a per-local size. Then `GET_ADDRESS %a` yields the slot's frame address (`r7+offset`) and subscript/offset access indexes into it. Builds on #20. | L |
 
 ### Phase M — Deferred / future
 

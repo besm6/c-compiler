@@ -71,6 +71,17 @@ static void lookup(const Frame *f, const char *name, int *reg, int *off)
         fatal_error("variable '%s' not in frame", name);
 }
 
+// Convert a struct-member byte offset to a word offset.  BESM-6 word-sized members
+// (int/long/pointer/float/double) are 6 bytes, so a word-aligned member's byte offset
+// is a multiple of 6.  A sub-word offset means a packed char member (task #21).
+static int member_word_offset(int byte_offset)
+{
+    if (byte_offset % 6 != 0)
+        fatal_error("CopyTo/FromOffset: sub-word offset %d (char member — task #21)",
+                    byte_offset);
+    return byte_offset / 6;
+}
+
 // Build a heap-allocated Madlen literal-address string for a TAC constant.
 // Signed int/char/long: masked to 41 bits (raw two's-complement, exponent=0).
 // Unsigned uint/ulong/uchar: masked to 48 bits.
@@ -492,21 +503,28 @@ void codegen_program(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *
 // frame slot and has not been declared yet.  SUBP allocates no memory; it just
 // tells the single-pass assembler the name is external, and must precede the
 // first UTC that references it.
+static void declare_global_name(Besm_Block *block, Besm_Instr **tail,
+                                const Frame *f, StringMap *declared,
+                                const char *name)
+{
+    int sr, so;
+    intptr_t dummy;
+    if (frame_lookup(f, name, &sr, &so))
+        return;                       // local / param
+    if (map_get(declared, name, &dummy))
+        return;                       // already declared
+    Besm_Instr *ssubp = emit(block, tail, BESM_STMT_SUBP);
+    ssubp->name       = xstrdup(name);
+    map_insert(declared, name, 1, 0);
+}
+
 static void declare_global_operand(Besm_Block *block, Besm_Instr **tail,
                                    const Frame *f, StringMap *declared,
                                    const Tac_Val *v)
 {
     if (!v || v->kind != TAC_VAL_VAR)
         return;
-    int sr, so;
-    intptr_t dummy;
-    if (frame_lookup(f, v->u.var_name, &sr, &so))
-        return;                       // local / param
-    if (map_get(declared, v->u.var_name, &dummy))
-        return;                       // already declared
-    Besm_Instr *ssubp = emit(block, tail, BESM_STMT_SUBP);
-    ssubp->name       = xstrdup(v->u.var_name);
-    map_insert(declared, v->u.var_name, 1, 0);
+    declare_global_name(block, tail, f, declared, v->u.var_name);
 }
 
 static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl,
@@ -608,6 +626,14 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
                 declare_global_operand(block, &tail, f, &declared, instr->u.add_ptr.ptr);
                 declare_global_operand(block, &tail, f, &declared, instr->u.add_ptr.index);
                 declare_global_operand(block, &tail, f, &declared, instr->u.add_ptr.dst);
+                break;
+            case TAC_INSTRUCTION_COPY_TO_OFFSET:
+                declare_global_operand(block, &tail, f, &declared, instr->u.copy_to_offset.src);
+                declare_global_name(block, &tail, f, &declared, instr->u.copy_to_offset.dst);
+                break;
+            case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+                declare_global_name(block, &tail, f, &declared, instr->u.copy_from_offset.src);
+                declare_global_operand(block, &tail, f, &declared, instr->u.copy_from_offset.dst);
                 break;
             case TAC_INSTRUCTION_JUMP_IF_ZERO:
                 declare_global_operand(block, &tail, f, &declared, instr->u.jump_if_zero.condition);
@@ -1207,6 +1233,63 @@ static void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *in
             emit_arith_val(block, tail, BESM_ARITH_ADD, f, ptr);
         }
         emit_atx(block, tail, rd, od);
+        break;
+    }
+    // COPY_FROM_OFFSET  dst = base[offset]
+    //
+    // In C:  x = s.field;   (s is a named struct variable, not a pointer)
+    // TAC:   copy_from_offset src=base, offset → dst
+    //
+    // `offset` is a byte offset; convert to a word offset.  The base is a local frame
+    // slot (REG_AUTO/REG_PAR + slot offset) or a module-level global:
+    //   local  : reg ,XTA, slot_off + woff      — load the member word
+    //   global : ,UTC, base  /  ,XTA, woff      — C = addr(base), then mem[C+woff]
+    // Then store A into the dst Val (local frame slot or global), as in COPY.
+    //
+    case TAC_INSTRUCTION_COPY_FROM_OFFSET: {
+        const char    *base = instr->u.copy_from_offset.src;
+        const Tac_Val *dst  = instr->u.copy_from_offset.dst;
+        int            woff = member_word_offset(instr->u.copy_from_offset.offset);
+        int br, bo;
+        if (frame_lookup(f, base, &br, &bo)) {
+            emit_xta(block, tail, br, bo + woff);
+        } else {
+            Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
+            utc->name       = xstrdup(base);
+            emit_xta(block, tail, 0, woff);
+        }
+        int dr, doff;
+        if (frame_lookup(f, dst->u.var_name, &dr, &doff)) {
+            emit_atx(block, tail, dr, doff);
+        } else {
+            Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
+            utc->name       = xstrdup(dst->u.var_name);
+            emit(block, tail, BESM_MEM_ATX);
+        }
+        break;
+    }
+    // COPY_TO_OFFSET  base[offset] = src
+    //
+    // In C:  s.field = x;   (s is a named struct variable, not a pointer)
+    // TAC:   copy_to_offset src → dst=base, offset
+    //
+    // Load src into A (local/global/constant), then store at the word offset into base:
+    //   local  : reg ,ATX, slot_off + woff
+    //   global : ,UTC, base  /  ,ATX, woff
+    //
+    case TAC_INSTRUCTION_COPY_TO_OFFSET: {
+        const Tac_Val *src  = instr->u.copy_to_offset.src;
+        const char    *base = instr->u.copy_to_offset.dst;
+        int            woff = member_word_offset(instr->u.copy_to_offset.offset);
+        emit_xta_val(block, tail, f, src);
+        int br, bo;
+        if (frame_lookup(f, base, &br, &bo)) {
+            emit_atx(block, tail, br, bo + woff);
+        } else {
+            Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
+            utc->name       = xstrdup(base);
+            emit_atx(block, tail, 0, woff);
+        }
         break;
     }
     default:

@@ -84,9 +84,10 @@ Try the compiler tools:
 ./build/parse -D input.c            # debug: parser trace + AST dump + leak report
 
 ./build/parse input.c > /tmp/input.ast
-./build/lower /tmp/input.ast           # → binary TAC to /tmp/input.tac
-./build/lower --yaml /tmp/input.ast -  # → YAML TAC to stdout ("-" = stdout)
-./build/lower -D /tmp/input.ast        # debug: translator trace
+./build/lower /tmp/input.ast              # → binary TAC to /tmp/input.tac (default target: besm6)
+./build/lower --yaml /tmp/input.ast -     # → YAML TAC to stdout ("-" = stdout)
+./build/lower -t x86_64 /tmp/input.ast -  # → TAC with x86_64 type sizes/offsets
+./build/lower -D /tmp/input.ast           # debug: translator trace
 ```
 
 Compiler flags in use: `-Wall -Werror -Wshadow` — all warnings are errors.
@@ -120,7 +121,7 @@ Source (.c)
 | AST → TAC lowering | `translator/translate.c`, `expr.c`, `stmt.c` | Complete |
 | TAC optimizer | `optimize/` | Complete (const fold, unreachable elim, copy prop, dead store elim) |
 | x86_64 code gen | `backend/x86/` | Planned |
-| BESM-6 code gen | `backend/besm6/` | In progress (frame alloc, static data, UTF-8→KOI7, main entry, global variable access, COPY/GET_ADDRESS/LOAD/STORE/BINARY (incl. shifts, unsigned add via b/uadd, unsigned sub via b/usub, multiply via b/mul, unsigned multiply via b/umul, divide via b/div, unsigned divide via b/udiv, remainder via b/mod, unsigned remainder via b/umod)/UNARY negate (int/unsigned/FP)/UNARY complement/UNARY not/FUN_CALL/RETURN/LABEL/JUMP/JUMP_IF_ZERO/JUMP_IF_NOT_ZERO/integer width conversions (TRUNCATE/ZERO_EXTEND/SIGN_EXTEND)/ADD_PTR (pointer & array index scaling) done) |
+| BESM-6 code gen | `backend/besm6/` | In progress (frame alloc, static data, UTF-8→KOI7, main entry, global variable access, COPY/GET_ADDRESS/LOAD/STORE/BINARY (incl. shifts, unsigned add via b/uadd, unsigned sub via b/usub, multiply via b/mul, unsigned multiply via b/umul, divide via b/div, unsigned divide via b/udiv, remainder via b/mod, unsigned remainder via b/umod)/UNARY negate (int/unsigned/FP)/UNARY complement/UNARY not/FUN_CALL/RETURN/LABEL/JUMP/JUMP_IF_ZERO/JUMP_IF_NOT_ZERO/integer width conversions (TRUNCATE/ZERO_EXTEND/SIGN_EXTEND)/ADD_PTR (pointer & array index scaling)/COPY_TO_OFFSET/COPY_FROM_OFFSET (aggregate member access, word-aligned members) done) |
 | AArch64 / RISC-V / ARM32 code gen | — | Planned |
 
 ### Key data structures
@@ -162,7 +163,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `parser/simple_tests.cpp`, `statement_tests.cpp`, … (9 files, including `negative_tests.cpp`) → `parser-tests`
 - `tac/yaml_tests.cpp`, `graphviz_tests.cpp`, `binary_tests.cpp` → `tac-tests`
 - `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` → `semantic-tests`
-- `backend/besm6/codegen_tests.cpp`, `arith_tests.cpp`, `copy_tests.cpp`, `flow_tests.cpp`, `run_tests.cpp`, `unary_tests.cpp`, `convert_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp`, `ptr_tests.cpp` → `besm-tests`
+- `backend/besm6/codegen_tests.cpp`, `arith_tests.cpp`, `copy_tests.cpp`, `flow_tests.cpp`, `run_tests.cpp`, `unary_tests.cpp`, `convert_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `besm-tests`
 - `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`
 - `optimize/const_fold_tests.cpp`, `jump_unreachable_tests.cpp`, `copy_prop_tests.cpp`, `dead_store_tests.cpp`, `type_conv_tests.cpp`, `pipeline_tests.cpp` → `optimizer-tests`
 - `libutil/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-tests`

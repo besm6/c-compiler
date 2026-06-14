@@ -101,7 +101,7 @@ static int parse_args(int argc, char *argv[], Args *args)
         args->help = 1;
         return 0;
     }
-    while ((opt = getopt_long(argc, argv, "vhDt:", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "vhD", long_options, &option_index)) != -1) {
         switch (opt) {
         case 'v':
             args->verbose = 1;
