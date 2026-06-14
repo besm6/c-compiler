@@ -14,8 +14,8 @@
 // Forward declarations.
 static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl,
                              FILE *out);
-static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
-                          Besm_Block *block, Besm_Instr **tail);
+static void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr,
+                          const Frame *f, Besm_Block *block, Besm_Instr **tail);
 
 _Noreturn static void fatal_error(const char *fmt, ...)
 {
@@ -641,7 +641,7 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
         }
 
         for (const Tac_Instruction *instr = tl->u.function.body; instr; instr = instr->next)
-            codegen_instr(instr, f, block, &tail);
+            codegen_instr(program, instr, f, block, &tail);
 
         Besm_Instr *uj_cret = emit(block, &tail, BESM_BRANCH_UJ);
         uj_cret->name       = xstrdup("b/ret");
@@ -654,8 +654,20 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
     besm_free_module(module);
 }
 
-static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
-                          Besm_Block *block, Besm_Instr **tail)
+// True if `name` is a module-level array object.  An array variable decays to the
+// address of its label, whereas a pointer variable holds an address in its storage —
+// the TAC carries the bare name in both cases, so ADD_PTR must distinguish them here.
+static bool global_is_array(const Tac_TopLevel *program, const char *name)
+{
+    for (const Tac_TopLevel *tl = program; tl; tl = tl->next)
+        if (tl->kind == TAC_TOPLEVEL_STATIC_VARIABLE &&
+            strcmp(tl->u.static_variable.name, name) == 0)
+            return tl->u.static_variable.type->kind == TAC_TYPE_ARRAY;
+    return false;
+}
+
+static void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr,
+                          const Frame *f, Besm_Block *block, Besm_Instr **tail)
 {
     switch (instr->kind) {
     // COPY  dst = src
@@ -774,14 +786,15 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
     //
     // The pointer must be loaded before the source because ATI consumes A.
     // The write offset is always 0 for the same reason as in LOAD above.
+    // The source may be a frame var, a global, or a constant (e.g. arr[i] = 5 after
+    // the optimizer folds the value), so it is loaded via emit_xta_val.
     case TAC_INSTRUCTION_STORE: {
-        int pr, po, sr, so;
+        int pr, po;
         lookup(f, instr->u.store.dst_ptr->u.var_name, &pr, &po);
-        lookup(f, instr->u.store.src->u.var_name, &sr, &so);
         emit_xta(block, tail, pr, po);
         Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
         ati->addr       = 1;
-        emit_xta(block, tail, sr, so);
+        emit_xta_val(block, tail, f, instr->u.store.src);
         emit_atx(block, tail, 1, 0);
         break;
     }
@@ -1120,6 +1133,79 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         aex->name       = xstrdup("=200"); // flip sign bit (0x80)
         Besm_Instr *sub = emit(block, tail, BESM_ARITH_SUB);
         sub->name       = xstrdup("=200"); // subtract 0x80
+        emit_atx(block, tail, rd, od);
+        break;
+    }
+    // ADD_PTR  dst = ptr + index * scale
+    //
+    // `scale` is the element size in BYTES (e.g. int → 6 = one word).  BESM-6 is
+    // word-addressed, so convert to a word scale (scale / 6) and scale the index by it:
+    //   word_scale == 1   : plain add
+    //   word_scale == 2^k : ASN by k bits on the index (logical left shift)
+    //   otherwise         : b/mul the index by word_scale
+    //
+    // The base addition differs by operand kind.  An array variable's value IS the address
+    // of its label, while a pointer variable holds an address in its storage; the TAC
+    // carries the bare name in both cases (no explicit decay), so global_is_array decides:
+    //   global array : materialize the label address and fold in the scaled index via the
+    //                  index register on UTC:  ,ATI, 1 / 1 ,UTC, arr / 14 ,VTM, / ,ITA, 14
+    //   pointer      : the pointer's stored value is the base address — A+X ptr
+    //
+    // Byte-offset addressing (scale not a whole number of words: struct members, char
+    // arrays) is deferred to tasks #20/#21.
+    case TAC_INSTRUCTION_ADD_PTR: {
+        const Tac_Val *ptr   = instr->u.add_ptr.ptr;
+        const Tac_Val *index = instr->u.add_ptr.index;
+        const Tac_Val *dst   = instr->u.add_ptr.dst;
+        int scale            = instr->u.add_ptr.scale;
+        if (scale % 6 != 0)
+            fatal_error("ADD_PTR: sub-word scale %d (struct member / char* — tasks #20/#21)",
+                        scale);
+        int word_scale = scale / 6;
+        int rd, od;
+        lookup(f, dst->u.var_name, &rd, &od);
+
+        // (a) scaled index in A.
+        emit_xta_val(block, tail, f, index);
+        if (word_scale != 1) {
+            if ((word_scale & (word_scale - 1)) == 0) {
+                int k = 0;
+                while ((1 << k) < word_scale)
+                    k++;
+                Besm_Instr *asn = emit(block, tail, BESM_EXP_SHIFTN);
+                asn->addr       = 64 - k; // logical left shift by k bits
+            } else {
+                // Runtime-helper multiply: push the index, load =word_scale, call b/mul.
+                Besm_Instr *xts = emit(block, tail, BESM_MEM_XTS);
+                char buf[32];
+                snprintf(buf, sizeof(buf), "=%o", word_scale);
+                xts->name        = xstrdup(buf);
+                Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
+                call->name       = xstrdup("b/mul");
+            }
+        }
+
+        // (b) add the base.
+        bool array_base = false;
+        if (ptr->kind == TAC_VAL_VAR) {
+            int pr, po;
+            if (!frame_lookup(f, ptr->u.var_name, &pr, &po) &&
+                global_is_array(program, ptr->u.var_name))
+                array_base = true;
+        }
+        if (array_base) {
+            Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
+            ati->addr       = 1; // M[1] = scaled index
+            Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
+            utc->reg        = 1;
+            utc->name       = xstrdup(ptr->u.var_name); // C = M[1] + addr(arr)
+            Besm_Instr *vtm = emit(block, tail, BESM_REG_VTM);
+            vtm->reg        = 14; // M[14] = C
+            Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);
+            ita->addr       = 14; // A = M[14] = element word address
+        } else {
+            emit_arith_val(block, tail, BESM_ARITH_ADD, f, ptr);
+        }
         emit_atx(block, tail, rd, od);
         break;
     }

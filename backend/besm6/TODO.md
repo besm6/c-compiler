@@ -91,7 +91,6 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 19 | AddPtr | Power-of-2 word scale k: `,ASN, (64-k)B` on the index, then `A+X ptr`. Scale 1: plain add. Non-power-of-2: `b/mul` by the scale. Result is a word address. Global array element access chains tasks 1–2 (GET_ADDRESS yields the array label's address via UTC/VTM/ITA) with ADD_PTR for index scaling, then the existing LOAD/STORE. Include `CompileAndRun` tests for `int arr[N]; arr[i] = v;` and `x = arr[i];` with a global array. | M |
 | 20 | CopyToOffset / CopyFromOffset | Aggregate member access: base from frame + constant word offset via `UTC`/an index register, then `ATX`/`XTA` at the offset. | M |
 | 21 | Fat-pointer `char` access | `char*`/`void*` are fat pointers (bit 48 set, byte offset in bits 47–45). **Load byte**: `WTC ptr` / `XTA 0` / `ASX ptr` (shift by offset×8) / `AAX =0377`. **Store byte**: read-modify-write the containing word (mask out the target byte, OR in the new byte shifted into place). | L |
 | 22 | `char*` arithmetic & pointer casts | `char*` increment decrements the 3-bit byte offset, borrowing into the word address when it wraps 0→5. Casts: `int*`→`char*` sets the fat marker + offset 5; `char*`→`int*` clears them; `char*`↔`void*` is a bit-pattern copy. | M |
