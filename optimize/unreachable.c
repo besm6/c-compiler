@@ -20,11 +20,12 @@
 // See docs/TAC_Optimization.md §"Unreachable code elimination".
 // ============================================================================
 
+#include <string.h>
+
 #include "cfg.h"
 #include "optimize.h"
 #include "string_map.h"
 #include "xalloc.h"
-#include <string.h>
 
 // Cleanup 1: delete every reachable block's trailing Jump when its target is the
 // next reachable block (the jump would just fall through anyway). Intervening
@@ -62,7 +63,7 @@ static void remove_useless_jumps(OptCfg *cfg)
             while (prev->next != jmp)
                 prev = prev->next;
             prev->next = NULL;
-            b->last = prev;
+            b->last    = prev;
         }
         jmp->next = NULL;
         tac_free_instruction(jmp);
@@ -115,10 +116,9 @@ static void remove_unused_labels(OptCfg *cfg)
         if (map_get(&targets, lbl->u.label.name, &dummy))
             continue;
 
-        OPT_TRACE("[unreach] block %d: dropping unused label %s\n",
-                  i, lbl->u.label.name);
+        OPT_TRACE("[unreach] block %d: dropping unused label %s\n", i, lbl->u.label.name);
         Tac_Instruction *new_first = lbl->next;
-        lbl->next = NULL;
+        lbl->next                  = NULL;
         tac_free_instruction(lbl);
         b->first = new_first;
         if (new_first == NULL)
@@ -134,12 +134,11 @@ void eliminate_unreachable(OptCfg *cfg)
 {
     // Breadth-first traversal from the entry block, using a simple ring-free
     // queue sized to the block count (each block is enqueued at most once).
-    OptBlock **queue = xalloc(cfg->nblocks * sizeof(OptBlock *),
-                              __func__, __FILE__, __LINE__);
+    OptBlock **queue = xalloc(cfg->nblocks * sizeof(OptBlock *), __func__, __FILE__, __LINE__);
     int head = 0, tail = 0;
 
     cfg->blocks[0]->reachable = true;
-    queue[tail++] = cfg->blocks[0];
+    queue[tail++]             = cfg->blocks[0];
 
     while (head < tail) {
         OptBlock *b = queue[head++];
@@ -148,7 +147,7 @@ void eliminate_unreachable(OptCfg *cfg)
             OptBlock *succ = b->succs[i];
             if (!succ->reachable) {
                 succ->reachable = true;
-                queue[tail++] = succ;
+                queue[tail++]   = succ;
             }
         }
     }

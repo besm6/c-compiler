@@ -1,10 +1,9 @@
-#include "parser_internal.h"
-
 #include <ctype.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "parser_internal.h"
 #include "xalloc.h"
 
 //
@@ -268,10 +267,10 @@ Expr *parse_constant()
             expr->u.literal->kind      = LITERAL_INT;
             expr->u.literal->u.int_val = parse_char_literal(current_lexeme);
         } else {
-            char              *end       = NULL;
-            unsigned long long v         = strtoull(current_lexeme, &end, 0);
-            bool               is_unsigned = false;
-            int                long_count  = 0;
+            char *end            = NULL;
+            unsigned long long v = strtoull(current_lexeme, &end, 0);
+            bool is_unsigned     = false;
+            int long_count       = 0;
             if (end) {
                 while (*end) {
                     if (*end == 'u' || *end == 'U') {
@@ -301,34 +300,34 @@ Expr *parse_constant()
                     expr->u.literal->kind             = LITERAL_ULONG_LONG;
                     expr->u.literal->u.ulong_long_val = v;
                 } else if (long_count == 1) {
-                    expr->u.literal->kind         = LITERAL_ULONG;
-                    expr->u.literal->u.ulong_val  = (unsigned long)v;
+                    expr->u.literal->kind        = LITERAL_ULONG;
+                    expr->u.literal->u.ulong_val = (unsigned long)v;
                 } else if (v <= (unsigned long long)UINT_MAX) {
-                    expr->u.literal->kind         = LITERAL_UINT;
-                    expr->u.literal->u.uint_val   = (unsigned int)v;
+                    expr->u.literal->kind       = LITERAL_UINT;
+                    expr->u.literal->u.uint_val = (unsigned int)v;
                 } else if (v <= (unsigned long long)ULONG_MAX) {
-                    expr->u.literal->kind         = LITERAL_ULONG;
-                    expr->u.literal->u.ulong_val  = (unsigned long)v;
+                    expr->u.literal->kind        = LITERAL_ULONG;
+                    expr->u.literal->u.ulong_val = (unsigned long)v;
                 } else {
                     expr->u.literal->kind             = LITERAL_ULONG_LONG;
                     expr->u.literal->u.ulong_long_val = v;
                 }
             } else {
                 if (long_count >= 2) {
-                    expr->u.literal->kind             = LITERAL_LONG_LONG;
-                    expr->u.literal->u.long_long_val  = (long long)v;
+                    expr->u.literal->kind            = LITERAL_LONG_LONG;
+                    expr->u.literal->u.long_long_val = (long long)v;
                 } else if (long_count == 1) {
-                    expr->u.literal->kind         = LITERAL_LONG;
-                    expr->u.literal->u.long_val   = (long)v;
+                    expr->u.literal->kind       = LITERAL_LONG;
+                    expr->u.literal->u.long_val = (long)v;
                 } else if (v <= (unsigned long long)INT_MAX) {
-                    expr->u.literal->kind         = LITERAL_INT;
-                    expr->u.literal->u.int_val    = (int)v;
+                    expr->u.literal->kind      = LITERAL_INT;
+                    expr->u.literal->u.int_val = (int)v;
                 } else if (v <= (unsigned long long)LONG_MAX) {
-                    expr->u.literal->kind         = LITERAL_LONG;
-                    expr->u.literal->u.long_val   = (long)v;
+                    expr->u.literal->kind       = LITERAL_LONG;
+                    expr->u.literal->u.long_val = (long)v;
                 } else {
-                    expr->u.literal->kind             = LITERAL_LONG_LONG;
-                    expr->u.literal->u.long_long_val  = (long long)v;
+                    expr->u.literal->kind            = LITERAL_LONG_LONG;
+                    expr->u.literal->u.long_long_val = (long long)v;
                 }
             }
         }
@@ -343,8 +342,8 @@ Expr *parse_constant()
             expr->u.literal->kind       = LITERAL_FLOAT;
             expr->u.literal->u.real_val = strtof(current_lexeme, NULL);
         } else if (is_l_suffix) {
-            expr->u.literal->kind                = LITERAL_LONG_DOUBLE;
-            expr->u.literal->u.long_double_val   = strtold(current_lexeme, NULL);
+            expr->u.literal->kind              = LITERAL_LONG_DOUBLE;
+            expr->u.literal->u.long_double_val = strtold(current_lexeme, NULL);
         } else {
             expr->u.literal->u.real_val = v;
         }

@@ -55,15 +55,14 @@ static void collect_cases(TacCtx *ctx, Stmt *stmt, CaseList *list)
     }
 }
 
-void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset,
-                       const Initializer *init)
+void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const Initializer *init)
 {
     if (init->kind == INITIALIZER_SINGLE) {
-        Tac_Val *src                    = gen_expr(ctx, init->u.expr);
-        Tac_Instruction *in             = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
-        in->u.copy_to_offset.src        = src;
-        in->u.copy_to_offset.dst        = xstrdup(var_name);
-        in->u.copy_to_offset.offset     = base_offset;
+        Tac_Val *src                = gen_expr(ctx, init->u.expr);
+        Tac_Instruction *in         = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
+        in->u.copy_to_offset.src    = src;
+        in->u.copy_to_offset.dst    = xstrdup(var_name);
+        in->u.copy_to_offset.offset = base_offset;
         tac_append(ctx, in);
         return;
     }
@@ -75,12 +74,11 @@ void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset,
             gen_compound_init(ctx, var_name, base_offset + i * elem_size, item->init);
     } else if (t->kind == TYPE_STRUCT) {
         const StructDef *def = structtab_find(t->u.struct_t.name);
-        const FieldDef  *fld = def->members;
+        const FieldDef *fld  = def->members;
         for (const InitItem *item = init->u.items; item; item = item->next, fld = fld->next)
             gen_compound_init(ctx, var_name, base_offset + fld->offset, item->init);
     } else {
-        fatal_error("Compound initializer for unsupported type %d in TAC lowering",
-                    (int)t->kind);
+        fatal_error("Compound initializer for unsupported type %d in TAC lowering", (int)t->kind);
     }
 }
 
@@ -94,8 +92,7 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
     // static or extern name denotes observable storage and must be left out.
     StorageClass storage =
         decl->u.var.specifiers ? decl->u.var.specifiers->storage : STORAGE_CLASS_NONE;
-    bool is_automatic = storage == STORAGE_CLASS_NONE ||
-                        storage == STORAGE_CLASS_AUTO ||
+    bool is_automatic = storage == STORAGE_CLASS_NONE || storage == STORAGE_CLASS_AUTO ||
                         storage == STORAGE_CLASS_REGISTER;
     for (const InitDeclarator *id = decl->u.var.declarators; id; id = id->next) {
         if (!is_automatic || !id->name)
@@ -107,14 +104,13 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
         // alignment are in target bytes (like every other offset in the TAC stream);
         // each backend converts to its own allocation unit (the besm6 backend divides
         // by the 6-byte machine word).
-        if (id->type && (id->type->kind == TYPE_ARRAY ||
-                         id->type->kind == TYPE_STRUCT ||
+        if (id->type && (id->type->kind == TYPE_ARRAY || id->type->kind == TYPE_STRUCT ||
                          id->type->kind == TYPE_UNION)) {
             int bytes = (int)get_size(id->type);
             if (bytes > 0) {
-                Tac_Instruction *in            = tac_new_instruction(TAC_INSTRUCTION_ALLOCATE_LOCAL);
-                in->u.allocate_local.name      = xstrdup(id->name);
-                in->u.allocate_local.size      = bytes;
+                Tac_Instruction *in       = tac_new_instruction(TAC_INSTRUCTION_ALLOCATE_LOCAL);
+                in->u.allocate_local.name = xstrdup(id->name);
+                in->u.allocate_local.size = bytes;
                 in->u.allocate_local.alignment = (int)get_alignment(id->type);
                 tac_append(ctx, in);
             }

@@ -92,7 +92,7 @@ static char *const_lit_name(const Tac_Const *c)
     case TAC_CONST_FLOAT:
     case TAC_CONST_DOUBLE: {
         double val = (c->kind == TAC_CONST_FLOAT) ? (double)c->u.float_val : c->u.double_val;
-        char   num[48];
+        char num[48];
         mad_format_real(num, sizeof(num), val);
         snprintf(buf, sizeof(buf), "=r%s", num);
         break;
@@ -135,7 +135,7 @@ void emit_xts_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *
             Besm_Instr *utc = emit(b, t, BESM_MOD_UTC);
             utc->name       = xstrdup(v->u.var_name);
             Besm_Instr *i   = emit(b, t, BESM_MEM_XTS);
-            (void)i;   // reg=0, addr=0 → XTS mem[C+0]
+            (void)i; // reg=0, addr=0 → XTS mem[C+0]
         }
     } else {
         Besm_Instr *i = emit(b, t, BESM_MEM_XTS);
@@ -144,8 +144,8 @@ void emit_xts_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *
 }
 
 // Emit an arithmetic instruction for a TAC value: local, global (via UTC), or constant literal.
-void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind,
-                    const Frame *f, const Tac_Val *v)
+void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind, const Frame *f,
+                    const Tac_Val *v)
 {
     if (v->kind == TAC_VAL_VAR) {
         int reg, off;
@@ -154,7 +154,7 @@ void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind,
         } else {
             Besm_Instr *utc = emit(b, t, BESM_MOD_UTC);
             utc->name       = xstrdup(v->u.var_name);
-            emit(b, t, kind);   // reg=0, addr=0 → op mem[C+0]
+            emit(b, t, kind); // reg=0, addr=0 → op mem[C+0]
         }
     } else {
         Besm_Instr *i = emit(b, t, kind);

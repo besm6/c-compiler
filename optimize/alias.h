@@ -13,5 +13,5 @@
 // `fn` is the function's own toplevel (for its params + locals); when NULL the
 // observable set is left empty (no classification context — used by unit tests
 // that build raw instruction lists). Caller must map_destroy() both maps.
-void collect_alias_sets(const OptCfg *cfg, const Tac_TopLevel *fn,
-                        StringMap *observable, StringMap *address_taken);
+void collect_alias_sets(const OptCfg *cfg, const Tac_TopLevel *fn, StringMap *observable,
+                        StringMap *address_taken);

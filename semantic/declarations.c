@@ -4,12 +4,12 @@
 #include <stdio.h>
 
 #include "semantic.h"
-#include "xalloc.h"
 #include "string_map.h"
 #include "structtab.h"
 #include "symtab.h"
 #include "typecheck.h"
 #include "typetab.h"
+#include "xalloc.h"
 
 static bool is_extern(const DeclSpec *spec)
 {
@@ -192,7 +192,7 @@ static void typecheck_local_var_decl(const Declaration *d)
         return;
     }
     for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
-        decl->type = resolve_typedef_names(decl->type);
+        decl->type     = resolve_typedef_names(decl->type);
         Type *var_type = decl->type;
         if (var_type->kind == TYPE_VOID) {
             fatal_error("No void declarations");
@@ -238,7 +238,7 @@ static void typecheck_fn_decl(ExternalDecl *d)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
-    d->u.function.type = resolve_typedef_names(d->u.function.type);
+    d->u.function.type   = resolve_typedef_names(d->u.function.type);
     const Type *fun_type = d->u.function.type;
     validate_type(fun_type);
     Type *adjusted_type = clone_type(fun_type, __func__, __FILE__, __LINE__);
@@ -352,7 +352,7 @@ static void typecheck_file_scope_var_decl(Declaration *d)
     }
     bool global = !is_static(d->u.var.specifiers);
     for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
-        decl->type = resolve_typedef_names(decl->type);
+        decl->type     = resolve_typedef_names(decl->type);
         Type *var_type = decl->type;
 
         // A function prototype at file scope (e.g. "int f(int);") arrives here

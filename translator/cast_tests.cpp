@@ -555,8 +555,8 @@ TEST_F(TranslateTest, CastLongLongToInt)
 // (unsigned long long)x where x is long long: same size → copy
 TEST_F(TranslateTest, CastLongLongToULongLong)
 {
-    std::string yaml = CompileToYaml(
-        "unsigned long long f(long long x) { return (unsigned long long)x; }");
+    std::string yaml =
+        CompileToYaml("unsigned long long f(long long x) { return (unsigned long long)x; }");
     EXPECT_NE(yaml.find("kind: copy"), std::string::npos);
 }
 

@@ -1,7 +1,7 @@
+#include "target.h"
+
 #include <stdio.h>
 #include <string.h>
-
-#include "target.h"
 
 // clang-format off
 static const Target targets[] = {

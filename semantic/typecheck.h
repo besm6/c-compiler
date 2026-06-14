@@ -18,19 +18,19 @@ void scope_increment(void);
 void scope_decrement(void);
 
 // Type system utilities — typecheck.c
-void   validate_type(const Type *t);
+void validate_type(const Type *t);
 size_t get_array_size(const Type *t);
-void   set_array_size(Type *t, size_t size);
+void set_array_size(Type *t, size_t size);
 
 // Type conversion — typecheck.c
-Expr       *convert_to_type(Expr *e, const Type *target_type);
-Expr       *convert_to_kind(Expr *e, TypeKind kind);
+Expr *convert_to_type(Expr *e, const Type *target_type);
+Expr *convert_to_kind(Expr *e, TypeKind kind);
 const Type *get_common_type(const Type *t1, const Type *t2);
-bool        is_zero_int(const Literal *c);
-bool        is_null_pointer_constant(const Expr *e);
-Type       *common_pointer_type(const Expr *e1, const Expr *e2);
-bool        compatible_type(const Type *target, const Type *src);
-Expr       *coerce_for_assignment(Expr *e, const Type *target_type);
+bool is_zero_int(const Literal *c);
+bool is_null_pointer_constant(const Expr *e);
+Type *common_pointer_type(const Expr *e1, const Expr *e2);
+bool compatible_type(const Type *target, const Type *src);
+Expr *coerce_for_assignment(Expr *e, const Type *target_type);
 
 // Const evaluation — typecheck.c
 bool try_eval_const_int(const Expr *e, long *out);
@@ -42,11 +42,11 @@ Expr *typecheck_scalar(Expr *e);
 
 // Initializer type-checking — initializers.c
 Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init);
-Initializer    *typecheck_init(Type *target_type, Initializer *init);
+Initializer *typecheck_init(Type *target_type, Initializer *init);
 
 // Statement type-checking — statements.c
 DeclOrStmt *typecheck_block(const Type *ret_type, DeclOrStmt *block);
-Stmt       *typecheck_statement(const Type *ret_type, Stmt *s);
+Stmt *typecheck_statement(const Type *ret_type, Stmt *s);
 
 // Declaration spec helpers — declarations.c
 bool has_storage(const DeclSpec *spec);

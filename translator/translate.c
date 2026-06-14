@@ -98,10 +98,10 @@ Tac_Val *val_ulong(unsigned long v)
 
 Tac_Val *val_ulong_long(unsigned long long v)
 {
-    Tac_Val *tv             = tac_new_val(TAC_VAL_CONSTANT);
-    Tac_Const *c            = tac_new_const(TAC_CONST_ULONG_LONG);
-    c->u.ulong_long_val     = v;
-    tv->u.constant          = c;
+    Tac_Val *tv         = tac_new_val(TAC_VAL_CONSTANT);
+    Tac_Const *c        = tac_new_const(TAC_CONST_ULONG_LONG);
+    c->u.ulong_long_val = v;
+    tv->u.constant      = c;
     return tv;
 }
 
@@ -125,10 +125,10 @@ Tac_Val *val_double(double v)
 
 Tac_Val *val_long_double(long double v)
 {
-    Tac_Val *tv            = tac_new_val(TAC_VAL_CONSTANT);
-    Tac_Const *c           = tac_new_const(TAC_CONST_LONG_DOUBLE);
-    c->u.long_double_val   = v;
-    tv->u.constant         = c;
+    Tac_Val *tv          = tac_new_val(TAC_VAL_CONSTANT);
+    Tac_Const *c         = tac_new_const(TAC_CONST_LONG_DOUBLE);
+    c->u.long_double_val = v;
+    tv->u.constant       = c;
     return tv;
 }
 
@@ -229,17 +229,17 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
         bool from_float       = (from->kind == TYPE_FLOAT);
         bool from_long_double = (from->kind == TYPE_LONG_DOUBLE);
         if (is_signed(to)) {
-            Tac_InstructionKind op  = from_float       ? TAC_INSTRUCTION_FLOAT_TO_INT
-                                    : from_long_double ? TAC_INSTRUCTION_LONG_DOUBLE_TO_INT
-                                                       : TAC_INSTRUCTION_DOUBLE_TO_INT;
+            Tac_InstructionKind op  = from_float         ? TAC_INSTRUCTION_FLOAT_TO_INT
+                                      : from_long_double ? TAC_INSTRUCTION_LONG_DOUBLE_TO_INT
+                                                         : TAC_INSTRUCTION_DOUBLE_TO_INT;
             Tac_Instruction *in     = tac_new_instruction(op);
             in->u.double_to_int.src = src;
             in->u.double_to_int.dst = dst;
             tac_append(ctx, in);
         } else {
-            Tac_InstructionKind op   = from_float       ? TAC_INSTRUCTION_FLOAT_TO_UINT
-                                     : from_long_double ? TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT
-                                                        : TAC_INSTRUCTION_DOUBLE_TO_UINT;
+            Tac_InstructionKind op   = from_float         ? TAC_INSTRUCTION_FLOAT_TO_UINT
+                                       : from_long_double ? TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT
+                                                          : TAC_INSTRUCTION_DOUBLE_TO_UINT;
             Tac_Instruction *in      = tac_new_instruction(op);
             in->u.double_to_uint.src = src;
             in->u.double_to_uint.dst = dst;
@@ -250,17 +250,17 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
         bool to_float       = (to->kind == TYPE_FLOAT);
         bool to_long_double = (to->kind == TYPE_LONG_DOUBLE);
         if (is_signed(from)) {
-            Tac_InstructionKind op  = to_float       ? TAC_INSTRUCTION_INT_TO_FLOAT
-                                    : to_long_double ? TAC_INSTRUCTION_INT_TO_LONG_DOUBLE
-                                                     : TAC_INSTRUCTION_INT_TO_DOUBLE;
+            Tac_InstructionKind op  = to_float         ? TAC_INSTRUCTION_INT_TO_FLOAT
+                                      : to_long_double ? TAC_INSTRUCTION_INT_TO_LONG_DOUBLE
+                                                       : TAC_INSTRUCTION_INT_TO_DOUBLE;
             Tac_Instruction *in     = tac_new_instruction(op);
             in->u.int_to_double.src = src;
             in->u.int_to_double.dst = dst;
             tac_append(ctx, in);
         } else {
-            Tac_InstructionKind op   = to_float       ? TAC_INSTRUCTION_UINT_TO_FLOAT
-                                     : to_long_double ? TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE
-                                                      : TAC_INSTRUCTION_UINT_TO_DOUBLE;
+            Tac_InstructionKind op   = to_float         ? TAC_INSTRUCTION_UINT_TO_FLOAT
+                                       : to_long_double ? TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE
+                                                        : TAC_INSTRUCTION_UINT_TO_DOUBLE;
             Tac_Instruction *in      = tac_new_instruction(op);
             in->u.uint_to_double.src = src;
             in->u.uint_to_double.dst = dst;
@@ -269,9 +269,9 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
     } else {
         // float ↔ double ↔ long double, or same-type copy
         if (from->kind == TYPE_FLOAT && to->kind == TYPE_DOUBLE) {
-            Tac_Instruction *in        = tac_new_instruction(TAC_INSTRUCTION_FLOAT_TO_DOUBLE);
-            in->u.float_to_double.src  = src;
-            in->u.float_to_double.dst  = dst;
+            Tac_Instruction *in       = tac_new_instruction(TAC_INSTRUCTION_FLOAT_TO_DOUBLE);
+            in->u.float_to_double.src = src;
+            in->u.float_to_double.dst = dst;
             tac_append(ctx, in);
         } else if (from->kind == TYPE_DOUBLE && to->kind == TYPE_FLOAT) {
             Tac_Instruction *in       = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_FLOAT);
@@ -279,24 +279,24 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
             in->u.double_to_float.dst = dst;
             tac_append(ctx, in);
         } else if (from->kind == TYPE_LONG_DOUBLE && to->kind == TYPE_DOUBLE) {
-            Tac_Instruction *in              = tac_new_instruction(TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE);
-            in->u.long_double_to_double.src  = src;
-            in->u.long_double_to_double.dst  = dst;
+            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE);
+            in->u.long_double_to_double.src = src;
+            in->u.long_double_to_double.dst = dst;
             tac_append(ctx, in);
         } else if (from->kind == TYPE_DOUBLE && to->kind == TYPE_LONG_DOUBLE) {
-            Tac_Instruction *in              = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE);
-            in->u.double_to_long_double.src  = src;
-            in->u.double_to_long_double.dst  = dst;
+            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE);
+            in->u.double_to_long_double.src = src;
+            in->u.double_to_long_double.dst = dst;
             tac_append(ctx, in);
         } else if (from->kind == TYPE_LONG_DOUBLE && to->kind == TYPE_FLOAT) {
-            Tac_Instruction *in             = tac_new_instruction(TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT);
-            in->u.long_double_to_float.src  = src;
-            in->u.long_double_to_float.dst  = dst;
+            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT);
+            in->u.long_double_to_float.src = src;
+            in->u.long_double_to_float.dst = dst;
             tac_append(ctx, in);
         } else if (from->kind == TYPE_FLOAT && to->kind == TYPE_LONG_DOUBLE) {
-            Tac_Instruction *in             = tac_new_instruction(TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE);
-            in->u.float_to_long_double.src  = src;
-            in->u.float_to_long_double.dst  = dst;
+            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE);
+            in->u.float_to_long_double.src = src;
+            in->u.float_to_long_double.dst = dst;
             tac_append(ctx, in);
         } else {
             Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
@@ -428,12 +428,11 @@ static Tac_TopLevel *translate_fn(const ExternalDecl *ast)
     const char *name  = ast->u.function.name;
     const Symbol *sym = symtab_get(name);
 
-    Tac_TopLevel *tl      = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
-    tl->u.function.name   = xstrdup(name);
-    tl->u.function.global = sym->u.func.global;
+    Tac_TopLevel *tl        = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
+    tl->u.function.name     = xstrdup(name);
+    tl->u.function.global   = sym->u.func.global;
     tl->u.function.params   = params_from_type(ast->u.function.type);
-    tl->u.function.variadic = ast->u.function.type &&
-                              ast->u.function.type->kind == TYPE_FUNCTION &&
+    tl->u.function.variadic = ast->u.function.type && ast->u.function.type->kind == TYPE_FUNCTION &&
                               ast->u.function.type->u.function.variadic;
 
     if (ast->u.function.body) {
@@ -488,19 +487,21 @@ static Tac_TopLevel *translate_decl(const Declaration *decl)
     Tac_TopLevel *constants_head = NULL;
     Tac_TopLevel **ctail         = &constants_head;
     for (const Tac_TopLevel *cur = head; cur; cur = cur->next) {
-        for (const Tac_StaticInit *init = cur->u.static_variable.init_list;
-             init; init = init->next) {
-            if (init->kind != TAC_STATIC_INIT_POINTER) continue;
+        for (const Tac_StaticInit *init = cur->u.static_variable.init_list; init;
+             init                       = init->next) {
+            if (init->kind != TAC_STATIC_INIT_POINTER)
+                continue;
             const char *sname = init->u.pointer.name;
             Symbol *sym       = symtab_get(sname);
-            if (!sym || sym->kind != SYM_CONST || !sym->u.const_init) continue;
+            if (!sym || sym->kind != SYM_CONST || !sym->u.const_init)
+                continue;
             Tac_TopLevel *sc           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
             sc->u.static_constant.name = xstrdup(sname);
             sc->u.static_constant.type = ast_type_to_tac_type(sym->type);
             sc->u.static_constant.init = sym->u.const_init;
             sym->u.const_init          = NULL; // transfer ownership to TAC
-            *ctail = sc;
-            ctail  = &sc->next;
+            *ctail                     = sc;
+            ctail                      = &sc->next;
         }
     }
     if (constants_head) {
@@ -527,8 +528,8 @@ static Tac_TopLevel *translate_external_decl(const ExternalDecl *ast)
 static char *percent_name(const char *name)
 {
     size_t n  = strlen(name);
-    char  *out = xalloc(n + 2, __func__, __FILE__, __LINE__);
-    out[0]     = '%';
+    char *out = xalloc(n + 2, __func__, __FILE__, __LINE__);
+    out[0]    = '%';
     memcpy(out + 1, name, n + 1);
     return out;
 }

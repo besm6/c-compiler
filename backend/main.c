@@ -21,11 +21,11 @@ static FILE *output_file;
 // Structure to hold parsed arguments
 //
 typedef struct {
-    int verbose;            // -v or --verbose
-    int help;               // -h or --help
-    int debug;              // -D or --debug
-    char *input_file;       // Input filename
-    char *output_file;      // Output filename (optional)
+    int verbose;       // -v or --verbose
+    int help;          // -h or --help
+    int debug;         // -D or --debug
+    char *input_file;  // Input filename
+    char *output_file; // Output filename (optional)
 } Args;
 
 //
@@ -50,11 +50,11 @@ static void print_usage(const char *prog_name)
 //
 static void init_args(Args *args)
 {
-    args->verbose      = 0;
-    args->help         = 0;
-    args->debug        = 0;
-    args->input_file   = NULL;
-    args->output_file  = NULL;
+    args->verbose     = 0;
+    args->help        = 0;
+    args->debug       = 0;
+    args->input_file  = NULL;
+    args->output_file = NULL;
 }
 
 //
@@ -87,10 +87,10 @@ static char *generate_output_filename(const char *input_file)
 static int parse_args(int argc, char *argv[], Args *args)
 {
     static struct option long_options[] = {
-        { "verbose", no_argument,       0, 'v' }, //
-        { "help",    no_argument,       0, 'h' }, //
-        { "debug",   no_argument,       0, 'D' }, //
-        {},                                       //
+        { "verbose", no_argument, 0, 'v' }, //
+        { "help", no_argument, 0, 'h' },    //
+        { "debug", no_argument, 0, 'D' },   //
+        {},                                 //
     };
 
     int opt;
@@ -165,10 +165,10 @@ void process_file(const Args *args)
     }
     if (args->debug) {
         printf("Debug: Input = %s, Output = %s\n", args->input_file, args->output_file);
-        //import_debug     = 1;
-        //export_debug     = 1;
-        //wio_debug        = 1;
-        //xalloc_debug     = 1;
+        // import_debug     = 1;
+        // export_debug     = 1;
+        // wio_debug        = 1;
+        // xalloc_debug     = 1;
     }
     open_output(args);
 

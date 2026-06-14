@@ -24,6 +24,7 @@
 // ============================================================================
 
 #include "optimize.h"
+
 #include "cfg.h"
 
 // Pass entry points, implemented in the sibling translation units.
@@ -51,11 +52,11 @@ void opt_trace_instr(const char *prefix, const Tac_Instruction *ins)
 // Default flags: every CLI-toggleable pass is enabled, tracing off. Constant
 // folding has no flag — it always runs, to keep the downstream code generators
 // simpler.
-OptFlags opt_flags_default(void) {
-    return (OptFlags){ .unreachable_elim = true,
-                       .copy_propagation = true,
-                       .dead_store_elim  = true,
-                       .debug            = false };
+OptFlags opt_flags_default(void)
+{
+    return (OptFlags){
+        .unreachable_elim = true, .copy_propagation = true, .dead_store_elim = true, .debug = false
+    };
 }
 
 // Run the pipeline on one function body to a fixed point and return the
@@ -63,9 +64,10 @@ OptFlags opt_flags_default(void) {
 // caller owns the returned list. Each TAC_TOPLEVEL_FUNCTION is optimized
 // independently (intraprocedural); `fn` is the function's own toplevel, supplying
 // its params + locals so the CFG passes can tell private locals from globals.
-Tac_Instruction *optimize_function(Tac_Instruction *body, OptFlags flags,
-                                   const Tac_TopLevel *fn) {
-    if (!body) return NULL;
+Tac_Instruction *optimize_function(Tac_Instruction *body, OptFlags flags, const Tac_TopLevel *fn)
+{
+    if (!body)
+        return NULL;
 
     optimize_debug = flags.debug ? 1 : 0;
 

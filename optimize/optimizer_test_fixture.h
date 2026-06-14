@@ -1,10 +1,11 @@
 #pragma once
 #include <gtest/gtest.h>
+
 #include <initializer_list>
 
 extern "C" {
-#include "optimize.h"
 #include "cfg.h"
+#include "optimize.h"
 #include "xalloc.h"
 
 // Exposed for direct unit-testing of the folding pass.
@@ -56,8 +57,10 @@ protected:
     {
         Tac_Instruction *head = nullptr, *prev = nullptr;
         for (auto *i : instrs) {
-            if (!head) head = i;
-            if (prev)  prev->next = i;
+            if (!head)
+                head = i;
+            if (prev)
+                prev->next = i;
             prev = i;
         }
         return head;
@@ -85,10 +88,10 @@ protected:
 
     static Tac_Val *make_const_double(double v)
     {
-        Tac_Const *c     = tac_new_const(TAC_CONST_DOUBLE);
-        c->u.double_val  = v;
-        Tac_Val *val     = tac_new_val(TAC_VAL_CONSTANT);
-        val->u.constant  = c;
+        Tac_Const *c    = tac_new_const(TAC_CONST_DOUBLE);
+        c->u.double_val = v;
+        Tac_Val *val    = tac_new_val(TAC_VAL_CONSTANT);
+        val->u.constant = c;
         return val;
     }
 
@@ -173,24 +176,23 @@ protected:
 
     // --- Instruction makers ---
 
-    static Tac_Instruction *make_unary(Tac_UnaryOperator op,
-                                       Tac_Val *src, Tac_Val *dst)
+    static Tac_Instruction *make_unary(Tac_UnaryOperator op, Tac_Val *src, Tac_Val *dst)
     {
         Tac_Instruction *i = tac_new_instruction(TAC_INSTRUCTION_UNARY);
-        i->u.unary.op  = op;
-        i->u.unary.src = src;
-        i->u.unary.dst = dst;
+        i->u.unary.op      = op;
+        i->u.unary.src     = src;
+        i->u.unary.dst     = dst;
         return i;
     }
 
-    static Tac_Instruction *make_binary(Tac_BinaryOperator op,
-                                        Tac_Val *src1, Tac_Val *src2, Tac_Val *dst)
+    static Tac_Instruction *make_binary(Tac_BinaryOperator op, Tac_Val *src1, Tac_Val *src2,
+                                        Tac_Val *dst)
     {
         Tac_Instruction *i = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-        i->u.binary.op   = op;
-        i->u.binary.src1 = src1;
-        i->u.binary.src2 = src2;
-        i->u.binary.dst  = dst;
+        i->u.binary.op     = op;
+        i->u.binary.src1   = src1;
+        i->u.binary.src2   = src2;
+        i->u.binary.dst    = dst;
         return i;
     }
 
@@ -202,8 +204,7 @@ protected:
     }
 
     // All 21 conversion instructions share the same {src, dst} layout; sign_extend is the proxy.
-    static Tac_Instruction *make_conversion(Tac_InstructionKind kind,
-                                            Tac_Val *src, Tac_Val *dst)
+    static Tac_Instruction *make_conversion(Tac_InstructionKind kind, Tac_Val *src, Tac_Val *dst)
     {
         Tac_Instruction *i   = tac_new_instruction(kind);
         i->u.sign_extend.src = src;
@@ -244,8 +245,8 @@ protected:
     static Tac_Instruction *make_copy(Tac_Val *src, Tac_Val *dst)
     {
         Tac_Instruction *i = tac_new_instruction(TAC_INSTRUCTION_COPY);
-        i->u.copy.src = src;
-        i->u.copy.dst = dst;
+        i->u.copy.src      = src;
+        i->u.copy.dst      = dst;
         return i;
     }
 
@@ -310,9 +311,9 @@ protected:
     // observable global; pass {} to mark every named var (e.g. "g") observable.
     static Tac_TopLevel *make_fn_tl(std::initializer_list<const char *> locals)
     {
-        Tac_TopLevel *tl       = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
-        tl->u.function.name    = xstrdup("fn");
-        Tac_Param **tail       = &tl->u.function.locals;
+        Tac_TopLevel *tl    = tac_new_toplevel(TAC_TOPLEVEL_FUNCTION);
+        tl->u.function.name = xstrdup("fn");
+        Tac_Param **tail    = &tl->u.function.locals;
         for (const char *name : locals) {
             Tac_Param *p = tac_new_param();
             p->name      = xstrdup(name);
@@ -423,7 +424,6 @@ protected:
         ASSERT_EQ(body->kind, TAC_INSTRUCTION_COPY);
         ASSERT_NE(body->u.copy.src, nullptr);
         EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_LONG_DOUBLE);
-        EXPECT_DOUBLE_EQ((double)body->u.copy.src->u.constant->u.long_double_val,
-                         (double)expected);
+        EXPECT_DOUBLE_EQ((double)body->u.copy.src->u.constant->u.long_double_val, (double)expected);
     }
 };

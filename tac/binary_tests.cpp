@@ -17,7 +17,7 @@ protected:
     void SetUp() override
     {
         // Enable to debug allocations:
-        //xalloc_debug = 1;
+        // xalloc_debug = 1;
 
         strncpy(tmppath, "/tmp/tac_binary_XXXXXX", sizeof(tmppath));
         int fd = mkstemp(tmppath);
@@ -858,13 +858,13 @@ TEST_F(TacBinaryTest, MultipleToplevels)
 
 TEST_F(TacBinaryTest, AllocateLocal)
 {
-    Tac_Program *orig                       = tac_new_program();
-    orig->decls                             = make_empty_function("f", true);
-    Tac_Instruction *instr                  = tac_new_instruction(TAC_INSTRUCTION_ALLOCATE_LOCAL);
-    instr->u.allocate_local.name            = xstrdup("%s");
-    instr->u.allocate_local.size            = 40; // target bytes
-    instr->u.allocate_local.alignment       = 4;  // target bytes
-    orig->decls->u.function.body            = instr;
+    Tac_Program *orig                 = tac_new_program();
+    orig->decls                       = make_empty_function("f", true);
+    Tac_Instruction *instr            = tac_new_instruction(TAC_INSTRUCTION_ALLOCATE_LOCAL);
+    instr->u.allocate_local.name      = xstrdup("%s");
+    instr->u.allocate_local.size      = 40; // target bytes
+    instr->u.allocate_local.alignment = 4;  // target bytes
+    orig->decls->u.function.body      = instr;
 
     Tac_Program *copy = roundtrip(orig);
     ASSERT_NE(nullptr, copy);

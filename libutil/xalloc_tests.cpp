@@ -53,10 +53,10 @@ TEST_F(XAllocTest, AllocReturnsNonNull)
 
 TEST_F(XAllocTest, AllocZeroInitialized)
 {
-    const size_t n   = 64;
-    void *p          = xalloc(n, __func__, __FILE__, __LINE__);
+    const size_t n    = 64;
+    void *p           = xalloc(n, __func__, __FILE__, __LINE__);
     const auto *bytes = static_cast<const uint8_t *>(p);
-    bool all_zero    = true;
+    bool all_zero     = true;
     for (size_t i = 0; i < n; i++) {
         if (bytes[i] != 0) {
             all_zero = false;
@@ -108,8 +108,8 @@ TEST_F(XAllocTest, AllocIndependentPointers)
     EXPECT_NE(a, b);
     // The blocks must not overlap: the later allocation (b) is inserted at the
     // head, so b < a in address space (or they are separate regardless).
-    auto *pa = static_cast<char *>(a);
-    auto *pb = static_cast<char *>(b);
+    auto *pa        = static_cast<char *>(a);
+    auto *pb        = static_cast<char *>(b);
     bool no_overlap = (pb + 32 <= pa) || (pa + 32 <= pb);
     EXPECT_TRUE(no_overlap);
     xfree(a);
@@ -237,9 +237,9 @@ TEST_F(XAllocTest, StrdupIndependentCopy)
     char original[] = "world";
     char *copy      = xstrdup(original);
     ASSERT_NE(copy, nullptr);
-    original[0] = 'X'; // mutate original
-    EXPECT_EQ(original[0], 'X');  // confirm original changed
-    EXPECT_STREQ(copy, "world");  // copy must be unaffected
+    original[0] = 'X';           // mutate original
+    EXPECT_EQ(original[0], 'X'); // confirm original changed
+    EXPECT_STREQ(copy, "world"); // copy must be unaffected
     xfree(copy);
 }
 
@@ -266,7 +266,7 @@ TEST_F(XAllocTest, StrdupCanBeFreed)
 
 TEST_F(XAllocTest, StruniqBasicFormat)
 {
-    int n  = 0;
+    int n   = 0;
     char *s = xstruniq("t.", &n);
     ASSERT_NE(s, nullptr);
     EXPECT_STREQ(s, "t.0");
@@ -276,7 +276,7 @@ TEST_F(XAllocTest, StruniqBasicFormat)
 
 TEST_F(XAllocTest, StruniqIncrements)
 {
-    int n  = 0;
+    int n    = 0;
     char *s0 = xstruniq("t.", &n);
     char *s1 = xstruniq("t.", &n);
     char *s2 = xstruniq("t.", &n);
@@ -291,7 +291,7 @@ TEST_F(XAllocTest, StruniqIncrements)
 
 TEST_F(XAllocTest, StruniqIsTracked)
 {
-    int n  = 0;
+    int n   = 0;
     char *s = xstruniq("t.", &n);
     ASSERT_NE(s, nullptr);
     EXPECT_GT(xtotal_allocated_size(), 0u);
@@ -300,7 +300,7 @@ TEST_F(XAllocTest, StruniqIsTracked)
 
 TEST_F(XAllocTest, StruniqCanBeFreed)
 {
-    int n  = 0;
+    int n   = 0;
     char *s = xstruniq("x", &n);
     xfree(s);
     EXPECT_EQ(xtotal_allocated_size(), 0u);
@@ -308,7 +308,7 @@ TEST_F(XAllocTest, StruniqCanBeFreed)
 
 TEST_F(XAllocTest, StruniqEmptyPrefix)
 {
-    int n  = 0;
+    int n    = 0;
     char *s0 = xstruniq("", &n);
     char *s1 = xstruniq("", &n);
     char *s2 = xstruniq("", &n);

@@ -16,7 +16,7 @@ Type *resolve_typedef_names(Type *t)
         return NULL;
     if (t->kind == TYPE_TYPEDEF_NAME) {
         const Type *resolved = typetab_resolve(t->u.typedef_name.name);
-        Type *cloned = clone_type(resolved, __func__, __FILE__, __LINE__);
+        Type *cloned         = clone_type(resolved, __func__, __FILE__, __LINE__);
         free_type(t);
         return resolve_typedef_names(cloned); // handles chains and nested typedef names
     }

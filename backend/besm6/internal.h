@@ -32,12 +32,12 @@ void emit_xta_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *
 void emit_xts_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *v);
 
 // Emit an arithmetic instruction for a TAC value: local, global (via UTC), or constant literal.
-void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind,
-                    const Frame *f, const Tac_Val *v);
+void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind, const Frame *f,
+                    const Tac_Val *v);
 
 // Lower one TAC instruction (defined in instr.c).
-void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr,
-                   const Frame *f, Besm_Block *block, Besm_Instr **tail);
+void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, const Frame *f,
+                   Besm_Block *block, Besm_Instr **tail);
 
 // Emit a module-level static variable / constant (defined in static.c).
 void codegen_static_variable(const Tac_TopLevel *tl, FILE *out);

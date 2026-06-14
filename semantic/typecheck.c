@@ -1,6 +1,8 @@
 //
 // Core type-checking utilities and entry points.
 //
+#include "typecheck.h"
+
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -10,7 +12,6 @@
 #include "semantic.h"
 #include "structtab.h"
 #include "symtab.h"
-#include "typecheck.h"
 #include "typetab.h"
 
 // Enable debug output

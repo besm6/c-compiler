@@ -22,9 +22,10 @@
 // See docs/TAC_Optimization.md §"Conservatism around aliased variables".
 // ============================================================================
 
+#include "alias.h"
+
 #include <ctype.h>
 
-#include "alias.h"
 #include "optimize.h"
 
 // Compiler temporaries are named "%N" (percent + digit) and are always private
@@ -37,8 +38,7 @@ static bool is_temp_name(const char *n)
 
 // Insert `name` into `observable` (borrowing the pointer) unless it is a
 // temporary or one of the function's private (param/local) names.
-static void note_name(StringMap *observable, const StringMap *private_set,
-                      const char *name)
+static void note_name(StringMap *observable, const StringMap *private_set, const char *name)
 {
     if (!name || is_temp_name(name))
         return;
@@ -49,8 +49,7 @@ static void note_name(StringMap *observable, const StringMap *private_set,
 }
 
 // Note every Var in a value list (covers FUN_CALL argument lists too).
-static void note_vals(StringMap *observable, const StringMap *private_set,
-                      const Tac_Val *v)
+static void note_vals(StringMap *observable, const StringMap *private_set, const Tac_Val *v)
 {
     for (; v; v = v->next)
         if (v->kind == TAC_VAL_VAR)
@@ -153,8 +152,8 @@ static void note_instr(StringMap *observable, const StringMap *private_set,
 // Populate observable and address_taken (both freshly initialised here). The
 // names are borrowed from the TAC nodes — the maps store the same pointers, so
 // they stay valid only as long as the underlying instructions do.
-void collect_alias_sets(const OptCfg *cfg, const Tac_TopLevel *fn,
-                        StringMap *observable, StringMap *address_taken)
+void collect_alias_sets(const OptCfg *cfg, const Tac_TopLevel *fn, StringMap *observable,
+                        StringMap *address_taken)
 {
     map_init(observable);
     map_init(address_taken);

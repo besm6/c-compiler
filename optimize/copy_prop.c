@@ -30,6 +30,7 @@
 // ============================================================================
 
 #include <string.h>
+
 #include "alias.h"
 #include "cfg.h"
 #include "optimize.h"
@@ -45,14 +46,15 @@
 // ============================================================================
 
 typedef struct {
-    char *name;    // owned (xstrdup); the destination name, == the map key
-    Tac_Val *src;  // borrowed — points into the live instruction stream
+    char *name;   // owned (xstrdup); the destination name, == the map key
+    Tac_Val *src; // borrowed — points into the live instruction stream
 } CopyPair;
 
 static void pair_free(intptr_t value)
 {
     CopyPair *p = (CopyPair *)value;
-    if (!p) return;
+    if (!p)
+        return;
     xfree(p->name);
     xfree(p);
 }
@@ -78,13 +80,13 @@ typedef struct {
 static void keybuf_push(KeyBuf *kb, char *key)
 {
     if (kb->count == kb->cap) {
-        int new_cap = kb->cap ? kb->cap * 2 : 8;
+        int new_cap     = kb->cap ? kb->cap * 2 : 8;
         char **new_keys = xalloc(new_cap * sizeof(char *), __func__, __FILE__, __LINE__);
         for (int i = 0; i < kb->count; i++)
             new_keys[i] = kb->keys[i];
         xfree(kb->keys);
-        kb->keys   = new_keys;
-        kb->cap    = new_cap;
+        kb->keys = new_keys;
+        kb->cap  = new_cap;
     }
     kb->keys[kb->count++] = key;
 }
@@ -113,15 +115,17 @@ static void keybuf_flush(KeyBuf *kb, StringMap *cs)
 // Used to seed a block's in-set from a predecessor's out-set.
 // ============================================================================
 
-typedef struct { StringMap *dst; } CopyCtx;
+typedef struct {
+    StringMap *dst;
+} CopyCtx;
 
 static void copy_cb(intptr_t value, const void *arg)
 {
     const CopyCtx *ctx = (const CopyCtx *)arg;
     const CopyPair *sp = (const CopyPair *)value;
-    CopyPair *np = xalloc(sizeof(CopyPair), __func__, __FILE__, __LINE__);
-    np->name = xstrdup(sp->name);
-    np->src  = sp->src;
+    CopyPair *np       = xalloc(sizeof(CopyPair), __func__, __FILE__, __LINE__);
+    np->name           = xstrdup(sp->name);
+    np->src            = sp->src;
     map_insert_free(ctx->dst, np->name, (intptr_t)np, 0, pair_free);
 }
 
@@ -138,24 +142,23 @@ static void copy_set_copy(StringMap *dst, const StringMap *src)
 // ============================================================================
 
 typedef struct {
-    KeyBuf     *kb;
+    KeyBuf *kb;
     const char *name;
 } KillNameCtx;
 
 static void kill_name_cb(intptr_t value, const void *arg)
 {
-    const KillNameCtx *ctx  = (const KillNameCtx *)arg;
-    const CopyPair    *pair = (const CopyPair *)value;
+    const KillNameCtx *ctx = (const KillNameCtx *)arg;
+    const CopyPair *pair   = (const CopyPair *)value;
     if (strcmp(pair->name, ctx->name) == 0 ||
-        (pair->src->kind == TAC_VAL_VAR &&
-         strcmp(pair->src->u.var_name, ctx->name) == 0)) {
+        (pair->src->kind == TAC_VAL_VAR && strcmp(pair->src->u.var_name, ctx->name) == 0)) {
         keybuf_push(ctx->kb, pair->name);
     }
 }
 
 static void kill_name(StringMap *cs, const char *name)
 {
-    KeyBuf      kb  = {0};
+    KeyBuf kb       = { 0 };
     KillNameCtx ctx = { &kb, name };
     map_iterate(cs, kill_name_cb, &ctx);
     keybuf_flush(&kb, cs);
@@ -169,15 +172,15 @@ static void kill_name(StringMap *cs, const char *name)
 // ============================================================================
 
 typedef struct {
-    KeyBuf          *kb;
+    KeyBuf *kb;
     const StringMap *alias;
 } KillAliasCtx;
 
 static void kill_alias_cb(intptr_t value, const void *arg)
 {
-    const KillAliasCtx *ctx  = (const KillAliasCtx *)arg;
-    const CopyPair     *pair = (const CopyPair *)value;
-    bool kill = map_get((StringMap *)ctx->alias, pair->name, NULL);
+    const KillAliasCtx *ctx = (const KillAliasCtx *)arg;
+    const CopyPair *pair    = (const CopyPair *)value;
+    bool kill               = map_get((StringMap *)ctx->alias, pair->name, NULL);
     if (!kill && pair->src->kind == TAC_VAL_VAR)
         kill = map_get((StringMap *)ctx->alias, pair->src->u.var_name, NULL);
     if (kill)
@@ -186,7 +189,7 @@ static void kill_alias_cb(intptr_t value, const void *arg)
 
 static void kill_alias_set(StringMap *cs, const StringMap *alias)
 {
-    KeyBuf       kb  = {0};
+    KeyBuf kb        = { 0 };
     KillAliasCtx ctx = { &kb, alias };
     map_iterate(cs, kill_alias_cb, &ctx);
     keybuf_flush(&kb, cs);
@@ -228,7 +231,7 @@ static const Tac_Val *get_defining_dst(const Tac_Instruction *ins)
     case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
     case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
-        return ins->u.sign_extend.dst;   // all 14 conversions share this layout
+        return ins->u.sign_extend.dst; // all 14 conversions share this layout
     case TAC_INSTRUCTION_GET_ADDRESS:
         return ins->u.get_address.dst;
     case TAC_INSTRUCTION_LOAD:
@@ -247,9 +250,8 @@ static const Tac_Val *get_defining_dst(const Tac_Instruction *ins)
 // updating copy-set `cs` in place. This is both the Gen and Kill of the lattice.
 // ============================================================================
 
-static void apply_transfer(StringMap *cs, const Tac_Instruction *ins,
-                            const StringMap *static_names,
-                            const StringMap *address_taken)
+static void apply_transfer(StringMap *cs, const Tac_Instruction *ins, const StringMap *static_names,
+                           const StringMap *address_taken)
 {
     if (ins->kind == TAC_INSTRUCTION_COPY) {
         // Copy(src, dst): Kill old copies mentioning dst, then Gen (dst → src).
@@ -262,12 +264,12 @@ static void apply_transfer(StringMap *cs, const Tac_Instruction *ins,
             if (ins->is_volatile)
                 return;
             CopyPair *p = xalloc(sizeof(CopyPair), __func__, __FILE__, __LINE__);
-            p->name = xstrdup(dst->u.var_name);
-            p->src  = ins->u.copy.src;
+            p->name     = xstrdup(dst->u.var_name);
+            p->src      = ins->u.copy.src;
             map_insert_free(cs, p->name, (intptr_t)p, 0, pair_free);
-            OPT_TRACE("[copy-prop] gen copy: %s → %s\n", dst->u.var_name,
-                      ins->u.copy.src->kind == TAC_VAL_VAR
-                          ? ins->u.copy.src->u.var_name : "<const>");
+            OPT_TRACE(
+                "[copy-prop] gen copy: %s → %s\n", dst->u.var_name,
+                ins->u.copy.src->kind == TAC_VAL_VAR ? ins->u.copy.src->u.var_name : "<const>");
         }
         return;
     }
@@ -311,15 +313,15 @@ static void apply_transfer(StringMap *cs, const Tac_Instruction *ins,
 // ============================================================================
 
 typedef struct {
-    KeyBuf          *kb;
+    KeyBuf *kb;
     const StringMap *other;
 } IntersectCtx;
 
 static void intersect_cb(intptr_t value, const void *arg)
 {
-    const IntersectCtx *ctx  = (const IntersectCtx *)arg;
-    const CopyPair     *pair = (const CopyPair *)value;
-    intptr_t oval = 0;
+    const IntersectCtx *ctx = (const IntersectCtx *)arg;
+    const CopyPair *pair    = (const CopyPair *)value;
+    intptr_t oval           = 0;
     if (!map_get((StringMap *)ctx->other, pair->name, &oval)) {
         keybuf_push(ctx->kb, pair->name);
         return;
@@ -331,7 +333,7 @@ static void intersect_cb(intptr_t value, const void *arg)
 
 static void copy_set_intersect(StringMap *result, const StringMap *other)
 {
-    KeyBuf       kb  = {0};
+    KeyBuf kb        = { 0 };
     IntersectCtx ctx = { &kb, other };
     map_iterate(result, intersect_cb, &ctx);
     keybuf_flush(&kb, result);
@@ -345,16 +347,17 @@ static void copy_set_intersect(StringMap *result, const StringMap *other)
 // ============================================================================
 
 typedef struct {
-    bool            *equal;
+    bool *equal;
     const StringMap *other;
 } EqualCtx;
 
 static void equal_cb(intptr_t value, const void *arg)
 {
-    const EqualCtx *ctx  = (const EqualCtx *)arg;
-    if (!*ctx->equal) return;
+    const EqualCtx *ctx = (const EqualCtx *)arg;
+    if (!*ctx->equal)
+        return;
     const CopyPair *pair = (const CopyPair *)value;
-    intptr_t oval = 0;
+    intptr_t oval        = 0;
     if (!map_get((StringMap *)ctx->other, pair->name, &oval)) {
         *ctx->equal = false;
         return;
@@ -366,10 +369,11 @@ static void equal_cb(intptr_t value, const void *arg)
 
 static bool copy_set_equal(const StringMap *a, const StringMap *b)
 {
-    bool     eq  = true;
+    bool eq      = true;
     EqualCtx ctx = { &eq, b };
     map_iterate((StringMap *)a, equal_cb, &ctx);
-    if (!eq) return false;
+    if (!eq)
+        return false;
     ctx.other = a;
     map_iterate((StringMap *)b, equal_cb, &ctx);
     return eq;
@@ -385,8 +389,8 @@ static Tac_Val *dup_val(const Tac_Val *v)
 {
     Tac_Val *nv = tac_new_val(v->kind);
     if (v->kind == TAC_VAL_CONSTANT) {
-        Tac_Const *nc = tac_new_const(v->u.constant->kind);
-        *nc = *v->u.constant;
+        Tac_Const *nc  = tac_new_const(v->u.constant->kind);
+        *nc            = *v->u.constant;
         nv->u.constant = nc;
     } else {
         nv->u.var_name = xstrdup(v->u.var_name);
@@ -403,12 +407,14 @@ static Tac_Val *dup_val(const Tac_Val *v)
 static void subst_val(Tac_Val **vp, const StringMap *cs)
 {
     Tac_Val *v = *vp;
-    if (!v || v->kind != TAC_VAL_VAR) return;
+    if (!v || v->kind != TAC_VAL_VAR)
+        return;
     intptr_t oval = 0;
-    if (!map_get((StringMap *)cs, v->u.var_name, &oval)) return;
+    if (!map_get((StringMap *)cs, v->u.var_name, &oval))
+        return;
     const CopyPair *p = (const CopyPair *)oval;
-    Tac_Val *repl = dup_val(p->src);
-    v->next = NULL;    // isolate before freeing; tac_free_val follows .next
+    Tac_Val *repl     = dup_val(p->src);
+    v->next           = NULL; // isolate before freeing; tac_free_val follows .next
     tac_free_val(v);
     *vp = repl;
 }
@@ -425,11 +431,11 @@ static void subst_args(Tac_Val **head, const StringMap *cs)
         if (arg->kind == TAC_VAL_VAR) {
             intptr_t oval = 0;
             if (map_get((StringMap *)cs, arg->u.var_name, &oval)) {
-                const CopyPair *p  = (const CopyPair *)oval;
-                Tac_Val        *repl = dup_val(p->src);
-                repl->next = arg->next;
-                *head      = repl;
-                arg->next  = NULL;
+                const CopyPair *p = (const CopyPair *)oval;
+                Tac_Val *repl     = dup_val(p->src);
+                repl->next        = arg->next;
+                *head             = repl;
+                arg->next         = NULL;
                 tac_free_val(arg);
                 head = &repl->next;
                 continue;
@@ -528,7 +534,8 @@ static void subst_instruction(Tac_Instruction *ins, const StringMap *cs)
 
 void propagate_copies(OptCfg *cfg, const Tac_TopLevel *fn)
 {
-    if (cfg->nblocks == 0) return;
+    if (cfg->nblocks == 0)
+        return;
 
     // Stage 1: identify variables that must be treated conservatively.
     StringMap static_names, address_taken;
@@ -539,8 +546,8 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *fn)
 
     // The meet combines predecessors' out-sets, so build predecessor lists by
     // inverting the successor edges. First count preds, then fill them.
-    int  *npreds = xalloc(n * sizeof(int),   __func__, __FILE__, __LINE__);
-    int **preds  = xalloc(n * sizeof(int *), __func__, __FILE__, __LINE__);
+    int *npreds = xalloc(n * sizeof(int), __func__, __FILE__, __LINE__);
+    int **preds = xalloc(n * sizeof(int *), __func__, __FILE__, __LINE__);
     for (int i = 0; i < n; i++)
         npreds[i] = 0;
     for (int i = 0; i < n; i++) {
@@ -549,15 +556,13 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *fn)
             npreds[b->succs[j]->id]++;
     }
     for (int i = 0; i < n; i++) {
-        preds[i] = npreds[i]
-            ? xalloc(npreds[i] * sizeof(int), __func__, __FILE__, __LINE__)
-            : NULL;
+        preds[i] = npreds[i] ? xalloc(npreds[i] * sizeof(int), __func__, __FILE__, __LINE__) : NULL;
         npreds[i] = 0;
     }
     for (int i = 0; i < n; i++) {
         const OptBlock *b = cfg->blocks[i];
         for (int j = 0; j < b->nsucc; j++) {
-            int sid = b->succs[j]->id;
+            int sid                   = b->succs[j]->id;
             preds[sid][npreds[sid]++] = i;
         }
     }
@@ -574,7 +579,7 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *fn)
     // Forward analysis, so blocks are visited in ascending (roughly topological)
     // order for faster convergence.
     bool changed = true;
-    int cp_iter = 0;
+    int cp_iter  = 0;
     while (changed) {
         changed = false;
         cp_iter++;
@@ -638,13 +643,11 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *fn)
 
             // Substitution may have produced a self-copy Copy(Var(x), Var(x)),
             // a no-op — unlink and free it.
-            if (ins->kind == TAC_INSTRUCTION_COPY &&
-                ins->u.copy.src->kind == TAC_VAL_VAR &&
+            if (ins->kind == TAC_INSTRUCTION_COPY && ins->u.copy.src->kind == TAC_VAL_VAR &&
                 ins->u.copy.dst->kind == TAC_VAL_VAR &&
-                strcmp(ins->u.copy.src->u.var_name,
-                       ins->u.copy.dst->u.var_name) == 0) {
-                OPT_TRACE("[copy-prop] removed self-copy %s = %s\n",
-                          ins->u.copy.dst->u.var_name, ins->u.copy.src->u.var_name);
+                strcmp(ins->u.copy.src->u.var_name, ins->u.copy.dst->u.var_name) == 0) {
+                OPT_TRACE("[copy-prop] removed self-copy %s = %s\n", ins->u.copy.dst->u.var_name,
+                          ins->u.copy.src->u.var_name);
                 if (prev)
                     prev->next = next;
                 else

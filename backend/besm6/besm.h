@@ -99,9 +99,9 @@ typedef enum {
 struct Besm_Instr {
     struct Besm_Instr *next;
     Besm_InstrKind kind;
-    unsigned reg;              // index-register 0..15, or displacement (BESM_DATA_Z00)
-    int addr;                  // offset, or integer data value (BESM_DATA_INT/BSS/EQU)
-    char *name;                // symbolic name, optional (heap-owned)
+    unsigned reg;               // index-register 0..15, or displacement (BESM_DATA_Z00)
+    int addr;                   // offset, or integer data value (BESM_DATA_INT/BSS/EQU)
+    char *name;                 // symbolic name, optional (heap-owned)
     unsigned long long log_val; // BESM_DATA_LOG: 48-bit logical constant
     double real_val;            // BESM_DATA_REAL
     // TODO: star plus offset
@@ -158,8 +158,8 @@ struct Besm_DataSection {
 // module = Module(string name, func* funcs, data_section* sections)
 //
 typedef struct {
-    char *name;     // heap-owned
-    char *comment;  // heap-owned, nullable — emitted on the c-line separator
+    char *name;    // heap-owned
+    char *comment; // heap-owned, nullable — emitted on the c-line separator
     Besm_Func *funcs;
     Besm_DataSection *sections;
 } Besm_Module;

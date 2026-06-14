@@ -25,18 +25,42 @@ char *decode_c_string_literal(const char *raw)
         if (*src == '\\' && src[1]) {
             src++;
             switch (*src) {
-            case 'n':  *dst++ = '\n'; break;
-            case 't':  *dst++ = '\t'; break;
-            case 'r':  *dst++ = '\r'; break;
-            case 'a':  *dst++ = '\a'; break;
-            case 'b':  *dst++ = '\b'; break;
-            case 'f':  *dst++ = '\f'; break;
-            case 'v':  *dst++ = '\v'; break;
-            case '\\': *dst++ = '\\'; break;
-            case '\'': *dst++ = '\''; break;
-            case '"':  *dst++ = '"';  break;
-            case '0':  *dst++ = '\0'; break;
-            default:   *dst++ = *src; break;
+            case 'n':
+                *dst++ = '\n';
+                break;
+            case 't':
+                *dst++ = '\t';
+                break;
+            case 'r':
+                *dst++ = '\r';
+                break;
+            case 'a':
+                *dst++ = '\a';
+                break;
+            case 'b':
+                *dst++ = '\b';
+                break;
+            case 'f':
+                *dst++ = '\f';
+                break;
+            case 'v':
+                *dst++ = '\v';
+                break;
+            case '\\':
+                *dst++ = '\\';
+                break;
+            case '\'':
+                *dst++ = '\'';
+                break;
+            case '"':
+                *dst++ = '"';
+                break;
+            case '0':
+                *dst++ = '\0';
+                break;
+            default:
+                *dst++ = *src;
+                break;
             }
         } else {
             *dst++ = *src;
@@ -183,8 +207,8 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         if (var_type->u.pointer.target->kind != TYPE_CHAR) {
             fatal_error("String literal can only initialize pointer to char");
         }
-        char *decoded  = decode_c_string_literal(init->u.expr->u.literal->u.string_val);
-        char *string_id              = symtab_add_string(decoded);
+        char *decoded   = decode_c_string_literal(init->u.expr->u.literal->u.string_val);
+        char *string_id = symtab_add_string(decoded);
         xfree(decoded);
         Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
         pointer_init->u.pointer.name = string_id;
@@ -213,20 +237,18 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
 
     // Handle pointer initialized with address-of a variable (&var).
     if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
-        init->u.expr->kind == EXPR_UNARY_OP &&
-        init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
+        init->u.expr->kind == EXPR_UNARY_OP && init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
         init->u.expr->u.unary_op.expr->kind == EXPR_VAR) {
-        const char *var_name = init->u.expr->u.unary_op.expr->u.var;
+        const char *var_name   = init->u.expr->u.unary_op.expr->u.var;
         const Type *ptr_target = var_type->u.pointer.target;
-        bool is_fat = (ptr_target->kind == TYPE_CHAR  || ptr_target->kind == TYPE_SCHAR ||
-                       ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
+        bool is_fat            = (ptr_target->kind == TYPE_CHAR || ptr_target->kind == TYPE_SCHAR ||
+                                  ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
         if (is_fat) {
-            const Symbol *sym = symtab_get(var_name);
-            bool byte_sized   = (sym->type->kind == TYPE_CHAR  ||
-                                 sym->type->kind == TYPE_SCHAR ||
-                                 sym->type->kind == TYPE_UCHAR);
-            Tac_StaticInit *fi       = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
-            fi->u.pointer.name       = xstrdup(var_name);
+            const Symbol *sym  = symtab_get(var_name);
+            bool byte_sized    = (sym->type->kind == TYPE_CHAR || sym->type->kind == TYPE_SCHAR ||
+                                  sym->type->kind == TYPE_UCHAR);
+            Tac_StaticInit *fi = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
+            fi->u.pointer.name = xstrdup(var_name);
             fi->u.pointer.byte_offset = byte_sized ? 5 : 0;
             return fi;
         }
@@ -237,13 +259,12 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
 
     // Handle pointer initialized with address-of an array element (&arr[N]).
     if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
-        init->u.expr->kind == EXPR_UNARY_OP &&
-        init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
+        init->u.expr->kind == EXPR_UNARY_OP && init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
         init->u.expr->u.unary_op.expr->kind == EXPR_SUBSCRIPT &&
         init->u.expr->u.unary_op.expr->u.subscript.left->kind == EXPR_VAR) {
-        const Expr *subscript    = init->u.expr->u.unary_op.expr;
-        const char *arr_name     = subscript->u.subscript.left->u.var;
-        const Expr *index_expr   = subscript->u.subscript.right;
+        const Expr *subscript  = init->u.expr->u.unary_op.expr;
+        const char *arr_name   = subscript->u.subscript.left->u.var;
+        const Expr *index_expr = subscript->u.subscript.right;
         long index;
         if (!try_eval_const_int(index_expr, &index))
             fatal_error("Array subscript in static initializer must be a compile-time constant");
@@ -253,17 +274,17 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         if (!compatible_type(var_type->u.pointer.target, arr_sym->type->u.array.element))
             fatal_error("Incompatible types in pointer initialization with array element");
         const Type *ptr_target = var_type->u.pointer.target;
-        bool is_fat = (ptr_target->kind == TYPE_CHAR  || ptr_target->kind == TYPE_SCHAR ||
-                       ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
-        int byte_offset = (int)index * (int)get_size(arr_sym->type->u.array.element);
+        bool is_fat            = (ptr_target->kind == TYPE_CHAR || ptr_target->kind == TYPE_SCHAR ||
+                                  ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
+        int byte_offset        = (int)index * (int)get_size(arr_sym->type->u.array.element);
         if (is_fat) {
             Tac_StaticInit *fi        = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
             fi->u.pointer.name        = xstrdup(arr_name);
             fi->u.pointer.byte_offset = byte_offset;
             return fi;
         }
-        Tac_StaticInit *pointer_init    = tac_new_static_init(TAC_STATIC_INIT_POINTER);
-        pointer_init->u.pointer.name    = xstrdup(arr_name);
+        Tac_StaticInit *pointer_init        = tac_new_static_init(TAC_STATIC_INIT_POINTER);
+        pointer_init->u.pointer.name        = xstrdup(arr_name);
         pointer_init->u.pointer.byte_offset = byte_offset;
         return pointer_init;
     }
@@ -306,7 +327,8 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
             if (get_size(var_type) == 8 && is_signed(var_type)) {
                 lit = (Literal){ .kind = LITERAL_LONG_LONG, .u.long_long_val = (long long)val };
             } else if (get_size(var_type) == 8) {
-                lit = (Literal){ .kind = LITERAL_ULONG_LONG, .u.ulong_long_val = (unsigned long long)(unsigned long)val };
+                lit = (Literal){ .kind             = LITERAL_ULONG_LONG,
+                                 .u.ulong_long_val = (unsigned long long)(unsigned long)val };
             } else {
                 lit = (Literal){ .kind = LITERAL_INT, .u.int_val = (int)val };
             }

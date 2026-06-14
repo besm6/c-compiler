@@ -1072,7 +1072,7 @@ TEST_F(ParserTest, TypeIntArrayArray5)
     // int [][5] = array of unknown size of (array of 5 ints)
     EXPECT_EQ(type->kind, TYPE_ARRAY);
     EXPECT_EQ(type->qualifiers, nullptr);
-    EXPECT_EQ(type->u.array.size, nullptr);   // outer: unknown bound
+    EXPECT_EQ(type->u.array.size, nullptr); // outer: unknown bound
     EXPECT_EQ(type->u.array.qualifiers, nullptr);
     EXPECT_FALSE(type->u.array.is_static);
 
@@ -1084,7 +1084,7 @@ TEST_F(ParserTest, TypeIntArrayArray5)
     ASSERT_NE(element->u.array.size, nullptr);
     EXPECT_EQ(element->u.array.size->kind, EXPR_LITERAL);
     EXPECT_EQ(element->u.array.size->u.literal->kind, LITERAL_INT);
-    EXPECT_EQ(element->u.array.size->u.literal->u.int_val, 5);  // inner: 5
+    EXPECT_EQ(element->u.array.size->u.literal->u.int_val, 5); // inner: 5
     EXPECT_EQ(element->u.array.qualifiers, nullptr);
     EXPECT_FALSE(element->u.array.is_static);
 

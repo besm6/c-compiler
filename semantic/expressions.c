@@ -192,8 +192,8 @@ static Expr *typecheck_expr(Expr *e)
             if (!is_integer(inner->type)) {
                 fatal_error("Bitwise complement only valid for integer types");
             }
-            if (is_character(inner->type) ||
-                inner->type->kind == TYPE_SHORT || inner->type->kind == TYPE_USHORT)
+            if (is_character(inner->type) || inner->type->kind == TYPE_SHORT ||
+                inner->type->kind == TYPE_USHORT)
                 inner = convert_to_kind(inner, TYPE_INT);
             free_type(e->type);
             e->type            = clone_type(inner->type, __func__, __FILE__, __LINE__);
@@ -206,8 +206,8 @@ static Expr *typecheck_expr(Expr *e)
             if (!is_arithmetic(inner->type)) {
                 fatal_error("Can only apply unary +/- to arithmetic types");
             }
-            if (is_character(inner->type) ||
-                inner->type->kind == TYPE_SHORT || inner->type->kind == TYPE_USHORT)
+            if (is_character(inner->type) || inner->type->kind == TYPE_SHORT ||
+                inner->type->kind == TYPE_USHORT)
                 inner = convert_to_kind(inner, TYPE_INT);
             free_type(e->type);
             e->type            = clone_type(inner->type, __func__, __FILE__, __LINE__);
@@ -394,12 +394,12 @@ static Expr *typecheck_expr(Expr *e)
             if (!is_integer(e1->type) || !is_integer(e2->type)) {
                 fatal_error("Shift operators require integer operands");
             }
-            if (is_character(e1->type) ||
-                e1->type->kind == TYPE_SHORT || e1->type->kind == TYPE_USHORT) {
+            if (is_character(e1->type) || e1->type->kind == TYPE_SHORT ||
+                e1->type->kind == TYPE_USHORT) {
                 e1 = convert_to_kind(e1, TYPE_INT);
             }
-            if (is_character(e2->type) ||
-                e2->type->kind == TYPE_SHORT || e2->type->kind == TYPE_USHORT) {
+            if (is_character(e2->type) || e2->type->kind == TYPE_SHORT ||
+                e2->type->kind == TYPE_USHORT) {
                 e2 = convert_to_kind(e2, TYPE_INT);
             }
             free_type(e->type);
@@ -460,7 +460,7 @@ static Expr *typecheck_expr(Expr *e)
         return e;
     }
     case EXPR_CALL: {
-        Expr       *func    = e->u.call.func;
+        Expr *func = e->u.call.func;
         const Type *fn_type;
         if (func->kind == EXPR_VAR) {
             const Symbol *sym = symtab_get(func->u.var);
@@ -478,9 +478,9 @@ static Expr *typecheck_expr(Expr *e)
                 fatal_error("Expression is not a function or function pointer");
             e->u.call.func = func;
         }
-        const Param *params     = params_for_call(fn_type);
-        const bool     variadic = fn_type->u.function.variadic;
-        int            param_count = 0, arg_count = 0;
+        const Param *params = params_for_call(fn_type);
+        const bool variadic = fn_type->u.function.variadic;
+        int param_count = 0, arg_count = 0;
         for (const Param *p = params; p; p = p->next)
             param_count++;
         for (const Expr *a = e->u.call.args; a; a = a->next)
@@ -582,30 +582,28 @@ static Expr *typecheck_expr(Expr *e)
         }
         assert(member);
         free_type(e->type);
-        e->type                 = clone_type(member->type, __func__, __FILE__, __LINE__);
+        e->type                  = clone_type(member->type, __func__, __FILE__, __LINE__);
         e->u.field_access.offset = member->offset;
-        e->u.field_access.expr  = strct;
+        e->u.field_access.expr   = strct;
         return e;
     }
     case EXPR_PTR_ACCESS: {
-        Expr *strct_ptr = typecheck_and_decay(e->u.ptr_access.expr);
+        Expr *strct_ptr      = typecheck_and_decay(e->u.ptr_access.expr);
         const Type *ptr_type = strct_ptr->type;
-        if (!is_pointer(ptr_type) ||
-            (ptr_type->u.pointer.target->kind != TYPE_STRUCT &&
-             ptr_type->u.pointer.target->kind != TYPE_UNION)) {
+        if (!is_pointer(ptr_type) || (ptr_type->u.pointer.target->kind != TYPE_STRUCT &&
+                                      ptr_type->u.pointer.target->kind != TYPE_UNION)) {
             fatal_error("Arrow operator requires pointer to structure or union");
         }
         const Type *target_type = ptr_type->u.pointer.target;
-        const StructDef *entry = structtab_find(target_type->u.struct_t.name);
-        const FieldDef *member = entry->members;
+        const StructDef *entry  = structtab_find(target_type->u.struct_t.name);
+        const FieldDef *member  = entry->members;
         for (; member; member = member->next) {
             if (strcmp(member->name, e->u.ptr_access.field) == 0) {
                 break;
             }
         }
         if (!member) {
-            fatal_error("Struct %s has no member %s",
-                        target_type->u.struct_t.name,
+            fatal_error("Struct %s has no member %s", target_type->u.struct_t.name,
                         e->u.ptr_access.field);
         }
         assert(member);
@@ -669,9 +667,8 @@ static Expr *typecheck_expr(Expr *e)
             fatal_error("No matching association in _Generic expression");
         assert(match);
 
-        const Expr *match_expr = (match->kind == GENERIC_ASSOC_TYPE)
-                                     ? match->u.type_assoc.expr
-                                     : match->u.default_assoc;
+        const Expr *match_expr =
+            (match->kind == GENERIC_ASSOC_TYPE) ? match->u.type_assoc.expr : match->u.default_assoc;
         free_type(e->type);
         e->type = clone_type(match_expr->type, __func__, __FILE__, __LINE__);
 
@@ -690,22 +687,22 @@ static Expr *typecheck_expr(Expr *e)
             }
             xfree(ga);
         }
-        e->u.generic.associations     = match;
+        e->u.generic.associations = match;
         free_expression(e->u.generic.controlling_expr);
         e->u.generic.controlling_expr = NULL;
         return e;
     }
     case EXPR_COMPOUND: {
         e->u.compound_literal.type = resolve_typedef_names(e->u.compound_literal.type);
-        Type *lit_type = e->u.compound_literal.type;
+        Type *lit_type             = e->u.compound_literal.type;
         validate_type(lit_type);
         if (!is_complete(lit_type)) {
             fatal_error("Compound literal must have a complete type");
         }
         if (lit_type->kind == TYPE_ARRAY || lit_type->kind == TYPE_STRUCT) {
             // Wrap InitItem list in a temporary INITIALIZER_COMPOUND to reuse typecheck_init.
-            Initializer *wrap = new_initializer(INITIALIZER_COMPOUND);
-            wrap->u.items     = e->u.compound_literal.init;
+            Initializer *wrap   = new_initializer(INITIALIZER_COMPOUND);
+            wrap->u.items       = e->u.compound_literal.init;
             Initializer *result = typecheck_init(lit_type, wrap);
             // Detach the type-checked items and free the wrapper shell.
             e->u.compound_literal.init = result->u.items;

@@ -14,12 +14,12 @@ extern "C" {
 //
 typedef struct {
     const char *name;
-    size_t short_size,   short_align;
-    size_t int_size,     int_align;
-    size_t long_size,    long_align;
-    size_t llong_size,   llong_align;   // long long / unsigned long long
-    size_t float_size,   float_align;
-    size_t double_size,  double_align;
+    size_t short_size, short_align;
+    size_t int_size, int_align;
+    size_t long_size, long_align;
+    size_t llong_size, llong_align; // long long / unsigned long long
+    size_t float_size, float_align;
+    size_t double_size, double_align;
     size_t ldouble_size, ldouble_align; // long double
     size_t pointer_size, pointer_align;
 } Target;

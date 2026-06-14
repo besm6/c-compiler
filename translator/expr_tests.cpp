@@ -552,7 +552,8 @@ TEST_F(TranslateTest, GenericTypeMatch)
 // No type matches; falls back to the default association.
 TEST_F(TranslateTest, GenericDefault)
 {
-    std::string yaml = CompileToYaml("int f(double x) { return _Generic(x, int: 0, default: 99); }");
+    std::string yaml =
+        CompileToYaml("int f(double x) { return _Generic(x, int: 0, default: 99); }");
     EXPECT_EQ(yaml, R"(- toplevel:
   kind: function
   name: f
@@ -784,8 +785,7 @@ TEST_F(TranslateTest, LongLongLiteralSmall)
 // Large LL literal preserves all 64 bits.
 TEST_F(TranslateTest, LongLongLiteralLarge)
 {
-    std::string yaml = CompileToYaml(
-        "long long f(void) { long long x = 9999999999LL; return x; }");
+    std::string yaml = CompileToYaml("long long f(void) { long long x = 9999999999LL; return x; }");
     EXPECT_NE(yaml.find("kind: long_long"), std::string::npos);
     EXPECT_NE(yaml.find("value: 9999999999"), std::string::npos);
 }
@@ -847,8 +847,7 @@ TEST_F(TranslateTest, UnsignedDivide)
 // Unsigned operands select less_than_unsigned, not less_than.
 TEST_F(TranslateTest, UnsignedLessThan)
 {
-    std::string yaml =
-        CompileToYaml("int f(unsigned int a, unsigned int b) { return a < b; }");
+    std::string yaml = CompileToYaml("int f(unsigned int a, unsigned int b) { return a < b; }");
     EXPECT_NE(yaml.find("op: less_than_unsigned"), std::string::npos);
     EXPECT_EQ(yaml.find("op: less_than\n"), std::string::npos);
 }

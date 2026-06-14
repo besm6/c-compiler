@@ -71,8 +71,7 @@ protected:
         return yaml;
     }
 
-    std::string OptimizeYaml(const char *src,
-                             OptFlags flags = opt_flags_default())
+    std::string OptimizeYaml(const char *src, OptFlags flags = opt_flags_default())
     {
         fwrite(src, 1, strlen(src), input_file);
         rewind(input_file);
@@ -109,85 +108,85 @@ protected:
 TEST_F(PipelineTest, DivisionConstantFolded)
 {
     EXPECT_EQ(OptimizeYaml("int f(void) { return 6/2; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 3\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 3\n");
 }
 
 TEST_F(PipelineTest, AdditionConstantFolded)
 {
     EXPECT_EQ(OptimizeYaml("int f(void) { return 2+2; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 4\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 4\n");
 }
 
 TEST_F(PipelineTest, SubtractionConstantFolded)
 {
     EXPECT_EQ(OptimizeYaml("int f(void) { return 10-3; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 7\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 7\n");
 }
 
 TEST_F(PipelineTest, MultiplicationConstantFolded)
 {
     EXPECT_EQ(OptimizeYaml("int f(void) { return 3*4; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 12\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 12\n");
 }
 
 TEST_F(PipelineTest, UnaryNotFolded)
 {
     EXPECT_EQ(OptimizeYaml("int f(void) { return !0; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 1\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 1\n");
 }
 
 TEST_F(PipelineTest, UnaryComplementFolded)
 {
     EXPECT_EQ(OptimizeYaml("int f(void) { return ~0; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: -1\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: -1\n");
 }
 
 TEST_F(PipelineTest, LongConstantFolded)
 {
     EXPECT_EQ(OptimizeYaml("long f(void) { return 3L * 4L; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: long\n"
-        "      value: 12\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: long\n"
+              "      value: 12\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -198,13 +197,13 @@ TEST_F(PipelineTest, LongConstantFolded)
 TEST_F(PipelineTest, TwoPassFolded)
 {
     EXPECT_EQ(OptimizeYaml("int f(void) { int a = 2+3; return a*4; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 20\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 20\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -215,22 +214,22 @@ TEST_F(PipelineTest, TwoPassFolded)
 TEST_F(PipelineTest, CopyPropSimple)
 {
     EXPECT_EQ(OptimizeYaml("int g(int x) { int t = x; return t; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: var\n"
-        "    name: %x\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: %x\n");
 }
 
 // Chain a=x, b=a → Return(b) fully propagated to Return(x).
 TEST_F(PipelineTest, CopyPropChain)
 {
     EXPECT_EQ(OptimizeYaml("int g(int x) { int a = x; int b = a; return b; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: var\n"
-        "    name: %x\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: %x\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -241,13 +240,13 @@ TEST_F(PipelineTest, CopyPropChain)
 TEST_F(PipelineTest, DeadStoreOverwrite)
 {
     EXPECT_EQ(OptimizeYaml("int f(void) { int t = 3; t = 4; return t; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 4\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 4\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -258,26 +257,26 @@ TEST_F(PipelineTest, DeadStoreOverwrite)
 TEST_F(PipelineTest, DeadBranchIfZero)
 {
     EXPECT_EQ(OptimizeYaml("int h(int x) { if (0) return 1; return 2; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 2\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 2\n");
 }
 
 // if(1): fold JIZ(1,"L")→deleted; else-block unreachable → removed.
 TEST_F(PipelineTest, DeadBranchIfOne)
 {
     EXPECT_EQ(OptimizeYaml("int h(int x) { if (1) return 42; return 0; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 42\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 42\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -288,11 +287,11 @@ TEST_F(PipelineTest, DeadBranchIfOne)
 TEST_F(PipelineTest, NoOptNeeded)
 {
     EXPECT_EQ(OptimizeYaml("int f(int x) { return x; }"),
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: var\n"
-        "    name: %x\n");
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: %x\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -304,31 +303,31 @@ TEST_F(PipelineTest, NoOptNeeded)
 TEST_F(PipelineTest, DeadStoreKeepsIndirectCallTarget)
 {
     EXPECT_EQ(OptimizeYaml("int f(int (*fp)(int)) { return (*fp)(42); }"),
-        "- instruction:\n"
-        "  kind: load\n"
-        "  src_ptr:\n"
-        "    kind: var\n"
-        "    name: %fp\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: %0\n"
-        "- instruction:\n"
-        "  kind: fun_call\n"
-        "  fun_name: %0\n"
-        "  args:\n"
-        "    - val:\n"
-        "      kind: constant\n"
-        "      const:\n"
-        "        kind: int\n"
-        "        value: 42\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: %1\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: var\n"
-        "    name: %1\n");
+              "- instruction:\n"
+              "  kind: load\n"
+              "  src_ptr:\n"
+              "    kind: var\n"
+              "    name: %fp\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: %0\n"
+              "- instruction:\n"
+              "  kind: fun_call\n"
+              "  fun_name: %0\n"
+              "  args:\n"
+              "    - val:\n"
+              "      kind: constant\n"
+              "      const:\n"
+              "        kind: int\n"
+              "        value: 42\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: %1\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: %1\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -342,16 +341,16 @@ TEST_F(PipelineTest, DeadStoreKeepsIndirectCallTarget)
 TEST_F(PipelineTest, GlobalWriteSurvivesDeadStore)
 {
     EXPECT_EQ(OptimizeYaml("int g; void f(void) { g = 5; }"),
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 5\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: g\n");
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 5\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: g\n");
 }
 
 // An `extern` global has no static_variable toplevel at all, yet the per-function
@@ -359,16 +358,16 @@ TEST_F(PipelineTest, GlobalWriteSurvivesDeadStore)
 TEST_F(PipelineTest, ExternGlobalWriteSurvives)
 {
     EXPECT_EQ(OptimizeYaml("extern int g; void f(void) { g = 5; }"),
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 5\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: g\n");
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 5\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: g\n");
 }
 
 // Negative control: the dead local `x` is still removed; only the global write
@@ -376,14 +375,14 @@ TEST_F(PipelineTest, ExternGlobalWriteSurvives)
 TEST_F(PipelineTest, DeadLocalRemovedAlongsideGlobalWrite)
 {
     EXPECT_EQ(OptimizeYaml("int g; void f(void) { int x = 7; g = 5; }"),
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 5\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: g\n");
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 5\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: g\n");
 }

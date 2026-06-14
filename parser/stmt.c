@@ -1,7 +1,6 @@
-#include "parser_internal.h"
-
 #include <stdio.h>
 
+#include "parser_internal.h"
 #include "xalloc.h"
 
 //

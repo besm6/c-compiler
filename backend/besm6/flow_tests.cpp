@@ -16,7 +16,8 @@ TEST_F(CodegenTest, LabelJump)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // label_loops() resets label_seq=0 per function; STMT_WHILE allocates .L0 (end)
@@ -36,7 +37,8 @@ TEST_F(CodegenTest, WhileLoopJumpIfZero)
       *L0:   ,bss,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // new_temp() allocates "%0" for the do-while loop-top label;
@@ -44,8 +46,8 @@ TEST_F(CodegenTest, WhileLoopJumpIfZero)
 // so the optimizer removes them; bar() call keeps the loop body non-empty.
 TEST_F(CodegenTest, DoWhileJumpIfNotZero)
 {
-    std::string output = CompileToMadlen(
-        "void bar(void); void foo(int x) { do { bar(); } while (x); }");
+    std::string output =
+        CompileToMadlen("void bar(void); void foo(int x) { do { bar(); } while (x); }");
     EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
@@ -57,7 +59,8 @@ TEST_F(CodegenTest, DoWhileJumpIfNotZero)
              ,u1a, *0
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // --- switch statement (task #5) ---------------------------------------------

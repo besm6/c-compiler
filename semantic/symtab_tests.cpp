@@ -33,7 +33,7 @@ protected:
     void SetUp() override
     {
         // Enable to debug allocations:
-        //xalloc_debug = 1;
+        // xalloc_debug = 1;
 
         symtab_init();
     }

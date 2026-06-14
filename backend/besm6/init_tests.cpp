@@ -11,7 +11,8 @@ TEST_F(CodegenTest, VarIntTentative)
       foo:   ,name,
              ,bss, 1
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarIntPtrTentative)
@@ -21,7 +22,8 @@ TEST_F(CodegenTest, VarIntPtrTentative)
       foo:   ,name,
              ,bss, 1
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarCharPtrTentative)
@@ -31,7 +33,8 @@ TEST_F(CodegenTest, VarCharPtrTentative)
       foo:   ,name,
              ,bss, 1
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarVoidPtrTentative)
@@ -41,7 +44,8 @@ TEST_F(CodegenTest, VarVoidPtrTentative)
       foo:   ,name,
              ,bss, 1
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarIntArrayTentative)
@@ -51,7 +55,8 @@ TEST_F(CodegenTest, VarIntArrayTentative)
       arr:   ,name,
              ,bss, 5
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarCharArrayTentative)
@@ -61,7 +66,8 @@ TEST_F(CodegenTest, VarCharArrayTentative)
       arr:   ,name,
              ,bss, 2
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarPtrArrayTentative)
@@ -71,7 +77,8 @@ TEST_F(CodegenTest, VarPtrArrayTentative)
       arr:   ,name,
              ,bss, 4
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarDoubleArrayTentative)
@@ -81,7 +88,8 @@ TEST_F(CodegenTest, VarDoubleArrayTentative)
       arr:   ,name,
              ,bss, 3
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, Var2DArrayTentative)
@@ -91,7 +99,8 @@ TEST_F(CodegenTest, Var2DArrayTentative)
       arr:   ,name,
              ,bss, 6
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarStruct1FieldTentative)
@@ -101,7 +110,8 @@ TEST_F(CodegenTest, VarStruct1FieldTentative)
         s:   ,name,
              ,bss, 1
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarStruct2FieldTentative)
@@ -111,7 +121,8 @@ TEST_F(CodegenTest, VarStruct2FieldTentative)
         s:   ,name,
              ,bss, 2
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarStruct3FieldTentative)
@@ -121,7 +132,8 @@ TEST_F(CodegenTest, VarStruct3FieldTentative)
         s:   ,name,
              ,bss, 3
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarStructMixedTentative)
@@ -131,7 +143,8 @@ TEST_F(CodegenTest, VarStructMixedTentative)
         s:   ,name,
              ,bss, 3
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarNamedStructTentative)
@@ -147,7 +160,8 @@ TEST_F(CodegenTest, VarNamedStructTentative)
         s:   ,name,
              ,bss, 2
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarIntInit)
@@ -157,7 +171,8 @@ TEST_F(CodegenTest, VarIntInit)
       foo:   ,name,
              ,log, 52
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarLongInit)
@@ -167,7 +182,8 @@ TEST_F(CodegenTest, VarLongInit)
       foo:   ,name,
              ,log, 10341
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarShortInit)
@@ -177,7 +193,8 @@ TEST_F(CodegenTest, VarShortInit)
       foo:   ,name,
              ,log, 173
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarCharInit)
@@ -187,7 +204,8 @@ TEST_F(CodegenTest, VarCharInit)
       foo:   ,name,
              ,log, 53
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarUnsignedInit)
@@ -197,7 +215,8 @@ TEST_F(CodegenTest, VarUnsignedInit)
       foo:   ,name,
              ,log, 1234567076543210
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarIntPtrInitName)
@@ -209,7 +228,8 @@ TEST_F(CodegenTest, VarIntPtrInitName)
              ,z00,
              ,z00, foo
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarIntPtrInitLiteral)
@@ -219,7 +239,8 @@ TEST_F(CodegenTest, VarIntPtrInitLiteral)
       bar:   ,name,
              ,log, 52
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarCharPtrInit)
@@ -231,7 +252,8 @@ TEST_F(CodegenTest, VarCharPtrInit)
            8 ,z00,
              ,z00, foo
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarVoidPtrInitChar)
@@ -243,7 +265,8 @@ TEST_F(CodegenTest, VarVoidPtrInitChar)
            8 ,z00,
              ,z00, foo
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarVoidPtrInitInt)
@@ -255,7 +278,8 @@ TEST_F(CodegenTest, VarVoidPtrInitInt)
           13 ,z00,
              ,z00, foo
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarIntPtrInitNameOffset)
@@ -267,7 +291,8 @@ TEST_F(CodegenTest, VarIntPtrInitNameOffset)
              ,z00,
              ,z00, foo+5
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarCharPtrInitNameOffset)
@@ -279,7 +304,8 @@ TEST_F(CodegenTest, VarCharPtrInitNameOffset)
           10 ,z00,
              ,z00, foo+2
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarFloatInit)
@@ -289,7 +315,8 @@ TEST_F(CodegenTest, VarFloatInit)
       foo:   ,name,
              ,real, 3.1415
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, VarDoubleInit)
@@ -299,7 +326,8 @@ TEST_F(CodegenTest, VarDoubleInit)
       foo:   ,name,
              ,real, 2.71828e-25
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, ArrayIntInit)
@@ -311,7 +339,8 @@ TEST_F(CodegenTest, ArrayIntInit)
              ,log, 42
              ,log, 70
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StructIntInit)
@@ -322,7 +351,8 @@ TEST_F(CodegenTest, StructIntInit)
              ,log, 14
              ,log, 42
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, ArrayDoubleInit)
@@ -334,7 +364,8 @@ TEST_F(CodegenTest, ArrayDoubleInit)
              ,real, 2.5
              ,real, 3.5
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, Array2DIntInit)
@@ -349,7 +380,8 @@ TEST_F(CodegenTest, Array2DIntInit)
              ,log, 5
              ,log, 6
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, ArrayStructInit)
@@ -367,7 +399,8 @@ TEST_F(CodegenTest, ArrayStructInit)
              ,log, 3
              ,log, 4
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StructArrayInit)
@@ -383,7 +416,8 @@ TEST_F(CodegenTest, StructArrayInit)
              ,log, 24
              ,log, 36
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StructMixedInit)
@@ -399,7 +433,8 @@ TEST_F(CodegenTest, StructMixedInit)
              ,log, 7
              ,real, 2.5
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StructNestedInit)
@@ -419,7 +454,8 @@ TEST_F(CodegenTest, StructNestedInit)
              ,log, 2
              ,log, 3
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, ArrayPartialInit)
@@ -431,7 +467,8 @@ TEST_F(CodegenTest, ArrayPartialInit)
              ,log, 2
              ,bss, 3
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StructPartialInit)
@@ -448,7 +485,8 @@ TEST_F(CodegenTest, StructPartialInit)
              ,log, 5
              ,bss, 2
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StrEmptyInit)
@@ -458,7 +496,8 @@ TEST_F(CodegenTest, StrEmptyInit)
       foo:   ,name,
              ,log, 0
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StrSingleCharInit)
@@ -468,7 +507,8 @@ TEST_F(CodegenTest, StrSingleCharInit)
       foo:   ,name,
              ,log, 2020000000000000
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StrThreeCharsInit)
@@ -478,7 +518,8 @@ TEST_F(CodegenTest, StrThreeCharsInit)
       foo:   ,name,
              ,log, 2024110300000000
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StrSixCharsNoNullInit)
@@ -488,7 +529,8 @@ TEST_F(CodegenTest, StrSixCharsNoNullInit)
       foo:   ,name,
              ,log, 2024110321042506
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StrSixCharsWithNullInit)
@@ -499,7 +541,8 @@ TEST_F(CodegenTest, StrSixCharsWithNullInit)
              ,log, 2024110321042506
              ,log, 0
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StrSevenCharsInit)
@@ -510,7 +553,8 @@ TEST_F(CodegenTest, StrSevenCharsInit)
              ,log, 2024110321042506
              ,log, 2160000000000000
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StrWithZeroPaddingInit)
@@ -521,7 +565,8 @@ TEST_F(CodegenTest, StrWithZeroPaddingInit)
              ,log, 2024110300000000
              ,bss, 1
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StrCyrillicInit)
@@ -536,7 +581,8 @@ TEST_F(CodegenTest, StrCyrillicInit)
              ,log, 2026112020245501
              ,log, 3104054224040400
              ,end,
-)", output);
+)",
+              output);
 }
 
 // ---------------------------------------------------------------------------
@@ -559,7 +605,8 @@ c
              ,z00,
              ,z00, *str0
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StrConstantSingleCharPtr)
@@ -575,7 +622,8 @@ c
              ,z00,
              ,z00, *str0
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StrConstantThreeCharsPtr)
@@ -591,7 +639,8 @@ c
              ,z00,
              ,z00, *str0
              ,end,
-)", output);
+)",
+              output);
 }
 
 // "ABCDE\0" = 6 bytes, exactly one packed word (no second word needed).
@@ -608,7 +657,8 @@ c
              ,z00,
              ,z00, *str0
              ,end,
-)", output);
+)",
+              output);
 }
 
 // "ABCDEF\0" = 7 bytes → two words: full word + null-only word.
@@ -626,7 +676,8 @@ c
              ,z00,
              ,z00, *str0
              ,end,
-)", output);
+)",
+              output);
 }
 
 // "ABCDEFG\0" = 8 bytes → two words: ABCDEF + G\0.
@@ -644,7 +695,8 @@ c
              ,z00,
              ,z00, *str0
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Two declarations processed separately: each gets its own _strN constant.
@@ -672,7 +724,8 @@ c
              ,z00,
              ,z00, *str1
              ,end,
-)", output);
+)",
+              output);
 }
 
 // A char array init uses TAC_STATIC_INIT_STRING directly (no static constant).
@@ -694,5 +747,6 @@ c
              ,z00,
              ,z00, *str0
              ,end,
-)", output);
+)",
+              output);
 }

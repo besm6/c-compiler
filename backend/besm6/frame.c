@@ -1,14 +1,15 @@
+#include "frame.h"
+
 #include <stdint.h>
 
 #include "abi.h"
-#include "frame.h"
 #include "string_map.h"
 #include "xalloc.h"
 
 // Encode (reg, offset) into a single intptr_t so we can store it in the map.
-#define SLOT_ENCODE(reg, off)  (((intptr_t)(reg) << 16) | (intptr_t)(off))
-#define SLOT_REG(v)            (((int)(v)) >> 16)
-#define SLOT_OFF(v)            (((int)(v)) & 0xffff)
+#define SLOT_ENCODE(reg, off) (((intptr_t)(reg) << 16) | (intptr_t)(off))
+#define SLOT_REG(v)           (((int)(v)) >> 16)
+#define SLOT_OFF(v)           (((int)(v)) & 0xffff)
 
 struct Frame {
     StringMap slots; // name -> SLOT_ENCODE(reg, offset)
@@ -152,8 +153,7 @@ static void collect_instr(Frame *f, const Tac_Instruction *instr, int *auto_coun
     case TAC_INSTRUCTION_GET_ADDRESS:
         // src is a local variable (gets a slot) or a global (skipped by assign_if_new).
         if (instr->u.get_address.src->kind == TAC_VAL_VAR)
-            assign_if_new(f, instr->u.get_address.src->u.var_name,
-                          REG_AUTO, auto_count);
+            assign_if_new(f, instr->u.get_address.src->u.var_name, REG_AUTO, auto_count);
         collect_vals(f, instr->u.get_address.dst, auto_count);
         break;
     case TAC_INSTRUCTION_LOAD:
@@ -223,7 +223,7 @@ Frame *frame_build(const Tac_TopLevel *fn, const Tac_TopLevel *program)
 {
     (void)program; // local/global is now encoded in the name (leading '%')
 
-    Frame *f    = (Frame *)xalloc(sizeof(Frame), __func__, __FILE__, __LINE__);
+    Frame *f     = (Frame *)xalloc(sizeof(Frame), __func__, __FILE__, __LINE__);
     f->num_autos = 0;
     map_init(&f->slots);
 

@@ -20,8 +20,8 @@
 // (15 ,utm, 2); s.y is word offset 1 of the slot at offset 0 -> 7 ,atx, 1.
 TEST_F(CodegenTest, CopyToOffsetLocalWrite)
 {
-    std::string output = CompileToMadlen(
-        "struct Foo { int x; int y; }; void f(void){ struct Foo s; s.y = 5; }");
+    std::string output =
+        CompileToMadlen("struct Foo { int x; int y; }; void f(void){ struct Foo s; s.y = 5; }");
     EXPECT_EQ(R"(c
         f:   ,name,
     b/ret:   ,subp,
@@ -32,15 +32,16 @@ TEST_F(CodegenTest, CopyToOffsetLocalWrite)
            7 ,atx, 1
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Local struct, read second member: the 2-word slot occupies offsets 0..1 and the
 // return temp lands at offset 2, so the frame extends by 3 words (15 ,utm, 3).
 TEST_F(CodegenTest, CopyFromOffsetLocalRead)
 {
-    std::string output = CompileToMadlen(
-        "struct Foo { int x; int y; }; int f(void){ struct Foo s; return s.y; }");
+    std::string output =
+        CompileToMadlen("struct Foo { int x; int y; }; int f(void){ struct Foo s; return s.y; }");
     EXPECT_EQ(R"(c
         f:   ,name,
     b/ret:   ,subp,
@@ -53,7 +54,8 @@ TEST_F(CodegenTest, CopyFromOffsetLocalRead)
              ,uj, b/ret
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Global struct: ,utc, g then ,atx, 1 / ,xta, 1, plus a ,subp, g declaration.
@@ -82,7 +84,8 @@ c
              ,uj, b/ret
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Runtime: write both members of a global struct, read them back and add.

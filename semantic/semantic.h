@@ -8,9 +8,10 @@
 extern "C" {
 #endif
 
+#include <stdnoreturn.h>
+
 #include "ast.h"
 #include "tac.h"
-#include <stdnoreturn.h>
 
 // Level of scope for nested compound operators.
 extern int scope_level;

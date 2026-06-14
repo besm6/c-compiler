@@ -16,7 +16,7 @@ void mad_format_real(char *buf, size_t n, double val)
     snprintf(buf, n, "%.13g", val);
     if (strchr(buf, '.'))
         return; // already has a decimal point
-    char  *e   = strpbrk(buf, "eE");
+    char *e    = strpbrk(buf, "eE");
     size_t len = strlen(buf);
     if (e) {
         size_t pos = (size_t)(e - buf);
@@ -34,12 +34,15 @@ void mad_format_real(char *buf, size_t n, double val)
 static void sanitize_name(char *dst, size_t n, const char *src)
 {
     size_t lim = n - 1 < 8 ? n - 1 : 8;
-    size_t i = 0;
+    size_t i   = 0;
     for (; *src && i < lim; src++, i++) {
         char c = *src;
-        if (c == '_') c = '*';
-        else if (c == '$') c = '/';
-        else if (c == '%') c = '*';
+        if (c == '_')
+            c = '*';
+        else if (c == '$')
+            c = '/';
+        else if (c == '%')
+            c = '*';
         dst[i] = c;
     }
     dst[i] = '\0';
@@ -74,8 +77,7 @@ static void addr_str(char *buf, size_t n, const char *name, int addr)
 //
 // Emit one Madlen statement line.
 //
-static void emit_line(FILE *out, const char *label, int mreg,
-                      const char *mnem, const char *addr)
+static void emit_line(FILE *out, const char *label, int mreg, const char *mnem, const char *addr)
 {
     if (label) {
         char sl[9];

@@ -187,8 +187,8 @@ void tac_free_static_init(Tac_StaticInit *init)
     if (init->kind == TAC_STATIC_INIT_STRING && init->u.string.val) {
         xfree(init->u.string.val);
     }
-    if ((init->kind == TAC_STATIC_INIT_POINTER ||
-         init->kind == TAC_STATIC_INIT_FAT_POINTER) && init->u.pointer.name) {
+    if ((init->kind == TAC_STATIC_INIT_POINTER || init->kind == TAC_STATIC_INIT_FAT_POINTER) &&
+        init->u.pointer.name) {
         xfree(init->u.pointer.name);
     }
     tac_free_static_init(init->next);

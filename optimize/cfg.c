@@ -15,24 +15,23 @@
 // ============================================================================
 
 #include "cfg.h"
+
 #include "optimize.h"
-#include "xalloc.h"
 #include "string_map.h"
+#include "xalloc.h"
 
 // A "terminal" instruction ends a basic block: control leaves the block here.
 static bool is_terminal(Tac_InstructionKind k)
 {
-    return k == TAC_INSTRUCTION_JUMP ||
-           k == TAC_INSTRUCTION_JUMP_IF_ZERO ||
-           k == TAC_INSTRUCTION_JUMP_IF_NOT_ZERO ||
-           k == TAC_INSTRUCTION_RETURN;
+    return k == TAC_INSTRUCTION_JUMP || k == TAC_INSTRUCTION_JUMP_IF_ZERO ||
+           k == TAC_INSTRUCTION_JUMP_IF_NOT_ZERO || k == TAC_INSTRUCTION_RETURN;
 }
 
 // Count the basic blocks in `body` so cfg_build can size its array up front.
 // A new block begins after any terminal instruction and at every Label.
 static int count_blocks(const Tac_Instruction *body)
 {
-    int n = 1;
+    int n              = 1;
     bool prev_terminal = is_terminal(body->kind);
     for (const Tac_Instruction *i = body->next; i; i = i->next) {
         if (prev_terminal || i->kind == TAC_INSTRUCTION_LABEL)
@@ -48,18 +47,18 @@ OptCfg *cfg_build(Tac_Instruction *body)
     int nblocks = count_blocks(body);
     OPT_TRACE("[cfg] block count: %d\n", nblocks);
 
-    OptCfg *cfg = xalloc(sizeof(OptCfg), __func__, __FILE__, __LINE__);
+    OptCfg *cfg  = xalloc(sizeof(OptCfg), __func__, __FILE__, __LINE__);
     cfg->nblocks = nblocks;
-    cfg->blocks = xalloc(nblocks * sizeof(OptBlock *), __func__, __FILE__, __LINE__);
+    cfg->blocks  = xalloc(nblocks * sizeof(OptBlock *), __func__, __FILE__, __LINE__);
 
     for (int i = 0; i < nblocks; i++) {
-        OptBlock *b = xalloc(sizeof(OptBlock), __func__, __FILE__, __LINE__);
-        b->id = i;
-        b->first = NULL;
-        b->last = NULL;
-        b->succs = NULL;
-        b->nsucc = 0;
-        b->reachable = false;
+        OptBlock *b    = xalloc(sizeof(OptBlock), __func__, __FILE__, __LINE__);
+        b->id          = i;
+        b->first       = NULL;
+        b->last        = NULL;
+        b->succs       = NULL;
+        b->nsucc       = 0;
+        b->reachable   = false;
         cfg->blocks[i] = b;
     }
 
@@ -69,7 +68,7 @@ OptCfg *cfg_build(Tac_Instruction *body)
     StringMap label_map;
     map_init(&label_map);
 
-    int bid = 0;
+    int bid               = 0;
     cfg->blocks[0]->first = body;
     if (body->kind == TAC_INSTRUCTION_LABEL)
         map_insert(&label_map, body->u.label.name, (intptr_t)0, 0);
@@ -79,7 +78,7 @@ OptCfg *cfg_build(Tac_Instruction *body)
         // A boundary falls after a terminator and before a label.
         if (is_terminal(prev->kind) || instr->kind == TAC_INSTRUCTION_LABEL) {
             cfg->blocks[bid]->last = prev;
-            prev->next = NULL;          // sever: end the current block's sub-list
+            prev->next             = NULL; // sever: end the current block's sub-list
             bid++;
             cfg->blocks[bid]->first = instr;
         }
@@ -96,23 +95,23 @@ OptCfg *cfg_build(Tac_Instruction *body)
             // Unconditional jump: single edge to the target label's block.
             intptr_t target_id;
             map_get(&label_map, term->u.jump.target, &target_id);
-            cfg->blocks[i]->succs = xalloc(sizeof(OptBlock *), __func__, __FILE__, __LINE__);
+            cfg->blocks[i]->succs    = xalloc(sizeof(OptBlock *), __func__, __FILE__, __LINE__);
             cfg->blocks[i]->succs[0] = cfg->blocks[target_id];
-            cfg->blocks[i]->nsucc = 1;
+            cfg->blocks[i]->nsucc    = 1;
             OPT_TRACE("[cfg] block %d -[jump]-> block %d\n", i, (int)target_id);
         } else if (term->kind == TAC_INSTRUCTION_JUMP_IF_ZERO ||
                    term->kind == TAC_INSTRUCTION_JUMP_IF_NOT_ZERO) {
             // Conditional jump: two edges — the branch target (condition met)
             // and the fall-through to the immediately following block.
             const char *target = (term->kind == TAC_INSTRUCTION_JUMP_IF_ZERO)
-                ? term->u.jump_if_zero.target
-                : term->u.jump_if_not_zero.target;
+                                     ? term->u.jump_if_zero.target
+                                     : term->u.jump_if_not_zero.target;
             intptr_t target_id;
             map_get(&label_map, target, &target_id);
-            cfg->blocks[i]->succs = xalloc(2 * sizeof(OptBlock *), __func__, __FILE__, __LINE__);
+            cfg->blocks[i]->succs    = xalloc(2 * sizeof(OptBlock *), __func__, __FILE__, __LINE__);
             cfg->blocks[i]->succs[0] = cfg->blocks[target_id];
             cfg->blocks[i]->succs[1] = cfg->blocks[i + 1];
-            cfg->blocks[i]->nsucc = 2;
+            cfg->blocks[i]->nsucc    = 2;
             OPT_TRACE("[cfg] block %d -[cond-taken]-> block %d\n", i, (int)target_id);
             OPT_TRACE("[cfg] block %d -[cond-fallthru]-> block %d\n", i, i + 1);
         } else if (term->kind == TAC_INSTRUCTION_RETURN) {
@@ -122,9 +121,9 @@ OptCfg *cfg_build(Tac_Instruction *body)
         } else if (i + 1 < nblocks) {
             // No terminator (block ended only because a label followed):
             // fall through to the next block.
-            cfg->blocks[i]->succs = xalloc(sizeof(OptBlock *), __func__, __FILE__, __LINE__);
+            cfg->blocks[i]->succs    = xalloc(sizeof(OptBlock *), __func__, __FILE__, __LINE__);
             cfg->blocks[i]->succs[0] = cfg->blocks[i + 1];
-            cfg->blocks[i]->nsucc = 1;
+            cfg->blocks[i]->nsucc    = 1;
             OPT_TRACE("[cfg] block %d -[fallthru]-> block %d\n", i, i + 1);
         }
     }
@@ -138,7 +137,7 @@ OptCfg *cfg_build(Tac_Instruction *body)
 // non-empty block's `first`; returns the head, or NULL if everything is empty.
 Tac_Instruction *cfg_flatten(OptCfg *cfg)
 {
-    Tac_Instruction *head = NULL;
+    Tac_Instruction *head      = NULL;
     Tac_Instruction *tail_last = NULL;
 
     for (int i = 0; i < cfg->nblocks; i++) {

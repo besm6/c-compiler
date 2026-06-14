@@ -35,17 +35,17 @@ typedef enum {
 // Structure to hold parsed arguments
 //
 typedef struct {
-    int verbose;            // -v or --verbose
-    int help;               // -h or --help
-    int debug;              // -D or --debug
-    OutputFormat format;    // Output format (--tac, --yaml, --dot)
+    int verbose;             // -v or --verbose
+    int help;                // -h or --help
+    int debug;               // -D or --debug
+    OutputFormat format;     // Output format (--tac, --yaml, --dot)
     const char *target_name; // -t/--target
-    char *input_file;       // Input filename
-    char *output_file;      // Output filename (optional)
-    int no_unreachable;     // --no-unreachable
-    int no_copy_prop;       // --no-copy-prop
-    int no_dead_store;      // --no-dead-store
-    int opt_debug;          // --opt-debug
+    char *input_file;        // Input filename
+    char *output_file;       // Output filename (optional)
+    int no_unreachable;      // --no-unreachable
+    int no_copy_prop;        // --no-copy-prop
+    int no_dead_store;       // --no-dead-store
+    int opt_debug;           // --opt-debug
 } Args;
 
 //
@@ -125,18 +125,18 @@ static char *generate_output_filename(const char *input_file, OutputFormat forma
 static int parse_args(int argc, char *argv[], Args *args)
 {
     static struct option long_options[] = {
-        { "verbose",        no_argument,       0, 'v'  }, //
-        { "help",           no_argument,       0, 'h'  }, //
-        { "debug",          no_argument,       0, 'D'  }, //
-        { "tac",            no_argument,       0, 'T'  }, //
-        { "yaml",           no_argument,       0, 'y'  }, //
-        { "dot",            no_argument,       0, 'd'  }, //
-        { "target",         required_argument, 0, 't'  }, //
-        { "no-unreachable", no_argument,       0, 256  }, //
-        { "no-copy-prop",   no_argument,       0, 257  }, //
-        { "no-dead-store",  no_argument,       0, 258  }, //
-        { "opt-debug",      no_argument,       0, 259  }, //
-        {},                                              //
+        { "verbose", no_argument, 0, 'v' },        //
+        { "help", no_argument, 0, 'h' },           //
+        { "debug", no_argument, 0, 'D' },          //
+        { "tac", no_argument, 0, 'T' },            //
+        { "yaml", no_argument, 0, 'y' },           //
+        { "dot", no_argument, 0, 'd' },            //
+        { "target", required_argument, 0, 't' },   //
+        { "no-unreachable", no_argument, 0, 256 }, //
+        { "no-copy-prop", no_argument, 0, 257 },   //
+        { "no-dead-store", no_argument, 0, 258 },  //
+        { "opt-debug", no_argument, 0, 259 },      //
+        {},                                        //
     };
 
     int opt;
@@ -275,7 +275,7 @@ void process_file(const Args *args)
         exit(1);
     }
 
-    OptFlags flags = opt_flags_default();
+    OptFlags flags         = opt_flags_default();
     flags.unreachable_elim = !args->no_unreachable;
     flags.copy_propagation = !args->no_copy_prop;
     flags.dead_store_elim  = !args->no_dead_store;
@@ -288,10 +288,10 @@ void process_file(const Args *args)
         printf("Debug: Format = %d, Input = %s, Output = %s\n", args->format, args->input_file,
                args->output_file);
         translator_debug = 1;
-        //import_debug     = 1;
-        //export_debug     = 1;
-        //wio_debug        = 1;
-        //xalloc_debug     = 1;
+        // import_debug     = 1;
+        // export_debug     = 1;
+        // wio_debug        = 1;
+        // xalloc_debug     = 1;
     }
     open_input_output(args);
 
@@ -301,8 +301,8 @@ void process_file(const Args *args)
     WFILE tac_out;
     int tac_out_ready = 0;
     if (args->format == FORMAT_TAC) {
-        if (wdopen(&tac_out, output_file == stdout ? STDOUT_FILENO
-                                                   : fileno(output_file), "w") < 0) {
+        if (wdopen(&tac_out, output_file == stdout ? STDOUT_FILENO : fileno(output_file), "w") <
+            0) {
             fprintf(stderr, "Cannot reopen output file\n");
             exit(1);
         }

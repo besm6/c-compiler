@@ -1,3 +1,5 @@
+#include "codegen.h"
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -5,7 +7,6 @@
 
 #include "abi.h"
 #include "besm.h"
-#include "codegen.h"
 #include "frame.h"
 #include "internal.h"
 #include "string_map.h"
@@ -13,8 +14,7 @@
 #include "xalloc.h"
 
 // Forward declaration.
-static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl,
-                             FILE *out);
+static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out);
 
 void codegen_program(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out)
 {
@@ -35,32 +35,29 @@ void codegen_program(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *
 // frame slot and has not been declared yet.  SUBP allocates no memory; it just
 // tells the single-pass assembler the name is external, and must precede the
 // first UTC that references it.
-static void declare_global_name(Besm_Block *block, Besm_Instr **tail,
-                                const Frame *f, StringMap *declared,
-                                const char *name)
+static void declare_global_name(Besm_Block *block, Besm_Instr **tail, const Frame *f,
+                                StringMap *declared, const char *name)
 {
     int sr, so;
     intptr_t dummy;
     if (frame_lookup(f, name, &sr, &so))
-        return;                       // local / param
+        return; // local / param
     if (map_get(declared, name, &dummy))
-        return;                       // already declared
+        return; // already declared
     Besm_Instr *ssubp = emit(block, tail, BESM_STMT_SUBP);
     ssubp->name       = xstrdup(name);
     map_insert(declared, name, 1, 0);
 }
 
-static void declare_global_operand(Besm_Block *block, Besm_Instr **tail,
-                                   const Frame *f, StringMap *declared,
-                                   const Tac_Val *v)
+static void declare_global_operand(Besm_Block *block, Besm_Instr **tail, const Frame *f,
+                                   StringMap *declared, const Tac_Val *v)
 {
     if (!v || v->kind != TAC_VAL_VAR)
         return;
     declare_global_name(block, tail, f, declared, v->u.var_name);
 }
 
-static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl,
-                             FILE *out)
+static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out)
 {
     const char *name = tl->u.function.name;
 
@@ -71,11 +68,11 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
     bool is_empty          = (tl->u.function.body == NULL);
 
     Besm_Module *module = besm_new_module(name);
-    Besm_Func   *func   = besm_new_func(name, BESM_CC_BESM6_C);
+    Besm_Func *func     = besm_new_func(name, BESM_CC_BESM6_C);
     module->funcs       = func;
 
-    Besm_Block  *block  = besm_new_block();
-    func->blocks        = block;
+    Besm_Block *block = besm_new_block();
+    func->blocks      = block;
 
     Besm_Instr *tail = NULL;
 
@@ -171,7 +168,8 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
                 declare_global_operand(block, &tail, f, &declared, instr->u.jump_if_zero.condition);
                 break;
             case TAC_INSTRUCTION_JUMP_IF_NOT_ZERO:
-                declare_global_operand(block, &tail, f, &declared, instr->u.jump_if_not_zero.condition);
+                declare_global_operand(block, &tail, f, &declared,
+                                       instr->u.jump_if_not_zero.condition);
                 break;
             case TAC_INSTRUCTION_FUN_CALL:
                 // After copy propagation, a global may appear directly as a FUN_CALL

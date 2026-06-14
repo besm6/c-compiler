@@ -133,7 +133,7 @@ static Tac_Type *import_type(WFILE *in)
         check_input(in, "array size");
         break;
     case TAC_TYPE_STRUCTURE:
-        t->u.structure.tag  = wgetstr(in);
+        t->u.structure.tag = wgetstr(in);
         check_input(in, "structure tag");
         t->u.structure.size = (int)wgetw(in);
         check_input(in, "structure size");
@@ -403,7 +403,7 @@ Tac_TopLevel *tac_import_toplevel(WFILE *in)
 Tac_Program *tac_import_program(WFILE *in)
 {
     Tac_Program *prog = tac_new_program();
-    for (Tac_TopLevel **p = &prog->decls; ; p = &(*p)->next) {
+    for (Tac_TopLevel **p = &prog->decls;; p = &(*p)->next) {
         *p = tac_import_toplevel(in);
         if (*p == NULL)
             break;

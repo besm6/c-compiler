@@ -9,37 +9,37 @@
 TEST_F(OptimizerTest, DeadStoreBinaryRemoved)
 {
     Tac_Instruction *entry = make_label("fn");
-    Tac_Instruction *bin   = make_binary(TAC_BINARY_ADD,
-                                         make_var("a"), make_var("b"), make_var("t.0"));
-    Tac_Instruction *cp    = make_copy(make_const_int(2), make_var("t.0"));
-    Tac_Instruction *ret   = make_return(make_var("t.0"));
-    entry->next = bin;
-    bin->next   = cp;
-    cp->next    = ret;
+    Tac_Instruction *bin =
+        make_binary(TAC_BINARY_ADD, make_var("a"), make_var("b"), make_var("t.0"));
+    Tac_Instruction *cp  = make_copy(make_const_int(2), make_var("t.0"));
+    Tac_Instruction *ret = make_return(make_var("t.0"));
+    entry->next          = bin;
+    bin->next            = cp;
+    cp->next             = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 2\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: t.0\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: var\n"
-        "    name: t.0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 2\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: t.0\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: t.0\n");
 }
 
 // Label("fn") → Copy(3, t.0) → Return(t.0)
@@ -49,23 +49,23 @@ TEST_F(OptimizerTest, DeadStoreCopyRemovedAfterCopyProp)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *cp    = make_copy(make_const_int(3), make_var("t.0"));
     Tac_Instruction *ret   = make_return(make_var("t.0"));
-    entry->next = cp;
-    cp->next    = ret;
+    entry->next            = cp;
+    cp->next               = ret;
 
-    OptFlags flags = opt_flags_default();
+    OptFlags flags          = opt_flags_default();
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 3\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 3\n");
 }
 
 // Label("fn") → Copy(3, t.0) → Return(t.0)  (copy_prop disabled)
@@ -75,33 +75,33 @@ TEST_F(OptimizerTest, DeadStoreUsedSurvives)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *cp    = make_copy(make_const_int(3), make_var("t.0"));
     Tac_Instruction *ret   = make_return(make_var("t.0"));
-    entry->next = cp;
-    cp->next    = ret;
+    entry->next            = cp;
+    cp->next               = ret;
 
-    OptFlags flags         = opt_flags_default();
+    OptFlags flags = opt_flags_default();
 
-    flags.copy_propagation = false;
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 3\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: t.0\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: var\n"
-        "    name: t.0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 3\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: t.0\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: t.0\n");
 }
 
 // Label("fn") → Store(v, ptr) → Return(ConstInt(0))
@@ -111,33 +111,33 @@ TEST_F(OptimizerTest, DeadStoreNotStore)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *store = make_store(make_var("v"), make_var("ptr"));
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = store;
-    store->next = ret;
+    entry->next            = store;
+    store->next            = ret;
 
-    OptFlags flags         = opt_flags_default();
+    OptFlags flags = opt_flags_default();
 
-    flags.copy_propagation = false;
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: store\n"
-        "  src:\n"
-        "    kind: var\n"
-        "    name: v\n"
-        "  dst_ptr:\n"
-        "    kind: var\n"
-        "    name: ptr\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: store\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: v\n"
+              "  dst_ptr:\n"
+              "    kind: var\n"
+              "    name: ptr\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Label("fn") → FunCall("f") → Return(ConstInt(0))
@@ -147,28 +147,28 @@ TEST_F(OptimizerTest, DeadStoreNotFunCall)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *call  = make_fun_call("f");
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = call;
-    call->next  = ret;
+    entry->next            = call;
+    call->next             = ret;
 
-    OptFlags flags         = opt_flags_default();
+    OptFlags flags = opt_flags_default();
 
-    flags.copy_propagation = false;
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: fun_call\n"
-        "  fun_name: f\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: fun_call\n"
+              "  fun_name: f\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Label("fn") → Copy(3, g) → Return(ConstInt(0));  g is a static variable.
@@ -178,38 +178,38 @@ TEST_F(OptimizerTest, DeadStoreStaticSurvives)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *cp    = make_copy(make_const_int(3), make_var("g"));
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = cp;
-    cp->next    = ret;
+    entry->next            = cp;
+    cp->next               = ret;
 
     // No locals → "g" is a non-temp, non-local name ⇒ observable global.
     const Tac_TopLevel *tl = make_fn_tl({});
 
-    OptFlags flags         = opt_flags_default();
+    OptFlags flags = opt_flags_default();
 
-    flags.copy_propagation = false;
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, tl);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 3\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: g\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 3\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: g\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Label("fn") → Copy(3, g) → Return(ConstInt(0)); g is a global (not a local).
@@ -220,35 +220,35 @@ TEST_F(OptimizerTest, DeadStoreGlobalSurvivesWithFnContext)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *cp    = make_copy(make_const_int(3), make_var("g"));
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = cp;
-    cp->next    = ret;
+    entry->next            = cp;
+    cp->next               = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
-    const Tac_TopLevel *tl = make_fn_tl({});
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
+    const Tac_TopLevel *tl  = make_fn_tl({});
     Tac_Instruction *result = optimize_function(entry, flags, tl);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 3\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: g\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 3\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: g\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Counterpart: a named *local* (in the function's locals list) whose store is dead
@@ -258,25 +258,25 @@ TEST_F(OptimizerTest, DeadStoreLocalRemovedWithFnContext)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *cp    = make_copy(make_const_int(3), make_var("x"));
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = cp;
-    cp->next    = ret;
+    entry->next            = cp;
+    cp->next               = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
-    const Tac_TopLevel *tl = make_fn_tl({ "x" });
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
+    const Tac_TopLevel *tl  = make_fn_tl({ "x" });
     Tac_Instruction *result = optimize_function(entry, flags, tl);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Label("fn") → Copy(5, g) → FunCall("bar") → Return(ConstInt(0));  g is a static variable.
@@ -287,41 +287,41 @@ TEST_F(OptimizerTest, DeadStoreStaticBeforeFunCallSurvives)
     Tac_Instruction *cp    = make_copy(make_const_int(5), make_var("g"));
     Tac_Instruction *call  = make_fun_call("bar");
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = cp;
-    cp->next    = call;
-    call->next  = ret;
+    entry->next            = cp;
+    cp->next               = call;
+    call->next             = ret;
 
     // No locals → "g" is observable; its store before the call must survive.
     const Tac_TopLevel *tl = make_fn_tl({});
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, tl);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 5\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: g\n"
-        "- instruction:\n"
-        "  kind: fun_call\n"
-        "  fun_name: bar\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 5\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: g\n"
+              "- instruction:\n"
+              "  kind: fun_call\n"
+              "  fun_name: bar\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Label("fn") → Binary(ADD, a, b, t.0) → Unary(NEGATE, t.0, t.1) → Return(ConstInt(0))
@@ -329,30 +329,30 @@ TEST_F(OptimizerTest, DeadStoreStaticBeforeFunCallSurvives)
 TEST_F(OptimizerTest, DeadStoreCascade)
 {
     Tac_Instruction *entry = make_label("fn");
-    Tac_Instruction *bin   = make_binary(TAC_BINARY_ADD,
-                                         make_var("a"), make_var("b"), make_var("t.0"));
-    Tac_Instruction *un    = make_unary(TAC_UNARY_NEGATE, make_var("t.0"), make_var("t.1"));
-    Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = bin;
-    bin->next   = un;
-    un->next    = ret;
+    Tac_Instruction *bin =
+        make_binary(TAC_BINARY_ADD, make_var("a"), make_var("b"), make_var("t.0"));
+    Tac_Instruction *un  = make_unary(TAC_UNARY_NEGATE, make_var("t.0"), make_var("t.1"));
+    Tac_Instruction *ret = make_return(make_const_int(0));
+    entry->next          = bin;
+    bin->next            = un;
+    un->next             = ret;
 
-    OptFlags flags         = opt_flags_default();
+    OptFlags flags = opt_flags_default();
 
-    flags.copy_propagation = false;
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Label("fn") → Unary(NEGATE, a, t.0) → Return(ConstInt(0))
@@ -362,24 +362,24 @@ TEST_F(OptimizerTest, DeadStoreUnaryRemoved)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *un    = make_unary(TAC_UNARY_NEGATE, make_var("a"), make_var("t.0"));
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = un;
-    un->next    = ret;
+    entry->next            = un;
+    un->next               = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Label("fn") → SignExtend(x, t.0) → Return(ConstInt(0))
@@ -387,27 +387,27 @@ TEST_F(OptimizerTest, DeadStoreUnaryRemoved)
 TEST_F(OptimizerTest, DeadStoreConversionRemoved)
 {
     Tac_Instruction *entry = make_label("fn");
-    Tac_Instruction *conv  = make_conversion(TAC_INSTRUCTION_SIGN_EXTEND,
-                                             make_var("x"), make_var("t.0"));
-    Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = conv;
-    conv->next  = ret;
+    Tac_Instruction *conv =
+        make_conversion(TAC_INSTRUCTION_SIGN_EXTEND, make_var("x"), make_var("t.0"));
+    Tac_Instruction *ret = make_return(make_const_int(0));
+    entry->next          = conv;
+    conv->next           = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Label("fn") → SignExtend(x, t.0) → Return(t.0)
@@ -415,33 +415,33 @@ TEST_F(OptimizerTest, DeadStoreConversionRemoved)
 TEST_F(OptimizerTest, DeadStoreConversionSurvives)
 {
     Tac_Instruction *entry = make_label("fn");
-    Tac_Instruction *conv  = make_conversion(TAC_INSTRUCTION_SIGN_EXTEND,
-                                             make_var("x"), make_var("t.0"));
-    Tac_Instruction *ret   = make_return(make_var("t.0"));
-    entry->next = conv;
-    conv->next  = ret;
+    Tac_Instruction *conv =
+        make_conversion(TAC_INSTRUCTION_SIGN_EXTEND, make_var("x"), make_var("t.0"));
+    Tac_Instruction *ret = make_return(make_var("t.0"));
+    entry->next          = conv;
+    conv->next           = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: sign_extend\n"
-        "  src:\n"
-        "    kind: var\n"
-        "    name: x\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: t.0\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: var\n"
-        "    name: t.0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: sign_extend\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: x\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: t.0\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: t.0\n");
 }
 
 // Label("fn") → Load(ptr, t.0) → Return(ConstInt(0))
@@ -451,24 +451,24 @@ TEST_F(OptimizerTest, DeadStoreLoadRemoved)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *load  = make_load(make_var("ptr"), make_var("t.0"));
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = load;
-    load->next  = ret;
+    entry->next            = load;
+    load->next             = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Label("fn") → Load(ptr, t.0) → Return(t.0)
@@ -478,30 +478,30 @@ TEST_F(OptimizerTest, DeadStoreLoadSurvives)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *load  = make_load(make_var("ptr"), make_var("t.0"));
     Tac_Instruction *ret   = make_return(make_var("t.0"));
-    entry->next = load;
-    load->next  = ret;
+    entry->next            = load;
+    load->next             = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: load\n"
-        "  src_ptr:\n"
-        "    kind: var\n"
-        "    name: ptr\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: t.0\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: var\n"
-        "    name: t.0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: load\n"
+              "  src_ptr:\n"
+              "    kind: var\n"
+              "    name: ptr\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: t.0\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: t.0\n");
 }
 
 // Label("fn") → GetAddress(x, ptr) → Return(ConstInt(0))
@@ -511,24 +511,24 @@ TEST_F(OptimizerTest, DeadStoreGetAddressRemoved)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *ga    = make_get_address(make_var("x"), make_var("ptr"));
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = ga;
-    ga->next    = ret;
+    entry->next            = ga;
+    ga->next               = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Label("fn") → CopyToOffset(val, "s", 0) → Return(ConstInt(0))
@@ -538,31 +538,31 @@ TEST_F(OptimizerTest, DeadStoreCopyToOffsetNotRemoved)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *cto   = make_copy_to_offset(make_var("val"), "s", 0);
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = cto;
-    cto->next   = ret;
+    entry->next            = cto;
+    cto->next              = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: copy_to_offset\n"
-        "  src:\n"
-        "    kind: var\n"
-        "    name: val\n"
-        "  dst: s\n"
-        "  offset: 0\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: copy_to_offset\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: val\n"
+              "  dst: s\n"
+              "  offset: 0\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Label("fn") → GetAddress(x, ptr) → Copy(5, x) → Return(ConstInt(0))
@@ -574,35 +574,35 @@ TEST_F(OptimizerTest, DeadStoreAddressTakenSurvives)
     Tac_Instruction *ga    = make_get_address(make_var("x"), make_var("ptr"));
     Tac_Instruction *cp    = make_copy(make_const_int(5), make_var("x"));
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = ga;
-    ga->next    = cp;
-    cp->next    = ret;
+    entry->next            = ga;
+    ga->next               = cp;
+    cp->next               = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 5\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: x\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 5\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: x\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Label("fn") → Copy(1, t.0) → Copy(2, t.0) → Return(t.0)
@@ -614,33 +614,33 @@ TEST_F(OptimizerTest, DeadStoreDoubleOverwrite)
     Tac_Instruction *cp1   = make_copy(make_const_int(1), make_var("t.0"));
     Tac_Instruction *cp2   = make_copy(make_const_int(2), make_var("t.0"));
     Tac_Instruction *ret   = make_return(make_var("t.0"));
-    entry->next = cp1;
-    cp1->next   = cp2;
-    cp2->next   = ret;
+    entry->next            = cp1;
+    cp1->next              = cp2;
+    cp2->next              = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 2\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: t.0\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: var\n"
-        "    name: t.0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 2\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: t.0\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: t.0\n");
 }
 
 // Block 0: Label("fn") → Copy(5, t.0) → JIZ(cond, "B")
@@ -655,43 +655,43 @@ TEST_F(OptimizerTest, DeadStoreDeadInAllBranches)
     Tac_Instruction *ret1  = make_return(make_const_int(1));
     Tac_Instruction *lbl   = make_label("B");
     Tac_Instruction *ret0  = make_return(make_const_int(0));
-    entry->next = cp;
-    cp->next    = jiz;
-    jiz->next   = ret1;
-    ret1->next  = lbl;
-    lbl->next   = ret0;
+    entry->next            = cp;
+    cp->next               = jiz;
+    jiz->next              = ret1;
+    ret1->next             = lbl;
+    lbl->next              = ret0;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: jump_if_zero\n"
-        "  condition:\n"
-        "    kind: var\n"
-        "    name: cond\n"
-        "  target: B\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 1\n"
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: B\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: jump_if_zero\n"
+              "  condition:\n"
+              "    kind: var\n"
+              "    name: cond\n"
+              "  target: B\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 1\n"
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: B\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Block 0: Label("fn") → Copy(3, t.0) → Jump("use")
@@ -704,37 +704,37 @@ TEST_F(OptimizerTest, DeadStoreCrossBlockNotRemoved)
     Tac_Instruction *jmp   = make_jump("use");
     Tac_Instruction *lbl   = make_label("use");
     Tac_Instruction *ret   = make_return(make_var("t.0"));
-    entry->next = cp;
-    cp->next    = jmp;
-    jmp->next   = lbl;
-    lbl->next   = ret;
+    entry->next            = cp;
+    cp->next               = jmp;
+    jmp->next              = lbl;
+    lbl->next              = ret;
 
-    OptFlags flags         = opt_flags_default();
+    OptFlags flags = opt_flags_default();
 
-    flags.copy_propagation = false;
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     // unreachable_elim folds the trivial jump+label into a straight sequence;
     // the important check is that Copy(3, t.0) was NOT removed.
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 3\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: t.0\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: var\n"
-        "    name: t.0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 3\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: t.0\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: t.0\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -749,33 +749,33 @@ TEST_F(OptimizerTest, DeadStoreVolatileLoadSurvives)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *ld    = as_volatile(make_load(make_var("p"), make_var("t.0")));
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = ld;
-    ld->next    = ret;
+    entry->next            = ld;
+    ld->next               = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: load\n"
-        "  volatile: true\n"
-        "  src_ptr:\n"
-        "    kind: var\n"
-        "    name: p\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: t.0\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: load\n"
+              "  volatile: true\n"
+              "  src_ptr:\n"
+              "    kind: var\n"
+              "    name: p\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: t.0\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Control for the test above: the same Load WITHOUT the volatile flag is a dead
@@ -785,24 +785,24 @@ TEST_F(OptimizerTest, DeadStoreNonVolatileLoadRemoved)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *ld    = make_load(make_var("p"), make_var("t.0"));
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = ld;
-    ld->next    = ret;
+    entry->next            = ld;
+    ld->next               = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Label("fn") → Copy(5, x) [volatile] → Return(0)
@@ -813,35 +813,35 @@ TEST_F(OptimizerTest, DeadStoreVolatileCopySurvives)
     Tac_Instruction *entry = make_label("fn");
     Tac_Instruction *cp    = as_volatile(make_copy(make_const_int(5), make_var("x")));
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = cp;
-    cp->next    = ret;
+    entry->next            = cp;
+    cp->next               = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  volatile: true\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 5\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: x\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  volatile: true\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 5\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: x\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }
 
 // Two volatile writes to the same object: neither may be coalesced away. Without
@@ -852,45 +852,45 @@ TEST_F(OptimizerTest, DeadStoreVolatileDoubleWriteBothSurvive)
     Tac_Instruction *cp1   = as_volatile(make_copy(make_const_int(1), make_var("x")));
     Tac_Instruction *cp2   = as_volatile(make_copy(make_const_int(2), make_var("x")));
     Tac_Instruction *ret   = make_return(make_const_int(0));
-    entry->next = cp1;
-    cp1->next   = cp2;
-    cp2->next   = ret;
+    entry->next            = cp1;
+    cp1->next              = cp2;
+    cp2->next              = ret;
 
-    OptFlags flags         = opt_flags_default();
-    flags.copy_propagation = false;
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
     Tac_Instruction *result = optimize_function(entry, flags, nullptr);
 
     EXPECT_EQ(capture_instructions(result),
-        "- instruction:\n"
-        "  kind: label\n"
-        "  name: fn\n"
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  volatile: true\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 1\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: x\n"
-        "- instruction:\n"
-        "  kind: copy\n"
-        "  volatile: true\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 2\n"
-        "  dst:\n"
-        "    kind: var\n"
-        "    name: x\n"
-        "- instruction:\n"
-        "  kind: return\n"
-        "  src:\n"
-        "    kind: constant\n"
-        "    const:\n"
-        "      kind: int\n"
-        "      value: 0\n");
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  volatile: true\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 1\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: x\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  volatile: true\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 2\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: x\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
 }

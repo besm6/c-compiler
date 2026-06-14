@@ -18,44 +18,44 @@ static Tac_Val *make_var(const char *name)
 
 static Tac_Instruction *make_copy(const char *src, const char *dst)
 {
-    auto *i   = static_cast<Tac_Instruction *>(
+    auto *i = static_cast<Tac_Instruction *>(
         xalloc(sizeof(Tac_Instruction), __func__, __FILE__, __LINE__));
-    i->next        = nullptr;
-    i->kind        = TAC_INSTRUCTION_COPY;
-    i->u.copy.src  = make_var(src);
-    i->u.copy.dst  = make_var(dst);
+    i->next       = nullptr;
+    i->kind       = TAC_INSTRUCTION_COPY;
+    i->u.copy.src = make_var(src);
+    i->u.copy.dst = make_var(dst);
     return i;
 }
 
 static Tac_Instruction *make_return(const char *name)
 {
-    auto *i          = static_cast<Tac_Instruction *>(
+    auto *i = static_cast<Tac_Instruction *>(
         xalloc(sizeof(Tac_Instruction), __func__, __FILE__, __LINE__));
-    i->next           = nullptr;
-    i->kind           = TAC_INSTRUCTION_RETURN;
-    i->u.return_.src  = make_var(name);
+    i->next          = nullptr;
+    i->kind          = TAC_INSTRUCTION_RETURN;
+    i->u.return_.src = make_var(name);
     return i;
 }
 
 static Tac_Param *make_param(const char *name)
 {
-    auto *p  = static_cast<Tac_Param *>(xalloc(sizeof(Tac_Param), __func__, __FILE__, __LINE__));
-    p->next  = nullptr;
-    p->name  = xstrdup(name);
+    auto *p = static_cast<Tac_Param *>(xalloc(sizeof(Tac_Param), __func__, __FILE__, __LINE__));
+    p->next = nullptr;
+    p->name = xstrdup(name);
     return p;
 }
 
 // Build a Function toplevel node with given params and body.
 static Tac_TopLevel *make_fn(Tac_Param *params, Tac_Instruction *body)
 {
-    auto *tl = static_cast<Tac_TopLevel *>(
-        xalloc(sizeof(Tac_TopLevel), __func__, __FILE__, __LINE__));
-    tl->next                   = nullptr;
-    tl->kind                   = TAC_TOPLEVEL_FUNCTION;
-    tl->u.function.name        = xstrdup("test_fn");
-    tl->u.function.global      = false;
-    tl->u.function.params      = params;
-    tl->u.function.body        = body;
+    auto *tl =
+        static_cast<Tac_TopLevel *>(xalloc(sizeof(Tac_TopLevel), __func__, __FILE__, __LINE__));
+    tl->next              = nullptr;
+    tl->kind              = TAC_TOPLEVEL_FUNCTION;
+    tl->u.function.name   = xstrdup("test_fn");
+    tl->u.function.global = false;
+    tl->u.function.params = params;
+    tl->u.function.body   = body;
     return tl;
 }
 
@@ -115,16 +115,16 @@ static void free_fn(Tac_TopLevel *tl)
 // Frame-resident names carry the leading '%' the translator assigns.
 TEST(FrameTest, ParamsBeforeAutos)
 {
-    Tac_Param *px  = make_param("%x");
-    Tac_Param *py  = make_param("%y");
-    px->next       = py;
+    Tac_Param *px = make_param("%x");
+    Tac_Param *py = make_param("%y");
+    px->next      = py;
 
     Tac_Instruction *copy = make_copy("%x", "%t");
     Tac_Instruction *ret  = make_return("%t");
     copy->next            = ret;
 
     Tac_TopLevel *fn = make_fn(px, copy);
-    Frame *f = frame_build(fn, fn);
+    Frame *f         = frame_build(fn, fn);
 
     int reg, off;
 
@@ -154,7 +154,7 @@ TEST(FrameTest, NoParams)
     copy->next            = ret;
 
     Tac_TopLevel *fn = make_fn(nullptr, copy);
-    Frame *f = frame_build(fn, fn);
+    Frame *f         = frame_build(fn, fn);
 
     int reg, off;
 
@@ -176,7 +176,7 @@ TEST(FrameTest, NoParams)
 TEST(FrameTest, MissReturnsFalse)
 {
     Tac_TopLevel *fn = make_fn(nullptr, nullptr);
-    Frame *f = frame_build(fn, fn);
+    Frame *f         = frame_build(fn, fn);
 
     int reg = -1, off = -1;
     EXPECT_FALSE(frame_lookup(f, "nonexistent", &reg, &off));
@@ -195,7 +195,7 @@ TEST(FrameTest, NoDuplicateSlots)
     i1->next            = i2;
 
     Tac_TopLevel *fn = make_fn(nullptr, i1);
-    Frame *f = frame_build(fn, fn);
+    Frame *f         = frame_build(fn, fn);
 
     int rx, ox, ry, oy, rz, oz;
     ASSERT_TRUE(frame_lookup(f, "%x", &rx, &ox));

@@ -1,5 +1,6 @@
 #pragma once
 #include <stdbool.h>
+
 #include "tac.h"
 
 // Control-flow graph over a function's TAC body. A basic block is a maximal
@@ -11,16 +12,16 @@
 // `last` (the list is severed at block boundaries during cfg_build and rejoined
 // by cfg_flatten).
 typedef struct OptBlock {
-    int id;                    // index into OptCfg.blocks; block 0 is the entry
-    Tac_Instruction *first;    // first instruction (NULL once block is emptied)
-    Tac_Instruction *last;     // terminator / last instruction of the block
-    struct OptBlock **succs;   // successor blocks (edges out of this block)
-    int nsucc;                 // number of successors (0 = edge to Exit)
-    bool reachable;            // set by unreachable-code elimination's traversal
+    int id;                  // index into OptCfg.blocks; block 0 is the entry
+    Tac_Instruction *first;  // first instruction (NULL once block is emptied)
+    Tac_Instruction *last;   // terminator / last instruction of the block
+    struct OptBlock **succs; // successor blocks (edges out of this block)
+    int nsucc;               // number of successors (0 = edge to Exit)
+    bool reachable;          // set by unreachable-code elimination's traversal
 } OptBlock;
 
 typedef struct OptCfg {
-    OptBlock **blocks;         // blocks in original linear order; [0] is entry
+    OptBlock **blocks; // blocks in original linear order; [0] is entry
     int nblocks;
 } OptCfg;
 

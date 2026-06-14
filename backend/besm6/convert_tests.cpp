@@ -28,14 +28,14 @@ TEST_F(CodegenTest, TruncateToCharMadlen)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // unsigned char → unsigned: clear all but the low 8 bits (same sequence as truncate).
 TEST_F(CodegenTest, ZeroExtendFromUCharMadlen)
 {
-    std::string output =
-        CompileToMadlen("extern unsigned g; void foo(unsigned char a) { g = a; }");
+    std::string output = CompileToMadlen("extern unsigned g; void foo(unsigned char a) { g = a; }");
     EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
@@ -51,14 +51,14 @@ TEST_F(CodegenTest, ZeroExtendFromUCharMadlen)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // signed char → int: mask, flip the sign bit, subtract 0x80.
 TEST_F(CodegenTest, SignExtendFromSCharMadlen)
 {
-    std::string output =
-        CompileToMadlen("extern int g; void foo(signed char a) { g = a; }");
+    std::string output = CompileToMadlen("extern int g; void foo(signed char a) { g = a; }");
     EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
@@ -76,7 +76,8 @@ TEST_F(CodegenTest, SignExtendFromSCharMadlen)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // --- Runtime behaviour ------------------------------------------------------------

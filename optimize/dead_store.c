@@ -28,6 +28,7 @@
 // ============================================================================
 
 #include <stdbool.h>
+
 #include "alias.h"
 #include "cfg.h"
 #include "optimize.h"
@@ -41,7 +42,10 @@
 // receive only the value, not the key. Membership = the variable is live.
 // ============================================================================
 
-static void live_name_free(intptr_t v) { xfree((char *)v); }
+static void live_name_free(intptr_t v)
+{
+    xfree((char *)v);
+}
 
 static void live_set_destroy(StringMap *ls)
 {
@@ -51,7 +55,8 @@ static void live_set_destroy(StringMap *ls)
 // Skip insert when key already present (avoids duplicate xstrdup).
 static void live_add(StringMap *ls, const char *name)
 {
-    if (!name || map_get(ls, name, NULL)) return;
+    if (!name || map_get(ls, name, NULL))
+        return;
     const char *dup = xstrdup(name);
     map_insert(ls, dup, (intptr_t)dup, 0);
 }
@@ -64,9 +69,11 @@ static void live_add_val(StringMap *ls, const Tac_Val *v)
 
 static void live_remove(StringMap *ls, const char *name)
 {
-    if (!name) return;
+    if (!name)
+        return;
     intptr_t oval = 0;
-    if (!map_get(ls, name, &oval)) return;
+    if (!map_get(ls, name, &oval))
+        return;
     map_remove_key(ls, name);
     live_name_free(oval);
 }
@@ -75,7 +82,9 @@ static void live_remove(StringMap *ls, const char *name)
 // live_set_copy / live_set_union
 // ============================================================================
 
-typedef struct { StringMap *dst; } LiveCtx;
+typedef struct {
+    StringMap *dst;
+} LiveCtx;
 
 static void live_copy_cb(intptr_t value, const void *arg)
 {
@@ -102,24 +111,26 @@ static void live_set_union(StringMap *result, const StringMap *other)
 // ============================================================================
 
 typedef struct {
-    bool            *equal;
+    bool *equal;
     const StringMap *other;
 } LiveEqualCtx;
 
 static void live_equal_cb(intptr_t value, const void *arg)
 {
     const LiveEqualCtx *ctx = (const LiveEqualCtx *)arg;
-    if (!*ctx->equal) return;
+    if (!*ctx->equal)
+        return;
     if (!map_get((StringMap *)ctx->other, (const char *)value, NULL))
         *ctx->equal = false;
 }
 
 static bool live_set_equal(const StringMap *a, const StringMap *b)
 {
-    bool         eq  = true;
+    bool eq          = true;
     LiveEqualCtx ctx = { &eq, b };
     map_iterate((StringMap *)a, live_equal_cb, &ctx);
-    if (!eq) return false;
+    if (!eq)
+        return false;
     ctx.other = a;
     map_iterate((StringMap *)b, live_equal_cb, &ctx);
     return eq;
@@ -187,7 +198,7 @@ static const char *live_get_dst_name(const Tac_Instruction *ins)
             return ins->u.copy_from_offset.dst->u.var_name;
         return NULL;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
-        return ins->u.copy_to_offset.dst;  // char* directly
+        return ins->u.copy_to_offset.dst; // char* directly
     default:
         return NULL;
     }
@@ -201,8 +212,7 @@ static const char *live_get_dst_name(const Tac_Instruction *ins)
 // ============================================================================
 
 static void live_transfer_backward(StringMap *ls, const Tac_Instruction *ins,
-                                   const StringMap *static_names,
-                                   const StringMap *address_taken)
+                                   const StringMap *static_names, const StringMap *address_taken)
 {
     if (ins->kind == TAC_INSTRUCTION_FUN_CALL) {
         // Callee may read any static or address-taken variable.
@@ -272,7 +282,7 @@ static void live_transfer_backward(StringMap *ls, const Tac_Instruction *ins,
         live_add_val(ls, ins->u.copy_to_offset.src);
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
-        live_add(ls, ins->u.copy_from_offset.src);  // char*, not Tac_Val*
+        live_add(ls, ins->u.copy_from_offset.src); // char*, not Tac_Val*
         break;
     case TAC_INSTRUCTION_JUMP_IF_ZERO:
         live_add_val(ls, ins->u.jump_if_zero.condition);
@@ -338,7 +348,8 @@ static bool is_removable(Tac_InstructionKind kind)
 
 void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *fn)
 {
-    if (cfg->nblocks == 0) return;
+    if (cfg->nblocks == 0)
+        return;
 
     // Stage 1: variables that must be treated as live across calls / at exit.
     StringMap static_names, address_taken;
@@ -349,19 +360,17 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *fn)
 
     // Build per-block instruction pointer arrays once (blocks are immutable
     // during analysis; avoids repeated allocation inside the fixpoint loop).
-    int                  *block_nins  = xalloc(n * sizeof(int),
-                                              __func__, __FILE__, __LINE__);
-    Tac_Instruction    ***block_insts = xalloc(n * sizeof(Tac_Instruction **),
-                                              __func__, __FILE__, __LINE__);
+    int *block_nins = xalloc(n * sizeof(int), __func__, __FILE__, __LINE__);
+    Tac_Instruction ***block_insts =
+        xalloc(n * sizeof(Tac_Instruction **), __func__, __FILE__, __LINE__);
     for (int i = 0; i < n; i++) {
         OptBlock *b = cfg->blocks[i];
-        int cnt = 0;
+        int cnt     = 0;
         for (const Tac_Instruction *ins = b->first; ins; ins = ins->next)
             cnt++;
-        block_nins[i]  = cnt;
-        block_insts[i] = cnt
-            ? xalloc(cnt * sizeof(Tac_Instruction *), __func__, __FILE__, __LINE__)
-            : NULL;
+        block_nins[i] = cnt;
+        block_insts[i] =
+            cnt ? xalloc(cnt * sizeof(Tac_Instruction *), __func__, __FILE__, __LINE__) : NULL;
         int k = 0;
         for (Tac_Instruction *ins = b->first; ins; ins = ins->next)
             block_insts[i][k++] = ins;
@@ -379,7 +388,7 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *fn)
     // visiting blocks in descending order (a backward analysis converges faster
     // bottom-up), until no in-set changes.
     bool changed = true;
-    int ds_iter = 0;
+    int ds_iter  = 0;
     while (changed) {
         changed = false;
         ds_iter++;
@@ -396,7 +405,8 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *fn)
                 live_set_union(&new_out, &in_sets[b->succs[j]->id]);
             // Exit block (no successors): seed with variables observable after return.
             if (b->nsucc == 0) {
-                OPT_TRACE("[dead-store] block %d is exit: seeding live with static+address-taken\n", i);
+                OPT_TRACE("[dead-store] block %d is exit: seeding live with static+address-taken\n",
+                          i);
                 live_set_union(&new_out, &static_names);
                 live_set_union(&new_out, &address_taken);
             }
@@ -406,8 +416,7 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *fn)
             map_init(&new_in);
             live_set_copy(&new_in, &new_out);
             for (int j = block_nins[i] - 1; j >= 0; j--)
-                live_transfer_backward(&new_in, block_insts[i][j],
-                                       &static_names, &address_taken);
+                live_transfer_backward(&new_in, block_insts[i][j], &static_names, &address_taken);
 
             if (!live_set_equal(&new_in, &in_sets[i])) {
                 OPT_TRACE("[dead-store] block %d in-set changed\n", i);
@@ -427,9 +436,10 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *fn)
     // Backward order lets a single pass cascade: when a dead instruction is
     // removed its sources are not added to live, making earlier defs candidates too.
     for (int i = 0; i < n; i++) {
-        OptBlock *b   = cfg->blocks[i];
-        int       nins = block_nins[i];
-        if (!b->reachable || nins == 0) continue;
+        OptBlock *b = cfg->blocks[i];
+        int nins    = block_nins[i];
+        if (!b->reachable || nins == 0)
+            continue;
 
         StringMap live;
         map_init(&live);
@@ -437,13 +447,12 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *fn)
 
         for (int j = nins - 1; j >= 0; j--) {
             Tac_Instruction *ins = block_insts[i][j];
-            const char *dst = live_get_dst_name(ins);
+            const char *dst      = live_get_dst_name(ins);
             // Dead store: defines a variable that is not live afterward, and is a
             // pure instruction we may drop. Unlink and free it (and do NOT run
             // the transfer, so its sources are not revived — that is what lets
             // chains of dead defs collapse in this single backward pass).
-            if (dst && is_removable(ins->kind) && !ins->is_volatile &&
-                !map_get(&live, dst, NULL)) {
+            if (dst && is_removable(ins->kind) && !ins->is_volatile && !map_get(&live, dst, NULL)) {
                 OPT_TRACE("[dead-store] block %d: dst '%s' is dead", i, dst);
                 opt_trace_instr(" removing:", ins);
                 Tac_Instruction *prev = (j > 0) ? block_insts[i][j - 1] : NULL;

@@ -13,8 +13,8 @@
 
 static bool is_unsigned_type(const Type *t)
 {
-    return t->kind == TYPE_UCHAR || t->kind == TYPE_UINT ||
-           t->kind == TYPE_ULONG || t->kind == TYPE_ULONG_LONG;
+    return t->kind == TYPE_UCHAR || t->kind == TYPE_UINT || t->kind == TYPE_ULONG ||
+           t->kind == TYPE_ULONG_LONG;
 }
 
 static bool is_floating_type(const Type *t)
@@ -160,15 +160,15 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         return val_var(dst->u.var_name);
     }
     case EXPR_PTR_ACCESS: {
-        Expr *ptr_expr   = e->u.ptr_access.expr;
-        Tac_Val *ptr_val = gen_expr(ctx, ptr_expr);
-        int offset       = e->u.ptr_access.offset;
-        Tac_Val *dst     = new_var_val(ctx);
-        Tac_Instruction *ap     = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
-        ap->u.add_ptr.ptr       = ptr_val;
-        ap->u.add_ptr.index     = val_int(offset);
-        ap->u.add_ptr.scale     = 1;
-        ap->u.add_ptr.dst       = dst;
+        Expr *ptr_expr      = e->u.ptr_access.expr;
+        Tac_Val *ptr_val    = gen_expr(ctx, ptr_expr);
+        int offset          = e->u.ptr_access.offset;
+        Tac_Val *dst        = new_var_val(ctx);
+        Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
+        ap->u.add_ptr.ptr   = ptr_val;
+        ap->u.add_ptr.index = val_int(offset);
+        ap->u.add_ptr.scale = 1;
+        ap->u.add_ptr.dst   = dst;
         tac_append(ctx, ap);
         return val_var(dst->u.var_name);
     }
@@ -331,7 +331,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             char *decoded_str = decode_c_string_literal(e->u.literal->u.string_val);
             const char *sname = symtab_add_string(decoded_str);
             xfree(decoded_str);
-            Symbol *sym       = symtab_get(sname);
+            Symbol *sym = symtab_get(sname);
 
             Tac_TopLevel *sc           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
             sc->u.static_constant.name = xstrdup(sname);
@@ -438,7 +438,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         Tac_Val *src = gen_expr(ctx, e->u.assign.value);
         if (target->kind == EXPR_VAR) {
             const char *dst = target->u.var;
-            bool vol = type_is_volatile(target->type);
+            bool vol        = type_is_volatile(target->type);
             if (e->u.assign.op == ASSIGN_SIMPLE) {
                 Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
                 in->is_volatile     = vol;
@@ -448,10 +448,10 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             } else {
                 Tac_Val *vd          = new_var_val(ctx);
                 Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-                bin->u.binary.op     = map_assign_op(e->u.assign.op, is_unsigned_type(target->type));
-                bin->u.binary.src1   = val_var(dst);
-                bin->u.binary.src2   = src;
-                bin->u.binary.dst    = vd;
+                bin->u.binary.op   = map_assign_op(e->u.assign.op, is_unsigned_type(target->type));
+                bin->u.binary.src1 = val_var(dst);
+                bin->u.binary.src2 = src;
+                bin->u.binary.dst  = vd;
                 tac_append(ctx, bin);
                 Tac_Instruction *cp = tac_new_instruction(TAC_INSTRUCTION_COPY);
                 cp->is_volatile     = vol;
@@ -463,11 +463,11 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         } else if (target->kind == EXPR_FIELD_ACCESS &&
                    target->u.field_access.expr->kind == EXPR_VAR &&
                    e->u.assign.op == ASSIGN_SIMPLE) {
-            const char *var_name = target->u.field_access.expr->u.var;
-            int offset       = target->u.field_access.offset;
+            const char *var_name        = target->u.field_access.expr->u.var;
+            int offset                  = target->u.field_access.offset;
             Tac_Instruction *in         = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
             in->is_volatile             = type_is_volatile(target->type) ||
-                                  type_is_volatile(target->u.field_access.expr->type);
+                                          type_is_volatile(target->u.field_access.expr->type);
             in->u.copy_to_offset.src    = src;
             in->u.copy_to_offset.dst    = xstrdup(var_name);
             in->u.copy_to_offset.offset = offset;
@@ -492,10 +492,10 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 tac_append(ctx, ld);
                 Tac_Val *result      = new_var_val(ctx);
                 Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-                bin->u.binary.op     = map_assign_op(e->u.assign.op, is_unsigned_type(target->type));
-                bin->u.binary.src1   = val_var(loaded->u.var_name);
-                bin->u.binary.src2   = src;
-                bin->u.binary.dst    = result;
+                bin->u.binary.op   = map_assign_op(e->u.assign.op, is_unsigned_type(target->type));
+                bin->u.binary.src1 = val_var(loaded->u.var_name);
+                bin->u.binary.src2 = src;
+                bin->u.binary.dst  = result;
                 tac_append(ctx, bin);
                 Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
                 st->is_volatile     = vol;
@@ -550,9 +550,9 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             args_tail   = &av->next;
         }
 
-        Expr       *func    = e->u.call.func;
+        Expr *func = e->u.call.func;
         const char *fun_name;
-        Tac_Val    *fn_ptr  = NULL;
+        Tac_Val *fn_ptr = NULL;
         if (func->kind == EXPR_VAR) {
             fun_name = func->u.var;
         } else {
@@ -560,9 +560,8 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             // decays to a function pointer; strip the DEREF so we use the
             // pointer variable directly rather than emitting a LOAD from it.
             Expr *callee = func;
-            if (callee->kind == EXPR_UNARY_OP
-                && callee->u.unary_op.op == UNARY_DEREF
-                && callee->type->kind == TYPE_FUNCTION)
+            if (callee->kind == EXPR_UNARY_OP && callee->u.unary_op.op == UNARY_DEREF &&
+                callee->type->kind == TYPE_FUNCTION)
                 callee = callee->u.unary_op.expr;
             fn_ptr   = gen_expr(ctx, callee);
             fun_name = fn_ptr->u.var_name;
@@ -651,10 +650,10 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         const Expr *base = e->u.field_access.expr;
         int offset       = e->u.field_access.offset;
         if (base->kind == EXPR_VAR) {
-            Tac_Val *dst                  = new_var_val(ctx);
-            Tac_Instruction *in           = tac_new_instruction(TAC_INSTRUCTION_COPY_FROM_OFFSET);
-            in->is_volatile               = type_is_volatile(e->type) || type_is_volatile(base->type);
-            in->u.copy_from_offset.src    = xstrdup(base->u.var);
+            Tac_Val *dst               = new_var_val(ctx);
+            Tac_Instruction *in        = tac_new_instruction(TAC_INSTRUCTION_COPY_FROM_OFFSET);
+            in->is_volatile            = type_is_volatile(e->type) || type_is_volatile(base->type);
+            in->u.copy_from_offset.src = xstrdup(base->u.var);
             in->u.copy_from_offset.offset = offset;
             in->u.copy_from_offset.dst    = dst;
             tac_append(ctx, in);
@@ -682,9 +681,8 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
     }
     case EXPR_GENERIC: {
         GenericAssoc *match = e->u.generic.associations;
-        Expr *match_expr    = (match->kind == GENERIC_ASSOC_TYPE)
-                                  ? match->u.type_assoc.expr
-                                  : match->u.default_assoc;
+        Expr *match_expr =
+            (match->kind == GENERIC_ASSOC_TYPE) ? match->u.type_assoc.expr : match->u.default_assoc;
         return gen_expr(ctx, match_expr);
     }
     case EXPR_COMPOUND: {

@@ -38,7 +38,8 @@ TEST_F(CodegenTest, NegateSignedIntMadlen)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Unsigned negate: -5u is the 48-bit modular complement, printed in octal.
@@ -73,7 +74,8 @@ TEST_F(CodegenTest, NegateUnsignedMadlen)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Double negate: flips the FP sign bit.  No %f runtime yet, so the result word is
@@ -112,7 +114,8 @@ TEST_F(CodegenTest, NegateDoubleMadlen)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Unary complement (~), part of task #6.  The sequence is uniform for int and
@@ -165,7 +168,8 @@ TEST_F(CodegenTest, ComplementMadlen)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Unary logical not (!), part of task #6.  Lowers to the b/not runtime helper, which
@@ -204,5 +208,6 @@ TEST_F(CodegenTest, LogicalNotMadlen)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }

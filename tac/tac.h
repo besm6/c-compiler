@@ -307,9 +307,9 @@ typedef struct Tac_Instruction {
             Tac_Val *dst;
         } fun_call;
         struct {
-            char *name;     // frame-resident local aggregate name
-            int size;       // slot size in target bytes
-            int alignment;  // slot alignment in target bytes
+            char *name;    // frame-resident local aggregate name
+            int size;      // slot size in target bytes
+            int alignment; // slot alignment in target bytes
         } allocate_local;
     } u;
 } Tac_Instruction;

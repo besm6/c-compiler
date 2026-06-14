@@ -47,117 +47,208 @@ static unsigned char unicode_to_koi7(unsigned short val)
         return tab0[val];
     case 0x04:
         switch ((unsigned char)val) {
-        case 0x01: return 'E'; // Ë
-        case 0x04: return 'E'; // Ukrainian Є
-        case 0x06: return 'I'; // Ukrainian І
-        case 0x07: return 'I'; // Ukrainian Ї
-        case 0x10: return 'A'; // А
-        case 0x11: return 0x62; // Б
-        case 0x12: return 'B'; // В
-        case 0x13: return 0x67; // Г
-        case 0x14: return 0x64; // Д
-        case 0x15: return 'E'; // Е
-        case 0x16: return 0x76; // Ж
-        case 0x17: return 0x7a; // З
-        case 0x18: return 0x69; // И
-        case 0x19: return 0x6a; // Й
-        case 0x1a: return 'K'; // К
-        case 0x1b: return 0x6c; // Л
-        case 0x1c: return 'M'; // М
-        case 0x1d: return 'H'; // Н
-        case 0x1e: return 'O'; // О
-        case 0x1f: return 0x70; // П
-        case 0x20: return 'P'; // Р
-        case 0x21: return 'C'; // С
-        case 0x22: return 'T'; // Т
-        case 0x23: return 'Y'; // У
-        case 0x24: return 0x66; // Ф
-        case 0x25: return 'X'; // Х
-        case 0x26: return 0x63; // Ц
-        case 0x27: return 0x7e; // Ч
-        case 0x28: return 0x7b; // Ш
-        case 0x29: return 0x7d; // Щ
-        case 0x2a: return 0x05; // Ъ
-        case 0x2b: return 0x79; // Ы
-        case 0x2c: return 0x78; // Ь
-        case 0x2d: return 0x7c; // Э
-        case 0x2e: return 0x60; // Ю
-        case 0x2f: return 0x71; // Я
-        case 0x30: return 'A'; // а
-        case 0x31: return 0x62; // б
-        case 0x32: return 'B'; // в
-        case 0x33: return 0x67; // г
-        case 0x34: return 0x64; // д
-        case 0x35: return 'E'; // е
-        case 0x36: return 0x76; // ж
-        case 0x37: return 0x7a; // з
-        case 0x38: return 0x69; // и
-        case 0x39: return 0x6a; // й
-        case 0x3a: return 'K'; // к
-        case 0x3b: return 0x6c; // л
-        case 0x3c: return 'M'; // м
-        case 0x3d: return 'H'; // н
-        case 0x3e: return 'O'; // о
-        case 0x3f: return 0x70; // п
-        case 0x40: return 'P'; // р
-        case 0x41: return 'C'; // с
-        case 0x42: return 'T'; // т
-        case 0x43: return 'Y'; // у
-        case 0x44: return 0x66; // ф
-        case 0x45: return 'X'; // х
-        case 0x46: return 0x63; // ц
-        case 0x47: return 0x7e; // ч
-        case 0x48: return 0x7b; // ш
-        case 0x49: return 0x7d; // щ
-        case 0x4a: return 0x05; // ъ
-        case 0x4b: return 0x79; // ы
-        case 0x4c: return 0x78; // ь
-        case 0x4d: return 0x7c; // э
-        case 0x4e: return 0x60; // ю
-        case 0x4f: return 0x71; // я
-        case 0x51: return 'E'; // ё
-        case 0x54: return 'E'; // Ukrainian є
-        case 0x56: return 'I'; // Ukrainian і
-        case 0x57: return 'I'; // Ukrainian ї
-        case 0x90: return 0x67; // Ukrainian Ґ
-        case 0x91: return 0x67; // Ukrainian ґ
+        case 0x01:
+            return 'E'; // Ë
+        case 0x04:
+            return 'E'; // Ukrainian Є
+        case 0x06:
+            return 'I'; // Ukrainian І
+        case 0x07:
+            return 'I'; // Ukrainian Ї
+        case 0x10:
+            return 'A'; // А
+        case 0x11:
+            return 0x62; // Б
+        case 0x12:
+            return 'B'; // В
+        case 0x13:
+            return 0x67; // Г
+        case 0x14:
+            return 0x64; // Д
+        case 0x15:
+            return 'E'; // Е
+        case 0x16:
+            return 0x76; // Ж
+        case 0x17:
+            return 0x7a; // З
+        case 0x18:
+            return 0x69; // И
+        case 0x19:
+            return 0x6a; // Й
+        case 0x1a:
+            return 'K'; // К
+        case 0x1b:
+            return 0x6c; // Л
+        case 0x1c:
+            return 'M'; // М
+        case 0x1d:
+            return 'H'; // Н
+        case 0x1e:
+            return 'O'; // О
+        case 0x1f:
+            return 0x70; // П
+        case 0x20:
+            return 'P'; // Р
+        case 0x21:
+            return 'C'; // С
+        case 0x22:
+            return 'T'; // Т
+        case 0x23:
+            return 'Y'; // У
+        case 0x24:
+            return 0x66; // Ф
+        case 0x25:
+            return 'X'; // Х
+        case 0x26:
+            return 0x63; // Ц
+        case 0x27:
+            return 0x7e; // Ч
+        case 0x28:
+            return 0x7b; // Ш
+        case 0x29:
+            return 0x7d; // Щ
+        case 0x2a:
+            return 0x05; // Ъ
+        case 0x2b:
+            return 0x79; // Ы
+        case 0x2c:
+            return 0x78; // Ь
+        case 0x2d:
+            return 0x7c; // Э
+        case 0x2e:
+            return 0x60; // Ю
+        case 0x2f:
+            return 0x71; // Я
+        case 0x30:
+            return 'A'; // а
+        case 0x31:
+            return 0x62; // б
+        case 0x32:
+            return 'B'; // в
+        case 0x33:
+            return 0x67; // г
+        case 0x34:
+            return 0x64; // д
+        case 0x35:
+            return 'E'; // е
+        case 0x36:
+            return 0x76; // ж
+        case 0x37:
+            return 0x7a; // з
+        case 0x38:
+            return 0x69; // и
+        case 0x39:
+            return 0x6a; // й
+        case 0x3a:
+            return 'K'; // к
+        case 0x3b:
+            return 0x6c; // л
+        case 0x3c:
+            return 'M'; // м
+        case 0x3d:
+            return 'H'; // н
+        case 0x3e:
+            return 'O'; // о
+        case 0x3f:
+            return 0x70; // п
+        case 0x40:
+            return 'P'; // р
+        case 0x41:
+            return 'C'; // с
+        case 0x42:
+            return 'T'; // т
+        case 0x43:
+            return 'Y'; // у
+        case 0x44:
+            return 0x66; // ф
+        case 0x45:
+            return 'X'; // х
+        case 0x46:
+            return 0x63; // ц
+        case 0x47:
+            return 0x7e; // ч
+        case 0x48:
+            return 0x7b; // ш
+        case 0x49:
+            return 0x7d; // щ
+        case 0x4a:
+            return 0x05; // ъ
+        case 0x4b:
+            return 0x79; // ы
+        case 0x4c:
+            return 0x78; // ь
+        case 0x4d:
+            return 0x7c; // э
+        case 0x4e:
+            return 0x60; // ю
+        case 0x4f:
+            return 0x71; // я
+        case 0x51:
+            return 'E'; // ё
+        case 0x54:
+            return 'E'; // Ukrainian є
+        case 0x56:
+            return 'I'; // Ukrainian і
+        case 0x57:
+            return 'I'; // Ukrainian ї
+        case 0x90:
+            return 0x67; // Ukrainian Ґ
+        case 0x91:
+            return 0x67; // Ukrainian ґ
         }
         break;
     case 0x20:
         switch ((unsigned char)val) {
-        case 0x15: return '\25'; // ―
-        case 0x18: return '\20'; // '
-        case 0x19: return '\33'; // '
-        case 0x28: return 0x0a;
-        case 0x32: return '\'';
-        case 0x3e: return '\\';
+        case 0x15:
+            return '\25'; // ―
+        case 0x18:
+            return '\20'; // '
+        case 0x19:
+            return '\33'; // '
+        case 0x28:
+            return 0x0a;
+        case 0x32:
+            return '\'';
+        case 0x3e:
+            return '\\';
         }
         break;
     case 0x21:
         switch ((unsigned char)val) {
-        case 0x2f: return 'E';
-        case 0x91: return '\26'; // ↑
+        case 0x2f:
+            return 'E';
+        case 0x91:
+            return '\26'; // ↑
         }
         break;
     case 0x22:
         switch ((unsigned char)val) {
-        case 0x27: return '&';  // ∧
-        case 0x28: return '\36'; // ∨
-        case 0x60: return '\30'; // ≠
-        case 0x61: return '\35'; // ≡
-        case 0x64: return '\16'; // ≤
-        case 0x65: return '\17'; // ≥
-        case 0x83: return '\34'; // ⊃
+        case 0x27:
+            return '&'; // ∧
+        case 0x28:
+            return '\36'; // ∨
+        case 0x60:
+            return '\30'; // ≠
+        case 0x61:
+            return '\35'; // ≡
+        case 0x64:
+            return '\16'; // ≤
+        case 0x65:
+            return '\17'; // ≥
+        case 0x83:
+            return '\34'; // ⊃
         }
         break;
     case 0x23:
         switch ((unsigned char)val) {
-        case 0xe8: return '\27'; // ⏨
+        case 0xe8:
+            return '\27'; // ⏨
         }
         break;
     case 0x25:
         switch ((unsigned char)val) {
-        case 0xc7: return '$';
+        case 0xc7:
+            return '$';
         }
         break;
     }
@@ -198,8 +289,7 @@ void utf8_to_koi7(const char *src, char *dst)
             break;
         }
         // Three-byte sequence: 16-bit codepoint.
-        *dst++ = unicode_to_koi7(
-            (unsigned short)((a & 0x0f) << 12 | (b & 0x3f) << 6 | (c & 0x3f)));
+        *dst++ = unicode_to_koi7((unsigned short)((a & 0x0f) << 12 | (b & 0x3f) << 6 | (c & 0x3f)));
     }
     *dst = 0;
 }

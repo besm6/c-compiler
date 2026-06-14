@@ -36,8 +36,7 @@ Besm_DataSection *besm_new_data_section(Besm_SectionKind kind)
 
 Besm_Module *besm_new_module(const char *name)
 {
-    Besm_Module *module =
-        (Besm_Module *)xalloc(sizeof(Besm_Module), __func__, __FILE__, __LINE__);
+    Besm_Module *module = (Besm_Module *)xalloc(sizeof(Besm_Module), __func__, __FILE__, __LINE__);
     if (name) {
         module->name = xstrdup(name);
     }

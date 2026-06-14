@@ -39,7 +39,7 @@ static inline int codegen_sizeof(const Tac_Type *t)
     case TAC_TYPE_POINTER:
         return 1;
     case TAC_TYPE_ARRAY:
-        if (t->u.array.elem_type->kind == TAC_TYPE_CHAR  ||
+        if (t->u.array.elem_type->kind == TAC_TYPE_CHAR ||
             t->u.array.elem_type->kind == TAC_TYPE_SCHAR ||
             t->u.array.elem_type->kind == TAC_TYPE_UCHAR)
             return (t->u.array.size + 5) / 6;
@@ -65,9 +65,9 @@ static inline int codegen_alignof(const Tac_Type *t)
 //   bits 40-1  (mantissa)       = 40-bit two's-complement representation of V
 // Range: BESM_INT_MIN .. BESM_INT_MAX
 //
-#define BESM_INT_EXP  0150              // octal; exponent field for INT-format words
-#define BESM_INT_MAX  ((1LL << 40) - 1) // +2^40 - 1
-#define BESM_INT_MIN  (-(1LL << 40) + 1) // -(2^40 - 1)
+#define BESM_INT_EXP 0150               // octal; exponent field for INT-format words
+#define BESM_INT_MAX ((1LL << 40) - 1)  // +2^40 - 1
+#define BESM_INT_MIN (-(1LL << 40) + 1) // -(2^40 - 1)
 
 //
 // Calling convention register assignments (Dubna C ABI).
@@ -80,11 +80,11 @@ static inline int codegen_alignof(const Tac_Type *t)
 // b/save and b/ret are external Madlen routines; the backend declares them
 // with ",CALL, b/save" and ",CALL, b/ret" — it does not emit their bodies.
 //
-#define REG_AUTO  7   // auto-variable pointer (set by b/save)
-#define REG_PAR   6   // parameter pointer (set by b/save)
-#define REG_CNT   14  // negative argument count (set by caller)
-#define REG_RET   13  // return address (set by caller via VJM)
-#define REG_SP    15  // stack pointer (grows toward higher addresses)
+#define REG_AUTO 7  // auto-variable pointer (set by b/save)
+#define REG_PAR  6  // parameter pointer (set by b/save)
+#define REG_CNT  14 // negative argument count (set by caller)
+#define REG_RET  13 // return address (set by caller via VJM)
+#define REG_SP   15 // stack pointer (grows toward higher addresses)
 
 #ifdef __cplusplus
 }

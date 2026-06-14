@@ -591,8 +591,7 @@ TEST_F(TranslateTest, LocalStructCompoundInit)
 // int arr[3] = {10, 20, 30}; emits three COPY_TO_OFFSET instructions.
 TEST_F(TranslateTest, LocalArrayCompoundInit)
 {
-    std::string yaml = CompileToYaml(
-        "void f(void) { int arr[3] = {10, 20, 30}; }");
+    std::string yaml = CompileToYaml("void f(void) { int arr[3] = {10, 20, 30}; }");
     EXPECT_EQ(yaml, R"(- toplevel:
   kind: function
   name: f

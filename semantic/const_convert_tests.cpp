@@ -250,11 +250,11 @@ TEST_F(ConstConvertTest, StructTypeDies)
 
 TEST_F(ConstConvertTest, StringLiteralDies)
 {
-    char    str[]    = "test";
+    char str[]       = "test";
     Literal lit      = {};
     lit.kind         = LITERAL_STRING;
     lit.u.string_val = str;
-    auto type = make_type(TYPE_INT);
+    auto type        = make_type(TYPE_INT);
     EXPECT_DEATH(new_static_init_from_literal(&type, &lit), "Cannot convert string");
 }
 

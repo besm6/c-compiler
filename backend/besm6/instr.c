@@ -15,8 +15,7 @@
 static int member_word_offset(int byte_offset)
 {
     if (byte_offset % BESM6_WORD_BYTES != 0)
-        fatal_error("CopyTo/FromOffset: sub-word offset %d (char member — task #21)",
-                    byte_offset);
+        fatal_error("CopyTo/FromOffset: sub-word offset %d (char member — task #21)", byte_offset);
     return byte_offset / BESM6_WORD_BYTES;
 }
 
@@ -37,9 +36,8 @@ static int member_word_offset(int byte_offset)
 //   ,call, helper   — helper pops a (r15 -= 1); result in A
 //   reg ,ATX, off   — store result into dst's frame slot
 //
-static void emit_binop_helper(Besm_Block *b, Besm_Instr **t, const Frame *f,
-                              const Tac_Val *src1, const Tac_Val *src2,
-                              const char *helper, int dr, int doff)
+static void emit_binop_helper(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *src1,
+                              const Tac_Val *src2, const char *helper, int dr, int doff)
 {
     emit_xta_val(b, t, f, src1);
     emit_xts_val(b, t, f, src2);
@@ -52,14 +50,22 @@ static void emit_binop_helper(Besm_Block *b, Besm_Instr **t, const Frame *f,
 static long tac_const_int(const Tac_Const *c)
 {
     switch (c->kind) {
-    case TAC_CONST_INT:        return c->u.int_val;
-    case TAC_CONST_LONG:       return (long)c->u.long_val;
-    case TAC_CONST_LONG_LONG:  return (long)c->u.long_long_val;
-    case TAC_CONST_CHAR:       return c->u.char_val;
-    case TAC_CONST_UINT:       return (long)c->u.uint_val;
-    case TAC_CONST_ULONG:      return (long)c->u.ulong_val;
-    case TAC_CONST_ULONG_LONG: return (long)c->u.ulong_long_val;
-    case TAC_CONST_UCHAR:      return c->u.uchar_val;
+    case TAC_CONST_INT:
+        return c->u.int_val;
+    case TAC_CONST_LONG:
+        return (long)c->u.long_val;
+    case TAC_CONST_LONG_LONG:
+        return (long)c->u.long_long_val;
+    case TAC_CONST_CHAR:
+        return c->u.char_val;
+    case TAC_CONST_UINT:
+        return (long)c->u.uint_val;
+    case TAC_CONST_ULONG:
+        return (long)c->u.ulong_val;
+    case TAC_CONST_ULONG_LONG:
+        return (long)c->u.ulong_long_val;
+    case TAC_CONST_UCHAR:
+        return c->u.uchar_val;
     default:
         fatal_error("non-integer constant kind %d as shift count", (int)c->kind);
     }
@@ -74,13 +80,12 @@ static long tac_const_int(const Tac_Const *c)
 //   - Constant count k: load the value, then a single ASN with the computed field.
 //   - Variable count: runtime-helper convention (value on stack top, count in A) — call
 //     b/lsh / b/rsh, which leave the result in A and pop the value.
-static void emit_shift(Besm_Block *b, Besm_Instr **t, const Frame *f,
-                       const Tac_Val *src1, const Tac_Val *src2,
-                       bool left, int dr, int doff)
+static void emit_shift(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *src1,
+                       const Tac_Val *src2, bool left, int dr, int doff)
 {
     emit_xta_val(b, t, f, src1);
     if (src2->kind == TAC_VAL_CONSTANT) {
-        long k = tac_const_int(src2->u.constant);
+        long k          = tac_const_int(src2->u.constant);
         Besm_Instr *asn = emit(b, t, BESM_EXP_SHIFTN);
         asn->addr       = (int)(left ? 64 - k : 64 + k);
     } else {
@@ -103,8 +108,8 @@ static bool global_is_array(const Tac_TopLevel *program, const char *name)
     return false;
 }
 
-void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr,
-                   const Frame *f, Besm_Block *block, Besm_Instr **tail)
+void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, const Frame *f,
+                   Besm_Block *block, Besm_Instr **tail)
 {
     switch (instr->kind) {
     // COPY  dst = src
@@ -329,17 +334,38 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr,
         // are signedness-independent.
         const char *cmp_helper = NULL;
         switch (instr->u.binary.op) {
-        case TAC_BINARY_EQUAL:                     cmp_helper = "b/eq"; break;
-        case TAC_BINARY_NOT_EQUAL:                 cmp_helper = "b/ne"; break;
-        case TAC_BINARY_LESS_THAN:                 cmp_helper = "b/lt"; break;
-        case TAC_BINARY_LESS_OR_EQUAL:             cmp_helper = "b/le"; break;
-        case TAC_BINARY_GREATER_THAN:              cmp_helper = "b/gt"; break;
-        case TAC_BINARY_GREATER_OR_EQUAL:          cmp_helper = "b/ge"; break;
-        case TAC_BINARY_LESS_THAN_UNSIGNED:        cmp_helper = "b/ult"; break;
-        case TAC_BINARY_LESS_OR_EQUAL_UNSIGNED:    cmp_helper = "b/ule"; break;
-        case TAC_BINARY_GREATER_THAN_UNSIGNED:     cmp_helper = "b/ugt"; break;
-        case TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED: cmp_helper = "b/uge"; break;
-        default: break;
+        case TAC_BINARY_EQUAL:
+            cmp_helper = "b/eq";
+            break;
+        case TAC_BINARY_NOT_EQUAL:
+            cmp_helper = "b/ne";
+            break;
+        case TAC_BINARY_LESS_THAN:
+            cmp_helper = "b/lt";
+            break;
+        case TAC_BINARY_LESS_OR_EQUAL:
+            cmp_helper = "b/le";
+            break;
+        case TAC_BINARY_GREATER_THAN:
+            cmp_helper = "b/gt";
+            break;
+        case TAC_BINARY_GREATER_OR_EQUAL:
+            cmp_helper = "b/ge";
+            break;
+        case TAC_BINARY_LESS_THAN_UNSIGNED:
+            cmp_helper = "b/ult";
+            break;
+        case TAC_BINARY_LESS_OR_EQUAL_UNSIGNED:
+            cmp_helper = "b/ule";
+            break;
+        case TAC_BINARY_GREATER_THAN_UNSIGNED:
+            cmp_helper = "b/ugt";
+            break;
+        case TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED:
+            cmp_helper = "b/uge";
+            break;
+        default:
+            break;
         }
         if (cmp_helper) {
             emit_binop_helper(block, tail, f, src1, src2, cmp_helper, rd, od);
@@ -428,11 +454,21 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr,
         // (full 48-bit) operands, so no signedness distinction is needed.
         Besm_InstrKind op_kind;
         switch (instr->u.binary.op) {
-        case TAC_BINARY_ADD:         op_kind = BESM_ARITH_ADD; break;
-        case TAC_BINARY_SUBTRACT:    op_kind = BESM_ARITH_SUB; break;
-        case TAC_BINARY_BITWISE_AND: op_kind = BESM_LOG_AAX;   break;
-        case TAC_BINARY_BITWISE_OR:  op_kind = BESM_LOG_AOX;   break;
-        case TAC_BINARY_BITWISE_XOR: op_kind = BESM_LOG_AEX;   break;
+        case TAC_BINARY_ADD:
+            op_kind = BESM_ARITH_ADD;
+            break;
+        case TAC_BINARY_SUBTRACT:
+            op_kind = BESM_ARITH_SUB;
+            break;
+        case TAC_BINARY_BITWISE_AND:
+            op_kind = BESM_LOG_AAX;
+            break;
+        case TAC_BINARY_BITWISE_OR:
+            op_kind = BESM_LOG_AOX;
+            break;
+        case TAC_BINARY_BITWISE_XOR:
+            op_kind = BESM_LOG_AEX;
+            break;
         default:
             fatal_error("TODO: binary op %d (Phase B)", (int)instr->u.binary.op);
         }
@@ -450,9 +486,9 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr,
     //   ,CALL, fun_name    — call; r13 ← return address
     //   reg ,ATX, off      — store result (A) into dst frame slot, if dst present
     case TAC_INSTRUCTION_FUN_CALL: {
-        const char    *fun_name = instr->u.fun_call.fun_name;
-        const Tac_Val *args     = instr->u.fun_call.args;
-        const Tac_Val *dst      = instr->u.fun_call.dst;
+        const char *fun_name = instr->u.fun_call.fun_name;
+        const Tac_Val *args  = instr->u.fun_call.args;
+        const Tac_Val *dst   = instr->u.fun_call.dst;
 
         int nargs = 0;
         for (const Tac_Val *a = args; a; a = a->next)
@@ -538,12 +574,10 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr,
     // ZERO_EXTEND dst = (wider unsigned)src — same: clear all but the low 8 bits.
     case TAC_INSTRUCTION_TRUNCATE:
     case TAC_INSTRUCTION_ZERO_EXTEND: {
-        const Tac_Val *src = (instr->kind == TAC_INSTRUCTION_TRUNCATE)
-                                 ? instr->u.truncate.src
-                                 : instr->u.zero_extend.src;
-        const Tac_Val *dst = (instr->kind == TAC_INSTRUCTION_TRUNCATE)
-                                 ? instr->u.truncate.dst
-                                 : instr->u.zero_extend.dst;
+        const Tac_Val *src = (instr->kind == TAC_INSTRUCTION_TRUNCATE) ? instr->u.truncate.src
+                                                                       : instr->u.zero_extend.src;
+        const Tac_Val *dst = (instr->kind == TAC_INSTRUCTION_TRUNCATE) ? instr->u.truncate.dst
+                                                                       : instr->u.zero_extend.dst;
         int rd, od;
         lookup(f, dst->u.var_name, &rd, &od);
         emit_xta_val(block, tail, f, src);
@@ -658,9 +692,9 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr,
     // Then store A into the dst Val (local frame slot or global), as in COPY.
     //
     case TAC_INSTRUCTION_COPY_FROM_OFFSET: {
-        const char    *base = instr->u.copy_from_offset.src;
-        const Tac_Val *dst  = instr->u.copy_from_offset.dst;
-        int            woff = member_word_offset(instr->u.copy_from_offset.offset);
+        const char *base   = instr->u.copy_from_offset.src;
+        const Tac_Val *dst = instr->u.copy_from_offset.dst;
+        int woff           = member_word_offset(instr->u.copy_from_offset.offset);
         int br, bo;
         if (frame_lookup(f, base, &br, &bo)) {
             emit_xta(block, tail, br, bo + woff);
@@ -689,9 +723,9 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr,
     //   global : ,UTC, base  /  ,ATX, woff
     //
     case TAC_INSTRUCTION_COPY_TO_OFFSET: {
-        const Tac_Val *src  = instr->u.copy_to_offset.src;
-        const char    *base = instr->u.copy_to_offset.dst;
-        int            woff = member_word_offset(instr->u.copy_to_offset.offset);
+        const Tac_Val *src = instr->u.copy_to_offset.src;
+        const char *base   = instr->u.copy_to_offset.dst;
+        int woff           = member_word_offset(instr->u.copy_to_offset.offset);
         emit_xta_val(block, tail, f, src);
         int br, bo;
         if (frame_lookup(f, base, &br, &bo)) {

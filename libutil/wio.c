@@ -453,7 +453,7 @@ long double wgetld(WFILE *stream)
         size_t w[(sizeof(long double) + sizeof(size_t) - 1) / sizeof(size_t)];
         long double f;
     } u;
-    u.f = 0;
+    u.f           = 0;
     size_t nwords = sizeof(u.w) / sizeof(size_t);
     for (size_t i = 0; i < nwords; i++) {
         u.w[i] = wgetw(stream);
@@ -469,8 +469,8 @@ int wputld(long double f, WFILE *stream)
         long double f;
         size_t w[(sizeof(long double) + sizeof(size_t) - 1) / sizeof(size_t)];
     } u;
-    u.f              = f;
-    size_t nwords    = sizeof(u.w) / sizeof(size_t);
+    u.f           = f;
+    size_t nwords = sizeof(u.w) / sizeof(size_t);
     for (size_t i = 0; i < nwords; i++) {
         if (wputw(u.w[i], stream) < 0)
             return -1;

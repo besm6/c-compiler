@@ -12,8 +12,7 @@
 //   xta i / ati 1 / 1 ,utc, arr / 14 ,vtm, / ita 14
 TEST_F(CodegenTest, AddPtrGlobalArrayStore)
 {
-    std::string output =
-        CompileToMadlen("int arr[3]; void f(long i, int v){ arr[i] = v; }");
+    std::string output = CompileToMadlen("int arr[3]; void f(long i, int v){ arr[i] = v; }");
     EXPECT_EQ(R"(c
       arr:   ,name,
              ,bss, 3
@@ -37,7 +36,8 @@ c
            1 ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Pointer parameter, variable index: word scale 1, pointer base — the pointer's
@@ -62,15 +62,15 @@ TEST_F(CodegenTest, AddPtrPointerLoad)
              ,uj, b/ret
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Two-word element (long long, 12 bytes → word scale 2): the index is scaled by a
 // left shift (,asn, 63 = shift left 1) before adding the pointer base.
 TEST_F(CodegenTest, AddPtrPowerOfTwoScale)
 {
-    std::string output =
-        CompileToMadlen("long long *f(long long *p, long i){ return &p[i]; }");
+    std::string output = CompileToMadlen("long long *f(long long *p, long i){ return &p[i]; }");
     EXPECT_EQ(R"(c
         f:   ,name,
     b/ret:   ,subp,
@@ -85,7 +85,8 @@ TEST_F(CodegenTest, AddPtrPowerOfTwoScale)
              ,uj, b/ret
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Runtime: store through a variable index, then load it back.

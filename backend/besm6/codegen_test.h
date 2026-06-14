@@ -1,6 +1,9 @@
 #pragma once
 
+#include <fcntl.h>
 #include <gtest/gtest.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -9,10 +12,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-
-#include <fcntl.h>
-#include <sys/wait.h>
-#include <unistd.h>
 
 #include "besm.h"
 #include "codegen.h"
@@ -29,7 +28,7 @@
 extern "C" int xalloc_debug;
 
 class CodegenTest : public ::testing::Test {
-    FILE    *input_file{};
+    FILE *input_file{};
     Program *program{};
     OptFlags opt_flags{};
 
@@ -37,8 +36,8 @@ protected:
     void SetUp() override
     {
         target_config = target_lookup("besm6");
-        opt_flags = opt_flags_default();
-        input_file = tmpfile();
+        opt_flags     = opt_flags_default();
+        input_file    = tmpfile();
         ASSERT_NE(nullptr, input_file);
     }
 
@@ -57,10 +56,7 @@ protected:
     }
 
     // Disable optimization.
-    void DisableOptimization()
-    {
-        opt_flags = {};
-    }
+    void DisableOptimization() { opt_flags = {}; }
 
     // Capture Madlen output from a pre-built Besm_Module (used by Madlen-level tests).
     static std::string capture(const Besm_Module *module)
@@ -109,8 +105,8 @@ protected:
         // Phase 1: translate all declarations and collect the full TAC chain.
         // The full chain is needed so frame_build can identify module-level names.
         Tac_TopLevel *all_tac = nullptr, **tac_tail = &all_tac;
-        ExternalDecl *decls   = program->decls;
-        program->decls        = nullptr;
+        ExternalDecl *decls = program->decls;
+        program->decls      = nullptr;
         while (decls) {
             ExternalDecl *next = decls->next;
             decls->next        = nullptr;
@@ -119,7 +115,8 @@ protected:
             free_external_decl(decls);
             if (tac) {
                 Tac_TopLevel *t = tac;
-                while (t->next) t = t->next;
+                while (t->next)
+                    t = t->next;
                 *tac_tail = tac;
                 tac_tail  = &t->next;
             }
@@ -147,9 +144,10 @@ protected:
             "*call setftn:one,long\n"
             "*assem\n";
         job += madlen;
-        job += "*library:40\n"
-               "*execute\n"
-               "*end file\n";
+        job +=
+            "*library:40\n"
+            "*execute\n"
+            "*end file\n";
 
         const char *test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
         std::string dub_path  = std::string(TEST_DIR "/") + test_name + ".dub";
@@ -163,7 +161,7 @@ protected:
         }
 
         try {
-            RunExternalProgram("dubna", {dub_path}, lst_path);
+            RunExternalProgram("dubna", { dub_path }, lst_path);
         } catch (...) {
             return "ERROR";
         }
@@ -175,7 +173,7 @@ protected:
 
         // Find second "≠" line (U+2260, UTF-8: 3 bytes).
         const std::string NE = "\xe2\x89\xa0";
-        int    ne_count      = 0;
+        int ne_count         = 0;
         size_t pos           = 0;
         size_t content_start = std::string::npos;
         while (pos <= listing.size()) {

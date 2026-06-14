@@ -22,7 +22,8 @@ TEST_F(CodegenTest, CopyGlobalToLocal)
            7 ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Local → global: COPY a → g (Case C)
@@ -40,7 +41,8 @@ TEST_F(CodegenTest, CopyLocalToGlobal)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Global → global: COPY g → h (Case D)
@@ -60,7 +62,8 @@ TEST_F(CodegenTest, CopyGlobalToGlobal)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Runtime: write to global, copy global→global, read back via local.
@@ -96,7 +99,8 @@ TEST_F(CodegenTest, CopyConstToLocal)
            7 ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // COPY from integer constant 0 to a global variable.
@@ -114,7 +118,8 @@ TEST_F(CodegenTest, CopyConstToGlobal)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // COPY from negative integer constant: -1 must be masked to 41 bits
@@ -133,5 +138,6 @@ TEST_F(CodegenTest, CopyNegConst)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }

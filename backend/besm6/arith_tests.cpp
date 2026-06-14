@@ -20,7 +20,8 @@ TEST_F(CodegenTest, AddTwoParams)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, SubTwoParams)
@@ -43,7 +44,8 @@ TEST_F(CodegenTest, SubTwoParams)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, AddAutoAndParam)
@@ -66,14 +68,16 @@ TEST_F(CodegenTest, AddAutoAndParam)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, AddTwoAutos)
 {
     // binary ADD src1=a(auto) src2=b(auto) dst=%0; copy %0 → global g
     // frame: a@(7,0), b@(7,1), %0@(7,2); num_autos=3
-    std::string output = CompileToMadlen("extern int g; void foo(void) { int a; int b; g = a + b; }");
+    std::string output =
+        CompileToMadlen("extern int g; void foo(void) { int a; int b; g = a + b; }");
     EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
@@ -89,7 +93,8 @@ TEST_F(CodegenTest, AddTwoAutos)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // BINARY with a constant right operand: g = a + 5.
@@ -111,7 +116,8 @@ TEST_F(CodegenTest, BinaryConstSrc2)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // BINARY with a constant left operand: g = 5 + a.
@@ -133,7 +139,8 @@ TEST_F(CodegenTest, BinaryConstSrc1)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Integer comparisons (task #4).  Operands are volatile so the optimizer cannot fold
@@ -284,7 +291,8 @@ TEST_F(CodegenTest, BitwiseAndTwoParams)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Bitwise OR lowers to a single AOX.
@@ -306,7 +314,8 @@ TEST_F(CodegenTest, BitwiseOrTwoParams)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Bitwise XOR lowers to a single AEX.
@@ -328,7 +337,8 @@ TEST_F(CodegenTest, BitwiseXorTwoParams)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // End-to-end: the three bitwise ops compute the expected values at run time.
@@ -363,7 +373,8 @@ TEST_F(CodegenTest, LeftShiftConstant)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Constant right shift by k inlines a single ASN with field 64+k (here 64+2 = 66).
@@ -385,7 +396,8 @@ TEST_F(CodegenTest, RightShiftConstant)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Variable left shift calls the b/lsh runtime helper (value on stack, count in A).
@@ -408,7 +420,8 @@ TEST_F(CodegenTest, LeftShiftVariable)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // Variable right shift calls the b/rsh runtime helper.
@@ -431,7 +444,8 @@ TEST_F(CodegenTest, RightShiftVariable)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 // End-to-end: constant-count shifts compute the expected values at run time.
@@ -492,8 +506,7 @@ TEST_F(CodegenTest, AddUnsignedMadlenShape)
 // 0xFFFFFFFFFFFFU emits the full 16-octal-digit literal rather than a 41-bit-masked value.
 TEST_F(CodegenTest, WideUnsignedLiteralUSuffix)
 {
-    std::string out = CompileToMadlen(
-        "extern unsigned g; void foo(void) { g = 0xFFFFFFFFFFFFU; }");
+    std::string out = CompileToMadlen("extern unsigned g; void foo(void) { g = 0xFFFFFFFFFFFFU; }");
     EXPECT_NE(out.find("=7777777777777777"), std::string::npos);
 }
 
@@ -625,8 +638,7 @@ TEST_F(CodegenTest, SubUnsignedRun)
 // / atx) rather than an inline A*X, and emits no caller-side stack pop.
 TEST_F(CodegenTest, MultiplyMadlenShape)
 {
-    std::string out =
-        CompileToMadlen("extern int g; void foo(int a, int b) { g = a * b; }");
+    std::string out = CompileToMadlen("extern int g; void foo(int a, int b) { g = a * b; }");
     EXPECT_NE(out.find(",xts,"), std::string::npos);
     EXPECT_NE(out.find(",call, b/mul"), std::string::npos);
     // Multiply must NOT inline the multiplicative unit; the helper bridges INT-format.
@@ -734,8 +746,7 @@ TEST_F(CodegenTest, MultiplyUnsignedRun)
 // / atx) rather than an inline A/X, and emits no caller-side stack pop.
 TEST_F(CodegenTest, DivideMadlenShape)
 {
-    std::string out =
-        CompileToMadlen("extern int g; void foo(int a, int b) { g = a / b; }");
+    std::string out = CompileToMadlen("extern int g; void foo(int a, int b) { g = a / b; }");
     EXPECT_NE(out.find(",xts,"), std::string::npos);
     EXPECT_NE(out.find(",call, b/div"), std::string::npos);
     // Divide must NOT inline the divide unit; the helper bridges INT-format.
@@ -747,8 +758,7 @@ TEST_F(CodegenTest, DivideMadlenShape)
 // Madlen-level shape: signed REMAINDER lowers to the b/mod helper.
 TEST_F(CodegenTest, RemainderMadlenShape)
 {
-    std::string out =
-        CompileToMadlen("extern int g; void foo(int a, int b) { g = a % b; }");
+    std::string out = CompileToMadlen("extern int g; void foo(int a, int b) { g = a % b; }");
     EXPECT_NE(out.find(",xts,"), std::string::npos);
     EXPECT_NE(out.find(",call, b/mod"), std::string::npos);
     EXPECT_EQ(out.find(",a/x,"), std::string::npos);

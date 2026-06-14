@@ -91,9 +91,8 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
             }
             typecheck_local_decl(s->u.for_stmt.init->u.decl);
         } else {
-            s->u.for_stmt.init->u.expr = s->u.for_stmt.init->u.expr
-                                             ? typecheck_and_decay(s->u.for_stmt.init->u.expr)
-                                             : NULL;
+            s->u.for_stmt.init->u.expr =
+                s->u.for_stmt.init->u.expr ? typecheck_and_decay(s->u.for_stmt.init->u.expr) : NULL;
         }
         s->u.for_stmt.condition =
             s->u.for_stmt.condition ? typecheck_scalar(s->u.for_stmt.condition) : NULL;

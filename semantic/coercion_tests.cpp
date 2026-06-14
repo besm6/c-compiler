@@ -82,7 +82,7 @@ protected:
     Expr *ReturnExpr()
     {
         ExternalDecl *ext = program->decls;
-        Stmt         *ret = ext->u.function.body->u.compound->u.stmt;
+        Stmt *ret         = ext->u.function.body->u.compound->u.stmt;
         EXPECT_EQ(ret->kind, STMT_RETURN);
         return ret->u.expr;
     }
@@ -91,7 +91,8 @@ protected:
     Expr *ReturnExprOfFunc(int n)
     {
         ExternalDecl *ext = program->decls;
-        for (int i = 0; i < n; ++i) ext = ext->next;
+        for (int i = 0; i < n; ++i)
+            ext = ext->next;
         Stmt *ret = ext->u.function.body->u.compound->u.stmt;
         EXPECT_EQ(ret->kind, STMT_RETURN);
         return ret->u.expr;
@@ -102,7 +103,8 @@ protected:
     Expr *FirstCallArg(int n)
     {
         ExternalDecl *ext = program->decls;
-        for (int i = 0; i < n; ++i) ext = ext->next;
+        for (int i = 0; i < n; ++i)
+            ext = ext->next;
         Stmt *s = ext->u.function.body->u.compound->u.stmt;
         EXPECT_EQ(s->kind, STMT_EXPR);
         Expr *call = s->u.expr;
@@ -115,7 +117,7 @@ protected:
     Expr *AssignExpr()
     {
         ExternalDecl *ext = program->decls;
-        Stmt         *s   = ext->u.function.body->u.compound->u.stmt;
+        Stmt *s           = ext->u.function.body->u.compound->u.stmt;
         EXPECT_EQ(s->kind, STMT_EXPR);
         Expr *e = s->u.expr;
         EXPECT_EQ(e->kind, EXPR_ASSIGN);
@@ -126,7 +128,8 @@ protected:
     Expr *AssignExprOfFunc(int n)
     {
         ExternalDecl *ext = program->decls;
-        for (int i = 0; i < n; ++i) ext = ext->next;
+        for (int i = 0; i < n; ++i)
+            ext = ext->next;
         Stmt *s = ext->u.function.body->u.compound->u.stmt;
         EXPECT_EQ(s->kind, STMT_EXPR);
         Expr *e = s->u.expr;

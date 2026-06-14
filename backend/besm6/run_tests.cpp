@@ -18,24 +18,25 @@ TEST_F(CodegenTest, FuncArg1)
              ,call, foo
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, RunRev)
 {
-    char in_path[]  = "/tmp/rev_input_XXXXXX";
-    int  in_fd      = mkstemp(in_path);
+    char in_path[] = "/tmp/rev_input_XXXXXX";
+    int in_fd      = mkstemp(in_path);
     ASSERT_GE(in_fd, 0);
     const char *input = "hello\nworld\nfoo\n";
     write(in_fd, input, strlen(input));
     close(in_fd);
 
     char out_path[] = "/tmp/rev_output_XXXXXX";
-    int  out_fd     = mkstemp(out_path);
+    int out_fd      = mkstemp(out_path);
     ASSERT_GE(out_fd, 0);
     close(out_fd);
 
-    RunExternalProgram("rev", {in_path}, out_path);
+    RunExternalProgram("rev", { in_path }, out_path);
 
     FILE *f = fopen(out_path, "r");
     ASSERT_NE(nullptr, f);
@@ -112,7 +113,8 @@ TEST_F(CodegenTest, FuncArgFloat)
              ,call, foo
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, PrintFormatDecimal)

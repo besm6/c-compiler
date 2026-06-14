@@ -30,7 +30,7 @@ TEST_F(CodegenTest, ScalFunction)
 
     // Helper: append a new instruction to the block body and return it.
     Besm_Instr *tail = nullptr;
-    auto add         = [&](Besm_Instr *i) -> Besm_Instr * {
+    auto add         = [&](Besm_Instr *i) -> Besm_Instr         *{
         if (!block->body)
             block->body = i;
         else
@@ -40,85 +40,85 @@ TEST_F(CodegenTest, ScalFunction)
     };
 
     // scal: ,name,
-    auto *iname  = add(besm_new_instr(BESM_STMT_NAME));
-    iname->name  = xstrdup("scal");
+    auto *iname = add(besm_new_instr(BESM_STMT_NAME));
+    iname->name = xstrdup("scal");
 
     // ,sti, 14
-    auto *sti14  = add(besm_new_instr(BESM_MEM_STI));
-    sti14->addr  = 14;
+    auto *sti14 = add(besm_new_instr(BESM_MEM_STI));
+    sti14->addr = 14;
 
     // ,sti, 12
-    auto *sti12  = add(besm_new_instr(BESM_MEM_STI));
-    sti12->addr  = 12;
+    auto *sti12 = add(besm_new_instr(BESM_MEM_STI));
+    sti12->addr = 12;
 
     // ,ati, 11
-    auto *ati11  = add(besm_new_instr(BESM_MEM_ATI));
-    ati11->addr  = 11;
+    auto *ati11 = add(besm_new_instr(BESM_MEM_ATI));
+    ati11->addr = 11;
 
     // ,ntr, 3
-    auto *ntr3   = add(besm_new_instr(BESM_EXP_SETR));
-    ntr3->addr   = 3;
+    auto *ntr3 = add(besm_new_instr(BESM_EXP_SETR));
+    ntr3->addr = 3;
 
     // 14 ,xta,
-    auto *xta14  = add(besm_new_instr(BESM_MEM_XTA));
-    xta14->reg   = 14;
+    auto *xta14 = add(besm_new_instr(BESM_MEM_XTA));
+    xta14->reg  = 14;
 
     // ,utc, =i1
-    auto *utc    = add(besm_new_instr(BESM_MOD_UTC));
-    utc->name    = xstrdup("=i1");
+    auto *utc = add(besm_new_instr(BESM_MOD_UTC));
+    utc->name = xstrdup("=i1");
 
     // ,x-a,
     add(besm_new_instr(BESM_ARITH_RSUB));
 
     // ,ati, 14
-    auto *ati14  = add(besm_new_instr(BESM_MEM_ATI));
-    ati14->addr  = 14;
+    auto *ati14 = add(besm_new_instr(BESM_MEM_ATI));
+    ati14->addr = 14;
 
     // ,ntr, 18
-    auto *ntr18  = add(besm_new_instr(BESM_EXP_SETR));
-    ntr18->addr  = 18;
+    auto *ntr18 = add(besm_new_instr(BESM_EXP_SETR));
+    ntr18->addr = 18;
 
     // ,xta,   (load mem[0] = 0, i.e. A ← 0)
     add(besm_new_instr(BESM_MEM_XTA));
 
     // *1: ,bss,   (loop label)
-    auto *lbl1   = add(besm_new_instr(BESM_STMT_LABEL));
-    lbl1->name   = xstrdup("*1");
+    auto *lbl1 = add(besm_new_instr(BESM_STMT_LABEL));
+    lbl1->name = xstrdup("*1");
 
     // 11 ,xts,
-    auto *xts11  = add(besm_new_instr(BESM_MEM_XTS));
-    xts11->reg   = 11;
+    auto *xts11 = add(besm_new_instr(BESM_MEM_XTS));
+    xts11->reg  = 11;
 
     // 12 ,a*x,
-    auto *mul12  = add(besm_new_instr(BESM_ARITH_MUL));
-    mul12->reg   = 12;
+    auto *mul12 = add(besm_new_instr(BESM_ARITH_MUL));
+    mul12->reg  = 12;
 
     // 11 ,utm, 1
-    auto *utm11  = add(besm_new_instr(BESM_REG_UTM));
-    utm11->reg   = 11;
-    utm11->addr  = 1;
+    auto *utm11 = add(besm_new_instr(BESM_REG_UTM));
+    utm11->reg  = 11;
+    utm11->addr = 1;
 
     // 12 ,utm, 1
-    auto *utm12  = add(besm_new_instr(BESM_REG_UTM));
-    utm12->reg   = 12;
-    utm12->addr  = 1;
+    auto *utm12 = add(besm_new_instr(BESM_REG_UTM));
+    utm12->reg  = 12;
+    utm12->addr = 1;
 
     // 15 ,a+x,
-    auto *add15  = add(besm_new_instr(BESM_ARITH_ADD));
-    add15->reg   = 15;
+    auto *add15 = add(besm_new_instr(BESM_ARITH_ADD));
+    add15->reg  = 15;
 
     // 14 ,vlm, *1
-    auto *vlm14  = add(besm_new_instr(BESM_BRANCH_VLM));
-    vlm14->reg   = 14;
-    vlm14->name  = xstrdup("*1");
+    auto *vlm14 = add(besm_new_instr(BESM_BRANCH_VLM));
+    vlm14->reg  = 14;
+    vlm14->name = xstrdup("*1");
 
     // ,ntr, 6
-    auto *ntr6   = add(besm_new_instr(BESM_EXP_SETR));
-    ntr6->addr   = 6;
+    auto *ntr6 = add(besm_new_instr(BESM_EXP_SETR));
+    ntr6->addr = 6;
 
     // 13 ,uj,
-    auto *uj13   = add(besm_new_instr(BESM_BRANCH_UJ));
-    uj13->reg    = 13;
+    auto *uj13 = add(besm_new_instr(BESM_BRANCH_UJ));
+    uj13->reg  = 13;
 
     // ,end,
     add(besm_new_instr(BESM_STMT_END));
@@ -148,7 +148,8 @@ TEST_F(CodegenTest, ScalFunction)
              ,ntr, 6
           13 ,uj,
              ,end,
-)", out);
+)",
+              out);
 }
 
 // Verify that codegen_program() emits the correct Madlen prologue/epilogue
@@ -169,7 +170,8 @@ TEST_F(CodegenTest, EmptyFunctionNoArgs)
       foo:   ,name,
           13 ,uj,
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, EmptyFunctionOneParam)
@@ -179,7 +181,8 @@ TEST_F(CodegenTest, EmptyFunctionOneParam)
       foo:   ,name,
           13 ,uj,
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, EmptyFunctionTwoParams)
@@ -191,7 +194,8 @@ TEST_F(CodegenTest, EmptyFunctionTwoParams)
           15 ,utm,
           13 ,uj,
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, EmptyFunctionVariadic)
@@ -203,7 +207,8 @@ TEST_F(CodegenTest, EmptyFunctionVariadic)
           15 ,utm,
           13 ,uj,
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, MainEntryPointInt)
@@ -219,7 +224,8 @@ TEST_F(CodegenTest, MainEntryPointInt)
              ,uj, b/ret
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, MainEntryPointVoid)
@@ -230,7 +236,8 @@ TEST_F(CodegenTest, MainEntryPointVoid)
   program:   ,entry,
           13 ,uj,
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, CallOkno)
@@ -244,13 +251,15 @@ TEST_F(CodegenTest, CallOkno)
              ,call, OKHO
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, CopyParamToAuto)
 {
     // copy a → g, b → h: two params stored to two globals; no autos
-    std::string output = CompileToMadlen("extern int g, h; void foo(int a, int b) { g = a; h = b; }");
+    std::string output =
+        CompileToMadlen("extern int g, h; void foo(int a, int b) { g = a; h = b; }");
     EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
@@ -266,7 +275,8 @@ TEST_F(CodegenTest, CopyParamToAuto)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, GetAddressGlobalInt)
@@ -292,7 +302,8 @@ TEST_F(CodegenTest, GetAddressGlobalInt)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, GetAddressAuto)
@@ -314,7 +325,8 @@ TEST_F(CodegenTest, GetAddressAuto)
              ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, StoreThroughPtr)
@@ -332,7 +344,8 @@ TEST_F(CodegenTest, StoreThroughPtr)
            1 ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, LoadAndStoreThroughPtr)
@@ -356,7 +369,8 @@ TEST_F(CodegenTest, LoadAndStoreThroughPtr)
            1 ,atx,
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }
 
 TEST_F(CodegenTest, ExternVarReturn)
@@ -378,5 +392,6 @@ TEST_F(CodegenTest, ExternVarReturn)
              ,uj, b/ret
              ,uj, b/ret
              ,end,
-)", output);
+)",
+              output);
 }

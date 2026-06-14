@@ -74,8 +74,8 @@ static void export_field(FILE *fd, Field *field, int parent_id)
             export_expr(fd, field->u.static_assrt.condition, id);
             if (field->u.static_assrt.message) {
                 int mid = gen_node_id();
-                fprintf(fd, "  n%d [label=\"Msg: %s\", shape=box];\n",
-                        mid, field->u.static_assrt.message);
+                fprintf(fd, "  n%d [label=\"Msg: %s\", shape=box];\n", mid,
+                        field->u.static_assrt.message);
                 fprintf(fd, "  n%d -> n%d [label=\"message\"];\n", id, mid);
             }
             break;

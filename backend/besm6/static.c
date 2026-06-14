@@ -12,24 +12,33 @@
 static unsigned long long static_init_log_val(const Tac_StaticInit *init)
 {
     switch (init->kind) {
-    case TAC_STATIC_INIT_I8:  return (unsigned long long)(uint8_t)init->u.char_val;
-    case TAC_STATIC_INIT_U8:  return (unsigned long long)init->u.uchar_val;
-    case TAC_STATIC_INIT_I16: return (unsigned long long)(int64_t)init->u.short_val & 0x1FFFFFFFFFF;
-    case TAC_STATIC_INIT_I32: return (unsigned long long)(int64_t)init->u.int_val   & 0x1FFFFFFFFFF;
-    case TAC_STATIC_INIT_I64: return (unsigned long long)init->u.long_val           & 0x1FFFFFFFFFF;
-    case TAC_STATIC_INIT_U16: return (unsigned long long)init->u.ushort_val;
-    case TAC_STATIC_INIT_U32: return (unsigned long long)init->u.uint_val;
-    case TAC_STATIC_INIT_U64: return init->u.ulong_val & 0xFFFFFFFFFFFF;
-    default: fatal_error("non-integer static init in log_val");
+    case TAC_STATIC_INIT_I8:
+        return (unsigned long long)(uint8_t)init->u.char_val;
+    case TAC_STATIC_INIT_U8:
+        return (unsigned long long)init->u.uchar_val;
+    case TAC_STATIC_INIT_I16:
+        return (unsigned long long)(int64_t)init->u.short_val & 0x1FFFFFFFFFF;
+    case TAC_STATIC_INIT_I32:
+        return (unsigned long long)(int64_t)init->u.int_val & 0x1FFFFFFFFFF;
+    case TAC_STATIC_INIT_I64:
+        return (unsigned long long)init->u.long_val & 0x1FFFFFFFFFF;
+    case TAC_STATIC_INIT_U16:
+        return (unsigned long long)init->u.ushort_val;
+    case TAC_STATIC_INIT_U32:
+        return (unsigned long long)init->u.uint_val;
+    case TAC_STATIC_INIT_U64:
+        return init->u.ulong_val & 0xFFFFFFFFFFFF;
+    default:
+        fatal_error("non-integer static init in log_val");
     }
 }
 
 void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
 {
-    const char             *name = tl->u.static_variable.name;
-    const Tac_StaticInit *init   = tl->u.static_variable.init_list;
+    const char *name           = tl->u.static_variable.name;
+    const Tac_StaticInit *init = tl->u.static_variable.init_list;
 
-    Besm_Module      *module  = besm_new_module(name);
+    Besm_Module *module = besm_new_module(name);
     Besm_DataSection *section;
 
     if (init == NULL) {
@@ -48,10 +57,14 @@ void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
         for (; init; init = init->next) {
             Besm_Instr *item;
             switch (init->kind) {
-            case TAC_STATIC_INIT_I8:  case TAC_STATIC_INIT_I16:
-            case TAC_STATIC_INIT_I32: case TAC_STATIC_INIT_I64:
-            case TAC_STATIC_INIT_U8:  case TAC_STATIC_INIT_U16:
-            case TAC_STATIC_INIT_U32: case TAC_STATIC_INIT_U64:
+            case TAC_STATIC_INIT_I8:
+            case TAC_STATIC_INIT_I16:
+            case TAC_STATIC_INIT_I32:
+            case TAC_STATIC_INIT_I64:
+            case TAC_STATIC_INIT_U8:
+            case TAC_STATIC_INIT_U16:
+            case TAC_STATIC_INIT_U32:
+            case TAC_STATIC_INIT_U64:
                 item          = besm_new_instr(BESM_DATA_LOG);
                 item->log_val = static_init_log_val(init);
                 break;
@@ -64,28 +77,34 @@ void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
                 if (byte_offset % 6 != 0)
                     fatal_error("Pointer byte offset is not a multiple of word size");
                 Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
-                subp->name = xstrdup(init->u.pointer.name);
-                *tail = subp; tail = &subp->next;
+                subp->name       = xstrdup(init->u.pointer.name);
+                *tail            = subp;
+                tail             = &subp->next;
                 Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
-                *tail = z00a; tail = &z00a->next;
+                *tail            = z00a;
+                tail             = &z00a->next;
                 Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
-                z00b->name = xstrdup(init->u.pointer.name);
-                z00b->addr = byte_offset / 6;
-                *tail = z00b; tail = &z00b->next;
+                z00b->name       = xstrdup(init->u.pointer.name);
+                z00b->addr       = byte_offset / 6;
+                *tail            = z00b;
+                tail             = &z00b->next;
                 continue;
             }
             case TAC_STATIC_INIT_FAT_POINTER: {
-                int byte_off = init->u.pointer.byte_offset;
+                int byte_off     = init->u.pointer.byte_offset;
                 Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
-                subp->name = xstrdup(init->u.pointer.name);
-                *tail = subp; tail = &subp->next;
+                subp->name       = xstrdup(init->u.pointer.name);
+                *tail            = subp;
+                tail             = &subp->next;
                 Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
-                z00a->reg = 8 + (unsigned)(5 - byte_off % 6);
-                *tail = z00a; tail = &z00a->next;
+                z00a->reg        = 8 + (unsigned)(5 - byte_off % 6);
+                *tail            = z00a;
+                tail             = &z00a->next;
                 Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
-                z00b->name = xstrdup(init->u.pointer.name);
-                z00b->addr = byte_off / 6;
-                *tail = z00b; tail = &z00b->next;
+                z00b->name       = xstrdup(init->u.pointer.name);
+                z00b->addr       = byte_off / 6;
+                *tail            = z00b;
+                tail             = &z00b->next;
                 continue;
             }
             case TAC_STATIC_INIT_FLOAT:
@@ -103,7 +122,8 @@ void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
                 const char *s = koi7;
                 size_t len    = strlen(s);
                 size_t nbytes = len + (init->u.string.null_terminated ? 1 : 0);
-                if (nbytes == 0) nbytes = 1;
+                if (nbytes == 0)
+                    nbytes = 1;
                 for (size_t w = 0; w * 6 < nbytes; w++) {
                     unsigned long long word = 0;
                     for (int b = 0; b < 6; b++) {
@@ -113,8 +133,8 @@ void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
                     }
                     Besm_Instr *si = besm_new_instr(BESM_DATA_LOG);
                     si->log_val    = word;
-                    *tail = si;
-                    tail  = &si->next;
+                    *tail          = si;
+                    tail           = &si->next;
                 }
                 xfree(koi7);
                 continue;
@@ -133,10 +153,10 @@ void codegen_static_variable(const Tac_TopLevel *tl, FILE *out)
 
 void codegen_static_constant(const Tac_TopLevel *tl, FILE *out)
 {
-    const char           *name = tl->u.static_constant.name;
+    const char *name           = tl->u.static_constant.name;
     const Tac_StaticInit *init = tl->u.static_constant.init;
 
-    Besm_Module      *module  = besm_new_module(name);
+    Besm_Module *module       = besm_new_module(name);
     module->comment           = xstrdup("const");
     Besm_DataSection *section = besm_new_data_section(BESM_SK_DATA);
     section->name             = xstrdup(name);
@@ -146,10 +166,14 @@ void codegen_static_constant(const Tac_TopLevel *tl, FILE *out)
     for (; init; init = init->next) {
         Besm_Instr *item;
         switch (init->kind) {
-        case TAC_STATIC_INIT_I8:  case TAC_STATIC_INIT_I16:
-        case TAC_STATIC_INIT_I32: case TAC_STATIC_INIT_I64:
-        case TAC_STATIC_INIT_U8:  case TAC_STATIC_INIT_U16:
-        case TAC_STATIC_INIT_U32: case TAC_STATIC_INIT_U64:
+        case TAC_STATIC_INIT_I8:
+        case TAC_STATIC_INIT_I16:
+        case TAC_STATIC_INIT_I32:
+        case TAC_STATIC_INIT_I64:
+        case TAC_STATIC_INIT_U8:
+        case TAC_STATIC_INIT_U16:
+        case TAC_STATIC_INIT_U32:
+        case TAC_STATIC_INIT_U64:
             item          = besm_new_instr(BESM_DATA_LOG);
             item->log_val = static_init_log_val(init);
             break;
@@ -162,28 +186,34 @@ void codegen_static_constant(const Tac_TopLevel *tl, FILE *out)
             if (byte_offset % 6 != 0)
                 fatal_error("Pointer byte offset is not a multiple of word size");
             Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
-            subp->name = xstrdup(init->u.pointer.name);
-            *tail = subp; tail = &subp->next;
+            subp->name       = xstrdup(init->u.pointer.name);
+            *tail            = subp;
+            tail             = &subp->next;
             Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
-            *tail = z00a; tail = &z00a->next;
+            *tail            = z00a;
+            tail             = &z00a->next;
             Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
-            z00b->name = xstrdup(init->u.pointer.name);
-            z00b->addr = byte_offset / 6;
-            *tail = z00b; tail = &z00b->next;
+            z00b->name       = xstrdup(init->u.pointer.name);
+            z00b->addr       = byte_offset / 6;
+            *tail            = z00b;
+            tail             = &z00b->next;
             continue;
         }
         case TAC_STATIC_INIT_FAT_POINTER: {
-            int byte_off = init->u.pointer.byte_offset;
+            int byte_off     = init->u.pointer.byte_offset;
             Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
-            subp->name = xstrdup(init->u.pointer.name);
-            *tail = subp; tail = &subp->next;
+            subp->name       = xstrdup(init->u.pointer.name);
+            *tail            = subp;
+            tail             = &subp->next;
             Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
-            z00a->reg = 8 + (unsigned)(5 - byte_off % 6);
-            *tail = z00a; tail = &z00a->next;
+            z00a->reg        = 8 + (unsigned)(5 - byte_off % 6);
+            *tail            = z00a;
+            tail             = &z00a->next;
             Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
-            z00b->name = xstrdup(init->u.pointer.name);
-            z00b->addr = byte_off / 6;
-            *tail = z00b; tail = &z00b->next;
+            z00b->name       = xstrdup(init->u.pointer.name);
+            z00b->addr       = byte_off / 6;
+            *tail            = z00b;
+            tail             = &z00b->next;
             continue;
         }
         case TAC_STATIC_INIT_FLOAT:
@@ -201,7 +231,8 @@ void codegen_static_constant(const Tac_TopLevel *tl, FILE *out)
             const char *s = koi7;
             size_t len    = strlen(s);
             size_t nbytes = len + (init->u.string.null_terminated ? 1 : 0);
-            if (nbytes == 0) nbytes = 1;
+            if (nbytes == 0)
+                nbytes = 1;
             for (size_t w = 0; w * 6 < nbytes; w++) {
                 unsigned long long word = 0;
                 for (int b = 0; b < 6; b++) {
@@ -211,8 +242,8 @@ void codegen_static_constant(const Tac_TopLevel *tl, FILE *out)
                 }
                 Besm_Instr *si = besm_new_instr(BESM_DATA_LOG);
                 si->log_val    = word;
-                *tail = si;
-                tail  = &si->next;
+                *tail          = si;
+                tail           = &si->next;
             }
             xfree(koi7);
             continue;
