@@ -931,8 +931,8 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         // Signed divide and remainder use the b/div / b/mod runtime helpers, which bridge
         // raw operands to INT-format, FP-divide the absolute values, correct the exponent
         // and reapply the sign (b/mod = a - (a/b)*b).  Correct for signed operands and for
-        // unsigned within the 41-bit range; full 48-bit unsigned remainder is task #14b
-        // (b/umod).
+        // unsigned within the 41-bit range; full 48-bit unsigned divide/remainder use
+        // b/udiv / b/umod below.
         if (instr->u.binary.op == TAC_BINARY_DIVIDE) {
             emit_binop_helper(block, tail, f, src1, src2, "b/div", rd, od);
             break;
@@ -948,6 +948,14 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         // the full 48-bit word (divisor-shift / subtract loop).
         if (instr->u.binary.op == TAC_BINARY_DIVIDE_UNSIGNED) {
             emit_binop_helper(block, tail, f, src1, src2, "b/udiv", rd, od);
+            break;
+        }
+
+        // Unsigned remainder uses b/umod.  The signed b/mod shares b/div's FP bridge and so
+        // is wrong for the same out-of-range unsigned operands.  b/umod computes the full
+        // 48-bit residue as a - (a/b)*b, reusing b/udiv / b/umul / b/usub.
+        if (instr->u.binary.op == TAC_BINARY_REMAINDER_UNSIGNED) {
+            emit_binop_helper(block, tail, f, src1, src2, "b/umod", rd, od);
             break;
         }
 

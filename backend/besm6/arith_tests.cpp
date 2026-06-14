@@ -899,3 +899,85 @@ TEST_F(CodegenTest, DivideUnsignedRun)
         "1\n",
         result);
 }
+
+// Madlen-level shape: unsigned REMAINDER lowers to the b/umod helper (xta / xts / ,call,
+// b/umod / atx) rather than the signed b/mod or an inline A/X, with no caller-side pop.
+TEST_F(CodegenTest, RemainderUnsignedMadlenShape)
+{
+    std::string out =
+        CompileToMadlen("extern unsigned g; void foo(unsigned a, unsigned b) { g = a % b; }");
+    EXPECT_NE(out.find(",xts,"), std::string::npos);
+    EXPECT_NE(out.find(",call, b/umod"), std::string::npos);
+    // Unsigned remainder must use b/umod, not the signed b/mod / b/div or an inline A/X.
+    EXPECT_EQ(out.find(",call, b/mod"), std::string::npos);
+    EXPECT_EQ(out.find(",call, b/div"), std::string::npos);
+    EXPECT_EQ(out.find(",a/x,"), std::string::npos);
+    // The helper pops its own operand: no UTM stack adjustment around the call.
+    EXPECT_EQ(out.find("15 ,utm, -1"), std::string::npos);
+}
+
+// End-to-end: full 48-bit unsigned remainder via b/umod (residue printed in octal, %o).
+// b/umod computes a - (a/b)*b, so it inherits b/udiv's size-based routing; the blocks
+// below exercise each branch of the underlying divide:
+//   - fast path  (a,b < 2^40)            -> b/div directly
+//   - 2-step     (b < 2^32, a >= 2^40)   -> base-2^8 long division via b/div / b/mod
+//   - loop, b in [2^32, 2^40)            -> divisor-shift loop
+//   - loop, b >= 2^40                    -> divisor-shift loop (short)
+TEST_F(CodegenTest, RemainderUnsignedRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void check(unsigned a, unsigned b) { printf("%o\n", a % b); }
+        void program() {
+            /* fast path: both operands < 2^40 */
+            check(7, 2);                    /* 1 */
+            check(6, 3);                    /* 0, exact */
+            check(17, 5);                   /* 2 */
+            check(100, 10);                 /* 0, exact */
+            check(0, 5);                    /* 0 */
+            check(42, 1);                   /* 0, divide by 1 */
+            check(5, 9);                    /* 5, divisor > dividend */
+            check(1000, 8);                 /* 0, power-of-two divisor */
+            check(0xFFFFFFFFFFU, 7);        /* (2^40-1)%7, top of b/div's exact range */
+
+            /* 2-step path: b < 2^32 with a >= 2^40 */
+            check(0x10000000000U, 7);       /* 2^40 % 7 */
+            check(0xFFFFFFFFFFFFU, 1);      /* 0, -1u % 1 */
+            check(0xFFFFFFFFFFFFU, 2);      /* 1, high bit set, odd */
+            check(0xFFFFFFFFFFFFU, 3);      /* 0, exact */
+            check(0xABCDEF123456U, 0x1011U);    /* wide % small */
+            check(0x123456789ABCU, 0x1000000U); /* % 2^24 = low 24 bits */
+
+            /* divisor-shift loop: b in [2^32, 2^40) */
+            check(0xFFFFFFFFFFFFU, 0x100000000U); /* % 2^32 = low 32 bits */
+            check(0x800000000000U, 0x40000000U);  /* 0, exact */
+
+            /* divisor-shift loop: b >= 2^40 */
+            check(0x800000000000U, 2);            /* 0, 2^47 even */
+            check(0xFFFFFFFFFFFFU, 0x800000000000U); /* 2^48-1 - 2^47 */
+            check(0xFFFFFFFFFFFFU, 0xFFFFFFFFFFFFU);  /* 0, a == b */
+        }
+    )");
+    EXPECT_EQ(
+        "1\n"
+        "0\n"
+        "2\n"
+        "0\n"
+        "0\n"
+        "0\n"
+        "5\n"
+        "0\n"
+        "1\n"
+        "2\n"
+        "0\n"
+        "1\n"
+        "0\n"
+        "1477\n"
+        "36115274\n"
+        "37777777777\n"
+        "0\n"
+        "0\n"
+        "3777777777777777\n"
+        "0\n",
+        result);
+}
