@@ -166,6 +166,11 @@ static void export_instr(WFILE *out, const Tac_Instruction *instr)
         export_val(out, instr->u.fun_call.args);
         export_val(out, instr->u.fun_call.dst);
         break;
+    case TAC_INSTRUCTION_ALLOCATE_LOCAL:
+        wputstr(instr->u.allocate_local.name ? instr->u.allocate_local.name : "", out);
+        wputw((size_t)instr->u.allocate_local.size, out);
+        wputw((size_t)instr->u.allocate_local.alignment, out);
+        break;
     default:
         break;
     }

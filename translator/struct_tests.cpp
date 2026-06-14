@@ -16,6 +16,11 @@ TEST_F(TranslateTest, StructFieldReadFirst)
   global: true
   body:
     - instruction:
+      kind: allocate_local
+      name: %s
+      size: 2
+      alignment: 1
+    - instruction:
       kind: copy_from_offset
       src: %s
       offset: 0
@@ -42,6 +47,11 @@ TEST_F(TranslateTest, StructFieldReadSecond)
   global: true
   body:
     - instruction:
+      kind: allocate_local
+      name: %s
+      size: 2
+      alignment: 1
+    - instruction:
       kind: copy_from_offset
       src: %s
       offset: 4
@@ -67,6 +77,11 @@ TEST_F(TranslateTest, StructFieldWrite)
   name: f
   global: true
   body:
+    - instruction:
+      kind: allocate_local
+      name: %s
+      size: 2
+      alignment: 1
     - instruction:
       kind: copy_to_offset
       src:
@@ -177,6 +192,11 @@ TEST_F(TranslateTest, StructFieldAddressOf)
   name: f
   global: true
   body:
+    - instruction:
+      kind: allocate_local
+      name: %s
+      size: 2
+      alignment: 1
     - instruction:
       kind: get_address
       src:

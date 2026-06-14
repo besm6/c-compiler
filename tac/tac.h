@@ -108,7 +108,8 @@ typedef enum {
     TAC_INSTRUCTION_JUMP_IF_ZERO,
     TAC_INSTRUCTION_JUMP_IF_NOT_ZERO,
     TAC_INSTRUCTION_LABEL,
-    TAC_INSTRUCTION_FUN_CALL
+    TAC_INSTRUCTION_FUN_CALL,
+    TAC_INSTRUCTION_ALLOCATE_LOCAL
 } Tac_InstructionKind;
 
 typedef enum {
@@ -305,6 +306,11 @@ typedef struct Tac_Instruction {
             Tac_Val *args; // Linked list of values
             Tac_Val *dst;
         } fun_call;
+        struct {
+            char *name;     // frame-resident local aggregate name
+            int size;       // slot size in BESM-6 words
+            int alignment;  // slot alignment in words (currently always 1)
+        } allocate_local;
     } u;
 } Tac_Instruction;
 

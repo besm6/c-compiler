@@ -766,6 +766,16 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
             export_yaml_val(fd, instr->u.fun_call.dst, level + 1);
         }
         break;
+    case TAC_INSTRUCTION_ALLOCATE_LOCAL:
+        fprintf(fd, "allocate_local\n");
+        print_indent(fd, level);
+        fprintf(fd, "name: %s\n",
+                instr->u.allocate_local.name ? instr->u.allocate_local.name : "");
+        print_indent(fd, level);
+        fprintf(fd, "size: %d\n", instr->u.allocate_local.size);
+        print_indent(fd, level);
+        fprintf(fd, "alignment: %d\n", instr->u.allocate_local.alignment);
+        break;
     }
 }
 

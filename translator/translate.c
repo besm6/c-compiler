@@ -345,7 +345,7 @@ static Tac_Param *params_from_type(const Type *fun_type)
 }
 
 // Compute BESM-6 word count for an AST type.
-static int ast_type_words(const Type *t)
+int ast_type_words(const Type *t)
 {
     switch (t->kind) {
     case TYPE_LONG_LONG:
@@ -740,6 +740,9 @@ static void percent_instr(Tac_Instruction *in, const StringMap *autos)
     case TAC_INSTRUCTION_FUN_CALL:
         percent_vals(in->u.fun_call.args, autos);
         percent_vals(in->u.fun_call.dst, autos);
+        break;
+    case TAC_INSTRUCTION_ALLOCATE_LOCAL:
+        percent_name_field(&in->u.allocate_local.name, autos);
         break;
     }
 }

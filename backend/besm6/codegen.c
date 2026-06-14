@@ -1292,6 +1292,10 @@ static void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *in
         }
         break;
     }
+    case TAC_INSTRUCTION_ALLOCATE_LOCAL:
+        // Frame-slot reservation only; the slot is sized in frame_build and the
+        // prologue's stack extension covers it. No runtime instruction is emitted.
+        break;
     default:
         fatal_error("TODO: codegen for TAC instruction kind %d (Phase B)", (int)instr->kind);
     }

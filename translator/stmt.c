@@ -98,8 +98,24 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
                         storage == STORAGE_CLASS_AUTO ||
                         storage == STORAGE_CLASS_REGISTER;
     for (const InitDeclarator *id = decl->u.var.declarators; id; id = id->next) {
-        if (is_automatic && id->name)
-            tac_record_local(ctx, id->name);
+        if (!is_automatic || !id->name)
+            continue;
+        tac_record_local(ctx, id->name);
+        // Aggregate locals (arrays, structs, unions) occupy contiguous multi-word
+        // frame slots; emit an AllocateLocal so the backend reserves the full size
+        // instead of a single word. Scalars keep their implicit one-word slot.
+        if (id->type && (id->type->kind == TYPE_ARRAY ||
+                         id->type->kind == TYPE_STRUCT ||
+                         id->type->kind == TYPE_UNION)) {
+            int words = ast_type_words(id->type);
+            if (words > 0) {
+                Tac_Instruction *in            = tac_new_instruction(TAC_INSTRUCTION_ALLOCATE_LOCAL);
+                in->u.allocate_local.name      = xstrdup(id->name);
+                in->u.allocate_local.size      = words;
+                in->u.allocate_local.alignment = 1;
+                tac_append(ctx, in);
+            }
+        }
     }
     for (InitDeclarator *id = decl->u.var.declarators; id; id = id->next) {
         if (id->init && id->init->kind == INITIALIZER_SINGLE) {

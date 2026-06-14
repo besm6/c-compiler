@@ -428,6 +428,12 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
         fprintf(fd, "FunCall: ");
         emit_string(fd, instr->u.fun_call.fun_name);
         break;
+    case TAC_INSTRUCTION_ALLOCATE_LOCAL:
+        fprintf(fd, "AllocateLocal: ");
+        emit_string(fd, instr->u.allocate_local.name);
+        fprintf(fd, " size=%d align=%d", instr->u.allocate_local.size,
+                instr->u.allocate_local.alignment);
+        break;
     }
     fprintf(fd, "\", shape=box];\n");
     fprintf(fd, "  n%d -> n%d [label=\"instr\"];\n", parent_id, id);
@@ -571,6 +577,8 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
         if (instr->u.fun_call.dst)
             emit_val(fd, instr->u.fun_call.dst, id, "dst");
         break;
+    case TAC_INSTRUCTION_ALLOCATE_LOCAL:
+        break; // no Tac_Val operands
     }
 }
 

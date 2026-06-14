@@ -563,6 +563,11 @@ TEST_F(TranslateTest, LocalStructCompoundInit)
   global: true
   body:
     - instruction:
+      kind: allocate_local
+      name: %s
+      size: 2
+      alignment: 1
+    - instruction:
       kind: copy_to_offset
       src:
         kind: constant
@@ -593,6 +598,11 @@ TEST_F(TranslateTest, LocalArrayCompoundInit)
   name: f
   global: true
   body:
+    - instruction:
+      kind: allocate_local
+      name: %arr
+      size: 3
+      alignment: 1
     - instruction:
       kind: copy_to_offset
       src:
@@ -636,6 +646,11 @@ TEST_F(TranslateTest, LocalNestedStructInit)
   global: true
   body:
     - instruction:
+      kind: allocate_local
+      name: %o
+      size: 3
+      alignment: 1
+    - instruction:
       kind: copy_to_offset
       src:
         kind: constant
@@ -662,5 +677,30 @@ TEST_F(TranslateTest, LocalNestedStructInit)
           value: 3
       dst: %o
       offset: 8
+)");
+}
+
+// An uninitialized local aggregate still emits AllocateLocal so the backend reserves
+// its full multi-word frame slot (task #23). int a[10] -> 10 words; struct -> 2 words.
+TEST_F(TranslateTest, LocalAggregateAllocateLocal)
+{
+    std::string yaml = CompileToYaml(
+        "struct Foo { int x; int y; };"
+        "void f(void) { int a[10]; struct Foo s; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: allocate_local
+      name: %a
+      size: 10
+      alignment: 1
+    - instruction:
+      kind: allocate_local
+      name: %s
+      size: 2
+      alignment: 1
 )");
 }

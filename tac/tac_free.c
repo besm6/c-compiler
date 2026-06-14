@@ -129,6 +129,11 @@ void tac_free_instruction(Tac_Instruction *instr)
         tac_free_val(instr->u.fun_call.args);
         tac_free_val(instr->u.fun_call.dst);
         break;
+    case TAC_INSTRUCTION_ALLOCATE_LOCAL:
+        if (instr->u.allocate_local.name) {
+            xfree(instr->u.allocate_local.name);
+        }
+        break;
     }
     tac_free_instruction(instr->next);
     xfree(instr);

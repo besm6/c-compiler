@@ -10,12 +10,14 @@
 // addresses the member at word offset = byte_offset / 6.  Pointer-based access
 // (`p->field`) is handled by ADD_PTR + LOAD/STORE instead (task #19).
 //
-// Multi-word *local* struct runtime tests await task #23: frame.c still reserves one
-// word per local name, so a local struct's higher members overlap adjacent auto slots.
-// The runtime round-trip below therefore uses a global struct, which gets full storage.
+// A local aggregate (struct/array) reserves a contiguous multi-word frame slot via
+// an AllocateLocal pseudo-instruction (task #23), so its members no longer overlap
+// adjacent auto slots.  The frame prologue (15 ,utm, N) extends the stack by the full
+// aggregate size, and member access addresses word offset = byte_offset / 6.
 //
 
-// Local struct, write second member: 7 ,atx, <slot + 1> (word offset 1 for s.y).
+// Local struct, write second member: the 2-word slot extends the frame by 2 words
+// (15 ,utm, 2); s.y is word offset 1 of the slot at offset 0 -> 7 ,atx, 1.
 TEST_F(CodegenTest, CopyToOffsetLocalWrite)
 {
     std::string output = CompileToMadlen(
@@ -25,7 +27,7 @@ TEST_F(CodegenTest, CopyToOffsetLocalWrite)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save0
-          15 ,utm, 1
+          15 ,utm, 2
              ,xta, =5
            7 ,atx, 1
              ,uj, b/ret
@@ -33,7 +35,8 @@ TEST_F(CodegenTest, CopyToOffsetLocalWrite)
 )", output);
 }
 
-// Local struct, read second member: 7 ,xta, <slot + 1>.
+// Local struct, read second member: the 2-word slot occupies offsets 0..1 and the
+// return temp lands at offset 2, so the frame extends by 3 words (15 ,utm, 3).
 TEST_F(CodegenTest, CopyFromOffsetLocalRead)
 {
     std::string output = CompileToMadlen(
@@ -43,10 +46,10 @@ TEST_F(CodegenTest, CopyFromOffsetLocalRead)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save0
-          15 ,utm, 2
+          15 ,utm, 3
            7 ,xta, 1
-           7 ,atx, 1
-           7 ,xta, 1
+           7 ,atx, 2
+           7 ,xta, 2
              ,uj, b/ret
              ,uj, b/ret
              ,end,
@@ -96,4 +99,22 @@ TEST_F(CodegenTest, CopyOffsetGlobalRun)
         }
     )");
     EXPECT_EQ("42\n", result);
+}
+
+// Runtime: a *local* struct now occupies a contiguous 2-word slot (task #23), so
+// writing both members and reading them back yields independent values — they no
+// longer overlap.  Returns 18 = 7 + 11.
+TEST_F(CodegenTest, LocalStructRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        struct Foo { int x; int y; };
+        void program() {
+            struct Foo s;
+            s.x = 7;
+            s.y = 11;
+            printf("%d\n", s.x + s.y);
+        }
+    )");
+    EXPECT_EQ("18\n", result);
 }

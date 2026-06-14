@@ -275,6 +275,17 @@ bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b)
             return false;
         return tac_compare_val(a->u.fun_call.args, b->u.fun_call.args) &&
                tac_compare_val(a->u.fun_call.dst, b->u.fun_call.dst);
+    case TAC_INSTRUCTION_ALLOCATE_LOCAL:
+        if ((a->u.allocate_local.name == NULL) != (b->u.allocate_local.name == NULL))
+            return false;
+        if (a->u.allocate_local.name &&
+            strcmp(a->u.allocate_local.name, b->u.allocate_local.name) != 0)
+            return false;
+        if (a->u.allocate_local.size != b->u.allocate_local.size)
+            return false;
+        if (a->u.allocate_local.alignment != b->u.allocate_local.alignment)
+            return false;
+        break;
     }
     return tac_compare_instruction(a->next, b->next);
 }

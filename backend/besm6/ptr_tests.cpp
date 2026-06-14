@@ -120,3 +120,28 @@ TEST_F(CodegenTest, AddPtrGlobalArrayRun)
     )");
     EXPECT_EQ("10 20 30\n", result);
 }
+
+// A local array reserves a contiguous multi-word frame slot (task #23): int a[4]
+// occupies 4 words, so the frame prologue extends the stack by exactly 4 (no other
+// autos in this function).  Previously frame.c reserved a single word per name.
+TEST_F(CodegenTest, LocalArrayFrameSize)
+{
+    std::string output = CompileToMadlen("void f(void){ int a[4]; }");
+    EXPECT_NE(output.find("15 ,utm, 4"), std::string::npos) << output;
+}
+
+// Runtime: a local array indexes into its own contiguous frame slot, so distinct
+// elements hold distinct values.  Returns 30 = 10 + 20.
+TEST_F(CodegenTest, LocalArrayRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            int a[4];
+            a[0] = 10;
+            a[3] = 20;
+            printf("%d\n", a[0] + a[3]);
+        }
+    )");
+    EXPECT_EQ("30\n", result);
+}

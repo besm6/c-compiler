@@ -144,6 +144,9 @@ static void note_instr(StringMap *observable, const StringMap *private_set,
     case TAC_INSTRUCTION_JUMP:
     case TAC_INSTRUCTION_LABEL:
         break;
+    case TAC_INSTRUCTION_ALLOCATE_LOCAL:
+        // No Tac_Val operands; the name is a private local, not observable storage.
+        break;
     }
 }
 

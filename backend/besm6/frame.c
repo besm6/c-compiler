@@ -190,7 +190,29 @@ static void collect_instr(Frame *f, const Tac_Instruction *instr, int *auto_coun
         collect_vals(f, instr->u.fun_call.args, auto_count);
         collect_vals(f, instr->u.fun_call.dst, auto_count);
         break;
+    case TAC_INSTRUCTION_ALLOCATE_LOCAL:
+        break; // multi-word slot reserved in a dedicated first pass (frame_build)
     }
+}
+
+//
+// Reserve a contiguous multi-word frame slot for an aggregate local described by
+// an AllocateLocal pseudo-instruction. Run before the scalar scan so the aggregate
+// occupies one unbroken block of words; scalars then fill the remaining slots.
+//
+static void allocate_aggregate(Frame *f, const Tac_Instruction *instr, int *auto_count)
+{
+    const char *name = instr->u.allocate_local.name;
+    if (name[0] != '%')
+        return; // defensive: aggregate locals are always '%'-prefixed
+    intptr_t dummy;
+    if (map_get(&f->slots, name, &dummy))
+        return; // already assigned
+    int align = instr->u.allocate_local.alignment;
+    if (align > 1 && (*auto_count % align) != 0)
+        *auto_count += align - (*auto_count % align);
+    map_insert(&f->slots, name, SLOT_ENCODE(REG_AUTO, *auto_count), 0);
+    *auto_count += instr->u.allocate_local.size;
 }
 
 Frame *frame_build(const Tac_TopLevel *fn, const Tac_TopLevel *program)
@@ -208,8 +230,15 @@ Frame *frame_build(const Tac_TopLevel *fn, const Tac_TopLevel *program)
         par_count++;
     }
 
-    // Scan the body for '%'-prefixed names; assign auto slots (REG_AUTO) to those
-    // not already a parameter. Non-prefixed names are module-level globals (skipped).
+    // First pass: reserve contiguous slots for aggregate locals (arrays, structs)
+    // so their words do not overlap adjacent scalar slots.
+    for (const Tac_Instruction *instr = fn->u.function.body; instr; instr = instr->next)
+        if (instr->kind == TAC_INSTRUCTION_ALLOCATE_LOCAL)
+            allocate_aggregate(f, instr, &f->num_autos);
+
+    // Second pass: scan the body for '%'-prefixed names; assign one-word auto slots
+    // (REG_AUTO) to those not already assigned (params or aggregates). Non-prefixed
+    // names are module-level globals (skipped).
     for (const Tac_Instruction *instr = fn->u.function.body; instr; instr = instr->next)
         collect_instr(f, instr, &f->num_autos);
 

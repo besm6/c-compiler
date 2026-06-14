@@ -409,6 +409,9 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
     case TAC_INSTRUCTION_FUN_CALL:
         fprintf(fd, "fun_call\n");
         break;
+    case TAC_INSTRUCTION_ALLOCATE_LOCAL:
+        fprintf(fd, "allocate_local\n");
+        break;
     }
     switch (instr->kind) {
     case TAC_INSTRUCTION_RETURN:
@@ -548,6 +551,12 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
         tac_print_val(fd, instr->u.fun_call.dst, depth + 2);
+        break;
+    case TAC_INSTRUCTION_ALLOCATE_LOCAL:
+        print_indent(fd, depth + 1);
+        fprintf(fd, "Name: %s size=%d align=%d\n",
+                instr->u.allocate_local.name ? instr->u.allocate_local.name : "(null)",
+                instr->u.allocate_local.size, instr->u.allocate_local.alignment);
         break;
     }
     if (instr->next) {

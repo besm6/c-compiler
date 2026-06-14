@@ -73,6 +73,7 @@ void emit_label(TacCtx *ctx, const char *name);
 // Type conversion (translate.c)
 //
 Tac_Type *ast_type_to_tac_type(const Type *t);
+int ast_type_words(const Type *t);
 
 //
 // Expression and statement lowering (translate_expr.c, translate_stmt.c)

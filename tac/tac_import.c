@@ -245,7 +245,7 @@ static Tac_Instruction *import_instr(WFILE *in)
     check_input(in, "instr tag");
     bool is_volatile = (tag & TAG_INSTR_VOLATILE) != 0;
     tag &= ~TAG_INSTR_VOLATILE;
-    if (tag < TAG_TAC_INSTR || tag > TAG_TAC_INSTR + TAC_INSTRUCTION_FUN_CALL)
+    if (tag < TAG_TAC_INSTR || tag > TAG_TAC_INSTR + TAC_INSTRUCTION_ALLOCATE_LOCAL)
         return NULL;
     Tac_Instruction *instr = tac_new_instruction((Tac_InstructionKind)(tag - TAG_TAC_INSTR));
     instr->is_volatile     = is_volatile;
@@ -343,6 +343,14 @@ static Tac_Instruction *import_instr(WFILE *in)
         check_input(in, "fun_call fun_name");
         instr->u.fun_call.args = import_val(in);
         instr->u.fun_call.dst  = import_val(in);
+        break;
+    case TAC_INSTRUCTION_ALLOCATE_LOCAL:
+        instr->u.allocate_local.name = wgetstr(in);
+        check_input(in, "allocate_local name");
+        instr->u.allocate_local.size = (int)wgetw(in);
+        check_input(in, "allocate_local size");
+        instr->u.allocate_local.alignment = (int)wgetw(in);
+        check_input(in, "allocate_local alignment");
         break;
     default:
         break;
