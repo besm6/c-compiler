@@ -78,12 +78,16 @@ ctest --test-dir build -R cppcheck
 
 Try the compiler tools:
 ```sh
-./build/parse input.c               # parse → binary AST to stdout
+./build/parse input.c               # parse → binary AST to input.ast (NOT stdout)
 ./build/parse input.c --yaml        # parse → YAML AST
 ./build/parse input.c --dot         # parse → Graphviz DOT
 ./build/parse -D input.c            # debug: parser trace + AST dump + leak report
 
-./build/parse input.c > /tmp/input.ast
+# IMPORTANT: parse and lower do NOT write binary output to stdout — they create a new
+# file with an .ast / .tac suffix next to the input.  To emit to stdout (e.g. to pipe or
+# redirect), pass "-" as the output argument:
+./build/parse input.c -          > /tmp/input.ast   # "-" = binary AST to stdout
+./build/parse input.c               # → input.ast (default file output)
 ./build/lower /tmp/input.ast              # → binary TAC to /tmp/input.tac (default target: besm6)
 ./build/lower --yaml /tmp/input.ast -     # → YAML TAC to stdout ("-" = stdout)
 ./build/lower -t x86_64 /tmp/input.ast -  # → TAC with x86_64 type sizes/offsets
@@ -121,7 +125,7 @@ Source (.c)
 | AST → TAC lowering | `translator/translate.c`, `expr.c`, `stmt.c` | Complete |
 | TAC optimizer | `optimize/` | Complete (const fold, unreachable elim, copy prop, dead store elim) |
 | x86_64 code gen | `backend/x86/` | Planned |
-| BESM-6 code gen | `backend/besm6/` | In progress (frame alloc, static data, UTF-8→KOI7, main entry, global variable access, COPY/GET_ADDRESS/LOAD/STORE/BINARY (incl. shifts, unsigned add via b/uadd, unsigned sub via b/usub, multiply via b/mul, unsigned multiply via b/umul, divide via b/div, unsigned divide via b/udiv, remainder via b/mod, unsigned remainder via b/umod, FP add/sub/mul/div inline via a+x/a-x/a*x/a/x with NTR-bracketed normalization, FP comparisons via b/flt/b/fle/b/fgt/b/fge ordering helpers with FP ==/!= reusing b/eq/b/ne)/UNARY negate (int/unsigned/FP)/UNARY complement/UNARY not/FUN_CALL/RETURN/LABEL/JUMP/JUMP_IF_ZERO/JUMP_IF_NOT_ZERO/integer width conversions (TRUNCATE/ZERO_EXTEND/SIGN_EXTEND)/ADD_PTR (pointer & array index scaling)/COPY_TO_OFFSET/COPY_FROM_OFFSET (aggregate member access, word-aligned members)/ALLOCATE_LOCAL (contiguous multi-word frame slots for local arrays & structs) done) |
+| BESM-6 code gen | `backend/besm6/` | In progress (frame alloc, static data, UTF-8→KOI7, main entry, global variable access, COPY/GET_ADDRESS/LOAD/STORE/BINARY (incl. shifts, unsigned add via b/uadd, unsigned sub via b/usub, multiply via b/mul, unsigned multiply via b/umul, divide via b/div, unsigned divide via b/udiv, remainder via b/mod, unsigned remainder via b/umod, FP add/sub/mul/div inline via a+x/a-x/a*x/a/x with NTR-bracketed normalization, FP comparisons via b/flt/b/fle/b/fgt/b/fge ordering helpers with FP ==/!= reusing b/eq/b/ne)/UNARY negate (int/unsigned/FP)/UNARY complement/UNARY not/FUN_CALL/RETURN/LABEL/JUMP/JUMP_IF_ZERO/JUMP_IF_NOT_ZERO/integer width conversions (TRUNCATE/ZERO_EXTEND/SIGN_EXTEND)/int↔FP conversions (signed INT_TO_DOUBLE/INT_TO_FLOAT inline via INT-format+normalize, UINT_TO_DOUBLE/UINT_TO_FLOAT via b/utod, DOUBLE_TO_INT/FLOAT_TO_INT via b/dtoi, DOUBLE_TO_UINT/FLOAT_TO_UINT via b/dtou, FLOAT_TO_DOUBLE/DOUBLE_TO_FLOAT copies)/ADD_PTR (pointer & array index scaling)/COPY_TO_OFFSET/COPY_FROM_OFFSET (aggregate member access, word-aligned members)/ALLOCATE_LOCAL (contiguous multi-word frame slots for local arrays & structs) done) |
 | AArch64 / RISC-V / ARM32 code gen | — | Planned |
 
 ### Key data structures

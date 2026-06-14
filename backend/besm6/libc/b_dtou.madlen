@@ -1,7 +1,46 @@
-     b/dtou: ,name,
+    b/dtou: ,name,
+         14 ,base,*
 c
-c Double to unsigned int. STUB - not yet implemented.
-c Operand in accumulator, result in accumulator.
+c Convert a native floating-point value to a 48-bit unsigned integer, truncated toward
+c zero:  result = (unsigned)x.
 c
-         13 ,uj,
+c Helper convention: the operand x is in the accumulator A (no stack operand); the result
+c is returned in A.
+c
+c The realign-and-mask of b/dtoi only recovers the low 41 bits, so for the full unsigned
+c range mirror b/utod's split in reverse: peel off the high 24 bits, then the low 24 bits,
+c and reassemble.
+c   hi = trunc(x * 2^-24)               (the high 24 bits, < 2^24)
+c   lo = trunc(x - (double)hi * 2^24)   (the low  24 bits, < 2^24)
+c   result = (hi << 24) | lo
+c Each truncation is the b/dtoi realign trick (=:64 add under suppressed normalization,
+c then mask).  Both intermediates are non-negative, so no sign handling is needed.
+c (unsigned) of a negative or >= 2^48 value is undefined, as in C.
+c
+c Stack picture in the right margin ("/" separates the stack from the accumulator):
+c
+         15 ,atx,                . push x ; r15 += 1                          x /
+c        --- hi = trunc(x * 2^-24) ---
+            ,ntr,                . R := 0: full FP mode for the multiply
+            ,a*x, =2450 0000 0000 0000   . A := x * 2^-24
+            ,ntr, 3              . R := 3: suppress normalize + round
+            ,a+x, =:64           . realign -> truncate toward zero
+            ,aax, =377777 77777777   . mask -> hi  (integer, < 2^24)
+         15 ,atx,                . push hi ; r15 += 1                         x hi /
+c        --- lo = trunc(x - (double)hi * 2^24) ---
+            ,aox, =:64           . A := INT-format hi
+            ,ntr,                . R := 0: full FP mode
+            ,a+x,                . normalize: A := (double)hi
+            ,a*x, =5450 0000 0000 0000   . A := (double)hi * 2^24
+         15 ,x-a, -2             . A := x - (double)hi*2^24 = lo  (x at r15-2)
+            ,ntr, 3              . R := 3: suppress normalize + round
+            ,a+x, =:64           . realign -> truncate toward zero
+            ,aax, =377777 77777777   . mask -> lo  (integer, < 2^24)
+         15 ,atx,                . push lo ; r15 += 1                      x hi lo /
+c        --- result = (hi << 24) | lo ---
+         15 ,xta, -2             . A := hi  (at r15-2)
+            ,asn, 64-24          . A := hi << 24
+         15 ,aox, -1             . A := (hi << 24) | lo  (lo at r15-1)
+         15 ,utm, -3             . drop x, hi, lo: r15 := entry
+         13 ,uj,                 . return to caller (return address in r13)
             ,end,

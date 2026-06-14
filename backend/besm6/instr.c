@@ -46,6 +46,25 @@ static void emit_binop_helper(Besm_Block *b, Besm_Instr **t, const Frame *f, con
     emit_atx(b, t, dr, doff);
 }
 
+// Emit a unary op that lowers to a runtime helper:  dst = helper(src).
+//
+// Lighter than emit_binop_helper: the single operand is passed in A (no stack push) and the
+// result is returned in A.  Used by the int↔FP conversion helpers b/dtoi / b/dtou / b/utod,
+// the same convention as b/uneg / b/not.
+//
+//   XTA src         — A = src
+//   ,call, helper   — result in A
+//   reg ,ATX, off   — store result into dst's frame slot
+//
+static void emit_unary_helper(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *src,
+                              const char *helper, int dr, int doff)
+{
+    emit_xta_val(b, t, f, src);
+    Besm_Instr *call = emit(b, t, BESM_BRANCH_CALL);
+    call->name       = xstrdup(helper);
+    emit_atx(b, t, dr, doff);
+}
+
 // Extract the integer value of an integer constant (used for constant shift counts).
 static long tac_const_int(const Tac_Const *c)
 {
@@ -659,6 +678,99 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
         Besm_Instr *sub = emit(block, tail, BESM_ARITH_SUB);
         sub->name       = xstrdup("=200"); // subtract 0x80
         emit_atx(block, tail, rd, od);
+        break;
+    }
+    // Integer ↔ floating-point conversions (task #18).
+    //
+    // float ≡ double on BESM-6 (same 48-bit native FP word), so every FLOAT_* mirrors the
+    // matching DOUBLE_*, and FLOAT_TO_DOUBLE / DOUBLE_TO_FLOAT are bit-pattern copies.
+    //
+    //   copies          : load + store the word unchanged.
+    //   signed int → FP : inline INT-format-then-normalize (OR the INT exponent, NTR 0,
+    //                     A+X 0, NTR 7).  Correct across the full 41-bit signed range,
+    //                     negatives included (a negative two's-complement int in INT-format
+    //                     is already its own valid FP value).
+    //   unsigned → FP   : b/utod — a 48-bit unsigned carries data in the exponent field
+    //                     (bits 48-42) and would misread bit 41 as an FP sign, so the inline
+    //                     trick is wrong; the helper splits the word into 24-bit halves and
+    //                     recombines in FP.
+    //   FP → signed int : b/dtoi — realign the mantissa to the INT exponent and mask.
+    //   FP → unsigned   : b/dtou — full 48-bit extraction via the reverse 24-bit split.
+    //
+    // The two-word LONG_DOUBLE_* / *_TO_LONG_DOUBLE conversions are deferred (tasks
+    // #24/#25) and fall through to default below.
+    case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT: {
+        const Tac_Val *src = (instr->kind == TAC_INSTRUCTION_FLOAT_TO_DOUBLE)
+                                 ? instr->u.float_to_double.src
+                                 : instr->u.double_to_float.src;
+        const Tac_Val *dst = (instr->kind == TAC_INSTRUCTION_FLOAT_TO_DOUBLE)
+                                 ? instr->u.float_to_double.dst
+                                 : instr->u.double_to_float.dst;
+        int rd, od;
+        lookup(f, dst->u.var_name, &rd, &od);
+        emit_xta_val(block, tail, f, src);
+        emit_atx(block, tail, rd, od);
+        break;
+    }
+    case TAC_INSTRUCTION_INT_TO_DOUBLE:
+    case TAC_INSTRUCTION_INT_TO_FLOAT: {
+        const Tac_Val *src = (instr->kind == TAC_INSTRUCTION_INT_TO_DOUBLE)
+                                 ? instr->u.int_to_double.src
+                                 : instr->u.int_to_float.src;
+        const Tac_Val *dst = (instr->kind == TAC_INSTRUCTION_INT_TO_DOUBLE)
+                                 ? instr->u.int_to_double.dst
+                                 : instr->u.int_to_float.dst;
+        int rd, od;
+        lookup(f, dst->u.var_name, &rd, &od);
+        emit_xta_val(block, tail, f, src);
+        Besm_Instr *aox = emit(block, tail, BESM_LOG_AOX);
+        aox->name       = xstrdup("=:64"); // OR the INT-format exponent (0150) → unnormalized FP
+        Besm_Instr *ntr_on = emit(block, tail, BESM_EXP_SETR);
+        ntr_on->addr       = 0;            // NTR 0: enable normalization + rounding
+        emit(block, tail, BESM_ARITH_ADD); // A+X 0 (mem[0]=0): normalize to canonical FP
+        Besm_Instr *ntr_off = emit(block, tail, BESM_EXP_SETR);
+        ntr_off->addr       = 7;           // NTR 7: restore integer mode for the caller
+        emit_atx(block, tail, rd, od);
+        break;
+    }
+    case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+    case TAC_INSTRUCTION_UINT_TO_FLOAT: {
+        const Tac_Val *src = (instr->kind == TAC_INSTRUCTION_UINT_TO_DOUBLE)
+                                 ? instr->u.uint_to_double.src
+                                 : instr->u.uint_to_float.src;
+        const Tac_Val *dst = (instr->kind == TAC_INSTRUCTION_UINT_TO_DOUBLE)
+                                 ? instr->u.uint_to_double.dst
+                                 : instr->u.uint_to_float.dst;
+        int rd, od;
+        lookup(f, dst->u.var_name, &rd, &od);
+        emit_unary_helper(block, tail, f, src, "b/utod", rd, od);
+        break;
+    }
+    case TAC_INSTRUCTION_DOUBLE_TO_INT:
+    case TAC_INSTRUCTION_FLOAT_TO_INT: {
+        const Tac_Val *src = (instr->kind == TAC_INSTRUCTION_DOUBLE_TO_INT)
+                                 ? instr->u.double_to_int.src
+                                 : instr->u.float_to_int.src;
+        const Tac_Val *dst = (instr->kind == TAC_INSTRUCTION_DOUBLE_TO_INT)
+                                 ? instr->u.double_to_int.dst
+                                 : instr->u.float_to_int.dst;
+        int rd, od;
+        lookup(f, dst->u.var_name, &rd, &od);
+        emit_unary_helper(block, tail, f, src, "b/dtoi", rd, od);
+        break;
+    }
+    case TAC_INSTRUCTION_DOUBLE_TO_UINT:
+    case TAC_INSTRUCTION_FLOAT_TO_UINT: {
+        const Tac_Val *src = (instr->kind == TAC_INSTRUCTION_DOUBLE_TO_UINT)
+                                 ? instr->u.double_to_uint.src
+                                 : instr->u.float_to_uint.src;
+        const Tac_Val *dst = (instr->kind == TAC_INSTRUCTION_DOUBLE_TO_UINT)
+                                 ? instr->u.double_to_uint.dst
+                                 : instr->u.float_to_uint.dst;
+        int rd, od;
+        lookup(f, dst->u.var_name, &rd, &od);
+        emit_unary_helper(block, tail, f, src, "b/dtou", rd, od);
         break;
     }
     // ADD_PTR  dst = ptr + index * scale

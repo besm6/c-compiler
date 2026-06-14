@@ -402,29 +402,51 @@ type-independent, so they reuse `b/eq` and `b/ne` rather than dedicated FP helpe
 
 These routines convert between the native BESM-6 floating-point format (`float` ≡
 `double`, a single 48-bit word with 7-bit exponent and 40-bit mantissa) and C integer
-types. INT_TO_DOUBLE and UINT_TO_DOUBLE are short inline sequences (set the INT-format
-exponent, then `NTR` to normalise) and do not need a helper call. DOUBLE_TO_INT and
-DOUBLE_TO_UINT require extracting the mantissa at the correct shift, which is more
-involved.
+types. The asymmetry between signed `int` (41 bits) and `unsigned` (48 bits) drives the
+split: the **signed** `int`→`double` direction is a short inline sequence in the backend
+(`AOX =:64` to set the INT-format exponent, then `NTR 0` / `A+X 0` / `NTR 7` to normalise)
+and needs no helper, but every other direction needs one of the helpers below.
 
-#### `b/dtoi` — [b_dtoi.madlen](../backend/besm6/libc/b_dtoi.madlen) — `double` → signed `int` — **to be implemented**
+The realign primitive used throughout: adding INT-format 0.0 (`A+X =:64`, the exponent-104
+word) with normalization+rounding suppressed (`NTR 3`) shifts an FP value's mantissa to the
+INT exponent, dropping the fraction. For a **non-negative** value this truncates toward
+zero; for a negative two's-complement mantissa it rounds toward −∞ (floors), so the signed
+helper brackets it with an absolute value.
 
-Receives the 48-bit native FP value in A (no first operand on the stack). Returns the
+#### `b/dtoi` — [b_dtoi.madlen](../backend/besm6/libc/b_dtoi.madlen) — `double` → signed `int`
+
+Receives the 48-bit native FP value in A (no operand on the stack); returns the
 truncated 41-bit signed integer in A.
 
-Algorithm: extract the 7-bit exponent field (bits 48–42); compute the right-shift as
-`104 − exp` (where 104 = `0150B` is the INT-format base exponent for 1.0); shift the
-40-bit mantissa right by that amount using `ASX` or `ASN`; apply the FP sign bit. Values
-outside [−2⁴⁰, 2⁴⁰−1] have implementation-defined behaviour (C11 §6.3.1.4).
+Algorithm: push `x` as a sign reference, take `|x|` with `AVX` (full FP mode), realign the
+magnitude to the INT exponent (`NTR 3` / `A+X =:64`, which truncates a non-negative value
+toward zero), reapply the original sign with a second `AVX`, then mask off the exponent
+field to leave a raw 41-bit signed integer. The absolute-value bracketing is what yields C
+truncation toward zero (a direct realign would floor negatives). Values with |x| ≥ 2⁴⁰ do
+not fit the 41-bit signed range and overflow (implementation-defined, C11 §6.3.1.4).
 
 `float` and `double` use the same 48-bit format on BESM-6, so `b/dtoi` serves both
 `(int)f` and `(int)d`.
 
-#### `b/dtou` — [b_dtou.madlen](../backend/besm6/libc/b_dtou.madlen) — `double` → unsigned `int` — **to be implemented**
+#### `b/dtou` — [b_dtou.madlen](../backend/besm6/libc/b_dtou.madlen) — `double` → unsigned `int`
 
-Same mantissa-shift algorithm as `b/dtoi` but without sign handling; returns the full
-48-bit unsigned result in A. Values outside [0, 2⁴⁸−1] have implementation-defined
-behaviour.
+Receives the FP value in A; returns the full 48-bit unsigned result in A. The signed
+realign+mask only recovers 41 bits, so for the whole unsigned range `b/dtou` mirrors
+`b/utod`'s split in reverse: `hi = trunc(x·2⁻²⁴)` and `lo = trunc(x − (double)hi·2²⁴)` are
+each extracted with the realign primitive (both intermediates non-negative, so no sign
+handling), then recombined as `(hi << 24) | lo`. `(unsigned)` of a negative or ≥ 2⁴⁸ value
+is undefined, as in C.
+
+#### `b/utod` — [b_utod.madlen](../backend/besm6/libc/b_utod.madlen) — unsigned `int` → `double`
+
+Receives the 48-bit unsigned value in A; returns the native FP value in A. The inline
+signed trick cannot be used because a 48-bit unsigned carries data in the exponent field
+(bits 48–42) and would have bit 41 misread as the FP sign. Instead the word is split into
+two 24-bit halves `u = hi·2²⁴ + lo` (each < 2⁴⁰, exact in the mantissa); each half is
+converted with the INT-format-then-normalise trick and the result recombined in floating
+point as `(double)hi · 2²⁴ + (double)lo`. Inputs with more than 40 significant bits round
+to the 40-bit mantissa (unavoidable). `float` shares the format, so `b/utod` serves both
+`(double)u` and `(float)u`.
 
 ---
 

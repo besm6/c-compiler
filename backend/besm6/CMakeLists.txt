@@ -23,7 +23,7 @@ set(LIBC_MADLEN
     b_div b_eq b_ge b_gt b_le b_lt b_mod b_mul b_ne b_not
     b_ret b_save0 b_save b_tout b_true char exit lchar
     printd printo printf read write writeb flush
-    b_udiv b_umod b_ult b_ule b_ugt b_uge b_dtoi b_dtou b_uneg
+    b_udiv b_umod b_ult b_ule b_ugt b_uge b_dtoi b_dtou b_utod b_uneg
     b_lsh b_rsh b_uadd b_usub b_umul
     b_flt b_fle b_fgt b_fge)
 list(TRANSFORM LIBC_MADLEN PREPEND ${LIBC_DIR}/ OUTPUT_VARIABLE LIBC_SOURCES)

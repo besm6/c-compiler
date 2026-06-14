@@ -153,3 +153,201 @@ TEST_F(CodegenTest, TruncateThenZeroExtend)
     )");
     EXPECT_EQ("54\n", result); // 44 decimal in octal
 }
+
+// Integer <-> floating-point conversions (task #18).  float == double on BESM-6, so the
+// FLOAT_* forms mirror the DOUBLE_* ones and float<->double is a bit-pattern copy.  Signed
+// int->FP is the inline INT-format-then-normalize sequence (aox =:64 / ntr 0 / a+x / ntr 7);
+// unsigned->FP, FP->signed and FP->unsigned use the runtime helpers b/utod, b/dtoi, b/dtou.
+// Operands are volatile in the run tests so the optimizer cannot fold the conversion away.
+
+// --- Madlen shape -----------------------------------------------------------------
+
+// int -> double: OR the INT-format exponent, then normalize (ntr 0 / a+x 0 / ntr 7).
+TEST_F(CodegenTest, IntToDoubleMadlen)
+{
+    std::string output = CompileToMadlen("extern double g; void foo(int a) { g = a; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,aox, =:64
+             ,ntr, 0
+             ,a+x,
+             ,ntr, 7
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// unsigned -> double: the b/utod runtime helper (full 48-bit range).
+TEST_F(CodegenTest, UintToDoubleMadlen)
+{
+    std::string output = CompileToMadlen("extern unsigned g; double foo(unsigned a) { return (double)a; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+             ,call, b/utod
+           7 ,atx,
+           7 ,xta,
+             ,uj, b/ret
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// double -> int: the b/dtoi runtime helper (realign + mask, truncate toward zero).
+TEST_F(CodegenTest, DoubleToIntMadlen)
+{
+    std::string output = CompileToMadlen("extern double d; int foo(void) { return (int)d; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+          15 ,utm, 1
+             ,utc, d
+             ,xta,
+             ,call, b/dtoi
+           7 ,atx,
+           7 ,xta,
+             ,uj, b/ret
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// double -> unsigned: the b/dtou runtime helper (full 48-bit extraction).
+TEST_F(CodegenTest, DoubleToUintMadlen)
+{
+    std::string output = CompileToMadlen("extern double d; unsigned foo(void) { return (unsigned)d; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+          15 ,utm, 1
+             ,utc, d
+             ,xta,
+             ,call, b/dtou
+           7 ,atx,
+           7 ,xta,
+             ,uj, b/ret
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// float -> double: same 48-bit format, so just a load/store copy (no conversion code).
+TEST_F(CodegenTest, FloatToDoubleMadlen)
+{
+    std::string output = CompileToMadlen("extern float f; double foo(void) { return f; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+          15 ,utm, 1
+             ,utc, f
+             ,xta,
+           7 ,atx,
+           7 ,xta,
+             ,uj, b/ret
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// --- Runtime behaviour ------------------------------------------------------------
+
+// int -> double yields the canonical BESM-6 FP word (checked as the raw octal bit pattern,
+// matching the constants used in arith_tests.cpp).
+TEST_F(CodegenTest, IntToDoubleBits)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void show(double x) { printf("%o\n", x); }
+        void program() {
+            volatile int one = 1, two = 2;
+            show((double)one);   /* 1.0 */
+            show((double)two);   /* 2.0 */
+            show((double)0);     /* 0.0 */
+        }
+    )");
+    EXPECT_EQ("4050000000000000\n" /* 1.0 */
+              "4110000000000000\n" /* 2.0 */
+              "0\n"                 /* 0.0 prints as a single 0 in octal */,
+              result);
+}
+
+// int -> double -> int round-trips for positive, negative, and zero values.
+TEST_F(CodegenTest, IntDoubleRoundTrip)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void show(int x) { printf("%d\n", x); }
+        void program() {
+            volatile int i = 42, j = -7, k = 0, big = 1000000;
+            show((int)(double)i);
+            show((int)(double)j);
+            show((int)(double)k);
+            show((int)(double)big);
+        }
+    )");
+    EXPECT_EQ("42\n-7\n0\n1000000\n", result);
+}
+
+// double -> int truncates toward zero (not floor): negatives round up toward 0.
+TEST_F(CodegenTest, DoubleToIntTruncates)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void show(int x) { printf("%d\n", x); }
+        void program() {
+            volatile double a = 2.9, b = -2.9, c = -0.5, d = 7.0;
+            show((int)a);   /*  2 */
+            show((int)b);   /* -2 */
+            show((int)c);   /*  0 */
+            show((int)d);   /*  7 */
+        }
+    )");
+    EXPECT_EQ("2\n-2\n0\n7\n", result);
+}
+
+// unsigned conversions over the full 48-bit range.  b/utod is checked bit-exactly against
+// a literal double; the round-trip through b/dtou covers a value >= 2^40 where the signed
+// path (b/dtoi, 41 bits) would lose the high bits.  Exact because each value has <= 40
+// significant bits.
+TEST_F(CodegenTest, UnsignedDoubleRoundTrip)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile unsigned a = 3, b = 1000000, c = 16777217 /* 2^24 + 1 */;
+            volatile unsigned big = (1u << 44) | (1u << 10); /* >= 2^40, exact */
+            printf("%d%d%d%d%d\n",
+                (double)a == 3.0,
+                (double)b == 1000000.0,
+                (unsigned)(double)a == a,
+                (unsigned)(double)c == c,
+                (unsigned)(double)big == big);
+        }
+    )");
+    EXPECT_EQ("11111\n", result);
+}

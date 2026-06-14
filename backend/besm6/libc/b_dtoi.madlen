@@ -1,7 +1,30 @@
      b/dtoi: ,name,
+         14 ,base,*
 c
-c Double to signed int. STUB - not yet implemented.
-c Operand in accumulator, result in accumulator.
+c Convert a native floating-point value to a signed int, truncated toward zero (C
+c semantics):  result = (int)x.
 c
-         13 ,uj,
+c Helper convention: the operand x is in the accumulator A (no stack operand); the result
+c is returned in A.
+c
+c x arrives as a normalized FP word (exponent biased by 64).  Adding INT-format 0.0
+c (exponent 0150B, the =:64 literal) with normalization+rounding suppressed re-aligns the
+c mantissa to the INT exponent: the bits below 2^0 are shifted out and the integer part
+c lands in bits 40-1.  That shift drops the fraction, but for a two's-complement (negative)
+c mantissa it rounds toward MINUS infinity, not toward zero.  To get C truncation toward
+c zero we realign the MAGNITUDE |x| (where floor == truncate) and reapply the sign
+c afterwards -- the same absolute-value method b/div uses.
+c
+c Values with |x| >= 2^40 do not fit the 41-bit signed range and overflow
+c (implementation-defined, C11 6.3.1.4).
+c
+         15 ,atx,                . push x as the sign reference: mem[r15-1] := x ; r15 += 1
+            ,ntr,                . R := 0: full FP mode for the absolute value
+         15 ,avx, -1             . A := |x|  (AVX negates A iff x at r15-1 < 0)
+            ,ntr, 3              . R := 3: suppress normalize + round for integer extraction
+            ,a+x, =:64           . realign |x| to the INT exponent, dropping the fraction
+         15 ,avx, -1             . reapply sign: negate the magnitude iff x < 0
+         15 ,utm, -1             . pop x: r15 := entry
+            ,aax, =377777 77777777  . mask off the exponent -> raw 41-bit signed int
+         13 ,uj,                 . return to caller (return address in r13)
             ,end,

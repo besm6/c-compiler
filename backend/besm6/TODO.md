@@ -79,12 +79,6 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 ---
 
-### Phase I — Floating point (single word; `float` ≡ `double`)
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 18 | Int ↔ double conversions | `INT_TO_DOUBLE`/`UINT_TO_DOUBLE`: normalize the raw integer into FP (set the INT-format exponent, then `NTR`+`A+X 0`). `DOUBLE_TO_INT`/`DOUBLE_TO_UINT`: runtime `b/dtoi`/`b/dtou` (shift the mantissa by 104−exp). `FLOAT_*` ≡ `DOUBLE_*`, and `*_TO_FLOAT`/`FLOAT_TO_DOUBLE` are copies. | L |
-
 ### Phase K — Pointers, arrays, structs, fat pointers
 
 | # | Task | Description | Effort |
