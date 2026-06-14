@@ -154,14 +154,21 @@ Tests: `decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `
 |------|------|
 | `besm6.asdl` | Canonical ISA description: instructions, addressing modes, calling conventions |
 | `besm.h` | C structs for BESM-6 IR (`Besm_Module`, `Besm_Func`, `Besm_Block`, `Besm_Instr`, `Besm_DataSection`, `Besm_DataItem`) |
+| `abi.h`, `internal.h` | Target ABI constants (sizes, INT-format bridge) and backend-internal declarations |
 | `besm_alloc.c` | Allocation functions (`besm_new_*`) |
 | `besm_free.c` | Deallocation functions (`besm_free_*`) |
-| `besm_madlen.c` | Madlen assembly emitter (`emit_madlen_module`, `emit_madlen_func`, etc.) |
-| `madlen_tests.cpp` | GoogleTest suite (`besm-tests`) |
+| `codegen.c` | Top-level program/function codegen driver |
+| `frame.c`, `frame.h` | Frame allocation: stack slots for parameters, locals, and aggregates |
+| `static.c` | Static data/constant lowering (integers, strings, pointers, floats/doubles) |
+| `instr.c` | TAC → BESM-6 instruction selection |
+| `emit.c` | Instruction-emit helpers (`emit_xta`, `emit_atx`, `emit_arith_val`, …) |
+| `emit_madlen.c` | Madlen assembly emitter (`emit_madlen_module`, `emit_madlen_func`, etc.) |
+| `utf8_to_koi7.c`, `utf8_to_koi7.h` | UTF-8 → KOI7 string conversion for static string data |
+| `*_tests.cpp` | GoogleTest suite (`besm-tests`) — see the test list below |
 
 IR hierarchy: `Besm_Module` → `Besm_Func` (calling convention: `BESM6_C` or `INTERNAL`) → `Besm_Block` → `Besm_Instr` (8 instruction categories: mem, arith, log, exp, reg, mod, branch, extra). Data lives in `Besm_DataSection` → `Besm_DataItem` (8 kinds: Int, Real, Oct, Log, Bss, Equ, Ref, String).
 
-Frame allocation (`frame.c`) assigns a stack slot to every TAC name beginning with `.`
+Frame allocation (`frame.c`) assigns a stack slot to every TAC name beginning with `%`
 (parameters and automatic locals — see the variable name convention below); any other
 referenced name is a module-level global, accessed via `,utc, name` and pre-declared with
 a `,subp,` directive.
@@ -365,7 +372,7 @@ Test executables and their sources:
 | `libutil-tests` | `libutil/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` |
 | `tac-tests` | `tac/yaml_tests.cpp`, `graphviz_tests.cpp`, `binary_tests.cpp` |
 | `semantic-tests` | `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` |
-| `besm-tests` | `backend/besm6/madlen_tests.cpp` |
+| `besm-tests` | `backend/besm6/codegen_tests.cpp`, `arith_tests.cpp`, `convert_tests.cpp`, `copy_tests.cpp`, `flow_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp`, `ptr_tests.cpp`, `run_tests.cpp`, `struct_tests.cpp`, `unary_tests.cpp` |
 | `translate-tests` | `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` |
 
 Run a single binary from `build/`:

@@ -280,19 +280,35 @@ operands, then repack the low 48 bits from the A:Y pair) is inlined at each of t
 multiply sites. The two cross-product addends are each `< 2⁸`, so their sum never carries
 past bit 48 and a plain `ARX` add suffices.
 
-#### `b/udiv` — [b_udiv.madlen](../backend/besm6/libc/b_udiv.madlen) — `a / b` (unsigned) — **to be implemented**
+#### `b/udiv` — [b_udiv.madlen](../backend/besm6/libc/b_udiv.madlen) — `a / b` (unsigned)
 
 Receives two 48-bit unsigned values (`a` at `mem[r15−1]`, `b` in A). Returns the
-unsigned quotient in A, truncated toward zero.
+unsigned quotient in A, truncated toward zero. Division by zero returns 0
+(implementation-defined).
 
-Intended algorithm: a software restoring long-division loop operating on the full 48-bit
-representation, or normalisation of the value as a non-negative FP mantissa followed by
-FP division. Division by zero has implementation-defined behaviour.
+The signed `b/div` is an *exact* floor divide whenever both operands are `< 2⁴⁰` (they are
+then non-negative and fit the 40-bit FP mantissa), so `b/udiv` routes on operand magnitude
+to use the hardware divide where it is safe and falls back to software only for the wide
+range:
 
-#### `b/umod` — [b_umod.madlen](../backend/besm6/libc/b_umod.madlen) — `a % b` (unsigned) — **to be implemented**
+- **`b == 0`** → return 0 (undefined).
+- **`(a | b) < 2⁴⁰`** (the common case) → tail-jump to `b/div` for a single hardware divide.
+- **`b < 2³²` (but `a ≥ 2⁴⁰`)** → base-2⁸ long division in two `b/div`/`b/mod` steps:
+  `q = (aHi/b)·2⁸ + ((aHi%b)·2⁸ | aLo)/b`, with `aHi = a>>8`, `aLo = a & 0377`.
+- **`b ≥ 2³²`** → a divisor-shift/subtract restoring loop (≤ 16 iterations) over the full
+  48-bit residue, using `b/uge`/`b/usub` so the residue stays in the unsigned range.
 
-Returns the unsigned remainder `a − (a÷b)·b` using `b/udiv`. Both operands and the
-result span the full 48-bit unsigned range.
+The routine carries no `,base,` directive: the sub-helpers it calls (`b/div`, `b/mod`,
+`b/uadd`, `b/uge`, `b/usub`) reload `r14` with their own base and never restore it, so all
+literals and labels are addressed absolutely.
+
+#### `b/umod` — [b_umod.madlen](../backend/besm6/libc/b_umod.madlen) — `a % b` (unsigned)
+
+Returns the unsigned remainder over the full 48-bit range from the identity
+`r = a − (a÷b)·b`, composing the proven full-width helpers `b/udiv`, `b/umul`, and `b/usub`
+(quotient, then product, then difference). Like `b/udiv` it carries no `,base,` directive
+and keeps the entry return address and intermediates in a small stack frame across the
+nested calls.
 
 ---
 
@@ -355,20 +371,31 @@ The four unsigned ordering helpers below handle the remaining cases.
 ### Unsigned Relational Operators
 
 The subtraction sign-bit test used by `b/lt`, `b/le`, `b/gt`, `b/ge` is only valid within
-the 41-bit signed range. For unsigned values in the full 48-bit range, a different
-comparison is needed — for example, carry/borrow detection via `ARX` (cyclic add, opcode
-013), or normalising both values as non-negative FP numbers and comparing exponents.
-
-#### `b/ult` — [b_ult.madlen](../backend/besm6/libc/b_ult.madlen) — `a < b` (unsigned) — **to be implemented**
-
-#### `b/ule` — [b_ule.madlen](../backend/besm6/libc/b_ule.madlen) — `a <= b` (unsigned) — **to be implemented**
-
-#### `b/ugt` — [b_ugt.madlen](../backend/besm6/libc/b_ugt.madlen) — `a > b` (unsigned) — **to be implemented**
-
-#### `b/uge` — [b_uge.madlen](../backend/besm6/libc/b_uge.madlen) — `a >= b` (unsigned) — **to be implemented**
+the 41-bit signed range. For unsigned values in the full 48-bit range a different test is
+needed. The four helpers below detect the borrow of the unsigned subtraction with a bit
+trick instead of an arithmetic subtract: they form `a ⊕ b` with `AEX`, then use `APX`
+(pack, opcode 015) to select bits of `a ⊕ b` under the mask of one operand, and `ASN` to
+shift the resulting borrow bit (bit 48) into the low position as the 0/1 result. Because the
+test never reads bit 48 as a sign, it is correct across the entire 48-bit unsigned range.
 
 Each receives the two 48-bit unsigned operands in the standard helper convention
 (`a` at `mem[r15−1]`, `b` in A) and returns 0 or 1 in A.
+
+#### `b/ult` — [b_ult.madlen](../backend/besm6/libc/b_ult.madlen) — `a < b` (unsigned)
+
+Packs `a ⊕ b` under `b` and extracts bit 48 — the borrow of `a − b`, i.e. `a < b`.
+
+#### `b/ule` — [b_ule.madlen](../backend/besm6/libc/b_ule.madlen) — `a <= b` (unsigned)
+
+Packs `a ⊕ b` under `a` and extracts bit 48 (= `a > b`), then inverts it against `b/true`.
+
+#### `b/ugt` — [b_ugt.madlen](../backend/besm6/libc/b_ugt.madlen) — `a > b` (unsigned)
+
+Packs `a ⊕ b` under `a` and extracts bit 48 — the borrow of `b − a`, i.e. `a > b`.
+
+#### `b/uge` — [b_uge.madlen](../backend/besm6/libc/b_uge.madlen) — `a >= b` (unsigned)
+
+Packs `a ⊕ b` under `b` and extracts bit 48 (= `a < b`), then inverts it against `b/true`.
 
 ---
 
