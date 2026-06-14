@@ -831,35 +831,47 @@ TEST_F(CodegenTest, DivideUnsignedMadlenShape)
     EXPECT_EQ(out.find("15 ,utm, -1"), std::string::npos);
 }
 
-// End-to-end: full 48-bit unsigned divide via b/udiv (integer long division).  Quotients
-// are printed in octal (%o).  The first block keeps small values and a power-of-two
-// divisor; the second exercises full 48-bit operands (dividends >= 2^40 and with bit 48
-// set) where the signed b/div would give a wrong answer.
+// End-to-end: full 48-bit unsigned divide via b/udiv (quotients printed in octal, %o).
+// b/udiv routes on operand size; the blocks below exercise each branch:
+//   - fast path  (a,b < 2^40)            -> b/div directly
+//   - 2-step     (b < 2^32, a >= 2^40)   -> base-2^8 long division via b/div / b/mod
+//   - loop, b in [2^32, 2^40)            -> divisor-shift loop
+//   - loop, b >= 2^40                    -> divisor-shift loop (short)
 TEST_F(CodegenTest, DivideUnsignedRun)
 {
     std::string result = CompileAndRun(R"(
         int printf(const char *format, ...);
         void check(unsigned a, unsigned b) { printf("%o\n", a / b); }
         void program() {
-            /* small values */
-            check(7, 2);            /* 3 */
-            check(6, 3);            /* 2 */
-            check(17, 5);           /* 3 */
-            check(100, 10);         /* 12 octal */
-            check(0, 5);            /* 0 */
-            check(42, 1);           /* 52 octal */
-            check(1, 1);            /* 1 */
-            check(1000, 8);         /* 175 octal, power-of-two divisor */
-            check(5, 9);            /* 0, divisor > dividend */
+            /* fast path: both operands < 2^40 */
+            check(7, 2);                    /* 3 */
+            check(6, 3);                    /* 2 */
+            check(17, 5);                   /* 3 */
+            check(100, 10);                 /* 12 octal */
+            check(0, 5);                    /* 0 */
+            check(42, 1);                   /* 52 octal */
+            check(1, 1);                    /* 1 */
+            check(1000, 8);                 /* 175 octal, power-of-two divisor */
+            check(5, 9);                    /* 0, divisor > dividend */
+            check(0xFFFFFFFFFFU, 7);        /* (2^40-1)/7, top of b/div's exact range */
 
-            /* full 48-bit operands */
-            check(0xFFFFFFFFFFFFU, 1);              /* -1u / 1 */
-            check(0xFFFFFFFFFFFFU, 2);              /* high bit set */
-            check(0xFFFFFFFFFFFFU, 0xFFFFFFFFFFFFU);/* 1 */
-            check(0x800000000000U, 2);              /* 2^47 / 2 = 2^46 */
-            check(0xFFFFFFFFFFFFU, 3);              /* repeating pattern */
-            check(0xABCDEF123456U, 0x1011U);        /* wide / small */
-            check(0x123456789ABCU, 0x1000000U);     /* divide by 2^24 */
+            /* 2-step path: b < 2^32 with a >= 2^40 */
+            check(0x10000000000U, 7);       /* 2^40 / 7 */
+            check(0xFFFFFFFFFFFFU, 1);      /* -1u / 1 */
+            check(0xFFFFFFFFFFFFU, 2);      /* high bit set */
+            check(0xFFFFFFFFFFFFU, 3);      /* repeating pattern */
+            check(0xFFFFFFFFFFFFU, 7);      /* repeating pattern */
+            check(0xABCDEF123456U, 0x1011U);    /* wide / small */
+            check(0x123456789ABCU, 0x1000000U); /* divide by 2^24 */
+
+            /* divisor-shift loop: b in [2^32, 2^40) */
+            check(0xFFFFFFFFFFFFU, 0x100000000U); /* / 2^32 */
+            check(0x800000000000U, 0x40000000U);  /* / 2^30 */
+
+            /* divisor-shift loop: b >= 2^40 (quotient < 2^8) */
+            check(0x800000000000U, 2);            /* 2^47 / 2 = 2^46 */
+            check(0xFFFFFFFFFFFFU, 0x800000000000U); /* 1 */
+            check(0xFFFFFFFFFFFFU, 0xFFFFFFFFFFFFU);  /* 1 */
         }
     )");
     EXPECT_EQ(
@@ -872,12 +884,18 @@ TEST_F(CodegenTest, DivideUnsignedRun)
         "1\n"
         "175\n"
         "0\n"
+        "2222222222222\n"
+        "2222222222222\n"
         "7777777777777777\n"
         "3777777777777777\n"
-        "1\n"
-        "2000000000000000\n"
         "2525252525252525\n"
+        "1111111111111111\n"
         "526140453247\n"
-        "4432126\n",
+        "4432126\n"
+        "177777\n"
+        "400000\n"
+        "2000000000000000\n"
+        "1\n"
+        "1\n",
         result);
 }

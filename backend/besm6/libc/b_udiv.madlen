@@ -1,5 +1,5 @@
     b/udiv: ,name,
-         14 ,base, *
+      b/div: ,subp,
 c
 c Divide two 48-bit unsigned integers, floor quotient:  result = a / b.
 c
@@ -7,41 +7,49 @@ c Helper convention: dividend a is on the stack at mem[r15-1], divisor b is in t
 c accumulator A, the quotient is returned in A.  The caller pushed a with one XTS, so
 c this helper pops exactly one word (net r15 = entry - 1) before returning.
 c
-c The signed b/div borrows the hardware FP unit (40-bit mantissa; bit 48 read as a sign),
-c so it is wrong for unsigned operands >= 2^40.  Here we do integer long division over the
-c full 48-bit word and never touch the FP unit: align the divisor under the top of the
-c residue and subtract, shifting the divisor down one place per step.  The residue stays
-c < 2^48 throughout (we only ever subtract from it), so there is no overflow.
+c The signed b/div is an EXACT floor divide whenever both operands are < 2^40 (they are
+c then non-negative and fit the 40-bit FP mantissa), and it shares this helper's calling
+c convention.  We route on operand size to use it as a fast hardware divide:
 c
-c   rem = a;  quot = 0
-c   s    = 48 - msb_index(b)            . highest shift whose b<<s still fits 48 bits
-c   for (; s >= 0; s--)
-c       t = b << s
-c       if (rem >= t) { rem -= t;  quot |= 1<<s }
-c   return quot
+c   b == 0                : undefined -> return 0.
+c   (a|b) < 2^40          : tail-jump to b/div            (one hardware divide).
+c   b < 2^32  (a >= 2^40) : 2-step base-2^8 long division using b/div / b/mod.
+c   b >= 2^32             : divisor-shift / subtract loop  (<= 16 iterations; <= 8 for
+c                           b >= 2^40).  Keeps the residue < 2^48 -- only ever subtracts.
 c
-c Full-width unsigned compare and subtract are delegated to the proven b/uge and b/usub
-c helpers; CALL clobbers r13, so the entry return address is saved on the stack first.
-c The shift count s is held negated in r11 (ASN left-shifts by -r11); r11 also drives loop
-c termination.  b/uge / b/usub touch only the operand they are handed (and the slot above
-c it), so the frame below stays intact across the calls.
+c CALL clobbers r13, so paths that call sub-helpers save the entry return address first.
+c b/div, b/mod, b/uadd, b/uge, b/usub touch only r13/r14/r15 (+A/Y), never r8-r12, so the
+c loop's r11 and the 2-step's r10 frame base survive the nested calls.
 c
-c Stack frame (offsets from r15 once set up): rem=-5 b=-4 r13=-3 quot=-2 t=-1.
+c NB: this routine deliberately has NO ",base," directive (literals/labels are addressed
+c absolutely).  b/div and b/mod reload r14 with their own base on entry and never restore
+c it, so a base-relative literal access after one of those calls would read from the wrong
+c address -- do not add ",14 ,base," here.
 c
             15 ,atx,                . push b: mem[E]=b, r15=E+1
-            15 ,xta, -1             . reload b (sets logical w, w = b!=0)
-               ,uza, u*z            . b == 0 -> divide by zero (undefined): return 0
+            15 ,xta, -1             . reload b (logical w, w = b!=0)
+               ,uza, u*z            . b == 0 -> return 0 (undefined)
+            15 ,xta, -2             . A := a
+            15 ,aox, -1             . A := a | b
+               ,asn, 64+40          . A := (a|b) >> 40
+               ,uza, u*fst          . both < 2^40 -> single hardware divide
+            15 ,xta, -1             . A := b
+               ,asn, 64+32          . A := b >> 32
+               ,uza, u*two          . b < 2^32 -> 2-step b/div long division
+c                                     otherwise b >= 2^32: divisor-shift loop below
+c
+c           --- wide path: divisor-shift long division (b >= 2^32) ---
+c           rem = a;  s = 48 - msb_index(b);  for (; s >= 0; s--) if (rem >= b<<s) {
+c           rem -= b<<s; quot |= 1<<s }.  Frame (from r15): rem=-5 b=-4 r13=-3 quot=-2 t=-1.
                ,ita, 13             . A := saved return address (r13)
                ,xts,                . push it: r15=E+2; A := mem[0] = 0
             15 ,atx,                . push quot = 0: r15=E+3
             15 ,atx,                . push t slot (= 0): r15=E+4
-c                                     frame ready: rem=-5 b=-4 r13=-3 quot=-2 t=-1
             15 ,xta, -4             . A := b
                ,anx,                . A := position p of b's highest set bit (1..48)
                ,ntr, 3              . suppress normalization for the integer subtract
                ,x-a, =1             . A := 1 - p  (= -(48 - msb_index(b)) = -s_start, <= 0)
                ,ati, 11             . r11 := -s
-c
      u*lp:  15 ,xta, -4             . A := b
             11 ,asn, 64             . A := b << s          (EA = 64 + r11 = 64 - s)
             15 ,atx, -1             . t := A
@@ -50,7 +58,7 @@ c
                ,call, b/uge         . A := (rem >= t) ? 1 : 0      (w = result != 0)
                ,uza, u*sk           . rem < t -> quotient bit stays 0
             15 ,xta, -5             . A := rem
-            15 ,xts, -2             . push rem, A := t   (XTS loads past the new top)
+            15 ,xts, -2             . push rem, A := t
                ,call, b/usub        . A := rem - t
             15 ,atx, -5             . rem := A
                ,xta, =1             . A := 1
@@ -60,14 +68,60 @@ c
      u*sk:  11 ,vzm, u*dn           . s reached 0 -> done
             11 ,utm, 1              . s -= 1   (r11 += 1)
                ,uj, u*lp
-c
      u*dn:  15 ,xta, -3             . A := saved return address
                ,ati, 13             . r13 := A
             15 ,xta, -2             . A := quot  (result, raw 48-bit)
             15 ,utm, -5             . drop the frame: r15 := entry - 1
             13 ,uj,                 . return to caller
 c
-c           b == 0: result is undefined; return 0 with the stack popped by one word.
+c           --- fast path: both operands < 2^40 -> exact signed divide ---
+     u*fst: 15 ,xta,                . pop b: A := b, r15 := entry
+               ,uj, b/div           . a at mem[r15-1], b in A; b/div floors and returns
+c
+c           --- 2-step path: b < 2^32, base-2^8 long division ---
+c           q = (q1<<8) + q2,  q1 = aHi/b,  num2 = (aHi%b)<<8 | aLo,  q2 = num2/b,
+c           aHi = a>>8 (< 2^40),  aLo = a & 0377.  Frame based at r10 (stable across the
+c           nested calls):  a=r10-1  b=r10+0  r13=r10+1  q1=r10+2  num2=r10+3  q=r10+4.
+     u*two: 15 ,mtj, 10             . r10 := r15  (= E+1)
+            10 ,utm, -1             . r10 := E    (base: b at r10, a at r10-1)
+            15 ,utm, 4              . reserve frame: r15 := E+5 (slots r10+1..r10+4)
+               ,ita, 13             . A := r13
+            10 ,atx, 1              . save r13 at r10+1
+c           q1 = b/div(aHi, b)
+            10 ,xta, -1             . A := a
+               ,asn, 64+8           . A := a >> 8 = aHi
+            10 ,xts,                . push aHi, A := b      (load via r10+0)
+               ,call, b/div         . A := q1 = aHi / b
+            10 ,atx, 2              . q1 := A
+c           r1 = b/mod(aHi, b);  num2 = (r1<<8) | (a & 0377)
+            10 ,xta, -1             . A := a
+               ,asn, 64+8           . A := aHi
+            10 ,xts,                . push aHi, A := b
+               ,call, b/mod         . A := r1 = aHi mod b
+               ,asn, 64-8           . A := r1 << 8
+            10 ,atx, 3              . num2 := r1<<8  (temp)
+            10 ,xta, -1             . A := a
+               ,aax, =377           . A := a & 0377 = aLo
+            10 ,aox, 3              . A := aLo | (r1<<8) = num2
+            10 ,atx, 3              . num2 := A
+c           q2 = b/div(num2, b)
+            10 ,xta, 3              . A := num2
+            10 ,xts,                . push num2, A := b
+               ,call, b/div         . A := q2 = num2 / b
+            10 ,atx, 4              . q2 := A  (temp)
+c           q = (q1<<8) + q2
+            10 ,xta, 2              . A := q1
+               ,asn, 64-8           . A := q1 << 8
+            10 ,xts, 4              . push q1<<8, A := q2
+               ,call, b/uadd        . A := (q1<<8) + q2 = q
+            10 ,atx, 4              . q := A
+            10 ,xta, 1              . A := saved r13
+               ,ati, 13             . r13 := A
+            10 ,xta, 4              . A := q  (result)
+            15 ,utm, -6             . drop the frame: r15 := entry - 1  (E+5 -> E-1)
+            13 ,uj,                 . return to caller
+c
+c           b == 0: undefined; return 0 with the stack popped by one word.
      u*z:      ,xta,                . A := 0
             15 ,utm, -2             . r15 := entry - 1  (we had pushed b)
             13 ,uj,
