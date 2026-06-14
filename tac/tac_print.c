@@ -375,6 +375,11 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
                 : instr->u.binary.op == TAC_BINARY_SUBTRACT_DOUBLE  ? "subtract_double"
                 : instr->u.binary.op == TAC_BINARY_MULTIPLY_DOUBLE  ? "multiply_double"
                 : instr->u.binary.op == TAC_BINARY_DIVIDE_DOUBLE    ? "divide_double"
+                : instr->u.binary.op == TAC_BINARY_LESS_THAN_DOUBLE ? "less_than_double"
+                : instr->u.binary.op == TAC_BINARY_LESS_OR_EQUAL_DOUBLE ? "less_or_equal_double"
+                : instr->u.binary.op == TAC_BINARY_GREATER_THAN_DOUBLE  ? "greater_than_double"
+                : instr->u.binary.op == TAC_BINARY_GREATER_OR_EQUAL_DOUBLE
+                    ? "greater_or_equal_double"
                                                                     : "right_shift");
         break;
     case TAC_INSTRUCTION_COPY:

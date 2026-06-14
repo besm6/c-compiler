@@ -634,6 +634,18 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         case TAC_BINARY_DIVIDE_DOUBLE:
             fprintf(fd, "divide_double\n");
             break;
+        case TAC_BINARY_LESS_THAN_DOUBLE:
+            fprintf(fd, "less_than_double\n");
+            break;
+        case TAC_BINARY_LESS_OR_EQUAL_DOUBLE:
+            fprintf(fd, "less_or_equal_double\n");
+            break;
+        case TAC_BINARY_GREATER_THAN_DOUBLE:
+            fprintf(fd, "greater_than_double\n");
+            break;
+        case TAC_BINARY_GREATER_OR_EQUAL_DOUBLE:
+            fprintf(fd, "greater_or_equal_double\n");
+            break;
         }
         print_indent(fd, level);
         fprintf(fd, "src1:\n");

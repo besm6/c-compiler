@@ -364,6 +364,22 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
         case TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED:
             cmp_helper = "b/uge";
             break;
+        // Floating-point orderings.  The FP helpers mirror the integer b/lt..b/ge but
+        // bracket the subtract with NTR so the additive sign reflects the FP difference
+        // (equal operands normalize to an exact zero).  FP ==/!= are pure bit equality,
+        // so they keep using the type-independent b/eq/b/ne above.
+        case TAC_BINARY_LESS_THAN_DOUBLE:
+            cmp_helper = "b/flt";
+            break;
+        case TAC_BINARY_LESS_OR_EQUAL_DOUBLE:
+            cmp_helper = "b/fle";
+            break;
+        case TAC_BINARY_GREATER_THAN_DOUBLE:
+            cmp_helper = "b/fgt";
+            break;
+        case TAC_BINARY_GREATER_OR_EQUAL_DOUBLE:
+            cmp_helper = "b/fge";
+            break;
         default:
             break;
         }

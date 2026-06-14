@@ -46,13 +46,21 @@ static Tac_BinaryOperator map_binary_op(BinaryOp op, const Type *operand_type)
     case BINARY_MOD:
         return is_unsigned ? TAC_BINARY_REMAINDER_UNSIGNED : TAC_BINARY_REMAINDER;
     case BINARY_LT:
-        return is_unsigned ? TAC_BINARY_LESS_THAN_UNSIGNED : TAC_BINARY_LESS_THAN;
+        return is_float ? TAC_BINARY_LESS_THAN_DOUBLE
+               : is_unsigned ? TAC_BINARY_LESS_THAN_UNSIGNED
+                             : TAC_BINARY_LESS_THAN;
     case BINARY_GT:
-        return is_unsigned ? TAC_BINARY_GREATER_THAN_UNSIGNED : TAC_BINARY_GREATER_THAN;
+        return is_float ? TAC_BINARY_GREATER_THAN_DOUBLE
+               : is_unsigned ? TAC_BINARY_GREATER_THAN_UNSIGNED
+                             : TAC_BINARY_GREATER_THAN;
     case BINARY_LE:
-        return is_unsigned ? TAC_BINARY_LESS_OR_EQUAL_UNSIGNED : TAC_BINARY_LESS_OR_EQUAL;
+        return is_float ? TAC_BINARY_LESS_OR_EQUAL_DOUBLE
+               : is_unsigned ? TAC_BINARY_LESS_OR_EQUAL_UNSIGNED
+                             : TAC_BINARY_LESS_OR_EQUAL;
     case BINARY_GE:
-        return is_unsigned ? TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED : TAC_BINARY_GREATER_OR_EQUAL;
+        return is_float ? TAC_BINARY_GREATER_OR_EQUAL_DOUBLE
+               : is_unsigned ? TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED
+                             : TAC_BINARY_GREATER_OR_EQUAL;
     case BINARY_EQ:
         return TAC_BINARY_EQUAL;
     case BINARY_NE:

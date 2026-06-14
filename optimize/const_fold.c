@@ -309,12 +309,16 @@ static Tac_Val *fold_binary_float(Tac_BinaryOperator op, const Tac_Const *c1, co
         case TAC_BINARY_NOT_EQUAL:
             return make_int_const_val(TAC_CONST_INT, ld1 != ld2);
         case TAC_BINARY_LESS_THAN:
+        case TAC_BINARY_LESS_THAN_DOUBLE:
             return make_int_const_val(TAC_CONST_INT, ld1 < ld2);
         case TAC_BINARY_LESS_OR_EQUAL:
+        case TAC_BINARY_LESS_OR_EQUAL_DOUBLE:
             return make_int_const_val(TAC_CONST_INT, ld1 <= ld2);
         case TAC_BINARY_GREATER_THAN:
+        case TAC_BINARY_GREATER_THAN_DOUBLE:
             return make_int_const_val(TAC_CONST_INT, ld1 > ld2);
         case TAC_BINARY_GREATER_OR_EQUAL:
+        case TAC_BINARY_GREATER_OR_EQUAL_DOUBLE:
             return make_int_const_val(TAC_CONST_INT, ld1 >= ld2);
         default:
             return NULL;
@@ -354,12 +358,16 @@ static Tac_Val *fold_binary_float(Tac_BinaryOperator op, const Tac_Const *c1, co
     case TAC_BINARY_NOT_EQUAL:
         return make_int_const_val(TAC_CONST_INT, dv1 != dv2);
     case TAC_BINARY_LESS_THAN:
+    case TAC_BINARY_LESS_THAN_DOUBLE:
         return make_int_const_val(TAC_CONST_INT, dv1 < dv2);
     case TAC_BINARY_LESS_OR_EQUAL:
+    case TAC_BINARY_LESS_OR_EQUAL_DOUBLE:
         return make_int_const_val(TAC_CONST_INT, dv1 <= dv2);
     case TAC_BINARY_GREATER_THAN:
+    case TAC_BINARY_GREATER_THAN_DOUBLE:
         return make_int_const_val(TAC_CONST_INT, dv1 > dv2);
     case TAC_BINARY_GREATER_OR_EQUAL:
+    case TAC_BINARY_GREATER_OR_EQUAL_DOUBLE:
         return make_int_const_val(TAC_CONST_INT, dv1 >= dv2);
     default:
         return NULL;

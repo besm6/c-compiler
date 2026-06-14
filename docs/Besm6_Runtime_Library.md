@@ -372,6 +372,32 @@ Each receives the two 48-bit unsigned operands in the standard helper convention
 
 ---
 
+### Floating-Point Relational Operators
+
+The four FP orderings mirror their signed-integer counterparts (`a` at `mem[r15−1]`, `b` in
+A; result 0/1 in A) but the operands are native 48-bit floating-point words. The signed
+helpers subtract the operands as raw integers, which is wrong for FP — a native FP word is
+not monotonic when read as a two's-complement integer. The FP helpers instead bracket the
+subtract with `,ntr,` (R := 0, full FP mode) so the result is normalized and rounded: the
+Additive sign then reflects the mathematical difference, and equal operands produce an exact
+zero (so the `≥`/`≤` equality edge tests correctly). Before returning, each path restores
+`R := 7` with `,ntr, 7` — the integer mode `b/save` leaves in place — so the caller's
+following integer ops behave; the `,ntr, 7` must come *after* the conditional branch, since
+`NTR` overwrites the ω flag that `U1A`/`UZA` test. Operands are already FP (valid exponents),
+so — unlike `b/div`/`b/mul` — no INT-format bridge is needed.
+
+| Routine | Source | Operation | Subtraction | Group | True condition |
+|---------|--------|-----------|-------------|-------|----------------|
+| `b/flt` | [b_flt.madlen](../backend/besm6/libc/b_flt.madlen) | `a < b` | `15 ,x-a,` → A = a − b | Additive | `u1a`: A < 0 (a < b) |
+| `b/fle` | [b_fle.madlen](../backend/besm6/libc/b_fle.madlen) | `a <= b` | `15 ,a-x,` → A = b − a | Additive | `uza`: A ≥ 0 (b ≥ a) |
+| `b/fgt` | [b_fgt.madlen](../backend/besm6/libc/b_fgt.madlen) | `a > b` | `15 ,a-x,` → A = b − a | Additive | `u1a`: A < 0 (b < a) |
+| `b/fge` | [b_fge.madlen](../backend/besm6/libc/b_fge.madlen) | `a >= b` | `15 ,x-a,` → A = a − b | Additive | `uza`: A ≥ 0 (a ≥ b) |
+
+Floating-point `==` and `!=` are pure bit equality (`AEX` + `UZA`/`U1A`), which is
+type-independent, so they reuse `b/eq` and `b/ne` rather than dedicated FP helpers.
+
+---
+
 ### Type Conversion Helpers
 
 These routines convert between the native BESM-6 floating-point format (`float` ≡

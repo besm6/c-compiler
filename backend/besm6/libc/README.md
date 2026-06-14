@@ -62,3 +62,15 @@ These are internal helpers emitted by the compiler; they are not called directly
 | `b/le` | [b_le.madlen](b_le.madlen) | `<=` | Less than or equal |
 | `b/gt` | [b_gt.madlen](b_gt.madlen) | `>` | Greater than |
 | `b/ge` | [b_ge.madlen](b_ge.madlen) | `>=` | Greater than or equal |
+
+The integer orderings above subtract the operands as raw words. For floating-point operands
+the four orderings use the FP variants below, which bracket the subtract with `NTR` (full FP
+mode) so the additive sign reflects the mathematical difference. Floating-point `==` / `!=`
+are pure bit equality, so they reuse `b/eq` / `b/ne`.
+
+| Routine | Source | C operator | Description |
+|---------|--------|-----------|-------------|
+| `b/flt` | [b_flt.madlen](b_flt.madlen) | `<` | Less than (floating-point) |
+| `b/fle` | [b_fle.madlen](b_fle.madlen) | `<=` | Less than or equal (floating-point) |
+| `b/fgt` | [b_fgt.madlen](b_fgt.madlen) | `>` | Greater than (floating-point) |
+| `b/fge` | [b_fge.madlen](b_fge.madlen) | `>=` | Greater than or equal (floating-point) |

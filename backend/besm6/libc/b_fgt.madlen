@@ -1,0 +1,23 @@
+     b/fgt: ,name,
+c
+c Floating-point relational Greater Than:  result = (a > b).
+c Pop two FP values from stack (a at mem[r15-1], b in A).  Push raw 0/1 back.
+c
+c NTR (R := 0) selects full FP mode so the subtract normalizes and rounds: the
+c additive sign then reflects the mathematical difference, and equal operands
+c yield an exact zero.  Before returning, each path restores R := 7 (the integer
+c mode b/save leaves in place) so the caller's following integer ops are correct.
+c The NTR 7 must follow the branch, since NTR overwrites the omega flag U1A tests.
+c
+    b/true: ,subp,
+            ,ntr,            . R := 0: full FP mode for the subtract
+         15 ,a-x,            . A := b - a (FP); additive sign set
+            ,u1a, true       . b - a < 0  ->  a > b
+            ,xta,            . A := 0 (false)
+            ,ntr, 7          . restore integer mode for the caller
+         13 ,uj,
+c
+      true: ,xta, b/true     . A := 1 (true)
+            ,ntr, 7          . restore integer mode for the caller
+         13 ,uj,
+            ,end,

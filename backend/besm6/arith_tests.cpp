@@ -1122,14 +1122,15 @@ TEST_F(CodegenTest, FpArithRun)
             show(0.0 + a);  /* 1.5 */
         }
     )");
-    EXPECT_EQ("4150000000000000\n" /* 4.0   */
-              "4050000000000000\n" /* 1.0   */
-              "4117000000000000\n" /* 3.75  */
-              "4055252525252521\n" /* 5/3   */
-              "4020000000000000\n" /* -1.0  */
-              "4114000000000000\n" /* 3.0   */
-              "4054000000000000\n" /* 1.5   */,
-              result);
+    EXPECT_EQ(
+        "4150000000000000\n" /* 4.0   */
+        "4050000000000000\n" /* 1.0   */
+        "4117000000000000\n" /* 3.75  */
+        "4055252525252521\n" /* 5/3   */
+        "4020000000000000\n" /* -1.0  */
+        "4114000000000000\n" /* 3.0   */
+        "4054000000000000\n" /* 1.5   */,
+        result);
 }
 
 // End-to-end: FP compound assignment (+=, -=, *=, /=) and float (== double, single
@@ -1150,10 +1151,116 @@ TEST_F(CodegenTest, FpCompoundAssignRun)
             show(f);
         }
     )");
-    EXPECT_EQ("4214000000000000\n" /* 12.0 */
-              "4210000000000000\n" /*  8.0 */
-              "4150000000000000\n" /*  4.0 */
-              "4110000000000000\n" /*  2.0 */
-              "4110000000000000\n" /*  2.0 */,
-              result);
+    EXPECT_EQ(
+        "4214000000000000\n" /* 12.0 */
+        "4210000000000000\n" /*  8.0 */
+        "4150000000000000\n" /*  4.0 */
+        "4110000000000000\n" /*  2.0 */
+        "4110000000000000\n" /*  2.0 */,
+        result);
+}
+
+// FP comparisons (task #16).  The four orderings <, <=, >, >= lower to the FP relational
+// helpers b/flt, b/fle, b/fgt, b/fge (the integer b/lt..b/ge subtract the operands as raw
+// words, which is wrong for FP).  == and != stay on the type-independent b/eq / b/ne.
+
+// Madlen shape: double `a < b` calls b/flt (operand on the stack top, the other in A).
+TEST_F(CodegenTest, FpCompareMadlen)
+{
+    std::string output =
+        CompileToMadlen("extern int g; void foo(double a, double b) { g = a < b; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+           6 ,xts, 1
+             ,call, b/flt
+           7 ,atx,
+           7 ,xta,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// End-to-end: the six FP comparisons on doubles, printed as raw 0/1.  Operands are
+// volatile so the optimizer cannot fold them; b/flt..b/fge run on the hardware FP unit.
+
+// a > b (2.5 vs 1.5): <, <=, >, >=, ==, != → 0 0 1 1 0 1.
+TEST_F(CodegenTest, FpCompareGreaterRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile double a = 2.5, b = 1.5;
+            printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
+        }
+    )");
+    EXPECT_EQ("001101\n", result);
+}
+
+// a < b (1.5 vs 2.5): <, <=, >, >=, ==, != → 1 1 0 0 0 1.
+TEST_F(CodegenTest, FpCompareLessRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile double a = 1.5, b = 2.5;
+            printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
+        }
+    )");
+    EXPECT_EQ("110001\n", result);
+}
+
+// a == b (2.0 vs 2.0): the equality edge for <= and >= — a-b normalizes to exact zero.
+// <, <=, >, >=, ==, != → 0 1 0 1 1 0.
+TEST_F(CodegenTest, FpCompareEqualRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile double a = 2.0, b = 2.0;
+            printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
+        }
+    )");
+    EXPECT_EQ("010110\n", result);
+}
+
+// float ≡ double (single word), and negative operands exercise the FP sign path.
+// a = -1.5, b = 0.5 → a < b: <, <=, >, >=, ==, != → 1 1 0 0 0 1.
+TEST_F(CodegenTest, FpCompareFloatRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile float a = -1.5f, b = 0.5f;
+            printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
+        }
+    )");
+    EXPECT_EQ("110001\n", result);
+}
+
+// Mode-restoration regression: the FP ordering helpers enter full FP mode (NTR 0) for the
+// subtract and must restore the integer mode (NTR 7) before returning.  If they did not,
+// the integer add that follows would run in normalizing FP mode and corrupt its result.
+// Here `a < b` is true (1) and the subsequent `x + y` must still compute 10 + 3 = 13.
+TEST_F(CodegenTest, FpCompareRestoresIntModeRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile double a = 1.5, b = 2.5;
+            volatile int x = 10, y = 3;
+            int c = a < b;
+            int d = x + y;
+            printf("%d %d\n", c, d);
+        }
+    )");
+    EXPECT_EQ("1 13\n", result);
 }

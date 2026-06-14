@@ -102,6 +102,14 @@ static const char *binary_op_name(Tac_BinaryOperator op)
         return "multiply_double";
     case TAC_BINARY_DIVIDE_DOUBLE:
         return "divide_double";
+    case TAC_BINARY_LESS_THAN_DOUBLE:
+        return "less_than_double";
+    case TAC_BINARY_LESS_OR_EQUAL_DOUBLE:
+        return "less_or_equal_double";
+    case TAC_BINARY_GREATER_THAN_DOUBLE:
+        return "greater_than_double";
+    case TAC_BINARY_GREATER_OR_EQUAL_DOUBLE:
+        return "greater_or_equal_double";
     }
     return "?";
 }

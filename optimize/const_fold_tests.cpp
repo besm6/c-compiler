@@ -208,6 +208,27 @@ TEST_F(OptimizerTest, BinaryFoldFloatAdd)
     AssertFoldedFloat(body, 4.0);
 }
 
+// 1.5 < 2.5  →  Copy(ConstInt(1), t).  FP orderings carry the _DOUBLE opcode but fold to
+// an int 0/1 just like the integer comparisons.
+TEST_F(OptimizerTest, BinaryFoldDoubleLessThan)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_LESS_THAN_DOUBLE, make_const_double(1.5),
+                                        make_const_double(2.5), make_var("t"));
+    body                  = constant_fold(body);
+
+    AssertFoldedInt(body, 1);
+}
+
+// 2.0 >= 2.0  →  Copy(ConstInt(1), t)  — the equality edge folds true.
+TEST_F(OptimizerTest, BinaryFoldDoubleGreaterOrEqual)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_GREATER_OR_EQUAL_DOUBLE, make_const_double(2.0),
+                                        make_const_double(2.0), make_var("t"));
+    body                  = constant_fold(body);
+
+    AssertFoldedInt(body, 1);
+}
+
 // 5.0 - 3.0  →  Copy(ConstDouble(2.0), t)
 TEST_F(OptimizerTest, BinaryFoldDoubleSubtract)
 {

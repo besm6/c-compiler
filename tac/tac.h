@@ -150,7 +150,11 @@ typedef enum {
     TAC_BINARY_ADD_DOUBLE,      // add, floating-point operands
     TAC_BINARY_SUBTRACT_DOUBLE, // subtract, floating-point operands
     TAC_BINARY_MULTIPLY_DOUBLE, // multiply, floating-point operands
-    TAC_BINARY_DIVIDE_DOUBLE    // divide, floating-point operands
+    TAC_BINARY_DIVIDE_DOUBLE,   // divide, floating-point operands
+    TAC_BINARY_LESS_THAN_DOUBLE,        // <,  floating-point operands
+    TAC_BINARY_LESS_OR_EQUAL_DOUBLE,    // <=, floating-point operands
+    TAC_BINARY_GREATER_THAN_DOUBLE,     // >,  floating-point operands
+    TAC_BINARY_GREATER_OR_EQUAL_DOUBLE  // >=, floating-point operands
 } Tac_BinaryOperator;
 
 typedef struct Tac_Instruction {
