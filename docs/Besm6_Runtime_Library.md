@@ -273,10 +273,12 @@ unit misreads as sign/exponent and must therefore be split:
 
   The `aH·bH·2⁸⁰` term and all but the low 8 bits of each cross product vanish mod 2⁴⁸.
 
-Both the short-way multiply and the long-way partial products use the internal `umul24`
-subroutine, which runs the hardware FP multiply on the (clean, sign-bit-free) operands and
-extracts the low 48 bits of the result from the A:Y pair. The two cross-product addends are
-each `< 2⁸`, so their sum never carries past bit 48 and a plain `ARX` add suffices.
+The routine uses no named temporaries and no subroutine call: the four split parts and the
+partial products all live on the stack, addressed by negative offset from `r15`, and the
+per-product low-bit extraction (run the hardware FP multiply on the clean, sign-bit-free
+operands, then repack the low 48 bits from the A:Y pair) is inlined at each of the three
+multiply sites. The two cross-product addends are each `< 2⁸`, so their sum never carries
+past bit 48 and a plain `ARX` add suffices.
 
 #### `b/udiv` — [b_udiv.madlen](../backend/besm6/libc/b_udiv.madlen) — `a / b` (unsigned) — **to be implemented**
 
