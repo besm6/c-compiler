@@ -1075,6 +1075,54 @@ static void codegen_instr(const Tac_Instruction *instr, const Frame *f,
         u1a->name       = xstrdup(instr->u.jump_if_not_zero.target);
         break;
     }
+    // Integer width conversions (task #17).
+    //
+    // Under the BESM-6 target (semantic/target.c) short/int/long/pointer are all one
+    // 48-bit word, so emit_cast only emits TRUNCATE/ZERO_EXTEND/SIGN_EXTEND when one
+    // side is char (1 byte = 8 bits); same-size conversions become a COPY.  Therefore the
+    // narrow side is always char and the mask is always 8-bit.  (The only other size
+    // mismatch is the 2-word long long / long double types — deferred to task #24, which
+    // still fall through to default below.)
+    //
+    // TRUNCATE  dst = (narrow)src   — keep the low 8 bits.
+    // ZERO_EXTEND dst = (wider unsigned)src — same: clear all but the low 8 bits.
+    case TAC_INSTRUCTION_TRUNCATE:
+    case TAC_INSTRUCTION_ZERO_EXTEND: {
+        const Tac_Val *src = (instr->kind == TAC_INSTRUCTION_TRUNCATE)
+                                 ? instr->u.truncate.src
+                                 : instr->u.zero_extend.src;
+        const Tac_Val *dst = (instr->kind == TAC_INSTRUCTION_TRUNCATE)
+                                 ? instr->u.truncate.dst
+                                 : instr->u.zero_extend.dst;
+        int rd, od;
+        lookup(f, dst->u.var_name, &rd, &od);
+        emit_xta_val(block, tail, f, src);
+        Besm_Instr *aax = emit(block, tail, BESM_LOG_AAX);
+        aax->name       = xstrdup("=377"); // mask low 8 bits
+        emit_atx(block, tail, rd, od);
+        break;
+    }
+    // SIGN_EXTEND  dst = (wider signed)src   — signed char → wider.
+    //
+    // Branchless 8-bit sign extension via the (x ^ 0x80) - 0x80 trick: after masking to 8
+    // bits, flipping bit 7 and subtracting 0x80 reinterprets the value as signed 8-bit.
+    // Integer AEX/A-X act on raw words under R=7, so no NTR is needed.  The leading AAX
+    // discards any high garbage bits before the sign is reconstructed from bit 7.
+    case TAC_INSTRUCTION_SIGN_EXTEND: {
+        const Tac_Val *src = instr->u.sign_extend.src;
+        const Tac_Val *dst = instr->u.sign_extend.dst;
+        int rd, od;
+        lookup(f, dst->u.var_name, &rd, &od);
+        emit_xta_val(block, tail, f, src);
+        Besm_Instr *aax = emit(block, tail, BESM_LOG_AAX);
+        aax->name       = xstrdup("=377"); // mask low 8 bits
+        Besm_Instr *aex = emit(block, tail, BESM_LOG_AEX);
+        aex->name       = xstrdup("=200"); // flip sign bit (0x80)
+        Besm_Instr *sub = emit(block, tail, BESM_ARITH_SUB);
+        sub->name       = xstrdup("=200"); // subtract 0x80
+        emit_atx(block, tail, rd, od);
+        break;
+    }
     default:
         fatal_error("TODO: codegen for TAC instruction kind %d (Phase B)", (int)instr->kind);
     }

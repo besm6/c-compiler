@@ -85,12 +85,6 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 |---|------|-------------|--------|
 | 15 | FP arithmetic | Add/Sub/Mul/Div map to `A+X`/`A-X`/`A*X`/`A/X` **with normalization enabled** — temporarily clear R's suppress bits via `NTR` around the FP op (integer mode leaves R=7), then restore. FP negate: `X-A 0`. | M |
 | 16 | FP comparisons | `A-X` sets additive ω; `U1A`/`UZA` on the sign for `<`/`>`/`<=`/`>=`; `AEX`+`UZA` for `==`/`!=`. Produce raw 0/1. | S |
-
-### Phase J — Type conversions
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 17 | Integer width conversions | `TRUNCATE`/`ZERO_EXTEND`: `AAX` with an N-bit mask (8-bit for `char`, 48-bit otherwise; since `short`≡`long`≡`int`, most width conversions are no-ops/copies). `SIGN_EXTEND`: mask, test the source sign bit, `AOX` the high-fill mask when negative (relevant for `signed char`). | M |
 | 18 | Int ↔ double conversions | `INT_TO_DOUBLE`/`UINT_TO_DOUBLE`: normalize the raw integer into FP (set the INT-format exponent, then `NTR`+`A+X 0`). `DOUBLE_TO_INT`/`DOUBLE_TO_UINT`: runtime `b/dtoi`/`b/dtou` (shift the mantissa by 104−exp). `FLOAT_*` ≡ `DOUBLE_*`, and `*_TO_FLOAT`/`FLOAT_TO_DOUBLE` are copies. | L |
 
 ### Phase K — Pointers, arrays, structs, fat pointers
@@ -101,12 +95,6 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 | 20 | CopyToOffset / CopyFromOffset | Aggregate member access: base from frame + constant word offset via `UTC`/an index register, then `ATX`/`XTA` at the offset. | M |
 | 21 | Fat-pointer `char` access | `char*`/`void*` are fat pointers (bit 48 set, byte offset in bits 47–45). **Load byte**: `WTC ptr` / `XTA 0` / `ASX ptr` (shift by offset×8) / `AAX =0377`. **Store byte**: read-modify-write the containing word (mask out the target byte, OR in the new byte shifted into place). | L |
 | 22 | `char*` arithmetic & pointer casts | `char*` increment decrements the 3-bit byte offset, borrowing into the word address when it wraps 0→5. Casts: `int*`→`char*` sets the fat marker + offset 5; `char*`→`int*` clears them; `char*`↔`void*` is a bit-pattern copy. | M |
-
-### Phase L — Runtime support library
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 23 | Runtime helper stubs | The `backend/besm6/libc/*.madlen` sources are assembled into `libc.bin` by CMake and mounted by `CompileAndRun`. Several helpers currently have placeholder stub bodies that need real implementations: unsigned `b/udiv`, `b/umod`, and the double↔int conversions `b/dtoi`, `b/dtou`. | L |
 
 ### Phase M — Deferred / future
 
