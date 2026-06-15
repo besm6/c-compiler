@@ -173,6 +173,11 @@ Frame allocation (`frame.c`) assigns a stack slot to every TAC name beginning wi
 referenced name is a module-level global, accessed via `,utc, name` and pre-declared with
 a `,subp,` directive.
 
+A planned peephole-optimization pass (`besm_peephole`, Phase M) will run on the
+`Besm_Instr` list between instruction selection and Madlen emission, removing the
+store/reload, mode-register (`ntr`), and compare/branch residue that one-node-at-a-time
+selection leaves behind. See [Peephole_Rewrites.md](Peephole_Rewrites.md) for the design.
+
 ### TAC YAML format
 
 `tac_export_yaml()` (`tac/tac_yaml.c`) emits one `- toplevel:` block per call. Indentation is 2 spaces per level. **Not re-importable** — debug/test use only.

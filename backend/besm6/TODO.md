@@ -81,10 +81,60 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 ### Phase M — Optimizations
 
+The backend currently emits straight from instruction selection: `codegen_function`
+([codegen.c](codegen.c)) builds one `Besm_Block` of `Besm_Instr` via `codegen_instr`
+([instr.c](instr.c)) and hands it directly to `emit_madlen_module`. There is no
+optimization pass between selection and emission, so the generated Madlen carries the
+verbatim store/reload, NTR-bracket, and compare-then-branch shapes that three-address TAC
+lowering produces. The tasks below add that missing polish. See
+[docs/Peephole_Rewrites.md](../../docs/Peephole_Rewrites.md) for the underlying theory and
+the worked before/after sequences.
+
+Two cross-cutting rules govern this phase:
+
+- **Peephole rewrites respect basic-block boundaries.** A `BESM_STMT_LABEL` and every
+  branch end a window: control may re-enter at a label, so the accumulator (A), the mode
+  register (R, the NTR state), and the logical flag (ω) cannot be assumed to carry across.
+  Rewrites that rely on tracked machine state stop at those boundaries.
+- **Tests will need updating, behavior must not change.** The `CompileToMadlen` assertions
+  in the backend test files pin exact instruction sequences and will shift as rewrites land;
+  the `CompileAndRun` results (actual computed values under Dubna) must stay identical.
+
+#### Infrastructure
+
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 26 | Optimizations | Peephole rewrites, redundant load/store and NTR elimination, frame-slot reuse for dead temporaries. (Switch jump tables are tracked separately as task #27.) | L |
-| 27 | Switch jump-table optimization | For dense case ranges, replace the linear compare chain with an index-scaled `UTC`/`UJ` dispatch through a table of `,oct, label` words. | M |
+| 26 | Peephole pass framework | New `peephole.c` / `peephole.h` exposing `besm_peephole(Besm_Func *)`. It slides a small window over each block's `Besm_Instr` linked list, matches a table of rules, and rewrites in place to a fixpoint (repeat until no rule fires). Rewrites splice the list and free removed nodes with `besm_free_instr`. The pass tracks A / R / ω across straight-line code and resets that state at every label and branch. Hook it into `codegen_function` between list construction and `emit_madlen_module`. All rule tasks below depend on this. | M |
+
+#### Peephole rules (depend on #26)
+
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 27 | Redundant reload elimination | `reg ,atx, off` immediately followed by `reg ,xta, off` (same slot) ⇒ drop the `xta`: `atx` stores A without disturbing it, so A already holds the value. This is the highest-frequency rewrite because every value-producing TAC instr ends with a store (`emit_atx`) and every consumer begins with a load (`emit_xta_val`). | S |
+| 28 | Dead temp-store elimination | When a `%`-temporary is stored by `atx` and never read again before it is overwritten or the block ends, drop the `atx`. Needs a backward last-use scan within the block. Combined with #27 this fully erases the store+reload of a single-use temporary, leaving the result live only in A. | S–M |
+| 29 | NTR mode coalescing | Track R and delete any `ntr n` whose operand equals the current known R — e.g. the trailing `ntr 7` restore when `b/save` already left R = 7, or the leading `ntr 0` of an FP op when R is already 0. Collapse adjacent `ntr x` / `ntr y` ⇒ `ntr y`, and keep R = 0 across a run of consecutive FP ops, restoring to 7 once at the end. Targets the `ntr 0 … ntr 7` brackets around FP add/sub/mul/div, FP negate, and int→FP conversion. | M |
+| 30 | Compare → branch fusion | A relational-helper result (`b/eq` … `b/uge`, `b/flt` … `b/fge`) that feeds a `JUMP_IF_ZERO` / `JUMP_IF_NOT_ZERO`: drop the store+reload of the boolean temp and branch on ω directly, e.g. `call b/lt` / `uza L`. Requires confirming on the simulator that the helpers leave ω consistent with A and that `atx` preserves ω. | S–M |
+| 31 | Branch / label cleanup | Drop a `uj` whose target is the immediately following label; remove the duplicate `uj b/ret` (RETURN emits one and the epilogue emits another — already flagged as dead in [instr.c](instr.c)); delete instructions between an unconditional `uj` and the next label as unreachable; invert a conditional that only skips an unconditional jump (`uza L` / `uj M` / `L:` ⇒ `u1a M`). | S |
+| 32 | Pointer-register reuse | Back-to-back `LOAD`/`STORE` through the same pointer each reload `ati 1`; skip the second setup when r1 still holds that pointer. Optional / lower priority — only helps adjacent dereferences of one pointer. | S |
+
+#### Instruction-selection improvements (independent of #26)
+
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 33 | Constant strength reduction | In [instr.c](instr.c), where the `Tac_Val` constant operand is still visible, lower multiply by a power of two to a single `asn` (logical left shift, as `ADD_PTR` already does for word scaling) and unsigned divide / remainder by a power of two to `asn` (right shift) / `aax` (mask) instead of calling `b/mul` / `b/udiv` / `b/umod`. Signed divide by 2^k is *not* a plain shift (it must round toward zero), so leave it on `b/div`. | S–M |
+| 34 | Direct symbolic global addressing | Investigate replacing the `utc name` / `xta 0` pair that `emit_xta_val` / `emit_arith_val` ([emit.c](emit.c)) emit for every global with a direct `xta name` (and the matching `atx` / `a+x` forms), where the Dubna single-pass assembler and linker permit a relocatable symbol in the address field. Keep `utc` for the index-register-based forms (array indexing, `&global`). Needs simulator validation before adoption. | M |
+
+#### Frame allocation
+
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 35 | Frame-slot reuse via liveness | `frame_build` ([frame.c](frame.c)) currently gives every distinct `%`-name its own auto slot (`assign_if_new`). Add a linear-scan liveness pass over `%`-temporaries so non-overlapping temporaries share one auto slot, shrinking `num_autos` and the prologue `utm 15` stack extension. The no-shadowing rule keeps name→slot mapping unambiguous. | M–L |
+
+#### Control flow
+
+| # | Task | Description | Effort |
+|---|------|-------------|--------|
+| 36 | Switch jump-table optimization | For dense case ranges, replace the linear compare chain with an index-scaled `utc` / `uj` dispatch through a table of `,oct, label` words. | M |
 
 ### Phase N — Deferred / future
 

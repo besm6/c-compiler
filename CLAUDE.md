@@ -189,6 +189,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - [docs/Type_Coercion.md](docs/Type_Coercion.md) — C11 type coercion and arithmetic conversion rules
 - [docs/Type_Sizes_Alignment.md](docs/Type_Sizes_Alignment.md) — type sizes and alignment per target architecture
 - [docs/TAC_Optimization.md](docs/TAC_Optimization.md) — machine-independent TAC optimization: constant folding, unreachable code elimination, copy propagation, dead store elimination
+- [docs/Peephole_Rewrites.md](docs/Peephole_Rewrites.md) — peephole optimization in the BESM-6 backend: concept, the planned `besm_peephole` pass, and the catalogue of store/reload, NTR, compare/branch, and strength-reduction rewrites (Phase M)
 - [docs/C_Grammar.md](docs/C_Grammar.md) — C grammar article: scanner (`c11.l`), parser (`c11.y`), ASDL (`c11.asdl`), and how they relate to the hand-written implementation
 - [grammar/README.md](grammar/README.md) — C11 grammar coverage notes
 - [grammar/c11.y](grammar/c11.y), [grammar/c11.l](grammar/c11.l), [grammar/c11.asdl](grammar/c11.asdl) — reference grammar and abstract syntax (not used for code generation)
