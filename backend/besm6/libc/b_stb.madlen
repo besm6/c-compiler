@@ -1,0 +1,51 @@
+    b/stb: ,name,
+        14 ,base,*
+c
+c Store one byte through a char*/void* fat pointer (read-modify-write).
+c Lightweight helper convention:
+c   a = fat pointer  — on the stack top (mem[r15-1]); popped by this helper.
+c   b = byte value   — in the accumulator.
+c The fat pointer encodes the word address in bits 15-1 and the byte offset in
+c bits 47-45 (its exponent field = 64 + offset*8).  Offset 0 = byte #5 (LSB),
+c offset 5 = byte #0 (MSB).  r6/r7 are preserved.
+c
+           ,aax, =377     . mask the byte value to 8 bits
+           ,atx, val      . save b
+        15 ,xta,          . pop the fat pointer a from the stack
+           ,atx, ptr      . save the pointer (for the word address)
+c  extract the byte offset (bits 47-45) into M11
+           ,asn, 64+44    . shift offset down: bits 47-45 -> bits 3-1
+           ,aax, =7       . keep the 3-bit offset (0..5)
+           ,ati, 11
+c  word address (bits 15-1) into M12
+           ,xta, ptr
+           ,ati, 12
+c  read-modify-write the containing word
+        12 ,xta,          . A = word at the pointer's word address
+        11 ,aax, mask     . clear the target byte
+           ,atx, word
+           ,xta, val      . A = byte value
+        11 ,asx, shift    . shift it left into the target byte position
+           ,aox, word     . OR it into the cleared word
+        12 ,atx,          . write the word back
+           ,xta, val      . return the stored byte in A
+        13 ,uj,
+c
+      val: ,bss, 1
+      ptr: ,bss, 1
+     word: ,bss, 1
+c  mask[offset]: clears the target byte (offset 0 = LSB byte #5 .. 5 = MSB byte #0)
+     mask: ,log, 7777 7777 7777 7400
+           ,log, 7777 7777 7760 0377
+           ,log, 7777 7777 0017 7777
+           ,log, 7777 7400 7777 7777
+           ,log, 7760 0377 7777 7777
+           ,log, 0017 7777 7777 7777
+c  shift[offset]: OCT exponent = 64 - offset*8, so ASX left-shifts by offset*8
+    shift: ,oct, 40
+           ,oct, 34
+           ,oct, 30
+           ,oct, 24
+           ,oct, 20
+           ,oct, 14
+           ,end,

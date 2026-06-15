@@ -107,6 +107,8 @@ static void export_instr(WFILE *out, const Tac_Instruction *instr)
     case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
     case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
         export_val(out, instr->u.sign_extend.src);
         export_val(out, instr->u.sign_extend.dst);
         break;
@@ -122,17 +124,23 @@ static void export_instr(WFILE *out, const Tac_Instruction *instr)
         export_val(out, instr->u.binary.dst);
         break;
     case TAC_INSTRUCTION_COPY:
-    case TAC_INSTRUCTION_GET_ADDRESS:
         export_val(out, instr->u.copy.src);
         export_val(out, instr->u.copy.dst);
+        break;
+    case TAC_INSTRUCTION_GET_ADDRESS:
+        export_val(out, instr->u.get_address.src);
+        export_val(out, instr->u.get_address.dst);
+        wputw((size_t)instr->u.get_address.byte_access, out);
         break;
     case TAC_INSTRUCTION_LOAD:
         export_val(out, instr->u.load.src_ptr);
         export_val(out, instr->u.load.dst);
+        wputw((size_t)instr->u.load.byte_access, out);
         break;
     case TAC_INSTRUCTION_STORE:
         export_val(out, instr->u.store.src);
         export_val(out, instr->u.store.dst_ptr);
+        wputw((size_t)instr->u.store.byte_access, out);
         break;
     case TAC_INSTRUCTION_ADD_PTR:
         export_val(out, instr->u.add_ptr.ptr);

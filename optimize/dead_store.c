@@ -178,6 +178,8 @@ static const char *live_get_dst_name(const Tac_Instruction *ins)
     case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
     case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
         if (ins->u.sign_extend.dst->kind == TAC_VAL_VAR)
             return ins->u.sign_extend.dst->u.var_name;
         return NULL;
@@ -252,6 +254,8 @@ static void live_transfer_backward(StringMap *ls, const Tac_Instruction *ins,
     case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
     case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
         live_add_val(ls, ins->u.sign_extend.src);
         break;
     case TAC_INSTRUCTION_UNARY:
@@ -331,6 +335,8 @@ static bool is_removable(Tac_InstructionKind kind)
     case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
     case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
     case TAC_INSTRUCTION_GET_ADDRESS:
     case TAC_INSTRUCTION_LOAD:
     case TAC_INSTRUCTION_ADD_PTR:

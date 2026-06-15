@@ -95,6 +95,12 @@ typedef enum {
     TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE,
     TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT,
     TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE,
+    // Pointer-representation conversions (BESM-6 fat pointers).  A word pointer
+    // (int*, etc.) and a byte/fat pointer (char*, void*) have different bit layouts:
+    // a fat pointer carries a byte offset and a marker bit.  These share the {src,dst}
+    // layout of the numeric conversions and are a plain copy on byte-addressed targets.
+    TAC_INSTRUCTION_PTR_TO_CHAR_PTR, // word pointer  → char*/void* (fat)
+    TAC_INSTRUCTION_CHAR_PTR_TO_PTR, // char*/void* (fat) → word pointer
     TAC_INSTRUCTION_UNARY,
     TAC_INSTRUCTION_BINARY,
     TAC_INSTRUCTION_COPY,
@@ -253,6 +259,14 @@ typedef struct Tac_Instruction {
             Tac_Val *dst;
         } float_to_long_double;
         struct {
+            Tac_Val *src;
+            Tac_Val *dst;
+        } ptr_to_char_ptr;
+        struct {
+            Tac_Val *src;
+            Tac_Val *dst;
+        } char_ptr_to_ptr;
+        struct {
             Tac_UnaryOperator op;
             Tac_Val *src;
             Tac_Val *dst;
@@ -270,14 +284,17 @@ typedef struct Tac_Instruction {
         struct {
             Tac_Val *src;
             Tac_Val *dst;
+            int byte_access; // 1: result is a char*/void* fat pointer (set marker)
         } get_address;
         struct {
             Tac_Val *src_ptr;
             Tac_Val *dst;
+            int byte_access; // 1: dereference a single byte through a fat pointer
         } load;
         struct {
             Tac_Val *src;
             Tac_Val *dst_ptr;
+            int byte_access; // 1: store a single byte through a fat pointer
         } store;
         struct {
             Tac_Val *ptr;

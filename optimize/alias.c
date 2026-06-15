@@ -88,6 +88,8 @@ static void note_instr(StringMap *observable, const StringMap *private_set,
     case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
     case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
         note_vals(observable, private_set, ins->u.sign_extend.src);
         note_vals(observable, private_set, ins->u.sign_extend.dst);
         break;

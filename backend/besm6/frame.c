@@ -137,6 +137,14 @@ static void collect_instr(Frame *f, const Tac_Instruction *instr, int *auto_coun
         collect_vals(f, instr->u.float_to_long_double.src, auto_count);
         collect_vals(f, instr->u.float_to_long_double.dst, auto_count);
         break;
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+        collect_vals(f, instr->u.ptr_to_char_ptr.src, auto_count);
+        collect_vals(f, instr->u.ptr_to_char_ptr.dst, auto_count);
+        break;
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
+        collect_vals(f, instr->u.char_ptr_to_ptr.src, auto_count);
+        collect_vals(f, instr->u.char_ptr_to_ptr.dst, auto_count);
+        break;
     case TAC_INSTRUCTION_UNARY:
         collect_vals(f, instr->u.unary.src, auto_count);
         collect_vals(f, instr->u.unary.dst, auto_count);

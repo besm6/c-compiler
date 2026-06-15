@@ -394,6 +394,12 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
         fprintf(fd, "FloatToLongDouble");
         break;
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+        fprintf(fd, "PtrToCharPtr");
+        break;
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
+        fprintf(fd, "CharPtrToPtr");
+        break;
     case TAC_INSTRUCTION_UNARY:
         fprintf(fd, "Unary: %s", unary_op_name(instr->u.unary.op));
         break;
@@ -541,6 +547,14 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
         emit_val(fd, instr->u.float_to_long_double.src, id, "src");
         emit_val(fd, instr->u.float_to_long_double.dst, id, "dst");
+        break;
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+        emit_val(fd, instr->u.ptr_to_char_ptr.src, id, "src");
+        emit_val(fd, instr->u.ptr_to_char_ptr.dst, id, "dst");
+        break;
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
+        emit_val(fd, instr->u.char_ptr_to_ptr.src, id, "src");
+        emit_val(fd, instr->u.char_ptr_to_ptr.dst, id, "dst");
         break;
     case TAC_INSTRUCTION_UNARY:
         emit_val(fd, instr->u.unary.src, id, "src");

@@ -17,6 +17,14 @@ static bool is_unsigned_type(const Type *t)
            t->kind == TYPE_ULONG_LONG;
 }
 
+// 1 when an object/pointee occupies a single byte (char/schar/uchar/bool), so a
+// load/store through it is a byte access and its address is a fat pointer.  Drives
+// the byte_access flag on LOAD/STORE/GET_ADDRESS for the BESM-6 backend.
+static int byte_access_for(const Type *t)
+{
+    return get_size(t) == 1;
+}
+
 static bool is_floating_type(const Type *t)
 {
     return is_arithmetic(t) && !is_integer(t);
@@ -140,10 +148,11 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
 {
     switch (e->kind) {
     case EXPR_VAR: {
-        Tac_Val *dst          = new_var_val(ctx);
-        Tac_Instruction *in   = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
-        in->u.get_address.src = val_var(e->u.var);
-        in->u.get_address.dst = dst;
+        Tac_Val *dst                  = new_var_val(ctx);
+        Tac_Instruction *in           = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
+        in->u.get_address.src         = val_var(e->u.var);
+        in->u.get_address.dst         = dst;
+        in->u.get_address.byte_access = byte_access_for(e->type);
         tac_append(ctx, in);
         return val_var(dst->u.var_name);
     }
@@ -404,10 +413,11 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         if (e->u.unary_op.op == UNARY_DEREF) {
             Tac_Val *addr       = gen_lval(ctx, e);
             Tac_Val *dst        = new_var_val(ctx);
-            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LOAD);
-            in->is_volatile     = type_is_volatile(e->type);
-            in->u.load.src_ptr  = addr;
-            in->u.load.dst      = dst;
+            Tac_Instruction *in   = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+            in->is_volatile       = type_is_volatile(e->type);
+            in->u.load.src_ptr    = addr;
+            in->u.load.dst        = dst;
+            in->u.load.byte_access = byte_access_for(e->type);
             tac_append(ctx, in);
             return val_var(dst->u.var_name);
         }
@@ -434,10 +444,11 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 bool vol            = type_is_volatile(inner->type);
                 Tac_Val *addr_raw   = gen_lval(ctx, inner);
                 Tac_Val *loaded     = new_var_val(ctx);
-                Tac_Instruction *ld = tac_new_instruction(TAC_INSTRUCTION_LOAD);
-                ld->is_volatile     = vol;
-                ld->u.load.src_ptr  = addr_raw;
-                ld->u.load.dst      = loaded;
+                Tac_Instruction *ld    = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+                ld->is_volatile        = vol;
+                ld->u.load.src_ptr     = addr_raw;
+                ld->u.load.dst         = loaded;
+                ld->u.load.byte_access = byte_access_for(inner->type);
                 tac_append(ctx, ld);
                 Tac_Val *result      = new_var_val(ctx);
                 Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
@@ -446,10 +457,11 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 bin->u.binary.src2   = val_int(1);
                 bin->u.binary.dst    = result;
                 tac_append(ctx, bin);
-                Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
-                st->is_volatile     = vol;
-                st->u.store.src     = val_var(result->u.var_name);
-                st->u.store.dst_ptr = val_var(addr_raw->u.var_name);
+                Tac_Instruction *st     = tac_new_instruction(TAC_INSTRUCTION_STORE);
+                st->is_volatile         = vol;
+                st->u.store.src         = val_var(result->u.var_name);
+                st->u.store.dst_ptr     = val_var(addr_raw->u.var_name);
+                st->u.store.byte_access = byte_access_for(inner->type);
                 tac_append(ctx, st);
                 return val_var(result->u.var_name);
             }
@@ -505,18 +517,20 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             bool vol          = type_is_volatile(target->type);
             Tac_Val *addr_raw = gen_lval(ctx, target);
             if (e->u.assign.op == ASSIGN_SIMPLE) {
-                Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
-                st->is_volatile     = vol;
-                st->u.store.src     = src;
-                st->u.store.dst_ptr = addr_raw;
+                Tac_Instruction *st     = tac_new_instruction(TAC_INSTRUCTION_STORE);
+                st->is_volatile         = vol;
+                st->u.store.src         = src;
+                st->u.store.dst_ptr     = addr_raw;
+                st->u.store.byte_access = byte_access_for(target->type);
                 tac_append(ctx, st);
                 return new_var_val(ctx);
             } else {
-                Tac_Val *loaded     = new_var_val(ctx);
-                Tac_Instruction *ld = tac_new_instruction(TAC_INSTRUCTION_LOAD);
-                ld->is_volatile     = vol;
-                ld->u.load.src_ptr  = addr_raw;
-                ld->u.load.dst      = loaded;
+                Tac_Val *loaded        = new_var_val(ctx);
+                Tac_Instruction *ld    = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+                ld->is_volatile        = vol;
+                ld->u.load.src_ptr     = addr_raw;
+                ld->u.load.dst         = loaded;
+                ld->u.load.byte_access = byte_access_for(target->type);
                 tac_append(ctx, ld);
                 Tac_Val *result      = new_var_val(ctx);
                 Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
@@ -525,10 +539,11 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 bin->u.binary.src2 = src;
                 bin->u.binary.dst  = result;
                 tac_append(ctx, bin);
-                Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
-                st->is_volatile     = vol;
-                st->u.store.src     = val_var(result->u.var_name);
-                st->u.store.dst_ptr = val_var(addr_raw->u.var_name);
+                Tac_Instruction *st     = tac_new_instruction(TAC_INSTRUCTION_STORE);
+                st->is_volatile         = vol;
+                st->u.store.src         = val_var(result->u.var_name);
+                st->u.store.dst_ptr     = val_var(addr_raw->u.var_name);
+                st->u.store.byte_access = byte_access_for(target->type);
                 tac_append(ctx, st);
                 return val_var(result->u.var_name);
             }
@@ -638,10 +653,11 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             bool vol            = type_is_volatile(inner->type);
             Tac_Val *addr_raw   = gen_lval(ctx, inner);
             Tac_Val *old        = new_var_val(ctx);
-            Tac_Instruction *ld = tac_new_instruction(TAC_INSTRUCTION_LOAD);
-            ld->is_volatile     = vol;
-            ld->u.load.src_ptr  = addr_raw;
-            ld->u.load.dst      = old;
+            Tac_Instruction *ld    = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+            ld->is_volatile        = vol;
+            ld->u.load.src_ptr     = addr_raw;
+            ld->u.load.dst         = old;
+            ld->u.load.byte_access = byte_access_for(inner->type);
             tac_append(ctx, ld);
             Tac_Val *result      = new_var_val(ctx);
             Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
@@ -650,21 +666,23 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             bin->u.binary.src2   = val_int(1);
             bin->u.binary.dst    = result;
             tac_append(ctx, bin);
-            Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
-            st->is_volatile     = vol;
-            st->u.store.src     = val_var(result->u.var_name);
-            st->u.store.dst_ptr = val_var(addr_raw->u.var_name);
+            Tac_Instruction *st     = tac_new_instruction(TAC_INSTRUCTION_STORE);
+            st->is_volatile         = vol;
+            st->u.store.src         = val_var(result->u.var_name);
+            st->u.store.dst_ptr     = val_var(addr_raw->u.var_name);
+            st->u.store.byte_access = byte_access_for(inner->type);
             tac_append(ctx, st);
             return val_var(old->u.var_name);
         }
     }
     case EXPR_SUBSCRIPT: {
-        Tac_Val *addr       = gen_lval(ctx, e);
-        Tac_Val *dst        = new_var_val(ctx);
-        Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LOAD);
-        in->is_volatile     = type_is_volatile(e->type);
-        in->u.load.src_ptr  = addr;
-        in->u.load.dst      = dst;
+        Tac_Val *addr          = gen_lval(ctx, e);
+        Tac_Val *dst           = new_var_val(ctx);
+        Tac_Instruction *in    = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+        in->is_volatile        = type_is_volatile(e->type);
+        in->u.load.src_ptr     = addr;
+        in->u.load.dst         = dst;
+        in->u.load.byte_access = byte_access_for(e->type);
         tac_append(ctx, in);
         return val_var(dst->u.var_name);
     }
@@ -687,23 +705,25 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             tac_append(ctx, in);
             return val_var(dst->u.var_name);
         } else {
-            Tac_Val *addr       = gen_lval(ctx, e);
-            Tac_Val *dst        = new_var_val(ctx);
-            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LOAD);
-            in->is_volatile     = type_is_volatile(e->type);
-            in->u.load.src_ptr  = addr;
-            in->u.load.dst      = dst;
+            Tac_Val *addr          = gen_lval(ctx, e);
+            Tac_Val *dst           = new_var_val(ctx);
+            Tac_Instruction *in    = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+            in->is_volatile        = type_is_volatile(e->type);
+            in->u.load.src_ptr     = addr;
+            in->u.load.dst         = dst;
+            in->u.load.byte_access = byte_access_for(e->type);
             tac_append(ctx, in);
             return val_var(dst->u.var_name);
         }
     }
     case EXPR_PTR_ACCESS: {
-        Tac_Val *addr       = gen_lval(ctx, e);
-        Tac_Val *dst        = new_var_val(ctx);
-        Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_LOAD);
-        in->is_volatile     = type_is_volatile(e->type);
-        in->u.load.src_ptr  = addr;
-        in->u.load.dst      = dst;
+        Tac_Val *addr          = gen_lval(ctx, e);
+        Tac_Val *dst           = new_var_val(ctx);
+        Tac_Instruction *in    = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+        in->is_volatile        = type_is_volatile(e->type);
+        in->u.load.src_ptr     = addr;
+        in->u.load.dst         = dst;
+        in->u.load.byte_access = byte_access_for(e->type);
         tac_append(ctx, in);
         return val_var(dst->u.var_name);
     }

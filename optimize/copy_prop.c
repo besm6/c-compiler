@@ -231,6 +231,8 @@ static const Tac_Val *get_defining_dst(const Tac_Instruction *ins)
     case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
     case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
         return ins->u.sign_extend.dst; // all 14 conversions share this layout
     case TAC_INSTRUCTION_GET_ADDRESS:
         return ins->u.get_address.dst;
@@ -482,6 +484,8 @@ static void subst_instruction(Tac_Instruction *ins, const StringMap *cs)
     case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
     case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
         subst_val(&ins->u.sign_extend.src, cs);
         break;
     case TAC_INSTRUCTION_UNARY:

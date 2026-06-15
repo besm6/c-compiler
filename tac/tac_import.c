@@ -274,6 +274,8 @@ static Tac_Instruction *import_instr(WFILE *in)
     case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
     case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
         instr->u.sign_extend.src = import_val(in);
         instr->u.sign_extend.dst = import_val(in);
         break;
@@ -291,17 +293,26 @@ static Tac_Instruction *import_instr(WFILE *in)
         instr->u.binary.dst  = import_val(in);
         break;
     case TAC_INSTRUCTION_COPY:
-    case TAC_INSTRUCTION_GET_ADDRESS:
         instr->u.copy.src = import_val(in);
         instr->u.copy.dst = import_val(in);
         break;
+    case TAC_INSTRUCTION_GET_ADDRESS:
+        instr->u.get_address.src         = import_val(in);
+        instr->u.get_address.dst         = import_val(in);
+        instr->u.get_address.byte_access = (int)wgetw(in);
+        check_input(in, "get_address byte_access");
+        break;
     case TAC_INSTRUCTION_LOAD:
-        instr->u.load.src_ptr = import_val(in);
-        instr->u.load.dst     = import_val(in);
+        instr->u.load.src_ptr     = import_val(in);
+        instr->u.load.dst         = import_val(in);
+        instr->u.load.byte_access = (int)wgetw(in);
+        check_input(in, "load byte_access");
         break;
     case TAC_INSTRUCTION_STORE:
-        instr->u.store.src     = import_val(in);
-        instr->u.store.dst_ptr = import_val(in);
+        instr->u.store.src         = import_val(in);
+        instr->u.store.dst_ptr     = import_val(in);
+        instr->u.store.byte_access = (int)wgetw(in);
+        check_input(in, "store byte_access");
         break;
     case TAC_INSTRUCTION_ADD_PTR:
         instr->u.add_ptr.ptr   = import_val(in);

@@ -11,11 +11,11 @@
 
 // Convert a struct-member byte offset to a word offset.  BESM-6 word-sized members
 // (int/long/pointer/float/double) are 6 bytes, so a word-aligned member's byte offset
-// is a multiple of 6.  A sub-word offset means a packed char member (task #21).
+// is a multiple of 6.  A sub-word offset means a packed char member (task #22).
 static int member_word_offset(int byte_offset)
 {
     if (byte_offset % BESM6_WORD_BYTES != 0)
-        fatal_error("CopyTo/FromOffset: sub-word offset %d (char member — task #21)", byte_offset);
+        fatal_error("CopyTo/FromOffset: sub-word offset %d (char member — task #22)", byte_offset);
     return byte_offset / BESM6_WORD_BYTES;
 }
 
@@ -204,6 +204,14 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
             Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);
             ita->addr       = 14;
         }
+        // &c where c is a char object yields a char* fat pointer: set the fat marker
+        // (bit 48) with byte offset 0.  The marker makes the pointer's exponent field
+        // 64, so the byte-load ASX shifts by 0 — addressing byte #5 (the low byte where
+        // a standalone char lives).
+        if (instr->u.get_address.byte_access) {
+            Besm_Instr *aox = emit(block, tail, BESM_LOG_AOX);
+            aox->name       = xstrdup("=4000000000000000"); // bit 48: fat marker, offset 0
+        }
         emit_atx(block, tail, dr, doff);
         break;
     }
@@ -226,6 +234,24 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
         int pr, po, dr, doff;
         lookup(f, instr->u.load.src_ptr->u.var_name, &pr, &po);
         lookup(f, instr->u.load.dst->u.var_name, &dr, &doff);
+        if (instr->u.load.byte_access) {
+            // Byte load through a char*/void* fat pointer.  The pointer word holds the
+            // word address in bits 15-1 and the byte offset in its exponent field
+            // (= 64 + offset*8).  WTC loads the word address into C; the bare XTA then
+            // reads the containing word (C supplies the base); ASX shifts the target
+            // byte down by offset*8 using the pointer's own exponent; AAX masks to 8 bits.
+            Besm_Instr *wtc = emit(block, tail, BESM_MOD_WTC);
+            wtc->reg        = pr;
+            wtc->addr       = po;
+            emit_xta(block, tail, 0, 0); // A = mem[C]: the containing word
+            Besm_Instr *asx = emit(block, tail, BESM_EXP_SHIFTX);
+            asx->reg        = pr;
+            asx->addr       = po;
+            Besm_Instr *aax = emit(block, tail, BESM_LOG_AAX);
+            aax->name       = xstrdup("=377"); // mask low 8 bits
+            emit_atx(block, tail, dr, doff);
+            break;
+        }
         emit_xta(block, tail, pr, po);
         Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
         ati->addr       = 1;
@@ -252,6 +278,18 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
     case TAC_INSTRUCTION_STORE: {
         int pr, po;
         lookup(f, instr->u.store.dst_ptr->u.var_name, &pr, &po);
+        if (instr->u.store.byte_access) {
+            // Byte store through a char*/void* fat pointer.  Read-modify-write is too
+            // long to inline, so call the b/stb runtime helper with the lightweight
+            // convention: the fat pointer `a` on the stack top, the byte value `b` in A.
+            // The helper masks the byte, clears the target byte of the containing word,
+            // ORs the new byte into place, and writes the word back; r15 is unchanged.
+            emit_xta(block, tail, pr, po);                    // A = fat pointer (a)
+            emit_xts_val(block, tail, f, instr->u.store.src); // push a; A = value (b)
+            Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
+            call->name       = xstrdup("b/stb");
+            break;
+        }
         emit_xta(block, tail, pr, po);
         Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
         ati->addr       = 1;
@@ -680,6 +718,38 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
         emit_atx(block, tail, rd, od);
         break;
     }
+    // Pointer-representation conversions (task #21).
+    //
+    // A word pointer (int*, etc.) is a bare word address; a char*/void* fat pointer
+    // carries a marker bit (48) and a byte offset (bits 47-45).
+    //
+    //   PTR_TO_CHAR_PTR  (int* → char*): the C standard points the result at the first
+    //     byte of the object.  On BESM-6 the first (most significant) byte is byte #0,
+    //     so OR in the marker plus offset 5 (exponent field 64+5*8 = 104).
+    //   CHAR_PTR_TO_PTR  (char* → int*): discard the marker and offset, keeping the bare
+    //     word address (clear the top 7 bits / the exponent field).
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR: {
+        const Tac_Val *src = instr->u.ptr_to_char_ptr.src;
+        const Tac_Val *dst = instr->u.ptr_to_char_ptr.dst;
+        int rd, od;
+        lookup(f, dst->u.var_name, &rd, &od);
+        emit_xta_val(block, tail, f, src);
+        Besm_Instr *aox = emit(block, tail, BESM_LOG_AOX);
+        aox->name       = xstrdup("=6400000000000000"); // bit 48 (marker) + offset 5
+        emit_atx(block, tail, rd, od);
+        break;
+    }
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR: {
+        const Tac_Val *src = instr->u.char_ptr_to_ptr.src;
+        const Tac_Val *dst = instr->u.char_ptr_to_ptr.dst;
+        int rd, od;
+        lookup(f, dst->u.var_name, &rd, &od);
+        emit_xta_val(block, tail, f, src);
+        Besm_Instr *aax = emit(block, tail, BESM_LOG_AAX);
+        aax->name       = xstrdup("=0037777777777777"); // keep low 41 bits (word address)
+        emit_atx(block, tail, rd, od);
+        break;
+    }
     // Integer ↔ floating-point conversions (task #18).
     //
     // float ≡ double on BESM-6 (same 48-bit native FP word), so every FLOAT_* mirrors the
@@ -788,15 +858,15 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
     //                  index register on UTC:  ,ATI, 1 / 1 ,UTC, arr / 14 ,VTM, / ,ITA, 14
     //   pointer      : the pointer's stored value is the base address — A+X ptr
     //
-    // Byte-offset addressing (scale not a whole number of words: struct members, char
-    // arrays) is deferred to tasks #20/#21.
+    // Byte-offset addressing (scale not a whole number of words: char* arithmetic, char
+    // arrays, packed char struct members) is deferred to task #22.
     case TAC_INSTRUCTION_ADD_PTR: {
         const Tac_Val *ptr   = instr->u.add_ptr.ptr;
         const Tac_Val *index = instr->u.add_ptr.index;
         const Tac_Val *dst   = instr->u.add_ptr.dst;
         int scale            = instr->u.add_ptr.scale;
         if (scale % 6 != 0)
-            fatal_error("ADD_PTR: sub-word scale %d (struct member / char* — tasks #20/#21)",
+            fatal_error("ADD_PTR: sub-word scale %d (char* arithmetic / char array — task #22)",
                         scale);
         int word_scale = scale / 6;
         int rd, od;

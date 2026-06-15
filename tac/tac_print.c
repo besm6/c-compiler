@@ -346,6 +346,12 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
         fprintf(fd, "float_to_long_double\n");
         break;
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+        fprintf(fd, "ptr_to_char_ptr\n");
+        break;
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
+        fprintf(fd, "char_ptr_to_ptr\n");
+        break;
     case TAC_INSTRUCTION_UNARY:
         fprintf(fd, "unary %s\n",
                 instr->u.unary.op == TAC_UNARY_COMPLEMENT        ? "complement"
@@ -449,6 +455,8 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
     case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
     case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src:\n");
         tac_print_val(fd, instr->u.sign_extend.src, depth + 2);
@@ -476,13 +484,24 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
         tac_print_val(fd, instr->u.binary.dst, depth + 2);
         break;
     case TAC_INSTRUCTION_COPY:
-    case TAC_INSTRUCTION_GET_ADDRESS:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src:\n");
         tac_print_val(fd, instr->u.copy.src, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
         tac_print_val(fd, instr->u.copy.dst, depth + 2);
+        break;
+    case TAC_INSTRUCTION_GET_ADDRESS:
+        print_indent(fd, depth + 1);
+        fprintf(fd, "Src:\n");
+        tac_print_val(fd, instr->u.get_address.src, depth + 2);
+        print_indent(fd, depth + 1);
+        fprintf(fd, "Dst:\n");
+        tac_print_val(fd, instr->u.get_address.dst, depth + 2);
+        if (instr->u.get_address.byte_access) {
+            print_indent(fd, depth + 1);
+            fprintf(fd, "Byte access: 1\n");
+        }
         break;
     case TAC_INSTRUCTION_LOAD:
         print_indent(fd, depth + 1);
@@ -491,6 +510,10 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
         tac_print_val(fd, instr->u.load.dst, depth + 2);
+        if (instr->u.load.byte_access) {
+            print_indent(fd, depth + 1);
+            fprintf(fd, "Byte access: 1\n");
+        }
         break;
     case TAC_INSTRUCTION_STORE:
         print_indent(fd, depth + 1);
@@ -499,6 +522,10 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst_ptr:\n");
         tac_print_val(fd, instr->u.store.dst_ptr, depth + 2);
+        if (instr->u.store.byte_access) {
+            print_indent(fd, depth + 1);
+            fprintf(fd, "Byte access: 1\n");
+        }
         break;
     case TAC_INSTRUCTION_ADD_PTR:
         print_indent(fd, depth + 1);

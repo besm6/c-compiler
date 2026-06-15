@@ -207,6 +207,8 @@ bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b)
     case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
     case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
         return tac_compare_val(a->u.sign_extend.src, b->u.sign_extend.src) &&
                tac_compare_val(a->u.sign_extend.dst, b->u.sign_extend.dst);
     case TAC_INSTRUCTION_UNARY:
@@ -218,15 +220,20 @@ bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b)
                tac_compare_val(a->u.binary.src2, b->u.binary.src2) &&
                tac_compare_val(a->u.binary.dst, b->u.binary.dst);
     case TAC_INSTRUCTION_COPY:
-    case TAC_INSTRUCTION_GET_ADDRESS:
         return tac_compare_val(a->u.copy.src, b->u.copy.src) &&
                tac_compare_val(a->u.copy.dst, b->u.copy.dst);
+    case TAC_INSTRUCTION_GET_ADDRESS:
+        return tac_compare_val(a->u.get_address.src, b->u.get_address.src) &&
+               tac_compare_val(a->u.get_address.dst, b->u.get_address.dst) &&
+               a->u.get_address.byte_access == b->u.get_address.byte_access;
     case TAC_INSTRUCTION_LOAD:
         return tac_compare_val(a->u.load.src_ptr, b->u.load.src_ptr) &&
-               tac_compare_val(a->u.load.dst, b->u.load.dst);
+               tac_compare_val(a->u.load.dst, b->u.load.dst) &&
+               a->u.load.byte_access == b->u.load.byte_access;
     case TAC_INSTRUCTION_STORE:
         return tac_compare_val(a->u.store.src, b->u.store.src) &&
-               tac_compare_val(a->u.store.dst_ptr, b->u.store.dst_ptr);
+               tac_compare_val(a->u.store.dst_ptr, b->u.store.dst_ptr) &&
+               a->u.store.byte_access == b->u.store.byte_access;
     case TAC_INSTRUCTION_ADD_PTR:
         return tac_compare_val(a->u.add_ptr.ptr, b->u.add_ptr.ptr) &&
                tac_compare_val(a->u.add_ptr.index, b->u.add_ptr.index) &&

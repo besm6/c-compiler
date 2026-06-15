@@ -510,6 +510,24 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         fprintf(fd, "dst:\n");
         export_yaml_val(fd, instr->u.float_to_long_double.dst, level + 1);
         break;
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+        fprintf(fd, "ptr_to_char_ptr\n");
+        print_indent(fd, level);
+        fprintf(fd, "src:\n");
+        export_yaml_val(fd, instr->u.ptr_to_char_ptr.src, level + 1);
+        print_indent(fd, level);
+        fprintf(fd, "dst:\n");
+        export_yaml_val(fd, instr->u.ptr_to_char_ptr.dst, level + 1);
+        break;
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
+        fprintf(fd, "char_ptr_to_ptr\n");
+        print_indent(fd, level);
+        fprintf(fd, "src:\n");
+        export_yaml_val(fd, instr->u.char_ptr_to_ptr.src, level + 1);
+        print_indent(fd, level);
+        fprintf(fd, "dst:\n");
+        export_yaml_val(fd, instr->u.char_ptr_to_ptr.dst, level + 1);
+        break;
     case TAC_INSTRUCTION_UNARY: {
         fprintf(fd, "unary\n");
         print_indent(fd, level);
@@ -679,6 +697,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         print_indent(fd, level);
         fprintf(fd, "dst:\n");
         export_yaml_val(fd, instr->u.get_address.dst, level + 1);
+        if (instr->u.get_address.byte_access) {
+            print_indent(fd, level);
+            fprintf(fd, "byte_access: true\n");
+        }
         break;
     case TAC_INSTRUCTION_LOAD:
         fprintf(fd, "load\n");
@@ -692,6 +714,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         print_indent(fd, level);
         fprintf(fd, "dst:\n");
         export_yaml_val(fd, instr->u.load.dst, level + 1);
+        if (instr->u.load.byte_access) {
+            print_indent(fd, level);
+            fprintf(fd, "byte_access: true\n");
+        }
         break;
     case TAC_INSTRUCTION_STORE:
         fprintf(fd, "store\n");
@@ -705,6 +731,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         print_indent(fd, level);
         fprintf(fd, "dst_ptr:\n");
         export_yaml_val(fd, instr->u.store.dst_ptr, level + 1);
+        if (instr->u.store.byte_access) {
+            print_indent(fd, level);
+            fprintf(fd, "byte_access: true\n");
+        }
         break;
     case TAC_INSTRUCTION_ADD_PTR:
         fprintf(fd, "add_ptr\n");

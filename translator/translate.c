@@ -147,6 +147,18 @@ Tac_Val *new_var_val(TacCtx *ctx)
     return v;
 }
 
+// A "fat pointer" on byte-addressed targets (BESM-6: char*/void*) carries a byte
+// offset and a marker bit, so it has a different bit layout from a plain word
+// pointer (int*, etc.).  True when t is a pointer whose pointee is a character type
+// or void.  Used to choose the pointer-representation conversion in emit_cast.
+static bool is_fat_pointer(const Type *t)
+{
+    if (t->kind != TYPE_POINTER)
+        return false;
+    const Type *target = t->u.pointer.target;
+    return is_character(target) || target->kind == TYPE_VOID;
+}
+
 Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
 {
     bool from_int = is_integer(from);
@@ -159,10 +171,27 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
         size_t from_size = get_size(from);
         size_t to_size   = get_size(to);
         if (from_ptr && to_ptr) {
-            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
-            in->u.copy.src      = src;
-            in->u.copy.dst      = dst;
-            tac_append(ctx, in);
+            bool from_fat = is_fat_pointer(from);
+            bool to_fat   = is_fat_pointer(to);
+            if (!from_fat && to_fat) {
+                // word pointer → char*/void*: set the fat marker and byte offset.
+                Tac_Instruction *in     = tac_new_instruction(TAC_INSTRUCTION_PTR_TO_CHAR_PTR);
+                in->u.ptr_to_char_ptr.src = src;
+                in->u.ptr_to_char_ptr.dst = dst;
+                tac_append(ctx, in);
+            } else if (from_fat && !to_fat) {
+                // char*/void* → word pointer: clear the fat marker and offset.
+                Tac_Instruction *in       = tac_new_instruction(TAC_INSTRUCTION_CHAR_PTR_TO_PTR);
+                in->u.char_ptr_to_ptr.src = src;
+                in->u.char_ptr_to_ptr.dst = dst;
+                tac_append(ctx, in);
+            } else {
+                // word↔word or fat↔fat (incl. char*↔void*): identical representation.
+                Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
+                in->u.copy.src      = src;
+                in->u.copy.dst      = dst;
+                tac_append(ctx, in);
+            }
         } else if (to_ptr) {
             // integer → pointer
             if (from_size < to_size) {
@@ -652,6 +681,14 @@ static void percent_instr(Tac_Instruction *in, const StringMap *autos)
     case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
         percent_vals(in->u.float_to_long_double.src, autos);
         percent_vals(in->u.float_to_long_double.dst, autos);
+        break;
+    case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+        percent_vals(in->u.ptr_to_char_ptr.src, autos);
+        percent_vals(in->u.ptr_to_char_ptr.dst, autos);
+        break;
+    case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
+        percent_vals(in->u.char_ptr_to_ptr.src, autos);
+        percent_vals(in->u.char_ptr_to_ptr.dst, autos);
         break;
     case TAC_INSTRUCTION_UNARY:
         percent_vals(in->u.unary.src, autos);
