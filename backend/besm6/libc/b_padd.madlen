@@ -89,11 +89,11 @@ c
         q2: ,bss, 1
         q6: ,bss, 1
       encw: ,bss, 1
-c  ttab[i] = 5 - i  (full-width octal: short data constants left-justify)
-      ttab: ,oct, 0000000000000005
-            ,oct, 0000000000000004
-            ,oct, 0000000000000003
-            ,oct, 0000000000000002
-            ,oct, 0000000000000001
-            ,oct, 0000000000000000
+c  ttab[i] = 5 - i  (octal)
+      ttab: ,log, 5
+            ,log, 4
+            ,log, 3
+            ,log, 2
+            ,log, 1
+            ,log, 0
             ,end,
