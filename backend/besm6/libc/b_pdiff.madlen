@@ -1,0 +1,78 @@
+    b/pdiff: ,name,
+        14 ,base,*
+c
+c Difference of two char*/void* fat pointers: p - q -> ptrdiff_t byte count.
+c Helper convention: the minuend a (= p) is on the stack top (mem[r15-1]); the subtrahend
+c b (= q) is in A; the result a - b is left in A and a is popped (net r15 = entry - 1).
+c
+c Fat-pointer layout: bit 48 = marker, bits 47-45 = offset_enc (exponent = 64 + enc*8),
+c bits 15-1 = word address.  byte#(from the MSB) = 5 - offset_enc; offset_enc 5 = byte#0.
+c A bare base (marker bit clear, e.g. an array word address or a struct address) starts at
+c byte#0 (the MSB).  The absolute byte position of a fat pointer is
+c
+c   abs = word*6 + byte#          (byte# = 5 - offset_enc, or 0 if the marker is clear)
+c
+c and the result is abs(a) - abs(b).  sizeof(char) == 1, so no scaling is needed.  All raw
+c integer mode (R = 7 at entry): no normalization, no division.
+c
+            ,atx, b              . save b (q), in A at entry
+         15 ,xta,                . pop a (p)
+            ,atx, a
+c  --- abs(a) = word_a*6 + byte#_a -> aa ---
+            ,aax, =77777         . word_a (bits 15-1)
+            ,atx, w
+            ,asn, 64-1           . 2*word
+            ,atx, w2
+            ,xta, w
+            ,asn, 64-2           . 4*word
+            ,a+x, w2             . 6*word_a
+            ,atx, aa
+            ,xta, a
+            ,aax, =4000000000000000  . test the marker (bit 48)
+            ,uza, abare          . marker clear -> byte# = 0
+            ,xta, a
+            ,asn, 64+44          . offset_enc -> bits 3-1
+            ,aax, =7
+            ,ati, 11
+        11 ,xta, ttab            . byte# = 5 - offset_enc
+            ,a+x, aa
+            ,atx, aa
+c  --- abs(b) = word_b*6 + byte#_b -> bb ---
+     abare: ,xta, b
+            ,aax, =77777         . word_b (bits 15-1)
+            ,atx, w
+            ,asn, 64-1
+            ,atx, w2
+            ,xta, w
+            ,asn, 64-2
+            ,a+x, w2             . 6*word_b
+            ,atx, bb
+            ,xta, b
+            ,aax, =4000000000000000  . test the marker (bit 48)
+            ,uza, bbare          . marker clear -> byte# = 0
+            ,xta, b
+            ,asn, 64+44          . offset_enc -> bits 3-1
+            ,aax, =7
+            ,ati, 11
+        11 ,xta, ttab            . byte# = 5 - offset_enc
+            ,a+x, bb
+            ,atx, bb
+c  --- result = abs(a) - abs(b) ---
+     bbare: ,xta, aa
+            ,a-x, bb             . R = 7: raw integer subtract
+        13 ,uj,
+c
+         a: ,bss, 1
+         b: ,bss, 1
+         w: ,bss, 1
+        w2: ,bss, 1
+        aa: ,bss, 1
+        bb: ,bss, 1
+c  ttab[i] = 5 - i  (full-width octal: short data constants left-justify)
+      ttab: ,oct, 0000000000000005
+            ,oct, 0000000000000004
+            ,oct, 0000000000000003
+            ,oct, 0000000000000002
+            ,oct, 0000000000000001
+            ,oct, 0000000000000000
+            ,end,

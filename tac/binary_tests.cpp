@@ -500,6 +500,26 @@ TEST_F(TacBinaryTest, AddPtr)
     tac_free_program(copy);
 }
 
+// PtrDiff
+// ---------------------------------------------------------------------------
+
+TEST_F(TacBinaryTest, PtrDiff)
+{
+    Tac_Program *orig            = tac_new_program();
+    orig->decls                  = make_empty_function("f", true);
+    Tac_Instruction *instr       = tac_new_instruction(TAC_INSTRUCTION_PTR_DIFF);
+    instr->u.ptr_diff.ptr_a      = make_var("p");
+    instr->u.ptr_diff.ptr_b      = make_var("q");
+    instr->u.ptr_diff.dst        = make_var("r");
+    orig->decls->u.function.body = instr;
+
+    Tac_Program *copy = roundtrip(orig);
+    EXPECT_TRUE(tac_compare_program(orig, copy));
+
+    tac_free_program(orig);
+    tac_free_program(copy);
+}
+
 // ---------------------------------------------------------------------------
 // CopyToOffset / CopyFromOffset
 // ---------------------------------------------------------------------------

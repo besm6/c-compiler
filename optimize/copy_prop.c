@@ -243,6 +243,8 @@ static const Tac_Val *get_defining_dst(const Tac_Instruction *ins)
         return ins->u.load.dst;
     case TAC_INSTRUCTION_ADD_PTR:
         return ins->u.add_ptr.dst;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        return ins->u.ptr_diff.dst;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         return ins->u.copy_from_offset.dst;
@@ -518,6 +520,10 @@ static void subst_instruction(Tac_Instruction *ins, const StringMap *cs)
     case TAC_INSTRUCTION_ADD_PTR:
         subst_val(&ins->u.add_ptr.ptr, cs);
         subst_val(&ins->u.add_ptr.index, cs);
+        break;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        subst_val(&ins->u.ptr_diff.ptr_a, cs);
+        subst_val(&ins->u.ptr_diff.ptr_b, cs);
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:

@@ -319,6 +319,11 @@ static Tac_Instruction *import_instr(WFILE *in)
         check_input(in, "add_ptr scale");
         instr->u.add_ptr.dst = import_val(in);
         break;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        instr->u.ptr_diff.ptr_a = import_val(in);
+        instr->u.ptr_diff.ptr_b = import_val(in);
+        instr->u.ptr_diff.dst   = import_val(in);
+        break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         instr->u.copy_to_offset.src = import_val(in);

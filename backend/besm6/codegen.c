@@ -160,6 +160,11 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
                 declare_global_operand(block, &tail, f, &declared, instr->u.add_ptr.index);
                 declare_global_operand(block, &tail, f, &declared, instr->u.add_ptr.dst);
                 break;
+            case TAC_INSTRUCTION_PTR_DIFF:
+                declare_global_operand(block, &tail, f, &declared, instr->u.ptr_diff.ptr_a);
+                declare_global_operand(block, &tail, f, &declared, instr->u.ptr_diff.ptr_b);
+                declare_global_operand(block, &tail, f, &declared, instr->u.ptr_diff.dst);
+                break;
             case TAC_INSTRUCTION_COPY_TO_OFFSET:
             case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
                 declare_global_operand(block, &tail, f, &declared, instr->u.copy_to_offset.src);

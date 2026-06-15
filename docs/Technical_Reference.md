@@ -264,6 +264,7 @@ The BESM-6 frame allocator (`backend/besm6/frame.c`) then assigns a stack slot t
 | `load` | `src_ptr:` `dst:` |
 | `store` | `src:` `dst_ptr:` |
 | `add_ptr` | `ptr:` `index:` `scale: N` `dst:` |
+| `ptr_diff` | `ptr_a:` `ptr_b:` `dst:` |
 | `copy_to_offset` | `src:` `dst: name` (bare string) `offset: N` |
 | `copy_from_offset` | `src: name` (bare string) `offset: N` `dst:` |
 | `jump` | `target: label` |

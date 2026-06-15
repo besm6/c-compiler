@@ -79,12 +79,6 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 ---
 
-### Phase K — Pointers, arrays, structs, fat pointers
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 22b | `char*` − `char*` difference | Subtracting two fat pointers yields a `ptrdiff_t` byte count: `(word_a*6 + (5 - enc_a)) - (word_b*6 + (5 - enc_b))`. The semantic layer types `p - q` as `long`, so it does not flow through `ADD_PTR`; lower it to a new runtime helper (decode both fat pointers to absolute byte positions and subtract). Currently guarded by a `fatal_error("char* - char* difference not yet supported")` in translator/expr.c `gen_binary`. | S |
-
 ### Phase M — Deferred / future
 
 | # | Task | Description | Effort |

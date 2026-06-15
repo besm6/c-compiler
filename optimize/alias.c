@@ -127,6 +127,11 @@ static void note_instr(StringMap *observable, const StringMap *private_set,
         note_vals(observable, private_set, ins->u.add_ptr.index);
         note_vals(observable, private_set, ins->u.add_ptr.dst);
         break;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        note_vals(observable, private_set, ins->u.ptr_diff.ptr_a);
+        note_vals(observable, private_set, ins->u.ptr_diff.ptr_b);
+        note_vals(observable, private_set, ins->u.ptr_diff.dst);
+        break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         note_vals(observable, private_set, ins->u.copy_to_offset.src);

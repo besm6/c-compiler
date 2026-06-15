@@ -415,6 +415,9 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
     case TAC_INSTRUCTION_ADD_PTR:
         fprintf(fd, "add_ptr\n");
         break;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        fprintf(fd, "ptr_diff\n");
+        break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
         fprintf(fd, "copy_to_offset\n");
         break;
@@ -549,6 +552,17 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
         tac_print_val(fd, instr->u.add_ptr.dst, depth + 2);
+        break;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        print_indent(fd, depth + 1);
+        fprintf(fd, "PtrA:\n");
+        tac_print_val(fd, instr->u.ptr_diff.ptr_a, depth + 2);
+        print_indent(fd, depth + 1);
+        fprintf(fd, "PtrB:\n");
+        tac_print_val(fd, instr->u.ptr_diff.ptr_b, depth + 2);
+        print_indent(fd, depth + 1);
+        fprintf(fd, "Dst:\n");
+        tac_print_val(fd, instr->u.ptr_diff.dst, depth + 2);
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:

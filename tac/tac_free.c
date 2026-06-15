@@ -99,6 +99,11 @@ void tac_free_instruction(Tac_Instruction *instr)
         tac_free_val(instr->u.add_ptr.index);
         tac_free_val(instr->u.add_ptr.dst);
         break;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        tac_free_val(instr->u.ptr_diff.ptr_a);
+        tac_free_val(instr->u.ptr_diff.ptr_b);
+        tac_free_val(instr->u.ptr_diff.dst);
+        break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         tac_free_val(instr->u.copy_to_offset.src);

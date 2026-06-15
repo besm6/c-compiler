@@ -25,7 +25,7 @@ set(LIBC_MADLEN
     printd printo printf read write writeb flush
     b_udiv b_umod b_ult b_ule b_ugt b_uge b_dtoi b_dtou b_utod b_uneg
     b_lsh b_rsh b_uadd b_usub b_umul
-    b_flt b_fle b_fgt b_fge b_stb b_padd b_pinc b_pdec)
+    b_flt b_fle b_fgt b_fge b_stb b_padd b_pinc b_pdec b_pdiff)
 list(TRANSFORM LIBC_MADLEN PREPEND ${LIBC_DIR}/ OUTPUT_VARIABLE LIBC_SOURCES)
 list(TRANSFORM LIBC_SOURCES APPEND .madlen)
 

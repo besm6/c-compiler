@@ -512,6 +512,16 @@ normalized INT-format operands (masking the fraction rounds toward −∞); the 
 first biased by a multiple of 6 large enough to be non-negative (INT-format misreads a
 negative two's-complement mantissa) and the bias is subtracted back from the quotient.
 
+#### `b/pdiff` — [b_pdiff.madlen](../backend/besm6/libc/b_pdiff.madlen) — fat pointer − fat pointer
+
+Computes the `ptrdiff_t` byte distance between two `char*`/`void*` fat pointers: `p - q`.
+Convention: minuend `a` (= `p`) on the stack top (popped), subtrahend `b` (= `q`) in A,
+signed result in A. Each pointer is decoded to an absolute byte position
+`abs = word*6 + byte#` (`byte# = 5 - offset_enc`, or 0 if the marker is clear — a bare
+array/struct address starts at byte #0) and the result is `abs(a) - abs(b)`. `sizeof(char)`
+is 1, so no scaling is applied. All raw integer mode (`R = 7` at entry): no normalization and
+no division (`6*word = 2*word + 4*word` via shifts).
+
 ---
 
 ### I/O Routines

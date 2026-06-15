@@ -198,6 +198,10 @@ static const char *live_get_dst_name(const Tac_Instruction *ins)
         if (ins->u.add_ptr.dst->kind == TAC_VAL_VAR)
             return ins->u.add_ptr.dst->u.var_name;
         return NULL;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        if (ins->u.ptr_diff.dst->kind == TAC_VAL_VAR)
+            return ins->u.ptr_diff.dst->u.var_name;
+        return NULL;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         if (ins->u.copy_from_offset.dst->kind == TAC_VAL_VAR)
@@ -291,6 +295,10 @@ static void live_transfer_backward(StringMap *ls, const Tac_Instruction *ins,
         live_add_val(ls, ins->u.add_ptr.ptr);
         live_add_val(ls, ins->u.add_ptr.index);
         break;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        live_add_val(ls, ins->u.ptr_diff.ptr_a);
+        live_add_val(ls, ins->u.ptr_diff.ptr_b);
+        break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         live_add_val(ls, ins->u.copy_to_offset.src);
@@ -354,6 +362,7 @@ static bool is_removable(Tac_InstructionKind kind)
     case TAC_INSTRUCTION_LOAD:
     case TAC_INSTRUCTION_LOAD_BYTE:
     case TAC_INSTRUCTION_ADD_PTR:
+    case TAC_INSTRUCTION_PTR_DIFF:
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         return true;

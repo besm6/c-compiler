@@ -433,6 +433,9 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
     case TAC_INSTRUCTION_ADD_PTR:
         fprintf(fd, "AddPtr scale=%d", instr->u.add_ptr.scale);
         break;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        fprintf(fd, "PtrDiff");
+        break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
         fprintf(fd, "CopyToOffset offset=%d dst=", instr->u.copy_to_offset.offset);
         emit_string(fd, instr->u.copy_to_offset.dst);
@@ -610,6 +613,11 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
         emit_val(fd, instr->u.add_ptr.ptr, id, "ptr");
         emit_val(fd, instr->u.add_ptr.index, id, "index");
         emit_val(fd, instr->u.add_ptr.dst, id, "dst");
+        break;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        emit_val(fd, instr->u.ptr_diff.ptr_a, id, "ptr_a");
+        emit_val(fd, instr->u.ptr_diff.ptr_b, id, "ptr_b");
+        emit_val(fd, instr->u.ptr_diff.dst, id, "dst");
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:

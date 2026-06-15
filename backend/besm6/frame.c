@@ -181,6 +181,11 @@ static void collect_instr(Frame *f, const Tac_Instruction *instr, int *auto_coun
         collect_vals(f, instr->u.add_ptr.index, auto_count);
         collect_vals(f, instr->u.add_ptr.dst, auto_count);
         break;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        collect_vals(f, instr->u.ptr_diff.ptr_a, auto_count);
+        collect_vals(f, instr->u.ptr_diff.ptr_b, auto_count);
+        collect_vals(f, instr->u.ptr_diff.dst, auto_count);
+        break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         collect_vals(f, instr->u.copy_to_offset.src, auto_count);

@@ -149,6 +149,11 @@ static void export_instr(WFILE *out, const Tac_Instruction *instr)
         wputw((size_t)instr->u.add_ptr.scale, out);
         export_val(out, instr->u.add_ptr.dst);
         break;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        export_val(out, instr->u.ptr_diff.ptr_a);
+        export_val(out, instr->u.ptr_diff.ptr_b);
+        export_val(out, instr->u.ptr_diff.dst);
+        break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         export_val(out, instr->u.copy_to_offset.src);

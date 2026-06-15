@@ -746,6 +746,11 @@ static void percent_instr(Tac_Instruction *in, const StringMap *autos)
         percent_vals(in->u.add_ptr.index, autos);
         percent_vals(in->u.add_ptr.dst, autos);
         break;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        percent_vals(in->u.ptr_diff.ptr_a, autos);
+        percent_vals(in->u.ptr_diff.ptr_b, autos);
+        percent_vals(in->u.ptr_diff.dst, autos);
+        break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         percent_vals(in->u.copy_to_offset.src, autos);

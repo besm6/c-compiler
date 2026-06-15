@@ -362,8 +362,20 @@ static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
     if (op == BINARY_ADD || op == BINARY_SUB) {
         bool l_fat = is_byte_pointer(l->type);
         bool r_fat = is_byte_pointer(r->type);
-        if (op == BINARY_SUB && l_fat && r_fat)
-            fatal_error("char* - char* difference not yet supported (task #22b)");
+        if (op == BINARY_SUB && l_fat && r_fat) {
+            // char* - char* : the difference is a ptrdiff_t (long) byte count, not a
+            // pointer.  Decode both fat pointers to absolute byte positions and subtract
+            // (the runtime helper b/pdiff); sizeof(char) == 1, so no scaling is needed.
+            Tac_Val *vl         = gen_expr(ctx, l);
+            Tac_Val *vr         = gen_expr(ctx, r);
+            Tac_Val *vd         = new_var_val(ctx);
+            Tac_Instruction *pd = tac_new_instruction(TAC_INSTRUCTION_PTR_DIFF);
+            pd->u.ptr_diff.ptr_a = vl;
+            pd->u.ptr_diff.ptr_b = vr;
+            pd->u.ptr_diff.dst   = vd;
+            tac_append(ctx, pd);
+            return val_var(vd->u.var_name);
+        }
         bool ptr_left  = l_fat && is_integer(r->type);
         bool ptr_right = op == BINARY_ADD && r_fat && is_integer(l->type);
         if (ptr_left || ptr_right) {

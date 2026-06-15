@@ -992,6 +992,20 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
         emit_atx(block, tail, rd, od);
         break;
     }
+    // PTR_DIFF  dst = ptr_a - ptr_b   (char*/void* difference → ptrdiff_t byte count)
+    //
+    // Both operands are fat pointers; b/pdiff decodes each to an absolute byte position
+    // (word*6 + byte#) and subtracts, returning bytepos(a) - bytepos(b).  Same binop-helper
+    // convention as b/uadd: ptr_a on the stack top, ptr_b in A, result in A.  No scaling
+    // (sizeof(char) == 1).
+    case TAC_INSTRUCTION_PTR_DIFF: {
+        const Tac_Val *dst = instr->u.ptr_diff.dst;
+        int rd, od;
+        lookup(f, dst->u.var_name, &rd, &od);
+        emit_binop_helper(block, tail, f, instr->u.ptr_diff.ptr_a, instr->u.ptr_diff.ptr_b,
+                          "b/pdiff", rd, od);
+        break;
+    }
     // COPY_FROM_OFFSET  dst = base[offset]
     //
     // In C:  x = s.field;   (s is a named struct variable, not a pointer)

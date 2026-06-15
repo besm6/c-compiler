@@ -240,6 +240,10 @@ bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b)
                tac_compare_val(a->u.add_ptr.index, b->u.add_ptr.index) &&
                a->u.add_ptr.scale == b->u.add_ptr.scale &&
                tac_compare_val(a->u.add_ptr.dst, b->u.add_ptr.dst);
+    case TAC_INSTRUCTION_PTR_DIFF:
+        return tac_compare_val(a->u.ptr_diff.ptr_a, b->u.ptr_diff.ptr_a) &&
+               tac_compare_val(a->u.ptr_diff.ptr_b, b->u.ptr_diff.ptr_b) &&
+               tac_compare_val(a->u.ptr_diff.dst, b->u.ptr_diff.dst);
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         if ((a->u.copy_to_offset.dst == NULL) != (b->u.copy_to_offset.dst == NULL))

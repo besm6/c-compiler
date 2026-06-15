@@ -745,6 +745,18 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         fprintf(fd, "dst:\n");
         export_yaml_val(fd, instr->u.add_ptr.dst, level + 1);
         break;
+    case TAC_INSTRUCTION_PTR_DIFF:
+        fprintf(fd, "ptr_diff\n");
+        print_indent(fd, level);
+        fprintf(fd, "ptr_a:\n");
+        export_yaml_val(fd, instr->u.ptr_diff.ptr_a, level + 1);
+        print_indent(fd, level);
+        fprintf(fd, "ptr_b:\n");
+        export_yaml_val(fd, instr->u.ptr_diff.ptr_b, level + 1);
+        print_indent(fd, level);
+        fprintf(fd, "dst:\n");
+        export_yaml_val(fd, instr->u.ptr_diff.dst, level + 1);
+        break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
     case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         fprintf(fd, "%s\n", instr->kind == TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET

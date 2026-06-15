@@ -112,6 +112,7 @@ typedef enum {
     TAC_INSTRUCTION_STORE,
     TAC_INSTRUCTION_STORE_BYTE,        // store a single byte through a fat pointer
     TAC_INSTRUCTION_ADD_PTR,
+    TAC_INSTRUCTION_PTR_DIFF, // char*/void* difference → ptrdiff_t (long) byte count
     TAC_INSTRUCTION_COPY_TO_OFFSET,
     TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET,   // sub-word packed char member (byte read-modify-write)
     TAC_INSTRUCTION_COPY_FROM_OFFSET,
@@ -305,6 +306,11 @@ typedef struct Tac_Instruction {
             int scale;
             Tac_Val *dst;
         } add_ptr;
+        struct {
+            Tac_Val *ptr_a; // minuend   (p)
+            Tac_Val *ptr_b; // subtrahend (q)
+            Tac_Val *dst;   // ptrdiff_t byte count
+        } ptr_diff;
         struct {
             Tac_Val *src;
             char *dst;

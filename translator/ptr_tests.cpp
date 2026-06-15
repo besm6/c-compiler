@@ -541,3 +541,35 @@ TEST_F(TranslateTest, VolatileDerefPostIncLoadAndStore)
         name: %p
 )");
 }
+
+// char* - char*: a fat-pointer difference is a ptrdiff_t (long) byte count, lowered to the
+// dedicated PTR_DIFF instruction (not ADD_PTR, which is pointer ± integer). Task #22b.
+TEST_F(TranslateTest, CharPtrDifference)
+{
+    std::string yaml = CompileToYaml("long f(char *p, char *q) { return p - q; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: %p
+    - param: %q
+  body:
+    - instruction:
+      kind: ptr_diff
+      ptr_a:
+        kind: var
+        name: %p
+      ptr_b:
+        kind: var
+        name: %q
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: %0
+)");
+}

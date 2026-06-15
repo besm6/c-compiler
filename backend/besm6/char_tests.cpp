@@ -377,3 +377,61 @@ TEST_F(CodegenTest, CharPtrLvalueCompoundAdd)
     )");
     EXPECT_EQ("E\n", result);
 }
+
+// Shape: char* - char* lowers to PTR_DIFF -> the b/pdiff helper. Task #22b.
+TEST_F(CodegenTest, CharPtrDifferenceCallsPdiff)
+{
+    DisableOptimization();
+    std::string output = CompileToMadlen("long f(char *p, char *q){ return p - q; }");
+    EXPECT_NE(output.find(",call, b/pdiff"), std::string::npos) << output;
+}
+
+// Runtime: char* - char* within one word (both byte offsets in the same word).
+TEST_F(CodegenTest, CharPtrDifferenceSameWordRun)
+{
+    std::string result = CompileAndRun(R"(
+        void writeb(int ch);
+        void program() {
+            char a[12];
+            char *p = a + 5;
+            char *q = a + 2;
+            writeb('0' + (p - q));   /* 3 */
+            writeb('\n');
+        }
+    )");
+    EXPECT_EQ("3\n", result);
+}
+
+// Runtime: char* - char* spanning a word boundary (delta > 6 -> word + byte# decode).
+TEST_F(CodegenTest, CharPtrDifferenceCrossWordRun)
+{
+    std::string result = CompileAndRun(R"(
+        void writeb(int ch);
+        void program() {
+            char a[12];
+            char *p = a + 8;
+            char *q = a + 1;
+            writeb('0' + (p - q));   /* 7 */
+            writeb('\n');
+        }
+    )");
+    EXPECT_EQ("7\n", result);
+}
+
+// Runtime: a negative char* - char* difference (subtrahend past the minuend).
+TEST_F(CodegenTest, CharPtrDifferenceNegativeRun)
+{
+    std::string result = CompileAndRun(R"(
+        void writeb(int ch);
+        void program() {
+            char a[12];
+            char *p = a + 2;
+            char *q = a + 9;
+            long d = p - q;          /* -7 */
+            if (d < 0) writeb('-');
+            writeb('0' - d);         /* '0' - (-7) = '7' */
+            writeb('\n');
+        }
+    )");
+    EXPECT_EQ("-7\n", result);
+}
