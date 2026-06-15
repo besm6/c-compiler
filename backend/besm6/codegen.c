@@ -75,6 +75,7 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
     func->blocks      = block;
 
     Besm_Instr *tail = NULL;
+    Frame *f         = NULL; // built for non-empty functions; passed to the peephole pass
 
     Besm_Instr *iname = emit(block, &tail, BESM_STMT_NAME);
     iname->name       = xstrdup(name);
@@ -104,7 +105,7 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
         //
         // Build the frame early so we can declare SUBP references for static
         // constants before the first instruction that uses them (single-pass assembler).
-        Frame *f      = frame_build(tl, program);
+        f             = frame_build(tl, program);
         int num_autos = frame_num_autos(f);
 
         Besm_Instr *subp_cret = emit(block, &tail, BESM_STMT_SUBP);
@@ -213,12 +214,14 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
         Besm_Instr *uj_cret = emit(block, &tail, BESM_BRANCH_UJ);
         uj_cret->name       = xstrdup("b/ret");
         emit(block, &tail, BESM_STMT_END);
-
-        frame_free(f);
     }
 
     // Final polish: peephole-optimize the selected instruction stream before emission.
-    besm_peephole(func);
+    // The frame (NULL for empty functions) lets the pass classify temporary slots for
+    // dead temp-store elimination; it is freed once the pass no longer needs it.
+    besm_peephole(func, f);
+    if (f)
+        frame_free(f);
 
     emit_madlen_module(out, module);
     besm_free_module(module);

@@ -29,7 +29,6 @@ c
            1 ,utc, arr
           14 ,vtm, 0
              ,ita, 14
-           7 ,atx,
              ,ati, 1
            6 ,xta, 1
            1 ,atx,
@@ -52,10 +51,8 @@ TEST_F(CodegenTest, AddPtrPointerLoad)
           15 ,utm, 2
            6 ,xta, 1
            6 ,a+x,
-           7 ,atx,
              ,ati, 1
            1 ,xta,
-           7 ,atx, 1
              ,uj, b/ret
              ,uj, b/ret
              ,end,
@@ -77,7 +74,6 @@ TEST_F(CodegenTest, AddPtrPowerOfTwoScale)
            6 ,xta, 1
              ,asn, 63
            6 ,a+x,
-           7 ,atx,
              ,uj, b/ret
              ,uj, b/ret
              ,end,

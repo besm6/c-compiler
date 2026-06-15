@@ -32,7 +32,6 @@ TEST_F(CodegenTest, NegateSignedIntMadlen)
           15 ,utm, 1
            6 ,xta,
              ,x-a,
-           7 ,atx,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -67,7 +66,6 @@ TEST_F(CodegenTest, NegateUnsignedMadlen)
           15 ,utm, 1
            6 ,xta,
              ,call, b/uneg
-           7 ,atx,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -106,7 +104,6 @@ TEST_F(CodegenTest, NegateDoubleMadlen)
              ,ntr, 0
              ,x-a,
              ,ntr, 7
-           7 ,atx,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -159,7 +156,6 @@ TEST_F(CodegenTest, ComplementMadlen)
           15 ,utm, 1
            6 ,xta,
              ,aex, =7777777777777777
-           7 ,atx,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -198,7 +194,6 @@ TEST_F(CodegenTest, LogicalNotMadlen)
           15 ,utm, 1
            6 ,xta,
              ,call, b/not
-           7 ,atx,
              ,utc, g
              ,atx,
              ,uj, b/ret

@@ -296,7 +296,6 @@ TEST_F(CodegenTest, GetAddressGlobalInt)
              ,utc, g
           14 ,vtm, 0
              ,ita, 14
-           7 ,atx,
              ,utc, p
              ,atx,
              ,uj, b/ret
@@ -318,7 +317,6 @@ TEST_F(CodegenTest, GetAddressAuto)
              ,call, b/save0
           15 ,utm, 2
              ,ita, 7
-           7 ,atx, 1
              ,utc, g
              ,atx,
              ,uj, b/ret

@@ -49,7 +49,6 @@ TEST_F(CodegenTest, CopyFromOffsetLocalRead)
              ,call, b/save0
           15 ,utm, 3
            7 ,xta, 1
-           7 ,atx, 2
              ,uj, b/ret
              ,uj, b/ret
              ,end,
@@ -78,7 +77,6 @@ c
              ,atx,
              ,utc, g
              ,xta, 1
-           7 ,atx,
              ,uj, b/ret
              ,uj, b/ret
              ,end,

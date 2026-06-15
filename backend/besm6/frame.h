@@ -36,6 +36,10 @@ bool frame_lookup(const Frame *f, const char *name, int *reg, int *offset);
 // Number of auto (REG_AUTO) slots allocated — used to size the frame in the prologue.
 int frame_num_autos(const Frame *f);
 
+// True if the auto slot (reg, off) holds a '%'+digit compiler temporary. Used by the
+// peephole pass to limit dead-store elimination to never-aliased temporaries.
+bool frame_slot_is_temp(const Frame *f, int reg, int off);
+
 void frame_free(Frame *f);
 
 #ifdef __cplusplus

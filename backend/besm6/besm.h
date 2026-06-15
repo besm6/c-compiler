@@ -14,6 +14,9 @@ typedef struct Besm_Func Besm_Func;
 typedef struct Besm_DataItem Besm_DataItem;
 typedef struct Besm_DataSection Besm_DataSection;
 
+// Defined in frame.h; the peephole pass uses it to classify temp slots.
+typedef struct Frame Frame;
+
 typedef enum {
     // Load/store and index-register transfer
     BESM_MEM_XTA, // XTA(mem_addr addr) -- load A from memory
@@ -199,7 +202,11 @@ void mad_format_real(char *buf, size_t n, double val);
 // (repeats until a full sweep changes nothing).  Removed nodes are spliced out of
 // the list and freed.  Observable behavior is unchanged; only the instruction
 // sequence is made cheaper.  See docs/Peephole_Rewrites.md.
-void besm_peephole(Besm_Func *func);
+//
+// `frame` classifies which auto slots are compiler temporaries (for dead temp-store
+// elimination, rule #28); it may be NULL (e.g. for an empty function), in which case
+// that rule is skipped.
+void besm_peephole(Besm_Func *func, const Frame *frame);
 
 //
 // Emit Madlen assembly

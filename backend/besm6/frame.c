@@ -6,15 +6,28 @@
 #include "string_map.h"
 #include "xalloc.h"
 
-// Encode (reg, offset) into a single intptr_t so we can store it in the map.
-#define SLOT_ENCODE(reg, off) (((intptr_t)(reg) << 16) | (intptr_t)(off))
-#define SLOT_REG(v)           (((int)(v)) >> 16)
-#define SLOT_OFF(v)           (((int)(v)) & 0xffff)
+// Encode (reg, offset, temp) into a single intptr_t so we can store it in the map.
+// reg occupies bits 16-19; a "compiler temporary" marker is packed at bit 20 so the
+// peephole pass can recover temp-ness from an auto slot (map_iterate exposes only the
+// value, not the key, so the flag must travel inside the value).
+#define SLOT_ENCODE(reg, off, temp) \
+    (((intptr_t)((temp) ? 1 : 0) << 20) | ((intptr_t)(reg) << 16) | (intptr_t)(off))
+#define SLOT_REG(v)  ((((int)(v)) >> 16) & 0xf)
+#define SLOT_OFF(v)  (((int)(v)) & 0xffff)
+#define SLOT_TEMP(v) ((((int)(v)) >> 20) & 1)
 
 struct Frame {
-    StringMap slots; // name -> SLOT_ENCODE(reg, offset)
+    StringMap slots;     // name -> SLOT_ENCODE(reg, offset, temp)
     int num_autos;
+    bool *auto_is_temp;  // size num_autos; true if that auto slot holds a '%'+digit temporary
 };
+
+// A TAC name denotes a compiler temporary (new_temp) when it is '%' followed by a digit;
+// parameters and named locals are '%' followed by a letter or '_'.
+static bool name_is_temp(const char *name)
+{
+    return name[0] == '%' && name[1] >= '0' && name[1] <= '9';
+}
 
 //
 // Register a frame-resident variable name in the frame unless it is already
@@ -28,7 +41,7 @@ static void assign_if_new(Frame *f, const char *name, int reg, int *counter)
     intptr_t dummy;
     if (map_get(&f->slots, name, &dummy))
         return; // already assigned (e.g. a parameter)
-    map_insert(&f->slots, name, SLOT_ENCODE(reg, *counter), 0);
+    map_insert(&f->slots, name, SLOT_ENCODE(reg, *counter, name_is_temp(name)), 0);
     (*counter)++;
 }
 
@@ -234,22 +247,43 @@ static void allocate_aggregate(Frame *f, const Tac_Instruction *instr, int *auto
         align_words = 1;
     if (align_words > 1 && (*auto_count % align_words) != 0)
         *auto_count += align_words - (*auto_count % align_words);
-    map_insert(&f->slots, name, SLOT_ENCODE(REG_AUTO, *auto_count), 0);
+    // Aggregates are named locals ('%'+letter), never temporaries.
+    map_insert(&f->slots, name, SLOT_ENCODE(REG_AUTO, *auto_count, name_is_temp(name)), 0);
     *auto_count += size_words;
+}
+
+// map_iterate callback: record temp-ness of each auto slot into the bool array.
+// map_iterate exposes only the encoded value (not the key), which is why the temp
+// marker is packed into the slot encoding.
+typedef struct {
+    bool *arr;
+    int num;
+} TempFill;
+
+static void fill_auto_is_temp(intptr_t value, const void *arg)
+{
+    const TempFill *tf = (const TempFill *)arg;
+    if (SLOT_REG(value) != REG_AUTO)
+        return; // params (REG_PAR) are never temporaries
+    int off = SLOT_OFF(value);
+    if (off >= 0 && off < tf->num)
+        tf->arr[off] = SLOT_TEMP(value);
 }
 
 Frame *frame_build(const Tac_TopLevel *fn, const Tac_TopLevel *program)
 {
     (void)program; // local/global is now encoded in the name (leading '%')
 
-    Frame *f     = (Frame *)xalloc(sizeof(Frame), __func__, __FILE__, __LINE__);
-    f->num_autos = 0;
+    Frame *f         = (Frame *)xalloc(sizeof(Frame), __func__, __FILE__, __LINE__);
+    f->num_autos     = 0;
+    f->auto_is_temp  = NULL;
     map_init(&f->slots);
 
-    // Assign params first (REG_PAR, 0..N-1). Param names are '%'-prefixed too.
+    // Assign params first (REG_PAR, 0..N-1). Param names are '%'-prefixed too, but a
+    // parameter is never a compiler temporary.
     int par_count = 0;
     for (const Tac_Param *p = fn->u.function.params; p; p = p->next) {
-        map_insert(&f->slots, p->name, SLOT_ENCODE(REG_PAR, par_count), 0);
+        map_insert(&f->slots, p->name, SLOT_ENCODE(REG_PAR, par_count, false), 0);
         par_count++;
     }
 
@@ -265,7 +299,22 @@ Frame *frame_build(const Tac_TopLevel *fn, const Tac_TopLevel *program)
     for (const Tac_Instruction *instr = fn->u.function.body; instr; instr = instr->next)
         collect_instr(f, instr, &f->num_autos);
 
+    // Build the reverse auto-slot -> temp? lookup the peephole pass consults.
+    if (f->num_autos > 0) {
+        f->auto_is_temp =
+            (bool *)xalloc(f->num_autos * sizeof(bool), __func__, __FILE__, __LINE__);
+        for (int i = 0; i < f->num_autos; i++)
+            f->auto_is_temp[i] = false;
+        TempFill tf = { f->auto_is_temp, f->num_autos };
+        map_iterate(&f->slots, fill_auto_is_temp, &tf);
+    }
+
     return f;
+}
+
+bool frame_slot_is_temp(const Frame *f, int reg, int off)
+{
+    return reg == REG_AUTO && off >= 0 && off < f->num_autos && f->auto_is_temp[off];
 }
 
 bool frame_lookup(const Frame *f, const char *name, int *reg, int *offset)
@@ -286,5 +335,7 @@ int frame_num_autos(const Frame *f)
 void frame_free(Frame *f)
 {
     map_destroy(&f->slots);
+    if (f->auto_is_temp)
+        xfree(f->auto_is_temp);
     xfree(f);
 }
