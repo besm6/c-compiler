@@ -105,11 +105,17 @@ typedef enum {
     TAC_INSTRUCTION_BINARY,
     TAC_INSTRUCTION_COPY,
     TAC_INSTRUCTION_GET_ADDRESS,
+    TAC_INSTRUCTION_GET_ADDRESS_BYTE,  // &char object → char*/void* fat pointer (offset_enc 0)
+    TAC_INSTRUCTION_GET_ADDRESS_DECAY, // char-array/string decay → fat pointer (offset_enc 5)
     TAC_INSTRUCTION_LOAD,
+    TAC_INSTRUCTION_LOAD_BYTE,         // dereference a single byte through a fat pointer
     TAC_INSTRUCTION_STORE,
+    TAC_INSTRUCTION_STORE_BYTE,        // store a single byte through a fat pointer
     TAC_INSTRUCTION_ADD_PTR,
     TAC_INSTRUCTION_COPY_TO_OFFSET,
+    TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET,   // sub-word packed char member (byte read-modify-write)
     TAC_INSTRUCTION_COPY_FROM_OFFSET,
+    TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET, // sub-word packed char member (byte extract)
     TAC_INSTRUCTION_JUMP,
     TAC_INSTRUCTION_JUMP_IF_ZERO,
     TAC_INSTRUCTION_JUMP_IF_NOT_ZERO,
@@ -284,19 +290,15 @@ typedef struct Tac_Instruction {
         struct {
             Tac_Val *src;
             Tac_Val *dst;
-            int byte_access;  // 1: result is a char*/void* fat pointer (marker, offset_enc 0 = LSB)
-            int array_decay;  // 1: char-array/string decay — fat pointer at offset_enc 5 (MSB)
-        } get_address;
+        } get_address; // also GET_ADDRESS_BYTE / GET_ADDRESS_DECAY
         struct {
             Tac_Val *src_ptr;
             Tac_Val *dst;
-            int byte_access; // 1: dereference a single byte through a fat pointer
-        } load;
+        } load; // also LOAD_BYTE
         struct {
             Tac_Val *src;
             Tac_Val *dst_ptr;
-            int byte_access; // 1: store a single byte through a fat pointer
-        } store;
+        } store; // also STORE_BYTE
         struct {
             Tac_Val *ptr;
             Tac_Val *index;
@@ -307,14 +309,12 @@ typedef struct Tac_Instruction {
             Tac_Val *src;
             char *dst;
             int offset;
-            int byte_access; // 1: sub-word packed char member (byte read-modify-write)
-        } copy_to_offset;
+        } copy_to_offset; // also COPY_BYTE_TO_OFFSET
         struct {
             char *src;
             int offset;
             Tac_Val *dst;
-            int byte_access; // 1: sub-word packed char member (byte extract)
-        } copy_from_offset;
+        } copy_from_offset; // also COPY_BYTE_FROM_OFFSET
         struct {
             char *target;
         } jump;

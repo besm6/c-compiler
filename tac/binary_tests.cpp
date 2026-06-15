@@ -363,6 +363,57 @@ TEST_F(TacBinaryTest, LoadAndStore)
     }
 }
 
+// The byte/decay fat-pointer variants are distinct instruction kinds and must
+// survive the binary round-trip with their kind preserved.
+TEST_F(TacBinaryTest, ByteAndDecayKinds)
+{
+    const Tac_InstructionKind kinds[] = {
+        TAC_INSTRUCTION_GET_ADDRESS_BYTE,  TAC_INSTRUCTION_GET_ADDRESS_DECAY,
+        TAC_INSTRUCTION_LOAD_BYTE,         TAC_INSTRUCTION_STORE_BYTE,
+        TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET, TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET,
+    };
+    for (Tac_InstructionKind kind : kinds) {
+        Tac_Program *orig      = tac_new_program();
+        orig->decls            = make_empty_function("f", true);
+        Tac_Instruction *instr = tac_new_instruction(kind);
+        switch (kind) {
+        case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+        case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
+            instr->u.get_address.src = make_var("a");
+            instr->u.get_address.dst = make_var("b");
+            break;
+        case TAC_INSTRUCTION_LOAD_BYTE:
+            instr->u.load.src_ptr = make_var("ptr");
+            instr->u.load.dst     = make_var("val");
+            break;
+        case TAC_INSTRUCTION_STORE_BYTE:
+            instr->u.store.src     = make_var("val");
+            instr->u.store.dst_ptr = make_var("ptr");
+            break;
+        case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
+            instr->u.copy_to_offset.src    = make_var("val");
+            instr->u.copy_to_offset.dst    = xstrdup("s");
+            instr->u.copy_to_offset.offset = 1;
+            break;
+        case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
+            instr->u.copy_from_offset.src    = xstrdup("s");
+            instr->u.copy_from_offset.offset = 1;
+            instr->u.copy_from_offset.dst    = make_var("val");
+            break;
+        default:
+            break;
+        }
+        orig->decls->u.function.body = instr;
+
+        Tac_Program *copy = roundtrip(orig);
+        EXPECT_TRUE(tac_compare_program(orig, copy));
+        ASSERT_NE(copy->decls->u.function.body, nullptr);
+        EXPECT_EQ(copy->decls->u.function.body->kind, kind);
+        tac_free_program(orig);
+        tac_free_program(copy);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Volatile flag
 // ---------------------------------------------------------------------------

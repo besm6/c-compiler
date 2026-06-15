@@ -394,11 +394,23 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
     case TAC_INSTRUCTION_GET_ADDRESS:
         fprintf(fd, "get_address\n");
         break;
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+        fprintf(fd, "get_address_byte\n");
+        break;
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
+        fprintf(fd, "get_address_decay\n");
+        break;
     case TAC_INSTRUCTION_LOAD:
         fprintf(fd, "load\n");
         break;
+    case TAC_INSTRUCTION_LOAD_BYTE:
+        fprintf(fd, "load_byte\n");
+        break;
     case TAC_INSTRUCTION_STORE:
         fprintf(fd, "store\n");
+        break;
+    case TAC_INSTRUCTION_STORE_BYTE:
+        fprintf(fd, "store_byte\n");
         break;
     case TAC_INSTRUCTION_ADD_PTR:
         fprintf(fd, "add_ptr\n");
@@ -406,8 +418,14 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
         fprintf(fd, "copy_to_offset\n");
         break;
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
+        fprintf(fd, "copy_byte_to_offset\n");
+        break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
         fprintf(fd, "copy_from_offset\n");
+        break;
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
+        fprintf(fd, "copy_byte_from_offset\n");
         break;
     case TAC_INSTRUCTION_JUMP:
         fprintf(fd, "jump\n");
@@ -492,44 +510,32 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
         tac_print_val(fd, instr->u.copy.dst, depth + 2);
         break;
     case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src:\n");
         tac_print_val(fd, instr->u.get_address.src, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
         tac_print_val(fd, instr->u.get_address.dst, depth + 2);
-        if (instr->u.get_address.byte_access) {
-            print_indent(fd, depth + 1);
-            fprintf(fd, "Byte access: 1\n");
-        }
-        if (instr->u.get_address.array_decay) {
-            print_indent(fd, depth + 1);
-            fprintf(fd, "Array decay: 1\n");
-        }
         break;
     case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_LOAD_BYTE:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src_ptr:\n");
         tac_print_val(fd, instr->u.load.src_ptr, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
         tac_print_val(fd, instr->u.load.dst, depth + 2);
-        if (instr->u.load.byte_access) {
-            print_indent(fd, depth + 1);
-            fprintf(fd, "Byte access: 1\n");
-        }
         break;
     case TAC_INSTRUCTION_STORE:
+    case TAC_INSTRUCTION_STORE_BYTE:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src:\n");
         tac_print_val(fd, instr->u.store.src, depth + 2);
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst_ptr:\n");
         tac_print_val(fd, instr->u.store.dst_ptr, depth + 2);
-        if (instr->u.store.byte_access) {
-            print_indent(fd, depth + 1);
-            fprintf(fd, "Byte access: 1\n");
-        }
         break;
     case TAC_INSTRUCTION_ADD_PTR:
         print_indent(fd, depth + 1);
@@ -545,6 +551,7 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
         tac_print_val(fd, instr->u.add_ptr.dst, depth + 2);
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src:\n");
         tac_print_val(fd, instr->u.copy_to_offset.src, depth + 2);
@@ -553,12 +560,9 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
                 instr->u.copy_to_offset.dst ? instr->u.copy_to_offset.dst : "(null)");
         print_indent(fd, depth + 1);
         fprintf(fd, "Offset: %d\n", instr->u.copy_to_offset.offset);
-        if (instr->u.copy_to_offset.byte_access) {
-            print_indent(fd, depth + 1);
-            fprintf(fd, "Byte access: 1\n");
-        }
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         print_indent(fd, depth + 1);
         fprintf(fd, "Src: %s\n",
                 instr->u.copy_from_offset.src ? instr->u.copy_from_offset.src : "(null)");
@@ -567,10 +571,6 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
         print_indent(fd, depth + 1);
         fprintf(fd, "Dst:\n");
         tac_print_val(fd, instr->u.copy_from_offset.dst, depth + 2);
-        if (instr->u.copy_from_offset.byte_access) {
-            print_indent(fd, depth + 1);
-            fprintf(fd, "Byte access: 1\n");
-        }
         break;
     case TAC_INSTRUCTION_JUMP:
         print_indent(fd, depth + 1);

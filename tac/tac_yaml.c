@@ -690,24 +690,22 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         export_yaml_val(fd, instr->u.copy.dst, level + 1);
         break;
     case TAC_INSTRUCTION_GET_ADDRESS:
-        fprintf(fd, "get_address\n");
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
+        fprintf(fd, "%s\n",
+                instr->kind == TAC_INSTRUCTION_GET_ADDRESS_BYTE    ? "get_address_byte"
+                : instr->kind == TAC_INSTRUCTION_GET_ADDRESS_DECAY ? "get_address_decay"
+                                                                   : "get_address");
         print_indent(fd, level);
         fprintf(fd, "src:\n");
         export_yaml_val(fd, instr->u.get_address.src, level + 1);
         print_indent(fd, level);
         fprintf(fd, "dst:\n");
         export_yaml_val(fd, instr->u.get_address.dst, level + 1);
-        if (instr->u.get_address.byte_access) {
-            print_indent(fd, level);
-            fprintf(fd, "byte_access: true\n");
-        }
-        if (instr->u.get_address.array_decay) {
-            print_indent(fd, level);
-            fprintf(fd, "array_decay: true\n");
-        }
         break;
     case TAC_INSTRUCTION_LOAD:
-        fprintf(fd, "load\n");
+    case TAC_INSTRUCTION_LOAD_BYTE:
+        fprintf(fd, "%s\n", instr->kind == TAC_INSTRUCTION_LOAD_BYTE ? "load_byte" : "load");
         if (instr->is_volatile) {
             print_indent(fd, level);
             fprintf(fd, "volatile: true\n");
@@ -718,13 +716,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         print_indent(fd, level);
         fprintf(fd, "dst:\n");
         export_yaml_val(fd, instr->u.load.dst, level + 1);
-        if (instr->u.load.byte_access) {
-            print_indent(fd, level);
-            fprintf(fd, "byte_access: true\n");
-        }
         break;
     case TAC_INSTRUCTION_STORE:
-        fprintf(fd, "store\n");
+    case TAC_INSTRUCTION_STORE_BYTE:
+        fprintf(fd, "%s\n", instr->kind == TAC_INSTRUCTION_STORE_BYTE ? "store_byte" : "store");
         if (instr->is_volatile) {
             print_indent(fd, level);
             fprintf(fd, "volatile: true\n");
@@ -735,10 +730,6 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         print_indent(fd, level);
         fprintf(fd, "dst_ptr:\n");
         export_yaml_val(fd, instr->u.store.dst_ptr, level + 1);
-        if (instr->u.store.byte_access) {
-            print_indent(fd, level);
-            fprintf(fd, "byte_access: true\n");
-        }
         break;
     case TAC_INSTRUCTION_ADD_PTR:
         fprintf(fd, "add_ptr\n");
@@ -755,7 +746,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         export_yaml_val(fd, instr->u.add_ptr.dst, level + 1);
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
-        fprintf(fd, "copy_to_offset\n");
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
+        fprintf(fd, "%s\n", instr->kind == TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET
+                                ? "copy_byte_to_offset"
+                                : "copy_to_offset");
         if (instr->is_volatile) {
             print_indent(fd, level);
             fprintf(fd, "volatile: true\n");
@@ -767,13 +761,12 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         fprintf(fd, "dst: %s\n", instr->u.copy_to_offset.dst ? instr->u.copy_to_offset.dst : "");
         print_indent(fd, level);
         fprintf(fd, "offset: %d\n", instr->u.copy_to_offset.offset);
-        if (instr->u.copy_to_offset.byte_access) {
-            print_indent(fd, level);
-            fprintf(fd, "byte_access: true\n");
-        }
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
-        fprintf(fd, "copy_from_offset\n");
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
+        fprintf(fd, "%s\n", instr->kind == TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET
+                                ? "copy_byte_from_offset"
+                                : "copy_from_offset");
         if (instr->is_volatile) {
             print_indent(fd, level);
             fprintf(fd, "volatile: true\n");
@@ -786,10 +779,6 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         print_indent(fd, level);
         fprintf(fd, "dst:\n");
         export_yaml_val(fd, instr->u.copy_from_offset.dst, level + 1);
-        if (instr->u.copy_from_offset.byte_access) {
-            print_indent(fd, level);
-            fprintf(fd, "byte_access: true\n");
-        }
         break;
     case TAC_INSTRUCTION_JUMP:
         fprintf(fd, "jump\n");

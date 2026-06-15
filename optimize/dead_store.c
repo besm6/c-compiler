@@ -184,10 +184,13 @@ static const char *live_get_dst_name(const Tac_Instruction *ins)
             return ins->u.sign_extend.dst->u.var_name;
         return NULL;
     case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
         if (ins->u.get_address.dst->kind == TAC_VAL_VAR)
             return ins->u.get_address.dst->u.var_name;
         return NULL;
     case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_LOAD_BYTE:
         if (ins->u.load.dst->kind == TAC_VAL_VAR)
             return ins->u.load.dst->u.var_name;
         return NULL;
@@ -196,10 +199,12 @@ static const char *live_get_dst_name(const Tac_Instruction *ins)
             return ins->u.add_ptr.dst->u.var_name;
         return NULL;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         if (ins->u.copy_from_offset.dst->kind == TAC_VAL_VAR)
             return ins->u.copy_from_offset.dst->u.var_name;
         return NULL;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         return ins->u.copy_to_offset.dst; // char* directly
     default:
         return NULL;
@@ -269,12 +274,16 @@ static void live_transfer_backward(StringMap *ls, const Tac_Instruction *ins,
         live_add_val(ls, ins->u.copy.src);
         break;
     case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
         live_add_val(ls, ins->u.get_address.src);
         break;
     case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_LOAD_BYTE:
         live_add_val(ls, ins->u.load.src_ptr);
         break;
     case TAC_INSTRUCTION_STORE:
+    case TAC_INSTRUCTION_STORE_BYTE:
         live_add_val(ls, ins->u.store.src);
         live_add_val(ls, ins->u.store.dst_ptr);
         break;
@@ -283,9 +292,11 @@ static void live_transfer_backward(StringMap *ls, const Tac_Instruction *ins,
         live_add_val(ls, ins->u.add_ptr.index);
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         live_add_val(ls, ins->u.copy_to_offset.src);
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         live_add(ls, ins->u.copy_from_offset.src); // char*, not Tac_Val*
         break;
     case TAC_INSTRUCTION_JUMP_IF_ZERO:
@@ -338,9 +349,13 @@ static bool is_removable(Tac_InstructionKind kind)
     case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
     case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
     case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
     case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_LOAD_BYTE:
     case TAC_INSTRUCTION_ADD_PTR:
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         return true;
     default:
         return false;

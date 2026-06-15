@@ -159,16 +159,20 @@ static void collect_instr(Frame *f, const Tac_Instruction *instr, int *auto_coun
         collect_vals(f, instr->u.copy.dst, auto_count);
         break;
     case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
         // src is a local variable (gets a slot) or a global (skipped by assign_if_new).
         if (instr->u.get_address.src->kind == TAC_VAL_VAR)
             assign_if_new(f, instr->u.get_address.src->u.var_name, REG_AUTO, auto_count);
         collect_vals(f, instr->u.get_address.dst, auto_count);
         break;
     case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_LOAD_BYTE:
         collect_vals(f, instr->u.load.src_ptr, auto_count);
         collect_vals(f, instr->u.load.dst, auto_count);
         break;
     case TAC_INSTRUCTION_STORE:
+    case TAC_INSTRUCTION_STORE_BYTE:
         collect_vals(f, instr->u.store.src, auto_count);
         collect_vals(f, instr->u.store.dst_ptr, auto_count);
         break;
@@ -178,10 +182,12 @@ static void collect_instr(Frame *f, const Tac_Instruction *instr, int *auto_coun
         collect_vals(f, instr->u.add_ptr.dst, auto_count);
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         collect_vals(f, instr->u.copy_to_offset.src, auto_count);
         assign_if_new(f, instr->u.copy_to_offset.dst, REG_AUTO, auto_count);
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         assign_if_new(f, instr->u.copy_from_offset.src, REG_AUTO, auto_count);
         collect_vals(f, instr->u.copy_from_offset.dst, auto_count);
         break;

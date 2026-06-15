@@ -177,14 +177,13 @@ TEST_F(TranslateTest, StringLiteralReturned)
   global: true
   body:
     - instruction:
-      kind: get_address
+      kind: get_address_decay
       src:
         kind: var
         name: _str0
       dst:
         kind: var
         name: %0
-      array_decay: true
     - instruction:
       kind: return
       src:
@@ -218,14 +217,13 @@ TEST_F(TranslateTest, TwoFunctionsDistinctStringLiterals)
   global: true
   body:
     - instruction:
-      kind: get_address
+      kind: get_address_decay
       src:
         kind: var
         name: _str0
       dst:
         kind: var
         name: %0
-      array_decay: true
     - instruction:
       kind: return
       src:
@@ -249,14 +247,13 @@ TEST_F(TranslateTest, TwoFunctionsDistinctStringLiterals)
   global: true
   body:
     - instruction:
-      kind: get_address
+      kind: get_address_decay
       src:
         kind: var
         name: _str1
       dst:
         kind: var
         name: %0
-      array_decay: true
     - instruction:
       kind: return
       src:

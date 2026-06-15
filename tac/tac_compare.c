@@ -223,41 +223,41 @@ bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b)
         return tac_compare_val(a->u.copy.src, b->u.copy.src) &&
                tac_compare_val(a->u.copy.dst, b->u.copy.dst);
     case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
         return tac_compare_val(a->u.get_address.src, b->u.get_address.src) &&
-               tac_compare_val(a->u.get_address.dst, b->u.get_address.dst) &&
-               a->u.get_address.byte_access == b->u.get_address.byte_access &&
-               a->u.get_address.array_decay == b->u.get_address.array_decay;
+               tac_compare_val(a->u.get_address.dst, b->u.get_address.dst);
     case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_LOAD_BYTE:
         return tac_compare_val(a->u.load.src_ptr, b->u.load.src_ptr) &&
-               tac_compare_val(a->u.load.dst, b->u.load.dst) &&
-               a->u.load.byte_access == b->u.load.byte_access;
+               tac_compare_val(a->u.load.dst, b->u.load.dst);
     case TAC_INSTRUCTION_STORE:
+    case TAC_INSTRUCTION_STORE_BYTE:
         return tac_compare_val(a->u.store.src, b->u.store.src) &&
-               tac_compare_val(a->u.store.dst_ptr, b->u.store.dst_ptr) &&
-               a->u.store.byte_access == b->u.store.byte_access;
+               tac_compare_val(a->u.store.dst_ptr, b->u.store.dst_ptr);
     case TAC_INSTRUCTION_ADD_PTR:
         return tac_compare_val(a->u.add_ptr.ptr, b->u.add_ptr.ptr) &&
                tac_compare_val(a->u.add_ptr.index, b->u.add_ptr.index) &&
                a->u.add_ptr.scale == b->u.add_ptr.scale &&
                tac_compare_val(a->u.add_ptr.dst, b->u.add_ptr.dst);
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         if ((a->u.copy_to_offset.dst == NULL) != (b->u.copy_to_offset.dst == NULL))
             return false;
         if (a->u.copy_to_offset.dst &&
             strcmp(a->u.copy_to_offset.dst, b->u.copy_to_offset.dst) != 0)
             return false;
         return tac_compare_val(a->u.copy_to_offset.src, b->u.copy_to_offset.src) &&
-               a->u.copy_to_offset.offset == b->u.copy_to_offset.offset &&
-               a->u.copy_to_offset.byte_access == b->u.copy_to_offset.byte_access;
+               a->u.copy_to_offset.offset == b->u.copy_to_offset.offset;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         if ((a->u.copy_from_offset.src == NULL) != (b->u.copy_from_offset.src == NULL))
             return false;
         if (a->u.copy_from_offset.src &&
             strcmp(a->u.copy_from_offset.src, b->u.copy_from_offset.src) != 0)
             return false;
         return a->u.copy_from_offset.offset == b->u.copy_from_offset.offset &&
-               tac_compare_val(a->u.copy_from_offset.dst, b->u.copy_from_offset.dst) &&
-               a->u.copy_from_offset.byte_access == b->u.copy_from_offset.byte_access;
+               tac_compare_val(a->u.copy_from_offset.dst, b->u.copy_from_offset.dst);
     case TAC_INSTRUCTION_JUMP:
         if ((a->u.jump.target == NULL) != (b->u.jump.target == NULL))
             return false;

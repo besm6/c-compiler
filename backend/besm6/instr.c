@@ -219,7 +219,9 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
     //   ,ITA, 14              — A = M[14]: load that address into the accumulator
     //   reg_dst ,ATX, off_dst — store A (the address) into dst's frame slot
     //
-    case TAC_INSTRUCTION_GET_ADDRESS: {
+    case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY: {
         int dr, doff;
         lookup(f, instr->u.get_address.dst->u.var_name, &dr, &doff);
         const char *src_name = instr->u.get_address.src->u.var_name;
@@ -252,13 +254,13 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
         // (bit 48) with byte offset 0.  The marker makes the pointer's exponent field
         // 64, so the byte-load ASX shifts by 0 — addressing byte #5 (the low byte where
         // a standalone char lives).
-        if (instr->u.get_address.byte_access) {
+        if (instr->kind == TAC_INSTRUCTION_GET_ADDRESS_BYTE) {
             Besm_Instr *aox = emit(block, tail, BESM_LOG_AOX);
             aox->name       = xstrdup("=4000000000000000"); // bit 48: fat marker, offset 0
         }
         // A char/void array (or string) decaying to a char* points at its first byte,
         // which is packed in the MSB (byte #0): set the marker with offset_enc 5.
-        if (instr->u.get_address.array_decay) {
+        if (instr->kind == TAC_INSTRUCTION_GET_ADDRESS_DECAY) {
             Besm_Instr *aox = emit(block, tail, BESM_LOG_AOX);
             aox->name       = xstrdup("=6400000000000000"); // bit 48 + offset_enc 5 (MSB)
         }
@@ -280,11 +282,12 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
     //
     // All BESM-6 pointers are word addresses; the offset in the final XTA is always
     // 0 because TAC LOAD always reads the base of the pointed-to object.
-    case TAC_INSTRUCTION_LOAD: {
+    case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_LOAD_BYTE: {
         int pr, po, dr, doff;
         lookup(f, instr->u.load.src_ptr->u.var_name, &pr, &po);
         lookup(f, instr->u.load.dst->u.var_name, &dr, &doff);
-        if (instr->u.load.byte_access) {
+        if (instr->kind == TAC_INSTRUCTION_LOAD_BYTE) {
             // Byte load through a char*/void* fat pointer.  The pointer word holds the
             // word address in bits 15-1 and the byte offset in its exponent field
             // (= 64 + offset*8).  WTC loads the word address into C; the bare XTA then
@@ -325,10 +328,11 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
     // The write offset is always 0 for the same reason as in LOAD above.
     // The source may be a frame var, a global, or a constant (e.g. arr[i] = 5 after
     // the optimizer folds the value), so it is loaded via emit_xta_val.
-    case TAC_INSTRUCTION_STORE: {
+    case TAC_INSTRUCTION_STORE:
+    case TAC_INSTRUCTION_STORE_BYTE: {
         int pr, po;
         lookup(f, instr->u.store.dst_ptr->u.var_name, &pr, &po);
-        if (instr->u.store.byte_access) {
+        if (instr->kind == TAC_INSTRUCTION_STORE_BYTE) {
             // Byte store through a char*/void* fat pointer.  Read-modify-write is too
             // long to inline, so call the b/stb runtime helper with the lightweight
             // convention: the fat pointer `a` on the stack top, the byte value `b` in A.
@@ -999,13 +1003,14 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
     //   global : ,UTC, base  /  ,XTA, woff      — C = addr(base), then mem[C+woff]
     // Then store A into the dst Val (local frame slot or global), as in COPY.
     //
-    case TAC_INSTRUCTION_COPY_FROM_OFFSET: {
+    case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET: {
         const char *base   = instr->u.copy_from_offset.src;
         const Tac_Val *dst = instr->u.copy_from_offset.dst;
         // Packed char member: extract the byte from its word.  The byte sits at byte#
         // = offset%6 from the MSB, so shift it down by (5 - byte#)*8 and mask to 8 bits —
         // the same shift the byte-load uses, here with a compile-time count.
-        if (instr->u.copy_from_offset.byte_access) {
+        if (instr->kind == TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET) {
             int offset   = instr->u.copy_from_offset.offset;
             int woff     = offset / BESM6_WORD_BYTES;
             int byte_num = offset % BESM6_WORD_BYTES;
@@ -1059,12 +1064,13 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
     //   local  : reg ,ATX, slot_off + woff
     //   global : ,UTC, base  /  ,ATX, woff
     //
-    case TAC_INSTRUCTION_COPY_TO_OFFSET: {
+    case TAC_INSTRUCTION_COPY_TO_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET: {
         const Tac_Val *src = instr->u.copy_to_offset.src;
         const char *base   = instr->u.copy_to_offset.dst;
         // Packed char member: read-modify-write one byte.  Build a fat pointer to the
         // member byte and reuse the b/stb helper (fat pointer on the stack, byte in A).
-        if (instr->u.copy_to_offset.byte_access) {
+        if (instr->kind == TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET) {
             emit_member_fatptr(block, tail, f, base, instr->u.copy_to_offset.offset);
             emit_xts_val(block, tail, f, src); // push fat pointer; A = byte value
             Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);

@@ -297,24 +297,20 @@ static Tac_Instruction *import_instr(WFILE *in)
         instr->u.copy.dst = import_val(in);
         break;
     case TAC_INSTRUCTION_GET_ADDRESS:
-        instr->u.get_address.src         = import_val(in);
-        instr->u.get_address.dst         = import_val(in);
-        instr->u.get_address.byte_access = (int)wgetw(in);
-        check_input(in, "get_address byte_access");
-        instr->u.get_address.array_decay = (int)wgetw(in);
-        check_input(in, "get_address array_decay");
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
+        instr->u.get_address.src = import_val(in);
+        instr->u.get_address.dst = import_val(in);
         break;
     case TAC_INSTRUCTION_LOAD:
-        instr->u.load.src_ptr     = import_val(in);
-        instr->u.load.dst         = import_val(in);
-        instr->u.load.byte_access = (int)wgetw(in);
-        check_input(in, "load byte_access");
+    case TAC_INSTRUCTION_LOAD_BYTE:
+        instr->u.load.src_ptr = import_val(in);
+        instr->u.load.dst     = import_val(in);
         break;
     case TAC_INSTRUCTION_STORE:
-        instr->u.store.src         = import_val(in);
-        instr->u.store.dst_ptr     = import_val(in);
-        instr->u.store.byte_access = (int)wgetw(in);
-        check_input(in, "store byte_access");
+    case TAC_INSTRUCTION_STORE_BYTE:
+        instr->u.store.src     = import_val(in);
+        instr->u.store.dst_ptr = import_val(in);
         break;
     case TAC_INSTRUCTION_ADD_PTR:
         instr->u.add_ptr.ptr   = import_val(in);
@@ -324,22 +320,20 @@ static Tac_Instruction *import_instr(WFILE *in)
         instr->u.add_ptr.dst = import_val(in);
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         instr->u.copy_to_offset.src = import_val(in);
         instr->u.copy_to_offset.dst = wgetstr(in);
         check_input(in, "copy_to_offset dst");
         instr->u.copy_to_offset.offset = (int)wgetw(in);
         check_input(in, "copy_to_offset offset");
-        instr->u.copy_to_offset.byte_access = (int)wgetw(in);
-        check_input(in, "copy_to_offset byte_access");
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         instr->u.copy_from_offset.src = wgetstr(in);
         check_input(in, "copy_from_offset src");
         instr->u.copy_from_offset.offset = (int)wgetw(in);
         check_input(in, "copy_from_offset offset");
         instr->u.copy_from_offset.dst = import_val(in);
-        instr->u.copy_from_offset.byte_access = (int)wgetw(in);
-        check_input(in, "copy_from_offset byte_access");
         break;
     case TAC_INSTRUCTION_JUMP:
         instr->u.jump.target = wgetstr(in);

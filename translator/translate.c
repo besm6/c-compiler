@@ -726,14 +726,18 @@ static void percent_instr(Tac_Instruction *in, const StringMap *autos)
         percent_vals(in->u.copy.dst, autos);
         break;
     case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
         percent_vals(in->u.get_address.src, autos);
         percent_vals(in->u.get_address.dst, autos);
         break;
     case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_LOAD_BYTE:
         percent_vals(in->u.load.src_ptr, autos);
         percent_vals(in->u.load.dst, autos);
         break;
     case TAC_INSTRUCTION_STORE:
+    case TAC_INSTRUCTION_STORE_BYTE:
         percent_vals(in->u.store.src, autos);
         percent_vals(in->u.store.dst_ptr, autos);
         break;
@@ -743,10 +747,12 @@ static void percent_instr(Tac_Instruction *in, const StringMap *autos)
         percent_vals(in->u.add_ptr.dst, autos);
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         percent_vals(in->u.copy_to_offset.src, autos);
         percent_name_field(&in->u.copy_to_offset.dst, autos);
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         percent_name_field(&in->u.copy_from_offset.src, autos);
         percent_vals(in->u.copy_from_offset.dst, autos);
         break;

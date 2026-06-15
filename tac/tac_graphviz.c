@@ -412,11 +412,23 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
     case TAC_INSTRUCTION_GET_ADDRESS:
         fprintf(fd, "GetAddress");
         break;
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+        fprintf(fd, "GetAddressByte");
+        break;
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
+        fprintf(fd, "GetAddressDecay");
+        break;
     case TAC_INSTRUCTION_LOAD:
         fprintf(fd, "Load");
         break;
+    case TAC_INSTRUCTION_LOAD_BYTE:
+        fprintf(fd, "LoadByte");
+        break;
     case TAC_INSTRUCTION_STORE:
         fprintf(fd, "Store");
+        break;
+    case TAC_INSTRUCTION_STORE_BYTE:
+        fprintf(fd, "StoreByte");
         break;
     case TAC_INSTRUCTION_ADD_PTR:
         fprintf(fd, "AddPtr scale=%d", instr->u.add_ptr.scale);
@@ -425,8 +437,17 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
         fprintf(fd, "CopyToOffset offset=%d dst=", instr->u.copy_to_offset.offset);
         emit_string(fd, instr->u.copy_to_offset.dst);
         break;
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
+        fprintf(fd, "CopyByteToOffset offset=%d dst=", instr->u.copy_to_offset.offset);
+        emit_string(fd, instr->u.copy_to_offset.dst);
+        break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
         fprintf(fd, "CopyFromOffset src=");
+        emit_string(fd, instr->u.copy_from_offset.src);
+        fprintf(fd, " offset=%d", instr->u.copy_from_offset.offset);
+        break;
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
+        fprintf(fd, "CopyByteFromOffset src=");
         emit_string(fd, instr->u.copy_from_offset.src);
         fprintf(fd, " offset=%d", instr->u.copy_from_offset.offset);
         break;
@@ -570,14 +591,18 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
         emit_val(fd, instr->u.copy.dst, id, "dst");
         break;
     case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
         emit_val(fd, instr->u.get_address.src, id, "src");
         emit_val(fd, instr->u.get_address.dst, id, "dst");
         break;
     case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_LOAD_BYTE:
         emit_val(fd, instr->u.load.src_ptr, id, "src_ptr");
         emit_val(fd, instr->u.load.dst, id, "dst");
         break;
     case TAC_INSTRUCTION_STORE:
+    case TAC_INSTRUCTION_STORE_BYTE:
         emit_val(fd, instr->u.store.src, id, "src");
         emit_val(fd, instr->u.store.dst_ptr, id, "dst_ptr");
         break;
@@ -587,9 +612,11 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
         emit_val(fd, instr->u.add_ptr.dst, id, "dst");
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         emit_val(fd, instr->u.copy_to_offset.src, id, "src");
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         emit_val(fd, instr->u.copy_from_offset.dst, id, "dst");
         break;
     case TAC_INSTRUCTION_JUMP:

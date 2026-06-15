@@ -79,14 +79,18 @@ void tac_free_instruction(Tac_Instruction *instr)
         break;
     case TAC_INSTRUCTION_COPY:
     case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
         tac_free_val(instr->u.copy.src);
         tac_free_val(instr->u.copy.dst);
         break;
     case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_LOAD_BYTE:
         tac_free_val(instr->u.load.src_ptr);
         tac_free_val(instr->u.load.dst);
         break;
     case TAC_INSTRUCTION_STORE:
+    case TAC_INSTRUCTION_STORE_BYTE:
         tac_free_val(instr->u.store.src);
         tac_free_val(instr->u.store.dst_ptr);
         break;
@@ -96,12 +100,14 @@ void tac_free_instruction(Tac_Instruction *instr)
         tac_free_val(instr->u.add_ptr.dst);
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         tac_free_val(instr->u.copy_to_offset.src);
         if (instr->u.copy_to_offset.dst) {
             xfree(instr->u.copy_to_offset.dst);
         }
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         if (instr->u.copy_from_offset.src) {
             xfree(instr->u.copy_from_offset.src);
         }

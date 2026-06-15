@@ -235,12 +235,16 @@ static const Tac_Val *get_defining_dst(const Tac_Instruction *ins)
     case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
         return ins->u.sign_extend.dst; // all 14 conversions share this layout
     case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
         return ins->u.get_address.dst;
     case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_LOAD_BYTE:
         return ins->u.load.dst;
     case TAC_INSTRUCTION_ADD_PTR:
         return ins->u.add_ptr.dst;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         return ins->u.copy_from_offset.dst;
     default:
         return NULL;
@@ -499,11 +503,15 @@ static void subst_instruction(Tac_Instruction *ins, const StringMap *cs)
         subst_val(&ins->u.copy.src, cs);
         break;
     case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
         break;
     case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_LOAD_BYTE:
         subst_val(&ins->u.load.src_ptr, cs);
         break;
     case TAC_INSTRUCTION_STORE:
+    case TAC_INSTRUCTION_STORE_BYTE:
         subst_val(&ins->u.store.src, cs);
         subst_val(&ins->u.store.dst_ptr, cs);
         break;
@@ -512,9 +520,11 @@ static void subst_instruction(Tac_Instruction *ins, const StringMap *cs)
         subst_val(&ins->u.add_ptr.index, cs);
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         subst_val(&ins->u.copy_to_offset.src, cs);
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         break;
     case TAC_INSTRUCTION_JUMP_IF_ZERO:
         subst_val(&ins->u.jump_if_zero.condition, cs);

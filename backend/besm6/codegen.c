@@ -132,6 +132,8 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
                 declare_global_operand(block, &tail, f, &declared, instr->u.copy.dst);
                 break;
             case TAC_INSTRUCTION_GET_ADDRESS:
+            case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+            case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
                 declare_global_operand(block, &tail, f, &declared, instr->u.get_address.src);
                 break;
             case TAC_INSTRUCTION_UNARY:
@@ -144,10 +146,12 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
                 declare_global_operand(block, &tail, f, &declared, instr->u.binary.dst);
                 break;
             case TAC_INSTRUCTION_LOAD:
+            case TAC_INSTRUCTION_LOAD_BYTE:
                 declare_global_operand(block, &tail, f, &declared, instr->u.load.src_ptr);
                 declare_global_operand(block, &tail, f, &declared, instr->u.load.dst);
                 break;
             case TAC_INSTRUCTION_STORE:
+            case TAC_INSTRUCTION_STORE_BYTE:
                 declare_global_operand(block, &tail, f, &declared, instr->u.store.src);
                 declare_global_operand(block, &tail, f, &declared, instr->u.store.dst_ptr);
                 break;
@@ -157,10 +161,12 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
                 declare_global_operand(block, &tail, f, &declared, instr->u.add_ptr.dst);
                 break;
             case TAC_INSTRUCTION_COPY_TO_OFFSET:
+            case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
                 declare_global_operand(block, &tail, f, &declared, instr->u.copy_to_offset.src);
                 declare_global_name(block, &tail, f, &declared, instr->u.copy_to_offset.dst);
                 break;
             case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+            case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
                 declare_global_name(block, &tail, f, &declared, instr->u.copy_from_offset.src);
                 declare_global_operand(block, &tail, f, &declared, instr->u.copy_from_offset.dst);
                 break;

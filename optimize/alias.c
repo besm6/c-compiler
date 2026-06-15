@@ -107,14 +107,18 @@ static void note_instr(StringMap *observable, const StringMap *private_set,
         note_vals(observable, private_set, ins->u.copy.dst);
         break;
     case TAC_INSTRUCTION_GET_ADDRESS:
+    case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
+    case TAC_INSTRUCTION_GET_ADDRESS_DECAY:
         note_vals(observable, private_set, ins->u.get_address.src);
         note_vals(observable, private_set, ins->u.get_address.dst);
         break;
     case TAC_INSTRUCTION_LOAD:
+    case TAC_INSTRUCTION_LOAD_BYTE:
         note_vals(observable, private_set, ins->u.load.src_ptr);
         note_vals(observable, private_set, ins->u.load.dst);
         break;
     case TAC_INSTRUCTION_STORE:
+    case TAC_INSTRUCTION_STORE_BYTE:
         note_vals(observable, private_set, ins->u.store.src);
         note_vals(observable, private_set, ins->u.store.dst_ptr);
         break;
@@ -124,10 +128,12 @@ static void note_instr(StringMap *observable, const StringMap *private_set,
         note_vals(observable, private_set, ins->u.add_ptr.dst);
         break;
     case TAC_INSTRUCTION_COPY_TO_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET:
         note_vals(observable, private_set, ins->u.copy_to_offset.src);
         note_name(observable, private_set, ins->u.copy_to_offset.dst);
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
+    case TAC_INSTRUCTION_COPY_BYTE_FROM_OFFSET:
         note_name(observable, private_set, ins->u.copy_from_offset.src);
         note_vals(observable, private_set, ins->u.copy_from_offset.dst);
         break;
@@ -189,7 +195,9 @@ void collect_alias_sets(const OptCfg *cfg, const Tac_TopLevel *fn, StringMap *ob
     for (int i = 0; i < cfg->nblocks; i++) {
         const OptBlock *b = cfg->blocks[i];
         for (const Tac_Instruction *ins = b->first; ins; ins = ins->next) {
-            if (ins->kind == TAC_INSTRUCTION_GET_ADDRESS) {
+            if (ins->kind == TAC_INSTRUCTION_GET_ADDRESS ||
+                ins->kind == TAC_INSTRUCTION_GET_ADDRESS_BYTE ||
+                ins->kind == TAC_INSTRUCTION_GET_ADDRESS_DECAY) {
                 const Tac_Val *src = ins->u.get_address.src;
                 if (src->kind == TAC_VAL_VAR) {
                     const char *n = src->u.var_name;
