@@ -190,6 +190,17 @@ void mad_fresh_label(char *buf, size_t n, const char *prefix);
 // Format a double as a Madlen REAL constant's decimal-number field (mandatory '.').
 void mad_format_real(char *buf, size_t n, double val);
 
+// Peephole-optimize a function's instruction stream in place.
+//
+// Slides a small window over each block's `Besm_Instr` linked list, tracks the
+// implicit machine state (accumulator A, mode register R, logical flag ω) across
+// straight-line code, resets that state at every basic-block boundary (label or
+// branch), matches a table of local rewrite rules, and rewrites to a fixpoint
+// (repeats until a full sweep changes nothing).  Removed nodes are spliced out of
+// the list and freed.  Observable behavior is unchanged; only the instruction
+// sequence is made cheaper.  See docs/Peephole_Rewrites.md.
+void besm_peephole(Besm_Func *func);
+
 //
 // Emit Madlen assembly
 //

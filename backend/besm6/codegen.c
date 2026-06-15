@@ -217,6 +217,9 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
         frame_free(f);
     }
 
+    // Final polish: peephole-optimize the selected instruction stream before emission.
+    besm_peephole(func);
+
     emit_madlen_module(out, module);
     besm_free_module(module);
 }

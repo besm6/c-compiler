@@ -100,24 +100,17 @@ Two cross-cutting rules govern this phase:
   in the backend test files pin exact instruction sequences and will shift as rewrites land;
   the `CompileAndRun` results (actual computed values under Dubna) must stay identical.
 
-#### Infrastructure
+#### Peephole rules
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 26 | Peephole pass framework | New `peephole.c` / `peephole.h` exposing `besm_peephole(Besm_Func *)`. It slides a small window over each block's `Besm_Instr` linked list, matches a table of rules, and rewrites in place to a fixpoint (repeat until no rule fires). Rewrites splice the list and free removed nodes with `besm_free_instr`. The pass tracks A / R / ω across straight-line code and resets that state at every label and branch. Hook it into `codegen_function` between list construction and `emit_madlen_module`. All rule tasks below depend on this. | M |
-
-#### Peephole rules (depend on #26)
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 27 | Redundant reload elimination | `reg ,atx, off` immediately followed by `reg ,xta, off` (same slot) ⇒ drop the `xta`: `atx` stores A without disturbing it, so A already holds the value. This is the highest-frequency rewrite because every value-producing TAC instr ends with a store (`emit_atx`) and every consumer begins with a load (`emit_xta_val`). | S |
 | 28 | Dead temp-store elimination | When a `%`-temporary is stored by `atx` and never read again before it is overwritten or the block ends, drop the `atx`. Needs a backward last-use scan within the block. Combined with #27 this fully erases the store+reload of a single-use temporary, leaving the result live only in A. | S–M |
 | 29 | NTR mode coalescing | Track R and delete any `ntr n` whose operand equals the current known R — e.g. the trailing `ntr 7` restore when `b/save` already left R = 7, or the leading `ntr 0` of an FP op when R is already 0. Collapse adjacent `ntr x` / `ntr y` ⇒ `ntr y`, and keep R = 0 across a run of consecutive FP ops, restoring to 7 once at the end. Targets the `ntr 0 … ntr 7` brackets around FP add/sub/mul/div, FP negate, and int→FP conversion. | M |
 | 30 | Compare → branch fusion | A relational-helper result (`b/eq` … `b/uge`, `b/flt` … `b/fge`) that feeds a `JUMP_IF_ZERO` / `JUMP_IF_NOT_ZERO`: drop the store+reload of the boolean temp and branch on ω directly, e.g. `call b/lt` / `uza L`. Requires confirming on the simulator that the helpers leave ω consistent with A and that `atx` preserves ω. | S–M |
 | 31 | Branch / label cleanup | Drop a `uj` whose target is the immediately following label; remove the duplicate `uj b/ret` (RETURN emits one and the epilogue emits another — already flagged as dead in [instr.c](instr.c)); delete instructions between an unconditional `uj` and the next label as unreachable; invert a conditional that only skips an unconditional jump (`uza L` / `uj M` / `L:` ⇒ `u1a M`). | S |
 | 32 | Pointer-register reuse | Back-to-back `LOAD`/`STORE` through the same pointer each reload `ati 1`; skip the second setup when r1 still holds that pointer. Optional / lower priority — only helps adjacent dereferences of one pointer. | S |
 
-#### Instruction-selection improvements (independent of #26)
+#### Instruction-selection improvements
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|

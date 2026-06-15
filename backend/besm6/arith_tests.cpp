@@ -15,7 +15,6 @@ TEST_F(CodegenTest, AddTwoParams)
            6 ,xta,
            6 ,a+x, 1
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -39,7 +38,6 @@ TEST_F(CodegenTest, SubTwoParams)
            6 ,xta,
            6 ,a-x, 1
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -63,7 +61,6 @@ TEST_F(CodegenTest, AddAutoAndParam)
            6 ,xta,
            7 ,a+x,
            7 ,atx, 1
-           7 ,xta, 1
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -88,7 +85,6 @@ TEST_F(CodegenTest, AddTwoAutos)
            7 ,xta,
            7 ,a+x, 1
            7 ,atx, 2
-           7 ,xta, 2
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -111,7 +107,6 @@ TEST_F(CodegenTest, BinaryConstSrc2)
            6 ,xta,
              ,a+x, =5
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -134,7 +129,6 @@ TEST_F(CodegenTest, BinaryConstSrc1)
              ,xta, =5
            6 ,a+x,
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -286,7 +280,6 @@ TEST_F(CodegenTest, BitwiseAndTwoParams)
            6 ,xta,
            6 ,aax, 1
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -309,7 +302,6 @@ TEST_F(CodegenTest, BitwiseOrTwoParams)
            6 ,xta,
            6 ,aox, 1
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -332,7 +324,6 @@ TEST_F(CodegenTest, BitwiseXorTwoParams)
            6 ,xta,
            6 ,aex, 1
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -368,7 +359,6 @@ TEST_F(CodegenTest, LeftShiftConstant)
            6 ,xta,
              ,asn, 61
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -391,7 +381,6 @@ TEST_F(CodegenTest, RightShiftConstant)
            6 ,xta,
              ,asn, 66
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -415,7 +404,6 @@ TEST_F(CodegenTest, LeftShiftVariable)
            6 ,xts, 1
              ,call, b/lsh
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -439,7 +427,6 @@ TEST_F(CodegenTest, RightShiftVariable)
            6 ,xts, 1
              ,call, b/rsh
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -1015,7 +1002,6 @@ TEST_F(CodegenTest, AddDoubleMadlen)
            6 ,a+x, 1
              ,ntr, 7
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -1041,7 +1027,6 @@ TEST_F(CodegenTest, SubDoubleMadlen)
            6 ,a-x, 1
              ,ntr, 7
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -1067,7 +1052,6 @@ TEST_F(CodegenTest, MulDoubleMadlen)
            6 ,a*x, 1
              ,ntr, 7
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -1094,7 +1078,6 @@ TEST_F(CodegenTest, DivDoubleMadlen)
            6 ,a/x, 1
              ,ntr, 7
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret
@@ -1180,7 +1163,6 @@ TEST_F(CodegenTest, FpCompareMadlen)
            6 ,xts, 1
              ,call, b/flt
            7 ,atx,
-           7 ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret

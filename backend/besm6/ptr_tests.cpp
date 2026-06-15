@@ -30,7 +30,6 @@ c
           14 ,vtm, 0
              ,ita, 14
            7 ,atx,
-           7 ,xta,
              ,ati, 1
            6 ,xta, 1
            1 ,atx,
@@ -54,11 +53,9 @@ TEST_F(CodegenTest, AddPtrPointerLoad)
            6 ,xta, 1
            6 ,a+x,
            7 ,atx,
-           7 ,xta,
              ,ati, 1
            1 ,xta,
            7 ,atx, 1
-           7 ,xta, 1
              ,uj, b/ret
              ,uj, b/ret
              ,end,
@@ -81,7 +78,6 @@ TEST_F(CodegenTest, AddPtrPowerOfTwoScale)
              ,asn, 63
            6 ,a+x,
            7 ,atx,
-           7 ,xta,
              ,uj, b/ret
              ,uj, b/ret
              ,end,

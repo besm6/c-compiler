@@ -10,6 +10,7 @@ add_library(besm STATIC
     emit.c
     static.c
     instr.c
+    peephole.c
     utf8_to_koi7.c
 )
 target_include_directories(besm PUBLIC .)
@@ -58,6 +59,7 @@ add_executable(besm-tests
     ptr_tests.cpp
     struct_tests.cpp
     char_tests.cpp
+    peephole_tests.cpp
 )
 target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
 add_dependencies(besm-tests besm-libc)
