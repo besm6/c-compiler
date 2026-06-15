@@ -104,6 +104,12 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
         // alignment are in target bytes (like every other offset in the TAC stream);
         // each backend converts to its own allocation unit (the besm6 backend divides
         // by the 6-byte machine word).
+        // A local char/void array decays to a fat pointer when used as a value; record it
+        // so gen_expr can emit the array-decay GET_ADDRESS (symtab locals are gone by then).
+        if (id->type && id->type->kind == TYPE_ARRAY &&
+            (is_character(id->type->u.array.element) ||
+             id->type->u.array.element->kind == TYPE_VOID))
+            tac_record_byte_array_local(ctx, id->name);
         if (id->type && (id->type->kind == TYPE_ARRAY || id->type->kind == TYPE_STRUCT ||
                          id->type->kind == TYPE_UNION)) {
             int bytes = (int)get_size(id->type);

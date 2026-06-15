@@ -184,6 +184,7 @@ TEST_F(TranslateTest, StringLiteralReturned)
       dst:
         kind: var
         name: %0
+      array_decay: true
     - instruction:
       kind: return
       src:
@@ -224,6 +225,7 @@ TEST_F(TranslateTest, TwoFunctionsDistinctStringLiterals)
       dst:
         kind: var
         name: %0
+      array_decay: true
     - instruction:
       kind: return
       src:
@@ -254,6 +256,7 @@ TEST_F(TranslateTest, TwoFunctionsDistinctStringLiterals)
       dst:
         kind: var
         name: %0
+      array_decay: true
     - instruction:
       kind: return
       src:

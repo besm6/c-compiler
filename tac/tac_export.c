@@ -131,6 +131,7 @@ static void export_instr(WFILE *out, const Tac_Instruction *instr)
         export_val(out, instr->u.get_address.src);
         export_val(out, instr->u.get_address.dst);
         wputw((size_t)instr->u.get_address.byte_access, out);
+        wputw((size_t)instr->u.get_address.array_decay, out);
         break;
     case TAC_INSTRUCTION_LOAD:
         export_val(out, instr->u.load.src_ptr);
@@ -152,11 +153,13 @@ static void export_instr(WFILE *out, const Tac_Instruction *instr)
         export_val(out, instr->u.copy_to_offset.src);
         wputstr(instr->u.copy_to_offset.dst ? instr->u.copy_to_offset.dst : "", out);
         wputw((size_t)instr->u.copy_to_offset.offset, out);
+        wputw((size_t)instr->u.copy_to_offset.byte_access, out);
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
         wputstr(instr->u.copy_from_offset.src ? instr->u.copy_from_offset.src : "", out);
         wputw((size_t)instr->u.copy_from_offset.offset, out);
         export_val(out, instr->u.copy_from_offset.dst);
+        wputw((size_t)instr->u.copy_from_offset.byte_access, out);
         break;
     case TAC_INSTRUCTION_JUMP:
         wputstr(instr->u.jump.target ? instr->u.jump.target : "", out);

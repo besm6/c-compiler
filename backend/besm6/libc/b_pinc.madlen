@@ -1,0 +1,30 @@
+    b/pinc: ,name,
+c
+c Increment a char*/void* fat pointer by one byte (char*++): move toward the LSB.
+c The fat pointer holds the word address in bits 15-1 and the byte offset code (offset_enc,
+c = 64 + enc*8 in the exponent field) in bits 47-45, with the marker in bit 48.
+c offset_enc 5 = byte#0 (MSB, first byte), offset_enc 0 = byte#5 (LSB, last byte).
+c Advancing one byte decrements offset_enc; at offset_enc 0 it wraps to 5 and the word
+c address advances by one.  Operand in A, result in A; R is left unchanged.
+c
+            ,atx, p
+            ,aax, =77777        . A = word address (bits 15-1)
+            ,atx, w
+            ,xta, p
+            ,asn, 64+44         . offset_enc -> bits 3-1
+            ,aax, =7            . offset_enc (0..5)
+            ,uza, wrap          . offset_enc == 0 -> wrap to 5, bump word
+            ,arx, =7777777777777776  . offset_enc - 1 (end-around add of -1)
+            ,aax, =7
+            ,asn, 64-44         . offset_enc' -> bits 47-45
+            ,aox, =4000000000000000  . set marker (bit 48)
+            ,aox, w             . OR in the word address
+        13 ,uj,
+      wrap: ,xta, w
+            ,arx, =1            . word += 1
+            ,aox, =6400000000000000  . marker + offset_enc 5 (MSB of the next word)
+        13 ,uj,
+c
+         p: ,bss, 1
+         w: ,bss, 1
+            ,end,

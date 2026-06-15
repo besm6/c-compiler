@@ -477,6 +477,43 @@ to the 40-bit mantissa (unavoidable). `float` shares the format, so `b/utod` ser
 
 ---
 
+### Fat-Pointer Helpers
+
+A `char*`/`void*` is a *fat pointer*: bit 48 is a marker, bits 47–45 hold a 3-bit byte
+offset code `offset_enc` (the exponent field reads as `64 + offset_enc*8`), and bits 15–1
+hold the word address. Within a word, bytes are packed MSB-first: `offset_enc 5` = byte #0
+(the MSB / first byte), `offset_enc 0` = byte #5 (the LSB / last byte). So the byte index
+from the MSB is `5 - offset_enc`, and advancing the pointer one byte *decrements*
+`offset_enc`, borrowing into the word address on the `0 → 5` wrap.
+
+#### `b/stb` — [b_stb.madlen](../backend/besm6/libc/b_stb.madlen) — store one byte
+
+Read-modify-write of a single byte through a fat pointer. Lightweight convention: the fat
+pointer `a` is on the stack top (popped by the helper) and the byte value `b` is in A. The
+helper masks the byte, clears the target byte of the containing word via an offset-indexed
+mask table, ORs the new byte into place via an offset-indexed shift table, writes the word
+back, and returns the stored byte in A.
+
+#### `b/pinc` / `b/pdec` — [b_pinc.madlen](../backend/besm6/libc/b_pinc.madlen) / [b_pdec.madlen](../backend/besm6/libc/b_pdec.madlen) — `char*`++ / `char*`--
+
+Increment/decrement a fat pointer by one byte. Operand in A, result in A (no stack). The
+common case adjusts `offset_enc` by ∓1 with a single end-around add; the wrap case rebuilds
+the marker with the boundary `offset_enc` (5 for `++`, 0 for `--`) and steps the word
+address. `R` is left unchanged.
+
+#### `b/padd` — [b_padd.madlen](../backend/besm6/libc/b_padd.madlen) — fat pointer + signed byte count
+
+Adds a signed byte delta to a fat-or-bare base, returning a normalized fat pointer.
+Convention: base `a` on the stack top (popped), signed delta in A, result in A. A bare base
+(marker clear — an array word address or struct address) is taken to start at byte #0. With
+`m = (5 - offset_enc) + delta`, the new word is `word + floor(m/6)` and the new
+`offset_enc = 5 - (m mod 6)`. The floored division by 6 uses the hardware FP divide on two
+normalized INT-format operands (masking the fraction rounds toward −∞); the dividend is
+first biased by a multiple of 6 large enough to be non-negative (INT-format misreads a
+negative two's-complement mantissa) and the bias is subtracted back from the quotient.
+
+---
+
 ### I/O Routines
 
 #### `b/tout` — [b_tout.madlen](../backend/besm6/libc/b_tout.madlen)

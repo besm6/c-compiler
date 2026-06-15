@@ -301,6 +301,8 @@ static Tac_Instruction *import_instr(WFILE *in)
         instr->u.get_address.dst         = import_val(in);
         instr->u.get_address.byte_access = (int)wgetw(in);
         check_input(in, "get_address byte_access");
+        instr->u.get_address.array_decay = (int)wgetw(in);
+        check_input(in, "get_address array_decay");
         break;
     case TAC_INSTRUCTION_LOAD:
         instr->u.load.src_ptr     = import_val(in);
@@ -327,6 +329,8 @@ static Tac_Instruction *import_instr(WFILE *in)
         check_input(in, "copy_to_offset dst");
         instr->u.copy_to_offset.offset = (int)wgetw(in);
         check_input(in, "copy_to_offset offset");
+        instr->u.copy_to_offset.byte_access = (int)wgetw(in);
+        check_input(in, "copy_to_offset byte_access");
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
         instr->u.copy_from_offset.src = wgetstr(in);
@@ -334,6 +338,8 @@ static Tac_Instruction *import_instr(WFILE *in)
         instr->u.copy_from_offset.offset = (int)wgetw(in);
         check_input(in, "copy_from_offset offset");
         instr->u.copy_from_offset.dst = import_val(in);
+        instr->u.copy_from_offset.byte_access = (int)wgetw(in);
+        check_input(in, "copy_from_offset byte_access");
         break;
     case TAC_INSTRUCTION_JUMP:
         instr->u.jump.target = wgetstr(in);

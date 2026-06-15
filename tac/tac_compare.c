@@ -225,7 +225,8 @@ bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b)
     case TAC_INSTRUCTION_GET_ADDRESS:
         return tac_compare_val(a->u.get_address.src, b->u.get_address.src) &&
                tac_compare_val(a->u.get_address.dst, b->u.get_address.dst) &&
-               a->u.get_address.byte_access == b->u.get_address.byte_access;
+               a->u.get_address.byte_access == b->u.get_address.byte_access &&
+               a->u.get_address.array_decay == b->u.get_address.array_decay;
     case TAC_INSTRUCTION_LOAD:
         return tac_compare_val(a->u.load.src_ptr, b->u.load.src_ptr) &&
                tac_compare_val(a->u.load.dst, b->u.load.dst) &&
@@ -246,7 +247,8 @@ bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b)
             strcmp(a->u.copy_to_offset.dst, b->u.copy_to_offset.dst) != 0)
             return false;
         return tac_compare_val(a->u.copy_to_offset.src, b->u.copy_to_offset.src) &&
-               a->u.copy_to_offset.offset == b->u.copy_to_offset.offset;
+               a->u.copy_to_offset.offset == b->u.copy_to_offset.offset &&
+               a->u.copy_to_offset.byte_access == b->u.copy_to_offset.byte_access;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
         if ((a->u.copy_from_offset.src == NULL) != (b->u.copy_from_offset.src == NULL))
             return false;
@@ -254,7 +256,8 @@ bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b)
             strcmp(a->u.copy_from_offset.src, b->u.copy_from_offset.src) != 0)
             return false;
         return a->u.copy_from_offset.offset == b->u.copy_from_offset.offset &&
-               tac_compare_val(a->u.copy_from_offset.dst, b->u.copy_from_offset.dst);
+               tac_compare_val(a->u.copy_from_offset.dst, b->u.copy_from_offset.dst) &&
+               a->u.copy_from_offset.byte_access == b->u.copy_from_offset.byte_access;
     case TAC_INSTRUCTION_JUMP:
         if ((a->u.jump.target == NULL) != (b->u.jump.target == NULL))
             return false;

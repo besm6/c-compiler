@@ -83,7 +83,7 @@ the Dubna simulator. Each task adds GoogleTest coverage in
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 22 | `char*` arithmetic & packed members | `char*` increment decrements the 3-bit byte offset, borrowing into the word address when it wraps 0→5. Create helpers for increment/decrement by 1, and for adding integer to a fat pointer (`ADD_PTR` scale=1). Also covers char-array indexing (string decay to a fat pointer) and packed char struct members (sub-word `CopyTo/FromOffset`). Reuses #21's byte load/store backend unchanged. | M |
+| 22b | `char*` − `char*` difference | Subtracting two fat pointers yields a `ptrdiff_t` byte count: `(word_a*6 + (5 - enc_a)) - (word_b*6 + (5 - enc_b))`. The semantic layer types `p - q` as `long`, so it does not flow through `ADD_PTR`; lower it to a new runtime helper (decode both fat pointers to absolute byte positions and subtract). Currently guarded by a `fatal_error("char* - char* difference not yet supported")` in translator/expr.c `gen_binary`. | S |
 
 ### Phase M — Deferred / future
 

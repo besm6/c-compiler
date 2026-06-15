@@ -51,6 +51,25 @@ void tac_record_local(TacCtx *ctx, const char *name)
     }
 }
 
+// Record a local char/void array name so a later value use (decay) can be lowered to a
+// fat-pointer GET_ADDRESS.  Local symbols are purged from the symbol table before lowering,
+// so the translator tracks byte arrays itself (globals/strings stay queryable via symtab).
+void tac_record_byte_array_local(TacCtx *ctx, const char *name)
+{
+    Tac_Param *p = tac_new_param();
+    p->name      = xstrdup(name);
+    p->next      = ctx->byte_array_locals;
+    ctx->byte_array_locals = p;
+}
+
+bool tac_is_byte_array_local(const TacCtx *ctx, const char *name)
+{
+    for (const Tac_Param *p = ctx->byte_array_locals; p; p = p->next)
+        if (strcmp(p->name, name) == 0)
+            return true;
+    return false;
+}
+
 Tac_Val *val_int(int v)
 {
     Tac_Val *tv    = tac_new_val(TAC_VAL_CONSTANT);
@@ -465,10 +484,11 @@ static Tac_TopLevel *translate_fn(const ExternalDecl *ast)
                               ast->u.function.type->u.function.variadic;
 
     if (ast->u.function.body) {
-        TacCtx ctx = { NULL, NULL, 0, NULL, NULL, NULL };
+        TacCtx ctx = { NULL, NULL, 0, NULL, NULL, NULL, NULL };
         gen_stmt(&ctx, ast->u.function.body);
         tl->u.function.body   = ctx.head;
         tl->u.function.locals = ctx.locals;
+        tac_free_param(ctx.byte_array_locals);
 
         if (ctx.static_constants) {
             Tac_TopLevel *last = ctx.static_constants;
@@ -510,15 +530,17 @@ static Tac_TopLevel *translate_decl(const Declaration *decl)
         tail  = &tl->next;
     }
 
-    // Scan each static variable's init list for POINTER entries that reference
-    // SYM_CONST symbols (string literals). Emit a TAC_TOPLEVEL_STATIC_CONSTANT
-    // for each and prepend it before the variable that uses it.
+    // Scan each static variable's init list for POINTER / FAT_POINTER entries that
+    // reference SYM_CONST symbols (string literals). Emit a TAC_TOPLEVEL_STATIC_CONSTANT
+    // for each and prepend it before the variable that uses it.  (A char* initializer is a
+    // fat pointer, so the string it points at arrives as FAT_POINTER, not POINTER.)
     Tac_TopLevel *constants_head = NULL;
     Tac_TopLevel **ctail         = &constants_head;
     for (const Tac_TopLevel *cur = head; cur; cur = cur->next) {
         for (const Tac_StaticInit *init = cur->u.static_variable.init_list; init;
              init                       = init->next) {
-            if (init->kind != TAC_STATIC_INIT_POINTER)
+            if (init->kind != TAC_STATIC_INIT_POINTER &&
+                init->kind != TAC_STATIC_INIT_FAT_POINTER)
                 continue;
             const char *sname = init->u.pointer.name;
             Symbol *sym       = symtab_get(sname);

@@ -210,8 +210,11 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         char *decoded   = decode_c_string_literal(init->u.expr->u.literal->u.string_val);
         char *string_id = symtab_add_string(decoded);
         xfree(decoded);
-        Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
-        pointer_init->u.pointer.name = string_id;
+        // A char*/void* is a fat pointer.  A string decays to its first byte, which is
+        // packed in the MSB (byte#0), so byte_offset 0 yields offset_enc 5.
+        Tac_StaticInit *pointer_init      = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
+        pointer_init->u.pointer.name      = string_id;
+        pointer_init->u.pointer.byte_offset = 0;
         return pointer_init;
     }
 
@@ -229,6 +232,18 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
             }
         } else {
             fatal_error("Pointer can only be initialized by array or function");
+        }
+        // A char*/void* initialized by a char-array name is a fat pointer to the array's
+        // first byte (byte#0 = MSB), i.e. byte_offset 0 / offset_enc 5.
+        const Type *ptr_target = var_type->u.pointer.target;
+        bool is_fat            = sym->type->kind == TYPE_ARRAY &&
+                     (ptr_target->kind == TYPE_CHAR || ptr_target->kind == TYPE_SCHAR ||
+                      ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
+        if (is_fat) {
+            Tac_StaticInit *fi          = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
+            fi->u.pointer.name          = xstrdup(init->u.expr->u.var);
+            fi->u.pointer.byte_offset   = 0;
+            return fi;
         }
         Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
         pointer_init->u.pointer.name = xstrdup(init->u.expr->u.var);

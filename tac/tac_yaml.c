@@ -701,6 +701,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
             print_indent(fd, level);
             fprintf(fd, "byte_access: true\n");
         }
+        if (instr->u.get_address.array_decay) {
+            print_indent(fd, level);
+            fprintf(fd, "array_decay: true\n");
+        }
         break;
     case TAC_INSTRUCTION_LOAD:
         fprintf(fd, "load\n");
@@ -763,6 +767,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         fprintf(fd, "dst: %s\n", instr->u.copy_to_offset.dst ? instr->u.copy_to_offset.dst : "");
         print_indent(fd, level);
         fprintf(fd, "offset: %d\n", instr->u.copy_to_offset.offset);
+        if (instr->u.copy_to_offset.byte_access) {
+            print_indent(fd, level);
+            fprintf(fd, "byte_access: true\n");
+        }
         break;
     case TAC_INSTRUCTION_COPY_FROM_OFFSET:
         fprintf(fd, "copy_from_offset\n");
@@ -778,6 +786,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         print_indent(fd, level);
         fprintf(fd, "dst:\n");
         export_yaml_val(fd, instr->u.copy_from_offset.dst, level + 1);
+        if (instr->u.copy_from_offset.byte_access) {
+            print_indent(fd, level);
+            fprintf(fd, "byte_access: true\n");
+        }
         break;
     case TAC_INSTRUCTION_JUMP:
         fprintf(fd, "jump\n");

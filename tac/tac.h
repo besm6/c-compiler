@@ -284,7 +284,8 @@ typedef struct Tac_Instruction {
         struct {
             Tac_Val *src;
             Tac_Val *dst;
-            int byte_access; // 1: result is a char*/void* fat pointer (set marker)
+            int byte_access;  // 1: result is a char*/void* fat pointer (marker, offset_enc 0 = LSB)
+            int array_decay;  // 1: char-array/string decay — fat pointer at offset_enc 5 (MSB)
         } get_address;
         struct {
             Tac_Val *src_ptr;
@@ -306,11 +307,13 @@ typedef struct Tac_Instruction {
             Tac_Val *src;
             char *dst;
             int offset;
+            int byte_access; // 1: sub-word packed char member (byte read-modify-write)
         } copy_to_offset;
         struct {
             char *src;
             int offset;
             Tac_Val *dst;
+            int byte_access; // 1: sub-word packed char member (byte extract)
         } copy_from_offset;
         struct {
             char *target;

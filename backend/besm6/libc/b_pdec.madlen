@@ -1,0 +1,32 @@
+    b/pdec: ,name,
+c
+c Decrement a char*/void* fat pointer by one byte (char*--): move toward the MSB.
+c Mirror of b/pinc: advancing back one byte increments offset_enc; at offset_enc 5 it
+c wraps to 0 and the word address steps back by one.  Operand in A, result in A;
+c R is left unchanged.  See b/pinc for the fat-pointer layout.
+c
+            ,atx, p
+            ,aax, =77777        . A = word address (bits 15-1)
+            ,atx, w
+            ,xta, p
+            ,asn, 64+44         . offset_enc -> bits 3-1
+            ,aax, =7            . offset_enc (0..5)
+            ,atx, enc
+            ,arx, =7777777777777772  . offset_enc - 5
+            ,uza, wrap          . offset_enc == 5 -> wrap to 0, step word back
+            ,xta, enc
+            ,arx, =1            . offset_enc + 1
+            ,asn, 64-44         . offset_enc' -> bits 47-45
+            ,aox, =4000000000000000  . set marker (bit 48)
+            ,aox, w             . OR in the word address
+        13 ,uj,
+      wrap: ,xta, w
+            ,arx, =7777777777777776  . word -= 1 (end-around add of -1)
+            ,aax, =77777
+            ,aox, =4000000000000000  . marker + offset_enc 0 (LSB of the previous word)
+        13 ,uj,
+c
+         p: ,bss, 1
+         w: ,bss, 1
+       enc: ,bss, 1
+            ,end,

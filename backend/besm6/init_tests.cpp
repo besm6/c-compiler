@@ -602,7 +602,7 @@ TEST_F(CodegenTest, StrConstantEmptyPtr)
 c
         p:   ,name,
     *str0:   ,subp,
-             ,z00,
+          13 ,z00,
              ,z00, *str0
              ,end,
 )",
@@ -619,7 +619,7 @@ TEST_F(CodegenTest, StrConstantSingleCharPtr)
 c
         p:   ,name,
     *str0:   ,subp,
-             ,z00,
+          13 ,z00,
              ,z00, *str0
              ,end,
 )",
@@ -636,7 +636,7 @@ TEST_F(CodegenTest, StrConstantThreeCharsPtr)
 c
         p:   ,name,
     *str0:   ,subp,
-             ,z00,
+          13 ,z00,
              ,z00, *str0
              ,end,
 )",
@@ -654,7 +654,7 @@ TEST_F(CodegenTest, StrConstantFiveCharsPtr)
 c
         p:   ,name,
     *str0:   ,subp,
-             ,z00,
+          13 ,z00,
              ,z00, *str0
              ,end,
 )",
@@ -673,7 +673,7 @@ TEST_F(CodegenTest, StrConstantSixCharsPtr)
 c
         p:   ,name,
     *str0:   ,subp,
-             ,z00,
+          13 ,z00,
              ,z00, *str0
              ,end,
 )",
@@ -692,7 +692,7 @@ TEST_F(CodegenTest, StrConstantSevenCharsPtr)
 c
         p:   ,name,
     *str0:   ,subp,
-             ,z00,
+          13 ,z00,
              ,z00, *str0
              ,end,
 )",
@@ -711,7 +711,7 @@ TEST_F(CodegenTest, StrConstantTwoPtrs)
 c
         p:   ,name,
     *str0:   ,subp,
-             ,z00,
+          13 ,z00,
              ,z00, *str0
              ,end,
 c  const
@@ -721,7 +721,7 @@ c  const
 c
         q:   ,name,
     *str1:   ,subp,
-             ,z00,
+          13 ,z00,
              ,z00, *str1
              ,end,
 )",
@@ -744,7 +744,7 @@ c  const
 c
         p:   ,name,
     *str0:   ,subp,
-             ,z00,
+          13 ,z00,
              ,z00, *str0
              ,end,
 )",
