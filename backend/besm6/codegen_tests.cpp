@@ -291,7 +291,6 @@ TEST_F(CodegenTest, GetAddressGlobalInt)
         p:   ,subp,
              ,its, 13
              ,call, b/save0
-          15 ,utm, 1
              ,utc, g
           14 ,vtm, 0
              ,ita, 14
@@ -314,7 +313,7 @@ TEST_F(CodegenTest, GetAddressAuto)
         g:   ,subp,
              ,its, 13
              ,call, b/save0
-          15 ,utm, 2
+          15 ,utm, 1
              ,ita, 7
              ,utc, g
              ,atx,
@@ -353,7 +352,6 @@ TEST_F(CodegenTest, LoadThroughPtr)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,wtc,
              ,xta,
              ,uj, b/ret
@@ -372,7 +370,6 @@ TEST_F(CodegenTest, LoadAndStoreThroughPtr)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,wtc,
              ,xta,
            6 ,wtc, 1

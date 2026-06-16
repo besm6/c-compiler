@@ -1,8 +1,8 @@
 # Multi-Platform C Compiler
 
-A C11 compiler with a shared frontend and pluggable machine backends. Current backends: **x86_64** (System V AMD64 ABI, in progress) and **BESM-6** (in progress). Planned backends: AArch64, RISC-V, ARM32. The long-term BESM-6 goal is a self-hosting toolchain for the [Unix v7 port](https://github.com/besm6/v7besm) and the [Dubna monitor](https://github.com/besm6/dubna).
+A C11 compiler with a shared frontend and pluggable machine backends. Current backend: **BESM-6** (complete). Planned backends: x86_64 (System V AMD64 ABI), AArch64, RISC-V, ARM32. The long-term BESM-6 goal is a self-hosting toolchain for the [Unix v7 port](https://github.com/besm6/v7besm) and the [Dubna monitor](https://github.com/besm6/dubna).
 
-**This repository is unfinished.** The frontend (lexing, parsing, AST, semantic analysis, and full TAC lowering) is complete. Machine backends are in progress; work plans are tracked in [backend/x86/TODO.md](backend/x86/TODO.md) and [backend/besm6/TODO.md](backend/besm6/TODO.md). For file-by-file detail, build options, and tests, see [docs/Technical_Reference.md](docs/Technical_Reference.md).
+**This repository is unfinished.** The frontend (lexing, parsing, AST, semantic analysis, and full TAC lowering) is complete. The BESM-6 backend is complete; the x86_64 and other backends are planned. Work plans are tracked in [backend/x86/TODO.md](backend/x86/TODO.md) and [backend/besm6/TODO.md](backend/besm6/TODO.md). For file-by-file detail, build options, and tests, see [docs/Technical_Reference.md](docs/Technical_Reference.md).
 
 ## Goals
 
@@ -20,7 +20,7 @@ A C11 compiler with a shared frontend and pluggable machine backends. Current ba
 | **`lower`** | Reads a binary AST stream and, per top-level declaration, runs **typecheck → `translate` → optimize → emit**. Output can be **binary TAC** (default), **YAML-like listing** via the TAC pretty-printer, or **Graphviz DOT** (`tac_graphviz`). Semantic analysis handles `typedef` (scoped `typetab`) and full `switch` validation (integer controlling expression with integer promotion; constant integer case values; duplicate-case and multiple-default rejection). TAC lowering is **complete**: arithmetic, control flow, functions (direct and indirect), pointers, arrays, structs, casts, `_Generic`, compound literals, and aggregate initializers all lower correctly. After lowering, the **TAC optimizer** runs four passes in a fixed-point loop: constant folding, unreachable code elimination, copy propagation, and dead store elimination. Flags: `--no-unreachable`, `--no-copy-prop`, `--no-dead-store`, `--opt-debug`. |
 | **TAC** | `tac/` builds **alloc/print/free/compare**, **`tac_export`** and **`tac_import`** (binary stream), **`tac_export_yaml`** (YAML listing), and **`tac_graphviz`** (DOT graph). Lowering lives in **`translator/translate.c`**. |
 | **x86_64 backend (`genx86`)** | Planned. Work plan in [backend/x86/TODO.md](backend/x86/TODO.md). |
-| **BESM-6 backend (`genbesm`)** | In progress. Frame allocation, static data (integers, strings with UTF-8→KOI7, pointers, floats/doubles), `main()` entry, and global access are in place. Instruction selection covers data movement and aggregate/member access, control flow and function calls, integer arithmetic, bitwise ops and shifts (signed and unsigned), floating-point arithmetic, comparisons, type conversions (integer widths and int↔float/double), and pointer/array indexing. On BESM-6 `float ≡ double` (one 48-bit native FP word). Work plan in [backend/besm6/TODO.md](backend/besm6/TODO.md). |
+| **BESM-6 backend (`genbesm`)** | Complete. Frame allocation, static data (integers, strings with UTF-8→KOI7, pointers, floats/doubles), `main()` entry, and global access are in place. Instruction selection covers data movement and aggregate/member access, control flow and function calls, integer arithmetic, bitwise ops and shifts (signed and unsigned), floating-point arithmetic, comparisons, type conversions (integer widths and int↔float/double), and pointer/array indexing. On BESM-6 `float ≡ double` (one 48-bit native FP word). After instruction selection a **peephole optimizer** (store/reload, NTR-mode, compare→branch, branch/label, and strength-reduction rewrites) and a **post-peephole frame-slot reclamation** pass polish the emitted Madlen. Work plan in [backend/besm6/TODO.md](backend/besm6/TODO.md). |
 | **AArch64 / RISC-V / ARM32 backends** | Planned (not started). |
 | **Preprocessor, assembler, linker** | Not in this repo. |
 
@@ -36,9 +36,9 @@ A compiler is usually described as a pipeline. You can think of it like an assem
 2. **Parser** builds a *syntax tree* (AST) that matches the grammar of the language.
 3. **Semantic analysis** checks meaning: types, scopes, and whether names refer to the right declarations.
 4. **Intermediate code** (here, *three-address code*, TAC) is a machine-neutral form that is easier to optimize and translate than raw C syntax.
-5. **Backend** translates TAC into target-specific assembly. Current targets: **x86_64** (`genx86`, System V AMD64 ABI) and **BESM-6** (`genbesm`, Madlen / Dubna). Planned: AArch64, RISC-V, ARM32.
+5. **Backend** translates TAC into target-specific assembly. Current target: **BESM-6** (`genbesm`, Madlen / Dubna). Planned: x86_64 (`genx86`, System V AMD64 ABI), AArch64, RISC-V, ARM32.
 
-Stages 1–3 are fully in place. Stage 4 is **complete**: the entire C11 is lowered to TAC, then the TAC optimizer runs four passes (constant folding, unreachable code elimination, copy propagation, dead store elimination). TAC can be emitted as **binary** or re-imported, listed as **YAML** (`--yaml`), or rendered as **DOT** (`--dot`). Stage 5 is **in progress** for BESM-6 and **planned** for x86_64.
+Stages 1–3 are fully in place. Stage 4 is **complete**: the entire C11 is lowered to TAC, then the TAC optimizer runs four passes (constant folding, unreachable code elimination, copy propagation, dead store elimination). TAC can be emitted as **binary** or re-imported, listed as **YAML** (`--yaml`), or rendered as **DOT** (`--dot`). Stage 5 is **complete** for BESM-6 and **planned** for x86_64.
 
 ```mermaid
 flowchart LR
@@ -52,16 +52,16 @@ flowchart LR
         Optimizer[TAC optimizer]
         SourceCode --> Scanner --> Parser --> AST --> Semantic --> TACGen --> Optimizer
     end
-    subgraph progress [Backends — in progress]
-        X86[x86_64 backend]
+    subgraph backenddone [Backend — complete]
         BESM6[BESM-6 backend]
-        Optimizer --> X86
         Optimizer --> BESM6
     end
     subgraph future [Backends — planned]
+        X86[x86_64 backend]
         AA64[AArch64]
         RV[RISC-V]
         A32[ARM32]
+        Optimizer --> X86
         TACGen --> AA64
         TACGen --> RV
         TACGen --> A32

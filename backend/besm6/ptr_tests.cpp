@@ -50,7 +50,7 @@ TEST_F(CodegenTest, AddPtrPointerLoad)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 2
+          15 ,utm, 1
            6 ,xta, 1
            6 ,a+x,
            7 ,atx,
@@ -72,7 +72,6 @@ TEST_F(CodegenTest, AddPtrPowerOfTwoScale)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta, 1
              ,asn, 63
            6 ,a+x,

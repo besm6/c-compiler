@@ -19,7 +19,6 @@ TEST_F(CodegenTest, TruncateToCharMadlen)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
              ,aax, =377
              ,utc, g
@@ -40,7 +39,6 @@ TEST_F(CodegenTest, ZeroExtendFromUCharMadlen)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
              ,aax, =377
              ,utc, g
@@ -61,7 +59,6 @@ TEST_F(CodegenTest, SignExtendFromSCharMadlen)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
              ,aax, =377
              ,aex, =200
@@ -166,7 +163,6 @@ TEST_F(CodegenTest, IntToDoubleMadlen)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
              ,aox, =:64
              ,ntr, 0
@@ -189,7 +185,6 @@ TEST_F(CodegenTest, UintToDoubleMadlen)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
              ,call, b/utod
              ,uj, b/ret
@@ -207,7 +202,6 @@ TEST_F(CodegenTest, DoubleToIntMadlen)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save0
-          15 ,utm, 1
              ,utc, d
              ,xta,
              ,call, b/dtoi
@@ -226,7 +220,6 @@ TEST_F(CodegenTest, DoubleToUintMadlen)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save0
-          15 ,utm, 1
              ,utc, d
              ,xta,
              ,call, b/dtou
@@ -245,7 +238,6 @@ TEST_F(CodegenTest, FloatToDoubleMadlen)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save0
-          15 ,utm, 1
              ,utc, f
              ,xta,
              ,uj, b/ret

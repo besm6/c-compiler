@@ -25,7 +25,6 @@ TEST_F(CodegenTest, RedundantReloadRemoved)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
            6 ,a+x, 1
              ,utc, g
@@ -80,7 +79,6 @@ TEST_F(CodegenTest, DeadTempStoreRemoved)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
            6 ,a+x, 1
              ,uj, b/ret
@@ -147,7 +145,6 @@ TEST_F(CodegenTest, ConsecutiveFpOpsCoalesceNtr)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 2
            6 ,xta,
              ,ntr, 0
            6 ,a+x, 1
@@ -195,7 +192,6 @@ TEST_F(CodegenTest, CompareBranchFused)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
            6 ,xts, 1
              ,call, b/lt

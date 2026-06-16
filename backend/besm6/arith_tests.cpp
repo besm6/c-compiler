@@ -11,7 +11,6 @@ TEST_F(CodegenTest, AddTwoParams)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
            6 ,a+x, 1
              ,utc, g
@@ -33,7 +32,6 @@ TEST_F(CodegenTest, SubTwoParams)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
            6 ,a-x, 1
              ,utc, g
@@ -55,7 +53,7 @@ TEST_F(CodegenTest, AddAutoAndParam)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 2
+          15 ,utm, 1
            6 ,xta,
            7 ,a+x,
              ,utc, g
@@ -78,7 +76,7 @@ TEST_F(CodegenTest, AddTwoAutos)
         g:   ,subp,
              ,its, 13
              ,call, b/save0
-          15 ,utm, 3
+          15 ,utm, 2
            7 ,xta,
            7 ,a+x, 1
              ,utc, g
@@ -99,7 +97,6 @@ TEST_F(CodegenTest, BinaryConstSrc2)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
              ,a+x, =5
              ,utc, g
@@ -120,7 +117,6 @@ TEST_F(CodegenTest, BinaryConstSrc1)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
              ,xta, =5
            6 ,a+x,
              ,utc, g
@@ -270,7 +266,6 @@ TEST_F(CodegenTest, BitwiseAndTwoParams)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
            6 ,aax, 1
              ,utc, g
@@ -291,7 +286,6 @@ TEST_F(CodegenTest, BitwiseOrTwoParams)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
            6 ,aox, 1
              ,utc, g
@@ -312,7 +306,6 @@ TEST_F(CodegenTest, BitwiseXorTwoParams)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
            6 ,aex, 1
              ,utc, g
@@ -346,7 +339,6 @@ TEST_F(CodegenTest, LeftShiftConstant)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
              ,asn, 61
              ,utc, g
@@ -367,7 +359,6 @@ TEST_F(CodegenTest, RightShiftConstant)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
              ,asn, 66
              ,utc, g
@@ -388,7 +379,6 @@ TEST_F(CodegenTest, LeftShiftVariable)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
            6 ,xts, 1
              ,call, b/lsh
@@ -410,7 +400,6 @@ TEST_F(CodegenTest, RightShiftVariable)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
            6 ,xts, 1
              ,call, b/rsh
@@ -1117,7 +1106,6 @@ TEST_F(CodegenTest, AddDoubleMadlen)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
              ,ntr, 0
            6 ,a+x, 1
@@ -1141,7 +1129,6 @@ TEST_F(CodegenTest, SubDoubleMadlen)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
              ,ntr, 0
            6 ,a-x, 1
@@ -1165,7 +1152,6 @@ TEST_F(CodegenTest, MulDoubleMadlen)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
              ,ntr, 0
            6 ,a*x, 1
@@ -1190,7 +1176,6 @@ TEST_F(CodegenTest, DivDoubleMadlen)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
              ,ntr, 0
            6 ,a/x, 1
@@ -1275,7 +1260,6 @@ TEST_F(CodegenTest, FpCompareMadlen)
         g:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
            6 ,xta,
            6 ,xts, 1
              ,call, b/flt

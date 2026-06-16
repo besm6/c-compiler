@@ -57,6 +57,64 @@ static void declare_global_operand(Besm_Block *block, Besm_Instr **tail, const F
     declare_global_name(block, tail, f, declared, v->u.var_name);
 }
 
+//
+// After the peephole pass, compute how many auto-variable words the frame still
+// needs.  Peephole can delete the only store/reload of a temporary (collapsing it
+// into pure A-register dataflow), leaving its slot unreferenced, so the prologue
+// stack extension emitted up front may now reserve dead words.
+//
+// Only compiler temporaries ('%'+digit) are reclaimed, and only when nothing in the
+// final stream references their slot.  Named locals and aggregates are always kept:
+// their address can be taken (e.g. `&x`), and GET_ADDRESS of a slot-0 local emits
+// `ita 7` — the register number rides in `addr`, not `reg` — so a direct reg==REG_AUTO
+// scan would miss it.  Temporaries are never address-taken, so a reg==REG_AUTO load/
+// store fully captures their use.  We therefore keep every non-temp slot plus every
+// referenced temp slot, and shrink to the highest such offset + 1 (slots are absolute
+// r7+off offsets and cannot be renumbered, so only trailing dead temps are reclaimed).
+//
+static int used_auto_words(const Besm_Func *func, const Frame *f)
+{
+    int orig = frame_num_autos(f);
+    if (orig <= 0)
+        return 0;
+
+    bool *referenced = (bool *)xalloc(orig * sizeof(bool), __func__, __FILE__, __LINE__);
+    for (int i = 0; i < orig; i++)
+        referenced[i] = false;
+    for (const Besm_Func *fn = func; fn; fn = fn->next)
+        for (const Besm_Block *block = fn->blocks; block; block = block->next)
+            for (const Besm_Instr *i = block->body; i; i = i->next)
+                if (i->name == NULL && (int)i->reg == REG_AUTO && i->addr >= 0 &&
+                    i->addr < orig)
+                    referenced[i->addr] = true;
+
+    int used = 0;
+    for (int off = 0; off < orig; off++)
+        if (!frame_slot_is_temp(f, REG_AUTO, off) || referenced[off])
+            used = off + 1; // this slot must stay reserved
+
+    xfree(referenced);
+    return used;
+}
+
+// Unlink `target` from the block's instruction list and free it.  `besm_free_instr`
+// recurses on ->next, so unlink first (set target->next = NULL) to free only `target`.
+static void remove_instr(Besm_Block *block, const Besm_Instr *target)
+{
+    Besm_Instr *prev = NULL;
+    for (Besm_Instr *i = block->body; i; prev = i, i = i->next) {
+        if (i != target)
+            continue;
+        if (prev)
+            prev->next = i->next;
+        else
+            block->body = i->next;
+        i->next = NULL;
+        besm_free_instr(i);
+        return;
+    }
+}
+
 static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out)
 {
     const char *name = tl->u.function.name;
@@ -74,8 +132,9 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
     Besm_Block *block = besm_new_block();
     func->blocks      = block;
 
-    Besm_Instr *tail = NULL;
-    Frame *f         = NULL; // built for non-empty functions; passed to the peephole pass
+    Besm_Instr *tail   = NULL;
+    Frame *f           = NULL; // built for non-empty functions; passed to the peephole pass
+    Besm_Instr *utm_sp = NULL; // prologue stack-extension; shrunk/dropped after peephole
 
     Besm_Instr *iname = emit(block, &tail, BESM_STMT_NAME);
     iname->name       = xstrdup(name);
@@ -203,9 +262,9 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
         call_csave->name       = xstrdup(num_params == 0 ? "b/save0" : "b/save");
 
         if (num_autos > 0) {
-            Besm_Instr *utm_sp = emit(block, &tail, BESM_REG_UTM);
-            utm_sp->reg        = REG_SP;
-            utm_sp->addr       = num_autos;
+            utm_sp       = emit(block, &tail, BESM_REG_UTM);
+            utm_sp->reg  = REG_SP;
+            utm_sp->addr = num_autos;
         }
 
         for (const Tac_Instruction *instr = tl->u.function.body; instr; instr = instr->next)
@@ -220,6 +279,20 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
     // The frame (NULL for empty functions) lets the pass classify temporary slots for
     // dead temp-store elimination; it is freed once the pass no longer needs it.
     besm_peephole(func, f);
+
+    // Peephole may have eliminated every reference to one or more top auto slots, so
+    // the prologue stack extension (sized before selection) can now reserve dead words.
+    // Shrink it to the slots still in use, dropping the `utm` entirely when none remain.
+    if (utm_sp != NULL) {
+        int used = used_auto_words(func, f);
+        if (used < utm_sp->addr) {
+            if (used == 0)
+                remove_instr(block, utm_sp);
+            else
+                utm_sp->addr = used;
+        }
+    }
+
     if (f)
         frame_free(f);
 
