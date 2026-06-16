@@ -4,17 +4,22 @@ Runtime library for C programs targeting the BESM-6 mainframe.
 
 For basing, use `r14`. No other functions must be called, and no extracodes.
 
+The higher-level routines are written in C and compiled by this project's own
+toolchain (`parse → lower → genbesm`) into Madlen; the low-level helpers remain
+hand-written Madlen.  The original B-language sources (`*.b`) are kept for
+historical reference but are no longer built.
+
 ## I/O Functions
 
 | Function | Source | Description |
 |----------|--------|-------------|
-| `read()` | [read.b](read.b) | Read one character from stdin; returns `0` at EOF |
-| `write(ch)` | [write.b](write.b) | Append a multi-char word to the output buffer (skips leading zero bytes) |
-| `writeb(b)` | [writeb.b](writeb.b) | Append one byte to the output buffer; flushes on newline or full buffer |
-| `flush()` | [flush.b](flush.b) | Flush the output line buffer to stdout (or drum when `fout` is set) |
-| `printf(fmt, ...)` | [printf.b](printf.b) | Formatted output: `%d` decimal, `%o` octal, `%c` character, `%s` string |
-| `print_d(n)` | [printd.b](printd.b) | Print a signed decimal integer |
-| `print_o(n)` | [printo.b](printo.b) | Print an octal integer |
+| `read()` | [read.c](read.c) | Read one character from stdin; returns `0` at EOF |
+| `write(ch)` | [write.c](write.c) | Append a multi-char word to the output buffer (skips leading zero bytes) |
+| `writeb(b)` | [writeb.c](writeb.c) | Append one byte to the output buffer; flushes on newline or full buffer |
+| `flush()` | [flush.c](flush.c) | Flush the output line buffer to stdout (or drum when `fout` is set) |
+| `printf(fmt, ...)` | [printf.c](printf.c) | Formatted output: `%d` decimal, `%o` octal, `%c` character, `%s` string |
+| `print_d(n)` | [print_d.c](print_d.c) | Print a signed decimal integer |
+| `print_o(n)` | [print_o.c](print_o.c) | Print an octal integer |
 | `b/tout(buf)` | [b_tout.madlen](b_tout.madlen) | Low-level: write a line buffer directly to stdout via extracode `*71` |
 
 ## String / Character Functions

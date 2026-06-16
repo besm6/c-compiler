@@ -35,6 +35,16 @@ cd build/semantic && ./semantic-tests
 ctest --test-dir build -R "Typecheck|Pipeline"
 ```
 
+**Runtime library (`libc.bin`).** The higher-level runtime routines live in
+`backend/besm6/libc/*.c` (e.g. `printf`, `print_d`, `print_o`, `read`, `write`, `writeb`,
+`flush`) and are compiled by our own toolchain (`parse → lower → genbesm` → `.madlen`) and
+assembled with the hand-written Madlen helpers (`b_*.madlen`, `char`, `lchar`, `b_tout`,
+`exit`) into `libc.bin` — see `backend/besm6/CMakeLists.txt` (`LIBC_C` / `LIBC_MADLEN`). The
+original B sources (`*.b`) are kept for reference only. To reference a `/`-named assembly
+helper from C, name it with `$` (e.g. `b$tout` → `b/tout`; the scanner accepts `$`, the
+backend sanitizes it to `/`). An `extern T name[]` array emits a `DeclareArray` TAC top-level
+so the backend treats the cross-module name as an array (decays to its label address).
+
 **Always run the BESM-6 tests (`besm-tests`) from `build/backend/besm6`** — the directory
 that holds the assembled runtime library `libc.bin`. The Dubna simulator job links
 `libc.bin` from the current working directory, so running from anywhere else uses a stale

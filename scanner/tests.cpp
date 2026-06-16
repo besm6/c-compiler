@@ -76,6 +76,19 @@ TEST_F(ScannerTest, HandlesIdentifiers)
     EXPECT_EQ(GetLexeme(), "_hidden123");
 }
 
+// Dollar sign is a legal identifier character (extension); the BESM-6 backend
+// sanitizes it to '/', enabling runtime-helper names such as b$tout -> b/tout.
+TEST_F(ScannerTest, HandlesDollarIdentifiers)
+{
+    SetInput("b$tout $start mid$dle");
+    EXPECT_EQ(GetNextToken(), TOKEN_IDENTIFIER);
+    EXPECT_EQ(GetLexeme(), "b$tout");
+    EXPECT_EQ(GetNextToken(), TOKEN_IDENTIFIER);
+    EXPECT_EQ(GetLexeme(), "$start");
+    EXPECT_EQ(GetNextToken(), TOKEN_IDENTIFIER);
+    EXPECT_EQ(GetLexeme(), "mid$dle");
+}
+
 // Test integer constants
 TEST_F(ScannerTest, HandlesIntegerConstants)
 {

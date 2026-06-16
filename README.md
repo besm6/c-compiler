@@ -26,6 +26,10 @@ A C11 compiler with a shared frontend and pluggable machine backends. Current ba
 
 **Note:** This compiler intentionally rejects identifier shadowing — a name declared in an inner block that duplicates any name in an enclosing scope is a compile error.
 
+**Extension:** `$` is accepted as an identifier character (as in GCC/Clang). This is used by the
+BESM-6 runtime library: the backend sanitizes `$` to `/`, so a C name like `b$tout` becomes the
+Madlen symbol `b/tout`, letting C source reference slash-named assembly helpers.
+
 If you only want to try the project: build it, run `parse` on a small `.c` file, and open the YAML or DOT output. You can also feed the `.ast` into `lower` to exercise analysis and TAC emission on supported code. See [Getting started](#getting-started) below.
 
 ## How the pieces fit together (architecture)

@@ -181,10 +181,15 @@ static void emit_shift(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_
 // the TAC carries the bare name in both cases, so ADD_PTR must distinguish them here.
 static bool global_is_array(const Tac_TopLevel *program, const char *name)
 {
-    for (const Tac_TopLevel *tl = program; tl; tl = tl->next)
+    for (const Tac_TopLevel *tl = program; tl; tl = tl->next) {
         if (tl->kind == TAC_TOPLEVEL_STATIC_VARIABLE &&
             strcmp(tl->u.static_variable.name, name) == 0)
             return tl->u.static_variable.type->kind == TAC_TYPE_ARRAY;
+        // An extern array (defined in another module) is recorded by DeclareArray.
+        if (tl->kind == TAC_TOPLEVEL_DECLARE_ARRAY &&
+            strcmp(tl->u.declare_array.name, name) == 0)
+            return true;
+    }
     return false;
 }
 

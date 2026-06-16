@@ -229,6 +229,10 @@ void tac_export_toplevel(WFILE *out, const Tac_TopLevel *tl)
         export_type(out, tl->u.static_constant.type);
         export_static_init(out, tl->u.static_constant.init);
         break;
+    case TAC_TOPLEVEL_DECLARE_ARRAY:
+        wputstr(tl->u.declare_array.name ? tl->u.declare_array.name : "", out);
+        wputw((size_t)tl->u.declare_array.size, out);
+        break;
     default:
         break;
     }

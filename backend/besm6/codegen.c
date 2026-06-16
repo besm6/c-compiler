@@ -28,6 +28,10 @@ void codegen_program(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *
     case TAC_TOPLEVEL_STATIC_CONSTANT:
         codegen_static_constant(tl, out);
         break;
+    case TAC_TOPLEVEL_DECLARE_ARRAY:
+        // Extern array declaration: allocates no storage and emits nothing.
+        // It only informs global_is_array() that the name decays to its address.
+        break;
     }
 }
 

@@ -4,6 +4,11 @@ module TAC {
     TopLevel = Function(identifier name, bool global, identifier* params, Instruction* body)
              | StaticVariable(identifier name, bool global, Type typ, StaticInit* init_list)
              | StaticConstant(identifier name, Type typ, StaticInit init)
+             -- DeclareArray: an array object defined in another translation unit
+             -- (extern T name[]).  It allocates no storage; it tells a backend that
+             -- `name` decays to its label address (not a pointer value loaded from it),
+             -- so cross-module array indexing resolves like a same-module array.
+             | DeclareArray(identifier name, int size)
 
     Instruction = Return(Val? src)
                 | SignExtend(Val src, Val dst)

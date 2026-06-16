@@ -75,7 +75,7 @@ again:
 
     // Scan tokens
     int token;
-    if (isalpha(next_char) || next_char == '_') {
+    if (isalpha(next_char) || next_char == '_' || next_char == '$') {
         token = scan_identifier();
     } else if (isdigit(next_char)) {
         token = scan_number();
@@ -307,7 +307,7 @@ static int scan_identifier(void)
             }
         }
     }
-    while (isalnum(next_char) || next_char == '_') {
+    while (isalnum(next_char) || next_char == '_' || next_char == '$') {
         consume_char();
     }
     int token = is_keyword(yytext);

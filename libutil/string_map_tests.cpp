@@ -212,6 +212,32 @@ TEST_F(StringMapTest, CondRemoveAll)
     EXPECT_TRUE(is_bst(map.root, NULL, NULL));
 }
 
+// Regression: a level removal that leaves a subtree unbalanced must rebalance
+// without losing nodes.  Removing the two level-2 keys here makes the root
+// right-heavy; the rebalance rotates, and the rotation's new subtree root must
+// be kept (a past bug discarded it, orphaning two surviving level-0 keys).
+TEST_F(StringMapTest, RemoveLevelRebalancePreservesNodes)
+{
+    map_insert(&map, "writeb", 1, 0);
+    map_insert(&map, "foo", 2, 0);
+    map_insert(&map, "fmt", 3, 1);
+    map_insert(&map, "args", 4, 1);
+    map_insert(&map, "ap", 5, 2);
+    map_insert(&map, "a", 6, 2);
+
+    map_remove_level(&map, 1); // remove level > 1 (a, ap)
+    EXPECT_EQ(count_nodes(map.root), 4);
+    EXPECT_TRUE(is_balanced(map.root));
+    EXPECT_TRUE(is_bst(map.root, NULL, NULL));
+    intptr_t v;
+    EXPECT_TRUE(map_get(&map, "writeb", &v));
+    EXPECT_TRUE(map_get(&map, "foo", &v));
+    EXPECT_TRUE(map_get(&map, "fmt", &v));
+    EXPECT_TRUE(map_get(&map, "args", &v));
+    EXPECT_FALSE(map_get(&map, "ap", &v));
+    EXPECT_FALSE(map_get(&map, "a", &v));
+}
+
 // Test remove short keys
 TEST_F(StringMapTest, CondRemoveShortKeys)
 {

@@ -236,6 +236,11 @@ void tac_free_toplevel(Tac_TopLevel *toplevel)
         tac_free_type(toplevel->u.static_constant.type);
         tac_free_static_init(toplevel->u.static_constant.init);
         break;
+    case TAC_TOPLEVEL_DECLARE_ARRAY:
+        if (toplevel->u.declare_array.name) {
+            xfree(toplevel->u.declare_array.name);
+        }
+        break;
     }
     tac_free_toplevel(toplevel->next);
     xfree(toplevel);

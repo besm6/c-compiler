@@ -7,7 +7,10 @@ The backend consumes binary TAC produced by `lower` and emits Madlen assembly (`
 
 | #  | Task | Description |
 |----|------|-------------|
-| 37 | Rewrite libc/*.b routines into C | TODO |
+| 38 | Assembler for Unix | TODO |
+| 39 | Linker for Unix | TODO |
+| 40 | Tests from the book | Port tests from the Writing a C Compiler book |
+| 41 | Get rid of DeclareArray | `DeclareArray` TAC top-level (`tac/tacky.asdl` / `tac/tac.h`): records an `extern T name[]` so a backend knows the name decays to its label address  (cross-module array indexing); `global_is_array` consults it. Why do we need it? Fix translator instead. |
 
 ### Phase X — Deferred / future
 

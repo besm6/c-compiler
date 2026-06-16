@@ -382,7 +382,7 @@ Tac_TopLevel *tac_import_toplevel(WFILE *in)
     if (tag == TAG_EOL) {
         return NULL;
     }
-    if (tag < TAG_TAC_TOPLEVEL || tag > TAG_TAC_TOPLEVEL + TAC_TOPLEVEL_STATIC_CONSTANT) {
+    if (tag < TAG_TAC_TOPLEVEL || tag > TAG_TAC_TOPLEVEL + TAC_TOPLEVEL_DECLARE_ARRAY) {
         fprintf(stderr, "Error: bad TAC tag 0x%zx (expected 0x%x)\n", tag, TAG_TAC_TOPLEVEL);
         return NULL;
     }
@@ -409,6 +409,12 @@ Tac_TopLevel *tac_import_toplevel(WFILE *in)
         check_input(in, "static_constant name");
         tl->u.static_constant.type = import_type(in);
         tl->u.static_constant.init = import_static_init(in);
+        break;
+    case TAC_TOPLEVEL_DECLARE_ARRAY:
+        tl->u.declare_array.name = wgetstr(in);
+        check_input(in, "declare_array name");
+        tl->u.declare_array.size = (int)wgetw(in);
+        check_input(in, "declare_array size");
         break;
     default:
         break;

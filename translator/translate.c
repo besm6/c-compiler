@@ -517,7 +517,15 @@ static Tac_TopLevel *translate_decl(const Declaration *decl)
         if (id->type->kind == TYPE_FUNCTION) {
             continue; // prototype — no TAC needed
         } else if (sym->u.static_var.init_kind == INIT_NONE) {
-            continue; // extern-only declaration — no storage to allocate
+            // extern-only declaration — no storage to allocate.  For an array,
+            // still record its array-ness so a backend can tell that the name
+            // decays to its label address rather than holding a pointer value.
+            if (sym->type->kind != TYPE_ARRAY)
+                continue;
+            tl                       = tac_new_toplevel(TAC_TOPLEVEL_DECLARE_ARRAY);
+            tl->u.declare_array.name = xstrdup(id->name);
+            // Size is informational; an incomplete extern array (int arr[]) reports 0.
+            tl->u.declare_array.size = sym->type->u.array.size ? (int)get_size(sym->type) : 0;
         } else {
             tl                              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
             tl->u.static_variable.name      = xstrdup(id->name);

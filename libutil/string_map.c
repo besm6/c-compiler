@@ -125,8 +125,9 @@ static StringNode *rebalance_tree(StringNode *node)
     node->left  = rebalance_tree(node->left);
     node->right = rebalance_tree(node->right);
 
-    rebalance(node);
-    return node;
+    // rebalance() may rotate, changing the subtree root, so return its result
+    // rather than the original node (otherwise the new root is orphaned).
+    return rebalance(node);
 }
 
 // Initialize the map

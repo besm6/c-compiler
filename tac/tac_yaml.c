@@ -897,5 +897,10 @@ void tac_export_yaml(FILE *fd, const Tac_TopLevel *tl)
             export_yaml_static_init(fd, tl->u.static_constant.init, 2);
         }
         break;
+    case TAC_TOPLEVEL_DECLARE_ARRAY:
+        fprintf(fd, "  kind: declare_array\n");
+        fprintf(fd, "  name: %s\n", tl->u.declare_array.name ? tl->u.declare_array.name : "");
+        fprintf(fd, "  size: %d\n", tl->u.declare_array.size);
+        break;
     }
 }

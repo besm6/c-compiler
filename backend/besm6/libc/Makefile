@@ -1,3 +1,9 @@
+# LEGACY.  The runtime library is built by CMake (see ../CMakeLists.txt): the C
+# routines are compiled by this project's own toolchain (parse -> lower ->
+# genbesm) and assembled with the hand-written Madlen helpers into libc.bin.
+# This Makefile predates that and refers to the retired B-compiler workflow; it
+# is kept only for reference.
+
 B_SOURCES = printd.b printo.b printf.b read.b write.b writeb.b flush.b
 
 B_ASM = $(patsubst %.b,%.madlen,$(B_SOURCES))

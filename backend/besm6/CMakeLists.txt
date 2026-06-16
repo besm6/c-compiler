@@ -17,26 +17,52 @@ target_include_directories(besm PUBLIC .)
 target_link_libraries(besm tac libutil)
 
 #
-# C runtime library: assemble *.madlen sources into libc.bin for the Dubna simulator.
+# C runtime library: assemble the runtime helpers into libc.bin for the Dubna simulator.
+#
+# Two kinds of sources:
+#   * hand-written Madlen helpers (LIBC_MADLEN) — calling convention, arithmetic,
+#     comparisons, byte access, b/tout, exit;
+#   * higher-level routines written in C (LIBC_C), compiled by our own toolchain
+#     (parse -> lower -> genbesm) into Madlen and assembled alongside the helpers.
 #
 set(LIBC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libc)
 set(LIBC_MADLEN
     b_div b_eq b_ge b_gt b_le b_lt b_mod b_mul b_ne b_not
     b_ret b_save0 b_save b_tout b_true char exit lchar
-    printd printo printf read write writeb flush
     b_udiv b_umod b_ult b_ule b_ugt b_uge b_dtoi b_dtou b_utod b_uneg
     b_lsh b_rsh b_uadd b_usub b_umul
     b_flt b_fle b_fgt b_fge b_stb b_padd b_pinc b_pdec b_pdiff)
 list(TRANSFORM LIBC_MADLEN PREPEND ${LIBC_DIR}/ OUTPUT_VARIABLE LIBC_SOURCES)
 list(TRANSFORM LIBC_SOURCES APPEND .madlen)
 
+# C runtime routines compiled by our own pipeline.  Each NAME.c becomes NAME.madlen
+# in the build directory via parse -> lower -> genbesm.  besmc only recognizes the
+# .madlen extension, so genbesm writes there.
+set(LIBC_C
+    print_o print_d writeb write flush printf read)
+set(LIBC_C_MADLEN "")
+foreach(name ${LIBC_C})
+    set(c_src  ${LIBC_DIR}/${name}.c)
+    set(c_ast  ${CMAKE_CURRENT_BINARY_DIR}/${name}.ast)
+    set(c_tac  ${CMAKE_CURRENT_BINARY_DIR}/${name}.tac)
+    set(c_mad  ${CMAKE_CURRENT_BINARY_DIR}/${name}.madlen)
+    add_custom_command(
+        OUTPUT  ${c_mad}
+        COMMAND parse   ${c_src} ${c_ast}
+        COMMAND lower   ${c_ast} ${c_tac}
+        COMMAND genbesm ${c_tac} ${c_mad}
+        DEPENDS ${c_src} parse lower genbesm
+        COMMENT "Compiling libc/${name}.c -> ${name}.madlen")
+    list(APPEND LIBC_C_MADLEN ${c_mad})
+endforeach()
+
 add_custom_command(
     OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/libc.bin
-    COMMAND besmc -c ${LIBC_SOURCES} -o ${CMAKE_CURRENT_BINARY_DIR}/libc.obj
+    COMMAND besmc -c ${LIBC_SOURCES} ${LIBC_C_MADLEN} -o ${CMAKE_CURRENT_BINARY_DIR}/libc.obj
     COMMAND ${CMAKE_COMMAND} -E rename
             ${CMAKE_CURRENT_BINARY_DIR}/libc.obj
             ${CMAKE_CURRENT_BINARY_DIR}/libc.bin
-    DEPENDS ${LIBC_SOURCES}
+    DEPENDS ${LIBC_SOURCES} ${LIBC_C_MADLEN}
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Assembling BESM-6 C runtime library (libc.bin)")
 
