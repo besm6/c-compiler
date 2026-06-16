@@ -100,23 +100,11 @@ Two cross-cutting rules govern this phase:
   in the backend test files pin exact instruction sequences and will shift as rewrites land;
   the `CompileAndRun` results (actual computed values under Dubna) must stay identical.
 
-#### Instruction-selection improvements
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 34 | Direct symbolic global addressing | Investigate replacing the `utc name` / `xta 0` pair that `emit_xta_val` / `emit_arith_val` ([emit.c](emit.c)) emit for every global with a direct `xta name` (and the matching `atx` / `a+x` forms), where the Dubna single-pass assembler and linker permit a relocatable symbol in the address field. Keep `utc` for the index-register-based forms (array indexing, `&global`). Needs simulator validation before adoption. | M |
-
 #### Frame allocation
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
 | 35 | Frame-slot reuse via liveness | `frame_build` ([frame.c](frame.c)) currently gives every distinct `%`-name its own auto slot (`assign_if_new`). Add a linear-scan liveness pass over `%`-temporaries so non-overlapping temporaries share one auto slot, shrinking `num_autos` and the prologue `utm 15` stack extension. The no-shadowing rule keeps name→slot mapping unambiguous. | M–L |
-
-#### Control flow
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 36 | Switch jump-table optimization | For dense case ranges, replace the linear compare chain with an index-scaled `utc` / `uj` dispatch through a table of `,oct, label` words. | M |
 
 ### Phase N — Deferred / future
 
@@ -124,3 +112,4 @@ Two cross-cutting rules govern this phase:
 |---|------|-------------|--------|
 | 101 | Two-word `long long` / `unsigned long long` | Two-word load/store and software add/sub/mul/div/compare. First fix `codegen_sizeof` in [abi.h](abi.h), which currently returns 1 word for these two-word types. | XL |
 | 102 | Two-word `long double` | Two-word native-FP arithmetic (80-bit mantissa, 14-bit exponent biased 8192) via runtime helpers, using the Y/RMR register for double-width intermediates. | XL |
+| 103 | Switch jump-table optimization | For dense case ranges, replace the linear compare chain with an index-scaled `utc` / `uj` dispatch through a table of `,log, label` words. | M |

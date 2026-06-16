@@ -115,6 +115,21 @@ Effective address: `EA = (M[reg] + offset + C) mod 0100000`
 The C register is added to EA by both formats, but **reset to 0 after every instruction
 except UTC (022) and WTC (023)**.
 
+### Addressing range and symbolic globals
+
+The address space is 15 bits (32,768 words), but a Format 1 instruction's offset field is
+only **12 bits**, so XTA (010), ATX (000), A+X (004) and the other short-format
+memory-reference instructions can directly reach only offsets 0–04095 (plus any
+index-register / C contribution). A full 15-bit symbolic address — e.g. an arbitrary
+module-level global — does **not** fit in their address field.
+
+To reference such an address the compiler must first load it into the C register with
+`utc name` (Format 2, 15-bit offset; C survives into the next instruction) or into an index
+register, and only then issue a bare `xta` / `atx` / `a+x` that reads or writes `mem[C]`.
+There is no "direct symbolic global" short form — this is why the BESM-6 backend emits the
+`utc name` + bare-load/store idiom for every global access rather than a single
+`xta name`.
+
 ---
 
 ## 4. The AU Mode Register R
