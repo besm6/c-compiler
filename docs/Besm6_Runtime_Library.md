@@ -55,6 +55,51 @@ from the helper convention.
 
 ---
 
+### ω mode and the AU mode register R
+
+Every helper runs under a contract on the AU mode register `R` with **two independent
+axes** (see [Besm6_Instruction_Set.md](Besm6_Instruction_Set.md) §4 for the bit layout):
+
+- **NTR / suppress mode (bits 1–2): `NTR 3`** — normalization *and* rounding disabled.
+  This is the integer-arithmetic configuration and it holds **at entry and on exit**.
+- **ω mode (bits 3–5): unknown on entry, logical on exit.** On entry ω is whatever the
+  caller's last ALU op left; on exit it must be **logical** so the caller's following
+  `uza`/`u1a` test the value (A = 0?) rather than its sign or magnitude.
+
+So the contract is: **enter with `NTR 3` / ω unknown, exit with `NTR 3` / ω = logical.**
+
+`b/save` writes `,ntr, 7`, and `7 = 3 | 004` — i.e. `NTR 3` suppression **plus** the
+logical-ω bit. So the register literally *reads* 7 right after `b/save` and again at every
+conforming helper's exit; the part that defines the contract and survives arbitrary
+ω-setting ops is the `NTR 3` suppression, with logical ω layered on top.
+
+**Why the two axes are independent.** An ω-setting instruction (any logical / additive /
+multiplicative op) rewrites **only** the ω-group bits 3–5 and *preserves* the `NTR 3`
+suppress bits (this is the dubna emulator's `set_logical`/`set_additive`/
+`set_multiplicative`, which mask with `RAU_MODE` = 034). Two consequences:
+
+- A helper that never disturbs the suppress bits keeps `NTR 3` for free; it only has to
+  make sure its **last** ALU op is logical so ω ends logical. Most helpers (compares,
+  shifts, byte access, pointer inc/dec) get this automatically.
+- A helper that drops to full FP mode (`,ntr,` = `R := 0`) for a normalize/round/divide
+  step must restore the suppress bits before returning. There are two idioms:
+  - **explicit:** end with `,ntr, 7` *after* the final conditional branch (the FP
+    comparisons and `b/utod`). `NTR` overwrites the ω flag, so it must follow any
+    `uza`/`u1a` that tests the result.
+  - **implicit:** end with `,ntr, 3` (suppress restored, ω = none) followed by a final
+    logical op — a masking `aax`, or a no-op `,aox,` that ORs `mem[0] = 0` into A without
+    changing it. The logical op sets ω = logical while leaving the suppress bits, so the
+    register lands on `R = 7` (`b/div`, `b/mod`, `b/mul`, `b/dtoi`, `b/dtou`, `b/padd`).
+
+**Exceptions** are noted at each helper below. The cases worth flagging are the unsigned
+arithmetic helpers and `b/pdiff`, whose natural last op is a cyclic-add (`arx`, →
+multiplicative ω) or a subtract (`a-x`, → additive ω); each appends a no-op `,aox,` to land
+back on logical ω. `b/uneg` additionally prepends an `,aox,` so its leading zero test runs
+in logical ω regardless of the caller's entry ω. `b/ret` is the C-ABI epilogue and is
+discussed with the ABI routines.
+
+---
+
 ### `b/save` — [b_save.madlen](../backend/besm6/libc/b_save.madlen)
 
 Called on entry to every C function that has **one or more parameters**.
@@ -134,6 +179,15 @@ jumping to `b/ret`.
 **Actions:** restores the caller's r5, r6, r7, and r13; unwinds r15 to the level it had
 before any arguments were pushed; then jumps to r13.
 
+The `7 ,stx, -5` stashes the return value at the bottom of the saved-register block; the
+four `,sti,` pops then restore r5/r6/r7/r13 and the *last* pop reloads that stashed value
+back into A — so the return value survives the unwind.
+
+*ω/NTR:* `b/ret` issues no `NTR` and does no arithmetic, so the `NTR 3` suppress bits pass
+through from the function body (which must have kept them). The `,sti,` pop-chain is logical,
+so A is delivered to the caller in **ω = logical**. This is the C-ABI epilogue, not a
+lightweight helper, but it honours the same exit state.
+
 ---
 
 ### `b/true` — [b_true.madlen](../backend/besm6/libc/b_true.madlen)
@@ -181,6 +235,10 @@ Computes `a * b` (signed, low 41-bit result).
 so it is valid only where each operand fits the 41-bit signed range. Unsigned multiply over
 the full 48-bit range uses `b/umul` (see *Unsigned Integer Arithmetic* below).
 
+*ω/NTR:* the helper enables normalization for the FP multiply (`ntr 2`), then returns the
+suppress bits with `ntr 3`; the closing `aax` mask is a logical op, so the exit lands on
+**`NTR 3` / ω = logical** (`R = 7`) — the implicit-restore idiom.
+
 #### `b/div` — [b_div.madlen](../backend/besm6/libc/b_div.madlen)
 
 Computes `a / b` (signed, truncated toward zero — C11 §6.5.5).
@@ -197,10 +255,13 @@ the fraction rounds toward −∞ (floors). To get C truncation, the helper divi
    7777` masks to the 41-bit result. Because the operands are non-negative, this truncates
    toward zero.
 4. `avx` against the saved sign word negates the quotient when the operand signs differ.
-5. A final `aox` (OR with `mem[0] = 0`, leaving the accumulator unchanged) restores the
-   **logical ω-mode** that callers expect on return — the additive ω-mode left by the
-   sign-reapply `avx` would otherwise invert the next `uza`/`u1a` test in the caller (e.g.
-   printf's decimal-digit loop).
+
+*ω/NTR:* the divide runs in full FP mode (`ntr 0`); the helper then sets `ntr 3` to restore
+the suppress bits, and the **exponent-strip mask `aax`** — physically the last instruction,
+after the sign-reapply `avx` — is itself a logical op, so it both extracts the 41-bit result
+*and* leaves **`NTR 3` / ω = logical** (`R = 7`). No separate `aox` is needed: the logical ω
+the caller expects (otherwise the additive ω left by `avx` would invert the next
+`uza`/`u1a`, e.g. printf's decimal-digit loop) is supplied by that mask.
 
 #### `b/mod` — [b_mod.madlen](../backend/besm6/libc/b_mod.madlen)
 
@@ -221,8 +282,13 @@ word).
    =:64` under R = 3 drops the fraction; no separate mask is needed mid-computation).
 3. `a*x` forms `|q| · |b|`; `x-a` against the still-saved `|a|` yields `|r|`.
 4. `a+x, =:64` + `aax, =377777 77777777` extract `|r|` as a raw integer.
-5. `avx` against the raw dividend `a` reapplies its sign, then the trailing `aox`
-   restores logical ω-mode (as in `b/div`).
+5. `avx` against the raw dividend `a` reapplies its sign, then a trailing `aox` (OR with
+   `mem[0] = 0`, A unchanged) restores logical ω.
+
+*ω/NTR:* the divide and the `|q|·|b|` multiply/subtract run in full FP mode (`ntr 0`),
+bracketed back to `ntr 3` for the integer extractions. The sign-reapply `avx` leaves
+additive ω, so unlike `b/div` (whose terminal *mask* `aax` doubles as the logical op) `b/mod`
+appends an explicit no-op `,aox,`; the exit is **`NTR 3` / ω = logical** (`R = 7`).
 
 ---
 
@@ -247,11 +313,21 @@ modular sum in A. Adds the two operands in 24-bit half-words with explicit carry
 from the low half into the high half, so the exponent-field bits participate as plain value
 bits. Overflow wraps modulo 2⁴⁸.
 
+*ω/NTR:* the helper drives the bit-48 tests with `ntr 8+3` (`R = 013`: multiplicative ω +
+`NTR 3` suppression — `uza` then tests A[48]), so it does **not** depend on the entry ω. The
+core sum is `arx`, which leaves *multiplicative* ω; each return path therefore ends with a
+no-op `,aox,` (OR `mem[0] = 0`) to land on **`NTR 3` / ω = logical** (`R = 7`). (The two
+single-`*large` paths already close with the bit-48-restore `aex`, a logical op.)
+
 #### `b/usub` — [b_usub.madlen](../backend/besm6/libc/b_usub.madlen) — `a − b` (unsigned)
 
 Returns the 48-bit modular difference `a − b` in A. Negates `b` (complement plus one) and
 adds it to `a`, handling the bit-48 carry explicitly so the exponent-field bits participate
 as plain value bits. Underflow wraps modulo 2⁴⁸.
+
+*ω/NTR:* the entry `ntr 7` sets logical ω for the `b == 0` test (so the helper is
+entry-ω-agnostic). The `b == 0` path closes with `stx` (logical); the general path tail-jumps
+into `b/uadd` and inherits its restored exit. Either way: **`NTR 3` / ω = logical** (`R = 7`).
 
 #### `b/umul` — [b_umul.madlen](../backend/besm6/libc/b_umul.madlen) — `a * b` (unsigned)
 
@@ -455,6 +531,10 @@ not fit the 41-bit signed range and overflow (implementation-defined, C11 §6.3.
 `float` and `double` use the same 48-bit format on BESM-6, so `b/dtoi` serves both
 `(int)f` and `(int)d`.
 
+*ω/NTR:* full FP mode (`ntr 0`) for the `AVX` magnitude, then `ntr 3` for the realign; the
+closing exponent-mask `aax` is logical, so the exit is **`NTR 3` / ω = logical** (`R = 7`) —
+the implicit-restore idiom (same as `b/div`).
+
 #### `b/dtou` — [b_dtou.madlen](../backend/besm6/libc/b_dtou.madlen) — `double` → unsigned `int`
 
 Receives the FP value in A; returns the full 48-bit unsigned result in A. The signed
@@ -463,6 +543,9 @@ realign+mask only recovers 41 bits, so for the whole unsigned range `b/dtou` mir
 each extracted with the realign primitive (both intermediates non-negative, so no sign
 handling), then recombined as `(hi << 24) | lo`. `(unsigned)` of a negative or ≥ 2⁴⁸ value
 is undefined, as in C.
+
+*ω/NTR:* alternates `ntr 0` (FP multiply / normalize) and `ntr 3` (realign) per half; the
+final recombine `aox` is logical, so the exit is **`NTR 3` / ω = logical** (`R = 7`).
 
 #### `b/utod` — [b_utod.madlen](../backend/besm6/libc/b_utod.madlen) — unsigned `int` → `double`
 
@@ -474,6 +557,10 @@ converted with the INT-format-then-normalise trick and the result recombined in 
 point as `(double)hi · 2²⁴ + (double)lo`. Inputs with more than 40 significant bits round
 to the 40-bit mantissa (unavoidable). `float` shares the format, so `b/utod` serves both
 `(double)u` and `(float)u`.
+
+*ω/NTR:* runs the conversions in full FP mode (`ntr 0`) and restores **explicitly** with a
+trailing `,ntr, 7` before the final `utm`/return, so the exit is **`NTR 3` / ω = logical**
+(`R = 7`).
 
 ---
 
@@ -499,7 +586,11 @@ back, and returns the stored byte in A.
 Increment/decrement a fat pointer by one byte. Operand in A, result in A (no stack). The
 common case adjusts `offset_enc` by ∓1 with a single end-around add; the wrap case rebuilds
 the marker with the boundary `offset_enc` (5 for `++`, 0 for `--`) and steps the word
-address. `R` is left unchanged.
+address.
+
+*ω/NTR:* no `NTR` of its own, so the `NTR 3` suppress bits pass through untouched; every path
+ends with a logical `aox`, so the exit is **`NTR 3` / ω = logical** (`R = 7`). (The interior
+`arx` end-around adds leave multiplicative ω transiently, but a logical op always follows.)
 
 #### `b/padd` — [b_padd.madlen](../backend/besm6/libc/b_padd.madlen) — fat pointer + signed byte count
 
@@ -512,6 +603,11 @@ normalized INT-format operands (masking the fraction rounds toward −∞); the 
 first biased by a multiple of 6 large enough to be non-negative (INT-format misreads a
 negative two's-complement mantissa) and the bias is subtracted back from the quotient.
 
+*ω/NTR:* the initial `byte# + delta` and bias adds run as raw integer adds, relying on the
+**`NTR 3`** suppress bits at entry; the divide drops to `ntr 0`, then the helper restores
+**explicitly** with `,ntr, 7` for the `m − 6q` and `word'` integer arithmetic. The closing
+`aox` (OR the marker word) is logical, so the exit is **`NTR 3` / ω = logical** (`R = 7`).
+
 #### `b/pdiff` — [b_pdiff.madlen](../backend/besm6/libc/b_pdiff.madlen) — fat pointer − fat pointer
 
 Computes the `ptrdiff_t` byte distance between two `char*`/`void*` fat pointers: `p - q`.
@@ -519,8 +615,12 @@ Convention: minuend `a` (= `p`) on the stack top (popped), subtrahend `b` (= `q`
 signed result in A. Each pointer is decoded to an absolute byte position
 `abs = word*6 + byte#` (`byte# = 5 - offset_enc`, or 0 if the marker is clear — a bare
 array/struct address starts at byte #0) and the result is `abs(a) - abs(b)`. `sizeof(char)`
-is 1, so no scaling is applied. All raw integer mode (`R = 7` at entry): no normalization and
-no division (`6*word = 2*word + 4*word` via shifts).
+is 1, so no scaling is applied. All raw integer mode: no normalization and no division
+(`6*word = 2*word + 4*word` via shifts), relying on the **`NTR 3`** suppress bits at entry.
+
+*ω/NTR:* the final `a-x` (the `abs(a) - abs(b)` subtract) leaves *additive* ω, so the helper
+appends a no-op `,aox,` to land on **`NTR 3` / ω = logical** (`R = 7`) — without it a caller
+that branched on the difference would get the additive sign test instead of a zero test.
 
 ---
 

@@ -59,7 +59,8 @@ c  --- abs(b) = word_b*6 + byte#_b -> bb ---
             ,atx, bb
 c  --- result = abs(a) - abs(b) ---
      bbare: ,xta, aa
-            ,a-x, bb             . R = 7: raw integer subtract
+            ,a-x, bb             . R = 7: raw integer subtract (a-x sets additive w)
+            ,aox,                . OR mem[0]=0: ACC unchanged, restore logical w-mode
         13 ,uj,
 c
          a: ,bss, 1

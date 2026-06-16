@@ -148,10 +148,19 @@ YTA.
 | 001 | 1 | Logical | ω = (A ≠ 0) |
 | 000 | 0 | None | ω = 1 always (branch always taken by U1A) |
 
-When an instruction **sets** a new mode, it clears bits 5–3 and writes exactly one of the
-three mode bits. Bits 6, 2, and 1 (overflow/rounding/normalization suppression) are
-cleared at the same time by the hardware; to preserve them across a mode change the
-programmer must save and restore R manually with XTR/NTR.
+When an instruction **sets** a new mode, it rewrites **only** the ω-group (bits 5–3):
+it clears those three bits and writes exactly one of the three mode bits. Bits 6, 2, and 1
+(overflow/rounding/normalization suppression) are **preserved** — an ω-setting op does not
+touch them. In the dubna emulator this is `CoreState::set_logical/set_additive/
+set_multiplicative` (`processor.h`), each `RAU &= ~RAU_MODE; RAU |= <group>` with
+`RAU_MODE = 034`. Only `XTR`/`NTR` (and a reset) change the suppress bits.
+
+This is what lets the runtime helpers hold an `NTR 3` (suppress norm + round)
+configuration across a chain of logical/arithmetic ops while only the ω axis varies, and
+why a helper that has dropped to `NTR 0` for an FP step can return to `R = 7` either with an
+explicit `NTR 7` or with `NTR 3` followed by any logical op (which restores ω = logical
+without disturbing the suppress bits). See
+[Besm6_Runtime_Library.md](Besm6_Runtime_Library.md) § *ω mode and the AU mode register R*.
 
 ### How each instruction affects R
 
@@ -159,8 +168,8 @@ programmer must save and restore R manually with XTR/NTR.
 |-------------|-------------|
 | **Additive** (bits 5–3 = 100) | A+X, A-X, X-A, AMX, AVX |
 | **Multiplicative** (bits 5–3 = 010) | A*X, A/X, ARX, E+X, E-X, E+N, E-N |
-| **Logical** (bits 5–3 = 001) | XTA, STX, XTS, AAX, AEX, AOX, APX, AUX, ACX, ANX, ASX, ASN, ATI, STI, ITA, ITS, all extracodes (050–077, 020, 021) |
-| **Kept** (R unchanged) | ATX, MTJ, J+M, UTC, WTC, VTM, UTM, UJ, VJM, VZM, V1M, VLM, *36, STOP |
+| **Logical** (bits 5–3 = 001) | XTA, STX, XTS, AAX, AEX, AOX, APX, AUX, ACX, ANX, ASX, ASN, STI, ITA, ITS, all extracodes (050–077, 020, 021) |
+| **Kept** (R unchanged) | ATX, ATI, MTJ, J+M, UTC, WTC, VTM, UTM, UJ, VJM, VZM, V1M, VLM, *36, STOP |
 | **As set by operand** | XTR sets R = X[47:42]; NTR sets R = EA[6:1] |
 | **Used** (reads R, then kept) | UZA, U1A, YTA, RTE |
 

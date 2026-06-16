@@ -3,8 +3,10 @@ c
 c Compute unary negate operation for unsigned value.
 c
     b/true: ,subp,
-         13 ,uza,                   . -0u -> 0u
+            ,aox,                   . OR mem[0]=0: ACC unchanged, set logical w so uza tests x==0
+         13 ,uza,                   . -0u -> 0u  (returns with logical w from the aox above)
             ,aex, =7777 7777 7777 7777
-            ,arx, b/true            . ~x + 1
+            ,arx, b/true            . ~x + 1   (arx sets multiplicative w)
+            ,aox,                   . OR mem[0]=0: ACC unchanged, restore logical w-mode
          13 ,uj,
             ,end,

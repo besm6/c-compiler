@@ -12,6 +12,7 @@ c
 c
          15 ,arx,                   . add A[47:1] + B[47:1]
          15 ,utm, -1                . drop A from stack
+            ,aox,                   . OR mem[0]=0: ACC unchanged, restore logical w-mode
          13 ,uj,
 c
    b*large: ,bss,                   . bit B[48] == 1
@@ -35,5 +36,6 @@ c
             ,aex, =:4               . clear bit 48 of A
          15 ,arx,                   . add A[47:1] + B[47:1]
          15 ,utm, -1                . drop A from stack
+            ,aox,                   . OR mem[0]=0: ACC unchanged, restore logical w-mode
          13 ,uj,
             ,end,
