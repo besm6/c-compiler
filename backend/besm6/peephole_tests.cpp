@@ -179,6 +179,69 @@ TEST_F(CodegenTest, FpCoalesceBehaviorUnchanged)
     EXPECT_EQ("4210000000000000\n", out);
 }
 
+// Task #30 — compare → branch fusion.  A relational helper's 0/1 result that feeds a
+// JUMP_IF_ZERO is consumed directly by the conditional branch: no boolean temp is stored
+// or reloaded.  This is the emergent product of rule #27 (which drops the reload) and rule
+// #28 (which drops the now-dead store), made correct by the runtime helpers' logical-ω
+// exit contract — every comparison helper leaves ω consistent with its returned A, so the
+// `,uza,` tests the result without a reload.  See docs/Peephole_Rewrites.md §5.4 and the
+// "ω mode and the AU mode register R" section of docs/Besm6_Runtime_Library.md.
+//
+// The fused shape is `xta / xts / ,call, b/lt / ,uza,` with no `,atx,`/`,xta,` of the
+// comparison temporary between the call and the branch.
+TEST_F(CodegenTest, CompareBranchFused)
+{
+    std::string output =
+        CompileToMadlen("extern int g; void foo(int a, int b) { if (a < b) g = 1; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,xta,
+           6 ,xts, 1
+             ,call, b/lt
+             ,uza, *1
+             ,xta, =1
+             ,utc, g
+             ,atx,
+             ,uj, *2
+       *1:   ,bss,
+       *2:   ,bss,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// Behavior guard for the compare → branch fusion across signedness and FP: each
+// comparison drives an if/else and prints a distinguishing digit (the listing path
+// upper-cases output, so letters cannot encode a true/false distinction).  The expected
+// string 0101110 is, in order: a<b (7<4) 0, a>b 1, a==b 0, a!=b 1, ua<ub (3<9) 1,
+// x<y (1.5<2.5) 1, x>=y 0 — confirming every helper's ω feeds the branch correctly.
+TEST_F(CodegenTest, CompareBranchFusedBehaviorUnchanged)
+{
+    std::string out = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program(void) {
+            volatile int a = 7, b = 4;
+            volatile unsigned ua = 3u, ub = 9u;
+            volatile double x = 1.5, y = 2.5;
+            printf("%d", (a < b) ? 1 : 0);
+            if (a > b)   printf("1"); else printf("0");
+            if (a == b)  printf("1"); else printf("0");
+            if (a != b)  printf("1"); else printf("0");
+            if (ua < ub) printf("1"); else printf("0");
+            if (x < y)   printf("1"); else printf("0");
+            if (x >= y)  printf("1"); else printf("0");
+            printf("\n");
+        }
+    )");
+    EXPECT_EQ("0101110\n", out);
+}
+
 // Behavior must be unchanged with the pass on (the pass is always on): the
 // store/reload that rule #27 collapses is on the a+b path of this program.
 TEST_F(CodegenTest, ArithmeticBehaviorUnchanged)

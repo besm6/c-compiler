@@ -19,7 +19,11 @@
 //
 // Currently implemented: the framework itself (this file), rule #27 (redundant reload
 // elimination), rule #28 (dead temp-store elimination) and rule #29 (NTR mode
-// coalescing).  Rules #30–#32 append entries to the rule table below.
+// coalescing).  Rule #30 (compare → branch fusion) needs no dedicated code: it is the
+// emergent product of #27 (which drops the boolean reload) and #28 (which drops the
+// now-dead boolean store), made correct by the runtime helpers' logical-ω exit contract
+// (see docs/Besm6_Runtime_Library.md, "ω mode and the AU mode register R").  Rules
+// #31–#32 would append entries to the rule table below.
 //
 
 //
@@ -27,8 +31,9 @@
 //
 // A value in A is described by the frame slot it mirrors: register (r6/r7) plus
 // offset.  Most rewrites are licensed by knowing "A currently holds slot (reg,off)".
-// The mode register R is also tracked (for NTR mode coalescing, rule #29); the
-// logical flag ω is machine state the compare→branch rule (#30) will add when it lands.
+// The mode register R is also tracked (for NTR mode coalescing, rule #29).  The logical
+// flag ω is not tracked: compare → branch fusion (#30) falls out of #27 + #28 and relies
+// on the helpers' logical-ω exit contract rather than on ω state carried by this pass.
 //
 typedef struct {
     bool a_known; // true: A mirrors the frame slot below
@@ -138,7 +143,9 @@ static bool rule_redundant_ntr(const Besm_Instr *cur, const PeepState *st)
 
 //
 // Rule table.  Each rule inspects the cursor instruction and the tracked state and
-// returns true when the cursor should be deleted.  Rules #30–#32 append here.
+// returns true when the cursor should be deleted.  (Rule #30, compare → branch fusion,
+// needs no entry — it is realized by #27 + #28; see the file header.)  Rules #31–#32
+// would append here.
 //
 // Rule #28 (dead temp-store elimination) is *not* a table entry: deciding whether an
 // `atx` is dead needs forward look-ahead within the block plus the frame's temp-slot

@@ -104,7 +104,6 @@ Two cross-cutting rules govern this phase:
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 30 | Compare → branch fusion | A relational-helper result (`b/eq` … `b/uge`, `b/flt` … `b/fge`) that feeds a `JUMP_IF_ZERO` / `JUMP_IF_NOT_ZERO`: drop the store+reload of the boolean temp and branch on ω directly, e.g. `call b/lt` / `uza L`. Requires confirming on the simulator that the helpers leave ω consistent with A and that `atx` preserves ω. | S–M |
 | 31 | Branch / label cleanup | Drop a `uj` whose target is the immediately following label; remove the duplicate `uj b/ret` (RETURN emits one and the epilogue emits another — already flagged as dead in [instr.c](instr.c)); delete instructions between an unconditional `uj` and the next label as unreachable; invert a conditional that only skips an unconditional jump (`uza L` / `uj M` / `L:` ⇒ `u1a M`). | S |
 | 32 | Pointer-register reuse | Back-to-back `LOAD`/`STORE` through the same pointer each reload `ati 1`; skip the second setup when r1 still holds that pointer. Optional / lower priority — only helps adjacent dereferences of one pointer. | S |
 

@@ -277,9 +277,15 @@ helper result feeding the branch directly:
      ,uza, .Lend  ; branch on the ω the helper already set
 ```
 
-This fusion is only valid if `atx` preserves ω and the helper's last accumulator operation
-leaves ω consistent with its returned A — both must be confirmed on the simulator (Section 7)
-before the rule is enabled. It is listed as its own task for that reason.
+This fusion needs no dedicated rule: it is the emergent product of rule 5.1 (reload
+elimination) and rule 5.2 (dead-store elimination). It is only *valid*, however, if `atx`
+preserves ω and the helper's last accumulator operation leaves ω consistent with its
+returned A. Both now hold: every runtime relational helper exits with **ω = logical** (the
+`A = 0?` flag the following `uza`/`u1a` tests), per the logical-ω exit contract documented
+in [Besm6_Runtime_Library.md](Besm6_Runtime_Library.md) ("ω mode and the AU mode register
+R"), and `atx` stores A without disturbing ω. This was confirmed on the simulator (Section
+7) — signed, unsigned, and FP comparisons feeding `if` branches compute correctly — so the
+fusion is enabled and locked in by the `CompareBranchFused` tests.
 
 ### 5.5 Jump and label cleanup
 
