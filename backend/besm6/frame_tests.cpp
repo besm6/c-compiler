@@ -37,6 +37,16 @@ static Tac_Instruction *make_return(const char *name)
     return i;
 }
 
+static Tac_Instruction *make_label(const char *name)
+{
+    auto *i = static_cast<Tac_Instruction *>(
+        xalloc(sizeof(Tac_Instruction), __func__, __FILE__, __LINE__));
+    i->next         = nullptr;
+    i->kind         = TAC_INSTRUCTION_LABEL;
+    i->u.label.name = xstrdup(name);
+    return i;
+}
+
 static Tac_Param *make_param(const char *name)
 {
     auto *p = static_cast<Tac_Param *>(xalloc(sizeof(Tac_Param), __func__, __FILE__, __LINE__));
@@ -82,6 +92,9 @@ static void free_instr(Tac_Instruction *i)
             break;
         case TAC_INSTRUCTION_RETURN:
             free_val(i->u.return_.src);
+            break;
+        case TAC_INSTRUCTION_LABEL:
+            xfree(i->u.label.name);
             break;
         default:
             break;
@@ -206,6 +219,103 @@ TEST(FrameTest, NoDuplicateSlots)
     EXPECT_NE(ox, oy);
     EXPECT_NE(ox, oz);
     EXPECT_EQ(frame_num_autos(f), 3); // x, y, z — no duplicates
+
+    frame_free(f);
+    free_fn(fn);
+}
+
+// Two '%'+digit temporaries with disjoint single-block live ranges share one auto
+// slot (task #35 — frame-slot reuse via liveness).
+//   f(x) { %0 = x; y = %0; %1 = y; return %1; }
+//   %0 live [0,1], %1 live [2,3] — disjoint, so they reuse the same slot.
+TEST(FrameTest, DisjointTempsShareSlot)
+{
+    Tac_Param *px = make_param("%x");
+
+    Tac_Instruction *i0 = make_copy("%x", "%0"); // def %0   (pos 0)
+    Tac_Instruction *i1 = make_copy("%0", "%y"); // use %0   (pos 1) -> %0 dead
+    Tac_Instruction *i2 = make_copy("%y", "%1"); // def %1   (pos 2)
+    Tac_Instruction *i3 = make_return("%1");     // use %1   (pos 3)
+    i0->next = i1;
+    i1->next = i2;
+    i2->next = i3;
+
+    Tac_TopLevel *fn = make_fn(px, i0);
+    Frame *f         = frame_build(fn, fn);
+
+    int ry, oy, r0, o0, r1, o1;
+    ASSERT_TRUE(frame_lookup(f, "%y", &ry, &oy));
+    ASSERT_TRUE(frame_lookup(f, "%0", &r0, &o0));
+    ASSERT_TRUE(frame_lookup(f, "%1", &r1, &o1));
+
+    EXPECT_EQ(ry, REG_AUTO);
+    EXPECT_EQ(r0, REG_AUTO);
+    EXPECT_EQ(r1, REG_AUTO);
+    EXPECT_EQ(oy, 0);  // named local first
+    EXPECT_EQ(o0, o1); // the two temporaries share a slot
+    EXPECT_EQ(o0, 1);  // packed just above the named local
+    EXPECT_EQ(frame_num_autos(f), 2); // y + one shared temp slot (was 3 without reuse)
+
+    frame_free(f);
+    free_fn(fn);
+}
+
+// Two temporaries whose live ranges overlap must get distinct slots.
+//   f(x) { %0 = x; %1 = x; y = %0; z = %1; }
+//   %0 live [0,2], %1 live [1,3] — overlapping.
+TEST(FrameTest, OverlappingTempsDistinct)
+{
+    Tac_Param *px = make_param("%x");
+
+    Tac_Instruction *i0 = make_copy("%x", "%0"); // def %0 (pos 0)
+    Tac_Instruction *i1 = make_copy("%x", "%1"); // def %1 (pos 1)
+    Tac_Instruction *i2 = make_copy("%0", "%y"); // use %0 (pos 2)
+    Tac_Instruction *i3 = make_copy("%1", "%z"); // use %1 (pos 3)
+    i0->next = i1;
+    i1->next = i2;
+    i2->next = i3;
+
+    Tac_TopLevel *fn = make_fn(px, i0);
+    Frame *f         = frame_build(fn, fn);
+
+    int r0, o0, r1, o1;
+    ASSERT_TRUE(frame_lookup(f, "%0", &r0, &o0));
+    ASSERT_TRUE(frame_lookup(f, "%1", &r1, &o1));
+
+    EXPECT_NE(o0, o1); // ranges overlap: must not share
+    EXPECT_EQ(frame_num_autos(f), 4); // y, z, %0, %1
+
+    frame_free(f);
+    free_fn(fn);
+}
+
+// A temporary referenced in more than one basic block (across a LABEL) is never
+// reused: it keeps a dedicated slot even when a later single-block temp could fit.
+//   f(x) { %0 = x; L: y = %0; %1 = y; return %1; }
+//   %0 spans the block before and after L -> multi-block -> dedicated.
+TEST(FrameTest, MultiBlockTempNotReused)
+{
+    Tac_Param *px = make_param("%x");
+
+    Tac_Instruction *i0 = make_copy("%x", "%0"); // def %0 (pos 0, block 0)
+    Tac_Instruction *iL = make_label("%L");      // (pos 1, starts block 1)
+    Tac_Instruction *i1 = make_copy("%0", "%y"); // use %0 (pos 2, block 1) -> multiblock
+    Tac_Instruction *i2 = make_copy("%y", "%1"); // def %1 (pos 3)
+    Tac_Instruction *i3 = make_return("%1");     // use %1 (pos 4)
+    i0->next = iL;
+    iL->next = i1;
+    i1->next = i2;
+    i2->next = i3;
+
+    Tac_TopLevel *fn = make_fn(px, i0);
+    Frame *f         = frame_build(fn, fn);
+
+    int r0, o0, r1, o1;
+    ASSERT_TRUE(frame_lookup(f, "%0", &r0, &o0));
+    ASSERT_TRUE(frame_lookup(f, "%1", &r1, &o1));
+
+    EXPECT_NE(o0, o1); // %0 is multi-block: %1 cannot reuse its slot
+    EXPECT_EQ(frame_num_autos(f), 3); // y, %0, %1
 
     frame_free(f);
     free_fn(fn);
