@@ -273,15 +273,14 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
     // TAC:   load *src_ptr → dst   (src_ptr is a pointer variable in the frame;
     //                               dst receives the dereferenced value)
     //
-    // BESM-6 sequence (r1 is used as a pointer index register):
-    //   reg_ptr ,XTA, off_ptr   — load the pointer value (a word address) into A
-    //   ,ATI, 1                 — M[1] = A: store the pointer into index register r1
-    //   1 ,XTA, 0               — A = mem[M[1]+0]: dereference — load the word that
-    //                              r1 points to into A
+    // BESM-6 sequence (WTC sets the C address-modifier register from the pointer word):
+    //   reg_ptr ,WTC, off_ptr   — C = mem[reg_ptr+off_ptr][15:1]: the pointed-to word addr
+    //   ,XTA,                   — A = mem[C]: dereference (the bare XTA's EA is 0+M[0]+C = C)
     //   reg_dst ,ATX, off_dst   — store the loaded value into dst's frame slot
     //
-    // All BESM-6 pointers are word addresses; the offset in the final XTA is always
-    // 0 because TAC LOAD always reads the base of the pointed-to object.
+    // All BESM-6 pointers are word addresses; the bare XTA reads the base of the pointed-to
+    // object.  WTC takes the same bits 15:1 the old ATI form took, and never touches r1.
+    // C resets after the very next instruction, so the XTA must immediately follow WTC.
     case TAC_INSTRUCTION_LOAD:
     case TAC_INSTRUCTION_LOAD_BYTE: {
         int pr, po, dr, doff;
@@ -305,10 +304,10 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
             emit_atx(block, tail, dr, doff);
             break;
         }
-        emit_xta(block, tail, pr, po);
-        Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
-        ati->addr       = 1;
-        emit_xta(block, tail, 1, 0);
+        Besm_Instr *wtc = emit(block, tail, BESM_MOD_WTC);
+        wtc->reg        = pr;
+        wtc->addr       = po;        // C = pointer (word address, bits 15:1)
+        emit_xta(block, tail, 0, 0); // A = mem[C]: the dereferenced word
         emit_atx(block, tail, dr, doff);
         break;
     }
@@ -318,16 +317,15 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
     // TAC:   store src → *dst_ptr   (dst_ptr is a pointer variable in the frame;
     //                                src is the value to write through it)
     //
-    // BESM-6 sequence (r1 is used as a pointer index register):
-    //   reg_ptr ,XTA, off_ptr   — load the pointer value (a word address) into A
-    //   ,ATI, 1                 — M[1] = A: store the pointer into index register r1
-    //   reg_src ,XTA, off_src   — load the source value into A
-    //   1 ,ATX, 0               — mem[M[1]+0] = A: write A through the pointer
+    // BESM-6 sequence (WTC sets the C address-modifier register from the pointer word):
+    //   reg_src ,XTA, off_src   — load the source value into A (this load resets C)
+    //   reg_ptr ,WTC, off_ptr   — C = mem[reg_ptr+off_ptr][15:1]; A is unchanged
+    //   ,ATX,                   — mem[C] = A: write A through the pointer (EA = C)
     //
-    // The pointer must be loaded before the source because ATI consumes A.
-    // The write offset is always 0 for the same reason as in LOAD above.
-    // The source may be a frame var, a global, or a constant (e.g. arr[i] = 5 after
-    // the optimizer folds the value), so it is loaded via emit_xta_val.
+    // The source is loaded BEFORE the pointer: C resets after the very next instruction,
+    // so WTC must sit immediately before the ATX, and WTC (unlike the old ATI) does not
+    // disturb A.  The source may be a frame var, a global, or a constant (e.g. arr[i] = 5
+    // after the optimizer folds the value), so it is loaded via emit_xta_val.
     case TAC_INSTRUCTION_STORE:
     case TAC_INSTRUCTION_STORE_BYTE: {
         int pr, po;
@@ -344,11 +342,11 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
             call->name       = xstrdup("b/stb");
             break;
         }
-        emit_xta(block, tail, pr, po);
-        Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
-        ati->addr       = 1;
-        emit_xta_val(block, tail, f, instr->u.store.src);
-        emit_atx(block, tail, 1, 0);
+        emit_xta_val(block, tail, f, instr->u.store.src); // A = src (this load resets C)
+        Besm_Instr *wtc = emit(block, tail, BESM_MOD_WTC);
+        wtc->reg        = pr;
+        wtc->addr       = po;        // C = pointer; A unchanged
+        emit_atx(block, tail, 0, 0); // mem[C] = A
         break;
     }
     // UNARY  dst = op src

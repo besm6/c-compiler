@@ -29,9 +29,10 @@ c
            1 ,utc, arr
           14 ,vtm, 0
              ,ita, 14
-             ,ati, 1
+           7 ,atx,
            6 ,xta, 1
-           1 ,atx,
+           7 ,wtc,
+             ,atx,
              ,uj, b/ret
              ,end,
 )",
@@ -40,6 +41,7 @@ c
 
 // Pointer parameter, variable index: word scale 1, pointer base — the pointer's
 // stored value is the base address, so the scaled index is added with a plain A+X.
+// The element address lands in a temp, which the LOAD then dereferences via WTC.
 TEST_F(CodegenTest, AddPtrPointerLoad)
 {
     std::string output = CompileToMadlen("int f(int *a, long i){ return a[i]; }");
@@ -51,8 +53,9 @@ TEST_F(CodegenTest, AddPtrPointerLoad)
           15 ,utm, 2
            6 ,xta, 1
            6 ,a+x,
-             ,ati, 1
-           1 ,xta,
+           7 ,atx,
+           7 ,wtc,
+             ,xta,
              ,uj, b/ret
              ,end,
 )",

@@ -100,12 +100,6 @@ Two cross-cutting rules govern this phase:
   in the backend test files pin exact instruction sequences and will shift as rewrites land;
   the `CompileAndRun` results (actual computed values under Dubna) must stay identical.
 
-#### Peephole rules
-
-| # | Task | Description | Effort |
-|---|------|-------------|--------|
-| 32 | Pointer-register reuse | Back-to-back `LOAD`/`STORE` through the same pointer each reload `ati 1`; skip the second setup when r1 still holds that pointer. Optional / lower priority — only helps adjacent dereferences of one pointer. | S |
-
 #### Instruction-selection improvements
 
 | # | Task | Description | Effort |

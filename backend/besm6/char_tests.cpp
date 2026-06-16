@@ -44,13 +44,15 @@ TEST_F(CodegenTest, IntPtrToCharPtrSetsOffset5)
     EXPECT_NE(output.find(",aox, =6400000000000000"), std::string::npos) << output;
 }
 
-// Regression: an int* load still uses the plain word sequence (no byte machinery).
+// Regression: an int* load uses the plain word dereference (WTC + bare XTA) and none of
+// the byte machinery — no ASX shift and no =377 byte mask.
 TEST_F(CodegenTest, LoadIntStillWord)
 {
     DisableOptimization();
     std::string output = CompileToMadlen("int v; int f(void){ int *p = &v; return *p; }");
-    EXPECT_EQ(output.find(",wtc,"), std::string::npos) << output;
+    EXPECT_NE(output.find(",wtc,"), std::string::npos) << output;
     EXPECT_EQ(output.find(",asx,"), std::string::npos) << output;
+    EXPECT_EQ(output.find("=377"), std::string::npos) << output;
 }
 
 // Runtime: store and load a byte through a fat pointer at offset 0 (standalone char).

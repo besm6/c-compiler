@@ -180,12 +180,15 @@ static const PeepRule rule_table[] = {
 // Does `i` reference auto slot `off` (r7 + off) as a direct memory *read* operand?  The
 // `reg`/`addr` fields are overloaded (index-register ops put an index register in `reg`
 // or an immediate in `addr`), so only the kinds that take a frame-slot memory operand
-// and load from it count.
+// and load from it count.  WTC counts: a word/byte dereference reads the pointer slot with
+// `wtc reg,off` (it copies bits 15:1 into the C register), so a store that materialised an
+// ADD_PTR address into that slot is live and must not be dropped as a dead temp.
 static bool instr_reads_auto_slot(const Besm_Instr *i, int off)
 {
     if (i->name != NULL || (int)i->reg != REG_AUTO || i->addr != off)
         return false;
     switch (i->kind) {
+    case BESM_MOD_WTC:
     case BESM_MEM_XTA:
     case BESM_MEM_XTS:
     case BESM_ARITH_ADD:

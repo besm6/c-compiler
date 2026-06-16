@@ -333,10 +333,29 @@ TEST_F(CodegenTest, StoreThroughPtr)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save
-           6 ,xta,
-             ,ati, 1
            6 ,xta, 1
-           1 ,atx,
+           6 ,wtc,
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// A word dereference of a pointer variable is two instructions: WTC sets the C
+// address-modifier register from the pointer word, the bare XTA reads mem[C].  No ATI,
+// no index register r1.
+TEST_F(CodegenTest, LoadThroughPtr)
+{
+    std::string output = CompileToMadlen("int foo(int *p) { return *p; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 1
+           6 ,wtc,
+             ,xta,
              ,uj, b/ret
              ,end,
 )",
@@ -354,18 +373,31 @@ TEST_F(CodegenTest, LoadAndStoreThroughPtr)
              ,its, 13
              ,call, b/save
           15 ,utm, 1
-           6 ,xta,
-             ,ati, 1
-           1 ,xta,
-           7 ,atx,
-           6 ,xta, 1
-             ,ati, 1
-           7 ,xta,
-           1 ,atx,
+           6 ,wtc,
+             ,xta,
+           6 ,wtc, 1
+             ,atx,
              ,uj, b/ret
              ,end,
 )",
               output);
+}
+
+// Runtime: write through one pointer and read back through another that aliases the same
+// object, exercising the WTC-based STORE and LOAD end to end.  Result is the stored value.
+TEST_F(CodegenTest, StoreLoadThroughPtrRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            int x = 0;
+            int *p = &x;
+            int *q = &x;
+            *p = 42;
+            printf("%d\n", *q);
+        }
+    )");
+    EXPECT_EQ("42\n", result);
 }
 
 TEST_F(CodegenTest, ExternVarReturn)

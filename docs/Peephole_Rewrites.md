@@ -373,6 +373,28 @@ load/store/arith forms (the index-register forms used by array indexing and `&gl
 need `utc`). This one is flagged "investigate" because it depends on linker behavior and must
 be validated on the simulator before adoption.
 
+### 5.8 Pointer-register reuse (resolved in instruction selection)
+
+An earlier plan proposed a peephole that, on back-to-back dereferences of one pointer, skips
+the `ati 1` that reloads index register r1 when r1 still holds that pointer. This is now moot:
+word `LOAD`/`STORE` no longer touch r1. A dereference is `<reg> ,wtc, <off>` — which loads
+the pointer word's address bits straight into the C address-modifier register — followed by a
+bare `,xta,` / `,atx,` reading or writing `mem[C]`:
+
+```
+LOAD  *p → d:                 STORE  *p = src:
+  <pr> ,wtc, <po>   ; C = p     <src> ,xta,        ; A = src
+       ,xta,         ; A=mem[C]  <pr> ,wtc, <po>   ; C = p
+  <dr> ,atx, <do>                     ,atx,        ; mem[C] = src
+```
+
+Since the C register resets after the one instruction that uses it (every instruction except
+`utc`/`wtc` clears C), consecutive dereferences cannot share it, so there is nothing left for a
+peephole to reuse. The one interaction the backend must honour is that a `wtc reg,off` of an
+auto temp **reads** that slot — `instr_reads_auto_slot` in [peephole.c](../backend/besm6/peephole.c)
+lists `WTC` so that dead-temp-store elimination (5.2) does not drop the store that materialises
+an `ADD_PTR` address the following `wtc` dereferences.
+
 ---
 
 ## 6. Implementing the pass in this codebase
