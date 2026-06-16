@@ -54,7 +54,6 @@ TEST_F(CodegenTest, AddPtrPointerLoad)
              ,ati, 1
            1 ,xta,
              ,uj, b/ret
-             ,uj, b/ret
              ,end,
 )",
               output);
@@ -74,7 +73,6 @@ TEST_F(CodegenTest, AddPtrPowerOfTwoScale)
            6 ,xta, 1
              ,asn, 63
            6 ,a+x,
-             ,uj, b/ret
              ,uj, b/ret
              ,end,
 )",

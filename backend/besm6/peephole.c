@@ -18,12 +18,16 @@
 // sequences, and backend/besm6/TODO.md (Phase M) for the rule catalogue.
 //
 // Currently implemented: the framework itself (this file), rule #27 (redundant reload
-// elimination), rule #28 (dead temp-store elimination) and rule #29 (NTR mode
-// coalescing).  Rule #30 (compare → branch fusion) needs no dedicated code: it is the
-// emergent product of #27 (which drops the boolean reload) and #28 (which drops the
-// now-dead boolean store), made correct by the runtime helpers' logical-ω exit contract
-// (see docs/Besm6_Runtime_Library.md, "ω mode and the AU mode register R").  Rules
-// #31–#32 would append entries to the rule table below.
+// elimination), rule #28 (dead temp-store elimination), rule #29 (NTR mode coalescing)
+// and rule #31 (branch / label cleanup).  Rule #30 (compare → branch fusion) needs no
+// dedicated code: it is the emergent product of #27 (which drops the boolean reload) and
+// #28 (which drops the now-dead boolean store), made correct by the runtime helpers'
+// logical-ω exit contract (see docs/Besm6_Runtime_Library.md, "ω mode and the AU mode
+// register R").  Rule #31's three control-flow rewrites — jump-to-next-label, unreachable
+// tail (which also collapses the duplicate `uj b/ret`), and conditional-over-jump
+// inversion — are not `rule_table` entries either: two need list look-ahead and one
+// mutates the list, neither of which the `(cur, st)` predicate signature carries, so they
+// are handled directly in the sweep.  Rule #32 would append entries to the rule table.
 //
 
 //
@@ -41,13 +45,16 @@ typedef struct {
     int a_off;
     bool r_known; // true: r_val is the current mode register R
     int r_val;
+    bool in_unreachable; // true: we are past an unconditional transfer (uj/stop),
+                         // before the next label or structural directive (rule #31)
 } PeepState;
 
 // Reset all tracked state — used at every basic-block boundary.
 static void state_reset(PeepState *st)
 {
-    st->a_known = false;
-    st->r_known = false;
+    st->a_known        = false;
+    st->r_known        = false;
+    st->in_unreachable = false;
 }
 
 //
@@ -295,6 +302,82 @@ static bool dead_ntr_set(const Besm_Instr *cur)
     return false; // block ends with no overwrite: keep (restore-at-end)
 }
 
+// Splice a single node out of a block's list and free it (defined below).
+static void delete_instr(Besm_Block *block, Besm_Instr *prev, Besm_Instr *cur);
+
+//
+// Rule #31 — branch / label cleanup.  See docs/Peephole_Rewrites.md §5.5.
+//
+// Three rewrites that need only the control-flow shape, not the tracked A/R/ω state.
+// None fits the `(cur, st)` `PeepRule` signature: two need list look-ahead and one
+// mutates the list, so they are handled directly in the sweep.
+//
+
+// Is `i` an instruction the unreachable-tail rule may delete?  A label can be re-entered
+// from elsewhere and the structural directives (NAME/SUBP/BASE/ENTRY/END) and data
+// pseudo-ops carry no control flow, so they terminate the unreachable run and are never
+// deleted; every real instruction after an unconditional transfer is dead and removable.
+static bool unreachable_deletable(const Besm_Instr *i)
+{
+    switch (i->kind) {
+    case BESM_STMT_LABEL:
+    case BESM_STMT_NAME:
+    case BESM_STMT_BASE:
+    case BESM_STMT_SUBP:
+    case BESM_STMT_ENTRY:
+    case BESM_STMT_END:
+    case BESM_DATA_INT:
+    case BESM_DATA_REAL:
+    case BESM_DATA_LOG:
+    case BESM_DATA_BSS:
+    case BESM_DATA_EQU:
+    case BESM_DATA_REF:
+    case BESM_DATA_STRING:
+    case BESM_DATA_Z00:
+        return false;
+    default:
+        return true;
+    }
+}
+
+// Rule #31(a) — jump to the next instruction.  A `uj L` immediately followed by the
+// definition of label `L` is a no-op fall-through; report a match so the caller deletes
+// the `uj`.
+static bool jump_to_next_label(const Besm_Instr *cur)
+{
+    return cur->kind == BESM_BRANCH_UJ && cur->name != NULL && cur->next != NULL &&
+           cur->next->kind == BESM_STMT_LABEL && cur->next->name != NULL &&
+           strcmp(cur->name, cur->next->name) == 0;
+}
+
+// Rule #31(c) — invert a conditional that only skips an unconditional jump.
+//
+// `uza L` / `uj M` / `L:`  ⇒  `u1a M` / `L:`   (and symmetrically `u1a`⇒`uza`).
+// The conditional skips the `uj` exactly when it would NOT branch, so flipping the
+// condition and retargeting it to M is equivalent, and the now-dead `uj` is removed.
+// The label `L:` is left in place — it may still be a target elsewhere, and an
+// unreferenced label is harmless.  Mutates `cur` in place, deletes the `uj` node, and
+// returns true on a match.
+static bool try_invert_branch_over_jump(Besm_Block *block, Besm_Instr *cur)
+{
+    if (cur->kind != BESM_BRANCH_UZA && cur->kind != BESM_BRANCH_U1A)
+        return false;
+    Besm_Instr *uj  = cur->next;
+    if (uj == NULL || uj->kind != BESM_BRANCH_UJ || uj->name == NULL)
+        return false;
+    const Besm_Instr *lbl = uj->next;
+    if (lbl == NULL || lbl->kind != BESM_STMT_LABEL || lbl->name == NULL)
+        return false;
+    if (cur->name == NULL || strcmp(cur->name, lbl->name) != 0)
+        return false;
+
+    cur->kind = (cur->kind == BESM_BRANCH_UZA) ? BESM_BRANCH_U1A : BESM_BRANCH_UZA;
+    xfree(cur->name);
+    cur->name = xstrdup(uj->name);
+    delete_instr(block, cur, uj); // unlink `uj` (cur is its predecessor) and free it
+    return true;
+}
+
 // If `i` directly reads or writes an auto slot, report its offset.  Used to attribute
 // each slot reference to the basic block it occurs in (multi-block analysis).
 static bool instr_auto_slot_ref(const Besm_Instr *i, int *off)
@@ -365,6 +448,16 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
     Besm_Instr *cur    = block->body;
 
     while (cur) {
+        // Rule #31(b): unreachable tail.  Code after an unconditional transfer and
+        // before the next label/directive can never execute; delete it.
+        if (st.in_unreachable && unreachable_deletable(cur)) {
+            Besm_Instr *next = cur->next;
+            delete_instr(block, prev, cur);
+            cur     = next;
+            changed = true;
+            continue; // still unreachable: re-test the new cur (prev/st unchanged)
+        }
+
         bool deleted = false;
         for (size_t r = 0; r < NUM_RULES; r++) {
             if (rule_table[r](cur, &st)) {
@@ -378,12 +471,20 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
         }
         // Rule #28: dead temp-store elimination (needs look-ahead + the frame).
         // Rule #29(b): dead NTR elimination (needs forward look-ahead).
-        if (!deleted && (dead_temp_store(cur, frame, multiblock) || dead_ntr_set(cur))) {
+        // Rule #31(a): jump to the immediately following label (needs look-ahead).
+        if (!deleted && (dead_temp_store(cur, frame, multiblock) || dead_ntr_set(cur) ||
+                         jump_to_next_label(cur))) {
             Besm_Instr *next = cur->next;
             delete_instr(block, prev, cur);
             cur     = next;
             changed = true;
             deleted = true;
+        }
+        // Rule #31(c): invert a conditional that only skips an unconditional jump.
+        // It mutates `cur` in place and deletes the following `uj`, so re-test `cur`.
+        if (!deleted && try_invert_branch_over_jump(block, cur)) {
+            changed = true;
+            continue; // prev and tracked state stay valid; re-test the rewritten cur
         }
         if (deleted)
             continue; // prev and tracked state stay valid; re-test the new cur
@@ -399,6 +500,10 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
                 st.r_known = true;
                 st.r_val   = 7;
             }
+            // An unconditional transfer (uj/stop) makes the following instructions
+            // unreachable until the next label or structural directive (rule #31(b)).
+            if (cur->kind == BESM_BRANCH_UJ || cur->kind == BESM_BRANCH_STOP)
+                st.in_unreachable = true;
         } else {
             state_step(&st, cur);
         }

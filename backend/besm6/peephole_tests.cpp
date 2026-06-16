@@ -63,7 +63,6 @@ TEST_F(CodegenTest, ReloadAcrossLabelKept)
        *1:   ,bss,
            7 ,xta,
              ,uj, b/ret
-             ,uj, b/ret
              ,end,
 )",
               output);
@@ -84,7 +83,6 @@ TEST_F(CodegenTest, DeadTempStoreRemoved)
           15 ,utm, 1
            6 ,xta,
            6 ,a+x, 1
-             ,uj, b/ret
              ,uj, b/ret
              ,end,
 )",
@@ -115,7 +113,6 @@ TEST_F(CodegenTest, TempLiveAcrossBranchKept)
            7 ,atx,
        *1:   ,bss,
            7 ,xta,
-             ,uj, b/ret
              ,uj, b/ret
              ,end,
 )",
@@ -156,7 +153,6 @@ TEST_F(CodegenTest, ConsecutiveFpOpsCoalesceNtr)
            6 ,a+x, 1
            6 ,a+x, 2
              ,ntr, 7
-             ,uj, b/ret
              ,uj, b/ret
              ,end,
 )",
@@ -255,4 +251,131 @@ TEST_F(CodegenTest, ArithmeticBehaviorUnchanged)
         }
     )");
     EXPECT_EQ("42\n", out);
+}
+
+// Rule #31 — branch / label cleanup.  See docs/Peephole_Rewrites.md §5.5.
+
+// Rule #31(b) on the epilogue: `return x;` emits `,uj, b/ret` from the RETURN
+// instruction, then the function epilogue emits a second `,uj, b/ret`.  The second is
+// unreachable (it follows an unconditional transfer with no intervening label), so the
+// unreachable-tail rule deletes it, leaving a single `,uj, b/ret` before `,end,`.
+TEST_F(CodegenTest, DuplicateEpilogueJumpRemoved)
+{
+    std::string output = CompileToMadlen("int foo(int a) { return a; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// Rule #31(c) — invert a conditional that only skips an unconditional jump, with a named
+// target.  `if (a) goto done;` lowers to `uza *0 / uj done / *0:` (skip the goto when the
+// guard is false).  The rule folds it to a single `,u1a, done` — take the jump when the
+// guard is nonzero — and leaves the now-unreferenced skip label `*0:` in place.
+TEST_F(CodegenTest, ConditionalOverJumpInverted)
+{
+    std::string output =
+        CompileToMadlen("int foo(int a) { if (a) goto done; a = 5; done: return a; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,u1a, done
+       *0:   ,bss,
+             ,xta, =5
+           6 ,atx,
+     done:   ,bss,
+           6 ,xta,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// Behavior guard for the inversion: the rewritten branch must take the same path.
+// a != 0 skips the assignment and returns a; a == 0 falls through, assigns 5, returns 5.
+TEST_F(CodegenTest, ConditionalOverJumpBehaviorUnchanged)
+{
+    std::string out = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        int pick(int a) { if (a) goto done; a = 5; done: return a; }
+        void program(void) {
+            printf("%d %d\n", pick(7), pick(0));
+        }
+    )");
+    EXPECT_EQ("7 5\n", out);
+}
+
+// Rule #31(a) — jump to the immediately following label.  The current frontend never
+// emits `uj L` directly before `L:` (lowering either inverts the skip or places code
+// between), so this is a white-box test: build that shape directly and confirm the pass
+// deletes the redundant `uj`, leaving the label.
+TEST_F(CodegenTest, JumpToNextLabelRemoved)
+{
+    Besm_Func *fn    = besm_new_func("foo", BESM_CC_INTERNAL);
+    Besm_Block *blk  = besm_new_block();
+    Besm_Instr *uj   = besm_new_instr(BESM_BRANCH_UJ);
+    uj->name         = xstrdup("L");
+    Besm_Instr *lbl  = besm_new_instr(BESM_STMT_LABEL);
+    lbl->name        = xstrdup("L");
+    Besm_Instr *end  = besm_new_instr(BESM_STMT_END);
+    uj->next         = lbl;
+    lbl->next        = end;
+    blk->body        = uj;
+    fn->blocks       = blk;
+
+    besm_peephole(fn, nullptr);
+
+    // The `uj L` is gone; the list is just `L:` then `,end,`.
+    ASSERT_NE(nullptr, blk->body);
+    EXPECT_EQ(BESM_STMT_LABEL, blk->body->kind);
+    ASSERT_NE(nullptr, blk->body->next);
+    EXPECT_EQ(BESM_STMT_END, blk->body->next->kind);
+    EXPECT_EQ(nullptr, blk->body->next->next);
+
+    besm_free_func(fn);
+}
+
+// Rule #31(b) — unreachable tail in its general form: an arbitrary instruction (not just
+// a duplicate jump) sitting between an unconditional `uj` and the next label is dead.
+// The frontend never produces this (the TAC unreachable-code pass removes dead C
+// statements earlier), so it is exercised white-box.  Here `uj other` is followed by a
+// stray `xta` then the label `end:`; the `xta` must be deleted.  The jump targets a
+// different label, so the `uj` and `end:` both survive (no jump-to-next-label cascade).
+TEST_F(CodegenTest, UnreachableTailRemoved)
+{
+    Besm_Func *fn    = besm_new_func("foo", BESM_CC_INTERNAL);
+    Besm_Block *blk  = besm_new_block();
+    Besm_Instr *uj   = besm_new_instr(BESM_BRANCH_UJ);
+    uj->name         = xstrdup("other");
+    Besm_Instr *dead = besm_new_instr(BESM_MEM_XTA); // unreachable: never executed
+    dead->reg        = 7;
+    Besm_Instr *lbl  = besm_new_instr(BESM_STMT_LABEL);
+    lbl->name        = xstrdup("end");
+    Besm_Instr *end  = besm_new_instr(BESM_STMT_END);
+    uj->next         = dead;
+    dead->next       = lbl;
+    lbl->next        = end;
+    blk->body        = uj;
+    fn->blocks       = blk;
+
+    besm_peephole(fn, nullptr);
+
+    // The unreachable `xta` is gone; `uj end` and the label survive.
+    ASSERT_NE(nullptr, blk->body);
+    EXPECT_EQ(BESM_BRANCH_UJ, blk->body->kind);
+    ASSERT_NE(nullptr, blk->body->next);
+    EXPECT_EQ(BESM_STMT_LABEL, blk->body->next->kind);
+    ASSERT_NE(nullptr, blk->body->next->next);
+    EXPECT_EQ(BESM_STMT_END, blk->body->next->next->kind);
+
+    besm_free_func(fn);
 }

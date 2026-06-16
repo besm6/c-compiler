@@ -50,7 +50,6 @@ TEST_F(CodegenTest, CopyFromOffsetLocalRead)
           15 ,utm, 3
            7 ,xta, 1
              ,uj, b/ret
-             ,uj, b/ret
              ,end,
 )",
               output);
@@ -77,7 +76,6 @@ c
              ,atx,
              ,utc, g
              ,xta, 1
-             ,uj, b/ret
              ,uj, b/ret
              ,end,
 )",

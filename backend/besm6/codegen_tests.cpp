@@ -222,7 +222,6 @@ TEST_F(CodegenTest, MainEntryPointInt)
              ,call, b/save0
              ,xta, =0
              ,uj, b/ret
-             ,uj, b/ret
              ,end,
 )",
               output);
@@ -385,7 +384,6 @@ TEST_F(CodegenTest, ExternVarReturn)
              ,call, b/save0
              ,utc, foo
              ,xta,
-             ,uj, b/ret
              ,uj, b/ret
              ,end,
 )",

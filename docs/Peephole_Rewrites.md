@@ -289,7 +289,12 @@ fusion is enabled and locked in by the `CompareBranchFused` tests.
 
 ### 5.5 Jump and label cleanup
 
-Several rewrites need only the control-flow shape, not tracked data state:
+Several rewrites need only the control-flow shape, not tracked data state. All three are
+implemented as rule #31 (see [peephole.c](../backend/besm6/peephole.c)); because they
+need list look-ahead or list mutation rather than the `(cur, state)` predicate the rule
+table expects, they are handled directly in the sweep alongside the other look-ahead
+rules. They are locked in by the `DuplicateEpilogueJumpRemoved`, `ConditionalOverJumpInverted`,
+`WhileLoopJumpIfZero`, `JumpToNextLabelRemoved`, and `UnreachableTailRemoved` tests.
 
 - **Jump to the next instruction.** A `uj` whose target label is the very next instruction is
   a no-op:

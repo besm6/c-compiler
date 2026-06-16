@@ -22,6 +22,11 @@ TEST_F(CodegenTest, LabelJump)
 
 // label_loops() resets label_seq=0 per function; STMT_WHILE allocates .L0 (end)
 // then .L1 (continue), so the continue label (loop top) is .L1 and end is .L0.
+//
+// Selection emits `uza *L0 / uj *L1 / *L0:` (test the guard, skip the back-edge to exit).
+// Rule #31's conditional-over-jump inversion folds that to a single `u1a *L1` — branch
+// back to the loop top while the guard is nonzero — leaving the now-unreferenced exit
+// label `*L0:` in place.  See docs/Peephole_Rewrites.md §5.5.
 TEST_F(CodegenTest, WhileLoopJumpIfZero)
 {
     std::string output = CompileToMadlen("void foo(int x) { while (x) {} }");
@@ -32,8 +37,7 @@ TEST_F(CodegenTest, WhileLoopJumpIfZero)
              ,call, b/save
       *L1:   ,bss,
            6 ,xta,
-             ,uza, *L0
-             ,uj, *L1
+             ,u1a, *L1
       *L0:   ,bss,
              ,uj, b/ret
              ,end,

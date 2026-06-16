@@ -193,7 +193,6 @@ TEST_F(CodegenTest, UintToDoubleMadlen)
            6 ,xta,
              ,call, b/utod
              ,uj, b/ret
-             ,uj, b/ret
              ,end,
 )",
               output);
@@ -212,7 +211,6 @@ TEST_F(CodegenTest, DoubleToIntMadlen)
              ,utc, d
              ,xta,
              ,call, b/dtoi
-             ,uj, b/ret
              ,uj, b/ret
              ,end,
 )",
@@ -233,7 +231,6 @@ TEST_F(CodegenTest, DoubleToUintMadlen)
              ,xta,
              ,call, b/dtou
              ,uj, b/ret
-             ,uj, b/ret
              ,end,
 )",
               output);
@@ -251,7 +248,6 @@ TEST_F(CodegenTest, FloatToDoubleMadlen)
           15 ,utm, 1
              ,utc, f
              ,xta,
-             ,uj, b/ret
              ,uj, b/ret
              ,end,
 )",
