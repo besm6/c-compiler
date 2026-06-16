@@ -28,10 +28,6 @@ void codegen_program(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *
     case TAC_TOPLEVEL_STATIC_CONSTANT:
         codegen_static_constant(tl, out);
         break;
-    case TAC_TOPLEVEL_DECLARE_ARRAY:
-        // Extern array declaration: allocates no storage and emits nothing.
-        // It only informs global_is_array() that the name decays to its address.
-        break;
     }
 }
 
@@ -272,7 +268,7 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
         }
 
         for (const Tac_Instruction *instr = tl->u.function.body; instr; instr = instr->next)
-            codegen_instr(program, instr, f, block, &tail);
+            codegen_instr(instr, f, block, &tail);
 
         Besm_Instr *uj_cret = emit(block, &tail, BESM_BRANCH_UJ);
         uj_cret->name       = xstrdup("b/ret");

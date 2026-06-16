@@ -640,7 +640,6 @@ void tac_print_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth)
     fprintf(fd, "TopLevel: %s\n",
             toplevel->kind == TAC_TOPLEVEL_FUNCTION          ? "FUNCTION"
             : toplevel->kind == TAC_TOPLEVEL_STATIC_VARIABLE ? "STATIC_VARIABLE"
-            : toplevel->kind == TAC_TOPLEVEL_DECLARE_ARRAY   ? "DECLARE_ARRAY"
                                                              : "STATIC_CONSTANT");
     switch (toplevel->kind) {
     case TAC_TOPLEVEL_FUNCTION:
@@ -678,13 +677,6 @@ void tac_print_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth)
         print_indent(fd, depth + 1);
         fprintf(fd, "Init:\n");
         tac_print_static_init(fd, toplevel->u.static_constant.init, depth + 2);
-        break;
-    case TAC_TOPLEVEL_DECLARE_ARRAY:
-        print_indent(fd, depth + 1);
-        fprintf(fd, "Name: %s\n",
-                toplevel->u.declare_array.name ? toplevel->u.declare_array.name : "(null)");
-        print_indent(fd, depth + 1);
-        fprintf(fd, "Size: %d\n", toplevel->u.declare_array.size);
         break;
     }
     if (toplevel->next) {

@@ -688,11 +688,6 @@ void tac_export_dot(FILE *fd, const Tac_TopLevel *tl)
         if (tl->u.static_constant.init)
             emit_static_init(fd, tl->u.static_constant.init, root);
         break;
-    case TAC_TOPLEVEL_DECLARE_ARRAY:
-        fprintf(fd, "  n%d [label=\"DeclareArray: ", root);
-        emit_string(fd, tl->u.declare_array.name);
-        fprintf(fd, " [%d]\", shape=box];\n", tl->u.declare_array.size);
-        break;
     }
     fprintf(fd, "}\n");
 }

@@ -7,9 +7,9 @@
 // converts it to a word scale (scale / 6) since BESM-6 is word-addressed.
 //
 
-// Global array, variable index, variable source: word scale 1 (plain), array base.
-// The element address is materialized via the index register on UTC:
-//   xta i / ati 1 / 1 ,utc, arr / 14 ,vtm, / ita 14
+// Global array, variable index, variable source: word scale 1 (plain).  The translator
+// decays the array to its label address (GET_ADDRESS: utc arr / vtm / ita), then ADD_PTR
+// adds the scaled index to that pointer value with a plain A+X.
 TEST_F(CodegenTest, AddPtrGlobalArrayStore)
 {
     std::string output = CompileToMadlen("int arr[3]; void f(long i, int v){ arr[i] = v; }");
@@ -23,15 +23,16 @@ c
       arr:   ,subp,
              ,its, 13
              ,call, b/save
-          15 ,utm, 1
-           6 ,xta,
-             ,ati, 1
-           1 ,utc, arr
+          15 ,utm, 2
+             ,utc, arr
           14 ,vtm, 0
              ,ita, 14
            7 ,atx,
+           6 ,xta,
+           7 ,a+x,
+           7 ,atx, 1
            6 ,xta, 1
-           7 ,wtc,
+           7 ,wtc, 1
              ,atx,
              ,uj, b/ret
              ,end,
@@ -137,4 +138,23 @@ TEST_F(CodegenTest, LocalArrayRun)
         }
     )");
     EXPECT_EQ("30\n", result);
+}
+
+// Runtime: an array decays to a pointer when assigned to a pointer variable, and
+// indexing through that pointer reaches the array's elements.  Before array-to-pointer
+// decay happened in the translator, `p = arr` loaded arr[0] instead of arr's address.
+TEST_F(CodegenTest, ArrayDecayToPointerRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        int arr[3];
+        void program() {
+            arr[0] = 10;
+            arr[1] = 20;
+            arr[2] = 30;
+            int *p = arr;
+            printf("%d\n", p[0] + p[1] + p[2]);
+        }
+    )");
+    EXPECT_EQ("60\n", result);
 }

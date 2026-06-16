@@ -486,17 +486,22 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             fatal_error("Unsupported literal in TAC lowering");
         }
     case EXPR_VAR:
-        // A char/void array used as a value decays to a char*/void* fat pointer at its
-        // first byte (byte#0 = MSB, offset_enc 5).  Emit GET_ADDRESS with the array-decay
-        // mark so the backend builds the fat pointer (the bare array name would otherwise
-        // load the array's first word, not its address).
-        if (is_byte_pointer(e->type)) {
+        // An array used as a value decays to a pointer to its first element.  Materialize
+        // the address explicitly so the backend never has to disambiguate an array name
+        // (whose value is its label address) from a pointer name (whose value is stored):
+        // the bare array name would otherwise load the array's first word, not its address.
+        // After typecheck a decayed array has pointer type, while its symbol is an array.
+        // A char/void array decays to a fat pointer at its first byte (byte#0 = MSB,
+        // offset_enc 5) via GET_ADDRESS_DECAY; any other array uses a plain GET_ADDRESS.
+        if (e->type->kind == TYPE_POINTER) {
             const Symbol *sym = symtab_get_opt(e->u.var);
             bool is_array     = (sym && sym->type->kind == TYPE_ARRAY) ||
-                            tac_is_byte_array_local(ctx, e->u.var);
+                            tac_is_array_local(ctx, e->u.var);
             if (is_array) {
                 Tac_Val *dst          = new_var_val(ctx);
-                Tac_Instruction *in   = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS_DECAY);
+                Tac_Instruction *in   = tac_new_instruction(
+                    is_byte_pointer(e->type) ? TAC_INSTRUCTION_GET_ADDRESS_DECAY
+                                             : TAC_INSTRUCTION_GET_ADDRESS);
                 in->u.get_address.src = val_var(e->u.var);
                 in->u.get_address.dst = dst;
                 tac_append(ctx, in);

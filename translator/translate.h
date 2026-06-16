@@ -24,7 +24,8 @@ typedef struct {
     Tac_TopLevel *static_constants; // strings accumulated during body lowering
     Tac_Param *locals;              // automatic local names, for the optimizer
     Tac_Param *locals_tail;         // tail of `locals` for O(1) append
-    Tac_Param *byte_array_locals;   // names of local char/void arrays (for value decay)
+    Tac_Param *array_locals;        // names of local arrays (block-scope symbols are
+                                    // purged before lowering, so value decay needs this)
 } TacCtx;
 
 //
@@ -55,8 +56,8 @@ extern int xalloc_debug;
 void tac_append(TacCtx *ctx, Tac_Instruction *instr);
 char *new_temp(TacCtx *ctx);
 void tac_record_local(TacCtx *ctx, const char *name);
-void tac_record_byte_array_local(TacCtx *ctx, const char *name);
-bool tac_is_byte_array_local(const TacCtx *ctx, const char *name);
+void tac_record_array_local(TacCtx *ctx, const char *name);
+bool tac_is_array_local(const TacCtx *ctx, const char *name);
 Tac_Val *val_int(int v);
 Tac_Val *val_long(long v);
 Tac_Val *val_long_long(long long v);

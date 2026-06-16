@@ -51,20 +51,21 @@ void tac_record_local(TacCtx *ctx, const char *name)
     }
 }
 
-// Record a local char/void array name so a later value use (decay) can be lowered to a
-// fat-pointer GET_ADDRESS.  Local symbols are purged from the symbol table before lowering,
-// so the translator tracks byte arrays itself (globals/strings stay queryable via symtab).
-void tac_record_byte_array_local(TacCtx *ctx, const char *name)
+// Record a local array name so a later value use (decay) can be lowered to a GET_ADDRESS
+// (or fat-pointer GET_ADDRESS_DECAY for char/void).  Local symbols are purged from the
+// symbol table before lowering, so the translator tracks arrays itself (globals/strings
+// stay queryable via symtab).
+void tac_record_array_local(TacCtx *ctx, const char *name)
 {
-    Tac_Param *p = tac_new_param();
-    p->name      = xstrdup(name);
-    p->next      = ctx->byte_array_locals;
-    ctx->byte_array_locals = p;
+    Tac_Param *p        = tac_new_param();
+    p->name             = xstrdup(name);
+    p->next             = ctx->array_locals;
+    ctx->array_locals   = p;
 }
 
-bool tac_is_byte_array_local(const TacCtx *ctx, const char *name)
+bool tac_is_array_local(const TacCtx *ctx, const char *name)
 {
-    for (const Tac_Param *p = ctx->byte_array_locals; p; p = p->next)
+    for (const Tac_Param *p = ctx->array_locals; p; p = p->next)
         if (strcmp(p->name, name) == 0)
             return true;
     return false;
@@ -488,7 +489,7 @@ static Tac_TopLevel *translate_fn(const ExternalDecl *ast)
         gen_stmt(&ctx, ast->u.function.body);
         tl->u.function.body   = ctx.head;
         tl->u.function.locals = ctx.locals;
-        tac_free_param(ctx.byte_array_locals);
+        tac_free_param(ctx.array_locals);
 
         if (ctx.static_constants) {
             Tac_TopLevel *last = ctx.static_constants;
@@ -517,15 +518,10 @@ static Tac_TopLevel *translate_decl(const Declaration *decl)
         if (id->type->kind == TYPE_FUNCTION) {
             continue; // prototype — no TAC needed
         } else if (sym->u.static_var.init_kind == INIT_NONE) {
-            // extern-only declaration — no storage to allocate.  For an array,
-            // still record its array-ness so a backend can tell that the name
-            // decays to its label address rather than holding a pointer value.
-            if (sym->type->kind != TYPE_ARRAY)
-                continue;
-            tl                       = tac_new_toplevel(TAC_TOPLEVEL_DECLARE_ARRAY);
-            tl->u.declare_array.name = xstrdup(id->name);
-            // Size is informational; an incomplete extern array (int arr[]) reports 0.
-            tl->u.declare_array.size = sym->type->u.array.size ? (int)get_size(sym->type) : 0;
+            // extern-only declaration — no storage to allocate, no TAC emitted.  A later
+            // reference decays the array to its address via GET_ADDRESS, which self-declares
+            // the external name (SUBP), so the backend needs no array-ness record here.
+            continue;
         } else {
             tl                              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
             tl->u.static_variable.name      = xstrdup(id->name);

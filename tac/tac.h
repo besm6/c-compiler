@@ -38,8 +38,7 @@ typedef struct Tac_Param {
 typedef enum {
     TAC_TOPLEVEL_FUNCTION,
     TAC_TOPLEVEL_STATIC_VARIABLE,
-    TAC_TOPLEVEL_STATIC_CONSTANT,
-    TAC_TOPLEVEL_DECLARE_ARRAY
+    TAC_TOPLEVEL_STATIC_CONSTANT
 } Tac_TopLevelKind;
 
 typedef struct Tac_TopLevel {
@@ -67,10 +66,6 @@ typedef struct Tac_TopLevel {
             Tac_Type *type;
             Tac_StaticInit *init;
         } static_constant;
-        struct {
-            char *name; // external array object defined in another module
-            int size;   // total size in target bytes (informational)
-        } declare_array;
     } u;
 } Tac_TopLevel;
 

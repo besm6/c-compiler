@@ -461,29 +461,20 @@ TEST_F(TranslateTest, GlobalVarExtern)
     EXPECT_EQ(yaml, "");
 }
 
-// Inline struct definition inside an extern array declaration allocates no
-// storage, but emits a declare_array so a backend knows the name is an array
-// (decays to its label address) rather than a pointer.
+// An extern array declaration allocates no storage and emits no TAC — a later
+// reference decays the array to its address (GET_ADDRESS), which self-declares
+// the external name, so no array-ness record is needed here.
 TEST_F(TranslateTest, ExternArrayOfInlineStruct)
 {
     std::string yaml = CompileToYaml("extern struct S { int x; } arr[];");
-    EXPECT_EQ(yaml, R"(- toplevel:
-  kind: declare_array
-  name: arr
-  size: 0
-)");
+    EXPECT_EQ(yaml, "");
 }
 
-// Incomplete extern array declaration allocates no storage, but emits a
-// declare_array (size 0, since the bound is unknown).
+// Incomplete extern array declaration allocates no storage and emits no TAC.
 TEST_F(TranslateTest, GlobalVarExternIncompleteArray)
 {
     std::string yaml = CompileToYaml("extern int icode[];");
-    EXPECT_EQ(yaml, R"(- toplevel:
-  kind: declare_array
-  name: icode
-  size: 0
-)");
+    EXPECT_EQ(yaml, "");
 }
 
 // Multi-declarator global declaration emits one static_variable per declarator.

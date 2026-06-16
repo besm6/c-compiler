@@ -36,8 +36,8 @@ void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind, const Fr
                     const Tac_Val *v);
 
 // Lower one TAC instruction (defined in instr.c).
-void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, const Frame *f,
-                   Besm_Block *block, Besm_Instr **tail);
+void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *block,
+                   Besm_Instr **tail);
 
 // Emit a module-level static variable / constant (defined in static.c).
 void codegen_static_variable(const Tac_TopLevel *tl, FILE *out);

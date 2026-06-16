@@ -344,13 +344,6 @@ bool tac_compare_toplevel(const Tac_TopLevel *a, const Tac_TopLevel *b)
             return false;
         return tac_compare_type(a->u.static_constant.type, b->u.static_constant.type) &&
                tac_compare_static_init(a->u.static_constant.init, b->u.static_constant.init);
-    case TAC_TOPLEVEL_DECLARE_ARRAY:
-        if ((a->u.declare_array.name == NULL) != (b->u.declare_array.name == NULL))
-            return false;
-        if (a->u.declare_array.name &&
-            strcmp(a->u.declare_array.name, b->u.declare_array.name) != 0)
-            return false;
-        return a->u.declare_array.size == b->u.declare_array.size;
     }
     return tac_compare_toplevel(a->next, b->next);
 }

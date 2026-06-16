@@ -176,25 +176,8 @@ static void emit_shift(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_
     emit_atx(b, t, dr, doff);
 }
 
-// True if `name` is a module-level array object.  An array variable decays to the
-// address of its label, whereas a pointer variable holds an address in its storage —
-// the TAC carries the bare name in both cases, so ADD_PTR must distinguish them here.
-static bool global_is_array(const Tac_TopLevel *program, const char *name)
-{
-    for (const Tac_TopLevel *tl = program; tl; tl = tl->next) {
-        if (tl->kind == TAC_TOPLEVEL_STATIC_VARIABLE &&
-            strcmp(tl->u.static_variable.name, name) == 0)
-            return tl->u.static_variable.type->kind == TAC_TYPE_ARRAY;
-        // An extern array (defined in another module) is recorded by DeclareArray.
-        if (tl->kind == TAC_TOPLEVEL_DECLARE_ARRAY &&
-            strcmp(tl->u.declare_array.name, name) == 0)
-            return true;
-    }
-    return false;
-}
-
-void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, const Frame *f,
-                   Besm_Block *block, Besm_Instr **tail)
+void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *block,
+                   Besm_Instr **tail)
 {
     switch (instr->kind) {
     // COPY  dst = src
@@ -973,12 +956,9 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
     //   word_scale == 2^k : ASN by k bits on the index (logical left shift)
     //   otherwise         : b/mul the index by word_scale
     //
-    // The base addition differs by operand kind.  An array variable's value IS the address
-    // of its label, while a pointer variable holds an address in its storage; the TAC
-    // carries the bare name in both cases (no explicit decay), so global_is_array decides:
-    //   global array : materialize the label address and fold in the scaled index via the
-    //                  index register on UTC:  ,ATI, 1 / 1 ,UTC, arr / 14 ,VTM, / ,ITA, 14
-    //   pointer      : the pointer's stored value is the base address — A+X ptr
+    // The base is always a pointer value: the translator decays an array to its address
+    // (GET_ADDRESS) before the ADD_PTR, so the base's stored value is the base address and
+    // the scaled index is added with a plain A+X.
     //
     // Byte-offset addressing (scale 1: char* arithmetic, char arrays, packed char struct
     // members) builds a fat pointer through the runtime helpers — see below.
@@ -1036,27 +1016,8 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
             }
         }
 
-        // (b) add the base.
-        bool array_base = false;
-        if (ptr->kind == TAC_VAL_VAR) {
-            int pr, po;
-            if (!frame_lookup(f, ptr->u.var_name, &pr, &po) &&
-                global_is_array(program, ptr->u.var_name))
-                array_base = true;
-        }
-        if (array_base) {
-            Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
-            ati->addr       = 1; // M[1] = scaled index
-            Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
-            utc->reg        = 1;
-            utc->name       = xstrdup(ptr->u.var_name); // C = M[1] + addr(arr)
-            Besm_Instr *vtm = emit(block, tail, BESM_REG_VTM);
-            vtm->reg        = 14; // M[14] = C
-            Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);
-            ita->addr       = 14; // A = M[14] = element word address
-        } else {
-            emit_arith_val(block, tail, BESM_ARITH_ADD, f, ptr);
-        }
+        // (b) add the base (a pointer value).
+        emit_arith_val(block, tail, BESM_ARITH_ADD, f, ptr);
         emit_atx(block, tail, rd, od);
         break;
     }
