@@ -967,6 +967,140 @@ TEST_F(CodegenTest, RemainderUnsignedRun)
 }
 
 // ---------------------------------------------------------------------------
+// Constant strength reduction (task #33).  Multiply by a constant power of two
+// becomes a single ASN left shift; unsigned divide / remainder by a power of two
+// become an ASN right shift / AAX mask, replacing the b/mul / b/udiv / b/umod
+// helper calls.  Signed divide / remainder by 2^k stay on b/div / b/mod (they
+// round toward zero, which is not a plain shift).
+// ---------------------------------------------------------------------------
+
+// Madlen shape: signed multiply by 8 (= 2^3) becomes an ASN with field 64-3 = 61 followed
+// by an AAX mask to the 41-bit signed range (the left shift can spill into the exponent
+// field), with no b/mul helper call and no caller-side stack pop.
+TEST_F(CodegenTest, MultiplyPow2MadlenShape)
+{
+    std::string out = CompileToMadlen("extern int g; void foo(int a) { g = a * 8; }");
+    EXPECT_NE(out.find(",asn, 61"), std::string::npos);
+    EXPECT_NE(out.find(",aax, =37777777777777"), std::string::npos);
+    EXPECT_EQ(out.find(",call, b/mul"), std::string::npos);
+    EXPECT_EQ(out.find(",xts,"), std::string::npos);
+}
+
+// Multiply is commutative: 8 * a reduces to the same ASN as a * 8.
+TEST_F(CodegenTest, MultiplyPow2CommutativeMadlenShape)
+{
+    std::string out = CompileToMadlen("extern int g; void foo(int a) { g = 8 * a; }");
+    EXPECT_NE(out.find(",asn, 61"), std::string::npos);
+    EXPECT_EQ(out.find(",call, b/mul"), std::string::npos);
+}
+
+// Unsigned multiply by a power of two reduces to a bare ASN: the full 48-bit product is
+// modular, so no exponent-field mask is needed (unlike the signed case).
+TEST_F(CodegenTest, MultiplyUnsignedPow2MadlenShape)
+{
+    std::string out = CompileToMadlen("extern unsigned g; void foo(unsigned a) { g = a * 8; }");
+    EXPECT_NE(out.find(",asn, 61"), std::string::npos);
+    EXPECT_EQ(out.find(",aax,"), std::string::npos);
+    EXPECT_EQ(out.find(",call, b/umul"), std::string::npos);
+}
+
+// Madlen shape: unsigned divide by 4 (= 2^2) becomes a logical right shift, ASN 64+2 = 66,
+// with no b/udiv helper call.
+TEST_F(CodegenTest, DivideUnsignedPow2MadlenShape)
+{
+    std::string out = CompileToMadlen("extern unsigned g; void foo(unsigned a) { g = a / 4; }");
+    EXPECT_NE(out.find(",asn, 66"), std::string::npos);
+    EXPECT_EQ(out.find(",call, b/udiv"), std::string::npos);
+}
+
+// Madlen shape: unsigned remainder by 4 becomes a mask of the low 2 bits, AAX =3 (octal).
+TEST_F(CodegenTest, RemainderUnsignedPow2MadlenShape)
+{
+    std::string out = CompileToMadlen("extern unsigned g; void foo(unsigned a) { g = a % 4; }");
+    EXPECT_NE(out.find(",aax, =3"), std::string::npos);
+    EXPECT_EQ(out.find(",call, b/umod"), std::string::npos);
+}
+
+// Signed divide by a power of two is NOT reduced: it must round toward zero for negative
+// dividends, which a shift cannot do, so it stays on the b/div helper.
+TEST_F(CodegenTest, DivideSignedPow2StillHelperMadlenShape)
+{
+    std::string out = CompileToMadlen("extern int g; void foo(int a) { g = a / 4; }");
+    EXPECT_NE(out.find(",call, b/div"), std::string::npos);
+    EXPECT_EQ(out.find(",asn,"), std::string::npos);
+}
+
+// Signed remainder by a power of two likewise stays on b/mod (sign of dividend).
+TEST_F(CodegenTest, RemainderSignedPow2StillHelperMadlenShape)
+{
+    std::string out = CompileToMadlen("extern int g; void foo(int a) { g = a % 4; }");
+    EXPECT_NE(out.find(",call, b/mod"), std::string::npos);
+    EXPECT_EQ(out.find(",aax,"), std::string::npos);
+}
+
+// End-to-end: multiply by powers of two via ASN gives the same products as b/mul, including
+// negative dividends (the modular low bits carry the correct two's-complement result).
+TEST_F(CodegenTest, MultiplyPow2Run)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void check(int a) { printf("%d\n", a * 8); }
+        void program() {
+            check(3);        /* 24 */
+            check(0);        /* 0 */
+            check(-5);       /* -40 */
+            check(125000);   /* 1000000 */
+            check(-125000);  /* -1000000 */
+        }
+    )");
+    EXPECT_EQ("24\n0\n-40\n1000000\n-1000000\n", result);
+}
+
+// End-to-end: unsigned multiply by a power of two via ASN, over the full 48-bit range.
+// The product is taken mod 2^48 (the bare logical shift), printed in octal.
+TEST_F(CodegenTest, MultiplyUnsignedPow2Run)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void check(unsigned a) { printf("%o\n", a * 8); }
+        void program() {
+            check(3);                    /* 30 octal (24) */
+            check(0);                    /* 0 */
+            check(0x100000000000U);      /* 2^44 * 8 = 2^47 = 4000000000000000 octal */
+            check(0xFFFFFFFFFFFFU);      /* (2^48-1)*8 mod 2^48 = 2^48-8 -> 7777777777777770 */
+        }
+    )");
+    EXPECT_EQ(
+        "30\n"
+        "0\n"
+        "4000000000000000\n"
+        "7777777777777770\n",
+        result);
+}
+
+// End-to-end: unsigned divide / remainder by powers of two via ASN / AAX, over the full
+// 48-bit unsigned range (high bit set, exercising the logical-shift / mask path).
+TEST_F(CodegenTest, DivRemUnsignedPow2Run)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void check(unsigned a) { printf("%o %o\n", a / 8, a % 8); }
+        void program() {
+            check(100);                  /* 100/8=12=014o, 100%8=4 */
+            check(7);                    /* 0 7 */
+            check(64);                   /* 64/8=8=010o, 0 */
+            check(0xFFFFFFFFFFFFU);      /* 2^48-1: /8 = 2^45-1 (15 sevens), %8 = 7 */
+        }
+    )");
+    EXPECT_EQ(
+        "14 4\n"
+        "0 7\n"
+        "10 0\n"
+        "777777777777777 7\n",
+        result);
+}
+
+// ---------------------------------------------------------------------------
 // Floating-point arithmetic (task #15).  Add/Sub/Mul/Div map to the hardware
 // A+X/A-X/A*X/A/X bracketed by NTR 0 (enable normalize+round) … NTR 7 (restore
 // the integer suppress mode left by b/save).  float == double (single word).

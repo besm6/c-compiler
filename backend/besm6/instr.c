@@ -134,6 +134,23 @@ static long tac_const_int(const Tac_Const *c)
     }
 }
 
+// If v is a positive integer constant equal to 2^k with k >= 1, return k; else -1.
+// Used for multiply/divide/remainder strength reduction.  Negative or out-of-range
+// unsigned constants (cast to a negative long) fail the val < 2 test and fall back to
+// the runtime helper, which is always safe.
+static int tac_const_log2(const Tac_Val *v)
+{
+    if (v->kind != TAC_VAL_CONSTANT)
+        return -1;
+    long val = tac_const_int(v->u.constant);
+    if (val < 2 || (val & (val - 1)) != 0)
+        return -1;
+    int k = 0;
+    while ((1L << k) < val)
+        k++;
+    return k;
+}
+
 // Emit a shift:  dst = src1 << src2  (left) or  dst = src1 >> src2  (right).
 //
 // Shifts are logical for both int and unsigned, and right-shift does no sign extension.
@@ -514,6 +531,33 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
             break;
         }
 
+        // Strength reduction: multiply by a constant power of two 2^k is a logical left
+        // shift by k.  Multiply is commutative, so the constant may be either operand;
+        // shift the other one.  The product is taken modulo the type width: unsigned keeps
+        // the full 48-bit shift result, but a signed left shift spills significant bits
+        // (including the sign) into the exponent field (bits 42-48), so the signed case
+        // masks back to the 41-bit two's-complement representation that integers require.
+        if (instr->u.binary.op == TAC_BINARY_MULTIPLY ||
+            instr->u.binary.op == TAC_BINARY_MULTIPLY_UNSIGNED) {
+            const Tac_Val *var = src1;
+            int k              = tac_const_log2(src2);
+            if (k < 0) {
+                k   = tac_const_log2(src1);
+                var = src2;
+            }
+            if (k >= 0) {
+                emit_xta_val(block, tail, f, var);
+                Besm_Instr *asn = emit(block, tail, BESM_EXP_SHIFTN);
+                asn->addr       = 64 - k; // logical left shift by k bits
+                if (instr->u.binary.op == TAC_BINARY_MULTIPLY) {
+                    Besm_Instr *aax = emit(block, tail, BESM_LOG_AAX);
+                    aax->name       = xstrdup("=37777777777777"); // mask to 41 bits
+                }
+                emit_atx(block, tail, rd, od);
+                break;
+            }
+        }
+
         // Multiply uses the b/mul runtime helper (the inline A*X needs FP normalization and
         // INT-format bridging, which the helper encapsulates).  Correct for signed operands.
         if (instr->u.binary.op == TAC_BINARY_MULTIPLY) {
@@ -546,16 +590,37 @@ void codegen_instr(const Tac_TopLevel *program, const Tac_Instruction *instr, co
         // Unsigned divide uses b/udiv.  The signed b/div borrows the hardware FP unit
         // (40-bit mantissa, bit 48 read as a sign), so it is wrong for unsigned operands
         // >= 2^40 or with bit 48 set.  b/udiv instead does an integer long division over
-        // the full 48-bit word (divisor-shift / subtract loop).
+        // the full 48-bit word (divisor-shift / subtract loop).  Strength reduction:
+        // unsigned divide by a constant 2^k is an exact logical right shift by k (unsigned
+        // is full-48-bit logical, so no sign extension).
         if (instr->u.binary.op == TAC_BINARY_DIVIDE_UNSIGNED) {
+            int k = tac_const_log2(src2);
+            if (k >= 0) {
+                emit_xta_val(block, tail, f, src1);
+                Besm_Instr *asn = emit(block, tail, BESM_EXP_SHIFTN);
+                asn->addr       = 64 + k; // logical right shift by k bits
+                emit_atx(block, tail, rd, od);
+                break;
+            }
             emit_binop_helper(block, tail, f, src1, src2, "b/udiv", rd, od);
             break;
         }
 
         // Unsigned remainder uses b/umod.  The signed b/mod shares b/div's FP bridge and so
         // is wrong for the same out-of-range unsigned operands.  b/umod computes the full
-        // 48-bit residue as a - (a/b)*b, reusing b/udiv / b/umul / b/usub.
+        // 48-bit residue as a - (a/b)*b, reusing b/udiv / b/umul / b/usub.  Strength
+        // reduction: unsigned remainder by a constant 2^k is masking the low k bits.
         if (instr->u.binary.op == TAC_BINARY_REMAINDER_UNSIGNED) {
+            int k = tac_const_log2(src2);
+            if (k >= 0) {
+                emit_xta_val(block, tail, f, src1);
+                Besm_Instr *aax = emit(block, tail, BESM_LOG_AAX);
+                char buf[32];
+                snprintf(buf, sizeof(buf), "=%lo", (1UL << k) - 1); // mask low k bits
+                aax->name = xstrdup(buf);
+                emit_atx(block, tail, rd, od);
+                break;
+            }
             emit_binop_helper(block, tail, f, src1, src2, "b/umod", rd, od);
             break;
         }

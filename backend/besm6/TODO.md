@@ -104,7 +104,6 @@ Two cross-cutting rules govern this phase:
 
 | # | Task | Description | Effort |
 |---|------|-------------|--------|
-| 33 | Constant strength reduction | In [instr.c](instr.c), where the `Tac_Val` constant operand is still visible, lower multiply by a power of two to a single `asn` (logical left shift, as `ADD_PTR` already does for word scaling) and unsigned divide / remainder by a power of two to `asn` (right shift) / `aax` (mask) instead of calling `b/mul` / `b/udiv` / `b/umod`. Signed divide by 2^k is *not* a plain shift (it must round toward zero), so leave it on `b/div`. | S–M |
 | 34 | Direct symbolic global addressing | Investigate replacing the `utc name` / `xta 0` pair that `emit_xta_val` / `emit_arith_val` ([emit.c](emit.c)) emit for every global with a direct `xta name` (and the matching `atx` / `a+x` forms), where the Dubna single-pass assembler and linker permit a relocatable symbol in the address field. Keep `utc` for the index-register-based forms (array indexing, `&global`). Needs simulator validation before adoption. | M |
 
 #### Frame allocation
