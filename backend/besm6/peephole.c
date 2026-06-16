@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stddef.h>
+#include <string.h>
 
 #include "abi.h"
 #include "besm.h"
@@ -17,8 +18,8 @@
 // sequences, and backend/besm6/TODO.md (Phase M) for the rule catalogue.
 //
 // Currently implemented: the framework itself (this file), rule #27 (redundant reload
-// elimination) and rule #28 (dead temp-store elimination).  Rules #29–#32 append entries
-// to the rule table below.
+// elimination), rule #28 (dead temp-store elimination) and rule #29 (NTR mode
+// coalescing).  Rules #30–#32 append entries to the rule table below.
 //
 
 //
@@ -26,20 +27,22 @@
 //
 // A value in A is described by the frame slot it mirrors: register (r6/r7) plus
 // offset.  Most rewrites are licensed by knowing "A currently holds slot (reg,off)".
-// The mode register R and the logical flag ω are also machine state a peephole
-// rule may track; the mode-coalescing (#29) and compare→branch (#30) rules will add
-// fields here when they land.
+// The mode register R is also tracked (for NTR mode coalescing, rule #29); the
+// logical flag ω is machine state the compare→branch rule (#30) will add when it lands.
 //
 typedef struct {
     bool a_known; // true: A mirrors the frame slot below
     unsigned a_reg;
     int a_off;
+    bool r_known; // true: r_val is the current mode register R
+    int r_val;
 } PeepState;
 
 // Reset all tracked state — used at every basic-block boundary.
 static void state_reset(PeepState *st)
 {
     st->a_known = false;
+    st->r_known = false;
 }
 
 //
@@ -83,6 +86,12 @@ static bool is_block_boundary(const Besm_Instr *i)
 //
 static void state_step(PeepState *st, const Besm_Instr *i)
 {
+    // Mode register R: `ntr` (SETR) sets it to its operand.  Nothing else changes R
+    // in straight-line code — a CALL is a block boundary, handled by the sweep.
+    if (i->kind == BESM_EXP_SETR) {
+        st->r_known = true;
+        st->r_val   = i->addr;
+    }
     switch (i->kind) {
     case BESM_MEM_XTA:
     case BESM_MEM_ATX:
@@ -115,8 +124,21 @@ static bool rule_redundant_reload(const Besm_Instr *cur, const PeepState *st)
 }
 
 //
+// Rule #29(a) — redundant NTR elimination.  See docs/Peephole_Rewrites.md §5.3.
+//
+// `cur` is an `ntr n` (SETR) that re-establishes a mode-register value R already
+// holds (the tracked state says R == n), so it has no effect; report a match so the
+// caller deletes it.  This drops the leading `ntr 0` of an FP op when R is already 0,
+// and a trailing `ntr 7` when R is already 7 (e.g. straight after `b/save`).
+//
+static bool rule_redundant_ntr(const Besm_Instr *cur, const PeepState *st)
+{
+    return cur->kind == BESM_EXP_SETR && st->r_known && cur->addr == st->r_val;
+}
+
+//
 // Rule table.  Each rule inspects the cursor instruction and the tracked state and
-// returns true when the cursor should be deleted.  Rules #29–#32 append here.
+// returns true when the cursor should be deleted.  Rules #30–#32 append here.
 //
 // Rule #28 (dead temp-store elimination) is *not* a table entry: deciding whether an
 // `atx` is dead needs forward look-ahead within the block plus the frame's temp-slot
@@ -127,6 +149,7 @@ typedef bool (*PeepRule)(const Besm_Instr *cur, const PeepState *st);
 
 static const PeepRule rule_table[] = {
     rule_redundant_reload,
+    rule_redundant_ntr,
 };
 #define NUM_RULES (sizeof(rule_table) / sizeof(rule_table[0]))
 
@@ -206,6 +229,63 @@ static bool dead_temp_store(const Besm_Instr *cur, const Frame *frame, const boo
     }
     // Block ends with no further read.  Dead iff the temporary is confined to one block.
     return multiblock == NULL || !multiblock[off];
+}
+
+//
+// Rule #29(b) — dead NTR elimination.  See docs/Peephole_Rewrites.md §5.3.
+//
+// Two FP ops in a row emit `ntr 7` (restore) immediately chased by `ntr 0` (re-enter
+// FP mode), with only R-independent moves between them.  The first `ntr` is dead: its
+// R value is overwritten before anything reads it.  Together with rule #29(a) (which
+// then drops the redundant re-set), R stays 0 across the run and is restored once at
+// the end.
+//
+
+// Is `i`'s result independent of the mode register R?  These are the data-movement and
+// index-register ops whose behavior does not depend on R, so they may sit between a
+// dead `ntr` and the `ntr` that overwrites it.  Everything else — additive/
+// multiplicative arithmetic (A±X / A*X / A/X), exponent and shift ops, etc. — may
+// depend on R and therefore ends the scan, keeping the `ntr` live.
+static bool instr_is_r_independent(const Besm_Instr *i)
+{
+    switch (i->kind) {
+    case BESM_MEM_XTA:
+    case BESM_MEM_ATX:
+    case BESM_MEM_STX:
+    case BESM_MEM_XTS:
+    case BESM_MEM_ITA:
+    case BESM_MEM_ATI:
+    case BESM_MEM_ITS:
+    case BESM_MEM_STI:
+    case BESM_MEM_MTJ:
+    case BESM_REG_VTM:
+    case BESM_REG_UTM:
+    case BESM_REG_JADDM:
+    case BESM_MOD_UTC:
+    case BESM_MOD_WTC:
+        return true;
+    default:
+        return false;
+    }
+}
+
+//
+// `cur` is an `ntr` (SETR).  Scan forward within the basic block: if a later `ntr`
+// overwrites R before any R-dependent instruction reads it, `cur` is dead.  If an
+// R-dependent instruction or the block boundary comes first, `cur` is live (the
+// boundary case is the "restore R once at the end" that must survive).
+//
+static bool dead_ntr_set(const Besm_Instr *cur)
+{
+    if (cur->kind != BESM_EXP_SETR)
+        return false;
+    for (const Besm_Instr *j = cur->next; j && !is_block_boundary(j); j = j->next) {
+        if (j->kind == BESM_EXP_SETR)
+            return true; // R overwritten before any use: store is dead
+        if (!instr_is_r_independent(j))
+            return false; // R is used: store is live
+    }
+    return false; // block ends with no overwrite: keep (restore-at-end)
 }
 
 // If `i` directly reads or writes an auto slot, report its offset.  Used to attribute
@@ -290,7 +370,8 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
             }
         }
         // Rule #28: dead temp-store elimination (needs look-ahead + the frame).
-        if (!deleted && dead_temp_store(cur, frame, multiblock)) {
+        // Rule #29(b): dead NTR elimination (needs forward look-ahead).
+        if (!deleted && (dead_temp_store(cur, frame, multiblock) || dead_ntr_set(cur))) {
             Besm_Instr *next = cur->next;
             delete_instr(block, prev, cur);
             cur     = next;
@@ -300,10 +381,20 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
         if (deleted)
             continue; // prev and tracked state stay valid; re-test the new cur
 
-        if (is_block_boundary(cur))
+        if (is_block_boundary(cur)) {
             state_reset(&st);
-        else
+            // `b/save`/`b/save0` leave R = 7; seed it so a redundant `ntr 7` just after
+            // the prologue (or anywhere R is already 7) is recognised.  Every other CALL
+            // may change R (the arithmetic helpers borrow the FP unit), so R stays
+            // unknown there.
+            if (cur->kind == BESM_BRANCH_CALL && cur->name != NULL &&
+                (strcmp(cur->name, "b/save") == 0 || strcmp(cur->name, "b/save0") == 0)) {
+                st.r_known = true;
+                st.r_val   = 7;
+            }
+        } else {
             state_step(&st, cur);
+        }
 
         prev = cur;
         cur  = cur->next;

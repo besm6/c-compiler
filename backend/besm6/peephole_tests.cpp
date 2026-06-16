@@ -136,6 +136,49 @@ TEST_F(CodegenTest, TempAcrossBranchBehaviorUnchanged)
     EXPECT_EQ("17 25\n", out);
 }
 
+// Rule #29 — NTR mode coalescing.  Two double additions in one basic block emit a
+// `ntr 7` (restore) immediately chased by a `ntr 0` (re-enter FP mode).  Rule #29(b)
+// drops the dead `ntr 7` and #29(a) drops the now-redundant `ntr 0`, so R = 0 is held
+// across both `a+x` and restored once at the end: a single `,ntr, 0` … `,ntr, 7`
+// bracket.  See docs/Peephole_Rewrites.md §5.3.
+TEST_F(CodegenTest, ConsecutiveFpOpsCoalesceNtr)
+{
+    std::string output = CompileToMadlen(
+        "double f(double a, double b, double c) { double e = a + b; return e + c; }");
+    EXPECT_EQ(R"(c
+        f:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+          15 ,utm, 2
+           6 ,xta,
+             ,ntr, 0
+           6 ,a+x, 1
+           6 ,a+x, 2
+             ,ntr, 7
+             ,uj, b/ret
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// Behavior guard for rule #29: coalescing the NTR brackets must not change the FP
+// result.  Two consecutive FP adds, (a + b) + c, with normalization/rounding active
+// throughout.  The result is printed as its raw octal bit pattern (the runtime has no
+// %f formatting); 8.0 encodes as 4210000000000000.
+TEST_F(CodegenTest, FpCoalesceBehaviorUnchanged)
+{
+    std::string out = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        double add3(double a, double b, double c) { double e = a + b; return e + c; }
+        void program(void) {
+            printf("%o\n", add3(1.5, 2.5, 4.0));
+        }
+    )");
+    EXPECT_EQ("4210000000000000\n", out);
+}
+
 // Behavior must be unchanged with the pass on (the pass is always on): the
 // store/reload that rule #27 collapses is on the a+b path of this program.
 TEST_F(CodegenTest, ArithmeticBehaviorUnchanged)
