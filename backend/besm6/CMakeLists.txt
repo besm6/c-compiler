@@ -39,7 +39,8 @@ list(TRANSFORM LIBC_SOURCES APPEND .madlen)
 # in the build directory via parse -> lower -> genbesm.  besmc only recognizes the
 # .madlen extension, so genbesm writes there.
 set(LIBC_C
-    print_o print_d putbyte putch flush printf getch)
+    print_o print_d putbyte putch flush printf getch
+    doprnt sprintf snprintf modf)
 set(LIBC_C_MADLEN "")
 foreach(name ${LIBC_C})
     set(c_src  ${LIBC_DIR}/${name}.c)
@@ -86,6 +87,7 @@ add_executable(besm-tests
     struct_tests.cpp
     char_tests.cpp
     peephole_tests.cpp
+    printf_tests.cpp
 )
 target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
 add_dependencies(besm-tests besm-libc)
