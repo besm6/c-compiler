@@ -6,6 +6,7 @@
 #include "semantic.h"
 #include "structtab.h"
 #include "target.h"
+#include "typecheck.h"
 #include "typetab.h"
 
 // Replace every TYPE_TYPEDEF_NAME node in the type tree with a cloned, fully-resolved
@@ -26,6 +27,18 @@ Type *resolve_typedef_names(Type *t)
         break;
     case TYPE_ARRAY:
         t->u.array.element = resolve_typedef_names(t->u.array.element);
+        // Fold a non-integer-literal dimension (e.g. an enum constant or a
+        // constant expression) to a LITERAL_INT so get_size() sees a real length.
+        if (t->u.array.size &&
+            !(t->u.array.size->kind == EXPR_LITERAL &&
+              t->u.array.size->u.literal->kind == LITERAL_INT)) {
+            long n;
+            if (try_eval_const_int(t->u.array.size, &n)) {
+                free_expression(t->u.array.size);
+                t->u.array.size = NULL; // set_array_size assigns without freeing
+                set_array_size(t, (size_t)n);
+            }
+        }
         break;
     case TYPE_FUNCTION:
         t->u.function.return_type = resolve_typedef_names(t->u.function.return_type);

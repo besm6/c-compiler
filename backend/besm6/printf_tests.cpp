@@ -328,7 +328,7 @@ TEST_F(CodegenTest, DISABLED_StringConstantNameNotGloballyUnique)
 // corrupts the stack frame; here sizeof exposes it directly.  doprnt.c works
 // around it by sizing nbuf with a literal instead of MAXNBUF.
 // Correct output: "4\n".  Buggy output: a garbage number (the name pointer).
-TEST_F(CodegenTest, DISABLED_EnumArrayDimension)
+TEST_F(CodegenTest, EnumArrayDimension)
 {
     std::string result = CompileAndRun(R"(
         int printf(const char *format, ...);

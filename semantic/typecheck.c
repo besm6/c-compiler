@@ -372,6 +372,13 @@ bool try_eval_const_int(const Expr *e, long *out)
         case LITERAL_CHAR:
             *out = (unsigned char)e->u.literal->u.char_val;
             return true;
+        case LITERAL_ENUM: {
+            const Symbol *sym = symtab_get_opt(e->u.literal->u.enum_const);
+            if (!sym)
+                return false;
+            *out = sym->u.enum_val;
+            return true;
+        }
         default:
             return false;
         }
