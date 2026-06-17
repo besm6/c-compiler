@@ -224,6 +224,71 @@ TEST_F(CodegenTest, CharPtrDecWithinWord)
     EXPECT_EQ("Y\n", result);
 }
 
+// Runtime: char* '<' forward walk spanning a word boundary (a[0..7], crosses at a[6]).
+// Complements CharPtrRelationalCompare (>=); the four relational operators share one
+// PTR_DIFF-based lowering, so this also guards < / the signed compare-against-0.
+TEST_F(CodegenTest, CharPtrLessThanForward)
+{
+    std::string result = CompileAndRun(R"(
+        void putbyte(int ch);
+        void program() {
+            char a[10];
+            for (int i = 0; i < 10; i++)
+                a[i] = '0' + i;
+            char *p = a;
+            char *end = a + 8;
+            while (p < end) {
+                putbyte(*p);
+                ++p;
+            }
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("01234567\n", result);
+}
+
+// Runtime: char* '>' backward walk spanning a word boundary (a[7..2], crosses at a[6]).
+TEST_F(CodegenTest, CharPtrGreaterThanBackward)
+{
+    std::string result = CompileAndRun(R"(
+        void putbyte(int ch);
+        void program() {
+            char a[10];
+            for (int i = 0; i < 10; i++)
+                a[i] = '0' + i;
+            char *start = a + 1;
+            char *p = a + 7;
+            while (p > start) {
+                putbyte(*p);
+                --p;
+            }
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("765432\n", result);
+}
+
+// Runtime: char* '<=' inclusive forward walk (a[0..3]).
+TEST_F(CodegenTest, CharPtrLessOrEqualForward)
+{
+    std::string result = CompileAndRun(R"(
+        void putbyte(int ch);
+        void program() {
+            char a[10];
+            for (int i = 0; i < 10; i++)
+                a[i] = '0' + i;
+            char *p = a;
+            char *end = a + 3;
+            while (p <= end) {
+                putbyte(*p);
+                ++p;
+            }
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("0123\n", result);
+}
+
 // Runtime: char* + n with a carry across a word (b/padd floored division by 6).
 TEST_F(CodegenTest, CharPtrPlusNCarry)
 {

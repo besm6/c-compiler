@@ -76,35 +76,29 @@ static int mkhex(int ch)
 /*
  * Convert `ul` to base `base` digits, written into nbuf in reverse order.
  * nbuf[0] is a 0 sentinel; digits occupy nbuf[1..].  At least `prec` digits are
- * produced (zero padded).  Returns the index of the most-significant digit (so
- * the caller walks the index downward to nbuf[1] to print MSD..LSD) and stores
- * the digit count in *lenp.
+ * produced (zero padded).  Returns a pointer to the most-significant digit (so
+ * the caller walks downward to nbuf+1 to print MSD..LSD) and stores the digit
+ * count in *lenp.
  */
-static int ksprintn(char *nbuf, unsigned ul, int base, int prec, int *lenp)
+static char *ksprintn(char *nbuf, unsigned ul, int base, int prec, int *lenp)
 {
-    int p = 0;
+    char *p = nbuf;
 
-    nbuf[0] = 0;
-    for (;;) {
-        ++p;
-        nbuf[p] = (char)mkhex((int)(ul % (unsigned)base));
-        ul      = ul / (unsigned)base;
-        if (--prec > 0)
-            continue;
-        if (!ul)
-            break;
-    }
+    *p = 0;
+    do {
+        *++p = (char)mkhex((int)(ul % (unsigned)base));
+        ul   = ul / (unsigned)base;
+    } while (--prec > 0 || ul);
     if (lenp)
-        *lenp = p;
+        *lenp = (int)(p - nbuf);
     return p;
 }
 
 /*
  * Floating-point conversion (defined at the bottom of the file).  Works on the
- * caller buffer b[0..bsize-1] using integer indices, because this backend's
- * char* relational comparisons and pointer arithmetic are unreliable.  Stores
- * the digits, sets *startidx to the index of the first character, and returns
- * the character count.  b[0] is reserved for a rounding carry.
+ * caller buffer b[0..bsize-1], walking it with char* cursors.  Stores the
+ * digits, sets *startidx to the index of the first character, and returns the
+ * character count.  b[0] is reserved for a rounding carry.
  */
 static int cvt(double number, int prec, int sharpflag, int *negp, int fmtch, char *b, int bsize,
                int *startidx);
@@ -113,9 +107,9 @@ int __doprnt(char *fmt, int *ap, char *buf, int size, int to_buf)
 {
     char nbuf[MAXNBUF];
     int i, c, base, ladjust, sharpflag, neg, dot;
-    int n, width, dwidth, sign, blank, extrazeros, padding, msd, dlen;
+    int n, width, dwidth, sign, blank, extrazeros, padding, dlen;
     unsigned ul;
-    char *s;
+    char *s, *msd;
 
     g_to_buf = to_buf;
     g_buf    = buf;
@@ -377,8 +371,8 @@ int __doprnt(char *fmt, int *ap, char *buf, int size, int to_buf)
             emit_pad('0', extrazeros);
         if (!ladjust && padding == '0' && (width - dlen) > 0)
             emit_pad('0', width - dlen);
-        for (n = msd; n >= 1; --n)
-            emit(nbuf[n]);
+        while (msd > nbuf)
+            emit(*msd--);
         if (ladjust && (width - dlen) > 0)
             emit_pad(' ', width - dlen);
         continue;
@@ -395,19 +389,20 @@ done:
 }
 
 /*
- * Round the decimal digits b[*startp .. endp] up by one unit in the last place,
- * propagating carries (index-based; see the cvt note).  `exp` (when non-null)
- * carries the e-format exponent so a carry out of the leading digit bumps it;
- * otherwise an f-format carry extends left into the reserved slot and decrements
- * *startp.  Mirrors the FreeBSD cvtround.
+ * Round the decimal digits start..end up by one unit in the last place,
+ * propagating carries.  `exp` (when non-null) carries the e-format exponent so a
+ * carry out of the leading digit bumps it; otherwise an f-format carry extends
+ * left into the reserved slot and moves *startp back one.  Mirrors the FreeBSD
+ * cvtround.
  */
-static void cvtround(double fract, int *exp, char *b, int *startp, int endp, int ch, int *negp)
+static void cvtround(double fract, int *exp, char **startp, char *end, int ch, int *negp)
 {
     double tmp;
-    int up, start, end;
+    char *start, *p;
+    int up;
 
     start = *startp;
-    end   = endp;
+    p     = end;
 
     if (fract) {
         modf(fract * 10, &tmp);
@@ -416,20 +411,20 @@ static void cvtround(double fract, int *exp, char *b, int *startp, int endp, int
         up = ch - '0';
     }
     if (up > 4) {
-        for (;; --end) {
-            if (b[end] == '.')
-                --end;
-            ++b[end];
-            if (b[end] <= '9')
+        for (;; --p) {
+            if (*p == '.')
+                --p;
+            ++*p;
+            if (*p <= '9')
                 break;
-            b[end] = '0';
-            if (end == start) {
+            *p = '0';
+            if (p == start) {
                 if (exp) { /* e/E: increment exponent */
-                    b[end] = '1';
+                    *p = '1';
                     ++*exp;
                 } else { /* f: prepend a digit into the reserved slot */
-                    --end;
-                    b[end] = '1';
+                    --p;
+                    *p = '1';
                     --start;
                 }
                 break;
@@ -437,33 +432,32 @@ static void cvtround(double fract, int *exp, char *b, int *startp, int endp, int
         }
     } else if (*negp) {
         /* "%.3f" of -0.0004 must not print a negative zero */
-        for (;; --end) {
-            if (b[end] == '.')
-                --end;
-            if (b[end] != '0')
+        for (;; --p) {
+            if (*p == '.')
+                --p;
+            if (*p != '0')
                 break;
-            if (end == start)
+            if (p == start)
                 *negp = 0;
         }
     }
     *startp = start;
 }
 
-/* Append the exponent suffix ("E+NN") to b at index t; return the new index. */
-static int exponent(char *b, int tin, int expin, int fmtch)
+/* Append the exponent suffix ("E+NN") at write cursor p; return the new cursor. */
+static char *exponent(char *p, int expin, int fmtch)
 {
     char eb[8];
-    int t, exp, k;
+    int exp, k;
 
-    t   = tin;
     exp = expin;
 
-    b[t++] = (char)fmtch;
+    *p++ = (char)fmtch;
     if (exp < 0) {
-        exp    = -exp;
-        b[t++] = '-';
+        exp  = -exp;
+        *p++ = '-';
     } else {
-        b[t++] = '+';
+        *p++ = '+';
     }
     k = 8;
     if (exp > 9) {
@@ -475,26 +469,26 @@ static int exponent(char *b, int tin, int expin, int fmtch)
         --k;
         eb[k] = (char)(exp + '0');
         for (; k < 8; ++k)
-            b[t++] = eb[k];
+            *p++ = eb[k];
     } else {
-        b[t++] = '0';
-        b[t++] = (char)(exp + '0');
+        *p++ = '0';
+        *p++ = (char)(exp + '0');
     }
-    return t;
+    return p;
 }
 
 /*
- * Format the magnitude `number` into b[] for %f/%e/%g.  Index-based throughout
- * because this backend's char* relational comparisons and pointer arithmetic
- * are unreliable.  b[0] is reserved for a rounding carry; formatting runs from
- * index 1.  *startidx receives the index of the first character (0 if a carry
+ * Format the magnitude `number` into b[] for %f/%e/%g.  Walks the buffer with
+ * char* cursors.  b[0] is reserved for a rounding carry; formatting runs from
+ * b+1.  *startidx receives the index of the first character (0 if a carry
  * extended left); the character count is returned.
  */
 static int cvt(double number, int precin, int sharpflag, int *negp, int fmtch, char *b, int bsize,
                int *startidx)
 {
     double fract, integer, tmp;
-    int p, t, start, endp, expcnt, gformat, dotrim, prec, ftc;
+    char *p, *t, *start, *endp;
+    int expcnt, gformat, dotrim, prec, ftc;
 
     prec    = precin;
     ftc     = fmtch;
@@ -503,15 +497,15 @@ static int cvt(double number, int precin, int sharpflag, int *negp, int fmtch, c
     dotrim  = 0;
     fract   = modf(number, &integer);
 
-    endp  = bsize - 1;
-    start = 1; /* reserved rounding slot at b[0] */
-    t     = 1;
+    endp  = b + bsize - 1;
+    start = b + 1; /* reserved rounding slot at b[0] */
+    t     = b + 1;
 
     /* integer part, least-significant first, into the top of the buffer */
     p = endp - 1;
     while (integer) {
-        tmp  = modf(integer / 10, &integer);
-        b[p] = (char)((int)((tmp + 0.01) * 10) + '0');
+        tmp = modf(integer / 10, &integer);
+        *p  = (char)((int)((tmp + 0.01) * 10) + '0');
         --p;
         ++expcnt;
     }
@@ -519,52 +513,50 @@ static int cvt(double number, int precin, int sharpflag, int *negp, int fmtch, c
     if (fmtch == 'F') {
         if (expcnt) {
             ++p;
-            while (p < endp) {
-                b[t++] = b[p];
-                ++p;
-            }
+            while (p < endp)
+                *t++ = *p++;
         } else {
-            b[t++] = '0';
+            *t++ = '0';
         }
         if (prec || sharpflag)
-            b[t++] = '.';
+            *t++ = '.';
         if (fract) {
             if (prec) {
                 do {
-                    fract  = modf(fract * 10, &tmp);
-                    b[t++] = (char)((int)tmp + '0');
+                    fract = modf(fract * 10, &tmp);
+                    *t++  = (char)((int)tmp + '0');
                 } while (--prec && fract);
             }
             if (fract)
-                cvtround(fract, 0, b, &start, t - 1, '0', negp);
+                cvtround(fract, 0, &start, t - 1, '0', negp);
         }
         for (; prec > 0; --prec)
-            b[t++] = '0';
-        *startidx = start;
-        return t - start;
+            *t++ = '0';
+        *startidx = (int)(start - b);
+        return (int)(t - start);
     }
 
     if (fmtch == 'E') {
     eformat:
         if (expcnt) {
             ++p;
-            b[t++] = b[p];
+            *t++ = *p;
             if (prec || sharpflag)
-                b[t++] = '.';
+                *t++ = '.';
             for (;;) {
                 if (!prec)
                     break;
                 ++p;
                 if (p >= endp)
                     break;
-                b[t++] = b[p];
+                *t++ = *p;
                 --prec;
             }
             if (!prec) {
                 ++p;
                 if (p < endp) {
                     fract = 0;
-                    cvtround(0, &expcnt, b, &start, t - 1, b[p], negp);
+                    cvtround(0, &expcnt, &start, t - 1, *p, negp);
                 }
             }
             --expcnt;
@@ -574,39 +566,39 @@ static int cvt(double number, int precin, int sharpflag, int *negp, int fmtch, c
                 if (tmp)
                     break;
             }
-            b[t++] = (char)((int)tmp + '0');
+            *t++ = (char)((int)tmp + '0');
             if (prec || sharpflag)
-                b[t++] = '.';
+                *t++ = '.';
         } else {
-            b[t++] = '0';
+            *t++ = '0';
             if (prec || sharpflag)
-                b[t++] = '.';
+                *t++ = '.';
         }
         if (fract) {
             if (prec) {
                 do {
-                    fract  = modf(fract * 10, &tmp);
-                    b[t++] = (char)((int)tmp + '0');
+                    fract = modf(fract * 10, &tmp);
+                    *t++  = (char)((int)tmp + '0');
                 } while (--prec && fract);
             }
             if (fract)
-                cvtround(fract, &expcnt, b, &start, t - 1, '0', negp);
+                cvtround(fract, &expcnt, &start, t - 1, '0', negp);
         }
         for (; prec > 0; --prec)
-            b[t++] = '0';
+            *t++ = '0';
         if (gformat && !sharpflag) {
             while (t > start) {
                 --t;
-                if (b[t] != '0')
+                if (*t != '0')
                     break;
             }
-            if (b[t] == '.')
+            if (*t == '.')
                 --t;
             ++t;
         }
-        t = exponent(b, t, expcnt, ftc);
-        *startidx = start;
-        return t - start;
+        t = exponent(t, expcnt, ftc);
+        *startidx = (int)(start - b);
+        return (int)(t - start);
     }
 
     /* fmtch == 'G' */
@@ -623,35 +615,35 @@ static int cvt(double number, int precin, int sharpflag, int *negp, int fmtch, c
             ++p;
             if (p >= endp)
                 break;
-            b[t++] = b[p];
+            *t++ = *p;
             --prec;
         }
     } else {
-        b[t++] = '0';
+        *t++ = '0';
     }
     if (prec || sharpflag) {
         dotrim = 1;
-        b[t++] = '.';
+        *t++   = '.';
     }
     while (prec && fract) {
-        fract  = modf(fract * 10, &tmp);
-        b[t++] = (char)((int)tmp + '0');
+        fract = modf(fract * 10, &tmp);
+        *t++  = (char)((int)tmp + '0');
         --prec;
     }
     if (fract)
-        cvtround(fract, 0, b, &start, t - 1, '0', negp);
+        cvtround(fract, 0, &start, t - 1, '0', negp);
     if (sharpflag) {
         for (; prec > 0; --prec)
-            b[t++] = '0';
+            *t++ = '0';
     } else if (dotrim) {
         while (t > start) {
             --t;
-            if (b[t] != '0')
+            if (*t != '0')
                 break;
         }
-        if (b[t] != '.')
+        if (*t != '.')
             ++t;
     }
-    *startidx = start;
-    return t - start;
+    *startidx = (int)(start - b);
+    return (int)(t - start);
 }

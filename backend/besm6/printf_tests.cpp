@@ -203,6 +203,21 @@ TEST_F(CodegenTest, PrintfFloatG)
     EXPECT_EQ("12.34 100000\n", result);
 }
 
+// Rounding carry in cvt/cvtround: 0.5 rounds the lone '0' up to "1"; 9.5 carries out of
+// the leading digit, exercising the reserved-slot prepend (cvtround moves *startp back).
+// Guards the char* pointer rewrite of the float formatter.  Both values are exact in
+// binary, so there is no representation noise.
+TEST_F(CodegenTest, PrintfFloatRoundCarry)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            printf("%.0f %.0f\n", 0.5, 9.5);
+        }
+    )");
+    EXPECT_EQ("1 10\n", result);
+}
+
 // ---- sprintf / snprintf --------------------------------------------------
 
 TEST_F(CodegenTest, Snprintf)
