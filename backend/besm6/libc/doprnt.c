@@ -115,7 +115,11 @@ static int cvt(double number, int prec, int sharpflag, int *negp, int fmtch, cha
 
 int __doprnt(char *fmt, int *ap, char *buf, int size, int to_buf)
 {
-    char nbuf[MAXNBUF];
+    /* Size must equal MAXNBUF.  A literal is used instead of the enum constant
+     * because this compiler mishandles an enum constant as an array dimension
+     * (it reads the enum-name pointer as the length — see the disabled
+     * DISABLED_EnumArrayDimension test), which corrupts the frame size. */
+    char nbuf[32];
     int i, c, base, ladjust, sharpflag, neg, dot;
     int n, width, dwidth, sign, blank, extrazeros, padding, msd, dlen;
     unsigned ul;

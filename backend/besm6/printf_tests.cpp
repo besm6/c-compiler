@@ -247,3 +247,93 @@ TEST_F(CodegenTest, SnprintfTruncation)
     )");
     EXPECT_EQ("[ABCD](7)\n", result);
 }
+
+// ==========================================================================
+// Known BESM-6 backend bugs, surfaced while implementing printf.
+//
+// These are DISABLED reproducers (run with --gtest_also_run_disabled_tests).
+// printf works around each one; the tests document the underlying defect and
+// should be enabled once the backend is fixed.  Each EXPECT asserts the
+// CORRECT behaviour, so a disabled test currently fails and will pass after a
+// fix.
+//
+// Note: the "null char* is a truthy fat pointer" symptom reported during
+// development could NOT be reproduced in isolation — a null char* tests false
+// correctly in every standalone form tried.  The printf null-string garbage it
+// was blamed on is in fact the string-constant collision below
+// (DISABLED_StringConstantNameNotGloballyUnique): the library "(NULL)" literal
+// resolved to the caller's _str0.  So there is no separate test for it.
+// ==========================================================================
+
+// Bug: a function parameter that is both modified (--n) and tested in a loop
+// condition (while (n > 0)) is read from an uninitialized auto slot rather than
+// its parameter slot, so the loop misbehaves (emit_pad infinite-looped on this
+// pattern; countdown drops/garbles iterations).
+// Correct output: "321\n".  Buggy output: "21\n".
+TEST_F(CodegenTest, DISABLED_MutatedParameterInLoop)
+{
+    std::string result = CompileAndRun(R"(
+        void putbyte(int b);
+        void countdown(int n) {
+            while (n > 0) {
+                putbyte('0' + n);
+                --n;
+            }
+        }
+        void program() { countdown(3); putbyte('\n'); }
+    )");
+    EXPECT_EQ("321\n", result);
+}
+
+// Bug: char* relational comparison and decrement are unreliable (the fat-pointer
+// encoding is compared as a raw word).  This loop walks a char* backwards over a
+// buffer; with the bug the loop body never executes.
+// Correct output: "ABC\n".  Buggy output: "\n".
+TEST_F(CodegenTest, DISABLED_CharPtrRelationalCompare)
+{
+    std::string result = CompileAndRun(R"(
+        void putbyte(int b);
+        void program() {
+            char b[4];
+            b[0] = 'C'; b[1] = 'B'; b[2] = 'A'; b[3] = 0;
+            char *p = b + 2;
+            while (p >= b) {
+                putbyte(*p);
+                --p;
+            }
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("ABC\n", result);
+}
+
+// Bug: string-constant labels are numbered per compilation unit (the _strN
+// counter restarts at 0 for every module), so a string literal in one module is
+// named "_str0" (emitted as "*str0") and collides with another module's "_str0"
+// at link time.  This is why a library routine must not use string literals: a
+// library "(NULL)" resolved to the caller's first string constant.  A correct
+// backend should give string constants globally-unique names.
+TEST_F(CodegenTest, DISABLED_StringConstantNameNotGloballyUnique)
+{
+    std::string madlen = CompileToMadlen(R"( char *f(void) { return "ABC"; } )");
+    // The bare, per-module name "*str0" collides across modules; after a fix the
+    // label should be module-unique and this substring should be gone.
+    EXPECT_EQ(std::string::npos, madlen.find("*str0"));
+}
+
+// Bug: an enum constant used as an array dimension is left as a LITERAL_ENUM
+// (only enum constants in expressions are resolved to LITERAL_INT, by
+// typecheck_literal).  get_size() then reads the enum-name pointer as the array
+// length, yielding a garbage, non-deterministic size.  As a local array this
+// corrupts the stack frame; here sizeof exposes it directly.  doprnt.c works
+// around it by sizing nbuf with a literal instead of MAXNBUF.
+// Correct output: "4\n".  Buggy output: a garbage number (the name pointer).
+TEST_F(CodegenTest, DISABLED_EnumArrayDimension)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        enum { N = 4 };
+        void program() { printf("%d\n", (int)sizeof(char[N])); }
+    )");
+    EXPECT_EQ("4\n", result);
+}
