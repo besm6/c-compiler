@@ -173,10 +173,13 @@ Frame allocation (`frame.c`) assigns a stack slot to every TAC name beginning wi
 referenced name is a module-level global, accessed via `,utc, name` and pre-declared with
 a `,subp,` directive.
 
-A planned peephole-optimization pass (`besm_peephole`, Phase M) will run on the
-`Besm_Instr` list between instruction selection and Madlen emission, removing the
-store/reload, mode-register (`ntr`), and compare/branch residue that one-node-at-a-time
-selection leaves behind. See [Peephole_Rewrites.md](Peephole_Rewrites.md) for the design.
+On BESM-6, `float` and `double` are the same 48-bit native floating-point word, so both C
+types map to one representation. After instruction selection a peephole-optimization pass
+(`besm_peephole`) runs on the `Besm_Instr` list between selection and Madlen emission,
+removing the store/reload, mode-register (`ntr`), compare/branch, and branch/label residue
+that one-node-at-a-time selection leaves behind; a post-peephole frame-slot reclamation pass
+then shrinks the stack frame to the slots still in use. See
+[Peephole_Rewrites.md](Peephole_Rewrites.md) for the catalogue of rewrites.
 
 ### TAC YAML format
 
@@ -340,6 +343,45 @@ Tests: `string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-
 |------|---------|
 | `googletest.xml` | cppcheck library hints for GoogleTest macros |
 | `validate_asdl.py` | Optional ASDL validation (requires Python package `pyasdl`): `python3 scripts/validate_asdl.py path/to/file.asdl` |
+
+## Language behaviors and extensions
+
+### No identifier shadowing
+
+This compiler intentionally rejects identifier shadowing: a name declared in an inner block
+that duplicates any name in an enclosing scope is a compile error. This is a permanent design
+decision — `symtab` / `structtab` / `typetab` reject duplicates with `fatal_error`.
+
+### `$` in identifiers
+
+`$` is accepted as an identifier character (as in GCC/Clang). The BESM-6 backend sanitizes
+`$` to `/`, so a C name like `b$tout` becomes the Madlen symbol `b/tout`, letting C source
+reference slash-named assembly helpers in the runtime library.
+
+### Multi-character constants
+
+A character constant containing more than one character (e.g. `'ab'`) is implementation-defined
+by C11 §6.4.4.1; this compiler packs its bytes GCC-style:
+
+- A byte with bit 7 = 0 is a single ASCII byte.
+- A byte with bit 7 = 1 must begin a **valid UTF-8 sequence**; the whole sequence is validated and
+  its **raw bytes** are kept verbatim (no codepoint decoding, no KOI7 conversion). An invalid lead
+  or continuation byte is a fatal error.
+- A backslash escape (`'\n'`, `'\xC3'`, `'\303'`) contributes its byte value (low 8 bits) with no
+  UTF-8 validation.
+
+The bytes are packed **big-endian, zero-padded from the left** (so `'ab'` → `0x6162`, `'é'` →
+`0xC3A9`). The result type depends on length:
+
+| Packed bytes | Type | Notes |
+| --- | --- | --- |
+| 1–5 (≤ 40 bits) | `int` | Fits the 48-bit BESM-6 `int` (40 value bits + sign). |
+| 6 (48 bits) | `unsigned int` | Uses the full 48-bit word. The unsignedness deviates from the standard (which says character constants are `int`); this is a deliberate extension. |
+| > 6 | — | Fatal error (`character constant too long`). |
+
+To carry these values the AST/TAC integer-constant fields (`int_val` / `uint_val`) use 64-bit host
+storage, and an `int` static initializer is emitted in the 64-bit `INIT_I64` slot — both forms emit
+identically on BESM-6 (one 48-bit word, masked to 41/48 bits).
 
 ## Build system
 

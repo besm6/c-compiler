@@ -13,45 +13,20 @@ A C11 compiler with a shared frontend and pluggable machine backends. Current ba
 
 ## Current status (what works today)
 
-| Area | Notes |
-|------|--------|
-| **Build** | CMake-based build; optional `Makefile` wrapper. Unit tests via GoogleTest. |
-| **`parse`** | Reads C source and writes an abstract syntax tree (AST): binary `.ast`, or `--yaml` / `--dot` for inspection and graphs. |
-| **`lower`** | Reads a binary AST stream and, per top-level declaration, runs **typecheck → `translate` → optimize → emit**. Output can be **binary TAC** (default), **YAML-like listing** via the TAC pretty-printer, or **Graphviz DOT** (`tac_graphviz`). Semantic analysis handles `typedef` (scoped `typetab`) and full `switch` validation (integer controlling expression with integer promotion; constant integer case values; duplicate-case and multiple-default rejection). TAC lowering is **complete**: arithmetic, control flow, functions (direct and indirect), pointers, arrays, structs, casts, `_Generic`, compound literals, and aggregate initializers all lower correctly. After lowering, the **TAC optimizer** runs four passes in a fixed-point loop: constant folding, unreachable code elimination, copy propagation, and dead store elimination. Flags: `--no-unreachable`, `--no-copy-prop`, `--no-dead-store`, `--opt-debug`. |
-| **TAC** | `tac/` builds **alloc/print/free/compare**, **`tac_export`** and **`tac_import`** (binary stream), **`tac_export_yaml`** (YAML listing), and **`tac_graphviz`** (DOT graph). Lowering lives in **`translator/translate.c`**. |
-| **x86_64 backend (`genx86`)** | Planned. Work plan in [backend/x86/TODO.md](backend/x86/TODO.md). |
-| **BESM-6 backend (`genbesm`)** | Complete. Frame allocation, static data (integers, strings with UTF-8→KOI7, pointers, floats/doubles), `main()` entry, and global access are in place. Instruction selection covers data movement and aggregate/member access, control flow and function calls, integer arithmetic, bitwise ops and shifts (signed and unsigned), floating-point arithmetic, comparisons, type conversions (integer widths and int↔float/double), and pointer/array indexing. On BESM-6 `float ≡ double` (one 48-bit native FP word). After instruction selection a **peephole optimizer** (store/reload, NTR-mode, compare→branch, branch/label, and strength-reduction rewrites) and a **post-peephole frame-slot reclamation** pass polish the emitted Madlen. Work plan in [backend/besm6/TODO.md](backend/besm6/TODO.md). |
-| **AArch64 / RISC-V / ARM32 backends** | Planned (not started). |
-| **Preprocessor, assembler, linker** | Not in this repo. |
+| Component | Status |
+| --- | --- |
+| **`parse`** — C source → AST | Complete (binary `.ast`, or `--yaml` / `--dot` for inspection) |
+| **`lower`** — AST → semantic analysis + TAC | Complete (typecheck, full C11 TAC lowering, four-pass optimizer) |
+| **TAC** (`tac/`) | Complete (binary export/import, YAML listing, Graphviz DOT) |
+| **BESM-6 backend** (`genbesm`) | Complete (Madlen / Dubna codegen with peephole optimization) |
+| **x86_64 backend** (`genx86`) | Planned — [backend/x86/TODO.md](backend/x86/TODO.md) |
+| **AArch64 / RISC-V / ARM32 backends** | Planned |
+| **Preprocessor, assembler, linker** | Not in this repo |
 
-**Note:** This compiler intentionally rejects identifier shadowing — a name declared in an inner block that duplicates any name in an enclosing scope is a compile error.
-
-**Extension:** `$` is accepted as an identifier character (as in GCC/Clang). This is used by the
-BESM-6 runtime library: the backend sanitizes `$` to `/`, so a C name like `b$tout` becomes the
-Madlen symbol `b/tout`, letting C source reference slash-named assembly helpers.
-
-**Multi-character constants.** A character constant containing more than one character (e.g.
-`'ab'`) is implementation-defined by C11 §6.4.4.1; this compiler packs its bytes GCC-style:
-
-* A byte with bit 7 = 0 is a single ASCII byte.
-* A byte with bit 7 = 1 must begin a **valid UTF-8 sequence**; the whole sequence is validated and
-  its **raw bytes** are kept verbatim (no codepoint decoding, no KOI7 conversion). An invalid lead
-  or continuation byte is a fatal error.
-* A backslash escape (`'\n'`, `'\xC3'`, `'\303'`) contributes its byte value (low 8 bits) with no
-  UTF-8 validation.
-
-The bytes are packed **big-endian, zero-padded from the left** (so `'ab'` → `0x6162`, `'é'` →
-`0xC3A9`). The result type depends on length:
-
-| Packed bytes | Type | Notes |
-| --- | --- | --- |
-| 1–5 (≤ 40 bits) | `int` | Fits the 48-bit BESM-6 `int` (40 value bits + sign). |
-| 6 (48 bits) | `unsigned int` | Uses the full 48-bit word. The unsignedness deviates from the standard (which says character constants are `int`); this is a deliberate extension. |
-| > 6 | — | Fatal error (`character constant too long`). |
-
-To carry these values the AST/TAC integer-constant fields (`int_val` / `uint_val`) use 64-bit host
-storage, and an `int` static initializer is emitted in the 64-bit `INIT_I64` slot — both forms emit
-identically on BESM-6 (one 48-bit word, masked to 41/48 bits).
+The compiler also has a few deliberate language behaviors — no identifier shadowing, `$` as an
+identifier character for BESM-6 runtime helpers, and GCC-style multi-character constant packing —
+along with per-component detail. All of this is documented in
+[docs/Technical_Reference.md](docs/Technical_Reference.md).
 
 If you only want to try the project: build it, run `parse` on a small `.c` file, and open the YAML or DOT output. You can also feed the `.ast` into `lower` to exercise analysis and TAC emission on supported code. See [Getting started](#getting-started) below.
 
