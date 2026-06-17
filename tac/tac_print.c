@@ -25,7 +25,7 @@ void tac_print_const(FILE *fd, const Tac_Const *constant, int depth)
     fprintf(fd, "Const: ");
     switch (constant->kind) {
     case TAC_CONST_INT:
-        fprintf(fd, "int %d\n", constant->u.int_val);
+        fprintf(fd, "int %" PRId64 "\n", constant->u.int_val);
         break;
     case TAC_CONST_LONG:
         fprintf(fd, "long %ld\n", constant->u.long_val);
@@ -34,7 +34,7 @@ void tac_print_const(FILE *fd, const Tac_Const *constant, int depth)
         fprintf(fd, "long long %lld\n", constant->u.long_long_val);
         break;
     case TAC_CONST_UINT:
-        fprintf(fd, "uint %u\n", constant->u.uint_val);
+        fprintf(fd, "uint %" PRIu64 "\n", constant->u.uint_val);
         break;
     case TAC_CONST_ULONG:
         fprintf(fd, "ulong %lu\n", constant->u.ulong_val);

@@ -120,7 +120,7 @@ static void emit_const(FILE *fd, const Tac_Const *c, int parent_id)
     fprintf(fd, "  n%d [label=\"Const: ", id);
     switch (c->kind) {
     case TAC_CONST_INT:
-        fprintf(fd, "int %d", c->u.int_val);
+        fprintf(fd, "int %" PRId64, c->u.int_val);
         break;
     case TAC_CONST_LONG:
         fprintf(fd, "long %ld", c->u.long_val);
@@ -129,7 +129,7 @@ static void emit_const(FILE *fd, const Tac_Const *c, int parent_id)
         fprintf(fd, "long_long %lld", c->u.long_long_val);
         break;
     case TAC_CONST_UINT:
-        fprintf(fd, "uint %u", c->u.uint_val);
+        fprintf(fd, "uint %" PRIu64, c->u.uint_val);
         break;
     case TAC_CONST_ULONG:
         fprintf(fd, "ulong %lu", c->u.ulong_val);

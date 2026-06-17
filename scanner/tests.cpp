@@ -143,6 +143,16 @@ TEST_F(ScannerTest, HandlesCharLiterals)
     EXPECT_EQ(GetLexeme(), "'\\n'");
 }
 
+// A multi-character literal scans as a single token, lexeme bytes intact.
+TEST_F(ScannerTest, HandlesMultiCharLiteral)
+{
+    SetInput("'ab' 'abc'");
+    EXPECT_EQ(GetNextToken(), TOKEN_I_CONSTANT);
+    EXPECT_EQ(GetLexeme(), "'ab'");
+    EXPECT_EQ(GetNextToken(), TOKEN_I_CONSTANT);
+    EXPECT_EQ(GetLexeme(), "'abc'");
+}
+
 // Test operators
 TEST_F(ScannerTest, HandlesOperators)
 {

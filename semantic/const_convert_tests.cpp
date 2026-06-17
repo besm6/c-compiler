@@ -59,8 +59,8 @@ TEST_F(ConstConvertTest, IntFromInt)
     auto lit  = int_lit(42);
     auto type = make_type(TYPE_INT);
     result    = new_static_init_from_literal(&type, &lit);
-    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I32);
-    EXPECT_EQ(result->u.int_val, 42);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I64);
+    EXPECT_EQ(result->u.long_val, 42);
 }
 
 TEST_F(ConstConvertTest, IntFromChar)
@@ -68,8 +68,8 @@ TEST_F(ConstConvertTest, IntFromChar)
     auto lit  = char_lit(-5); // sign-extended to -5
     auto type = make_type(TYPE_INT);
     result    = new_static_init_from_literal(&type, &lit);
-    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I32);
-    EXPECT_EQ(result->u.int_val, -5);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I64);
+    EXPECT_EQ(result->u.long_val, -5);
 }
 
 TEST_F(ConstConvertTest, IntFromFloat)
@@ -77,8 +77,8 @@ TEST_F(ConstConvertTest, IntFromFloat)
     auto lit  = float_lit(3.7); // truncated to 3
     auto type = make_type(TYPE_INT);
     result    = new_static_init_from_literal(&type, &lit);
-    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I32);
-    EXPECT_EQ(result->u.int_val, 3);
+    EXPECT_EQ(result->kind, TAC_STATIC_INIT_I64);
+    EXPECT_EQ(result->u.long_val, 3);
 }
 
 // TYPE_UINT

@@ -382,10 +382,10 @@ typedef enum {
 typedef struct Tac_Const {
     Tac_ConstKind kind;
     union {
-        int int_val;
+        int64_t int_val;
         long long_val;
         long long long_long_val;
-        unsigned int uint_val;
+        uint64_t uint_val;
         unsigned long ulong_val;
         unsigned long long ulong_long_val;
         double float_val;

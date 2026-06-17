@@ -1,5 +1,6 @@
 #include <ctype.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -184,7 +185,101 @@ Expr *parse_primary_expression()
     return expr;
 }
 
-static int parse_char_literal(const char *s)
+// Decode a single backslash escape. On entry *ps points at the '\'; on return
+// it has been advanced past the whole escape. Returns the escape's value (a
+// hex/octal escape may exceed a byte; the caller keeps only the low 8 bits).
+static int parse_one_escape(const char **ps)
+{
+    const char *s = *ps + 1; // skip backslash
+    int val;
+    switch (*s) {
+    case '\'':
+        val = '\'';
+        s++;
+        break;
+    case '"':
+        val = '"';
+        s++;
+        break;
+    case '?':
+        val = '?';
+        s++;
+        break;
+    case '\\':
+        val = '\\';
+        s++;
+        break;
+    case 'a':
+        val = '\a';
+        s++;
+        break;
+    case 'b':
+        val = '\b';
+        s++;
+        break;
+    case 'f':
+        val = '\f';
+        s++;
+        break;
+    case 'n':
+        val = '\n';
+        s++;
+        break;
+    case 'r':
+        val = '\r';
+        s++;
+        break;
+    case 't':
+        val = '\t';
+        s++;
+        break;
+    case 'v':
+        val = '\v';
+        s++;
+        break;
+    default:
+        if (*s >= '0' && *s <= '7') { // octal, up to 3 digits
+            val = *s++ - '0';
+            if (*s >= '0' && *s <= '7')
+                val = val * 8 + (*s++ - '0');
+            if (*s >= '0' && *s <= '7')
+                val = val * 8 + (*s++ - '0');
+        } else if (*s == 'x') { // hex, any number of digits
+            val = 0;
+            for (s++; isxdigit((unsigned char)*s); s++)
+                val =
+                    val * 16 +
+                    (isdigit((unsigned char)*s) ? *s - '0' : tolower((unsigned char)*s) - 'a' + 10);
+        } else {
+            val = (unsigned char)*s;
+            s++;
+        }
+        break;
+    }
+    *ps = s;
+    return val;
+}
+
+// Append one byte to the big-endian packed value, padding from the left with
+// zeroes. At most 6 bytes (one BESM-6 word) may be packed.
+static void pack_char_byte(uint64_t *value, int *nbytes, unsigned char b)
+{
+    *value = (*value << 8) | (uint64_t)b;
+    if (++(*nbytes) > 6)
+        fatal_error("character constant too long (more than 6 bytes)");
+}
+
+// Parse a character-constant lexeme into a packed integer value. Bytes are
+// packed big-endian, zero-padded from the left (GCC-style multi-character
+// constants):
+//   - a byte with bit7 = 0 is a single ASCII byte;
+//   - a byte with bit7 = 1 must begin a valid UTF-8 sequence, whose raw bytes
+//     are kept verbatim (no codepoint decoding);
+//   - a backslash escape contributes its byte value (low 8 bits) with no UTF-8
+//     validation.
+// Sets *out_nbytes to the number of packed bytes. Fatal error on an invalid
+// UTF-8 sequence or more than 6 packed bytes.
+static uint64_t parse_char_literal(const char *s, int *out_nbytes)
 {
     // Skip optional encoding prefix: L, U, u, u8
     if (*s == 'L' || *s == 'U')
@@ -195,51 +290,41 @@ static int parse_char_literal(const char *s)
             s++;
     }
     s++; // skip opening '
-    if (*s != '\\')
-        return (unsigned char)*s;
-    s++; // skip backslash
-    switch (*s) {
-    case '\'':
-        return '\'';
-    case '"':
-        return '"';
-    case '?':
-        return '?';
-    case '\\':
-        return '\\';
-    case 'a':
-        return '\a';
-    case 'b':
-        return '\b';
-    case 'f':
-        return '\f';
-    case 'n':
-        return '\n';
-    case 'r':
-        return '\r';
-    case 't':
-        return '\t';
-    case 'v':
-        return '\v';
-    default:
-        if (*s >= '0' && *s <= '7') { // octal
-            int val = *s++ - '0';
-            if (*s >= '0' && *s <= '7')
-                val = val * 8 + (*s++ - '0');
-            if (*s >= '0' && *s <= '7')
-                val = val * 8 + (*s - '0');
-            return val;
+
+    uint64_t value = 0;
+    int nbytes     = 0;
+    while (*s && *s != '\'') {
+        unsigned char b = (unsigned char)*s;
+        if (b == '\\') {
+            pack_char_byte(&value, &nbytes, (unsigned char)parse_one_escape(&s));
+        } else if (!(b & 0x80)) {
+            pack_char_byte(&value, &nbytes, b);
+            s++;
+        } else {
+            // UTF-8 lead byte: determine the sequence length and validate the
+            // continuation bytes; the raw bytes are packed as-is.
+            int len;
+            if ((b & 0xE0) == 0xC0)
+                len = 2;
+            else if ((b & 0xF0) == 0xE0)
+                len = 3;
+            else if ((b & 0xF8) == 0xF0)
+                len = 4;
+            else
+                fatal_error("invalid UTF-8 lead byte in character constant");
+            pack_char_byte(&value, &nbytes, b);
+            s++;
+            for (int i = 1; i < len; i++) {
+                unsigned char cont = (unsigned char)*s;
+                if ((cont & 0xC0) != 0x80)
+                    fatal_error("invalid UTF-8 sequence in character constant");
+                pack_char_byte(&value, &nbytes, cont);
+                s++;
+            }
         }
-        if (*s == 'x') { // hex
-            int val = 0;
-            for (s++; isxdigit((unsigned char)*s); s++)
-                val =
-                    val * 16 +
-                    (isdigit((unsigned char)*s) ? *s - '0' : tolower((unsigned char)*s) - 'a' + 10);
-            return val;
-        }
-        return (unsigned char)*s;
     }
+    *out_nbytes = nbytes;
+    return value;
 }
 
 //
@@ -264,8 +349,17 @@ Expr *parse_constant()
         while (*p && *p != '\'' && !isdigit((unsigned char)*p))
             p++;
         if (*p == '\'') {
-            expr->u.literal->kind      = LITERAL_INT;
-            expr->u.literal->u.int_val = parse_char_literal(current_lexeme);
+            int nbytes;
+            uint64_t v = parse_char_literal(current_lexeme, &nbytes);
+            // <= 5 bytes (<= 40 bits) is type int; exactly 6 bytes (48 bits) is
+            // unsigned (a non-standard widening, documented in README).
+            if (nbytes <= 5) {
+                expr->u.literal->kind      = LITERAL_INT;
+                expr->u.literal->u.int_val = (int64_t)v;
+            } else {
+                expr->u.literal->kind       = LITERAL_UINT;
+                expr->u.literal->u.uint_val = v;
+            }
         } else {
             char *end            = NULL;
             unsigned long long v = strtoull(current_lexeme, &end, 0);

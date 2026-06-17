@@ -18,7 +18,7 @@ static void export_const(WFILE *out, const Tac_Const *c)
     wputw(TAG_TAC_CONST + c->kind, out);
     switch (c->kind) {
     case TAC_CONST_INT:
-        wputw((unsigned)c->u.int_val, out);
+        wputw((size_t)(uint64_t)c->u.int_val, out);
         break;
     case TAC_CONST_LONG:
         wputw((size_t)c->u.long_val, out);

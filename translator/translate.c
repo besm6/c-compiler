@@ -71,7 +71,7 @@ bool tac_is_array_local(const TacCtx *ctx, const char *name)
     return false;
 }
 
-Tac_Val *val_int(int v)
+Tac_Val *val_int(int64_t v)
 {
     Tac_Val *tv    = tac_new_val(TAC_VAL_CONSTANT);
     Tac_Const *c   = tac_new_const(TAC_CONST_INT);
@@ -98,7 +98,7 @@ Tac_Val *val_long_long(long long v)
     return tv;
 }
 
-Tac_Val *val_uint(unsigned int v)
+Tac_Val *val_uint(uint64_t v)
 {
     Tac_Val *tv    = tac_new_val(TAC_VAL_CONSTANT);
     Tac_Const *c   = tac_new_const(TAC_CONST_UINT);

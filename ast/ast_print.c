@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <string.h>
 
 #include "ast.h"
@@ -338,7 +339,7 @@ static void print_literal(FILE *fd, const Literal *lit, int indent)
     fprintf(fd, "Literal: ");
     switch (lit->kind) {
     case LITERAL_INT:
-        fprintf(fd, "int %d\n", lit->u.int_val);
+        fprintf(fd, "int %" PRId64 "\n", lit->u.int_val);
         break;
     case LITERAL_LONG:
         fprintf(fd, "long %ld\n", lit->u.long_val);
@@ -347,7 +348,7 @@ static void print_literal(FILE *fd, const Literal *lit, int indent)
         fprintf(fd, "long long %lld\n", lit->u.long_long_val);
         break;
     case LITERAL_UINT:
-        fprintf(fd, "unsigned int %u\n", lit->u.uint_val);
+        fprintf(fd, "unsigned int %" PRIu64 "\n", lit->u.uint_val);
         break;
     case LITERAL_ULONG:
         fprintf(fd, "unsigned long %lu\n", lit->u.ulong_val);

@@ -84,6 +84,25 @@ TEST_F(CodegenTest, PrintDecimal)
     EXPECT_EQ("42\n", result);
 }
 
+// Multi-character constants: a static global initializer (exercising the
+// INIT_I64 static-data path) and an inline argument, both byte-packed.
+//   'ab' = 0x6162 = 24930,  'cd' = 0x6364 = 25444
+TEST_F(CodegenTest, MultiCharConstant)
+{
+    std::string result = CompileAndRun(R"(
+        void writeb(int ch);
+        int print_d(int num);
+        int g = 'ab';
+        void program() {
+            print_d(g);
+            writeb('\n');
+            print_d('cd');
+            writeb('\n');
+        }
+    )");
+    EXPECT_EQ("24930\n25444\n", result);
+}
+
 TEST_F(CodegenTest, PrintTwoLines)
 {
     std::string result = CompileAndRun(R"(

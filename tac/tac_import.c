@@ -28,7 +28,7 @@ static Tac_Const *import_const(WFILE *in)
     Tac_Const *c = tac_new_const((Tac_ConstKind)(tag - TAG_TAC_CONST));
     switch (c->kind) {
     case TAC_CONST_INT:
-        c->u.int_val = (int)wgetw(in);
+        c->u.int_val = (int64_t)wgetw(in);
         check_input(in, "const int");
         break;
     case TAC_CONST_LONG:
@@ -40,7 +40,7 @@ static Tac_Const *import_const(WFILE *in)
         check_input(in, "const long long");
         break;
     case TAC_CONST_UINT:
-        c->u.uint_val = (unsigned int)wgetw(in);
+        c->u.uint_val = (uint64_t)wgetw(in);
         check_input(in, "const uint");
         break;
     case TAC_CONST_ULONG:

@@ -386,7 +386,8 @@ TEST_F(TranslateTest, GlobalVarTentative)
 )");
 }
 
-// Initialized global variable emits static_variable with i32 init.
+// Initialized global variable emits static_variable with i64 init (BESM-6 int
+// is 48-bit, carried in the 64-bit static-init slot).
 TEST_F(TranslateTest, GlobalVarInitialized)
 {
     std::string yaml = CompileToYaml("int x = 42;");
@@ -398,7 +399,7 @@ TEST_F(TranslateTest, GlobalVarInitialized)
     kind: int
   init_list:
     - init:
-      kind: i32
+      kind: i64
       value: 42
 )");
 }
@@ -449,7 +450,7 @@ TEST_F(TranslateTest, GlobalVarStatic)
     kind: int
   init_list:
     - init:
-      kind: i32
+      kind: i64
       value: 5
 )");
 }
@@ -489,7 +490,7 @@ TEST_F(TranslateTest, GlobalVarMultiDeclarator)
     kind: int
   init_list:
     - init:
-      kind: i32
+      kind: i64
       value: 1
 - toplevel:
   kind: static_variable
@@ -499,7 +500,7 @@ TEST_F(TranslateTest, GlobalVarMultiDeclarator)
     kind: int
   init_list:
     - init:
-      kind: i32
+      kind: i64
       value: 2
 )");
 }

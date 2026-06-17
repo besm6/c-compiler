@@ -71,3 +71,105 @@ TEST_F(ParserTest, IntegerConstant_ulSuffix)
     EXPECT_EQ(LITERAL_ULONG, lit->kind);
     EXPECT_EQ(5UL, lit->u.ulong_val);
 }
+
+// --- Multi-character constants (GCC-style big-endian byte packing) ---
+
+// A single character is a plain int (unchanged behavior).
+TEST_F(ParserTest, CharConstant_single)
+{
+    Declaration *decl = GetDeclaration("int x = 'a';");
+    Literal *lit      = decl->u.var.declarators->init->u.expr->u.literal;
+    EXPECT_EQ(LITERAL_INT, lit->kind);
+    EXPECT_EQ('a', lit->u.int_val);
+}
+
+// '\0' is a single zero byte, type int.
+TEST_F(ParserTest, CharConstant_nul)
+{
+    Declaration *decl = GetDeclaration("int x = '\\0';");
+    Literal *lit      = decl->u.var.declarators->init->u.expr->u.literal;
+    EXPECT_EQ(LITERAL_INT, lit->kind);
+    EXPECT_EQ(0, lit->u.int_val);
+}
+
+// '\xFF' is a single byte 0xFF (not sign-extended), type int.
+TEST_F(ParserTest, CharConstant_byteEscape)
+{
+    Declaration *decl = GetDeclaration("int x = '\\xFF';");
+    Literal *lit      = decl->u.var.declarators->init->u.expr->u.literal;
+    EXPECT_EQ(LITERAL_INT, lit->kind);
+    EXPECT_EQ(0xFF, lit->u.int_val);
+}
+
+// Two ASCII characters pack big-endian into an int: 'ab' -> 0x6162.
+TEST_F(ParserTest, CharConstant_twoBytes)
+{
+    Declaration *decl = GetDeclaration("int x = 'ab';");
+    Literal *lit      = decl->u.var.declarators->init->u.expr->u.literal;
+    EXPECT_EQ(LITERAL_INT, lit->kind);
+    EXPECT_EQ(0x6162, lit->u.int_val);
+}
+
+// Three ASCII characters: 'abc' -> 0x616263.
+TEST_F(ParserTest, CharConstant_threeBytes)
+{
+    Declaration *decl = GetDeclaration("int x = 'abc';");
+    Literal *lit      = decl->u.var.declarators->init->u.expr->u.literal;
+    EXPECT_EQ(LITERAL_INT, lit->kind);
+    EXPECT_EQ(0x616263, lit->u.int_val);
+}
+
+// Escapes contribute one byte each and pack: '\n\t' -> 0x0A09.
+TEST_F(ParserTest, CharConstant_escapesPacked)
+{
+    Declaration *decl = GetDeclaration("int x = '\\n\\t';");
+    Literal *lit      = decl->u.var.declarators->init->u.expr->u.literal;
+    EXPECT_EQ(LITERAL_INT, lit->kind);
+    EXPECT_EQ(0x0A09, lit->u.int_val);
+}
+
+// A single 2-byte UTF-8 character keeps its raw bytes: 'é' (C3 A9) -> 0xC3A9.
+TEST_F(ParserTest, CharConstant_utf8TwoByte)
+{
+    Declaration *decl = GetDeclaration("int x = '\xC3\xA9';");
+    Literal *lit      = decl->u.var.declarators->init->u.expr->u.literal;
+    EXPECT_EQ(LITERAL_INT, lit->kind);
+    EXPECT_EQ(0xC3A9, lit->u.int_val);
+}
+
+// A 4-byte UTF-8 character (U+1F600, F0 9F 98 80) packs to a value that exceeds
+// a 32-bit int yet survives in the 64-bit host storage, still type int.
+TEST_F(ParserTest, CharConstant_utf8FourByteWide)
+{
+    Declaration *decl = GetDeclaration("int x = '\xF0\x9F\x98\x80';");
+    Literal *lit      = decl->u.var.declarators->init->u.expr->u.literal;
+    EXPECT_EQ(LITERAL_INT, lit->kind);
+    EXPECT_EQ(0xF09F9880, lit->u.int_val);
+}
+
+// Exactly six packed bytes is unsigned (48-bit): 'abcdef' -> 0x616263646566.
+TEST_F(ParserTest, CharConstant_sixBytesUnsigned)
+{
+    Declaration *decl = GetDeclaration("unsigned x = 'abcdef';");
+    Literal *lit      = decl->u.var.declarators->init->u.expr->u.literal;
+    EXPECT_EQ(LITERAL_UINT, lit->kind);
+    EXPECT_EQ(0x616263646566ULL, lit->u.uint_val);
+}
+
+// More than six packed bytes is a fatal error.
+TEST_F(ParserTest, CharConstant_tooLong_negative)
+{
+    EXPECT_DEATH(program = parse(CreateTempFile("int x = 'abcdefg';")), "");
+}
+
+// A stray UTF-8 continuation byte (no lead) is a fatal error.
+TEST_F(ParserTest, CharConstant_strayContinuation_negative)
+{
+    EXPECT_DEATH(program = parse(CreateTempFile("int x = '\x80';")), "");
+}
+
+// A UTF-8 lead byte followed by a non-continuation byte is a fatal error.
+TEST_F(ParserTest, CharConstant_badUtf8Sequence_negative)
+{
+    EXPECT_DEATH(program = parse(CreateTempFile("int x = '\xC3z';")), "");
+}

@@ -612,7 +612,7 @@ Literal *import_literal(WFILE *input)
     Literal *lit     = new_literal(kind);
     switch (kind) {
     case LITERAL_INT:
-        lit->u.int_val = (int)wgetw(input);
+        lit->u.int_val = (int64_t)wgetw(input);
         check_input(input, "literal int");
         break;
     case LITERAL_LONG:
@@ -624,7 +624,7 @@ Literal *import_literal(WFILE *input)
         check_input(input, "literal long long");
         break;
     case LITERAL_UINT:
-        lit->u.uint_val = (unsigned int)wgetw(input);
+        lit->u.uint_val = (uint64_t)wgetw(input);
         check_input(input, "literal uint");
         break;
     case LITERAL_ULONG:

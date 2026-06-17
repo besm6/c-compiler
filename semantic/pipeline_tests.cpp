@@ -65,8 +65,8 @@ TEST_F(PipelineTest, FileVarMultipleDeclarators)
     EXPECT_TRUE(x->u.static_var.global);
     EXPECT_EQ(x->u.static_var.init_kind, INIT_INITIALIZED);
     ASSERT_NE(x->u.static_var.init_list, nullptr);
-    EXPECT_EQ(x->u.static_var.init_list->kind, TAC_STATIC_INIT_I32);
-    EXPECT_EQ(x->u.static_var.init_list->u.int_val, 1);
+    EXPECT_EQ(x->u.static_var.init_list->kind, TAC_STATIC_INIT_I64);
+    EXPECT_EQ(x->u.static_var.init_list->u.long_val, 1);
 
     const Symbol *y = symtab_get("y");
     ASSERT_NE(y, nullptr);
@@ -74,8 +74,8 @@ TEST_F(PipelineTest, FileVarMultipleDeclarators)
     EXPECT_TRUE(y->u.static_var.global);
     EXPECT_EQ(y->u.static_var.init_kind, INIT_INITIALIZED);
     ASSERT_NE(y->u.static_var.init_list, nullptr);
-    EXPECT_EQ(y->u.static_var.init_list->kind, TAC_STATIC_INIT_I32);
-    EXPECT_EQ(y->u.static_var.init_list->u.int_val, 2);
+    EXPECT_EQ(y->u.static_var.init_list->kind, TAC_STATIC_INIT_I64);
+    EXPECT_EQ(y->u.static_var.init_list->u.long_val, 2);
 }
 
 // Static and extern file-scope variables: linkage and init_kind.

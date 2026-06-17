@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -479,7 +480,7 @@ static void export_literal(FILE *fd, const Literal *lit, int parent_id)
     fprintf(fd, "  n%d [label=\"Literal: ", id);
     switch (lit->kind) {
     case LITERAL_INT:
-        fprintf(fd, "int: %d", lit->u.int_val);
+        fprintf(fd, "int: %" PRId64, lit->u.int_val);
         break;
     case LITERAL_LONG:
         fprintf(fd, "long: %ld", lit->u.long_val);
@@ -488,7 +489,7 @@ static void export_literal(FILE *fd, const Literal *lit, int parent_id)
         fprintf(fd, "long long: %lld", lit->u.long_long_val);
         break;
     case LITERAL_UINT:
-        fprintf(fd, "unsigned int: %u", lit->u.uint_val);
+        fprintf(fd, "unsigned int: %" PRIu64, lit->u.uint_val);
         break;
     case LITERAL_ULONG:
         fprintf(fd, "unsigned long: %lu", lit->u.ulong_val);

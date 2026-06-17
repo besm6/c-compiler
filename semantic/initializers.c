@@ -345,7 +345,7 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
                 lit = (Literal){ .kind             = LITERAL_ULONG_LONG,
                                  .u.ulong_long_val = (unsigned long long)(unsigned long)val };
             } else {
-                lit = (Literal){ .kind = LITERAL_INT, .u.int_val = (int)val };
+                lit = (Literal){ .kind = LITERAL_INT, .u.int_val = (int64_t)val };
             }
             return new_static_init_from_literal(var_type, &lit);
         }

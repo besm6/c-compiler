@@ -171,8 +171,11 @@ Tac_StaticInit *new_static_init_from_literal(const Type *target_type, const Lite
         break;
 
     case TYPE_INT:
-        result            = tac_new_static_init(TAC_STATIC_INIT_I32);
-        result->u.int_val = (int32_t)literal_to_int64(lit);
+        // BESM-6 int is 48-bit; use the 64-bit init slot so multi-character
+        // constants (up to 5 bytes / 40 bits) are not truncated. The backend
+        // emits INIT_I64 identically to INIT_I32 (one word, masked to 41 bits).
+        result             = tac_new_static_init(TAC_STATIC_INIT_I64);
+        result->u.long_val = literal_to_int64(lit);
         break;
 
     case TYPE_USHORT:

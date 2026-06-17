@@ -209,6 +209,45 @@ TEST_F(TacBinaryTest, ReturnAllConstKinds)
     }
 }
 
+// A multi-character constant can exceed 32 bits (up to 48 on BESM-6); the binary
+// stream must carry the full 64-bit host value without truncation.
+TEST_F(TacBinaryTest, WideIntConstRoundTrip)
+{
+    const struct {
+        Tac_ConstKind kind;
+        uint64_t value; // 'abcde' = 0x6162636465 (40b), 'abcdef' = 0x616263646566 (48b)
+    } cases[] = {
+        { TAC_CONST_INT, 0x6162636465ULL },
+        { TAC_CONST_UINT, 0x616263646566ULL },
+    };
+
+    for (const auto &tc : cases) {
+        Tac_Const *c = tac_new_const(tc.kind);
+        if (tc.kind == TAC_CONST_INT)
+            c->u.int_val = (int64_t)tc.value;
+        else
+            c->u.uint_val = tc.value;
+        Tac_Val *val                 = tac_new_val(TAC_VAL_CONSTANT);
+        val->u.constant              = c;
+        Tac_Instruction *i           = tac_new_instruction(TAC_INSTRUCTION_RETURN);
+        i->u.return_.src             = val;
+        Tac_Program *orig            = tac_new_program();
+        orig->decls                  = make_empty_function("f", true);
+        orig->decls->u.function.body = i;
+
+        Tac_Program *copy = roundtrip(orig);
+        ASSERT_NE(nullptr, copy);
+        const Tac_Const *rc = copy->decls->u.function.body->u.return_.src->u.constant;
+        if (tc.kind == TAC_CONST_INT)
+            EXPECT_EQ((uint64_t)rc->u.int_val, tc.value);
+        else
+            EXPECT_EQ(rc->u.uint_val, tc.value);
+
+        tac_free_program(orig);
+        tac_free_program(copy);
+    }
+}
+
 TEST_F(TacBinaryTest, ReturnVar)
 {
     Tac_Program *orig            = tac_new_program();

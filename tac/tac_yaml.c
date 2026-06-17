@@ -20,7 +20,7 @@ static void export_yaml_const(FILE *fd, const Tac_Const *c, int level)
     case TAC_CONST_INT:
         fprintf(fd, "int\n");
         print_indent(fd, level);
-        fprintf(fd, "value: %d\n", c->u.int_val);
+        fprintf(fd, "value: %" PRId64 "\n", c->u.int_val);
         break;
     case TAC_CONST_LONG:
         fprintf(fd, "long\n");
@@ -35,7 +35,7 @@ static void export_yaml_const(FILE *fd, const Tac_Const *c, int level)
     case TAC_CONST_UINT:
         fprintf(fd, "uint\n");
         print_indent(fd, level);
-        fprintf(fd, "value: %u\n", c->u.uint_val);
+        fprintf(fd, "value: %" PRIu64 "\n", c->u.uint_val);
         break;
     case TAC_CONST_ULONG:
         fprintf(fd, "ulong\n");

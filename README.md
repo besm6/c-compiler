@@ -30,6 +30,29 @@ A C11 compiler with a shared frontend and pluggable machine backends. Current ba
 BESM-6 runtime library: the backend sanitizes `$` to `/`, so a C name like `b$tout` becomes the
 Madlen symbol `b/tout`, letting C source reference slash-named assembly helpers.
 
+**Multi-character constants.** A character constant containing more than one character (e.g.
+`'ab'`) is implementation-defined by C11 §6.4.4.1; this compiler packs its bytes GCC-style:
+
+* A byte with bit 7 = 0 is a single ASCII byte.
+* A byte with bit 7 = 1 must begin a **valid UTF-8 sequence**; the whole sequence is validated and
+  its **raw bytes** are kept verbatim (no codepoint decoding, no KOI7 conversion). An invalid lead
+  or continuation byte is a fatal error.
+* A backslash escape (`'\n'`, `'\xC3'`, `'\303'`) contributes its byte value (low 8 bits) with no
+  UTF-8 validation.
+
+The bytes are packed **big-endian, zero-padded from the left** (so `'ab'` → `0x6162`, `'é'` →
+`0xC3A9`). The result type depends on length:
+
+| Packed bytes | Type | Notes |
+| --- | --- | --- |
+| 1–5 (≤ 40 bits) | `int` | Fits the 48-bit BESM-6 `int` (40 value bits + sign). |
+| 6 (48 bits) | `unsigned int` | Uses the full 48-bit word. The unsignedness deviates from the standard (which says character constants are `int`); this is a deliberate extension. |
+| > 6 | — | Fatal error (`character constant too long`). |
+
+To carry these values the AST/TAC integer-constant fields (`int_val` / `uint_val`) use 64-bit host
+storage, and an `int` static initializer is emitted in the 64-bit `INIT_I64` slot — both forms emit
+identically on BESM-6 (one 48-bit word, masked to 41/48 bits).
+
 If you only want to try the project: build it, run `parse` on a small `.c` file, and open the YAML or DOT output. You can also feed the `.ast` into `lower` to exercise analysis and TAC emission on supported code. See [Getting started](#getting-started) below.
 
 ## How the pieces fit together (architecture)
