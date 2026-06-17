@@ -202,3 +202,87 @@ TEST_F(CodegenTest, FuncPtrThreeArgs)
     )");
     EXPECT_EQ("123\n", result);
 }
+
+// ---------------------------------------------------------------------------
+// Variadic calls through a function pointer
+// ---------------------------------------------------------------------------
+
+// A variadic call through a pointer keeps the indirect-call shape: the args (incl. the
+// variadic ones) are pushed, the negative arg count goes into r14 (14 ,vtm, -N), and the
+// call is a 13 ,vjm, after a wtc of the pointer slot — never a ,call, to the pointer name.
+TEST_F(CodegenTest, FuncPtrVariadicCallMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        int printf(const char *fmt, int a, ...);
+        void program() {
+            int (*fp)(const char *, int, ...) = printf;
+            fp("%d %d\n", 1, 2);
+        }
+    )");
+    EXPECT_NE(output.find("13 ,vjm,"), std::string::npos) << output;
+    EXPECT_NE(output.find("14 ,vtm, -"), std::string::npos) << output;
+    EXPECT_EQ(output.find(",call, fp"), std::string::npos) << output;
+}
+
+// End-to-end: assign printf (known-working, observable) to a variadic function pointer and
+// call through it.  Exercises pushing the variadic args and the negative arg count for an
+// indirect target.
+TEST_F(CodegenTest, FuncPtrVariadicCall)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *fmt, int a, ...);
+        void program() {
+            int (*fp)(const char *, int, ...) = printf;
+            fp("%d %d\n", 1, 2);
+        }
+    )");
+    EXPECT_EQ("1 2\n", result);
+}
+
+// ---------------------------------------------------------------------------
+// Known BESM-6 backend bug: struct-by-value through a function pointer.
+//
+// The call ABI passes/returns each argument and the result in a single word, so a
+// multi-word struct passed or returned by value loses every word but the first — for an
+// indirect call (here) and a direct one alike.  These are DISABLED reproducers (run with
+// --gtest_also_run_disabled_tests): each EXPECT asserts the CORRECT behaviour, so the test
+// fails today and will pass once a multi-word struct ABI is implemented.
+// ---------------------------------------------------------------------------
+
+// Bug: passing a 2-member struct by value through a function pointer drops the second word
+// (the call site emits 14 ,vtm, -1 for a 2-word struct), so the callee reads garbage for
+// the trailing member.  Correct output: "7\n" (3 + 4).
+TEST_F(CodegenTest, DISABLED_FuncPtrStructByValueArg)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        struct P { int x; int y; };
+        int sum(struct P p) { return p.x + p.y; }
+        void program() {
+            struct P q;
+            q.x = 3;
+            q.y = 4;
+            int (*fp)(struct P) = sum;
+            printf("%d\n", fp(q));
+        }
+    )");
+    EXPECT_EQ("7\n", result);
+}
+
+// Bug: returning a 2-member struct by value through a function pointer keeps only word 0
+// (the callee returns via the accumulator with a single 7 ,xta,), so the second member is
+// lost.  Correct output: "3 4\n".
+TEST_F(CodegenTest, DISABLED_FuncPtrStructByValueReturn)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        struct P { int x; int y; };
+        struct P mk(int a, int b) { struct P p; p.x = a; p.y = b; return p; }
+        void program() {
+            struct P (*fp)(int, int) = mk;
+            struct P r = fp(3, 4);
+            printf("%d %d\n", r.x, r.y);
+        }
+    )");
+    EXPECT_EQ("3 4\n", result);
+}
