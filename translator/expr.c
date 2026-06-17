@@ -639,7 +639,12 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         if (target->kind == EXPR_VAR) {
             const char *dst = target->u.var;
             bool vol        = type_is_volatile(target->type);
-            if (e->u.assign.op == ASSIGN_SIMPLE) {
+            if (e->u.assign.op == ASSIGN_SIMPLE &&
+                (target->type->kind == TYPE_STRUCT || target->type->kind == TYPE_UNION)) {
+                // Whole-struct assignment (a = b;): copy every word.
+                gen_struct_assign(ctx, dst, 0, src->u.var_name, (int)get_size(target->type));
+                tac_free_val(src);
+            } else if (e->u.assign.op == ASSIGN_SIMPLE) {
                 Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
                 in->is_volatile     = vol;
                 in->u.copy.src      = src;
@@ -778,6 +783,32 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             args_tail   = &av->next;
         }
 
+        // Multi-word struct return: allocate a result slot, pass its address as a hidden
+        // first argument (sret ABI), and let the call write the struct into that slot.
+        // The call expression's value is then the slot itself.
+        char *sret_slot = NULL;
+        if (type_is_byval_sret(e->type)) {
+            char *slot = new_temp(ctx);
+            Tac_Instruction *al        = tac_new_instruction(TAC_INSTRUCTION_ALLOCATE_LOCAL);
+            al->u.allocate_local.name  = xstrdup(slot);
+            al->u.allocate_local.size  = (int)get_size(e->type);
+            al->u.allocate_local.alignment = (int)get_alignment(e->type);
+            tac_append(ctx, al);
+
+            Tac_Val *addr         = new_var_val(ctx);
+            Tac_Instruction *ga   = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
+            ga->u.get_address.src = val_var(slot);
+            ga->u.get_address.dst = addr; // owned by the GET_ADDRESS instruction
+            tac_append(ctx, ga);
+
+            // Prepend a *copy* of the address as argument #1 (the operand above is owned by
+            // the GET_ADDRESS; the args list owns its own values).
+            Tac_Val *arg0 = val_var(addr->u.var_name);
+            arg0->next    = args_head;
+            args_head     = arg0;
+            sret_slot     = slot; // owns `slot`; freed below
+        }
+
         Expr *func = e->u.call.func;
         const char *fun_name;
         Tac_Val *fn_ptr = NULL;
@@ -801,7 +832,10 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             fun_name = fn_ptr->u.var_name;
         }
 
-        Tac_Val *dst            = (e->type->kind != TYPE_VOID) ? new_var_val(ctx) : NULL;
+        // With the sret ABI the struct result lives in the slot we allocated, not in a
+        // scalar destination register, so the call has no scalar `dst`.
+        Tac_Val *dst            = (e->type->kind != TYPE_VOID && !sret_slot) ? new_var_val(ctx)
+                                                                            : NULL;
         Tac_Instruction *in     = tac_new_instruction(TAC_INSTRUCTION_FUN_CALL);
         in->u.fun_call.fun_name = xstrdup(fun_name);
         in->u.fun_call.args     = args_head;
@@ -811,6 +845,11 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         if (fn_ptr)
             tac_free_val(fn_ptr);
 
+        if (sret_slot) {
+            Tac_Val *result = val_var(sret_slot);
+            xfree(sret_slot);
+            return result;
+        }
         return dst ? val_var(dst->u.var_name) : val_int(0);
     }
     case EXPR_POST_INC:

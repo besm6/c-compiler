@@ -10,6 +10,7 @@
 
 #include "string_map.h"
 #include "structtab.h"
+#include "target.h"
 #include "xalloc.h"
 
 // Enable debug output
@@ -372,6 +373,43 @@ void emit_label(TacCtx *ctx, const char *name)
 }
 
 //
+// Struct-by-value support
+//
+
+int target_word_bytes(void)
+{
+    return (int)target_config->pointer_size;
+}
+
+bool type_is_byval_sret(const Type *t)
+{
+    if (!t || (t->kind != TYPE_STRUCT && t->kind != TYPE_UNION))
+        return false;
+    return (int)get_size(t) > target_word_bytes();
+}
+
+void gen_struct_assign(TacCtx *ctx, const char *dst_name, int dst_off, const char *src_name,
+                       int nbytes)
+{
+    int w      = target_word_bytes();
+    int nwords = (nbytes + w - 1) / w;
+    for (int i = 0; i < nwords; i++) {
+        Tac_Val *t          = new_var_val(ctx);
+        Tac_Instruction *ld = tac_new_instruction(TAC_INSTRUCTION_COPY_FROM_OFFSET);
+        ld->u.copy_from_offset.src    = xstrdup(src_name);
+        ld->u.copy_from_offset.offset = i * w;
+        ld->u.copy_from_offset.dst    = t;
+        tac_append(ctx, ld);
+
+        Tac_Instruction *st         = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
+        st->u.copy_to_offset.src    = val_var(t->u.var_name);
+        st->u.copy_to_offset.dst    = xstrdup(dst_name);
+        st->u.copy_to_offset.offset = dst_off + i * w;
+        tac_append(ctx, st);
+    }
+}
+
+//
 // Type conversion: AST Type → TAC Type
 //
 
@@ -484,8 +522,23 @@ static Tac_TopLevel *translate_fn(const ExternalDecl *ast)
     tl->u.function.variadic = ast->u.function.type && ast->u.function.type->kind == TYPE_FUNCTION &&
                               ast->u.function.type->u.function.variadic;
 
+    // A multi-word struct return uses the hidden-pointer (sret) ABI: the caller passes
+    // the address of the result slot as an implicit first argument.  Prepend it to the
+    // param list so it lands in frame slot 0 (this shifts the user params' slots by one,
+    // which body references pick up automatically by name).
+    const char *sret_name = NULL;
+    if (ast->u.function.type && ast->u.function.type->kind == TYPE_FUNCTION &&
+        type_is_byval_sret(ast->u.function.type->u.function.return_type)) {
+        sret_name      = ".ret";
+        Tac_Param *hp  = tac_new_param();
+        hp->name       = xstrdup(sret_name);
+        hp->next       = tl->u.function.params;
+        tl->u.function.params = hp;
+    }
+
     if (ast->u.function.body) {
-        TacCtx ctx = { NULL, NULL, 0, NULL, NULL, NULL, NULL };
+        TacCtx ctx = { NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL };
+        ctx.sret_name = sret_name;
         gen_stmt(&ctx, ast->u.function.body);
         tl->u.function.body   = ctx.head;
         tl->u.function.locals = ctx.locals;

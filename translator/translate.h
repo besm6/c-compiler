@@ -26,6 +26,8 @@ typedef struct {
     Tac_Param *locals_tail;         // tail of `locals` for O(1) append
     Tac_Param *array_locals;        // names of local arrays (block-scope symbols are
                                     // purged before lowering, so value decay needs this)
+    const char *sret_name;          // hidden return-pointer param name when the current
+                                    // function returns a multi-word struct by value; else NULL
 } TacCtx;
 
 //
@@ -72,6 +74,20 @@ Tac_Val *new_var_val(TacCtx *ctx);
 Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to);
 void emit_jump(TacCtx *ctx, const char *target);
 void emit_label(TacCtx *ctx, const char *name);
+
+//
+// Struct-by-value support (translate.c)
+//
+// One target machine word, in bytes (the unit a scalar return value occupies).
+int target_word_bytes(void);
+// True when `t` is a struct/union too large to return in a single word, so it uses the
+// hidden-pointer (sret) calling convention.
+bool type_is_byval_sret(const Type *t);
+// Copy a whole struct/union value, word by word, from named aggregate `src_name`
+// into `dst_name` at byte offset `dst_off`.  Both names denote frame-resident or
+// global aggregates (the bases accepted by COPY_TO_OFFSET / COPY_FROM_OFFSET).
+void gen_struct_assign(TacCtx *ctx, const char *dst_name, int dst_off, const char *src_name,
+                       int nbytes);
 
 //
 // Type conversion (translate.c)

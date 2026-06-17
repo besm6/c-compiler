@@ -567,8 +567,8 @@ TEST_F(TranslateTest, LocalStructCompoundInit)
     - instruction:
       kind: allocate_local
       name: %s
-      size: 8
-      alignment: 4
+      size: 12
+      alignment: 6
     - instruction:
       kind: copy_to_offset
       src:
@@ -586,7 +586,7 @@ TEST_F(TranslateTest, LocalStructCompoundInit)
           kind: int
           value: 2
       dst: %s
-      offset: 4
+      offset: 6
 )");
 }
 
@@ -602,8 +602,8 @@ TEST_F(TranslateTest, LocalArrayCompoundInit)
     - instruction:
       kind: allocate_local
       name: %arr
-      size: 12
-      alignment: 4
+      size: 18
+      alignment: 6
     - instruction:
       kind: copy_to_offset
       src:
@@ -621,7 +621,7 @@ TEST_F(TranslateTest, LocalArrayCompoundInit)
           kind: int
           value: 20
       dst: %arr
-      offset: 4
+      offset: 6
     - instruction:
       kind: copy_to_offset
       src:
@@ -630,7 +630,7 @@ TEST_F(TranslateTest, LocalArrayCompoundInit)
           kind: int
           value: 30
       dst: %arr
-      offset: 8
+      offset: 12
 )");
 }
 
@@ -649,8 +649,8 @@ TEST_F(TranslateTest, LocalNestedStructInit)
     - instruction:
       kind: allocate_local
       name: %o
-      size: 12
-      alignment: 4
+      size: 18
+      alignment: 6
     - instruction:
       kind: copy_to_offset
       src:
@@ -668,7 +668,7 @@ TEST_F(TranslateTest, LocalNestedStructInit)
           kind: int
           value: 2
       dst: %o
-      offset: 4
+      offset: 6
     - instruction:
       kind: copy_to_offset
       src:
@@ -677,13 +677,13 @@ TEST_F(TranslateTest, LocalNestedStructInit)
           kind: int
           value: 3
       dst: %o
-      offset: 8
+      offset: 12
 )");
 }
 
 // An uninitialized local aggregate still emits AllocateLocal so the backend reserves
-// its full frame slot (task #23). Size/alignment are in target bytes (x86_64 default
-// here): int a[10] -> 40 bytes; struct Foo {int;int} -> 8 bytes; both 4-byte aligned.
+// its full frame slot (task #23). Size/alignment are in target bytes (besm6 default
+// here): int a[10] -> 60 bytes; struct Foo {int;int} -> 12 bytes; both 6-byte aligned.
 TEST_F(TranslateTest, LocalAggregateAllocateLocal)
 {
     std::string yaml = CompileToYaml(
@@ -697,12 +697,12 @@ TEST_F(TranslateTest, LocalAggregateAllocateLocal)
     - instruction:
       kind: allocate_local
       name: %a
-      size: 40
-      alignment: 4
+      size: 60
+      alignment: 6
     - instruction:
       kind: allocate_local
       name: %s
-      size: 8
-      alignment: 4
+      size: 12
+      alignment: 6
 )");
 }

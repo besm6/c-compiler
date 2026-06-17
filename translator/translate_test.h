@@ -11,6 +11,7 @@
 #include "structtab.h"
 #include "symtab.h"
 #include "tac.h"
+#include "target.h"
 #include "translate.h"
 #include "typetab.h"
 #include "xalloc.h"
@@ -23,7 +24,10 @@ protected:
 
     void SetUp() override
     {
-        input_file = tmpfile();
+        // The translator backend of record is BESM-6 (6-byte word); pin the target so
+        // sizes/offsets/alignments in the expected YAML match that machine.
+        target_config = target_lookup("besm6");
+        input_file    = tmpfile();
         ASSERT_NE(nullptr, input_file);
     }
 
@@ -76,5 +80,18 @@ protected:
             decls = next;
         }
         return result;
+    }
+};
+
+// Fixture for width-sensitive tests (casts, sizeof, alignof) whose expected output relies
+// on x86_64's differing scalar sizes — on the BESM-6 default nearly every scalar is one
+// 6-byte word, so int/long/short conversions would collapse to plain copies.  Pinning
+// x86_64 keeps the truncate / sign-extend / zero-extend lowering under test.
+class TranslateTestX86 : public TranslateTest {
+protected:
+    void SetUp() override
+    {
+        TranslateTest::SetUp();
+        target_config = target_lookup("x86_64");
     }
 };

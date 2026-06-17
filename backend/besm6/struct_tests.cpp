@@ -114,3 +114,53 @@ TEST_F(CodegenTest, LocalStructRun)
     )");
     EXPECT_EQ("18\n", result);
 }
+
+// Returning a 2-word struct by value from a direct call: the hidden-pointer (sret) ABI
+// carries both members back into the caller's slot.  Output: "3 4\n".
+TEST_F(CodegenTest, StructByValueReturnRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        struct P { int x; int y; };
+        struct P mk(int a, int b) { struct P p; p.x = a; p.y = b; return p; }
+        void program() {
+            struct P r = mk(3, 4);
+            printf("%d %d\n", r.x, r.y);
+        }
+    )");
+    EXPECT_EQ("3 4\n", result);
+}
+
+// Whole-struct assignment (struct b = a;) copies every word.  Output: "5 9\n".
+TEST_F(CodegenTest, StructWholeCopyRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        struct P { int x; int y; };
+        void program() {
+            struct P a;
+            a.x = 5;
+            a.y = 9;
+            struct P b;
+            b = a;
+            printf("%d %d\n", b.x, b.y);
+        }
+    )");
+    EXPECT_EQ("5 9\n", result);
+}
+
+// A 3-word struct returned by value, plus the result used directly to initialize
+// another local.  Output: "1 2 3\n".
+TEST_F(CodegenTest, StructByValueReturnThreeWordRun)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        struct T { int a; int b; int c; };
+        struct T mk(void) { struct T t; t.a = 1; t.b = 2; t.c = 3; return t; }
+        void program() {
+            struct T r = mk();
+            printf("%d %d %d\n", r.a, r.b, r.c);
+        }
+    )");
+    EXPECT_EQ("1 2 3\n", result);
+}

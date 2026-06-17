@@ -271,7 +271,7 @@ TEST_F(TranslateTest, SubscriptRead)
       index:
         kind: var
         name: %i
-      scale: 4
+      scale: 6
       dst:
         kind: var
         name: %0
@@ -314,7 +314,7 @@ TEST_F(TranslateTest, SubscriptWrite)
       index:
         kind: var
         name: %i
-      scale: 4
+      scale: 6
       dst:
         kind: var
         name: %0
@@ -351,7 +351,7 @@ TEST_F(TranslateTest, SubscriptPostInc)
       index:
         kind: var
         name: %i
-      scale: 4
+      scale: 6
       dst:
         kind: var
         name: %0

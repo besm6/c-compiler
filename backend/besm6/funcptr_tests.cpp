@@ -240,13 +240,15 @@ TEST_F(CodegenTest, FuncPtrVariadicCall)
 }
 
 // ---------------------------------------------------------------------------
-// Known BESM-6 backend bug: struct-by-value through a function pointer.
+// Struct-by-value through a function pointer.
 //
-// The call ABI passes/returns each argument and the result in a single word, so a
-// multi-word struct passed or returned by value loses every word but the first — for an
-// indirect call (here) and a direct one alike.  These are DISABLED reproducers (run with
-// --gtest_also_run_disabled_tests): each EXPECT asserts the CORRECT behaviour, so the test
-// fails today and will pass once a multi-word struct ABI is implemented.
+// A multi-word struct returned by value uses the hidden-pointer (sret) ABI, lowered in
+// the translator: the caller passes the address of the result slot as an implicit first
+// argument and the callee writes the struct through it.  Returning a struct works for
+// both indirect (here) and direct calls.
+//
+// Passing a multi-word struct *as an argument* by value is not yet implemented, so that
+// reproducer stays disabled: the call site still marshals a single word per argument.
 // ---------------------------------------------------------------------------
 
 // Bug: passing a 2-member struct by value through a function pointer drops the second word
@@ -269,10 +271,9 @@ TEST_F(CodegenTest, DISABLED_FuncPtrStructByValueArg)
     EXPECT_EQ("7\n", result);
 }
 
-// Bug: returning a 2-member struct by value through a function pointer keeps only word 0
-// (the callee returns via the accumulator with a single 7 ,xta,), so the second member is
-// lost.  Correct output: "3 4\n".
-TEST_F(CodegenTest, DISABLED_FuncPtrStructByValueReturn)
+// Returning a 2-member struct by value through a function pointer: the sret ABI carries
+// both words into the caller's slot.  Output: "3 4\n".
+TEST_F(CodegenTest, FuncPtrStructByValueReturn)
 {
     std::string result = CompileAndRun(R"(
         int printf(const char *format, ...);

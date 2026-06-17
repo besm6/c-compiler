@@ -16,6 +16,20 @@ We use decimal numbering.
 
  * The result value is returned in the accumulator.
  * Registers r1-r7 must be preserved by a called function.
+
+### Returning a struct by value
+
+A struct (or union) return value is classified by size:
+
+ * **One machine word or smaller** (≤ 6 bytes): returned in the accumulator, exactly
+   like a scalar.
+ * **Larger than one word**: returned via a hidden pointer (the *sret* convention).
+   The caller allocates the result storage and passes its address as an implicit
+   **first argument**, shifting the declared parameters to slots 1, 2, …  The callee
+   writes the whole struct through that pointer and also returns the pointer in the
+   accumulator.  This lowering is performed entirely in the translator, so the machine
+   backend never sees a struct-valued `RETURN` or a struct-valued call result.
+
  * Register r15 (stack pointer) has to be decremented by a called function
    by the number of arguments passed.
  * When the called function has 1 or more **parameters**, on return it should

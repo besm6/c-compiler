@@ -452,7 +452,7 @@ TEST_F(TranslateTest, LogicalOrShortCircuit)
 // sizeof and _Alignof operators — task #5
 // ---------------------------------------------------------------------------
 
-TEST_F(TranslateTest, SizeofType_Int)
+TEST_F(TranslateTestX86, SizeofType_Int)
 {
     std::string yaml = CompileToYaml("unsigned long f(void) { return sizeof(int); }");
     EXPECT_EQ(yaml, R"(- toplevel:
@@ -470,7 +470,7 @@ TEST_F(TranslateTest, SizeofType_Int)
 )");
 }
 
-TEST_F(TranslateTest, SizeofType_Long)
+TEST_F(TranslateTestX86, SizeofType_Long)
 {
     std::string yaml = CompileToYaml("unsigned long f(void) { return sizeof(long); }");
     EXPECT_EQ(yaml, R"(- toplevel:
@@ -488,7 +488,7 @@ TEST_F(TranslateTest, SizeofType_Long)
 )");
 }
 
-TEST_F(TranslateTest, SizeofExpr)
+TEST_F(TranslateTestX86, SizeofExpr)
 {
     std::string yaml = CompileToYaml("unsigned long f(void) { int x; return sizeof(x); }");
     EXPECT_EQ(yaml, R"(- toplevel:
@@ -506,7 +506,7 @@ TEST_F(TranslateTest, SizeofExpr)
 )");
 }
 
-TEST_F(TranslateTest, AlignofDouble)
+TEST_F(TranslateTestX86, AlignofDouble)
 {
     std::string yaml = CompileToYaml("unsigned long f(void) { return _Alignof(double); }");
     EXPECT_EQ(yaml, R"(- toplevel:
@@ -622,7 +622,7 @@ TEST_F(TranslateTest, CompoundLiteralStructField)
           kind: int
           value: 2
       dst: %0
-      offset: 4
+      offset: 6
     - instruction:
       kind: get_address
       src:
@@ -687,7 +687,7 @@ TEST_F(TranslateTest, CompoundLiteralArraySubscript)
           kind: int
           value: 20
       dst: %0
-      offset: 4
+      offset: 6
     - instruction:
       kind: copy_to_offset
       src:
@@ -696,7 +696,7 @@ TEST_F(TranslateTest, CompoundLiteralArraySubscript)
           kind: int
           value: 30
       dst: %0
-      offset: 8
+      offset: 12
     - instruction:
       kind: get_address
       src:
@@ -710,7 +710,7 @@ TEST_F(TranslateTest, CompoundLiteralArraySubscript)
       src:
         kind: constant
         const:
-          kind: long
+          kind: int
           value: 1
       dst:
         kind: var
@@ -723,7 +723,7 @@ TEST_F(TranslateTest, CompoundLiteralArraySubscript)
       index:
         kind: var
         name: %2
-      scale: 4
+      scale: 6
       dst:
         kind: var
         name: %3
