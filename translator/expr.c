@@ -778,6 +778,28 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         Tac_Val *args_head  = NULL;
         Tac_Val **args_tail = &args_head;
         for (Expr *arg = e->u.call.args; arg; arg = arg->next) {
+            // A multi-word struct passed by value is marshalled as N consecutive
+            // machine-word arguments (true by-value): read each word out of the struct
+            // slot and append it as its own call argument.  The callee reserves N
+            // contiguous param slots (see params_from_type), so the words line up.
+            if (type_is_byval_sret(arg->type)) {
+                Tac_Val *sv = gen_expr(ctx, arg);
+                int w       = target_word_bytes();
+                int nwords  = ((int)get_size(arg->type) + w - 1) / w;
+                for (int i = 0; i < nwords; i++) {
+                    Tac_Val *t = new_var_val(ctx);
+                    Tac_Instruction *ld           = tac_new_instruction(TAC_INSTRUCTION_COPY_FROM_OFFSET);
+                    ld->u.copy_from_offset.src    = xstrdup(sv->u.var_name);
+                    ld->u.copy_from_offset.offset = i * w;
+                    ld->u.copy_from_offset.dst    = t; // owned by the COPY_FROM_OFFSET
+                    tac_append(ctx, ld);
+
+                    *args_tail = val_var(t->u.var_name);
+                    args_tail  = &(*args_tail)->next;
+                }
+                tac_free_val(sv);
+                continue;
+            }
             Tac_Val *av = gen_expr(ctx, arg);
             *args_tail  = av;
             args_tail   = &av->next;

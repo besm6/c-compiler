@@ -427,6 +427,24 @@ static Tac_Param *params_from_type(const Type *fun_type)
         tp->name      = xstrdup(p->name);
         *tail         = tp;
         tail          = &tp->next;
+
+        // A multi-word struct parameter is passed by value as N consecutive machine
+        // words (see the call-site decomposition in expr.c).  The real param above is
+        // the struct's base slot; append N-1 filler params so frame_build reserves N
+        // contiguous slots and the body's `base + i*word` member accesses resolve
+        // correctly.  The fillers are never referenced by name.
+        if (type_is_byval_sret(p->type)) {
+            int w      = target_word_bytes();
+            int nwords = ((int)get_size(p->type) + w - 1) / w;
+            for (int i = 1; i < nwords; i++) {
+                Tac_Param *fill = tac_new_param();
+                char buf[64];
+                snprintf(buf, sizeof(buf), "%s$w%d", p->name, i);
+                fill->name = xstrdup(buf);
+                *tail      = fill;
+                tail       = &fill->next;
+            }
+        }
     }
     return head;
 }

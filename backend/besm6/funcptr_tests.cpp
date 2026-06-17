@@ -247,14 +247,15 @@ TEST_F(CodegenTest, FuncPtrVariadicCall)
 // argument and the callee writes the struct through it.  Returning a struct works for
 // both indirect (here) and direct calls.
 //
-// Passing a multi-word struct *as an argument* by value is not yet implemented, so that
-// reproducer stays disabled: the call site still marshals a single word per argument.
+// Passing a multi-word struct *as an argument* by value uses the true by-value ABI: the
+// translator marshals the struct as N consecutive machine-word arguments and the callee
+// reserves N contiguous param slots, so the negative arg count in r14 and the param
+// layout agree.
 // ---------------------------------------------------------------------------
 
-// Bug: passing a 2-member struct by value through a function pointer drops the second word
-// (the call site emits 14 ,vtm, -1 for a 2-word struct), so the callee reads garbage for
-// the trailing member.  Correct output: "7\n" (3 + 4).
-TEST_F(CodegenTest, DISABLED_FuncPtrStructByValueArg)
+// Pass a 2-member struct by value through a function pointer: both words are marshalled
+// (14 ,vtm, -2 for a 2-word struct), so the callee reads both members.  Output: "7\n".
+TEST_F(CodegenTest, FuncPtrStructByValueArg)
 {
     std::string result = CompileAndRun(R"(
         int printf(const char *format, ...);
