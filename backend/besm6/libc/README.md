@@ -37,8 +37,8 @@ BESM-6 specifics:
   upper-case codes.  Consequently all letters print upper case, and `%x`/`%X`, `%e`/`%E`,
   `%g`/`%G` produce identical output.
 - **Floating point** uses the native 48-bit format (~12 significant decimal digits); helpers
-  live in [modf.c](modf.c) (`modf`, plus constant-false `isnan`/`isinf` — there are no IEEE
-  specials).  Very small `%g` values follow the simplified kernel-printf algorithm.
+  live in [modf.c](modf.c) (`modf`).  Very small `%g` values follow the simplified
+  kernel-printf algorithm.
 - **No string literals in the library.**  Per-module string constants share the `_strN`
   namespace, so a literal inside a runtime routine would collide with the caller's own string
   constants at link time; routines build any fixed text (e.g. `(NULL)`) in a local buffer.

@@ -27,8 +27,6 @@
  */
 extern void putbyte(int b);
 extern double modf(double x, double *iptr);
-extern int isnan(double x);
-extern int isinf(double x);
 
 enum {
     MAXNBUF = 32, /* digits buffer: 48-bit octal (16) + sign + prefix + slack */
