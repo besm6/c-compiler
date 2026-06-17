@@ -322,18 +322,21 @@ TEST_F(CodegenTest, CharPtrRelationalCompare)
     EXPECT_EQ("ABC\n", result);
 }
 
-// Bug: string-constant labels are numbered per compilation unit (the _strN
-// counter restarts at 0 for every module), so a string literal in one module is
-// named "_str0" (emitted as "*str0") and collides with another module's "_str0"
-// at link time.  This is why a library routine must not use string literals: a
-// library "(NULL)" resolved to the caller's first string constant.  A correct
-// backend should give string constants globally-unique names.
-TEST_F(CodegenTest, DISABLED_StringConstantNameNotGloballyUnique)
+// String-constant labels are numbered per compilation unit (the _strN counter
+// restarts at 0 for every module).  When each "_str0" was emitted as its own global
+// ,name, module it collided with another unit's "_str0" at link time — the library
+// "(NULL)" literal resolved to the caller's first string constant.  The fix folds
+// every string constant into the single module that references it, as a module-local
+// label: the data is still emitted, but there is no external SUBP or standalone
+// ,name, module, so the name can no longer collide across separately assembled units.
+TEST_F(CodegenTest, StringConstantNameNotGloballyUnique)
 {
     std::string madlen = CompileToMadlen(R"( char *f(void) { return "ABC"; } )");
-    // The bare, per-module name "*str0" collides across modules; after a fix the
-    // label should be module-unique and this substring should be gone.
-    EXPECT_EQ(std::string::npos, madlen.find("*str0"));
+    // The string is folded into f's module: its packed data word is present...
+    EXPECT_NE(std::string::npos, madlen.find("2024110300000000"));
+    // ...but "*str0" is local, not a global symbol: no external SUBP, no ,name, module.
+    EXPECT_EQ(std::string::npos, madlen.find("*str0:   ,subp,"));
+    EXPECT_EQ(std::string::npos, madlen.find("*str0:   ,name,"));
 }
 
 // Bug: an enum constant used as an array dimension is left as a LITERAL_ENUM

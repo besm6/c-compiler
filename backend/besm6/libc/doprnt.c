@@ -218,18 +218,7 @@ int __doprnt(char *fmt, int *ap, char *buf, int size, int to_buf)
             n = *ap;
             ++ap;
             if (n == 0) {
-                /* Null pointer.  Build "(NULL)" in nbuf rather than using a
-                 * string literal: per-module string constants share the _strN
-                 * namespace, so a literal here would collide with the caller's
-                 * own string constants at link time. */
-                nbuf[0] = '(';
-                nbuf[1] = 'N';
-                nbuf[2] = 'U';
-                nbuf[3] = 'L';
-                nbuf[4] = 'L';
-                nbuf[5] = ')';
-                nbuf[6] = 0;
-                s       = nbuf;
+                s = "(NULL)";
             } else {
                 s = *(char **)&n;
             }

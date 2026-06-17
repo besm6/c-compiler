@@ -23,10 +23,11 @@ void codegen_program(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *
         codegen_function(program, tl, out);
         break;
     case TAC_TOPLEVEL_STATIC_VARIABLE:
-        codegen_static_variable(tl, out);
+        codegen_static_variable(program, tl, out);
         break;
     case TAC_TOPLEVEL_STATIC_CONSTANT:
-        codegen_static_constant(tl, out);
+        // String constants are no longer emitted as standalone global modules;
+        // each is folded into the (single) module that references it.
         break;
     }
 }
@@ -295,6 +296,10 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
 
     if (f)
         frame_free(f);
+
+    // Fold any string literals this function references into its module as local
+    // labels, removing their external SUBP declarations.
+    besm_fold_string_constants(module, program);
 
     emit_madlen_module(out, module);
     besm_free_module(module);

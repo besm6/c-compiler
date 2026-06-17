@@ -588,22 +588,19 @@ TEST_F(CodegenTest, StrCyrillicInit)
 // ---------------------------------------------------------------------------
 // String pointer initialization — TAC_TOPLEVEL_STATIC_CONSTANT tests
 // ---------------------------------------------------------------------------
-// Each `char *p = "..."` emits two modules:
-//   1. The string constant module (_str0) with packed-char log words.
-//   2. The pointer variable module (p) with a subp/z00 reference to _str0.
+// A `char *p = "..."` string constant (_str0) is folded into the module that
+// references it (here p): no separate global ,name, module and no external ,subp,
+// — the packed-char log words are appended as a module-local label, so the per-unit
+// _strN name can no longer collide across separately assembled objects.
 
 TEST_F(CodegenTest, StrConstantEmptyPtr)
 {
     std::string output = CompileToMadlen("char *p = \"\";");
-    EXPECT_EQ(R"(c  const
-    *str0:   ,name,
-             ,log, 0
-             ,end,
-c
+    EXPECT_EQ(R"(c
         p:   ,name,
-    *str0:   ,subp,
           13 ,z00,
              ,z00, *str0
+    *str0:   ,log, 0
              ,end,
 )",
               output);
@@ -612,15 +609,11 @@ c
 TEST_F(CodegenTest, StrConstantSingleCharPtr)
 {
     std::string output = CompileToMadlen("char *p = \"A\";");
-    EXPECT_EQ(R"(c  const
-    *str0:   ,name,
-             ,log, 2020000000000000
-             ,end,
-c
+    EXPECT_EQ(R"(c
         p:   ,name,
-    *str0:   ,subp,
           13 ,z00,
              ,z00, *str0
+    *str0:   ,log, 2020000000000000
              ,end,
 )",
               output);
@@ -629,15 +622,11 @@ c
 TEST_F(CodegenTest, StrConstantThreeCharsPtr)
 {
     std::string output = CompileToMadlen("char *p = \"ABC\";");
-    EXPECT_EQ(R"(c  const
-    *str0:   ,name,
-             ,log, 2024110300000000
-             ,end,
-c
+    EXPECT_EQ(R"(c
         p:   ,name,
-    *str0:   ,subp,
           13 ,z00,
              ,z00, *str0
+    *str0:   ,log, 2024110300000000
              ,end,
 )",
               output);
@@ -647,15 +636,11 @@ c
 TEST_F(CodegenTest, StrConstantFiveCharsPtr)
 {
     std::string output = CompileToMadlen("char *p = \"ABCDE\";");
-    EXPECT_EQ(R"(c  const
-    *str0:   ,name,
-             ,log, 2024110321042400
-             ,end,
-c
+    EXPECT_EQ(R"(c
         p:   ,name,
-    *str0:   ,subp,
           13 ,z00,
              ,z00, *str0
+    *str0:   ,log, 2024110321042400
              ,end,
 )",
               output);
@@ -665,16 +650,12 @@ c
 TEST_F(CodegenTest, StrConstantSixCharsPtr)
 {
     std::string output = CompileToMadlen("char *p = \"ABCDEF\";");
-    EXPECT_EQ(R"(c  const
-    *str0:   ,name,
-             ,log, 2024110321042506
-             ,log, 0
-             ,end,
-c
+    EXPECT_EQ(R"(c
         p:   ,name,
-    *str0:   ,subp,
           13 ,z00,
              ,z00, *str0
+    *str0:   ,log, 2024110321042506
+             ,log, 0
              ,end,
 )",
               output);
@@ -684,52 +665,41 @@ c
 TEST_F(CodegenTest, StrConstantSevenCharsPtr)
 {
     std::string output = CompileToMadlen("char *p = \"ABCDEFG\";");
-    EXPECT_EQ(R"(c  const
-    *str0:   ,name,
-             ,log, 2024110321042506
-             ,log, 2160000000000000
-             ,end,
-c
+    EXPECT_EQ(R"(c
         p:   ,name,
-    *str0:   ,subp,
           13 ,z00,
              ,z00, *str0
+    *str0:   ,log, 2024110321042506
+             ,log, 2160000000000000
              ,end,
 )",
               output);
 }
 
-// Two declarations processed separately: each gets its own _strN constant.
-// symtab_add_string assigns unique names regardless of string content.
+// Two declarations processed separately: each gets its own _strN constant, folded
+// into its own variable's module.  symtab_add_string assigns unique names regardless
+// of string content.
 TEST_F(CodegenTest, StrConstantTwoPtrs)
 {
     std::string output = CompileToMadlen("char *p = \"ABC\"; char *q = \"ABC\";");
-    EXPECT_EQ(R"(c  const
-    *str0:   ,name,
-             ,log, 2024110300000000
-             ,end,
-c
+    EXPECT_EQ(R"(c
         p:   ,name,
-    *str0:   ,subp,
           13 ,z00,
              ,z00, *str0
-             ,end,
-c  const
-    *str1:   ,name,
-             ,log, 2024110300000000
+    *str0:   ,log, 2024110300000000
              ,end,
 c
         q:   ,name,
-    *str1:   ,subp,
           13 ,z00,
              ,z00, *str1
+    *str1:   ,log, 2024110300000000
              ,end,
 )",
               output);
 }
 
 // A char array init uses TAC_STATIC_INIT_STRING directly (no static constant).
-// A char pointer init generates a separate _str0 constant module.
+// A char pointer init's _str0 constant is folded into the pointer variable's module.
 TEST_F(CodegenTest, StrConstantPtrAndArray)
 {
     std::string output = CompileToMadlen("char arr[] = \"ABC\"; char *p = \"ABC\";");
@@ -737,15 +707,11 @@ TEST_F(CodegenTest, StrConstantPtrAndArray)
       arr:   ,name,
              ,log, 2024110300000000
              ,end,
-c  const
-    *str0:   ,name,
-             ,log, 2024110300000000
-             ,end,
 c
         p:   ,name,
-    *str0:   ,subp,
           13 ,z00,
              ,z00, *str0
+    *str0:   ,log, 2024110300000000
              ,end,
 )",
               output);

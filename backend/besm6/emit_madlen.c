@@ -335,7 +335,7 @@ void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
         // Data section directives
         case BESM_DATA_LOG:
             snprintf(a, sizeof(a), "%llo", instr->log_val);
-            emit_line(out, NULL, 0, "log", a);
+            emit_line(out, instr->name, 0, "log", a);
             break;
         case BESM_DATA_BSS:
             if (instr->addr)

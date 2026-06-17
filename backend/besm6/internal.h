@@ -39,8 +39,16 @@ void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind, const Fr
 void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *block,
                    Besm_Instr **tail);
 
-// Emit a module-level static variable / constant (defined in static.c).
-void codegen_static_variable(const Tac_TopLevel *tl, FILE *out);
-void codegen_static_constant(const Tac_TopLevel *tl, FILE *out);
+// Emit a module-level static variable (defined in static.c).  `program` is the full
+// toplevel chain, used to fold referenced string constants into this module.
+void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out);
+
+// Pack a string static-init into a BESM_DATA_LOG chain; the first word is labeled
+// `label` when non-NULL (defined in static.c).
+Besm_Instr *besm_string_log_items(const Tac_StaticInit *init, const char *label);
+
+// Fold every string constant `module` references into the module as a local label,
+// dropping the constant's external SUBP (defined in static.c).
+void besm_fold_string_constants(Besm_Module *module, const Tac_TopLevel *program);
 
 #endif // BESM6_INTERNAL_H
