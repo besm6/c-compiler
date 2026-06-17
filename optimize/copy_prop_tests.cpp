@@ -761,3 +761,75 @@ TEST_F(OptimizerTest, CopyPropVolatileLoadOperandNotSubstituted)
               "    kind: var\n"
               "    name: t.0\n");
 }
+
+// Label("L1") [entry/loop header] → Binary(n > 0, c) → JIZ(c,"L0") → Copy(d,n)
+// → Jump("L1") → Label("L0") → Return(n)
+// The Copy(d,n) on the loop back-edge generates (n → d), and the back-edge re-enters
+// the entry block L1.  But the entry's in-set is the dataflow boundary (empty): on the
+// first entry n holds the parameter and d is undefined, so the loop-header read "n > 0"
+// must NOT be rewritten to "d > 0".  Guards the entry-block boundary condition.
+TEST_F(OptimizerTest, CopyPropBackEdgeIntoEntryNotPropagated)
+{
+    Tac_Instruction *entry = make_label("L1");
+    Tac_Instruction *cmp =
+        make_binary(TAC_BINARY_GREATER_THAN, make_var("n"), make_const_int(0), make_var("c"));
+    Tac_Instruction *jiz  = make_jump_if_zero(make_var("c"), "L0");
+    Tac_Instruction *cp   = make_copy(make_var("d"), make_var("n"));
+    Tac_Instruction *jmp  = make_jump("L1");
+    Tac_Instruction *lbl  = make_label("L0");
+    Tac_Instruction *ret  = make_return(make_var("n"));
+    entry->next           = cmp;
+    cmp->next             = jiz;
+    jiz->next             = cp;
+    cp->next              = jmp;
+    jmp->next             = lbl;
+    lbl->next             = ret;
+
+    OptFlags flags          = opt_flags_default();
+    flags.dead_store_elim   = false;
+    Tac_Instruction *result = optimize_function(entry, flags, nullptr);
+
+    EXPECT_EQ(capture_instructions(result),
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: L1\n"
+              "- instruction:\n"
+              "  kind: binary\n"
+              "  op: greater_than\n"
+              "  src1:\n"
+              "    kind: var\n"
+              "    name: n\n"
+              "  src2:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: c\n"
+              "- instruction:\n"
+              "  kind: jump_if_zero\n"
+              "  condition:\n"
+              "    kind: var\n"
+              "    name: c\n"
+              "  target: L0\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: d\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: n\n"
+              "- instruction:\n"
+              "  kind: jump\n"
+              "  target: L1\n"
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: L0\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: n\n");
+}

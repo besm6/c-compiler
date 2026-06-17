@@ -610,10 +610,15 @@ void propagate_copies(OptCfg *cfg, const Tac_TopLevel *fn)
                 continue;
 
             // in[b] = meet (intersection) of out[pred] over all predecessors.
-            // Seed from the first predecessor, then intersect the rest.
+            // Seed from the first predecessor, then intersect the rest. The
+            // entry block (i == 0) is the exception: its in-set is the boundary
+            // value (empty). Control may enter the function at the entry without
+            // traversing any predecessor (e.g. a loop whose header is the entry
+            // block), so a copy generated on a back-edge into the entry must not
+            // be treated as reaching the entry's instructions.
             StringMap new_in;
             map_init(&new_in);
-            if (npreds[i] > 0) {
+            if (i != 0 && npreds[i] > 0) {
                 copy_set_copy(&new_in, &out_sets[preds[i][0]]);
                 for (int k = 1; k < npreds[i]; k++)
                     copy_set_intersect(&new_in, &out_sets[preds[i][k]]);

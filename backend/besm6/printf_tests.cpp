@@ -270,7 +270,7 @@ TEST_F(CodegenTest, SnprintfTruncation)
 // its parameter slot, so the loop misbehaves (emit_pad infinite-looped on this
 // pattern; countdown drops/garbles iterations).
 // Correct output: "321\n".  Buggy output: "21\n".
-TEST_F(CodegenTest, DISABLED_MutatedParameterInLoop)
+TEST_F(CodegenTest, MutatedParameterInLoop)
 {
     std::string result = CompileAndRun(R"(
         void putbyte(int b);

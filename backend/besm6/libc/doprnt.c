@@ -58,11 +58,9 @@ static void emit(int c)
 
 static void emit_pad(int c, int count)
 {
-    int n = count;
-
-    while (n > 0) {
+    while (count > 0) {
         emit(c);
-        --n;
+        --count;
     }
 }
 
