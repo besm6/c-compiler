@@ -74,11 +74,9 @@ TEST_F(CodegenTest, PrintChar)
 TEST_F(CodegenTest, PrintDecimal)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
-        int print_d(int num);
+        int printf(const char *format, ...);
         void program() {
-            print_d(42);
-            putbyte('\n');
+            printf("%d\n", 42);
         }
     )");
     EXPECT_EQ("42\n", result);
@@ -90,14 +88,11 @@ TEST_F(CodegenTest, PrintDecimal)
 TEST_F(CodegenTest, MultiCharConstant)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
-        int print_d(int num);
+        int printf(const char *format, ...);
         int g = 'ab';
         void program() {
-            print_d(g);
-            putbyte('\n');
-            print_d('cd');
-            putbyte('\n');
+            printf("%d\n", g);
+            printf("%d\n", 'cd');
         }
     )");
     EXPECT_EQ("24930\n25444\n", result);

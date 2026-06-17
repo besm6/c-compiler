@@ -70,13 +70,11 @@ TEST_F(CodegenTest, FuncPtrNameDecaysToAddress)
 TEST_F(CodegenTest, FuncPtrAssignAndCall)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
-        int print_d(int num);
+        int printf(const char *format, ...);
         int add(int a, int b) { return a + b; }
         void program() {
             int (*fp)(int, int) = add;
-            print_d(fp(10, 3));
-            putbyte('\n');
+            printf("%d\n", fp(10, 3));
         }
     )");
     EXPECT_EQ("13\n", result);
@@ -86,16 +84,13 @@ TEST_F(CodegenTest, FuncPtrAssignAndCall)
 TEST_F(CodegenTest, FuncPtrPassAsArgument)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
-        int print_d(int num);
+        int printf(const char *format, ...);
         int add(int a, int b) { return a + b; }
         int sub(int a, int b) { return a - b; }
         int apply(int (*op)(int, int), int x, int y) { return op(x, y); }
         void program() {
-            print_d(apply(add, 10, 3));
-            putbyte('\n');
-            print_d(apply(sub, 10, 3));
-            putbyte('\n');
+            printf("%d\n", apply(add, 10, 3));
+            printf("%d\n", apply(sub, 10, 3));
         }
     )");
     EXPECT_EQ("13\n7\n", result);
@@ -105,8 +100,7 @@ TEST_F(CodegenTest, FuncPtrPassAsArgument)
 TEST_F(CodegenTest, FuncPtrRuntimeDispatch)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
-        int print_d(int num);
+        int printf(const char *format, ...);
         int add(int a, int b) { return a + b; }
         int sub(int a, int b) { return a - b; }
         int dispatch(int which, int x, int y) {
@@ -118,10 +112,8 @@ TEST_F(CodegenTest, FuncPtrRuntimeDispatch)
             return fp(x, y);
         }
         void program() {
-            print_d(dispatch(1, 20, 5));
-            putbyte('\n');
-            print_d(dispatch(0, 20, 5));
-            putbyte('\n');
+            printf("%d\n", dispatch(1, 20, 5));
+            printf("%d\n", dispatch(0, 20, 5));
         }
     )");
     EXPECT_EQ("25\n15\n", result);
@@ -131,13 +123,11 @@ TEST_F(CodegenTest, FuncPtrRuntimeDispatch)
 TEST_F(CodegenTest, FuncPtrExplicitDerefCall)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
-        int print_d(int num);
+        int printf(const char *format, ...);
         int sub(int a, int b) { return a - b; }
         void program() {
             int (*fp)(int, int) = sub;
-            print_d((*fp)(20, 5));
-            putbyte('\n');
+            printf("%d\n", (*fp)(20, 5));
         }
     )");
     EXPECT_EQ("15\n", result);
@@ -147,18 +137,15 @@ TEST_F(CodegenTest, FuncPtrExplicitDerefCall)
 TEST_F(CodegenTest, FuncPtrArrayDispatch)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
-        int print_d(int num);
+        int printf(const char *format, ...);
         int add(int a, int b) { return a + b; }
         int sub(int a, int b) { return a - b; }
         void program() {
             int (*tab[2])(int, int);
             tab[0] = add;
             tab[1] = sub;
-            print_d(tab[0](10, 4));
-            putbyte('\n');
-            print_d(tab[1](10, 4));
-            putbyte('\n');
+            printf("%d\n", tab[0](10, 4));
+            printf("%d\n", tab[1](10, 4));
         }
     )");
     EXPECT_EQ("14\n6\n", result);
@@ -168,8 +155,7 @@ TEST_F(CodegenTest, FuncPtrArrayDispatch)
 TEST_F(CodegenTest, FuncPtrReturnedFromFunction)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
-        int print_d(int num);
+        int printf(const char *format, ...);
         int add(int a, int b) { return a + b; }
         int sub(int a, int b) { return a - b; }
         int (*pick(int which))(int, int) {
@@ -178,10 +164,8 @@ TEST_F(CodegenTest, FuncPtrReturnedFromFunction)
             return sub;
         }
         void program() {
-            print_d(pick(1)(8, 2));
-            putbyte('\n');
-            print_d(pick(0)(8, 2));
-            putbyte('\n');
+            printf("%d\n", pick(1)(8, 2));
+            printf("%d\n", pick(0)(8, 2));
         }
     )");
     EXPECT_EQ("10\n6\n", result);
@@ -192,16 +176,13 @@ TEST_F(CodegenTest, FuncPtrReturnedFromFunction)
 TEST_F(CodegenTest, FuncPtrEqualityCompare)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
-        int print_d(int num);
+        int printf(const char *format, ...);
         int add(int a, int b) { return a + b; }
         int sub(int a, int b) { return a - b; }
         void program() {
             int (*fp)(int, int) = add;
-            print_d(fp == add);
-            putbyte('\n');
-            print_d(fp == sub);
-            putbyte('\n');
+            printf("%d\n", fp == add);
+            printf("%d\n", fp == sub);
         }
     )");
     EXPECT_EQ("1\n0\n", result);
@@ -212,13 +193,11 @@ TEST_F(CodegenTest, FuncPtrEqualityCompare)
 TEST_F(CodegenTest, FuncPtrThreeArgs)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
-        int print_d(int num);
+        int printf(const char *format, ...);
         int combine(int a, int b, int c) { return a * 100 + b * 10 + c; }
         void program() {
             int (*fp)(int, int, int) = combine;
-            print_d(fp(1, 2, 3));
-            putbyte('\n');
+            printf("%d\n", fp(1, 2, 3));
         }
     )");
     EXPECT_EQ("123\n", result);

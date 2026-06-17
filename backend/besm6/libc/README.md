@@ -21,8 +21,6 @@ historical reference but are no longer built.
 | `sprintf(buf, fmt, ...)` | [sprintf.c](sprintf.c) | Formatted output into an unbounded caller buffer; returns the length |
 | `snprintf(buf, size, fmt, ...)` | [snprintf.c](snprintf.c) | Bounded variant: writes at most `size-1` chars plus NUL; returns the would-be length |
 | `__doprnt(...)` | [doprnt.c](doprnt.c) | Shared formatting engine behind printf/sprintf/snprintf (not called directly) |
-| `print_d(n)` | [print_d.c](print_d.c) | Print a signed decimal integer |
-| `print_o(n)` | [print_o.c](print_o.c) | Print an octal integer |
 | `b/tout(buf)` | [b_tout.madlen](b_tout.madlen) | Low-level: write a line buffer directly to stdout via extracode `*71` |
 
 ### `printf` family
