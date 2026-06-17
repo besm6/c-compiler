@@ -300,14 +300,18 @@ TEST_F(PipelineTest, NoOptNeeded)
 
 // load fp→t.0 must survive: t.0 is the callee in an indirect fun_call.
 // Bug: DSE does not count fun_call.fun_name as a use when it is a variable.
+// A call through a function pointer loaded from memory (here a pointer-to-function-pointer)
+// keeps the LOAD that materializes the call target: dead-store elimination must not drop
+// the temp that feeds fun_call's fun_name.  (A single-level `(*fp)(...)` is folded to a
+// direct indirect call with no LOAD, so a double pointer is used to force the LOAD.)
 TEST_F(PipelineTest, DeadStoreKeepsIndirectCallTarget)
 {
-    EXPECT_EQ(OptimizeYaml("int f(int (*fp)(int)) { return (*fp)(42); }"),
+    EXPECT_EQ(OptimizeYaml("int f(int (**pp)(int)) { return (*pp)(42); }"),
               "- instruction:\n"
               "  kind: load\n"
               "  src_ptr:\n"
               "    kind: var\n"
-              "    name: %fp\n"
+              "    name: %pp\n"
               "  dst:\n"
               "    kind: var\n"
               "    name: %0\n"

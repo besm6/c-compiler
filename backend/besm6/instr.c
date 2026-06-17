@@ -701,6 +701,15 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
     //   14 ,VTM, -N        — set r14 = -N (negative arg count); omitted if N=0
     //   ,CALL, fun_name    — call; r13 ← return address
     //   reg ,ATX, off      — store result (A) into dst frame slot, if dst present
+    //
+    // Indirect call (fun_name is a frame-resident function pointer): the callee address is
+    // not a label but the pointer value held in a frame slot.  VJM's target is offset + C
+    // (the C address-modifier register; M[reg] is not added — see the ISA reference), so the
+    // arg setup is followed by WTC of the pointer slot (C ← the target address, which survives
+    // exactly one instruction) and a bare VJM to offset 0:
+    //   14 ,WTC, off       — C = mem[slot][15:1] = target function address
+    //   13 ,VJM, 0         — M[13] ← return address; jump to 0 + C = the target
+    // Nothing may sit between the WTC and the VJM (same C-survival rule as LOAD/STORE).
     case TAC_INSTRUCTION_FUN_CALL: {
         const char *fun_name = instr->u.fun_call.fun_name;
         const Tac_Val *args  = instr->u.fun_call.args;
@@ -719,8 +728,20 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
             vtm->addr       = -nargs;
         }
 
-        Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
-        call->name       = xstrdup(fun_name);
+        int fr, fo;
+        if (frame_lookup(f, fun_name, &fr, &fo)) {
+            // Indirect call through a function-pointer frame slot.
+            Besm_Instr *wtc = emit(block, tail, BESM_MOD_WTC);
+            wtc->reg        = fr;
+            wtc->addr       = fo;
+            Besm_Instr *vjm = emit(block, tail, BESM_BRANCH_VJM);
+            vjm->reg        = REG_RET;
+            vjm->addr       = 0;
+        } else {
+            // Direct call to a module-level function by name.
+            Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
+            call->name       = xstrdup(fun_name);
+        }
 
         if (dst && dst->kind == TAC_VAL_VAR) {
             int dr, doff;

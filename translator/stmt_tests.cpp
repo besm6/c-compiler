@@ -214,7 +214,7 @@ TEST_F(TranslateTest, IndirectCallViaFunctionPointer)
   body:
     - instruction:
       kind: fun_call
-      fun_name: fp
+      fun_name: %fp
       args:
         - val:
           kind: constant
@@ -232,8 +232,9 @@ TEST_F(TranslateTest, IndirectCallViaFunctionPointer)
 )");
 }
 
-// (*fp)(42): callee is type-checked with decay, so (*fp) has pointer type and
-// lowering emits LOAD then indirect fun_call (unlike fp(42), which calls via fp).
+// (*fp)(42): dereferencing a function pointer yields a designator that decays back to the
+// same pointer, so (*fp)(42) lowers identically to fp(42) — the DEREF is stripped and the
+// call goes directly through the pointer variable (no LOAD).
 TEST_F(TranslateTest, IndirectCallViaExplicitDeref)
 {
     std::string yaml = CompileToYaml("int f(int (*fp)(int)) { return (*fp)(42); }");
@@ -245,22 +246,53 @@ TEST_F(TranslateTest, IndirectCallViaExplicitDeref)
     - param: %fp
   body:
     - instruction:
-      kind: load
-      src_ptr:
-        kind: var
-        name: %fp
-      dst:
-        kind: var
-        name: %0
-    - instruction:
       kind: fun_call
-      fun_name: %0
+      fun_name: %fp
       args:
         - val:
           kind: constant
           const:
             kind: int
             value: 42
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: %0
+)");
+}
+
+// A function name used as a value (here a call argument) decays to a pointer-to-function:
+// its address is materialized with GET_ADDRESS rather than passing the bare name (which the
+// backend would load mem[name] from).  The directly-called function keeps a plain fun_name.
+TEST_F(TranslateTest, FunctionNameDecaysToAddress)
+{
+    std::string yaml = CompileToYaml("int g(int (*fp)(int)); int h(int x) { return g(h); }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: h
+  global: true
+  params:
+    - param: %x
+  body:
+    - instruction:
+      kind: get_address
+      src:
+        kind: var
+        name: h
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: fun_call
+      fun_name: g
+      args:
+        - val:
+          kind: var
+          name: %0
       dst:
         kind: var
         name: %1

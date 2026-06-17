@@ -507,6 +507,19 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 tac_append(ctx, in);
                 return val_var(dst->u.var_name);
             }
+            // A function designator used as a value decays to a pointer-to-function
+            // (C11 §6.3.2.1p4).  Its symbol has function type while a function-pointer
+            // *variable*'s symbol has pointer type, so the symbol kind disambiguates.
+            // Materialize the function's label address explicitly — the bare name would
+            // otherwise make the backend load mem[name] (the first code word).
+            if (sym && sym->type->kind == TYPE_FUNCTION) {
+                Tac_Val *dst          = new_var_val(ctx);
+                Tac_Instruction *in   = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
+                in->u.get_address.src = val_var(e->u.var);
+                in->u.get_address.dst = dst;
+                tac_append(ctx, in);
+                return val_var(dst->u.var_name);
+            }
         }
         // A read of a volatile scalar variable must re-read memory on every use.
         // Materialize it into a volatile COPY so the optimizer cannot fold or
@@ -729,13 +742,19 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         if (func->kind == EXPR_VAR) {
             fun_name = func->u.var;
         } else {
-            // Indirect call. C11 §6.3.2.1p4: a function designator (*fp)
-            // decays to a function pointer; strip the DEREF so we use the
-            // pointer variable directly rather than emitting a LOAD from it.
+            // Indirect call. C11 §6.3.2.1p4: dereferencing a function pointer yields a
+            // function designator that immediately decays back to the same pointer, so
+            // (*fp)(...) is equivalent to fp(...).  Strip the DEREF whenever its operand
+            // has function-pointer type and call through the pointer value directly,
+            // rather than emitting a LOAD from it.  (The DEREF node's own type is the
+            // re-decayed pointer type, so the operand's type is the reliable signal.)
             Expr *callee = func;
-            if (callee->kind == EXPR_UNARY_OP && callee->u.unary_op.op == UNARY_DEREF &&
-                callee->type->kind == TYPE_FUNCTION)
-                callee = callee->u.unary_op.expr;
+            if (callee->kind == EXPR_UNARY_OP && callee->u.unary_op.op == UNARY_DEREF) {
+                const Type *opnd = callee->u.unary_op.expr->type;
+                if (opnd && opnd->kind == TYPE_POINTER &&
+                    opnd->u.pointer.target->kind == TYPE_FUNCTION)
+                    callee = callee->u.unary_op.expr;
+            }
             fn_ptr   = gen_expr(ctx, callee);
             fun_name = fn_ptr->u.var_name;
         }
