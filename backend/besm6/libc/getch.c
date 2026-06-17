@@ -16,7 +16,7 @@ int read_len; /* length of data in MONCARD* */
 int read_ptr; /* saved monitor position for readdrum() */
 int read_dev;
 
-int read(void)
+int getch(void)
 {
     char *line = (char *)&moncard_[0];
     int ch;

@@ -59,13 +59,13 @@ TEST_F(CodegenTest, LoadIntStillWord)
 TEST_F(CodegenTest, CharStoreLoadRoundtrip)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char c;
             char *p = &c;
             *p = 'Q';
-            writeb(*p);
-            writeb('\n');
+            putbyte(*p);
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("Q\n", result);
@@ -75,14 +75,14 @@ TEST_F(CodegenTest, CharStoreLoadRoundtrip)
 TEST_F(CodegenTest, CharCompoundAssign)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char c;
             char *p = &c;
             *p = 'A';
             *p += 1;
-            writeb(*p);
-            writeb('\n');
+            putbyte(*p);
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("B\n", result);
@@ -92,15 +92,15 @@ TEST_F(CodegenTest, CharCompoundAssign)
 TEST_F(CodegenTest, CharPostIncrement)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char c;
             char *p = &c;
             *p = 'A';
             char old = (*p)++;
-            writeb(old);
-            writeb(*p);
-            writeb('\n');
+            putbyte(old);
+            putbyte(*p);
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("AB\n", result);
@@ -111,13 +111,13 @@ TEST_F(CodegenTest, CharPostIncrement)
 TEST_F(CodegenTest, CharCastOffset5Roundtrip)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             int x = 0;
             char *p = (char*)&x;
             *p = 'Z';
-            writeb(*p);
-            writeb('\n');
+            putbyte(*p);
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("Z\n", result);
@@ -136,14 +136,14 @@ TEST_F(CodegenTest, CharCastOffset5Roundtrip)
 TEST_F(CodegenTest, CharArrayIndexReadWrite)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char a[6];
             a[0] = 'H';
             a[5] = '!';
-            writeb(a[0]);
-            writeb(a[5]);
-            writeb('\n');
+            putbyte(a[0]);
+            putbyte(a[5]);
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("H!\n", result);
@@ -153,12 +153,12 @@ TEST_F(CodegenTest, CharArrayIndexReadWrite)
 TEST_F(CodegenTest, StringDecayDeref)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char *s = "HI";
-            writeb(*s);
-            writeb(*(s + 1));
-            writeb('\n');
+            putbyte(*s);
+            putbyte(*(s + 1));
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("HI\n", result);
@@ -168,17 +168,17 @@ TEST_F(CodegenTest, StringDecayDeref)
 TEST_F(CodegenTest, CharPtrIncWordBoundary)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char a[8];
             for (int i = 0; i < 7; i++)
                 a[i] = 'A' + i;
             char *p = a;
             p += 5;          /* a[5] = 'F' */
-            writeb(*p);
+            putbyte(*p);
             p++;             /* crosses into the next word: a[6] = 'G' */
-            writeb(*p);
-            writeb('\n');
+            putbyte(*p);
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("FG\n", result);
@@ -188,17 +188,17 @@ TEST_F(CodegenTest, CharPtrIncWordBoundary)
 TEST_F(CodegenTest, CharPtrDecWordBoundary)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char a[8];
             for (int i = 0; i < 7; i++)
                 a[i] = 'A' + i;
             char *p = a;
             p += 6;          /* a[6] = 'G' */
-            writeb(*p);
+            putbyte(*p);
             p--;             /* a[5] = 'F' (crosses back a word) */
-            writeb(*p);
-            writeb('\n');
+            putbyte(*p);
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("GF\n", result);
@@ -208,15 +208,15 @@ TEST_F(CodegenTest, CharPtrDecWordBoundary)
 TEST_F(CodegenTest, CharPtrPlusNCarry)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char a[12];
             for (int i = 0; i < 10; i++)
                 a[i] = '0' + i;
             char *p = a;
             p = p + 8;       /* a[8] = '8' */
-            writeb(*p);
-            writeb('\n');
+            putbyte(*p);
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("8\n", result);
@@ -226,15 +226,15 @@ TEST_F(CodegenTest, CharPtrPlusNCarry)
 TEST_F(CodegenTest, CharPtrMinusN)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char a[12];
             for (int i = 0; i < 10; i++)
                 a[i] = '0' + i;
             char *p = a + 9; /* a[9] = '9' */
             p = p - 7;       /* a[2] = '2' */
-            writeb(*p);
-            writeb('\n');
+            putbyte(*p);
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("2\n", result);
@@ -245,15 +245,15 @@ TEST_F(CodegenTest, CharPtrMinusN)
 TEST_F(CodegenTest, PackedStructCharMembers)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         struct S { char a; char b; char c; char d; char e; char f; int g; };
         void program() {
             struct S s;
             s.a = 'A'; s.b = 'B'; s.c = 'C';
             s.d = 'D'; s.e = 'E'; s.f = 'F';
-            writeb(s.a); writeb(s.b); writeb(s.c);
-            writeb(s.d); writeb(s.e); writeb(s.f);
-            writeb('\n');
+            putbyte(s.a); putbyte(s.b); putbyte(s.c);
+            putbyte(s.d); putbyte(s.e); putbyte(s.f);
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("ABCDEF\n", result);
@@ -263,14 +263,14 @@ TEST_F(CodegenTest, PackedStructCharMembers)
 TEST_F(CodegenTest, MixedSubscriptAndDecayConsistency)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char a[3];
             a[0] = 'X';
             char *p = a;
-            writeb(p[0]);
-            writeb(a[0]);
-            writeb('\n');
+            putbyte(p[0]);
+            putbyte(a[0]);
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("XX\n", result);
@@ -348,14 +348,14 @@ TEST_F(CodegenTest, StructIntMemberStaysWord)
 TEST_F(CodegenTest, GlobalCharArrayIndexRun)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         char g[6];
         void program() {
             g[0] = 'P'; g[3] = 'Q';
             char *p = g;
-            writeb(p[0]);
-            writeb(p[3]);
-            writeb('\n');
+            putbyte(p[0]);
+            putbyte(p[3]);
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("PQ\n", result);
@@ -365,7 +365,7 @@ TEST_F(CodegenTest, GlobalCharArrayIndexRun)
 TEST_F(CodegenTest, CharPtrLvalueCompoundAdd)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char a[6];
             for (int i = 0; i < 6; i++)
@@ -373,8 +373,8 @@ TEST_F(CodegenTest, CharPtrLvalueCompoundAdd)
             char *p = a;
             char **pp = &p;
             *pp += 4;        /* p now points at a[4] = 'E' */
-            writeb(*p);
-            writeb('\n');
+            putbyte(*p);
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("E\n", result);
@@ -392,13 +392,13 @@ TEST_F(CodegenTest, CharPtrDifferenceCallsPdiff)
 TEST_F(CodegenTest, CharPtrDifferenceSameWordRun)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char a[12];
             char *p = a + 5;
             char *q = a + 2;
-            writeb('0' + (p - q));   /* 3 */
-            writeb('\n');
+            putbyte('0' + (p - q));   /* 3 */
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("3\n", result);
@@ -408,13 +408,13 @@ TEST_F(CodegenTest, CharPtrDifferenceSameWordRun)
 TEST_F(CodegenTest, CharPtrDifferenceCrossWordRun)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char a[12];
             char *p = a + 8;
             char *q = a + 1;
-            writeb('0' + (p - q));   /* 7 */
-            writeb('\n');
+            putbyte('0' + (p - q));   /* 7 */
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("7\n", result);
@@ -424,15 +424,15 @@ TEST_F(CodegenTest, CharPtrDifferenceCrossWordRun)
 TEST_F(CodegenTest, CharPtrDifferenceNegativeRun)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
             char a[12];
             char *p = a + 2;
             char *q = a + 9;
             long d = p - q;          /* -7 */
-            if (d < 0) writeb('-');
-            writeb('0' - d);         /* '0' - (-7) = '7' */
-            writeb('\n');
+            if (d < 0) putbyte('-');
+            putbyte('0' - d);         /* '0' - (-7) = '7' */
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("-7\n", result);

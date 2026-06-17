@@ -5,7 +5,7 @@
  * out_buff; out_cnt is the current word index and out_shft the bit offset of
  * the next byte within that word (0, 8, ... 40).  A newline, or a full buffer,
  * flushes.  This file also defines the shared output-buffer globals referenced
- * by write.c and flush.c.
+ * by putch.c and flush.c.
  */
 extern void flush(void);
 
@@ -13,7 +13,7 @@ int out_cnt;
 int out_shft;
 int out_buff[22];
 
-void writeb(int b)
+void putbyte(int b)
 {
     int *p;
 

@@ -4,7 +4,7 @@
  * C rewrite of printo.b.  Recurses on the high-order octal digits, then emits
  * the low digit.  `unsigned` makes `>>` a logical shift (matching B).
  */
-extern void writeb(int b);
+extern void putbyte(int b);
 
 void print_o(unsigned n)
 {
@@ -13,5 +13,5 @@ void print_o(unsigned n)
     if (a) {
         print_o(a);
     }
-    writeb((n & 7) + '0');
+    putbyte((n & 7) + '0');
 }

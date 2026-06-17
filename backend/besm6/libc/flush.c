@@ -8,7 +8,7 @@
  * the BESM-6 backend.  It takes the buffer address in the accumulator (as the
  * single argument) and preserves the C frame registers.
  */
-extern void writeb(int b);
+extern void putbyte(int b);
 extern void b$tout(int *buf);
 extern void wrcard(int dev, int *buf);
 
@@ -22,10 +22,10 @@ void flush(void)
     if (fout) {
         /* write to drum */
         while (out_cnt < 14) {
-            writeb(' ');
+            putbyte(' ');
         }
         wrcard(0, &out_buff[0]);
-        writeb(0);
+        putbyte(0);
     } else {
         /* write to standard output */
         b$tout(&out_buff[0]);

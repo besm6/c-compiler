@@ -10,8 +10,8 @@
  * which folds lowercase letters onto the uppercase codes, so a caller's "%d" and
  * "%D" both arrive as 'D'.  The KOI7-identity uppercase constant matches either.
  */
-extern void writeb(int b);
-extern void write(unsigned ch);
+extern void putbyte(int b);
+extern void putch(unsigned ch);
 extern void print_d(int n);
 extern void print_o(unsigned n);
 
@@ -25,13 +25,13 @@ loop:
     while ((c = fmt[i]) != '%') {
         if (c == '\0')
             return;
-        writeb(c);
+        putbyte(c);
         ++i;
     }
     ++i;
     c = fmt[i];
     if (c == '%') {
-        writeb('%');
+        putbyte('%');
         ++i;
         goto loop;
     }
@@ -41,17 +41,17 @@ loop:
     } else if (c == 'O') {
         print_o(a);
     } else if (c == 'C') {
-        write(a);
+        putch(a);
     } else if (c == 'S') {
         char *s = (char *)a;
         n       = 0;
         while ((c = s[n]) != '\0') {
-            writeb(c);
+            putbyte(c);
             ++n;
         }
     } else {
         /* bad format specification, ignore */
-        writeb('%');
+        putbyte('%');
         goto loop;
     }
     ++i;

@@ -39,7 +39,7 @@ list(TRANSFORM LIBC_SOURCES APPEND .madlen)
 # in the build directory via parse -> lower -> genbesm.  besmc only recognizes the
 # .madlen extension, so genbesm writes there.
 set(LIBC_C
-    print_o print_d writeb write flush printf read)
+    print_o print_d putbyte putch flush printf getch)
 set(LIBC_C_MADLEN "")
 foreach(name ${LIBC_C})
     set(c_src  ${LIBC_DIR}/${name}.c)

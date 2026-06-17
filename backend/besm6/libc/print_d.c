@@ -4,19 +4,19 @@
  * C rewrite of printd.b.  Emits a leading '-' for negatives, then recurses on
  * the high-order digits before emitting the low digit.
  */
-extern void writeb(int b);
+extern void putbyte(int b);
 
 void print_d(int n)
 {
     int a;
 
     if (n < 0) {
-        writeb('-');
+        putbyte('-');
         n = -n;
     }
     a = n / 10;
     if (a) {
         print_d(a);
     }
-    writeb(n - a * 10 + '0');
+    putbyte(n - a * 10 + '0');
 }

@@ -5,9 +5,9 @@
  * emits them left to right, skipping leading zero bytes.  `unsigned` makes the
  * `>>` a logical shift (matching B).
  */
-extern void writeb(int b);
+extern void putbyte(int b);
 
-void write(unsigned ch)
+void putch(unsigned ch)
 {
     int shift = 40, b;
 
@@ -19,7 +19,7 @@ void write(unsigned ch)
     }
     b = ch;
 putchar:
-    writeb(b);
+    putbyte(b);
     if (shift > 0) {
         shift = shift - 8;
         b = ch >> shift;

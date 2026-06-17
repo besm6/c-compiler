@@ -36,13 +36,13 @@ In assembler:
 
 Calling function with one argument. In C:
 
-    write(a)
+    putch(a)
 
 In assembler:
 
        ,xta, a
     14 ,vtm, -1
-    13 ,vjm, write
+    13 ,vjm, putch
 
 ## Example 3
 

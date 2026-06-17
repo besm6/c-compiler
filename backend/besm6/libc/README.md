@@ -13,9 +13,9 @@ historical reference but are no longer built.
 
 | Function | Source | Description |
 |----------|--------|-------------|
-| `read()` | [read.c](read.c) | Read one character from stdin; returns `0` at EOF |
-| `write(ch)` | [write.c](write.c) | Append a multi-char word to the output buffer (skips leading zero bytes) |
-| `writeb(b)` | [writeb.c](writeb.c) | Append one byte to the output buffer; flushes on newline or full buffer |
+| `getch()` | [getch.c](getch.c) | Read one character from stdin; returns `0` at EOF |
+| `putch(ch)` | [putch.c](putch.c) | Append a multi-char word to the output buffer (skips leading zero bytes) |
+| `putbyte(b)` | [putbyte.c](putbyte.c) | Append one byte to the output buffer; flushes on newline or full buffer |
 | `flush()` | [flush.c](flush.c) | Flush the output line buffer to stdout (or drum when `fout` is set) |
 | `printf(fmt, ...)` | [printf.c](printf.c) | Formatted output: `%d` decimal, `%o` octal, `%c` character, `%s` string |
 | `print_d(n)` | [print_d.c](print_d.c) | Print a signed decimal integer |

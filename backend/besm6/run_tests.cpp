@@ -62,10 +62,10 @@ TEST_F(CodegenTest, EmptyProgram)
 TEST_F(CodegenTest, PrintChar)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         void program() {
-            writeb('Q');
-            writeb('\n');
+            putbyte('Q');
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("Q\n", result);
@@ -74,11 +74,11 @@ TEST_F(CodegenTest, PrintChar)
 TEST_F(CodegenTest, PrintDecimal)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         int print_d(int num);
         void program() {
             print_d(42);
-            writeb('\n');
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("42\n", result);
@@ -90,14 +90,14 @@ TEST_F(CodegenTest, PrintDecimal)
 TEST_F(CodegenTest, MultiCharConstant)
 {
     std::string result = CompileAndRun(R"(
-        void writeb(int ch);
+        void putbyte(int ch);
         int print_d(int num);
         int g = 'ab';
         void program() {
             print_d(g);
-            writeb('\n');
+            putbyte('\n');
             print_d('cd');
-            writeb('\n');
+            putbyte('\n');
         }
     )");
     EXPECT_EQ("24930\n25444\n", result);

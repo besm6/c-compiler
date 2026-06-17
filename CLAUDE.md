@@ -36,7 +36,7 @@ ctest --test-dir build -R "Typecheck|Pipeline"
 ```
 
 **Runtime library (`libc.bin`).** The higher-level runtime routines live in
-`backend/besm6/libc/*.c` (e.g. `printf`, `print_d`, `print_o`, `read`, `write`, `writeb`,
+`backend/besm6/libc/*.c` (e.g. `printf`, `print_d`, `print_o`, `getch`, `putch`, `putbyte`,
 `flush`) and are compiled by our own toolchain (`parse → lower → genbesm` → `.madlen`) and
 assembled with the hand-written Madlen helpers (`b_*.madlen`, `char`, `lchar`, `b_tout`,
 `exit`) into `libc.bin` — see `backend/besm6/CMakeLists.txt` (`LIBC_C` / `LIBC_MADLEN`). The
