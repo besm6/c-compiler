@@ -204,6 +204,26 @@ TEST_F(CodegenTest, CharPtrDecWordBoundary)
     EXPECT_EQ("GF\n", result);
 }
 
+// Runtime: char*-- within a word, not crossing a boundary (b/pdec non-wrap path,
+// offset_enc N -> N+1).  Regression for a wrap-test bug: b/pdec detected offset_enc==5
+// with a cyclic subtract whose non-zero result still tripped uza, so every in-word
+// decrement wrongly took the word-step-back path.
+TEST_F(CodegenTest, CharPtrDecWithinWord)
+{
+    std::string result = CompileAndRun(R"(
+        void putbyte(int ch);
+        void program() {
+            char a[8];
+            a[0]='X'; a[1]='Y'; a[2]='Z';
+            char *p = a + 2;   /* 'Z' */
+            p--;               /* a+1 = 'Y' */
+            putbyte(*p);
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("Y\n", result);
+}
+
 // Runtime: char* + n with a carry across a word (b/padd floored division by 6).
 TEST_F(CodegenTest, CharPtrPlusNCarry)
 {

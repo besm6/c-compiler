@@ -12,10 +12,11 @@ c
             ,asn, 64+44         . offset_enc -> bits 3-1
             ,aax, =7            . offset_enc (0..5)
             ,atx, enc
-            ,arx, =7777777777777772  . offset_enc - 5
+            ,aex, =5            . enc XOR 5 == 0  iff  offset_enc == 5
             ,uza, wrap          . offset_enc == 5 -> wrap to 0, step word back
             ,xta, enc
             ,arx, =1            . offset_enc + 1
+            ,aax, =7            . re-mask to 3 bits (mirror b/pinc)
             ,asn, 64-44         . offset_enc' -> bits 47-45
             ,aox, =4000000000000000  . set marker (bit 48)
             ,aox, w             . OR in the word address

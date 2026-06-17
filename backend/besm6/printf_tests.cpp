@@ -289,7 +289,7 @@ TEST_F(CodegenTest, MutatedParameterInLoop)
 // encoding is compared as a raw word).  This loop walks a char* backwards over a
 // buffer; with the bug the loop body never executes.
 // Correct output: "ABC\n".  Buggy output: "\n".
-TEST_F(CodegenTest, DISABLED_CharPtrRelationalCompare)
+TEST_F(CodegenTest, CharPtrRelationalCompare)
 {
     std::string result = CompileAndRun(R"(
         void putbyte(int b);

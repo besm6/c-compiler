@@ -387,6 +387,48 @@ static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
         }
     }
 
+    // Relational comparison of two char*/void* fat pointers.  The fat-pointer encoding
+    // carries the byte offset in the high (exponent) bits and the word address in the low
+    // bits, so a raw-word ordering compare is wrong.  Decode both to absolute byte positions
+    // and subtract (PTR_DIFF / b/pdiff), then compare the signed difference against 0:
+    // a >= b  iff  bytepos(a) - bytepos(b) >= 0, and likewise for <, >, <=.  (==/!= are
+    // unaffected — identical positions have identical words — so they fall through.)
+    if ((op == BINARY_LT || op == BINARY_GT || op == BINARY_LE || op == BINARY_GE) &&
+        is_byte_pointer(l->type) && is_byte_pointer(r->type)) {
+        Tac_Val *vl          = gen_expr(ctx, l);
+        Tac_Val *vr          = gen_expr(ctx, r);
+        Tac_Val *vdiff       = new_var_val(ctx);
+        Tac_Instruction *pd  = tac_new_instruction(TAC_INSTRUCTION_PTR_DIFF);
+        pd->u.ptr_diff.ptr_a = vl;
+        pd->u.ptr_diff.ptr_b = vr;
+        pd->u.ptr_diff.dst   = vdiff;
+        tac_append(ctx, pd);
+
+        Tac_BinaryOperator cmp;
+        switch (op) {
+        case BINARY_LT:
+            cmp = TAC_BINARY_LESS_THAN;
+            break;
+        case BINARY_GT:
+            cmp = TAC_BINARY_GREATER_THAN;
+            break;
+        case BINARY_LE:
+            cmp = TAC_BINARY_LESS_OR_EQUAL;
+            break;
+        default: // BINARY_GE
+            cmp = TAC_BINARY_GREATER_OR_EQUAL;
+            break;
+        }
+        Tac_Val *vd         = new_var_val(ctx);
+        Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+        in->u.binary.op     = cmp;
+        in->u.binary.src1   = val_var(vdiff->u.var_name);
+        in->u.binary.src2   = val_int(0);
+        in->u.binary.dst    = vd;
+        tac_append(ctx, in);
+        return val_var(vd->u.var_name);
+    }
+
     Tac_Val *vl = gen_expr(ctx, l);
     Tac_Val *vr = gen_expr(ctx, r);
     Tac_Val *vd = new_var_val(ctx);
