@@ -46,7 +46,10 @@ translation unit.
       `backend/besm6/book_run.h` (`WrapMain`). Delivered `scanner/chapter1_tests.cpp`
       (5 lex), `parser/chapter1_tests.cpp` (12 parse),
       `backend/besm6/chapter1_tests.cpp` (7 valid). CMake wired; full suite green.
-- [ ] **Task 1 — Chapter 2** (Unary): parser (7), besm6 valid (12).
+- [x] **Task 1 — Chapter 2** (Unary): delivered `parser/chapter2_tests.cpp` (7 parse)
+      and `backend/besm6/chapter2_tests.cpp` (12 valid). CMake wired; all 19 pass, full
+      suite green. No `DISABLED_` needed (negate/complement handled; `int` is 41-bit so
+      every constant fits; `printf("%d")` prints negatives).
 - [ ] **Task 2 — Chapter 3** (Binary): parser (8 + ec), besm6 valid (15 + 11 ec).
 - [ ] **Task 3 — Chapter 4** (Logical/Relational): parser (6), besm6 valid (33 + 4 ec).
 - [ ] **Task 4 — Chapter 5** (Local vars): parser (12 + 4 ec), semantic (10 + 11 ec),
