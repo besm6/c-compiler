@@ -166,7 +166,40 @@ translation unit.
       uppercase letters (the BESM-6 GOST output charset renders lowercase Latin as Cyrillic).
       2 `DISABLED_`: `stack_alignment` (depends on external x86 `.s` helpers) and
       `test_for_memory_leaks` (10M-iteration loop, over the 10s ctest timeout).
-- [ ] **Task 9 — Chapter 10 negative**; **9b — Chapter 10 run** (file-scope / storage class).
+- [x] **Task 9 — Chapter 10 negative** (file-scope / storage class): delivered
+      `parser/chapter10_tests.cpp` (11) and `semantic/chapter10_tests.cpp`
+      (21 + 2 `DISABLED_`). CMake wired; full suite green (1795). Chapter 10's
+      storage-class/linkage machinery was already largely present, so most
+      negatives already diagnosed; this added five checks for programs that were
+      silently accepted: (1) the parser rejects more than one storage-class
+      specifier ("Multiple storage class specifiers", [parser/decl.c](parser/decl.c)
+      `parse_declaration_specifiers`) — covers `multi_storage_class_fun/var`,
+      `static_and_extern`; (2) the parser rejects a storage class on a parameter
+      other than `register` ("A function parameter cannot have a storage class",
+      `parse_parameter_declaration`) — covers `extern_param`, `static_param`;
+      (3) a block-scope `extern` following a same-scope no-linkage declaration
+      (`SYM_LOCAL` local/param) → "Identifier ... declared both with and without
+      linkage" ([semantic/declarations.c](semantic/declarations.c)
+      `typecheck_local_var_decl`) — covers `extern_follows_local_var`,
+      `redefine_param_as_identifier_with_linkage`; (4) a static local
+      redeclaring a same-scope name → "Duplicate variable declaration"; and
+      (5) `static` on a block-scope function declaration → "Block-scope function
+      declaration cannot be static" (`register_function_declaration`, gated on
+      `scope_level > 0`). Also improved the cryptic "Unsupported initializer"
+      diagnostic to "Static initializer is not a constant" for non-constant
+      static initializers ([semantic/initializers.c](semantic/initializers.c)) —
+      covers `non_constant_static_initializer(_local)`. Reclassifications vs. the
+      book: `static_var_case` is a *parse* error for us (a case label needs a
+      constant expression → parser file, like ch8 `non_constant_case`);
+      `conflicting_variable_linkage_2` is caught by the no-shadowing rule (the
+      inner `extern int x` shadows the enclosing local `int x = 3`) and reported
+      as "declared both with and without linkage" rather than the file-scope
+      linkage conflict the book intends. 2 `DISABLED_`
+      (`extern_follows_static_local_var`, `out_of_scope_extern_var`): a
+      block-scope `static`/`extern` is stored at file scope (level 0), so we
+      can't yet distinguish it from a genuine file-scope entity — to be enabled
+      with the 9b run-tests work.
+- [ ] **Task 9b — Chapter 10 run** (file-scope / storage class).
 - [ ] **Task 10 — Chapter 11 negative**; **10b — run** (Long integers; scanner 2 lex).
 - [ ] **Task 11 — Chapter 12 negative**; **11b — run** (Unsigned; scanner 2 lex).
 - [ ] **Task 12 — Chapter 13 negative**; **12b — run** (Floating-point; scanner 7 lex —

@@ -53,6 +53,12 @@ static void register_function_declaration(InitDeclarator *decl, const DeclSpec *
         fatal_error("Function declared with initializer");
     }
     validate_type(var_type);
+    // A block-scope function declaration cannot specify a storage class other
+    // than extern (C11 §6.7.1p7): "static int foo(void);" inside a body is
+    // illegal, though it is legal at file scope (internal linkage).
+    if (is_static(specifiers) && scope_level > 0) {
+        fatal_error("Block-scope function declaration cannot be static");
+    }
     bool global = !is_static(specifiers);
 
     // Strip the void sentinel — same normalization as in typecheck_fn_decl so
@@ -273,6 +279,14 @@ static void typecheck_local_var_decl(const Declaration *d)
                 fatal_error("Initializer on local extern declaration");
             }
             const Symbol *existing = symtab_get_opt(decl->name);
+            // A block-scope extern declaration may link to a prior declaration
+            // with internal or external linkage, but not to one with no linkage
+            // at all (C11 §6.7p3).  A SYM_LOCAL is an automatic local or a
+            // parameter — both no-linkage — so an extern following it conflicts.
+            if (existing && existing->kind == SYM_LOCAL) {
+                fatal_error("Identifier %s declared both with and without linkage",
+                            decl->name);
+            }
             if (existing && existing->type->kind != var_type->kind) {
                 fatal_error("Variable %s redeclared with different type", decl->name);
             }
@@ -285,6 +299,12 @@ static void typecheck_local_var_decl(const Declaration *d)
             fatal_error("Cannot define a variable with incomplete type");
         }
         if (is_static(d->u.var.specifiers)) {
+            // A static local has no linkage, so it cannot share a scope with
+            // another declaration of the same name (C11 §6.7p3) — e.g.
+            // "int x = 1; static int x;".
+            if (symtab_get_opt(decl->name)) {
+                fatal_error("Duplicate variable declaration %s", decl->name);
+            }
             Tac_StaticInit *static_init = build_static_init(var_type, decl->init);
             symtab_add_static_var(decl->name, var_type, false, INIT_INITIALIZED, static_init);
             // Drop initializer

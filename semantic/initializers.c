@@ -349,6 +349,9 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
             }
             return new_static_init_from_literal(var_type, &lit);
         }
+        // A variable with static storage duration must have a constant
+        // initializer (C11 §6.7.9p4): "int b = 1 + a;" / "static int b = a * 2;".
+        fatal_error("Static initializer is not a constant");
     }
 
     // Handle array with compound initializer.

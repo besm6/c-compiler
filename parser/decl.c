@@ -405,6 +405,11 @@ DeclSpec *parse_declaration_specifiers(Type **base_type_result)
     TypeSpec *type_specs = NULL;
     while (1) {
         if (is_storage_class_specifier(current_token)) {
+            // A declaration may include at most one storage-class specifier
+            // (C11 §6.7.1p2): reject "static extern", "static int extern", etc.
+            if (ds->storage != STORAGE_CLASS_NONE) {
+                fatal_error("Multiple storage class specifiers");
+            }
             ds->storage = parse_storage_class_specifier();
         } else if (is_type_specifier(current_token) ||
                    (current_token == TOKEN_ATOMIC && next_token() == TOKEN_LPAREN)) {
@@ -1310,6 +1315,14 @@ Param *parse_parameter_declaration()
 
     /* Parse declaration_specifiers */
     param->specifiers = parse_declaration_specifiers(&param->type);
+
+    /* The only storage-class specifier permitted on a function parameter is
+     * register (C11 §6.7.6.3p2) — reject "f(extern int i)", "f(static int i)",
+     * etc., but allow "f(register int i)". */
+    if (param->specifiers && param->specifiers->storage != STORAGE_CLASS_NONE &&
+        param->specifiers->storage != STORAGE_CLASS_REGISTER) {
+        fatal_error("A function parameter cannot have a storage class");
+    }
 
     /* Check for declarator or abstract_declarator */
     if (current_token == TOKEN_IDENTIFIER) {
