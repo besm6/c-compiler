@@ -57,7 +57,11 @@ translation unit.
       `backend/besm6/chapter3_tests.cpp` (15 valid + 11 ec). CMake wired; all 35 pass,
       full suite green. No `DISABLED_` needed — bitwise `&|^`/shifts all supported, and
       `-5 >> 30` is constant-folded with correct arithmetic-shift semantics before codegen.
-- [ ] **Task 3 — Chapter 4** (Logical/Relational): parser (6), besm6 valid (33 + 4 ec).
+- [x] **Task 3 — Chapter 4** (Logical/Relational): delivered `parser/chapter4_tests.cpp`
+      (6 parse) and `backend/besm6/chapter4_tests.cpp` (33 valid + 4 ec). CMake wired; all
+      43 pass, full suite green. No `DISABLED_` needed — `&&`/`||` short-circuit lowering
+      skips the `1/0` divides, integer comparisons use b/eq..b/ge, and `!` is already
+      supported.
 - [ ] **Task 4 — Chapter 5** (Local vars): parser (12 + 4 ec), semantic (10 + 11 ec),
       besm6 valid (20 + 25 ec). *(first semantic tests)*
 - [ ] **Task 5 — Chapter 6** (if/conditional): scanner (1 ec), parser (9 + 7 ec),
