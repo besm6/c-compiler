@@ -199,7 +199,46 @@ translation unit.
       block-scope `static`/`extern` is stored at file scope (level 0), so we
       can't yet distinguish it from a genuine file-scope entity — to be enabled
       with the 9b run-tests work.
-- [ ] **Task 9b — Chapter 10 run** (file-scope / storage class).
+- [x] **Task 9b — Chapter 10 run** (file-scope / storage class): delivered
+      `backend/besm6/chapter10_tests.cpp` (8 run + 15 `DISABLED_`). CMake wired;
+      full suite green (1803). Chapter 10 is mostly about static/extern storage,
+      much of which the BESM-6 backend does not yet support, so most programs are
+      `DISABLED_`. What runs: file-scope globals, file-scope statics with a
+      single (or tentative-then-) definition, extern bringing an existing global
+      into scope, switch-on-extern, and `int static`/`int extern` (type before
+      storage class). The `DISABLED_` groups, each with a one-line reason:
+      (a) **no block-scope static-local storage** — a `static int x;` inside a
+      function emits no `static_variable` toplevel, so the body references an
+      undefined name (confirmed: Madlen has no static-local support):
+      `static_local_uninitialized`, `static_variables_in_expressions`,
+      `compound_assignment_static_var`, `goto_skip_static_initializer`,
+      `switch_skip_static_initializer`, `label_static_var_same_name`,
+      `multiple_static_local`; (b) **tentative/extern clobber** — a tentative
+      (`int x;`) or `extern int x;` file-scope declaration that *follows* an
+      initialized definition (`int x = 3;`) emits a second uninitialized toplevel
+      that overwrites the initializer to 0: `static_then_extern`,
+      libraries `external_variable`; (d) **internal linkage needs separate
+      translation units** — concatenating the two files merges (or redefines)
+      the distinct same-named statics: libraries `internal_linkage_var`,
+      `internal_linkage_function`, `internal_hides_external_linkage`, and
+      ec-libraries `same_label_same_fun`; plus `static_recursive_call` (main
+      falls off the end → indeterminate, like the ch5/ch6 cases) and
+      `push_arg_on_page_boundary` (needs an external x86 `.s` symbol `zed`).
+      Note (c): right shift of a negative int is implementation-defined
+      (C11 §6.5.7p5); BESM-6 shifts logically (no sign extension) where x86 is
+      arithmetic, so `bitwise_ops_file_scope_vars` is a *run* test whose expected
+      value is the BESM-6 result (2), not the x86 result (0) — the constant-fold
+      path still matches x86, which is why earlier chapters' constant-shift tests
+      pass. Reclassifications vs. the book: chapter 10's central idiom
+      `int x = …; { extern int x; }` (an inner extern un-shadowing a file-scope
+      variable) is rejected by the permanent no-shadowing rule, so those
+      book-"valid" programs are not run tests here (`distinct_local_and_extern`,
+      `extern_block_scope_variable`, `shadow_static_local_var`,
+      `static_local_multiple_scopes`, `label_file_scope_var_same_name`,
+      libraries `external_linkage_function`, `external_var_scoping`); the
+      negative direction is already covered in the semantic chapter files. The
+      two semantic `DISABLED_` tests from Task 9 stay disabled (the block-scope
+      static/extern scope-level + name-mangling refactor was deferred).
 - [ ] **Task 10 — Chapter 11 negative**; **10b — run** (Long integers; scanner 2 lex).
 - [ ] **Task 11 — Chapter 12 negative**; **11b — run** (Unsigned; scanner 2 lex).
 - [ ] **Task 12 — Chapter 13 negative**; **12b — run** (Floating-point; scanner 7 lex —
