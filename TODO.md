@@ -143,8 +143,29 @@ translation unit.
       rejected by the type checker (→ semantic file); `call_variable_as_function` is caught
       first by the permanent no-shadowing rule (`int x = 0;` shadowing function `x`) as
       "Duplicate variable declaration". No `DISABLED_` needed.
-- [ ] **Task 8b — Chapter 9 run:** besm6 valid (arguments_in_registers, no_arguments,
-      stack_arguments, libraries, ec).
+- [x] **Task 8b — Chapter 9 run** (Functions): delivered `backend/besm6/chapter9_tests.cpp`
+      (23 run + 2 `DISABLED_`) and extended `semantic/chapter9_tests.cpp` with 4 shadowing
+      negatives (38 total). CMake wired; full suite green (1763). Multi-argument calls,
+      recursion, argument order/preservation, and per-function goto-label mangling all work
+      as-is (BESM-6 passes every argument through the r6 parameter block, so the book's x86
+      register-vs-stack distinction is moot). Two compiler fixes were needed: (1) a
+      block-scope function declaration (`int f(void);` inside a body) was being recorded as
+      an automatic local and percent-prefixed to `%f`, so the call no longer matched the
+      file-scope definition (`OTCYTCTBYET *F`); `translate_local_decl` in
+      [translator/stmt.c](translator/stmt.c) now skips `TYPE_FUNCTION` declarators
+      (fixes `multiple_declarations`, `param_shadows_local_var`); (2) a parameter shadowing
+      a file-scope function silently overwrote the function's symtab entry (string_map keys
+      by name only) and later miscompiled to a cryptic "Symbol not found", so the
+      function-definition param loop in [semantic/declarations.c](semantic/declarations.c)
+      now rejects a parameter shadowing an enclosing name with "Duplicate variable
+      declaration". Reclassifications vs. the book: four `valid/` programs shadow an
+      enclosing name and become semantic negatives under the no-shadowing rule
+      (`function_shadows_variable`, `variable_shadows_function`, `parameter_shadows_function`,
+      `parameter_shadows_own_function`). The book's `putchar` is not in our libc; the three
+      programs that use it call the existing libc `putch` instead, and `hello_world` prints
+      uppercase letters (the BESM-6 GOST output charset renders lowercase Latin as Cyrillic).
+      2 `DISABLED_`: `stack_alignment` (depends on external x86 `.s` helpers) and
+      `test_for_memory_leaks` (10M-iteration loop, over the 10s ctest timeout).
 - [ ] **Task 9 — Chapter 10 negative**; **9b — Chapter 10 run** (file-scope / storage class).
 - [ ] **Task 10 — Chapter 11 negative**; **10b — run** (Long integers; scanner 2 lex).
 - [ ] **Task 11 — Chapter 12 negative**; **11b — run** (Unsigned; scanner 2 lex).

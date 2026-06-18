@@ -341,6 +341,85 @@ int foo(void){
                  "Defined function foo twice");
 }
 
+// --- valid-dir programs reclassified as negatives by the no-shadowing rule ---
+//
+// The book lists these four under valid/, but each shadows an enclosing name in
+// a way the permanent no-shadowing design forbids.  A block-scope declaration
+// (variable, function, or parameter) may not reuse a name already in scope.
+
+// A nested function declaration shadows an enclosing local variable.
+TEST_F(PipelineTest, Chapter9_FunctionShadowsVariable_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"(int main(void) {
+    int foo = 3;
+    int bar = 4;
+    if (foo + bar > 0) {
+        int foo(void);
+        bar = foo();
+    }
+    return foo + bar;
+}
+
+int foo(void) {
+    return 8;
+}
+)"),
+                 "Duplicate variable declaration");
+}
+
+// A nested local variable shadows an enclosing function declaration.
+TEST_F(PipelineTest, Chapter9_VariableShadowsFunction_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"(int main(void) {
+    int foo(void);
+
+    int x = foo();
+    if (x > 0) {
+        int foo = 3;
+        x = x + foo;
+    }
+    return x;
+}
+
+int foo(void) {
+    return 4;
+}
+)"),
+                 "Duplicate variable declaration");
+}
+
+// A parameter shadows a file-scope function of the same name.
+TEST_F(PipelineTest, Chapter9_ParameterShadowsFunction_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"(int a(void) {
+    return 1;
+}
+
+int b(int a) {
+    return a;
+}
+
+int main(void) {
+    return a() + b(2);
+}
+)"),
+                 "Duplicate variable declaration");
+}
+
+// A parameter shadows the function it belongs to.
+TEST_F(PipelineTest, Chapter9_ParameterShadowsOwnFunction_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"(int a(int a) {
+    return a * 2;
+}
+
+int main(void) {
+    return a(1);
+}
+)"),
+                 "Duplicate variable declaration");
+}
+
 // foo takes two parameters but is called with one.
 TEST_F(PipelineTest, Chapter9_TooFewArgs_Neg)
 {

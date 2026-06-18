@@ -382,6 +382,15 @@ static void typecheck_fn_decl(ExternalDecl *d)
         }
         scope_increment();
         for (const Param *p = params; p; p = p->next) {
+            if (p->name) {
+                const Symbol *dup = symtab_get_opt(p->name);
+                if (dup && (!dup->has_linkage || dup->kind == SYM_FUNC)) {
+                    // A parameter shadowing an enclosing-scope variable, or a
+                    // file-scope function of the same name, is forbidden by the
+                    // no-shadowing design (external vs no linkage, C11 §6.7p3).
+                    fatal_error("Duplicate variable declaration %s", p->name);
+                }
+            }
             symtab_add_automatic_var_type(p->name, p->type, scope_level);
         }
         d->u.function.body =

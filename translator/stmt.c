@@ -105,6 +105,11 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
     for (const InitDeclarator *id = decl->u.var.declarators; id; id = id->next) {
         if (!is_automatic || !id->name)
             continue;
+        // A block-scope function declaration (int f(void);) is not an automatic:
+        // it names an external-linkage function with no frame slot, so it must
+        // not be percent-prefixed like a local.
+        if (id->type && id->type->kind == TYPE_FUNCTION)
+            continue;
         tac_record_local(ctx, id->name);
         // Aggregate locals (arrays, structs, unions) occupy contiguous frame slots;
         // emit an AllocateLocal so the backend reserves the full size instead of a
