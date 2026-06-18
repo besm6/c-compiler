@@ -120,8 +120,29 @@ translation unit.
       19 + 30 ec. 1 `DISABLED_` run test (`empty_loop_body`): codegen is correct but its
       ~430M-iteration loop takes ~60s on the Dubna simulator, over the 10s ctest timeout.
       Duff's device, goto-into-switch, nested/fallthrough switches all run correctly.
-- [ ] **Task 8 — Chapter 9 negative** (Functions): parser (11), semantic
-      (declarations 9+4ec, labels 2ec, types 10+6ec).
+- [x] **Task 8 — Chapter 9 negative** (Functions): delivered `parser/chapter9_tests.cpp`
+      (8) and `semantic/chapter9_tests.cpp` (34). CMake wired; full suite green (1734).
+      11 of the 42 book negatives produced *no* diagnostic, so this added seven compiler
+      checks: (1) `validate_type` rejects a function returning a function/array
+      ([semantic/typecheck.c](semantic/typecheck.c)); (2) an initializer on a function
+      declaration; (3) a function declaration in a `for` header
+      ([semantic/statements.c](semantic/statements.c)); (4) duplicate parameter names
+      (`check_duplicate_params`, both prototypes and definitions); (5) a function
+      designator as the operand of `++`/`--`/compound assignment
+      (`is_function_designator` in [semantic/expressions.c](semantic/expressions.c),
+      checked before function→pointer decay); (6) local (block-scope) function
+      declarations are now registered as `SYM_FUNC` like file-scope prototypes
+      (`register_function_declaration` in [semantic/declarations.c](semantic/declarations.c))
+      — `symtab_add_fun` already stores at file scope (external linkage), which fixes the
+      `multiple_function_definitions_2` symbol-table corruption and makes cross-function
+      conflicts visible; and (7) conflicting redeclarations via `compatible_type`
+      ("Conflicting declarations for function"). Reclassifications vs. the book:
+      `nested_function_definition` is a *parse* error for us (→ parser file);
+      `call_non_identifier`, `function_returning_function`, `initialize_function_as_variable`
+      and `fun_decl_for_loop` parse cleanly (the grammar permits the declarations) and are
+      rejected by the type checker (→ semantic file); `call_variable_as_function` is caught
+      first by the permanent no-shadowing rule (`int x = 0;` shadowing function `x`) as
+      "Duplicate variable declaration". No `DISABLED_` needed.
 - [ ] **Task 8b — Chapter 9 run:** besm6 valid (arguments_in_registers, no_arguments,
       stack_arguments, libraries, ec).
 - [ ] **Task 9 — Chapter 10 negative**; **9b — Chapter 10 run** (file-scope / storage class).

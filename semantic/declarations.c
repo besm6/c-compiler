@@ -2,6 +2,7 @@
 // Type-checking for declarations.
 //
 #include <stdio.h>
+#include <string.h>
 
 #include "semantic.h"
 #include "string_map.h"
@@ -19,6 +20,67 @@ static bool is_extern(const DeclSpec *spec)
 static bool is_static(const DeclSpec *spec)
 {
     return spec && (spec->storage == STORAGE_CLASS_STATIC);
+}
+
+// Reject two parameters with the same name in a function declaration or
+// definition (C11 §6.7.6.3p9, §6.9.1p6).  Param lists are short, so a simple
+// O(n^2) name comparison is fine.  The f(void) sentinel has no name and so is
+// harmless here.
+static void check_duplicate_params(const Type *fn_type)
+{
+    for (const Param *a = fn_type->u.function.params; a; a = a->next) {
+        if (!a->name)
+            continue;
+        for (const Param *b = a->next; b; b = b->next) {
+            if (b->name && strcmp(a->name, b->name) == 0) {
+                fatal_error("Duplicate parameter name %s", a->name);
+            }
+        }
+    }
+}
+
+// Register a function declaration (a prototype, not a definition) that arrives
+// as a DECL_VAR declarator with function type.  Used for both file-scope
+// prototypes ("int f(int);") and block-scope (local) function declarations.
+// Functions have external linkage, so symtab_add_fun stores the symbol at file
+// scope (level 0) regardless of where the declaration textually appears; this
+// lets a later definition or sibling-scope declaration find it and so detects
+// redefinitions and conflicting declarations across function bodies.
+static void register_function_declaration(InitDeclarator *decl, const DeclSpec *specifiers)
+{
+    const Type *var_type = decl->type;
+    if (decl->init) {
+        fatal_error("Function declared with initializer");
+    }
+    validate_type(var_type);
+    bool global = !is_static(specifiers);
+
+    // Strip the void sentinel — same normalization as in typecheck_fn_decl so
+    // call-site argument-count checks see zero params for f(void).
+    Type *adj  = clone_type(var_type, __func__, __FILE__, __LINE__);
+    Param *vsp = adj->u.function.params;
+    if (vsp && !vsp->next && vsp->type->kind == TYPE_VOID && !vsp->name) {
+        free_param(vsp);
+        adj->u.function.params = NULL;
+    }
+    check_duplicate_params(adj);
+
+    Symbol *existing = symtab_get_opt(decl->name);
+    if (existing) {
+        if (existing->kind != SYM_FUNC) {
+            // A function declaration clashes with a non-function of the same
+            // name (e.g. a variable) in scope.
+            fatal_error("Duplicate variable declaration %s", decl->name);
+        }
+        if (!compatible_type(existing->type, adj)) {
+            fatal_error("Conflicting declarations for function %s", decl->name);
+        }
+    }
+    bool defined   = existing && existing->kind == SYM_FUNC && existing->u.func.defined;
+    bool fn_global = (existing && existing->kind == SYM_FUNC) ? existing->u.func.global : global;
+    symtab_add_fun(decl->name, adj, fn_global, defined);
+    free_type(decl->type);
+    decl->type = adj; // normalized type now owned by AST
 }
 
 // Validate struct members for uniqueness and completeness.
@@ -194,6 +256,13 @@ static void typecheck_local_var_decl(const Declaration *d)
     for (InitDeclarator *decl = d->u.var.declarators; decl; decl = decl->next) {
         decl->type     = resolve_typedef_names(decl->type);
         Type *var_type = decl->type;
+        // A block-scope function declaration ("int f(int);" inside a body) has
+        // external linkage; register it like a file-scope prototype so later
+        // definitions and sibling-scope declarations resolve against it.
+        if (var_type->kind == TYPE_FUNCTION) {
+            register_function_declaration(decl, d->u.var.specifiers);
+            continue;
+        }
         if (var_type->kind == TYPE_VOID) {
             fatal_error("No void declarations");
         }
@@ -224,7 +293,10 @@ static void typecheck_local_var_decl(const Declaration *d)
             continue;
         }
         const Symbol *dup = symtab_get_opt(decl->name);
-        if (dup && !dup->has_linkage) {
+        if (dup && (!dup->has_linkage || dup->kind == SYM_FUNC)) {
+            // A no-linkage variable clashing with another no-linkage variable
+            // (shadowing, forbidden by design) or with a function of the same
+            // name in scope (external vs no linkage, C11 §6.7p3).
             fatal_error("Duplicate variable declaration %s", decl->name);
         }
         symtab_add_automatic_var_type(decl->name, var_type, scope_level);
@@ -267,6 +339,7 @@ static void typecheck_fn_decl(ExternalDecl *d)
     } else {
         fatal_error("Function has non-function type");
     }
+    check_duplicate_params(adjusted_type);
     bool has_body            = d->u.function.body != NULL;
     const Param *params      = adjusted_type->u.function.params;
     bool all_params_complete = true;
@@ -289,6 +362,9 @@ static void typecheck_fn_decl(ExternalDecl *d)
             fatal_error("Redeclared function %s with different type", d->u.function.name);
         }
         if (existing->kind == SYM_FUNC) {
+            if (!compatible_type(existing->type, adjusted_type)) {
+                fatal_error("Conflicting declarations for function %s", d->u.function.name);
+            }
             if (existing->u.func.defined && has_body) {
                 fatal_error("Defined function %s twice", d->u.function.name);
             }
@@ -360,22 +436,7 @@ static void typecheck_file_scope_var_decl(Declaration *d)
         // resolve() can find it when it later processes the definition, and so
         // has_linkage is set correctly to allow the redeclaration.
         if (var_type->kind == TYPE_FUNCTION) {
-            validate_type(var_type);
-            // Strip void sentinel — same normalization as in typecheck_fn_decl so
-            // call-site argument-count checks see zero params for f(void).
-            Type *adj  = clone_type(var_type, __func__, __FILE__, __LINE__);
-            Param *vsp = adj->u.function.params;
-            if (vsp && !vsp->next && vsp->type->kind == TYPE_VOID && !vsp->name) {
-                free_param(vsp);
-                adj->u.function.params = NULL;
-            }
-            Symbol *existing = symtab_get_opt(decl->name);
-            bool defined     = existing && existing->kind == SYM_FUNC && existing->u.func.defined;
-            bool fn_global =
-                (existing && existing->kind == SYM_FUNC) ? existing->u.func.global : global;
-            symtab_add_fun(decl->name, adj, fn_global, defined);
-            free_type(decl->type);
-            decl->type = adj; // normalized type now owned by AST
+            register_function_declaration(decl, d->u.var.specifiers);
             continue;
         }
 

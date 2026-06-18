@@ -86,8 +86,16 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
     case STMT_FOR: {
         scope_increment();
         if (s->u.for_stmt.init->kind == FOR_INIT_DECL) {
-            if (has_storage(s->u.for_stmt.init->u.decl->u.var.specifiers)) {
+            const Declaration *init_decl = s->u.for_stmt.init->u.decl;
+            if (has_storage(init_decl->u.var.specifiers)) {
                 fatal_error("Storage class not permitted in for loop header");
+            }
+            for (const InitDeclarator *id =
+                     init_decl->kind == DECL_VAR ? init_decl->u.var.declarators : NULL;
+                 id; id = id->next) {
+                if (id->type && id->type->kind == TYPE_FUNCTION) {
+                    fatal_error("Function declaration not permitted in for loop header");
+                }
             }
             typecheck_local_decl(s->u.for_stmt.init->u.decl);
         } else {

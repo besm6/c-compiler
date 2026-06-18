@@ -21,6 +21,19 @@ static const Param *params_for_call(const Type *fn_type)
 }
 
 // Check if an expression is an lvalue.
+// True if the (un-decayed) expression is a function designator: a bare
+// identifier that names a function.  Such an operand decays to a function
+// pointer, so it slips past the lvalue/scalar checks; callers that require a
+// modifiable lvalue (++/--/compound assignment) must reject it explicitly,
+// looking at the raw operand before typecheck_and_decay() rewrites its type.
+static bool is_function_designator(const Expr *e)
+{
+    if (e->kind != EXPR_VAR)
+        return false;
+    const Symbol *sym = symtab_get_opt(e->u.var);
+    return sym && sym->type && sym->type->kind == TYPE_FUNCTION;
+}
+
 static bool is_lvalue(const Expr *e)
 {
     if (semantic_debug) {
@@ -241,6 +254,9 @@ static Expr *typecheck_expr(Expr *e)
         }
         case UNARY_PRE_INC:
         case UNARY_PRE_DEC: {
+            if (is_function_designator(e->u.unary_op.expr)) {
+                fatal_error("Operand of pre-increment/decrement must be a modifiable lvalue");
+            }
             Expr *inner = typecheck_and_decay(e->u.unary_op.expr);
             if (!is_lvalue(inner)) {
                 fatal_error("Operand of pre-increment/decrement must be a modifiable lvalue");
@@ -412,6 +428,9 @@ static Expr *typecheck_expr(Expr *e)
         }
     }
     case EXPR_ASSIGN: {
+        if (is_function_designator(e->u.assign.target)) {
+            fatal_error("Operand of assignment must be a modifiable lvalue");
+        }
         Expr *lhs = typecheck_and_decay(e->u.assign.target);
         if (!is_lvalue(lhs)) {
             fatal_error("Left hand side of assignment is invalid lvalue");
@@ -613,6 +632,9 @@ static Expr *typecheck_expr(Expr *e)
         return e;
     }
     case EXPR_POST_INC: {
+        if (is_function_designator(e->u.post_inc)) {
+            fatal_error("Operand of post-increment must be a modifiable lvalue");
+        }
         Expr *inner = typecheck_and_decay(e->u.post_inc);
         if (!is_lvalue(inner)) {
             fatal_error("Operand of post-increment must be a modifiable lvalue");
@@ -626,6 +648,9 @@ static Expr *typecheck_expr(Expr *e)
         return e;
     }
     case EXPR_POST_DEC: {
+        if (is_function_designator(e->u.post_dec)) {
+            fatal_error("Operand of post-decrement must be a modifiable lvalue");
+        }
         Expr *inner = typecheck_and_decay(e->u.post_dec);
         if (!is_lvalue(inner)) {
             fatal_error("Operand of post-decrement must be a modifiable lvalue");

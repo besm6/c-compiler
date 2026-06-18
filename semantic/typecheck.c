@@ -100,6 +100,12 @@ void validate_type(const Type *t)
         validate_type(t->u.pointer.target);
         break;
     case TYPE_FUNCTION:
+        if (t->u.function.return_type->kind == TYPE_FUNCTION) {
+            fatal_error("Function cannot return a function");
+        }
+        if (t->u.function.return_type->kind == TYPE_ARRAY) {
+            fatal_error("Function cannot return an array");
+        }
         validate_type(t->u.function.return_type);
         for (const Param *p = t->u.function.params; p; p = p->next) {
             validate_type(p->type);
