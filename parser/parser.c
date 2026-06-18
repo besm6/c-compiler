@@ -96,8 +96,12 @@ int next_token()
 void expect_token(int expected)
 {
     if (current_token != expected) {
-        fprintf(stderr, "Parse error: Expected token %d, got %d (lexeme: %s)\n", expected,
-                current_token, current_lexeme ? current_lexeme : "");
+        fprintf(stderr, "Parse error: expected %s, got %s", token_name(expected),
+                token_name(current_token));
+        if (current_lexeme && current_lexeme[0]) {
+            fprintf(stderr, " (lexeme: %s)", current_lexeme);
+        }
+        fputc('\n', stderr);
         exit(1);
     }
     advance_token();

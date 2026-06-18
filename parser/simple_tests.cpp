@@ -14,10 +14,10 @@ void _Noreturn fatal_error(const char *message, ...)
     va_end(ap);
 
     const char *lexeme = parser_get_lexeme();
-    if (lexeme) {
-        fprintf(stderr, " (token: %d, lexeme: %s)\n", parser_get_token(), lexeme);
+    if (lexeme && lexeme[0]) {
+        fprintf(stderr, " (at %s, lexeme: %s)\n", token_name(parser_get_token()), lexeme);
     } else {
-        fprintf(stderr, " (token: %d)\n", parser_get_token());
+        fprintf(stderr, " (at %s)\n", token_name(parser_get_token()));
     }
     exit(1);
 }

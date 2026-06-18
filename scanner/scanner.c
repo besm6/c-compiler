@@ -1,6 +1,7 @@
 #include "scanner.h"
 
 #include <ctype.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,6 +44,20 @@ void init_scanner(FILE *input)
 }
 
 // Main lexer function
+// Report a lexical error and abort.  The scanner is the first phase of the
+// compiler, so a malformed token cannot be recovered from here.
+static _Noreturn void lex_error(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    fprintf(stderr, "%s:%d: lexical error: ", scanner_filename[0] ? scanner_filename : "<input>",
+            scanner_lineno);
+    vfprintf(stderr, fmt, ap);
+    fputc('\n', stderr);
+    va_end(ap);
+    exit(1);
+}
+
 int yylex(void)
 {
 again:
@@ -379,6 +394,13 @@ static int scan_number(void)
         consume_char();
     }
 
+    // A numeric constant may not run straight into an identifier character:
+    // '1foo' is a single invalid token, not '1f' followed by 'oo'.
+    if (isalpha(next_char) || next_char == '_') {
+        consume_char();
+        lex_error("invalid suffix on numeric constant '%s'", yytext);
+    }
+
     return is_float ? TOKEN_F_CONSTANT : TOKEN_I_CONSTANT;
 }
 
@@ -619,8 +641,11 @@ static int scan_operator(void)
     case '?':
         return TOKEN_QUESTION;
     default:
-        // Unknown character.
-        return TOKEN_UNKNOWN;
+        // Unknown character: not part of any C token outside a literal.
+        if (isprint(c)) {
+            lex_error("invalid character '%c'", c);
+        }
+        lex_error("invalid character '\\x%02x'", (unsigned char)c);
     }
 }
 
@@ -628,4 +653,111 @@ static int scan_operator(void)
 char *get_yytext(void)
 {
     return yytext;
+}
+
+// Human-readable name for a token code, used in parser diagnostics.
+const char *token_name(int token)
+{
+    switch (token) {
+    case TOKEN_EOF:                  return "end of file";
+    case TOKEN_UNKNOWN:              return "unknown token";
+    case TOKEN_AUTO:                 return "'auto'";
+    case TOKEN_BREAK:                return "'break'";
+    case TOKEN_CASE:                 return "'case'";
+    case TOKEN_CHAR:                 return "'char'";
+    case TOKEN_CONST:                return "'const'";
+    case TOKEN_CONTINUE:             return "'continue'";
+    case TOKEN_DEFAULT:              return "'default'";
+    case TOKEN_DO:                   return "'do'";
+    case TOKEN_DOUBLE:               return "'double'";
+    case TOKEN_ELSE:                 return "'else'";
+    case TOKEN_ENUM:                 return "'enum'";
+    case TOKEN_EXTERN:               return "'extern'";
+    case TOKEN_FLOAT:                return "'float'";
+    case TOKEN_FOR:                  return "'for'";
+    case TOKEN_GOTO:                 return "'goto'";
+    case TOKEN_IF:                   return "'if'";
+    case TOKEN_INLINE:               return "'inline'";
+    case TOKEN_INT:                  return "'int'";
+    case TOKEN_LONG:                 return "'long'";
+    case TOKEN_REGISTER:             return "'register'";
+    case TOKEN_RESTRICT:             return "'restrict'";
+    case TOKEN_RETURN:               return "'return'";
+    case TOKEN_SHORT:                return "'short'";
+    case TOKEN_SIGNED:               return "'signed'";
+    case TOKEN_SIZEOF:               return "'sizeof'";
+    case TOKEN_STATIC:               return "'static'";
+    case TOKEN_STRUCT:               return "'struct'";
+    case TOKEN_SWITCH:               return "'switch'";
+    case TOKEN_TYPEDEF:              return "'typedef'";
+    case TOKEN_UNION:                return "'union'";
+    case TOKEN_UNSIGNED:             return "'unsigned'";
+    case TOKEN_VOID:                 return "'void'";
+    case TOKEN_VOLATILE:             return "'volatile'";
+    case TOKEN_WHILE:                return "'while'";
+    case TOKEN_ALIGNAS:              return "'_Alignas'";
+    case TOKEN_ALIGNOF:              return "'_Alignof'";
+    case TOKEN_ATOMIC:               return "'_Atomic'";
+    case TOKEN_BOOL:                 return "'_Bool'";
+    case TOKEN_COMPLEX:              return "'_Complex'";
+    case TOKEN_GENERIC:              return "'_Generic'";
+    case TOKEN_IMAGINARY:            return "'_Imaginary'";
+    case TOKEN_NORETURN:             return "'_Noreturn'";
+    case TOKEN_STATIC_ASSERT:        return "'_Static_assert'";
+    case TOKEN_THREAD_LOCAL:         return "'_Thread_local'";
+    case TOKEN_FUNC_NAME:            return "'__func__'";
+    case TOKEN_IDENTIFIER:           return "identifier";
+    case TOKEN_I_CONSTANT:           return "integer constant";
+    case TOKEN_F_CONSTANT:           return "floating constant";
+    case TOKEN_STRING_LITERAL:       return "string literal";
+    case TOKEN_ELLIPSIS:             return "'...'";
+    case TOKEN_RIGHT_ASSIGN:         return "'>>='";
+    case TOKEN_LEFT_ASSIGN:          return "'<<='";
+    case TOKEN_ADD_ASSIGN:           return "'+='";
+    case TOKEN_SUB_ASSIGN:           return "'-='";
+    case TOKEN_MUL_ASSIGN:           return "'*='";
+    case TOKEN_DIV_ASSIGN:           return "'/='";
+    case TOKEN_MOD_ASSIGN:           return "'%='";
+    case TOKEN_AND_ASSIGN:           return "'&='";
+    case TOKEN_XOR_ASSIGN:           return "'^='";
+    case TOKEN_OR_ASSIGN:            return "'|='";
+    case TOKEN_RIGHT_OP:             return "'>>'";
+    case TOKEN_LEFT_OP:              return "'<<'";
+    case TOKEN_INC_OP:               return "'++'";
+    case TOKEN_DEC_OP:               return "'--'";
+    case TOKEN_PTR_OP:               return "'->'";
+    case TOKEN_AND_OP:               return "'&&'";
+    case TOKEN_OR_OP:                return "'||'";
+    case TOKEN_LE_OP:                return "'<='";
+    case TOKEN_GE_OP:                return "'>='";
+    case TOKEN_EQ_OP:                return "'=='";
+    case TOKEN_NE_OP:                return "'!='";
+    case TOKEN_SEMICOLON:            return "';'";
+    case TOKEN_LBRACE:               return "'{'";
+    case TOKEN_RBRACE:               return "'}'";
+    case TOKEN_COMMA:                return "','";
+    case TOKEN_COLON:                return "':'";
+    case TOKEN_ASSIGN:               return "'='";
+    case TOKEN_LPAREN:               return "'('";
+    case TOKEN_RPAREN:               return "')'";
+    case TOKEN_LBRACKET:             return "'['";
+    case TOKEN_RBRACKET:             return "']'";
+    case TOKEN_DOT:                  return "'.'";
+    case TOKEN_AMPERSAND:            return "'&'";
+    case TOKEN_NOT:                  return "'!'";
+    case TOKEN_TILDE:                return "'~'";
+    case TOKEN_MINUS:                return "'-'";
+    case TOKEN_PLUS:                 return "'+'";
+    case TOKEN_STAR:                 return "'*'";
+    case TOKEN_SLASH:                return "'/'";
+    case TOKEN_PERCENT:              return "'%'";
+    case TOKEN_LT:                   return "'<'";
+    case TOKEN_GT:                   return "'>'";
+    case TOKEN_CARET:                return "'^'";
+    case TOKEN_PIPE:                 return "'|'";
+    case TOKEN_QUESTION:             return "'?'";
+    case TOKEN_TYPEDEF_NAME:         return "typedef name";
+    case TOKEN_ENUMERATION_CONSTANT: return "enumeration constant";
+    default:                         return "token";
+    }
 }

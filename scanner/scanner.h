@@ -115,6 +115,9 @@ int yylex(void);
 // Get current lexeme
 char *get_yytext(void);
 
+// Human-readable name for a token code (e.g. "';'", "'return'", "identifier").
+const char *token_name(int token);
+
 // Current location
 extern int scanner_lineno;
 extern char scanner_filename[1024];
