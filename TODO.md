@@ -239,7 +239,27 @@ translation unit.
       negative direction is already covered in the semantic chapter files. The
       two semantic `DISABLED_` tests from Task 9 stay disabled (the block-scope
       static/extern scope-level + name-mangling refactor was deferred).
-- [ ] **Task 10 — Chapter 11 negative**; **10b — run** (Long integers; scanner 2 lex).
+- [x] **Task 10 — Chapter 11 negative** (Long integers; scanner 2 lex): delivered
+      `scanner/chapter11_tests.cpp` (2 lex), `parser/chapter11_tests.cpp` (8 parse),
+      and `semantic/chapter11_tests.cpp` (6). CMake wired; full suite green (1819).
+      Compiler change: the scanner now validates the *combination* of an integer
+      suffix instead of accepting any run of `u`/`l`/`f`. Added `valid_int_suffix`
+      / `valid_float_suffix` to [scanner/scanner.c](scanner/scanner.c) `scan_number()`
+      — an integer takes an optional `u`/`U` and an optional `l`/`L` or matched-case
+      `ll`/`LL` in either order; a float takes a single `f`/`F` or `l`/`L`. This
+      rejects `0lL` and `0LLL` (reusing the existing "invalid suffix on numeric
+      constant" diagnostic) while still lexing `10LL`/`10ULL`/`ull`/`1.0f` that the
+      translator/semantic tests depend on (and incidentally sets up ch12's
+      `0lul`/`0uu`). The 8 parse and 5 invalid_types negatives already produced clean
+      errors; one reclassification — `call_long_as_function` declares a file-scope
+      `long x(void)` then a local `long x`, which our permanent no-shadowing rule
+      rejects as "Duplicate variable declaration" before the call. Omitted (41-bit
+      int, not negatives for us): `bitshift_duplicate_cases` and
+      `switch_duplicate_cases` — their duplicate case relies on x86 32-bit truncation
+      (2³⁵+400 → 400, 2³⁴ → 0) that a 41-bit int doesn't perform, so no error is
+      raised; candidates for run tests under 10b. `switch_duplicate_cases_2` (switch
+      type `long`, `100l` vs `100`) is a genuine "Duplicate case value" negative.
+- [ ] **Task 10b — Chapter 11 run** (Long integers): `backend/besm6/chapter11_tests.cpp`.
 - [ ] **Task 11 — Chapter 12 negative**; **11b — run** (Unsigned; scanner 2 lex).
 - [ ] **Task 12 — Chapter 13 negative**; **12b — run** (Floating-point; scanner 7 lex —
       expect many `DISABLED_`).

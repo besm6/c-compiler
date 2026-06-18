@@ -332,6 +332,53 @@ static int scan_identifier(void)
     return TOKEN_IDENTIFIER;
 }
 
+// Validate an integer-constant suffix: an optional 'u'/'U' and an optional
+// 'l'/'L' or 'll'/'LL', in either order; the two letters of 'll'/'LL' must share
+// case.  Rejects 'lL', 'Ll', 'LLL', 'lul', 'uu', a stray 'f', etc.
+static int valid_int_suffix(const char *s)
+{
+    int have_u = 0, have_l = 0;
+    while (*s) {
+        char c = *s;
+        if (c == 'u' || c == 'U') {
+            if (have_u) {
+                return 0;
+            }
+            have_u = 1;
+            s++;
+        } else if (c == 'l' || c == 'L') {
+            if (have_l) {
+                return 0;
+            }
+            have_l = 1;
+            if (s[1] == c) {
+                s += 2; // 'll' or 'LL' (same case)
+            } else if (s[1] == 'l' || s[1] == 'L') {
+                return 0; // mixed-case 'lL'/'Ll'
+            } else {
+                s++; // single 'l'/'L'
+            }
+        } else {
+            return 0; // e.g. a stray 'f'
+        }
+    }
+    return 1;
+}
+
+// Validate a floating-constant suffix: empty, a single 'f'/'F', or a single
+// 'l'/'L' (long double).
+static int valid_float_suffix(const char *s)
+{
+    if (s[0] == '\0') {
+        return 1;
+    }
+    if (s[1] != '\0') {
+        return 0;
+    }
+    char c = s[0];
+    return c == 'f' || c == 'F' || c == 'l' || c == 'L';
+}
+
 // Scan number (integer or floating-point)
 static int scan_number(void)
 {
@@ -390,6 +437,7 @@ static int scan_number(void)
     }
 
     // Handle suffixes
+    int suffix_start = yyleng;
     while (tolower(next_char) == 'u' || tolower(next_char) == 'l' || tolower(next_char) == 'f') {
         consume_char();
     }
@@ -398,6 +446,14 @@ static int scan_number(void)
     // '1foo' is a single invalid token, not '1f' followed by 'oo'.
     if (isalpha(next_char) || next_char == '_') {
         consume_char();
+        lex_error("invalid suffix on numeric constant '%s'", yytext);
+    }
+
+    // Validate the suffix combination itself: an integer accepts an optional
+    // 'u'/'U' and an optional 'l'/'L' or 'll'/'LL' in either order; a float
+    // accepts a single 'f'/'F' or 'l'/'L'.  Reject e.g. '0lL', '0LLL', '0lul'.
+    const char *suffix = yytext + suffix_start;
+    if (is_float ? !valid_float_suffix(suffix) : !valid_int_suffix(suffix)) {
         lex_error("invalid suffix on numeric constant '%s'", yytext);
     }
 
