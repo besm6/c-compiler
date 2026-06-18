@@ -95,8 +95,17 @@ translation unit.
       empty blocks participate as identity nodes; `multiple_if` is enabled, with a TAC-level
       regression `DeadStoreLiveAcrossEmptyBlock` in
       [optimize/dead_store_tests.cpp](optimize/dead_store_tests.cpp).
-- [ ] **Task 6 — Chapter 7** (Compound stmts): parser (4), semantic (4 + 3 ec),
-      besm6 valid (11 + 5 ec).
+- [x] **Task 6 — Chapter 7** (Compound stmts): delivered `parser/chapter7_tests.cpp`
+      (4 parse), `semantic/chapter7_tests.cpp` (4 + 3 ec invalid, plus 10 shadowing),
+      and `backend/besm6/chapter7_tests.cpp` (5 + 1 ec run). CMake wired; all 27 pass,
+      full suite green. No `DISABLED_` needed. Chapter 7 is about variable shadowing in
+      nested blocks, which we reject by the permanent no-shadowing design decision: 10 of
+      the book's 16 "valid" programs redeclare an enclosing name and die with "Duplicate
+      variable declaration" (full-scope `symtab_get_opt` lookup in
+      [semantic/declarations.c](semantic/declarations.c)), so they became semantic
+      negatives rather than run tests. The 6 programs that don't shadow run correctly,
+      including sibling-scope same-name reuse (`multiple_vars_same_name`) and cross-block
+      goto between siblings (`goto_sibling_scope`).
 - [ ] **Task 7 — Chapter 8** (Loops): parser (10 + 8 ec), semantic (4 + 20 ec),
       besm6 valid (21 + 32 ec).
 - [ ] **Task 8 — Chapter 9 negative** (Functions): parser (11), semantic
