@@ -50,7 +50,13 @@ translation unit.
       and `backend/besm6/chapter2_tests.cpp` (12 valid). CMake wired; all 19 pass, full
       suite green. No `DISABLED_` needed (negate/complement handled; `int` is 41-bit so
       every constant fits; `printf("%d")` prints negatives).
-- [ ] **Task 2 — Chapter 3** (Binary): parser (8 + ec), besm6 valid (15 + 11 ec).
+- [x] **Task 2 — Chapter 3** (Binary): delivered `parser/chapter3_tests.cpp` (8 parse),
+      `semantic/chapter3_tests.cpp` (1 — `malformed_paren` "2 (- 3)" is a *parse* error in
+      the book but a semantic one for us: our parser accepts a call on any postfix
+      expression, so the type checker rejects it), and
+      `backend/besm6/chapter3_tests.cpp` (15 valid + 11 ec). CMake wired; all 35 pass,
+      full suite green. No `DISABLED_` needed — bitwise `&|^`/shifts all supported, and
+      `-5 >> 30` is constant-folded with correct arithmetic-shift semantics before codegen.
 - [ ] **Task 3 — Chapter 4** (Logical/Relational): parser (6), besm6 valid (33 + 4 ec).
 - [ ] **Task 4 — Chapter 5** (Local vars): parser (12 + 4 ec), semantic (10 + 11 ec),
       besm6 valid (20 + 25 ec). *(first semantic tests)*
