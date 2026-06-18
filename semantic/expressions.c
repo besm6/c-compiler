@@ -33,10 +33,9 @@ static bool is_lvalue(const Expr *e)
     case EXPR_SUBSCRIPT:
         return true;
     case EXPR_BINARY_OP:
-        if (e->u.binary_op.op == BINARY_LOG_AND || e->u.binary_op.op == BINARY_LOG_OR) {
-            return false;
-        }
-        return is_lvalue(e->u.binary_op.left);
+        // No binary operator yields an lvalue in C (there is no comma operator
+        // here, and compound assignment is a separate EXPR_ASSIGN node).
+        return false;
     case EXPR_UNARY_OP:
         if (e->u.unary_op.op == UNARY_DEREF) {
             return true;

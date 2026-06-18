@@ -47,8 +47,11 @@
 
 typedef struct {
     char *name;   // owned (xstrdup); the destination name, == the map key
-    Tac_Val *src; // borrowed — points into the live instruction stream
+    Tac_Val *src; // owned (dup_val) — an independent copy, not a borrow into the
+                  // instruction stream, which substitution/self-copy removal frees
 } CopyPair;
+
+static Tac_Val *dup_val(const Tac_Val *v);
 
 static void pair_free(intptr_t value)
 {
@@ -56,6 +59,7 @@ static void pair_free(intptr_t value)
     if (!p)
         return;
     xfree(p->name);
+    tac_free_val(p->src);
     xfree(p);
 }
 
@@ -125,7 +129,7 @@ static void copy_cb(intptr_t value, const void *arg)
     const CopyPair *sp = (const CopyPair *)value;
     CopyPair *np       = xalloc(sizeof(CopyPair), __func__, __FILE__, __LINE__);
     np->name           = xstrdup(sp->name);
-    np->src            = sp->src;
+    np->src            = dup_val(sp->src);
     map_insert_free(ctx->dst, np->name, (intptr_t)np, 0, pair_free);
 }
 
@@ -273,7 +277,7 @@ static void apply_transfer(StringMap *cs, const Tac_Instruction *ins, const Stri
                 return;
             CopyPair *p = xalloc(sizeof(CopyPair), __func__, __FILE__, __LINE__);
             p->name     = xstrdup(dst->u.var_name);
-            p->src      = ins->u.copy.src;
+            p->src      = dup_val(ins->u.copy.src);
             map_insert_free(cs, p->name, (intptr_t)p, 0, pair_free);
             OPT_TRACE(
                 "[copy-prop] gen copy: %s → %s\n", dst->u.var_name,
@@ -396,6 +400,7 @@ static bool copy_set_equal(const StringMap *a, const StringMap *b)
 static Tac_Val *dup_val(const Tac_Val *v)
 {
     Tac_Val *nv = tac_new_val(v->kind);
+    nv->next    = NULL; // tac_new_val leaves .next uninitialized
     if (v->kind == TAC_VAL_CONSTANT) {
         Tac_Const *nc  = tac_new_const(v->u.constant->kind);
         *nc            = *v->u.constant;

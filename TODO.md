@@ -62,8 +62,19 @@ translation unit.
       43 pass, full suite green. No `DISABLED_` needed — `&&`/`||` short-circuit lowering
       skips the `1/0` divides, integer comparisons use b/eq..b/ge, and `!` is already
       supported.
-- [ ] **Task 4 — Chapter 5** (Local vars): parser (12 + 4 ec), semantic (10 + 11 ec),
-      besm6 valid (20 + 25 ec). *(first semantic tests)*
+- [x] **Task 4 — Chapter 5** (Local vars): delivered `parser/chapter5_tests.cpp`
+      (12 + 4 ec), `semantic/chapter5_tests.cpp` (10 + 11 ec — first semantic tests),
+      and `backend/besm6/chapter5_tests.cpp` (20 + 25 ec). CMake wired; full suite green.
+      Fixed `is_lvalue` in [semantic/expressions.c](semantic/expressions.c) — a binary op
+      was wrongly treated as an lvalue when its leftmost leaf was a var, so `a + 3 = 4` and
+      `++(a+1)` died with a cryptic translator message instead of a clean type-checker
+      diagnostic; no C binary operator yields an lvalue. Fixed a copy-prop use-after-free
+      crash on deeply chained compound assignments (`x = a += b -= c *= …`): `CopyPair.src`
+      borrowed a pointer into the instruction stream that substitution/self-copy removal
+      later freed; the copy set now owns a deep copy of `src`
+      ([optimize/copy_prop.c](optimize/copy_prop.c)). 3 `DISABLED_` valid tests
+      (`empty_function_body`, `local_var_missing_return`, `null_statement`) — main lacks a
+      return, so the value is UB and host cc vs BESM-6 disagree.
 - [ ] **Task 5 — Chapter 6** (if/conditional): scanner (1 ec), parser (9 + 7 ec),
       semantic (3 + 5 ec), besm6 valid (24 + 19 ec).
 - [ ] **Task 6 — Chapter 7** (Compound stmts): parser (4), semantic (4 + 3 ec),
