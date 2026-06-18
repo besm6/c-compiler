@@ -498,6 +498,7 @@ void typecheck_decl(ExternalDecl *d)
 {
     typecheck_global_decl(d);
     label_loops(d);
+    resolve_labels(d);
 }
 
 // Type-check an entire program.

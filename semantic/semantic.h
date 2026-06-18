@@ -27,6 +27,9 @@ void typecheck_program(const Program *p);
 // Annotate loops and break/continue statements.
 void label_loops(const ExternalDecl *ast);
 
+// Validate labeled statements and goto targets within a function.
+void resolve_labels(const ExternalDecl *ast);
+
 // Error handling.
 _Noreturn void fatal_error(const char *message, ...);
 

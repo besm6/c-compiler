@@ -75,8 +75,20 @@ translation unit.
       ([optimize/copy_prop.c](optimize/copy_prop.c)). 3 `DISABLED_` valid tests
       (`empty_function_body`, `local_var_missing_return`, `null_statement`) — main lacks a
       return, so the value is UB and host cc vs BESM-6 disagree.
-- [ ] **Task 5 — Chapter 6** (if/conditional): scanner (1 ec), parser (9 + 7 ec),
-      semantic (3 + 5 ec), besm6 valid (24 + 19 ec).
+- [x] **Task 5 — Chapter 6** (if/conditional): delivered `scanner/chapter6_tests.cpp`
+      (1 ec), `parser/chapter6_tests.cpp` (9 + 7 ec), `semantic/chapter6_tests.cpp`
+      (3 + 5 ec), and `backend/besm6/chapter6_tests.cpp` (24 + 19 ec). CMake wired; full
+      suite green. Added a goto/label resolution pass
+      ([semantic/resolve_labels.c](semantic/resolve_labels.c), run in `typecheck_decl`):
+      per function it rejects duplicate labels (`"Duplicate label"`) and goto to an
+      undefined label (`"Undefined label"`, which also covers `goto` to a variable name
+      since labels and variables are separate namespaces) — this lights up the
+      `duplicate_labels` / `goto_missing_label` / `goto_variable` ec negatives. The
+      `goto main` / `goto _main` label-vs-function-name programs run fine. 2 `DISABLED_`
+      valid tests: `binary_false_condition` (main falls off the end → indeterminate value
+      in the WrapMain call context, like the ch5 missing-return cases) and `multiple_if`
+      (optimizer drops the first else-store across two back-to-back constant-condition
+      if-else statements → 5 instead of 8; a copy-prop/dead-store join bug, pre-existing).
 - [ ] **Task 6 — Chapter 7** (Compound stmts): parser (4), semantic (4 + 3 ec),
       besm6 valid (11 + 5 ec).
 - [ ] **Task 7 — Chapter 8** (Loops): parser (10 + 8 ec), semantic (4 + 20 ec),
