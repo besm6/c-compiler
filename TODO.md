@@ -106,8 +106,20 @@ translation unit.
       negatives rather than run tests. The 6 programs that don't shadow run correctly,
       including sibling-scope same-name reuse (`multiple_vars_same_name`) and cross-block
       goto between siblings (`goto_sibling_scope`).
-- [ ] **Task 7 — Chapter 8** (Loops): parser (10 + 8 ec), semantic (4 + 20 ec),
-      besm6 valid (21 + 32 ec).
+- [x] **Task 7 — Chapter 8** (Loops): delivered `parser/chapter8_tests.cpp` (19),
+      `semantic/chapter8_tests.cpp` (27), and `backend/besm6/chapter8_tests.cpp` (49).
+      CMake wired; full suite green. No compiler changes needed — for/while/do-while/
+      break/continue/switch are all fully supported. Two reclassifications vs. the book:
+      (1) `non_constant_case` is a *parse* error for us — a case value parses as a
+      constant expression, so it moved to the parser file ("Expected constant
+      expression"), making parser 10 + 8 ec + 1; (2) four programs the book lists as
+      *valid* shadow an enclosing name in a nested block / for-init / case block
+      (`for_shadow`, `for_nested_shadow`, `case_block`, `switch_decl`) and are rejected
+      by the permanent no-shadowing rule, so they became semantic negatives
+      ("Duplicate variable declaration"), making semantic 4 + 19 ec + 4 and besm6 valid
+      19 + 30 ec. 1 `DISABLED_` run test (`empty_loop_body`): codegen is correct but its
+      ~430M-iteration loop takes ~60s on the Dubna simulator, over the 10s ctest timeout.
+      Duff's device, goto-into-switch, nested/fallthrough switches all run correctly.
 - [ ] **Task 8 — Chapter 9 negative** (Functions): parser (11), semantic
       (declarations 9+4ec, labels 2ec, types 10+6ec).
 - [ ] **Task 8b — Chapter 9 run:** besm6 valid (arguments_in_registers, no_arguments,
