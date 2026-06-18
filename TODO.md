@@ -259,7 +259,35 @@ translation unit.
       (2³⁵+400 → 400, 2³⁴ → 0) that a 41-bit int doesn't perform, so no error is
       raised; candidates for run tests under 10b. `switch_duplicate_cases_2` (switch
       type `long`, `100l` vs `100`) is a genuine "Duplicate case value" negative.
-- [ ] **Task 10b — Chapter 11 run** (Long integers): `backend/besm6/chapter11_tests.cpp`.
+- [x] **Task 10b — Chapter 11 run** (Long integers): delivered
+      `backend/besm6/chapter11_tests.cpp` (15 run + 18 `DISABLED_`). CMake wired;
+      full suite green (1834). No compiler changes needed. The decisive fact:
+      `semantic/target.c` makes `int` and `long`/`long int` the **same** 41-bit
+      signed single word (range ±2⁴⁰ ≈ ±1.1×10¹²); `codegen_sizeof` (abi.h)
+      returns one word for both and an int↔long conversion is a plain COPY.
+      `long long` (two words) is deferred to task #24 and not exercised. Chapter
+      11 is written to prove an x86 compiler distinguishes 32-bit `int` from
+      64-bit `long`, a distinction BESM-6 does not have, so the corpus splits:
+      programs whose every value fits in 41 bits run correctly and match the book
+      (the 15 enabled, e.g. `assign`, `large_constants`, `long_and_int_locals`,
+      `long_args`, `multi_op`, `return_long`, `common_type`, `sign_extend`,
+      `compound_assign_to_long`, `switch_long`, and the `long_args` /
+      `maintain_stack_alignment` / `return_long` library pairs concatenated
+      client-first). The 18 `DISABLED_` fall in two groups, each with a one-line
+      reason: (A) **value exceeds the 41-bit range** — `arithmetic_ops`
+      (complement uses LONG_MAX−1 ≈ 9.2e18), `comparisons`/`logical` (2⁶⁰),
+      `simple`/`increment_long` (±(2⁶³−1)), `static_long` (1.15e18),
+      `type_specifiers` (for-init 2⁴⁰ = LONG_MAX+1 → negative, loop runs 0×),
+      `bitshift` ((40<<40) = 4.4e13), `bitwise_long_op`/`compound_bitwise`
+      (~7.2e16), `compound_bitshift` (l<<=33 = 1.06e14); and (B) **relies on x86
+      32-bit `int` truncation of a `long`** — BESM-6 `int` is 41-bit so the value
+      is not truncated and the self-check fails: `convert_by_assignment`,
+      `convert_function_arguments`, `convert_static_initializer`, `truncate`,
+      `compound_assign_to_int` (c*=10000), `switch_int` (case 2³³/2³⁵−1 → 0/−1),
+      libraries `long_global_var` (return_l_as_int expects (int)2³³ == 0). These
+      are target-semantics gaps, not codegen bugs; unlike ch10's logical-shift
+      case the programs self-check and return an error code on mismatch, so a
+      BESM-6-valued expectation would just encode a meaningless failure code.
 - [ ] **Task 11 — Chapter 12 negative**; **11b — run** (Unsigned; scanner 2 lex).
 - [ ] **Task 12 — Chapter 13 negative**; **12b — run** (Floating-point; scanner 7 lex —
       expect many `DISABLED_`).

@@ -99,6 +99,7 @@ add_executable(besm-tests
     chapter8_tests.cpp
     chapter9_tests.cpp
     chapter10_tests.cpp
+    chapter11_tests.cpp
 )
 target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
 add_dependencies(besm-tests besm-libc)
