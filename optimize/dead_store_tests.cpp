@@ -894,3 +894,89 @@ TEST_F(OptimizerTest, DeadStoreVolatileDoubleWriteBothSurvive)
               "      kind: int\n"
               "      value: 0\n");
 }
+
+// Regression: a live store must not be dropped across a reachable-but-empty
+// block. Two sequential constant-condition if-else chains; const-fold turns each
+// `jz 0` into an unconditional jump, unreachable-elim empties the join blocks,
+// and the dead-store liveness must still thread %1/%2 back through those empty
+// blocks so the else-branch stores (%1=3, %2=5) survive into the final add.
+// Before the fix the %1=3 store was deleted, leaving %1 undefined in %1+%2 (the
+// program returned 5 instead of 8 — see backend Chapter6_MultipleIf for the
+// end-to-end proof, which folds all the way to `return 8`). Variables are "%N"
+// temporaries so the optimizer treats them as function-private (cf. is_temp_name
+// in alias.c), matching how the front end lowers two `int`s.
+//   fn: %1=0; %2=0; jz 0->L0; %1=2; jump L1; L0: %1=3; L1: jz 0->L2; %2=4;
+//       jump L3; L2: %2=5; L3: %3=%1+%2; return %3
+TEST_F(OptimizerTest, DeadStoreLiveAcrossEmptyBlock)
+{
+    Tac_Instruction *seq[] = {
+        make_label("fn"),
+        make_copy(make_const_int(0), make_var("%1")),
+        make_copy(make_const_int(0), make_var("%2")),
+        make_jump_if_zero(make_const_int(0), "L0"),
+        make_copy(make_const_int(2), make_var("%1")),
+        make_jump("L1"),
+        make_label("L0"),
+        make_copy(make_const_int(3), make_var("%1")),
+        make_label("L1"),
+        make_jump_if_zero(make_const_int(0), "L2"),
+        make_copy(make_const_int(4), make_var("%2")),
+        make_jump("L3"),
+        make_label("L2"),
+        make_copy(make_const_int(5), make_var("%2")),
+        make_label("L3"),
+        make_binary(TAC_BINARY_ADD, make_var("%1"), make_var("%2"), make_var("%3")),
+        make_return(make_var("%3")),
+    };
+    int count = (int)(sizeof(seq) / sizeof(seq[0]));
+    for (int i = 0; i + 1 < count; i++)
+        seq[i]->next = seq[i + 1];
+
+    OptFlags flags          = opt_flags_default();
+    Tac_Instruction *result = optimize_function(seq[0], flags, nullptr);
+
+    // Both else-branch stores survive and feed the add (copy-prop stays
+    // conservative across the now-empty join blocks, so it does not fold the
+    // sum here — the end-to-end backend test confirms the eventual `return 8`).
+    EXPECT_EQ(capture_instructions(result),
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 3\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: %1\n"
+              "- instruction:\n"
+              "  kind: copy\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 5\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: %2\n"
+              "- instruction:\n"
+              "  kind: binary\n"
+              "  op: add\n"
+              "  src1:\n"
+              "    kind: var\n"
+              "    name: %1\n"
+              "  src2:\n"
+              "    kind: var\n"
+              "    name: %2\n"
+              "  dst:\n"
+              "    kind: var\n"
+              "    name: %3\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: var\n"
+              "    name: %3\n");
+}

@@ -425,7 +425,14 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *fn)
         OPT_TRACE("[dead-store] fixpoint iteration %d\n", ds_iter);
         for (int i = n - 1; i >= 0; i--) {
             const OptBlock *b = cfg->blocks[i];
-            if (!b->reachable || !b->first)
+            // Skip only truly dead blocks. A *reachable* but empty block (its
+            // instructions were emptied by unreachable-elim's jump/label cleanup,
+            // yet it still carries a successor edge) must participate as an
+            // identity node: with zero instructions the transfer below leaves
+            // in[b] == out[b], threading a successor's live-in back to this
+            // block's predecessors. Skipping it would strand its in-set empty and
+            // let a predecessor wrongly drop a store that is live past the gap.
+            if (!b->reachable)
                 continue;
 
             // Meet: out[b] = union of in[s] for all successors s.

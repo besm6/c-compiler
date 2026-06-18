@@ -80,11 +80,7 @@ TEST_F(CodegenTest, Chapter6_LhAssignment)
         "int main(void) { int x = 10; int y = 0; y = (x = 5) ? x : 2; return (x == 5 && y == 5); }")));
 }
 
-// Optimizer bug: two sequential constant-condition if-else statements drop the
-// first else-branch store (`a = 3`), leaving `%a` undefined in the final `a + b`
-// (copy-prop / dead-store interaction at the CFG join). A single such if-else
-// folds correctly; only the back-to-back pattern miscompiles. Gives 5, want 8.
-TEST_F(CodegenTest, DISABLED_Chapter6_MultipleIf)
+TEST_F(CodegenTest, Chapter6_MultipleIf)
 {
     EXPECT_EQ("8\n", CompileAndRun(WrapMain(
         "int main(void) { int a = 0; int b = 0; if (a) a = 2; else a = 3; "

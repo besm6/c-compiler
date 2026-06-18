@@ -242,6 +242,8 @@ The lattice element for each program point is a set of live variable names.
 
 An instruction is a dead store when its destination variable is not in the live set *after* the instruction.
 
+A subtlety: an earlier pass (unreachable code elimination's jump/label cleanup) can leave a block that is still *reachable* but now has no instructions. The liveness fixpoint must treat such an empty block as an **identity node** — its in-set equals its out-set (the meet of its successors) — so liveness flows through it to its predecessors. Skipping empty blocks would strand their in-sets empty and let a predecessor wrongly drop a store that is live past the gap.
+
 ### Which instruction kinds are removable
 
 Not every instruction with a destination variable can be removed when the destination is dead. Instructions with side effects must be kept.

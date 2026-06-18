@@ -84,11 +84,17 @@ translation unit.
       undefined label (`"Undefined label"`, which also covers `goto` to a variable name
       since labels and variables are separate namespaces) — this lights up the
       `duplicate_labels` / `goto_missing_label` / `goto_variable` ec negatives. The
-      `goto main` / `goto _main` label-vs-function-name programs run fine. 2 `DISABLED_`
-      valid tests: `binary_false_condition` (main falls off the end → indeterminate value
-      in the WrapMain call context, like the ch5 missing-return cases) and `multiple_if`
-      (optimizer drops the first else-store across two back-to-back constant-condition
-      if-else statements → 5 instead of 8; a copy-prop/dead-store join bug, pre-existing).
+      `goto main` / `goto _main` label-vs-function-name programs run fine. 1 `DISABLED_`
+      valid test: `binary_false_condition` (main falls off the end → indeterminate value
+      in the WrapMain call context, like the ch5 missing-return cases). `multiple_if`
+      initially failed (two back-to-back constant-condition if-else statements returned 5
+      instead of 8); this exposed a dead-store-elimination miscompile — the backward
+      liveness fixpoint skipped reachable-but-empty join blocks (left empty by
+      unreachable-elim's jump/label cleanup), so a predecessor dropped a live else-branch
+      store. Fixed in [optimize/dead_store.c](optimize/dead_store.c) by letting reachable
+      empty blocks participate as identity nodes; `multiple_if` is enabled, with a TAC-level
+      regression `DeadStoreLiveAcrossEmptyBlock` in
+      [optimize/dead_store_tests.cpp](optimize/dead_store_tests.cpp).
 - [ ] **Task 6 — Chapter 7** (Compound stmts): parser (4), semantic (4 + 3 ec),
       besm6 valid (11 + 5 ec).
 - [ ] **Task 7 — Chapter 8** (Loops): parser (10 + 8 ec), semantic (4 + 20 ec),
