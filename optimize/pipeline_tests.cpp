@@ -2,10 +2,10 @@
 
 #include <cstdarg>
 #include <cstdio>
-#include <cstring>
-#include <string>
 
 extern "C" {
+// The single definition of fatal_error for the optimizer-tests binary; the
+// shared PipelineTest fixture (and chapter19_tests.cpp) link against it.
 void _Noreturn fatal_error(const char *message, ...)
 {
     fprintf(stderr, "Fatal error: ");
@@ -16,90 +16,9 @@ void _Noreturn fatal_error(const char *message, ...)
     fprintf(stderr, "\n");
     exit(1);
 }
-
-#include "optimize.h"
-#include "parser.h"
-#include "semantic.h"
-#include "structtab.h"
-#include "symtab.h"
-#include "tac.h"
-#include "translate.h"
-#include "typetab.h"
-#include "xalloc.h"
 }
 
-// ---------------------------------------------------------------------------
-// Test fixture: compile C source, optimize the function body, return YAML.
-// ---------------------------------------------------------------------------
-
-class PipelineTest : public ::testing::Test {
-    FILE *input_file{};
-
-protected:
-    Program *program{};
-
-    void SetUp() override
-    {
-        input_file = tmpfile();
-        ASSERT_NE(nullptr, input_file);
-    }
-
-    void TearDown() override
-    {
-        fclose(input_file);
-        if (program)
-            free_program(program);
-        symtab_destroy();
-        structtab_destroy();
-        typetab_destroy();
-        nametab_destroy();
-        xreport_lost_memory();
-        EXPECT_EQ(xtotal_allocated_size(), 0);
-        xfree_all();
-    }
-
-    static std::string capture_instructions(const Tac_Instruction *body)
-    {
-        FILE *f = tmpfile();
-        EXPECT_NE(f, nullptr);
-        tac_export_yaml_instruction_list(f, body, 0);
-        long len = ftell(f);
-        rewind(f);
-        std::string yaml(static_cast<size_t>(len), '\0');
-        EXPECT_TRUE(fread(&yaml[0], 1, static_cast<size_t>(len), f));
-        fclose(f);
-        return yaml;
-    }
-
-    std::string OptimizeYaml(const char *src, OptFlags flags = opt_flags_default())
-    {
-        fwrite(src, 1, strlen(src), input_file);
-        rewind(input_file);
-        program = parse(input_file);
-        EXPECT_NE(nullptr, program);
-
-        std::string result;
-        ExternalDecl *decls = program->decls;
-        program->decls      = nullptr;
-
-        while (decls) {
-            ExternalDecl *next = decls->next;
-            decls->next        = nullptr;
-            typecheck_decl(decls);
-            Tac_TopLevel *tac = translate(decls, flags);
-            free_external_decl(decls);
-            if (tac) {
-                for (const Tac_TopLevel *t = tac; t; t = t->next) {
-                    if (t->kind == TAC_TOPLEVEL_FUNCTION && t->u.function.body)
-                        result += capture_instructions(t->u.function.body);
-                }
-                tac_free_toplevel(tac);
-            }
-            decls = next;
-        }
-        return result;
-    }
-};
+#include "pipeline_test_fixture.h"
 
 // ---------------------------------------------------------------------------
 // Constant folding

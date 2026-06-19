@@ -734,9 +734,26 @@ translation unit.
       char-member access bug.  Several `struct_copy`/`scalar_member_access` programs would
       light up once the packed-char-member and local char-array-string-init bugs are
       fixed; static-local storage is deferred to a separate task.
-- [ ] **Task 18 — Chapter 19** (optimize): `optimize/chapter19_tests.cpp` for
+- [x] **Task 18 — Chapter 19** (optimize): **delivered.** The optimization-category
+      tests live in `optimize/chapter19_tests.cpp` — 133 book programs across
       constant_folding / copy_propagation / dead_store_elimination /
-      unreachable_code_elimination (incl. `dont_*` negatives), plus `whole_pipeline` run.  Tests are in local tmp/tests/chapter_19/.
+      unreachable_code_elimination (incl. `dont_propagate`/`dont_elim` negatives),
+      each compiled through the full typecheck+translate+optimize pipeline and pinned
+      against the optimized TAC YAML (`PipelineTest::OptimizeYaml`, extracted into the
+      shared `optimize/pipeline_test_fixture.h`). 128 enabled + **5 `DISABLED_`** (4 NaN
+      constant-fold loops in the optimizer; 1 static-local name collision under the
+      no-shadowing rule). 13 programs whose optimized TAC is very large (e.g. copy
+      propagation through nested loops) use a compact instruction-kind histogram
+      assertion (`PipelineTest::KindHistogram`) instead of a multi-thousand-line exact
+      golden, keeping the file ~11.8k lines. The 34 `whole_pipeline` programs are real BESM-6 run tests in
+      `backend/besm6/chapter19_tests.cpp` (`WrapMain`+`CompileAndRun`, optimizer on) —
+      19 enabled + **15 `DISABLED_`** (doubles/IEEE edge cases, 64-bit long/ulong beyond
+      the 41-bit range, 32-bit unsigned wraparound, libc copysign, NaN fold loops, and
+      char-constant truncation not folded on BESM-6). Per the book convention the
+      `target*` functions are the inspection points, so a program's self-checking `main`
+      is dropped from the TAC tests where `target*` exist (its runtime check is the
+      whole_pipeline run); `putchar` is rewritten to libc's `putch`. Full suite green
+      (2493).
 - [ ] **Task 19 — Chapter 20** (register allocation): besm6 run tests (all_types,
       int_only, with/without coalescing, helper_libs). Tests are in local tmp/tests/chapter_20/.
 
