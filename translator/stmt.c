@@ -67,7 +67,12 @@ void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const
             tac_free_val(src);
             return;
         }
-        Tac_Instruction *in         = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
+        // A char/signed char/unsigned char leaf occupies a single packed byte;
+        // its element offset is a byte offset, so it must use the byte-store kind
+        // (the word-store kind rejects a sub-word offset).
+        bool byte_leaf              = init->type && get_size(init->type) == 1;
+        Tac_Instruction *in         = tac_new_instruction(
+            byte_leaf ? TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET : TAC_INSTRUCTION_COPY_TO_OFFSET);
         in->u.copy_to_offset.src    = src;
         in->u.copy_to_offset.dst    = xstrdup(var_name);
         in->u.copy_to_offset.offset = base_offset;

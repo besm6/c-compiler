@@ -577,9 +577,51 @@ translation unit.
       size_arrays` is rejected one step earlier than the book's array-size mismatch — we
       reject `&"x"` as "Cannot take address of non-lvalue". `15b — run` (the 54 valid
       Chapter 16 programs) remains.
-- [ ] **15b — Chapter 16 run** (Characters/strings): `backend/besm6/chapter16_tests.cpp`
-      for the valid programs (char_constants / chars / strings_as_initializers /
-      strings_as_lvalues / extra_credit / libraries). Tests are in local tmp/tests/chapter_16/.
+- [x] **15b — Chapter 16 run** (Characters/strings): delivered
+      `backend/besm6/chapter16_tests.cpp` — 51 tests (20 run + 31 `DISABLED_`) covering all
+      54 valid Chapter 16 programs (the 2 `data_on_page_boundary_*.s` files are assembly,
+      not C; `libraries` merged client-first). CMake wired; full suite green (2074). Four
+      genuine compiler bugs surfaced and were fixed (char/string init is core C, not
+      x86-specific): (1) **zero-init of small integer types** — `make_zero_init`
+      ([semantic/initializers.c](semantic/initializers.c)) only handled `char`/`int`/long
+      kinds, so an unspecified `signed char`/`unsigned char` array element hit
+      `fatal_error("Unsupported type for zero init")`; added the `signed/unsigned char`,
+      `_Bool`, `short`, `unsigned short`, `unsigned int` cases. (2) **auto char-array
+      element store** — `gen_compound_init` ([translator/stmt.c](translator/stmt.c)) always
+      emitted the word-kind `COPY_TO_OFFSET`, but a char element sits at a sub-word byte
+      offset; it now picks `COPY_BYTE_TO_OFFSET` for size-1 leaves. (3) **static char-array
+      data layout** — a `char arr[N] = {...}` global emitted one 48-bit word per byte
+      ([backend/besm6/static.c](backend/besm6/static.c)), but char arrays pack 6 bytes per
+      word, so byte access read the wrong byte; added `char_array_log_items` that flattens
+      the whole init list (byte values, zero runs, embedded strings — KOI-7 byte count, not
+      the UTF-8 type size) into packed `,log,` words with trailing zero words coalesced into
+      a `,bss,`. (4) **signed `~` corrupted the INT-format word** — complement flipped all
+      48 bits including the exponent field, so `~1` was a non-integer instead of `-2`; split
+      into `TAC_UNARY_COMPLEMENT` (signed, flip the 41 value bits via `aex =37777777777777`,
+      preserving the exponent → canonical `-2`) and `TAC_UNARY_COMPLEMENT_UNSIGNED` (exact
+      48-bit flip), routed by operand signedness in [translator/expr.c](translator/expr.c).
+      The 31 `DISABLED_` fall in eight groups, each one-line-documented: **no static-local
+      storage** (9: `explicit_casts`, `convert_by_assignment`, `terminating_null_bytes`,
+      `partial_initialize_via_string`, `incr_decr_chars`, `char_consts_as_cases`,
+      `compound_assign_chars`, `compound_bitwise_ops_chars`, `bitwise_ops_character_constants`);
+      **string literals are KOI-7 (lowercase Latin folds to uppercase, but char constants
+      stay ASCII)** so a lowercase byte read from a literal differs from its char-constant
+      value (5: `strings_as_initializers/simple`, `strings_as_lvalues/simple`,
+      `pointer_operations`, `cast_string_pointer`, `strings_in_function_calls`);
+      **multi-dimensional char array** needs a sub-word row pointer the backend's pointer
+      model can't represent (3: `literals_and_compound_initializers`,
+      `adjacent_strings_in_initializer`, `transfer_by_eightbyte`); **prints lowercase text →
+      renders as Cyrillic** (5: `write_to_array`, `adjacent_strings`, `standard_library_calls`,
+      `string_special_characters`, `addr_of_string`); **value exceeds BESM-6 range / relies on
+      32-bit unsigned width** (3: `static_initializers`, `common_type`, `bitwise_ops_chars`);
+      **local char-array string init** copies the string-constant pointer instead of the
+      bytes (1: `array_init_special_chars`); **negative-operand `>>` is logical/impl-defined**
+      (1: `bitshift_chars`); **x86 byte-layout / page boundary** (2:
+      `access_through_char_pointer`, `push_arg_on_page_boundary`); **16-byte alignment
+      assumption** (1: `test_alignment`); plus **no identifier shadowing** (1:
+      `char_constant_operations`). Like chapters 11–15 the programs self-check and return an
+      error code on mismatch, so a BESM-6-valued expectation would encode a meaningless
+      failure code — `DISABLED_` is the honest call.
 - [ ] **Task 16 — Chapter 17 negative**; **16b — run** (void / sizeof / dynamic alloc). Tests are in local tmp/tests/chapter_17/.
 - [ ] **Task 17 — Chapter 18 negative**; **17b — run** (Structures/unions — largest set;
       expect `DISABLED_` for struct-by-value backend gaps). Tests are in local tmp/tests/chapter_18/.

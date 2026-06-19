@@ -376,7 +376,19 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
             emit_atx(block, tail, rd, od);
             break;
         case TAC_UNARY_COMPLEMENT: {
-            // Same sequence for int and unsigned: flip all 48 bits.
+            // Signed complement: flip only the 41 value bits (sign + 40-bit mantissa),
+            // leaving the INT-format exponent field intact, so ~x stays a canonical
+            // signed integer (~1 == -2).  Flipping the exponent too would scramble the
+            // encoding into a non-integer.
+            emit_xta_val(block, tail, f, src);
+            Besm_Instr *aex = emit(block, tail, BESM_LOG_AEX);
+            aex->name       = xstrdup("=37777777777777"); // 41 one-bits (value field), octal
+            emit_atx(block, tail, rd, od);
+            break;
+        }
+        case TAC_UNARY_COMPLEMENT_UNSIGNED: {
+            // Unsigned complement: the operand is a plain 48-bit integer word, so flip
+            // all 48 bits for the exact modular complement.
             emit_xta_val(block, tail, f, src);
             Besm_Instr *aex = emit(block, tail, BESM_LOG_AEX);
             aex->name       = xstrdup("=7777777777777777"); // 48 one-bits, octal

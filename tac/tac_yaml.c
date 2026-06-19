@@ -536,6 +536,9 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         case TAC_UNARY_COMPLEMENT:
             fprintf(fd, "complement\n");
             break;
+        case TAC_UNARY_COMPLEMENT_UNSIGNED:
+            fprintf(fd, "complement_unsigned\n");
+            break;
         case TAC_UNARY_NEGATE:
             fprintf(fd, "negate\n");
             break;

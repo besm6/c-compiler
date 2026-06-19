@@ -115,7 +115,10 @@ static Tac_Val *fold_unary_const(Tac_UnaryOperator op, const Tac_Const *src)
         }
         break;
     }
-    case TAC_UNARY_COMPLEMENT: {
+    case TAC_UNARY_COMPLEMENT:
+    case TAC_UNARY_COMPLEMENT_UNSIGNED: {
+        // Folded in the constant's own (signed or unsigned) type, so a single
+        // body handles both the signed and unsigned complement operators.
         rc = tac_new_const(src->kind);
         switch (src->kind) {
         case TAC_CONST_INT:

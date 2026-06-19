@@ -110,10 +110,18 @@ static Initializer *make_zero_init(Type *t)
     init->u.expr->type = clone_type(t, __func__, __FILE__, __LINE__);
     switch (t->kind) {
     case TYPE_CHAR:
+    case TYPE_SCHAR:
+    case TYPE_UCHAR:
         init->u.expr->u.literal = new_literal(LITERAL_CHAR);
         break;
+    case TYPE_BOOL:
+    case TYPE_SHORT:
+    case TYPE_USHORT:
     case TYPE_INT:
         init->u.expr->u.literal = new_literal(LITERAL_INT);
+        break;
+    case TYPE_UINT:
+        init->u.expr->u.literal = new_literal(LITERAL_UINT);
         break;
     case TYPE_LONG:
         init->u.expr->u.literal = new_literal(LITERAL_LONG);

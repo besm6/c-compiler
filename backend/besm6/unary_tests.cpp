@@ -109,8 +109,10 @@ TEST_F(CodegenTest, NegateDoubleMadlen)
               output);
 }
 
-// Unary complement (~), part of task #6.  The sequence is uniform for int and
-// unsigned: load, aex =7777777777777777 (flip all 48 bits), store.
+// Unary complement (~), part of task #6.  Unsigned ~ flips all 48 bits
+// (aex =7777777777777777); signed ~ flips only the 41 value bits
+// (aex =37777777777777), preserving the INT-format exponent so the result stays a
+// canonical signed integer (~5 == -6).
 
 // Unsigned complement: ~5u is the exact 48-bit complement, printed in octal.
 TEST_F(CodegenTest, ComplementUnsigned)
@@ -125,8 +127,8 @@ TEST_F(CodegenTest, ComplementUnsigned)
     EXPECT_EQ("7777777777777772\n", result);
 }
 
-// Signed-int complement: flipping all 48 bits also sets the exponent field, so the
-// result word is non-canonical (accepted UB).  Print the raw word in octal.
+// Signed-int complement: flipping only the 41 value bits keeps the exponent field,
+// so ~5 is the canonical integer -6 (octal value field 37777777777772).
 TEST_F(CodegenTest, ComplementSignedInt)
 {
     std::string result = CompileAndRun(R"(
@@ -136,11 +138,10 @@ TEST_F(CodegenTest, ComplementSignedInt)
             printf("%o\n", ~a);
         }
     )");
-    EXPECT_EQ("7777777777777772\n", result);
+    EXPECT_EQ("37777777777772\n", result);
 }
 
-// Madlen shape of complement: load, aex against the all-ones literal, store.  The
-// path is type-independent, so this also covers int.
+// Madlen shape of unsigned complement: load, aex against the all-ones literal, store.
 TEST_F(CodegenTest, ComplementMadlen)
 {
     std::string output = CompileToMadlen("extern unsigned g; void foo(unsigned a) { g = ~a; }");

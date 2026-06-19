@@ -27,6 +27,8 @@ static const char *unary_op_name(Tac_UnaryOperator op)
     switch (op) {
     case TAC_UNARY_COMPLEMENT:
         return "complement";
+    case TAC_UNARY_COMPLEMENT_UNSIGNED:
+        return "complement_unsigned";
     case TAC_UNARY_NEGATE:
         return "negate";
     case TAC_UNARY_NOT:

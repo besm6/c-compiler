@@ -115,7 +115,11 @@ static Tac_UnaryOperator map_unary_op(UnaryOp op, const Type *operand_type)
 {
     switch (op) {
     case UNARY_BIT_NOT:
-        return TAC_UNARY_COMPLEMENT;
+        // Signed ~ flips the value bits but must preserve the INT-format exponent
+        // (the result is still a canonical signed integer, so ~1 == -2).  Unsigned
+        // ~ is the exact 48-bit complement of the plain-integer word.
+        return is_unsigned_type(operand_type) ? TAC_UNARY_COMPLEMENT_UNSIGNED
+                                              : TAC_UNARY_COMPLEMENT;
     case UNARY_NEG:
         if (is_floating_type(operand_type))
             return TAC_UNARY_NEGATE_DOUBLE;

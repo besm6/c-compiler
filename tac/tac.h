@@ -129,8 +129,9 @@ typedef enum {
     TAC_UNARY_COMPLEMENT,
     TAC_UNARY_NEGATE,
     TAC_UNARY_NOT,
-    TAC_UNARY_NEGATE_UNSIGNED, // negate, 48-bit modular (unsigned operand)
-    TAC_UNARY_NEGATE_DOUBLE    // negate, floating-point operand
+    TAC_UNARY_NEGATE_UNSIGNED,    // negate, 48-bit modular (unsigned operand)
+    TAC_UNARY_NEGATE_DOUBLE,      // negate, floating-point operand
+    TAC_UNARY_COMPLEMENT_UNSIGNED // complement, full 48-bit flip (unsigned operand)
 } Tac_UnaryOperator;
 
 typedef enum {

@@ -10,6 +10,110 @@
 #include "utf8_to_koi7.h"
 #include "xalloc.h"
 
+// True for an array whose innermost element is a character type — its bytes are
+// packed 6-per-word (see codegen_sizeof), so its static init list must be packed
+// the same way rather than emitted one word per element.
+static bool is_char_array(const Tac_Type *t)
+{
+    if (t->kind != TAC_TYPE_ARRAY)
+        return false;
+    const Tac_Type *e = t->u.array.elem_type;
+    while (e->kind == TAC_TYPE_ARRAY)
+        e = e->u.array.elem_type;
+    return e->kind == TAC_TYPE_CHAR || e->kind == TAC_TYPE_SCHAR || e->kind == TAC_TYPE_UCHAR;
+}
+
+// Byte count an init item contributes to a packed character array.  A string's
+// KOI-7 length can be shorter than its nominal (UTF-8) source length, so the byte
+// count is taken from the converted data rather than from the array's type size.
+static size_t char_init_item_bytes(const Tac_StaticInit *init)
+{
+    switch (init->kind) {
+    case TAC_STATIC_INIT_I8:
+    case TAC_STATIC_INIT_U8:
+        return 1;
+    case TAC_STATIC_INIT_ZERO:
+        return (size_t)init->u.zero_bytes;
+    case TAC_STATIC_INIT_STRING: {
+        char *koi7 = xalloc(strlen(init->u.string.val) + 1, __func__, __FILE__, __LINE__);
+        utf8_to_koi7(init->u.string.val, koi7);
+        size_t nb = strlen(koi7) + (init->u.string.null_terminated ? 1 : 0);
+        xfree(koi7);
+        return nb;
+    }
+    default:
+        fatal_error("unexpected static init kind %d in char array", (int)init->kind);
+        return 0;
+    }
+}
+
+// Flatten a character array's static init list (byte values, zero byte-runs, and
+// embedded string literals) into one byte buffer packed 6 bytes per word.  Data
+// words are emitted as BESM_DATA_LOG; complete all-zero words at the tail are
+// coalesced into a single BESM_DATA_BSS (matching the convention for zero padding).
+static Besm_Instr *char_array_log_items(const Tac_StaticInit *init)
+{
+    size_t total = 0;
+    for (const Tac_StaticInit *it = init; it; it = it->next)
+        total += char_init_item_bytes(it);
+    if (total == 0)
+        total = 1;
+
+    unsigned char *buf = xalloc(total, __func__, __FILE__, __LINE__);
+    memset(buf, 0, total);
+    // `data_end` is the byte offset where the trailing run of explicit ZERO padding
+    // begins.  Bytes from string/value items (even zero ones, like a string's null
+    // terminator) are emitted as data words; only whole words past `data_end` become
+    // a single BSS reservation.
+    size_t pos = 0, data_end = 0;
+    for (const Tac_StaticInit *it = init; it; it = it->next) {
+        if (it->kind == TAC_STATIC_INIT_STRING) {
+            char *koi7 = xalloc(strlen(it->u.string.val) + 1, __func__, __FILE__, __LINE__);
+            utf8_to_koi7(it->u.string.val, koi7);
+            size_t nb = strlen(koi7) + (it->u.string.null_terminated ? 1 : 0);
+            for (size_t i = 0; i < nb && pos + i < total; i++)
+                buf[pos + i] = (unsigned char)koi7[i];
+            pos += nb;
+            data_end = pos;
+            xfree(koi7);
+        } else if (it->kind == TAC_STATIC_INIT_I8) {
+            if (pos < total)
+                buf[pos] = (uint8_t)it->u.char_val;
+            pos++;
+            data_end = pos;
+        } else if (it->kind == TAC_STATIC_INIT_U8) {
+            if (pos < total)
+                buf[pos] = it->u.uchar_val;
+            pos++;
+            data_end = pos;
+        } else { // TAC_STATIC_INIT_ZERO
+            pos += (size_t)it->u.zero_bytes; // buffer already zeroed; not counted as data
+        }
+    }
+
+    size_t n_words   = (total + 5) / 6;
+    size_t log_words = (data_end + 5) / 6; // words covering the string/value data
+
+    Besm_Instr *head = NULL, **tail = &head;
+    for (size_t w = 0; w < log_words; w++) {
+        unsigned long long word = 0;
+        for (int b = 0; b < 6; b++)
+            word = (word << 8) | buf[w * 6 + b];
+        Besm_Instr *si = besm_new_instr(BESM_DATA_LOG);
+        si->log_val    = word;
+        *tail          = si;
+        tail           = &si->next;
+    }
+    long zero_words = (long)n_words - (long)log_words;
+    if (zero_words > 0) {
+        Besm_Instr *bss = besm_new_instr(BESM_DATA_BSS);
+        bss->addr       = (int)zero_words;
+        *tail           = bss;
+    }
+    xfree(buf);
+    return head;
+}
+
 static unsigned long long static_init_log_val(const Tac_StaticInit *init)
 {
     switch (init->kind) {
@@ -53,6 +157,17 @@ void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl
         section          = besm_new_data_section(BESM_SK_DATA);
         section->name    = xstrdup(name);
         module->sections = section;
+
+        // A character array packs 6 bytes per word, so its whole init list
+        // (byte values, zero runs, embedded strings) is flattened into a packed
+        // byte stream rather than emitted one word per element.
+        if (is_char_array(tl->u.static_variable.type)) {
+            section->items = char_array_log_items(init);
+            besm_fold_string_constants(module, program);
+            emit_madlen_module(out, module);
+            besm_free_module(module);
+            return;
+        }
 
         Besm_Instr **tail = &section->items;
         for (; init; init = init->next) {

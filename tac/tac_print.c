@@ -354,11 +354,12 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
         break;
     case TAC_INSTRUCTION_UNARY:
         fprintf(fd, "unary %s\n",
-                instr->u.unary.op == TAC_UNARY_COMPLEMENT        ? "complement"
-                : instr->u.unary.op == TAC_UNARY_NEGATE          ? "negate"
-                : instr->u.unary.op == TAC_UNARY_NEGATE_UNSIGNED ? "negate_unsigned"
-                : instr->u.unary.op == TAC_UNARY_NEGATE_DOUBLE   ? "negate_double"
-                                                                 : "not");
+                instr->u.unary.op == TAC_UNARY_COMPLEMENT          ? "complement"
+                : instr->u.unary.op == TAC_UNARY_COMPLEMENT_UNSIGNED ? "complement_unsigned"
+                : instr->u.unary.op == TAC_UNARY_NEGATE            ? "negate"
+                : instr->u.unary.op == TAC_UNARY_NEGATE_UNSIGNED   ? "negate_unsigned"
+                : instr->u.unary.op == TAC_UNARY_NEGATE_DOUBLE     ? "negate_double"
+                                                                   : "not");
         break;
     case TAC_INSTRUCTION_BINARY:
         fprintf(fd, "binary %s\n",
