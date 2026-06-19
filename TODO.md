@@ -754,8 +754,30 @@ translation unit.
       is dropped from the TAC tests where `target*` exist (its runtime check is the
       whole_pipeline run); `putchar` is rewritten to libc's `putch`. Full suite green
       (2493).
-- [ ] **Task 19 — Chapter 20** (register allocation): besm6 run tests (all_types,
-      int_only, with/without coalescing, helper_libs). Tests are in local tmp/tests/chapter_20/.
+- [x] **Task 19 — Chapter 20** (register allocation): **delivered.** Chapter 20 of the
+      book implements the x86-64 register allocator (interference graphs, spilling,
+      Briggs/George coalescing); the BESM-6 backend has no register allocator, so — as with
+      chapters 17-19 — these programs exercise no BESM-6 feature and the value is regression
+      coverage that arithmetic-heavy, many-variable, many-argument programs still compile and
+      run correctly. All **66 standalone programs** (`int_only/` 34 + `all_types/` 32; the
+      `helper_libs/` `util.c` check_*/id helpers and per-test `*_lib.c` impls are inlined,
+      the x86 `.s` wrappers dropped) are transcribed in `backend/besm6/chapter20_tests.cpp`
+      as `CompileAndRun(WrapMain(...))` run tests. The book's register-clobbering x86 wrapper
+      is replaced by a portable `main` that calls the entry point with the wrapper's fixed
+      argument values (ints 1-6, doubles 1.0-8.0) and keeps the programs' behavioral
+      self-checks. **57 enabled + 9 `DISABLED_`**, each one-line-noted: struct-by-value
+      param/return ABI (`mixed_type_arg_registers`, `mixed_type_funcall_generates_args`,
+      `return_all_int_struct`, `return_double_struct`); block-scope `static` storage
+      (`cdq_interference`, and `mixed_type_stack_alignment` which also needs char-array
+      string init + x86 alignment asm); 64/32-bit width-specific conversions beyond the
+      41-bit integer range (`type_conversion_interference`, `dont_coalesce_movzx`'s
+      `(unsigned int)-1 == 4294967295u`); and `(long)ptr % 8` assuming x86 byte addresses
+      (`ptr_rax_live_at_exit`). Two fixes during enabling: the inlined `check_12_ints`/
+      `check_12_longs`/`check_14_doubles`/`check_12_vals` helpers had a loop index `i`/`n`
+      shadowing a parameter of the same name (renamed under the no-shadowing rule), and
+      `briggs_xmm_k_value`'s result globals were shortened to `gr0..gr14` because the book's
+      `glob_four`/`glob_fourteen` collide under the BESM-6 8-character identifier truncation
+      (`glob_fou`). Full suite green (2548).
 
 ## Verification
 
