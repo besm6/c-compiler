@@ -2,9 +2,12 @@
 
 This article explains, from the ground up, how we test our C compiler using the example
 programs from Nora Sandler's book *Writing a C Compiler* (No Starch Press, 2024). It is
-written for a reader who is new to compilers **and** new to automated testing. By the end
-you should understand what test-driven development is, how the book's tests are organized,
-and — most importantly — *why each test belongs to a particular part of our compiler*.
+written for a reader who is new to compilers **and** new to automated testing. The first
+half is a gentle on-ramp — what testing is, how the book's tests are organized, and why
+each test belongs to a particular part of our compiler. The second half is the part you
+*cannot* get from the book itself: what we actually learned carrying all 20 chapters of its
+test corpus onto a 1960s Soviet mainframe, where the clean textbook model bends in
+interesting ways.
 
 If you have not yet read the project overview, skim the [README](../README.md) and
 [Technical Reference](Technical_Reference.md) first. A friendly companion to this article
@@ -33,12 +36,14 @@ tests/
 Each chapter adds a new slice of the C language. Chapter 1 only knows how to return a
 constant; chapter 14 understands pointers; chapter 18 understands `struct`. This gradual
 growth is the key to the whole approach: **we never try to test everything at once.** We
-take one chapter, turn its programs into tests, make them pass, and move on. Our running
-checklist lives in [TODO.md](../TODO.md).
+take one chapter, turn its programs into tests, make them pass, and move on.
 
 These programs are *source material*. We do not run them straight from the upstream
 sources; instead we translate each one into a proper unit test in our own test framework,
-which is what the rest of this article is about.
+which is what the rest of this article is about. We imported the corpus **one chapter at a
+time, in order** — chapter 1 first, chapter 20 last — and by the end the suite had grown
+from **1,327 tests** (after chapter 1) to **2,548 tests**. The per-chapter history lives in
+git, not in a separate checklist.
 
 ## 2. What is test-driven development?
 
@@ -62,10 +67,10 @@ Two ideas make this powerful for a compiler:
   says, unambiguously, "this program must produce the output `2`." Nobody has to remember
   it; the test remembers.
 - **Tests catch regressions.** A *regression* is when a change quietly breaks something
-  that used to work. With hundreds of tests, the moment you break chapter 3 while editing
+  that used to work. With thousands of tests, the moment you break chapter 3 while editing
   chapter 9, a red test points at the damage. We saw this for real while writing chapter 1:
   improving the scanner's error messages touched shared code, and re-running the whole
-  suite (1,327 tests) confirmed nothing else broke.
+  suite confirmed nothing else broke.
 
 We are not writing the book's compiler from scratch — ours already exists — so we are not
 doing pure "test first" TDD. But we are doing the part that matters most: building a dense
@@ -101,9 +106,10 @@ the same input produces:
 <input>:0: lexical error: invalid character '@'
 ```
 
-This is why **negative tests are a forcing function for good diagnostics.** In our tree we
-mark them with a `_Neg` suffix in the test name, so positive and negative tests are easy to
-tell apart at a glance.
+This is why **negative tests are a forcing function for good diagnostics.** That is not just
+a slogan — §10 lists the concrete checks the import added because a negative test demanded
+them. In our tree we mark negative tests with a `_Neg` suffix in the test name, so positive
+and negative tests are easy to tell apart at a glance.
 
 ## 4. A quick tour of our compiler
 
@@ -142,7 +148,7 @@ Each phase has a single, well-defined job:
 The full diagram and phase status table live in [CLAUDE.md](../CLAUDE.md) and the
 [Technical Reference](Technical_Reference.md).
 
-## 5. How the book organizes its tests
+## 5. The directory is a hypothesis, not a verdict
 
 Inside each chapter, the book sorts programs into subdirectories *by what is wrong with
 them* (or, for valid programs, that nothing is wrong). Chapter 1 looks like this:
@@ -171,30 +177,53 @@ Later chapters add more categories as the language grows richer:
 - `extra_credit` — optional features (compound assignment, `goto`, `switch`, unions). We
   import these right alongside the core tests.
 
-This sorting is not just tidiness. **The directory name is a hypothesis about which phase
-should reject the program.** That observation is the heart of the next section.
+The directory name is a **hypothesis** about which phase should reject the program, and it
+rests on a real principle: a broken program fails at the *earliest* phase that can notice
+the problem. Walk through three broken programs and watch where each one stops:
+
+- `return 1foo;` — The very first phase, the **scanner**, tries to read `1foo` as a token.
+  A number may not be glued to letters, so the scanner gives up immediately. → **scanner**
+- `return int;` — The scanner is happy: `return`, `int`, and `;` are all good tokens. But
+  the **parser** expects an *expression* after `return`, and `int` is a keyword. → **parser**
+- `int *p = 1;` — The scanner and parser are both happy; this is a grammatically correct
+  declaration. Only when the **semantic** phase checks *types* does it notice you are
+  putting the integer `1` into a pointer variable. → **semantic**
+
+So far, so textbook. Here is the twist that the chapter-1 view hides: **the hypothesis is
+about the book's compiler, and ours is not built the same way.** The *earliest phase that
+notices* depends on how permissive each phase is — and our parser is deliberately more
+permissive than the book's, while our type checker is one unified pass. So programs
+**reclassify** across phases all the time. A few real examples from the import:
+
+- **Parser → semantic.** The book treats `2 (- 3)` (`malformed_paren`, ch3) as a *parse*
+  error. Our parser accepts a call on *any* postfix expression, so `2(…)` parses fine and
+  the **type checker** is what rejects it (you can't call an `int`). The same thing happens
+  to `call_non_identifier` and `function_returning_function` (ch9),
+  `abstract_function_declarator` (ch14), and others: the grammar lets them through and
+  meaning-checking stops them.
+- **Semantic → parser.** A `case` label whose value isn't constant (`non_constant_case`,
+  ch8; `static_var_case`, ch10) is a *semantic* error in the book. For us a case label is
+  parsed as a *constant expression*, so the **parser** rejects it ("Expected constant
+  expression") before semantics ever runs. `nested_function_definition` (ch9) and
+  `cast_to_array_type_3` (ch15, `long(([2])[3])` → "Empty type specifier list") move the
+  same way.
+- **Valid → negative.** This is the most surprising one. We made a permanent design
+  decision: **no identifier shadowing** — an inner block may not redeclare a name visible
+  in an enclosing scope (see the design notes in the
+  [Technical Reference](Technical_Reference.md)). The book, following standard C, treats
+  shadowing as perfectly *valid*. So a whole class of the book's `valid/` programs become
+  **semantic negatives** for us, dying with "Duplicate variable declaration." In chapter 7
+  (which is *about* shadowing) **10 of 16** "valid" programs flip this way; it recurs in
+  chapters 8, 9, 10, 18, and 20.
+
+The practical upshot when importing a chapter: the book's directory tells you *where to look
+first*, not where the test will end up. Part of the work is running each program through
+`parse`/`lower` and seeing which phase actually speaks — then filing the test next to that
+phase.
 
 ## 6. Matching tests to compiler phases
 
-Here is the central idea of this whole effort:
-
-> The *kind* of mistake in a program tells you *which phase* of the compiler is responsible
-> for catching it.
-
-A broken program fails at the earliest phase that can notice the problem. Walk through
-three broken programs and watch where each one stops:
-
-- `return 1foo;` — The very first phase, the **scanner**, tries to read `1foo` as a token.
-  A number may not be glued to letters, so the scanner gives up immediately. This is a
-  *lexical* error. → **scanner**
-- `return int;` — The scanner is happy: `return`, `int`, and `;` are all perfectly good
-  tokens. But the **parser** expects an *expression* after `return`, and `int` is a
-  keyword, not an expression. The grammar is violated. → **parser**
-- `int *p = 1;` — The scanner and parser are both happy; this is a grammatically correct
-  declaration. Only when the **semantic** phase checks *types* does it notice you are
-  trying to put the integer `1` into a pointer variable. → **semantic**
-
-So each test directory maps onto a component of our compiler:
+With that caveat in hand, the mapping is still the backbone of the whole effort:
 
 | Book directory | Compiler phase | Our test file | What the test asserts |
 |---|---|---|---|
@@ -207,7 +236,8 @@ So each test directory maps onto a component of our compiler:
 This is a beautiful correspondence: **our source tree already has one directory per phase**
 (`scanner/`, `parser/`, `semantic/`, `translator/`, `optimize/`, `backend/besm6/`), and the
 book's tests already sort themselves into those same buckets. Importing a chapter is mostly
-a matter of carrying each program to its rightful home.
+a matter of carrying each program to its rightful home — adjusted, per §5, for the cases
+where *our* compiler catches a thing in a different phase than the book does.
 
 ## 7. How we run the positive tests
 
@@ -238,7 +268,154 @@ simply checks that the output is `"2\n"`. This one trick works for the whole cor
 programs whose return value is the point, and the book's "self-checking" programs (which
 return `0` on success and a nonzero code on the first failed check) alike.
 
-## 8. Anatomy of a test in our framework
+Two details make the comparison honest:
+
+- **Where the expected value comes from.** We do not hand-type the expected number. We take
+  the *same wrapped source*, compile it with the host `cc`, and use its stdout as the
+  expectation. Comparing printed output (not an exit code) sidesteps the `mod 256`
+  truncation a shell exit status would impose on a return value like `300`.
+- **Multi-file `libraries` tests.** Some book tests split a program across a client file and
+  a library file. We have no linker in this pipeline, so we **concatenate them into one
+  translation unit, client first**, and compile that.
+
+## 8. When the target disagrees with the book
+
+Here is the single most important thing the book cannot teach you, because the book targets
+x86 and we target a machine from 1968. **A perfectly correct C program can legitimately fail
+on BESM-6 — not because our compiler is wrong, but because the two machines compute
+different answers to the same C.** A positive run test only passes when the backend's
+arithmetic *agrees* with the model the book's program was written against. Where they
+disagree, the test cannot pass, and pretending otherwise would be dishonest.
+
+The disagreements all trace back to a handful of architectural facts. For the full story see
+[Besm6_Data_Representation.md](Besm6_Data_Representation.md); the essentials:
+
+| Aspect | BESM-6 | The book's x86 model |
+|---|---|---|
+| `int`, `long` | the **same** 41-bit signed word (±2⁴⁰ ≈ ±1.1×10¹²) | 32-bit `int`, 64-bit `long` |
+| `unsigned` (all widths) | one 48-bit word (0 … 2⁴⁸−1) | 32-bit / 64-bit |
+| floating point | one 48-bit format for `float`/`double`/`long double`: 7-bit exponent (~10⁻¹⁹ … ~9.2×10¹⁸), 40-bit mantissa (~12 digits), **no NaN, infinity, negative zero, or subnormals** | IEEE-754 binary32 / binary64 |
+| addressing | **word**-addressed (a pointer is a word index) | byte-addressed |
+| identifiers | Madlen assembler truncates to **8 characters** | effectively unlimited |
+| output charset | lowercase Latin folds to **Cyrillic** (GOST) | ASCII |
+| `>>` of a negative | **logical** (no sign extension) | arithmetic (implementation-defined) |
+| runtime | no `malloc`/`free`, no `<math.h>`, no block-scope `static` storage | full libc + libm |
+
+Now the worked examples — each one a real program from the corpus.
+
+**Truncation that doesn't happen** (chapter 11, `truncate` / `convert_by_assignment`). The
+program assigns a 64-bit `long` to a 32-bit `int` and self-checks that the high bits were
+*lost*. On BESM-6 `int` and `long` are the *same* 41-bit word, so nothing is truncated, the
+value survives intact, the self-check sees the "wrong" answer and returns a failure code.
+The codegen is flawless; the *premise* of the test does not exist on this machine. Disabled.
+A cluster of chapter-11/12 programs (`switch_int`, `convert_function_arguments`,
+`compound_assign_to_int`, …) fail for exactly this reason.
+
+**Unsigned width** (chapter 12). The chapter exists to prove an x86 compiler distinguishes a
+32-bit `unsigned int` (wraps at 2³²) from a 64-bit `unsigned long` (wraps at 2⁶⁴). BESM-6
+has a *single* 48-bit unsigned word, so `-1u`, an `unsigned int` incremented past 2³²−1, and
+the various narrowing casts simply don't behave as the program expects. The four programs
+whose values happen to stay in range and don't depend on the wrap point run and pass; the
+other 25 are disabled.
+
+**No NaN, no infinity** (chapter 13). `nan`, `infinity`, `negative_zero`, and
+`subnormal_not_zero` exercise IEEE corner cases the BESM-6 float format does not have — there
+is no bit pattern for NaN, and `isnan` would need libm besides. Separately, `return_double`
+returns `1234e75`, whose exponent blows past the format's ~9.2×10¹⁸ ceiling. Different
+reasons, same outcome: disabled.
+
+**The rare program we keep with a *different* expected value** (chapter 10,
+`bitwise_ops_file_scope_vars`). Right-shifting a *negative* integer is
+implementation-defined in C11 (§6.5.7p5): x86 shifts arithmetically, BESM-6 shifts
+logically. This program is *not* self-checking — it just computes a value and returns it. So
+we keep it **enabled** and set the expected value to the genuine BESM-6 result (`2`), not the
+x86 result (`0`). That is legitimate: the C standard blesses both.
+
+The contrast with the truncation case above is the whole judgment call, and it is worth
+stating plainly. When a program merely *computes and returns* a value whose C semantics are
+implementation-defined, we keep it and expect the BESM-6 answer. When a program *self-checks*
+and returns a pass/fail code, a BESM-6-tuned expectation would just be encoding the
+program's own failure code — a green checkmark that secretly means "this test failed." That
+is worse than useless, so those programs are disabled, not "fixed" with a doctored number.
+**Disabling is the honest call.**
+
+**Mechanical target limits.** Three smaller constraints disable programs that are otherwise
+perfectly in range:
+
+- *8-character identifiers.* Madlen truncates names to 8 chars, so `one_hundred` and
+  `one_hundred_ulong` (chapter 12 `comparisons`) both become `ONE*HUND` and collide
+  ("twice-described identifier"); chapter 20's `glob_four` / `glob_fourteen` collide on
+  `glob_fou` and had to be renamed to `gr0…gr14` to enable the test.
+- *Output charset.* The runtime renders lowercase Latin as Cyrillic, so the book's
+  `hello_world` prints uppercase letters and our expected strings use UPPERCASE ASCII.
+- *Simulator time budget.* Chapter 8's `empty_loop_body` is correct codegen but spins ~430
+  million iterations — over a minute on Dubna, past the 10-second ctest timeout — so it is
+  disabled for speed, not correctness.
+
+## 9. A field guide to `DISABLED_`
+
+Sometimes the book exercises a feature our backend cannot handle *yet*, or — far more often,
+per §8 — a feature this machine simply does not have. We do not let that block a chapter, and
+we do not quietly drop the test. GoogleTest lets you prefix a test name with `DISABLED_` to
+register it but skip it:
+
+```cpp
+TEST_F(CodegenTest, DISABLED_Chapter13_Nan) { /* BESM-6 FP has no NaN */ }
+```
+
+The test is visible (reported as skipped) so we remember it, but it does not fail the build.
+Every disabled test carries a **one-line reason**. Across 20 chapters those reasons settle
+into a small, recurring taxonomy — learn these nine and you can predict why almost any book
+program is disabled:
+
+| # | Category | Representative example |
+|---|---|---|
+| A | No block-scope `static` storage in the backend | ch10 `static_local_uninitialized` |
+| B | Value exceeds BESM-6 range (41-bit signed / 48-bit unsigned / FP exponent) | ch11 `simple` (±(2⁶³−1)), ch13 `return_double` |
+| C | Relies on x86 32/64-bit truncation or wraparound | ch11 `truncate`, ch12 `switch_uint` |
+| D | Needs absent runtime: `malloc`/`free`/`memset`, or libm | ch17 `void_pointer/*`, ch13 `standard_library_call` |
+| E | Forbidden by the no-shadowing design rule | ch7/8/9/10/18/20 shadowing programs |
+| F | 8-character Madlen identifier collision | ch12 `comparisons`, ch20 `briggs_xmm_k_value` |
+| G | Output charset folds lowercase Latin to Cyrillic | ch16 `write_to_array` |
+| H | Loop runs past the 10s ctest timeout | ch8 `empty_loop_body`, ch9 `test_for_memory_leaks` |
+| I | Assumes x86 byte addressing / page boundaries / `.s` helpers | ch14 `pointer_int_casts`, `push_arg_on_page_boundary` |
+
+The discipline behind this is worth making explicit, because it is the difference between a
+test suite you can trust and one you cannot:
+
+- **One faithful test per book program.** We transcribe every program, even the ones we know
+  we must disable — so the corpus stays complete and a future backend improvement has a test
+  already waiting to be flipped on.
+- **Disable, don't hide.** A `DISABLED_` test with a reason is a tracked gap. A silently
+  omitted program is forgotten knowledge.
+- **Never encode a meaningless number.** As §8 argued, a self-checking program must never be
+  "made to pass" with a BESM-6-tuned expectation that is really its own failure code.
+
+## 10. Negative tests buy diagnostics — the receipts
+
+Section 3 claimed that writing a negative test forces a better error message. That is not
+aspirational; the import added roughly thirty real checks to the compiler, each because a
+book program slipped through silently and a negative test demanded a diagnostic. A sampler,
+by phase:
+
+- **Scanner.** Integer/float *suffix* validation, so `0lL` and `0LLL` are rejected while
+  `10ULL` and `1.0f` still lex (ch11); a *missing exponent* (`30.e`, `24e-`) now errors
+  instead of mis-tokenizing (ch13); unknown *escape sequences* (`'\y'`, `"foo\ybar"`) are
+  rejected — `scan_string` previously validated escapes not at all (ch16).
+- **Parser.** Rejecting more than one storage-class specifier (`static extern`) and a
+  storage class on a parameter (ch10); rejecting a duplicate or conflicting *signedness*
+  specifier (`signed unsigned`), which had silently last-wins (ch12).
+- **Semantic.** A function returning a function or an array; duplicate parameter names; an
+  initializer on a function declaration; a function designator as the operand of `++`
+  (ch9); the whole `void`/incomplete-type family — value-less `return` in a non-`void`
+  function, `++` on a `void*`, relational/equality comparisons involving `void` (ch17); a
+  non-null integer as a static pointer initializer (ch14).
+
+Each of these is a message a human can now act on, in place of an accept-and-miscompile or a
+"Token 73." The negative tests didn't just *document* the compiler's behavior; they *grew*
+it.
+
+## 11. Anatomy of a test in our framework
 
 We write tests with [GoogleTest](https://github.com/google/googletest), a widely used C++
 testing library. You only need to recognize a handful of pieces:
@@ -305,7 +482,7 @@ Read it aloud: "wrap `int main(void){return 2;}` so it prints `main()`'s result,
 and run it, and expect the output `2`." That is a complete, end-to-end test of the entire
 compiler in three lines.
 
-## 9. Naming and file organization
+## 12. Naming and file organization
 
 A few simple conventions keep the growing suite navigable:
 
@@ -318,34 +495,35 @@ A few simple conventions keep the growing suite navigable:
 - **Tests live next to the code they exercise.** This is a long-standing rule in this
   project (see the Tests section of the [Technical Reference](Technical_Reference.md)): the
   scanner's tests are in `scanner/`, the parser's in `parser/`, and so on. The book's
-  directory layout maps onto ours almost perfectly, which is why the import is mechanical.
+  directory layout maps onto ours almost perfectly, which — adjusting for the
+  reclassifications of §5 — is why the import is largely mechanical.
 
 Each new test file is added to its component's build list in the relevant `CMakeLists.txt`
 (for example `parser/CMakeLists.txt` lists the sources of the `parser-tests` binary), so it
 is picked up automatically when you build.
 
-## 10. The incremental workflow
+## 13. The incremental workflow
 
-We import the corpus **one chapter at a time**, in order, because each chapter depends only
-on features from earlier chapters. The plan is a checklist in [TODO.md](../TODO.md). A task
-(one chapter) is considered *done* when:
+We imported the corpus **one chapter at a time, in order**, because each chapter depends only
+on features from earlier chapters. A chapter is considered *done* when:
 
 1. its new test files build, and
 2. the **entire** test suite still passes (`make test`).
 
-Sometimes the book exercises a feature our BESM-6 backend cannot handle *yet* (some
-floating-point cases, some `struct`-by-value cases). We do not let that block a whole
-chapter. GoogleTest lets you prefix a test name with `DISABLED_` to register it but skip it:
+Two pieces of discipline kept the import honest as it scaled to 2,548 tests, and both are
+worth carrying into any test-import work of your own:
 
-```cpp
-TEST_F(CodegenTest, DISABLED_Chapter13_LongDoubleSum) { /* backend gap: FP */ }
-```
+- **Transcribe faithfully, then disable what the target can't do.** Every program becomes a
+  test. The ones the machine cannot run become `DISABLED_` with a one-line reason (§9),
+  never silently dropped — so the suite is a complete census of the corpus and the gaps are
+  visible, not lost.
+- **Let the failures teach you.** A genuinely red run test means a backend bug, and the
+  import surfaced real ones (multi-dimensional array decay, pointer-to-array scaling, signed
+  complement corrupting the FP exponent field, union sizing, …). The `DISABLED_` reason
+  forces you to *classify* each gap, which is how you tell a real bug apart from a
+  target-semantics mismatch (§8). The first you fix; the second you document.
 
-The test is visible (and reported as skipped) so we remember to come back to it, but it does
-not fail the build. This keeps progress flowing: the passing subset of a chapter lands now,
-and the gaps are tracked rather than hidden.
-
-## 11. Running the tests
+## 14. Running the tests
 
 Build everything and run the whole suite from the top of the repository:
 
@@ -376,20 +554,26 @@ To run just one test by name:
 cd build/backend/besm6 && ./besm-tests --gtest_filter='CodegenTest.Chapter1_Return2'
 ```
 
-## 12. Takeaways
+## 15. Takeaways
 
 If you remember three things from this article, make them these:
 
 1. **Tests are how you make change safe.** A dense, automated suite turns "I hope I didn't
    break anything" into "the computer just confirmed I didn't." That is what lets a compiler
    grow without rotting.
-2. **An error is a classifier.** The kind of mistake in a program tells you which phase
-   should catch it: bad token → scanner, bad grammar → parser, bad meaning → semantic. Our
-   tests are sorted by phase precisely because the errors sort themselves that way.
-3. **Negative tests buy you good error messages.** Asking "what should the compiler *say*
-   here?" — and writing the test that demands it — is the cheapest way to make a compiler
-   pleasant to use.
+2. **An error is a classifier — but the classifier can disagree with the book.** The kind of
+   mistake usually tells you which phase should catch it (bad token → scanner, bad grammar →
+   parser, bad meaning → semantic). Yet because our parser is more permissive and our type
+   checker is unified, many programs reclassify across phases — and our no-shadowing rule
+   turns some *valid* programs into negatives. The directory is a hypothesis, not a verdict.
+3. **The target decides which valid programs can even run.** BESM-6's 41-bit integers,
+   48-bit unsigneds, NaN-free floats, and word addressing mean a *correct* C program can
+   legitimately compute a different answer than x86 — so a large, well-understood slice of
+   the corpus is `DISABLED_` on purpose, each with a one-line reason. Honest disabling beats
+   a doctored green checkmark.
 
-From here, the natural next steps are to read the running plan in [TODO.md](../TODO.md),
-browse the committed chapter-1 tests named throughout this article, and consult the
-[Technical Reference](Technical_Reference.md) for the full phase-by-phase design.
+From here, the natural next steps are to browse the committed chapter test files named
+throughout this article (`scanner/chapter1_tests.cpp`, `backend/besm6/chapter13_tests.cpp`,
+and their siblings), and to consult [Besm6_Data_Representation.md](Besm6_Data_Representation.md)
+and the [Technical Reference](Technical_Reference.md) for the full phase-by-phase design and
+the target's data model.
