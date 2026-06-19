@@ -640,8 +640,35 @@ translation unit.
       (5) a named `void` parameter (`validate_type`, leaving the unnamed `f(void)` sentinel
       intact); (6) `sizeof` of a function type (the typecheck-only `RunPipeline` harness
       doesn't reach the later `get_size`, so the check was lifted into `EXPR_SIZEOF_EXPR`).
-      Full suite green (2134). **16b — run** (valid programs) still TODO — several use
-      `#ifdef`, which the toolchain doesn't preprocess. Tests are in local tmp/tests/chapter_17/.
+      Full suite green (2134). 
+- [x] **Task 16b — Chapter 17 run** (void / sizeof / dynamic alloc): delivered
+      `backend/besm6/chapter17_tests.cpp` (13 run + 12 `DISABLED_` = all 25 logical
+      programs, the 6 `libraries` files merged into 3 client-first pairs). CMake wired;
+      full suite green. The book's host-only `#ifdef SUPPRESS_WARNINGS` / `#pragma`
+      blocks are dropped during transcription (our scanner has no preprocessor) — they
+      guard only host warning pragmas, no logic. One compiler fix: a void/void
+      conditional leaked a `TYPE_VOID` in the type checker (`EXPR_COND` allocated a
+      result type that the clone-and-convert tail never freed); the void branch now owns
+      the type directly and returns early ([semantic/expressions.c](semantic/expressions.c)),
+      lighting up `ternary`. The 13 enabled: all four `void/` programs (`cast_to_void`,
+      `ternary`, `void_function`, `void_for_loop` — `putchar`→libc `putch`, prints the
+      uppercase alphabet which renders as ASCII), and nine `sizeof` programs whose x86
+      size literals (4/8) were **rewritten to BESM-6 sizes** — `char`=1, but
+      `short/int/long/double/pointer`=6 (one 48-bit word), since `CodegenTest` evaluates
+      `sizeof` with `target=besm6`: `sizeof/{simple, sizeof_basic_types, sizeof_consts,
+      sizeof_result_is_ulong, sizeof_not_evaluated}` and `extra_credit/{sizeof_bitwise,
+      sizeof_compound, sizeof_compound_bitwise, sizeof_incr}` (the four `extra_credit`
+      programs also had incidental `static` dropped from sizeof-operand locals — no
+      static-local storage). The 12 `DISABLED_` fall in five groups, each one-line-noted:
+      (A) **no malloc/calloc/realloc/aligned_alloc/free/memset/memcmp/memcpy in libc** —
+      all six `void_pointer/` programs, `sizeof/sizeof_expressions`, libraries
+      `pass_alloced_memory`; (B) **array-parameter type adjustment leaks a cloned type,
+      and `sizeof` of a string literal is word/alignment-padded** (`sizeof "Hello,
+      World!"`==16 here, not 14) — `sizeof/sizeof_array`; (C) **parser rejects the nested
+      abstract declarator** `double(*([3][4]))[2]` ("Empty type specifier list") —
+      `sizeof/sizeof_derived_types`; (D) **global array too large for BESM-6 core** (12M
+      words vs 32K) — libraries `sizeof_extern`; (E) **loop over the ctest timeout** (10M
+      iterations) — libraries `test_for_memory_leaks`.
 - [ ] **Task 17 — Chapter 18 negative**; **17b — run** (Structures/unions — largest set;
       expect `DISABLED_` for struct-by-value backend gaps). Tests are in local tmp/tests/chapter_18/.
 - [ ] **Task 18 — Chapter 19** (optimize): `optimize/chapter19_tests.cpp` for

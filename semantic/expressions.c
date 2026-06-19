@@ -482,7 +482,15 @@ static Expr *typecheck_expr(Expr *e)
         Expr *else_expr = typecheck_and_decay(e->u.cond.else_expr);
         const Type *result_type;
         if (then_expr->type->kind == TYPE_VOID && else_expr->type->kind == TYPE_VOID) {
-            result_type = new_type(TYPE_VOID, __func__, __FILE__, __LINE__);
+            // A void/void conditional has type void; both operands stay as-is
+            // (no conversion needed).  Own the result type directly so it is not
+            // leaked by the clone below.
+            free_type(e->type);
+            e->type             = new_type(TYPE_VOID, __func__, __FILE__, __LINE__);
+            e->u.cond.condition = cond;
+            e->u.cond.then_expr = then_expr;
+            e->u.cond.else_expr = else_expr;
+            return e;
         } else if (is_pointer(then_expr->type) || is_pointer(else_expr->type)) {
             result_type = common_pointer_type(then_expr, else_expr);
         } else if (is_arithmetic(then_expr->type) && is_arithmetic(else_expr->type)) {
