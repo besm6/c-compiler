@@ -488,7 +488,35 @@ translation unit.
       Like chapters 11–13 the group-B/C programs self-check and return an error
       code on mismatch, so a BESM-6-valued expectation would just encode a
       meaningless failure code; `DISABLED_` is the honest call.
-- [ ] **Task 14 — Chapter 15 negative**; **14b — run** (Arrays / pointer arithmetic).
+- [x] **Task 14 — Chapter 15 negative** (Arrays / pointer arithmetic): delivered
+      `parser/chapter15_tests.cpp` (14) and `semantic/chapter15_tests.cpp` (47) — one
+      test per book program (61 total: invalid_parse 18, invalid_types 33,
+      invalid_types/extra_credit 10). CMake wired; full suite green (1989). No compiler
+      changes. 40 enabled, 21 `DISABLED_`. Reclassifications vs. the book: many
+      `invalid_parse` programs parse cleanly for us and are caught by the type checker
+      (`return_array`, `function_returns_array` → "Function cannot return an array"; the
+      cast-to-array abstract declarator `malformed_abstract_array_declarator_2` → "Can
+      only cast scalar types"); conversely `cast_to_array_type_3` (book `invalid_types`)
+      is a parse error for us (`long(([2])[3])` → "Empty type specifier list"), so it
+      moved to the parser file. The 21 `DISABLED_` are honest gaps the array corpus
+      exposed — every one is *accepted* by our front end today (verified by running
+      `parse`/`lower`), so an `EXPECT_DEATH` would just fail. They fall in six groups:
+      (A) **array lvalue not rejected as non-modifiable** — `assign_to_array`(`_2`/`_3`),
+      `compound_assign_to_array`(`_nested`), `postfix_incr_array`(`_nested`),
+      `prefix_decr_array`(`_nested`); (B) **incompatible pointer types not diagnosed**
+      in assignment/comparison/subtraction — `assign_incompatible_pointer_types`,
+      `compare_different_pointer_types`, `sub_different_pointer_types`;
+      (C) **conflicting redeclaration accepted** — `conflicting_array_declarations`,
+      `conflicting_function_declarations`; (D) **scalar initializer for a *static*
+      array accepted** (the non-static form is caught) — `null_ptr_static_array_
+      initializer`; (E) **array of functions** passes typecheck and only trips a
+      `get_size` assert later during lowering (not a clean typecheck diagnostic) —
+      `array_of_functions`(`_2`), `parenthesized_array_of_functions`; (F) **array
+      declarator size unvalidated** — `double_declarator` (`int x[2.0]`),
+      `negative_array_dimension` (`int arr[-3]`), `empty_initializer_list` (`{}`, also
+      valid as of C23). Each `DISABLED_` carries a one-line reason; fixing them is
+      frontend type-checking work, out of scope for the test-import task.
+- [ ] **Task 14b — Chapter 15 run** (Arrays / pointer arithmetic).
 - [ ] **Task 15 — Chapter 16 negative**; **15b — run** (Characters/strings; scanner 8 lex).
 - [ ] **Task 16 — Chapter 17 negative**; **16b — run** (void / sizeof / dynamic alloc).
 - [ ] **Task 17 — Chapter 18 negative**; **17b — run** (Structures/unions — largest set;
