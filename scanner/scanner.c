@@ -495,8 +495,30 @@ static int scan_string(void)
     while (next_char != '"' && next_char != '\n' && next_char != EOF) {
         if (next_char == '\\') {
             consume_char();
-            if (next_char != EOF) {
+            // Handle escape sequences
+            if (next_char == '\'' || next_char == '"' || next_char == '?' || next_char == '\\' ||
+                next_char == 'a' || next_char == 'b' || next_char == 'f' || next_char == 'n' ||
+                next_char == 'r' || next_char == 't' || next_char == 'v') {
                 consume_char();
+            } else if (next_char >= '0' && next_char <= '7') {
+                consume_char();
+                if (next_char >= '0' && next_char <= '7') {
+                    consume_char();
+                    if (next_char >= '0' && next_char <= '7') {
+                        consume_char();
+                    }
+                }
+            } else if (next_char == 'x') {
+                consume_char();
+                while (isxdigit(next_char)) {
+                    consume_char();
+                }
+            } else if (next_char == EOF || next_char == '\n') {
+                // Backslash at end of line / input: let the unterminated-string
+                // check below report it.
+                break;
+            } else {
+                lex_error("invalid escape sequence '\\%c'", next_char);
             }
         } else {
             consume_char();
@@ -546,7 +568,7 @@ static int scan_char(void)
                     consume_char();
                 }
             } else {
-                consume_char(); // Consume invalid escape
+                lex_error("invalid escape sequence '\\%c'", next_char);
             }
         } else {
             consume_char();

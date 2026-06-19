@@ -555,15 +555,39 @@ translation unit.
       11–14 the group-D/E/F programs self-check and return an error code on mismatch, so a
       BESM-6-valued expectation would just encode a meaningless failure code; `DISABLED_`
       is the honest call.
-- [ ] **Task 15 — Chapter 16 negative**; **15b — run** (Characters/strings; scanner 8 lex).
-- [ ] **Task 16 — Chapter 17 negative**; **16b — run** (void / sizeof / dynamic alloc).
+- [x] **Task 15 — Chapter 16 negative** (Characters / strings): delivered
+      `scanner/chapter16_tests.cpp` (8 invalid_lex), `parser/chapter16_tests.cpp` (4
+      invalid_parse + 4 extra_credit), and `semantic/chapter16_tests.cpp` (17
+      invalid_types + 8 extra_credit + 1 invalid_labels) — one test per book program (42
+      total). CMake wired; full suite green. No `DISABLED_`: every program yields a clean,
+      specific diagnostic — including the redeclaration conflicts (`char_and_schar_
+      conflict`, `char_and_uchar_conflict`) and all string-initializer length/type checks,
+      which chapter 15's notes flagged as front-end gaps but Chapter 16 exercises cleanly.
+      One compiler fix lit up the only two programs that were silently accepted: the
+      scanner swallowed unknown escape sequences. `scan_char`/`scan_string`
+      ([scanner/scanner.c](scanner/scanner.c)) consumed any character after a backslash;
+      both now `lex_error("invalid escape sequence '\\%c'")` for anything outside the C
+      escape set (`' " ? \ a b f n r v`, octal, `\x`+hex), lighting up
+      `char_bad_escape_sequence` (`'\y'`) and `string_bad_escape_sequence` (`"foo\ybar"`).
+      `scan_string` previously had *no* escape validation at all and gained the same logic.
+      Reclassifications vs. the book: `unescaped_double_quote` (`"foo"bar"`) is in the
+      book's invalid_lex; under the scanner alone (no parser to halt at the stray
+      identifier) it opens a final string that runs to EOF, so it dies as an unterminated
+      string and stays in the scanner file; `implicit_conversion_pointers_to_different_
+      size_arrays` is rejected one step earlier than the book's array-size mismatch — we
+      reject `&"x"` as "Cannot take address of non-lvalue". `15b — run` (the 54 valid
+      Chapter 16 programs) remains.
+- [ ] **15b — Chapter 16 run** (Characters/strings): `backend/besm6/chapter16_tests.cpp`
+      for the valid programs (char_constants / chars / strings_as_initializers /
+      strings_as_lvalues / extra_credit / libraries). Tests are in local tmp/tests/chapter_16/.
+- [ ] **Task 16 — Chapter 17 negative**; **16b — run** (void / sizeof / dynamic alloc). Tests are in local tmp/tests/chapter_17/.
 - [ ] **Task 17 — Chapter 18 negative**; **17b — run** (Structures/unions — largest set;
-      expect `DISABLED_` for struct-by-value backend gaps).
+      expect `DISABLED_` for struct-by-value backend gaps). Tests are in local tmp/tests/chapter_18/.
 - [ ] **Task 18 — Chapter 19** (optimize): `optimize/chapter19_tests.cpp` for
       constant_folding / copy_propagation / dead_store_elimination /
-      unreachable_code_elimination (incl. `dont_*` negatives), plus `whole_pipeline` run.
+      unreachable_code_elimination (incl. `dont_*` negatives), plus `whole_pipeline` run.  Tests are in local tmp/tests/chapter_19/.
 - [ ] **Task 19 — Chapter 20** (register allocation): besm6 run tests (all_types,
-      int_only, with/without coalescing, helper_libs).
+      int_only, with/without coalescing, helper_libs). Tests are in local tmp/tests/chapter_20/.
 
 ## Verification
 
