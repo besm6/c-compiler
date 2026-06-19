@@ -622,7 +622,26 @@ translation unit.
       `char_constant_operations`). Like chapters 11–15 the programs self-check and return an
       error code on mismatch, so a BESM-6-valued expectation would encode a meaningless
       failure code — `DISABLED_` is the honest call.
-- [ ] **Task 16 — Chapter 17 negative**; **16b — run** (void / sizeof / dynamic alloc). Tests are in local tmp/tests/chapter_17/.
+- [ ] **Task 16 — Chapter 17 negative** (void / sizeof / dynamic alloc): **negative
+      half delivered** — `parser/chapter17_tests.cpp` (4 tests:
+      void/`_Bool`-with-modifier specifiers, unparenthesized `sizeof` of a cast/type)
+      and `semantic/chapter17_tests.cpp` (56 tests covering all 56 `invalid_types`
+      programs: void / scalar_expressions / pointer_conversions / incomplete_types /
+      extra_credit). **No `DISABLED_`** — every program yields a clean, specific
+      diagnostic. Eleven programs the compiler previously accepted are now rejected by
+      six small frontend `void`/incomplete-type fixes: (1) a value-less `return` in a
+      non-`void` function ([semantic/statements.c](semantic/statements.c)); (2) `++`/`--`
+      on a `void*` (incomplete pointee) — pre/post inc/dec
+      ([semantic/expressions.c](semantic/expressions.c)); (3) relational `<`/`>`/`<=`/`>=`
+      on a `void`/`void*` operand (tightened the non-arithmetic branch to require two
+      *complete* pointers); (4) equality `==`/`!=` with a `void` operand, plus comparing a
+      pointer to a non-null integer (tightened `common_pointer_type`'s `void*` fallback in
+      [semantic/typecheck.c](semantic/typecheck.c) to require the other side be a pointer);
+      (5) a named `void` parameter (`validate_type`, leaving the unnamed `f(void)` sentinel
+      intact); (6) `sizeof` of a function type (the typecheck-only `RunPipeline` harness
+      doesn't reach the later `get_size`, so the check was lifted into `EXPR_SIZEOF_EXPR`).
+      Full suite green (2134). **16b — run** (valid programs) still TODO — several use
+      `#ifdef`, which the toolchain doesn't preprocess. Tests are in local tmp/tests/chapter_17/.
 - [ ] **Task 17 — Chapter 18 negative**; **17b — run** (Structures/unions — largest set;
       expect `DISABLED_` for struct-by-value backend gaps). Tests are in local tmp/tests/chapter_18/.
 - [ ] **Task 18 — Chapter 19** (optimize): `optimize/chapter19_tests.cpp` for

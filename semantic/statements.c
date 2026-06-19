@@ -52,7 +52,7 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
             }
             s->u.expr = coerce_for_assignment(typecheck_and_decay(s->u.expr), ret_type);
         } else if (ret_type->kind != TYPE_VOID) {
-            return s;
+            fatal_error("Non-void function must return a value");
         }
         return s;
     case STMT_EXPR: {

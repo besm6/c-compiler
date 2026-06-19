@@ -108,6 +108,9 @@ void validate_type(const Type *t)
         }
         validate_type(t->u.function.return_type);
         for (const Param *p = t->u.function.params; p; p = p->next) {
+            if (p->type->kind == TYPE_VOID && p->name) {
+                fatal_error("Void parameter not allowed");
+            }
             validate_type(p->type);
         }
         break;
@@ -252,11 +255,14 @@ Type *common_pointer_type(const Expr *e1, const Expr *e2)
     if (is_null_pointer_constant(e2))
         return e1->type;
 
-    Type *void_type = new_type(TYPE_VOID, __func__, __FILE__, __LINE__);
-    if ((e1->type->kind == TYPE_POINTER && e1->type->u.pointer.target->kind == TYPE_VOID) ||
-        (e2->type->kind == TYPE_POINTER && e2->type->u.pointer.target->kind == TYPE_VOID)) {
+    // void* is the common type with any other object pointer — but only when both
+    // operands are actually pointers (a void* vs. a non-null integer is invalid).
+    bool e1_void_ptr = e1->type->kind == TYPE_POINTER && e1->type->u.pointer.target->kind == TYPE_VOID;
+    bool e2_void_ptr = e2->type->kind == TYPE_POINTER && e2->type->u.pointer.target->kind == TYPE_VOID;
+    if ((e1_void_ptr && e2->type->kind == TYPE_POINTER) ||
+        (e2_void_ptr && e1->type->kind == TYPE_POINTER)) {
         Type *void_ptr             = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
-        void_ptr->u.pointer.target = void_type;
+        void_ptr->u.pointer.target = new_type(TYPE_VOID, __func__, __FILE__, __LINE__);
         return void_ptr;
     }
     fatal_error("Incompatible pointer types");

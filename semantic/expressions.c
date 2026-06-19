@@ -264,6 +264,9 @@ static Expr *typecheck_expr(Expr *e)
             if (!is_scalar(inner->type)) {
                 fatal_error("Operand of pre-increment/decrement must be a scalar type");
             }
+            if (is_pointer(inner->type) && !is_complete_pointer(inner->type)) {
+                fatal_error("Cannot increment/decrement pointer to incomplete type");
+            }
             free_type(e->type);
             e->type            = clone_type(inner->type, __func__, __FILE__, __LINE__);
             e->u.unary_op.expr = inner;
@@ -352,8 +355,11 @@ static Expr *typecheck_expr(Expr *e)
         }
         case BINARY_EQ:
         case BINARY_NE: {
-            e1                 = typecheck_and_decay(e1);
-            e2                 = typecheck_and_decay(e2);
+            e1 = typecheck_and_decay(e1);
+            e2 = typecheck_and_decay(e2);
+            if (e1->type->kind == TYPE_VOID || e2->type->kind == TYPE_VOID) {
+                fatal_error("Invalid operands for comparison");
+            }
             const Type *common = is_pointer(e1->type) || is_pointer(e2->type)
                                      ? common_pointer_type(e1, e2)
                                      : get_common_type(e1->type, e2->type);
@@ -371,9 +377,11 @@ static Expr *typecheck_expr(Expr *e)
         case BINARY_GE: {
             e1                 = typecheck_and_decay(e1);
             e2                 = typecheck_and_decay(e2);
-            const Type *common = is_arithmetic(e1->type) && is_arithmetic(e2->type)
-                                     ? get_common_type(e1->type, e2->type)
-                                     : (e1->type->kind == e2->type->kind ? e1->type : NULL);
+            const Type *common =
+                is_arithmetic(e1->type) && is_arithmetic(e2->type)
+                    ? get_common_type(e1->type, e2->type)
+                    : (is_complete_pointer(e1->type) && is_complete_pointer(e2->type) ? e1->type
+                                                                                      : NULL);
             if (!common) {
                 fatal_error("Invalid types for comparison");
             }
@@ -568,6 +576,9 @@ static Expr *typecheck_expr(Expr *e)
     }
     case EXPR_SIZEOF_EXPR: {
         Expr *inner = typecheck_expr(e->u.sizeof_expr);
+        if (inner->type->kind == TYPE_FUNCTION) {
+            fatal_error("Can't apply sizeof to a function type");
+        }
         if (!is_complete(inner->type)) {
             fatal_error("Can't apply sizeof to incomplete type");
         }
@@ -656,6 +667,9 @@ static Expr *typecheck_expr(Expr *e)
         if (!is_scalar(inner->type)) {
             fatal_error("Operand of post-increment must be a scalar type");
         }
+        if (is_pointer(inner->type) && !is_complete_pointer(inner->type)) {
+            fatal_error("Cannot increment/decrement pointer to incomplete type");
+        }
         free_type(e->type);
         e->type       = clone_type(inner->type, __func__, __FILE__, __LINE__);
         e->u.post_inc = inner;
@@ -671,6 +685,9 @@ static Expr *typecheck_expr(Expr *e)
         }
         if (!is_scalar(inner->type)) {
             fatal_error("Operand of post-decrement must be a scalar type");
+        }
+        if (is_pointer(inner->type) && !is_complete_pointer(inner->type)) {
+            fatal_error("Cannot increment/decrement pointer to incomplete type");
         }
         free_type(e->type);
         e->type       = clone_type(inner->type, __func__, __FILE__, __LINE__);
