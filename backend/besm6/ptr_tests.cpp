@@ -63,11 +63,13 @@ TEST_F(CodegenTest, AddPtrPointerLoad)
               output);
 }
 
-// Two-word element (long double, 12 bytes → word scale 2): the index is scaled by a
-// left shift (,asn, 63 = shift left 1) before adding the pointer base.
+// Two-word element (a 2-word struct, 12 bytes → word scale 2): the index is scaled by a
+// left shift (,asn, 63 = shift left 1) before adding the pointer base.  No scalar type is
+// two words on BESM-6, so a struct supplies the power-of-two element size here.
 TEST_F(CodegenTest, AddPtrPowerOfTwoScale)
 {
-    std::string output = CompileToMadlen("long double *f(long double *p, long i){ return &p[i]; }");
+    std::string output =
+        CompileToMadlen("struct S { long a, b; }; struct S *f(struct S *p, long i){ return &p[i]; }");
     EXPECT_EQ(R"(c
         f:   ,name,
     b/ret:   ,subp,

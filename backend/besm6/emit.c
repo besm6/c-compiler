@@ -90,8 +90,12 @@ static char *const_lit_name(const Tac_Const *c)
         snprintf(buf, sizeof(buf), "=%llo", (unsigned long long)c->u.uchar_val);
         break;
     case TAC_CONST_FLOAT:
-    case TAC_CONST_DOUBLE: {
-        double val = (c->kind == TAC_CONST_FLOAT) ? (double)c->u.float_val : c->u.double_val;
+    case TAC_CONST_DOUBLE:
+    case TAC_CONST_LONG_DOUBLE: {
+        // float ≡ double ≡ long double on BESM-6 (one 48-bit native-FP word).
+        double val = (c->kind == TAC_CONST_FLOAT)         ? (double)c->u.float_val
+                     : (c->kind == TAC_CONST_LONG_DOUBLE) ? (double)c->u.long_double_val
+                                                          : c->u.double_val;
         char num[48];
         mad_format_real(num, sizeof(num), val);
         snprintf(buf, sizeof(buf), "=r%s", num);

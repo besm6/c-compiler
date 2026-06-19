@@ -97,9 +97,9 @@ static const Target targets[] = {
 
     // BESM-6: 48-bit word-oriented machine.
     // sizeof() values are in 8-bit bytes (CHAR_BIT = 8).
-    // One machine word = 6 bytes.  long long is a single word, same as long.
-    // long double is the only two-word type (12 bytes).  All alignments are
-    // 1 word = 6 bytes.
+    // One machine word = 6 bytes.  Every scalar type is a single word — there are
+    // no two-word scalar types.  long long is the same as long; long double is the
+    // same as double.  All alignments are 1 word = 6 bytes.
     { "besm6",
       6, 6,   // short   (1 word)
       6, 6,   // int     (1 word)
@@ -107,7 +107,7 @@ static const Target targets[] = {
       6, 6,   // long long  (1 word, same as long)
       6, 6,   // float   (1 word, BESM-6 native FP)
       6, 6,   // double  (1 word, same as float)
-     12, 6,   // long double (2 words, 1-word aligned)
+      6, 6,   // long double (1 word, same as double)
       6, 6 }, // pointer (1 word, 15-bit word address)
 };
 // clang-format on

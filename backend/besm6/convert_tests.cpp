@@ -323,3 +323,28 @@ TEST_F(CodegenTest, UnsignedDoubleRoundTrip)
     )");
     EXPECT_EQ("11111\n", result);
 }
+
+// long double ≡ double on BESM-6 (one 48-bit native-FP word).  Exercise the newly enabled
+// long-double paths: a long double constant (1.5L), int → long double → int round-trips,
+// long double + long double, and conversions to/from double and unsigned.
+TEST_F(CodegenTest, LongDoubleSameAsDouble)
+{
+    std::string result = CompileAndRun(R"(
+        int printf(const char *format, ...);
+        void program() {
+            volatile int i = 7;
+            volatile unsigned u = 1000000;
+            long double a = 1.5L;        /* long double constant */
+            long double b = (long double)i;  /* int -> long double */
+            long double s = a + b;       /* long double arithmetic */
+            double d = (double)s;        /* long double -> double */
+            long double e = (long double)d;  /* double -> long double */
+            printf("%d%d%d%d\n",
+                (int)s == 8,             /* long double -> int (8.5 truncates to 8) */
+                (int)e == 8,
+                (long double)u == 1000000.0L,  /* unsigned -> long double */
+                (unsigned)e == 8u);      /* long double -> unsigned */
+        }
+    )");
+    EXPECT_EQ("1111\n", result);
+}

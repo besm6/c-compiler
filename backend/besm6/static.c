@@ -116,6 +116,11 @@ void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl
                 item           = besm_new_instr(BESM_DATA_REAL);
                 item->real_val = init->u.double_val;
                 break;
+            case TAC_STATIC_INIT_LONG_DOUBLE:
+                // long double ≡ double on BESM-6 (one 48-bit native-FP word).
+                item           = besm_new_instr(BESM_DATA_REAL);
+                item->real_val = (double)init->u.long_double_val;
+                break;
             case TAC_STATIC_INIT_STRING:
                 // Char-array init (e.g. `char arr[] = "ABC"`); the section NAME
                 // already labels the first word, so no per-item label here.

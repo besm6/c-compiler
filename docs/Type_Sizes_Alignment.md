@@ -268,9 +268,8 @@ The address space is 32,768 words (15-bit word address). Addresses increment per
 not per byte. For a C compiler the consequences are:
 
 - `CHAR_BIT` = 48 (one addressable unit = 48 bits).
-- Pointer arithmetic on any single-word type advances the address by 1 (one word).
-- `long double` occupies 2 words, so its pointer arithmetic advances by 2.
-  (`long long` is a single word on BESM-6, same as `long`.)
+- Pointer arithmetic on any scalar type advances the address by 1 (one word) — every
+  scalar type, including `long long` and `long double`, is a single word on BESM-6.
 - "Fat pointers" are used for char* and void*, with a sub-word byte offset in MSB.
 - Conventionally `sizeof(char) == 1` and `sizeof(type) == 6` for every type that occupies one word.
 
@@ -288,7 +287,7 @@ There is no IEEE 754 hardware.
 | `long long`   | 1w   | 1w        | 48        | Same as `long` |
 | `float`       | 1w   | 1w        | 48        | BESM-6 native FP format |
 | `double`      | 1w   | 1w        | 48        | Same as `float` (no wider FP hardware) |
-| `long double` | 2w   | 2w        | 96        | Two words; software extended precision |
+| `long double` | 1w   | 1w        | 48        | Same as `double` (no wider FP hardware) |
 | pointer       | 1w   | 1w        | 15        | Word address in lower 15 bits |
 
 On BESM-6, a `char` variable wastes 40 bits per allocation.
@@ -405,7 +404,7 @@ show sizes in bytes; BESM-6 shows sizes in words (1 word = 48 bits = 6 bytes).
 | `long long`   | 8   | 8      | 8     | 8    | 8       | 8      | 8    | 8    | 1 word |
 | `float`       | 4   | 4      | 4     | 4    | 4       | 4      | 4    | 4    | 1 word |
 | `double`      | 4   | 8      | 8     | 8    | 8       | 8      | 8    | 8    | 1 word |
-| `long double` | 4   | 8      | 8     | 16   | 16      | 16     | 16   | 8    | 2 words |
+| `long double` | 4   | 8      | 8     | 16   | 16      | 16     | 16   | 8    | 1 word |
 | pointer       | 2   | 2      | 4     | 4    | 8       | 8      | 8    | 8    | 1 word |
 
 And alignment values (same units as sizes):
@@ -433,8 +432,9 @@ Notable observations:
 - **AArch64 and RISC-V 64** `long double` is a true 16-byte (128-bit) IEEE 754 quad-precision value.
 - **MMIX** maps `long double` to 8 bytes (same as `double`) despite being a 64-bit machine,
   matching ARM32 — the FPU is 64-bit only.
-- **BESM-6** collapses `char`, `short`, `int`, `long`, `long long`, `float`, `double`,
-  and pointers to the same size (1 word); only `long double` is 2 words.
+- **BESM-6** collapses every scalar type — `char`, `short`, `int`, `long`, `long long`,
+  `float`, `double`, `long double`, and pointers — to the same size (1 word). No scalar
+  type is two words.
 
 ---
 

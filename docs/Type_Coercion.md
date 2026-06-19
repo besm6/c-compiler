@@ -59,10 +59,10 @@ Applied to both operands of `+`, `-`, `*`, `/`, `%`, `&`, `|`, `^`, `==`,
    - if one is unsigned and the other signed → result is unsigned.
 6. Otherwise → the operand with the larger size wins.
 
-The result is computed by `get_common_type()` in `semantic/typecheck.c`.
-
-- **`long double` not handled**.  The compiler does not expose `long double` as
-  a distinct type, so this is not a gap in practice.
+The result is computed by `get_common_type()` in `semantic/typecheck.c`, which gives
+`long double` the highest floating rank (a mixed `long double` operand wins).  On the
+BESM-6 target `long double`, `double`, and `float` share the same single-word native-FP
+representation, so the resulting conversion is a bit-pattern copy.
 
 ---
 

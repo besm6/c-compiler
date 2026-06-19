@@ -258,39 +258,12 @@ produce incorrect results silently, or the hardware raises a fault condition.
 
 ### `long double`
 
-`long double` occupies two consecutive words, extending the 40-bit mantissa with an
-additional 40 bits. Also 7-bit exponent is extended with an additional 7 bits.
-Software routines implement all arithmetic, using the hardware Y (RMR — younger bits)
-register convention for intermediate double-width results.
+`long double` is a single word, identical in representation to `double` and `float`: the
+same 48-bit native BESM-6 floating-point word (40-bit mantissa, 7-bit exponent). There is
+no extended-precision two-word form on BESM-6 — `long double`, `double`, and `float` are
+the same type. Every conversion among them is a bit-pattern copy.
 
-**Word 0 (high word):**
-```
-Bit:  48     42  41 40                       1
-     ┌─────────┬───┬──────────────────────────┐
-     │Exp. MSB │ S │   Mantissa, bits 80–41   │
-     └─────────┴───┴──────────────────────────┘
-```
-- Bits 48–42: Upper 7 bits of exponent.
-- Bit 41: Sign.
-- Bits 40–1: Upper 40 bits of the mantissa.
-
-**Word 1 (low word):**
-```
-Bit:  48     42  41 40                       1
-     ┌─────────┬───┬──────────────────────────┐
-     │Exp. LSB │   │   Mantissa, bits 40–1    │
-     └─────────┴───┴──────────────────────────┘
-```
-- Bits 48–42: Lower 7 bits of exponent.
-- Bit 41: Unused (ignored).
-- Bits 40–1: Lower 40 bits of the mantissa.
-
-The combined 80-bit mantissa gives approximately 24 significant decimal digits
-(80 × log₁₀ 2 ≈ 24.08).
-
-The combined 14-bit exponent is biased by 8192.
-
-`sizeof(long double) == 12`.
+`sizeof(long double) == 6`.
 
 ---
 
@@ -309,9 +282,9 @@ Bit:  48                          16 15             1
      └──────────────────────────────┴────────────────┘
 ```
 
-Pointer arithmetic on a single-word type (`int*`, `float*`, etc.) increments the address
-by 1 (one word). Pointer arithmetic on two-word types (`long long*`, `long double*`)
-increments by 2.
+Pointer arithmetic on any single-word scalar type (`int*`, `float*`, `long double*`, etc.)
+increments the address by 1 (one word). No scalar type is two words on BESM-6; only
+multi-word aggregates (structs, arrays) advance a pointer by more than one word.
 
 Regular pointers can hold 2¹⁵ = 32,768 distinct addresses, spanning the entire BESM-6
 address space.
@@ -419,16 +392,16 @@ to the next word.
 | `unsigned short` | 1w | 1w | 48 | Same as `unsigned int` |
 | `unsigned int` | 1w | 1w | 48 | Full 48-bit unsigned |
 | `unsigned long` | 1w | 1w | 48 | Same as `unsigned int` |
-| `long long` | 2w | 2w | 80 | Sign + 40 high + 40 low bits; software arithmetic |
-| `unsigned long long` | 2w | 2w | 80 | Software arithmetic |
+| `long long` | 1w | 1w | 41 | Same as `long`/`int` |
+| `unsigned long long` | 1w | 1w | 48 | Same as `unsigned long`/`unsigned int` |
 | `float` | 1w | 1w | 48 | BESM-6 native FP; same as `double` |
 | `double` | 1w | 1w | 48 | BESM-6 native FP; ~12 decimal digits |
-| `long double` | 2w | 2w | 80+8 | 80-bit mantissa; ~24 decimal digits; software arithmetic |
+| `long double` | 1w | 1w | 48 | Same as `double` (no wider FP hardware) |
 | pointer | 1w | 1w | 15 | Word address in bits 15–1 |
 | `char*`, `void*` | 1w | 1w | 3+15 | Fat pointer: 3-bit offset in bits 47–45 |
 
 Sizes and alignments in words (1 word = 48 bits). `sizeof` values in char-units:
-`sizeof(char) == 1`, single-word types have `sizeof == 6`, two-word types have `sizeof == 12`.
+`sizeof(char) == 1`; every other type occupies one word with `sizeof == 6`.
 
 ---
 
@@ -464,7 +437,7 @@ sizeof(long)        == 6
 sizeof(long long)   == 6
 sizeof(float)       == 6
 sizeof(double)      == 6
-sizeof(long double) == 12
+sizeof(long double) == 6
 sizeof(void *)      == 6
 sizeof(char *)      == 6   /* fat pointer fits in one word */
 ```

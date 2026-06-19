@@ -803,9 +803,9 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
     // Under the BESM-6 target (semantic/target.c) short/int/long/pointer are all one
     // 48-bit word, so emit_cast only emits TRUNCATE/ZERO_EXTEND/SIGN_EXTEND when one
     // side is char (1 byte = 8 bits); same-size conversions become a COPY.  Therefore the
-    // narrow side is always char and the mask is always 8-bit.  (The only other size
-    // mismatch is the 2-word long long / long double types — deferred to task #24, which
-    // still fall through to default below.)
+    // narrow side is always char and the mask is always 8-bit.  (Every other scalar type
+    // — short/int/long/long long/float/double/long double/pointer — is one word, so there
+    // are no other size mismatches.)
     //
     // TRUNCATE  dst = (narrow)src   — keep the low 8 bits.
     // ZERO_EXTEND dst = (wider unsigned)src — same: clear all but the low 8 bits.
@@ -893,16 +893,19 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
     //   FP → signed int : b/dtoi — realign the mantissa to the INT exponent and mask.
     //   FP → unsigned   : b/dtou — full 48-bit extraction via the reverse 24-bit split.
     //
-    // The two-word LONG_DOUBLE_* / *_TO_LONG_DOUBLE conversions are deferred (tasks
-    // #24/#25) and fall through to default below.
+    // long double ≡ double ≡ float on BESM-6 (all one 48-bit native-FP word), so every
+    // LONG_DOUBLE_* / *_TO_LONG_DOUBLE conversion reuses the matching double path: the
+    // FP↔FP forms are bit-pattern copies, and the int↔FP forms use the same helpers.
+    // (All conversion union members share a {src, dst} layout, so reading src/dst from
+    // any of them is equivalent.)
     case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
-    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT: {
-        const Tac_Val *src = (instr->kind == TAC_INSTRUCTION_FLOAT_TO_DOUBLE)
-                                 ? instr->u.float_to_double.src
-                                 : instr->u.double_to_float.src;
-        const Tac_Val *dst = (instr->kind == TAC_INSTRUCTION_FLOAT_TO_DOUBLE)
-                                 ? instr->u.float_to_double.dst
-                                 : instr->u.double_to_float.dst;
+    case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+    case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+    case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE: {
+        const Tac_Val *src = instr->u.float_to_double.src;
+        const Tac_Val *dst = instr->u.float_to_double.dst;
         int rd, od;
         lookup(f, dst->u.var_name, &rd, &od);
         emit_xta_val(block, tail, f, src);
@@ -910,13 +913,10 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         break;
     }
     case TAC_INSTRUCTION_INT_TO_DOUBLE:
-    case TAC_INSTRUCTION_INT_TO_FLOAT: {
-        const Tac_Val *src = (instr->kind == TAC_INSTRUCTION_INT_TO_DOUBLE)
-                                 ? instr->u.int_to_double.src
-                                 : instr->u.int_to_float.src;
-        const Tac_Val *dst = (instr->kind == TAC_INSTRUCTION_INT_TO_DOUBLE)
-                                 ? instr->u.int_to_double.dst
-                                 : instr->u.int_to_float.dst;
+    case TAC_INSTRUCTION_INT_TO_FLOAT:
+    case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE: {
+        const Tac_Val *src = instr->u.int_to_double.src;
+        const Tac_Val *dst = instr->u.int_to_double.dst;
         int rd, od;
         lookup(f, dst->u.var_name, &rd, &od);
         emit_xta_val(block, tail, f, src);
@@ -931,39 +931,30 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         break;
     }
     case TAC_INSTRUCTION_UINT_TO_DOUBLE:
-    case TAC_INSTRUCTION_UINT_TO_FLOAT: {
-        const Tac_Val *src = (instr->kind == TAC_INSTRUCTION_UINT_TO_DOUBLE)
-                                 ? instr->u.uint_to_double.src
-                                 : instr->u.uint_to_float.src;
-        const Tac_Val *dst = (instr->kind == TAC_INSTRUCTION_UINT_TO_DOUBLE)
-                                 ? instr->u.uint_to_double.dst
-                                 : instr->u.uint_to_float.dst;
+    case TAC_INSTRUCTION_UINT_TO_FLOAT:
+    case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE: {
+        const Tac_Val *src = instr->u.uint_to_double.src;
+        const Tac_Val *dst = instr->u.uint_to_double.dst;
         int rd, od;
         lookup(f, dst->u.var_name, &rd, &od);
         emit_unary_helper(block, tail, f, src, "b/utod", rd, od);
         break;
     }
     case TAC_INSTRUCTION_DOUBLE_TO_INT:
-    case TAC_INSTRUCTION_FLOAT_TO_INT: {
-        const Tac_Val *src = (instr->kind == TAC_INSTRUCTION_DOUBLE_TO_INT)
-                                 ? instr->u.double_to_int.src
-                                 : instr->u.float_to_int.src;
-        const Tac_Val *dst = (instr->kind == TAC_INSTRUCTION_DOUBLE_TO_INT)
-                                 ? instr->u.double_to_int.dst
-                                 : instr->u.float_to_int.dst;
+    case TAC_INSTRUCTION_FLOAT_TO_INT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT: {
+        const Tac_Val *src = instr->u.double_to_int.src;
+        const Tac_Val *dst = instr->u.double_to_int.dst;
         int rd, od;
         lookup(f, dst->u.var_name, &rd, &od);
         emit_unary_helper(block, tail, f, src, "b/dtoi", rd, od);
         break;
     }
     case TAC_INSTRUCTION_DOUBLE_TO_UINT:
-    case TAC_INSTRUCTION_FLOAT_TO_UINT: {
-        const Tac_Val *src = (instr->kind == TAC_INSTRUCTION_DOUBLE_TO_UINT)
-                                 ? instr->u.double_to_uint.src
-                                 : instr->u.float_to_uint.src;
-        const Tac_Val *dst = (instr->kind == TAC_INSTRUCTION_DOUBLE_TO_UINT)
-                                 ? instr->u.double_to_uint.dst
-                                 : instr->u.float_to_uint.dst;
+    case TAC_INSTRUCTION_FLOAT_TO_UINT:
+    case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT: {
+        const Tac_Val *src = instr->u.double_to_uint.src;
+        const Tac_Val *dst = instr->u.double_to_uint.dst;
         int rd, od;
         lookup(f, dst->u.var_name, &rd, &od);
         emit_unary_helper(block, tail, f, src, "b/dtou", rd, od);
