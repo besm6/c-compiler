@@ -51,6 +51,11 @@ StructDef *structtab_find(const char *tag);
 // Precondition: tag is a non-null string.
 // Postcondition: Returns non-null StructDef* if found, else terminates with error.
 
+// Get a struct definition by tag (returns NULL if not found)
+StructDef *structtab_find_opt(const char *tag);
+// Precondition: tag is a non-null string.
+// Postcondition: Returns StructDef* if found, else NULL.
+
 // Remove names, which exceed given level.
 void structtab_purge(int level);
 

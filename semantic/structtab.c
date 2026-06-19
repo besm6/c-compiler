@@ -120,6 +120,15 @@ StructDef *structtab_find(const char *tag)
     return (StructDef *)value;
 }
 
+StructDef *structtab_find_opt(const char *tag)
+{
+    intptr_t value = 0;
+    if (!map_get(&structtab, tag, &value)) {
+        return NULL;
+    }
+    return (StructDef *)value;
+}
+
 //
 // Remove names from the tree, which exceed given level.
 //

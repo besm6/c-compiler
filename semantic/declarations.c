@@ -189,7 +189,11 @@ static void register_struct_type(const Type *t)
         tail  = &(*tail)->next;
         current_alignment =
             current_alignment > member_alignment ? current_alignment : member_alignment;
-        current_size = offset + get_size(f->u.member.type);
+        // A struct grows past each member in turn; a union's size is the size of
+        // its largest member (every member is at offset 0), so take the maximum.
+        int member_end = offset + (int)get_size(f->u.member.type);
+        if (kind == TYPE_STRUCT || member_end > current_size)
+            current_size = member_end;
     }
     int size = round_away_from_zero(current_alignment, current_size);
     structtab_add_struct(t->u.struct_t.name, current_alignment, size, members, scope_level);

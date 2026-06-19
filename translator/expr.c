@@ -8,8 +8,72 @@
 #include <string.h>
 
 #include "semantic.h"
+#include "structtab.h"
 #include "translate.h"
 #include "xalloc.h"
+
+// The declared type of the member named by a FIELD_ACCESS/PTR_ACCESS node, looked
+// up in structtab.  After typecheck an array member used as a value has been
+// decayed to a pointer (so e->type no longer says "array"); the backend recovers
+// the member's true type here to decide whether to load it or decay it to its
+// address.  Returns NULL if the tag is not in scope (e.g. a purged block-scope
+// struct), in which case the caller falls back to a plain load.
+static const Type *field_member_type(const Expr *e)
+{
+    const Expr *base;
+    const char *field;
+    if (e->kind == EXPR_FIELD_ACCESS) {
+        base  = e->u.field_access.expr;
+        field = e->u.field_access.field;
+    } else {
+        base  = e->u.ptr_access.expr;
+        field = e->u.ptr_access.field;
+    }
+    const Type *st = base->type;
+    if (e->kind == EXPR_PTR_ACCESS && st->kind == TYPE_POINTER)
+        st = st->u.pointer.target;
+    if (st->kind != TYPE_STRUCT && st->kind != TYPE_UNION)
+        return NULL;
+    const StructDef *def = structtab_find_opt(st->u.struct_t.name);
+    if (!def)
+        return NULL;
+    for (const FieldDef *m = def->members; m; m = m->next)
+        if (strcmp(m->name, field) == 0)
+            return m->type;
+    return NULL;
+}
+
+// True when a struct member is addressed by byte (a char scalar or a character
+// array), so its address is a fat pointer built with ADD_PTR scale 1.  Every other
+// member (a word scalar, pointer, struct/union, or word-element array) is addressed
+// by word, so its member offset is added as a plain word offset — keeping the
+// pointer a plain word address that later array indexing / loads can use.
+static bool member_is_byte_addressed(const Type *mt)
+{
+    if (!mt)
+        return false;
+    while (mt->kind == TYPE_ARRAY)
+        mt = mt->u.array.element;
+    return is_character(mt);
+}
+
+// Fill in an ADD_PTR's index/scale for a struct member at `byte_offset` whose
+// declared type is `mt` (NULL if the tag is out of scope at lowering time).  A
+// word-addressed member at a word-aligned offset is added as a plain word offset
+// (scale = word) so the result stays a plain word pointer that later subscripts
+// and loads can chain off; a char member (or an unknown member) keeps the byte
+// (scale 1, fat-pointer) form it has always used.
+static void emit_member_offset(Tac_Instruction *ap, int byte_offset, const Type *mt)
+{
+    int w = target_word_bytes();
+    if (mt && !member_is_byte_addressed(mt) && byte_offset % w == 0) {
+        ap->u.add_ptr.index = val_int(byte_offset / w);
+        ap->u.add_ptr.scale = w;
+    } else {
+        ap->u.add_ptr.index = val_int(byte_offset);
+        ap->u.add_ptr.scale = 1;
+    }
+}
 
 static bool is_unsigned_type(const Type *t)
 {
@@ -225,8 +289,7 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         Tac_Val *dst        = new_var_val(ctx);
         Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
         ap->u.add_ptr.ptr   = base_addr;
-        ap->u.add_ptr.index = val_int(offset);
-        ap->u.add_ptr.scale = 1;
+        emit_member_offset(ap, offset, field_member_type(e));
         ap->u.add_ptr.dst   = dst;
         tac_append(ctx, ap);
         return val_var(dst->u.var_name);
@@ -238,8 +301,7 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         Tac_Val *dst        = new_var_val(ctx);
         Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
         ap->u.add_ptr.ptr   = ptr_val;
-        ap->u.add_ptr.index = val_int(offset);
-        ap->u.add_ptr.scale = 1;
+        emit_member_offset(ap, offset, field_member_type(e));
         ap->u.add_ptr.dst   = dst;
         tac_append(ctx, ap);
         return val_var(dst->u.var_name);
@@ -989,6 +1051,15 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
     case EXPR_FIELD_ACCESS: {
         const Expr *base = e->u.field_access.expr;
         int offset       = e->u.field_access.offset;
+        // An array-typed member is not loaded: it decays to the address of its
+        // first element (e.g. `s.arr` / `x.b.inner_arr`), just like a subscript
+        // selecting a sub-array.  The member's array type is recovered from
+        // structtab because e->type was decayed to a pointer at typecheck.
+        {
+            const Type *mt = field_member_type(e);
+            if (mt && mt->kind == TYPE_ARRAY)
+                return gen_lval(ctx, e);
+        }
         if (base->kind == EXPR_VAR) {
             Tac_Val *dst        = new_var_val(ctx);
             Tac_Instruction *in = tac_new_instruction(
@@ -1013,6 +1084,12 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         }
     }
     case EXPR_PTR_ACCESS: {
+        // An array-typed member decays to the address of its first element.
+        {
+            const Type *mt = field_member_type(e);
+            if (mt && mt->kind == TYPE_ARRAY)
+                return gen_lval(ctx, e);
+        }
         Tac_Val *addr       = gen_lval(ctx, e);
         Tac_Val *dst        = new_var_val(ctx);
         Tac_Instruction *in = tac_new_instruction(

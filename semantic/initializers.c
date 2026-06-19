@@ -103,6 +103,15 @@ static Initializer *make_zero_init(Type *t)
         }
         return init;
     }
+    if (t->kind == TYPE_UNION) {
+        // A union's storage is its first member; zero that (build_static_init
+        // zero-pads the rest of the union to its full size).
+        Initializer *init = new_initializer(INITIALIZER_COMPOUND);
+        init->type        = clone_type(t, __func__, __FILE__, __LINE__);
+        FieldDef *first   = structtab_find(t->u.struct_t.name)->members;
+        init->u.items     = new_init_item(NULL, make_zero_init(first->type));
+        return init;
+    }
 
     Initializer *init  = new_initializer(INITIALIZER_SINGLE);
     init->type         = clone_type(t, __func__, __FILE__, __LINE__);
@@ -441,6 +450,35 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         return struct_init;
     }
 
+    // Handle union with compound initializer: initialize the first member only,
+    // then zero-pad the remaining union storage to its full size.
+    if (var_type->kind == TYPE_UNION && init->kind == INITIALIZER_COMPOUND) {
+        const StructDef *union_def = structtab_find(var_type->u.struct_t.name);
+        const FieldDef *first      = union_def->members;
+        if (init->u.items && init->u.items->next) {
+            fatal_error("Too many elements in union initializer");
+        }
+        // An empty union initializer (or no items) zeroes the whole union.
+        Tac_StaticInit *u_init =
+            init->u.items ? build_static_init(first->type, init->u.items->init)
+                          : tac_new_static_init(TAC_STATIC_INIT_ZERO);
+        if (!init->u.items) {
+            u_init->u.zero_bytes = union_def->size;
+            return u_init;
+        }
+        Tac_StaticInit *current = u_init;
+        while (current->next) {
+            current = current->next;
+        }
+        int first_size = (int)get_size(first->type);
+        if (first_size < union_def->size) {
+            Tac_StaticInit *zero_padding = tac_new_static_init(TAC_STATIC_INIT_ZERO);
+            zero_padding->u.zero_bytes   = union_def->size - first_size;
+            current->next                = zero_padding;
+        }
+        return u_init;
+    }
+
     // Handle invalid cases.
     if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_SINGLE) {
         fatal_error("Cannot initialize array with scalar value");
@@ -567,6 +605,26 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
             xfree(item);
         }
         init->u.items = new_items;
+        return init;
+    }
+
+    // Handle union with compound initializer: without designators only the first
+    // member is initialized (C11 §6.7.9p17).
+    if (target_type->kind == TYPE_UNION && init->kind == INITIALIZER_COMPOUND) {
+        const StructDef *union_def = structtab_find(target_type->u.struct_t.name);
+        const FieldDef *first      = union_def->members;
+        if (init->u.items && init->u.items->next) {
+            fatal_error("Too many elements in union initializer");
+        }
+        InitItem *new_item =
+            new_init_item(NULL, init->u.items ? typecheck_init(first->type, init->u.items->init)
+                                              : make_zero_init(first->type));
+        for (InitItem *item = init->u.items, *nx; item; item = nx) {
+            nx = item->next;
+            free_designator(item->designators);
+            xfree(item);
+        }
+        init->u.items = new_item;
         return init;
     }
 

@@ -90,6 +90,12 @@ void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const
         const FieldDef *fld  = def->members;
         for (const InitItem *item = init->u.items; item; item = item->next, fld = fld->next)
             gen_compound_init(ctx, var_name, base_offset + fld->offset, item->init);
+    } else if (t->kind == TYPE_UNION) {
+        // typecheck_init reduced the union initializer to its single first member,
+        // which lives at offset 0 of the union — initialize it there.  No structtab
+        // lookup is needed, so this works for block-scope unions too.
+        if (init->u.items)
+            gen_compound_init(ctx, var_name, base_offset, init->u.items->init);
     } else {
         fatal_error("Compound initializer for unsupported type %d in TAC lowering", (int)t->kind);
     }

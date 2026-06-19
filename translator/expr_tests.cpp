@@ -641,7 +641,7 @@ TEST_F(TranslateTest, CompoundLiteralStructField)
         const:
           kind: int
           value: 0
-      scale: 1
+      scale: 6
       dst:
         kind: var
         name: %2

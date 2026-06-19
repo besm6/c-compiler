@@ -693,7 +693,47 @@ translation unit.
       two non-lvalue struct assignments caught only by the translator's `gen_lval` (not the
       typecheck-only fixture). Full suite green (2328).
 - [ ] **Task 17b — Chapter 18 run** (Structures/unions; struct-by-value already supported
-      in the backend). Tests are in local tmp/tests/chapter_18/valid/.
+      in the backend). Tests are in local tmp/tests/chapter_18/valid/. **Delivered:**
+      `backend/besm6/chapter18_tests.cpp` covers all **85 logical programs** (the 108
+      `.c` files include 23 `libraries/` client+impl pairs that merge into one program
+      each): **21 enabled** run tests + **64 `DISABLED_`**; full suite green (2348). Three
+      compiler fixes landed
+      while enabling these: (1) **nested aggregate member access** — an array-typed
+      struct member used as a value (`x.b.inner_arr[i]`) was loaded instead of decaying
+      to its address, and member offsets for word members were added with the byte
+      (`scale 1`, fat-pointer) form which corrupts a chained array index; `translator/expr.c`
+      now decays array members (via `field_member_type`/`structtab_find_opt`) and emits a
+      word offset (`scale = word`) for word-addressed members (`emit_member_offset`),
+      keeping the pointer a plain word address (golden TAC in `translator/struct_tests.cpp`/
+      `expr_tests.cpp` updated). (2) **union compound initialization** — `union x = {…}`
+      was unsupported (`typecheck_init`/`build_static_init`/`make_zero_init` in
+      `semantic/initializers.c` + `gen_compound_init` in `translator/stmt.c` now init the
+      first member, zero-pad the rest, and reject too-many-element union inits); the
+      chapter-18 *negative* tests (`semantic/chapter18_tests.cpp`) were updated to their
+      now-correct diagnostics (they previously all aborted early at the union-init error)
+      and one non-lvalue-union-assignment negative was `DISABLED_` (only the translator's
+      `gen_lval` catches it, not the typecheck-only fixture). (3) **union sizing** —
+      `register_struct_type` used the *last* member's size for a union instead of the
+      *max*. Rewrote x86 sizes to BESM-6 layout in the `sizeof_type`/`sizeof_exps`/
+      `union_sizes` tests (char==1, others==6, align==6); the `union_init` ul-punning
+      constant became 2⁴¹−1. The 11 `DISABLED_`, each one-line-noted: no block-scope
+      static storage (`static_vs_auto`); discarded multi-word sret (`ignore_retval`);
+      `gen_lval` has no function-call/temporary case (`temporary_lifetime`,
+      `unions_in_conditionals`); block-scope struct/union compound init needs the purged
+      `structtab` (`namespaces`, `label_tag_member_namespace`, `redeclare_union`);
+      char-of-integer punning is representation-specific (`union_init_and_member_access`);
+      and a **packed char member at a non-zero byte offset reads wrong through a struct**
+      (pre-existing, `global_struct`, `array_of_structs`, `param_struct_pointer`).
+      The 64 `DISABLED_` cover the rest of the chapter (transcribed faithfully, libraries
+      merged client-first, `#include`/`#pragma` stripped) — each needs a runtime/feature
+      the target lacks: no libc `malloc`/`calloc`/`strcmp`/`memcmp`/`puts` heap; no
+      block-scope static storage; local char-array string init (copies the pointer);
+      64-bit constants beyond BESM-6's 41-bit integers; union type-punning that is
+      representation-specific; x86 `.s` helper / page-boundary programs; tag shadowing
+      and identifier shadowing forbidden by the no-shadowing design; and the packed
+      char-member access bug.  Several `struct_copy`/`scalar_member_access` programs would
+      light up once the packed-char-member and local char-array-string-init bugs are
+      fixed; static-local storage is deferred to a separate task.
 - [ ] **Task 18 — Chapter 19** (optimize): `optimize/chapter19_tests.cpp` for
       constant_folding / copy_propagation / dead_store_elimination /
       unreachable_code_elimination (incl. `dont_*` negatives), plus `whole_pipeline` run.  Tests are in local tmp/tests/chapter_19/.

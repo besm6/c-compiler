@@ -264,7 +264,7 @@ int main(void) {
     return my_union.a;
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Struct u has no member a");
 }
 
 TEST_F(PipelineTest, Chapter18_BadUnionMemberAccessUnionBadMember_Neg)
@@ -285,7 +285,7 @@ int main(void) {
     return foo.blah; // "union s" has no member "blah"
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Struct s has no member blah");
 }
 
 TEST_F(PipelineTest, Chapter18_BadUnionMemberAccessUnionBadPointerMember_Neg)
@@ -330,7 +330,7 @@ int main(void){
     return 0;
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Cannot convert type for assignment");
 }
 
 TEST_F(PipelineTest, Chapter18_IncompatibleUnionTypesAssignScalarToUnion_Neg)
@@ -346,7 +346,7 @@ int main(void) {
     return 0;
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Cannot convert type for assignment");
 }
 
 TEST_F(PipelineTest, Chapter18_IncompatibleUnionTypesReturnTypeMismatch_Neg)
@@ -389,7 +389,7 @@ int main(void) {
     return 0;
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Invalid operands for conditional");
 }
 
 TEST_F(PipelineTest, Chapter18_IncompatibleUnionTypesUnionPointerBranchMismatch_Neg)
@@ -458,10 +458,14 @@ int main(void) {
     return 0;
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Too many elements in union initializer");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidUnionLvaluesAssignNonLvalueUnionMember_Neg)
+// DISABLED: assigning to a member of a non-lvalue (function-return) union is only
+// rejected by the translator gen_lval, which the typecheck-only RunPipeline fixture
+// never reaches (cf. the disabled non-lvalue struct-assignment negatives); it used to
+// "pass" only because union compound init aborted typecheck first.
+TEST_F(PipelineTest, DISABLED_Chapter18_InvalidUnionLvaluesAssignNonLvalueUnionMember_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 // Can't assign to members in non-lvalue unions
@@ -689,7 +693,7 @@ int main(void){
     return 0;
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Can only cast scalar types");
 }
 
 TEST_F(PipelineTest, Chapter18_ScalarRequiredCastUnionToInt_Neg)
@@ -705,7 +709,7 @@ int main(void) {
     return (int)x;
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Can only cast scalar types");
 }
 
 TEST_F(PipelineTest, Chapter18_ScalarRequiredCompareUnions_Neg)
@@ -721,7 +725,7 @@ int main(void){
     return 0;
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "A scalar operand is required");
 }
 
 TEST_F(PipelineTest, Chapter18_ScalarRequiredSwitchOnUnion_Neg)
@@ -742,7 +746,7 @@ int main(void) {
     }
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Switch controlling expression must be of integer type");
 }
 
 TEST_F(PipelineTest, Chapter18_ScalarRequiredUnionAsControllingExpression_Neg)
@@ -760,7 +764,7 @@ int main(void) {
     return 0;
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "A scalar operand is required");
 }
 
 
@@ -783,7 +787,7 @@ int main(void){
     return 0;
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Too many elements in union initializer");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionInitializersNestedInitWrongType_Neg)
@@ -812,7 +816,7 @@ int main(void) {
     struct s my_struct = {&x, {{1.0}, {2.0}, {&x}}};
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Cannot convert type for assignment");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionInitializersNestedUnionInitTooLong_Neg)
@@ -830,7 +834,7 @@ int main(void) {
     };
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Too many elements in union initializer");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionInitializersScalarUnionInitializer_Neg)
@@ -874,7 +878,7 @@ int main(void) {
     return 0;
 }
 )SRC"),
-                 "Unsupported initializer for type union");
+                 "Too many elements in struct initializer");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionInitializersStaticNestedInitNotConst_Neg)
@@ -899,7 +903,7 @@ struct has_union some_struct = {1,
                                 {some_var},  // INVALID - not constant
                                 'a'};
 )SRC"),
-                 "Unsupported initializer for type union");
+                 "Static initializer is not a constant");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionInitializersStaticNestedInitTooLong_Neg)
@@ -920,7 +924,7 @@ struct s my_struct = {
     {1, 2}  // invalid - nested union initializer has two elements
 };
 )SRC"),
-                 "Unsupported initializer for type union");
+                 "Too many elements in union initializer");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionInitializersStaticScalarUnionInitializer_Neg)
@@ -955,7 +959,7 @@ int main(void) {
     return 0;
 }
 )SRC"),
-                 "Unsupported initializer for type union");
+                 "Too many elements in union initializer");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionInitializersStaticUnionInitNotConstant_Neg)
@@ -973,7 +977,7 @@ int main(void){
     return 0;
 }
 )SRC"),
-                 "Unsupported initializer for type union");
+                 "Static initializer is not a constant");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionInitializersStaticUnionInitWrongType_Neg)
@@ -993,7 +997,7 @@ int main(void) {
     static union u my_union = {"A char array"};
 }
 )SRC"),
-                 "Unsupported initializer for type union");
+                 "String literal can only initialize pointer to char");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionInitializersUnionInitWrongType_Neg)
@@ -1014,7 +1018,7 @@ int main(void) {
     union u my_union = {1.0};
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Cannot convert type for assignment");
 }
 
 
@@ -1186,7 +1190,7 @@ int main(void) {
     union u *ptr = &foo;
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Structure u was already declared");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionTagResolutionCompareStructAndUnionPtrs_Neg)
@@ -1251,7 +1255,7 @@ int main(void) {
     return blah.a;
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Cannot define a variable with incomplete type");
 }
 
 // DISABLED: relies on tag shadowing (incomplete union shadows complete struct); no-shadowing design
@@ -1293,7 +1297,7 @@ int main(void) {
     return foo.b; // foo belongs to outer union u type, which doesn't have member 'b'
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Structure u was already declared");
 }
 
 

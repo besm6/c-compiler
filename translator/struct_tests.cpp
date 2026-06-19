@@ -121,7 +121,7 @@ TEST_F(TranslateTest, PtrFieldRead)
         const:
           kind: int
           value: 0
-      scale: 1
+      scale: 6
       dst:
         kind: var
         name: %0
@@ -164,7 +164,7 @@ TEST_F(TranslateTest, PtrFieldWrite)
         const:
           kind: int
           value: 0
-      scale: 1
+      scale: 6
       dst:
         kind: var
         name: %0
@@ -181,7 +181,8 @@ TEST_F(TranslateTest, PtrFieldWrite)
 )");
 }
 
-// &s.x emits GET_ADDRESS then ADD_PTR (scale=1, index=byte offset).
+// &s.x emits GET_ADDRESS then ADD_PTR (a word member uses a word offset: scale=6,
+// index=byte_offset/6, keeping the result a plain word pointer).
 TEST_F(TranslateTest, StructFieldAddressOf)
 {
     std::string yaml = CompileToYaml(
@@ -215,7 +216,7 @@ TEST_F(TranslateTest, StructFieldAddressOf)
         const:
           kind: int
           value: 0
-      scale: 1
+      scale: 6
       dst:
         kind: var
         name: %1
