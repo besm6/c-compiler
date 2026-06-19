@@ -446,6 +446,20 @@ static Expr *typecheck_expr(Expr *e)
         } else {
             if (!is_arithmetic(lhs->type) || !is_arithmetic(rhs->type))
                 fatal_error("Invalid operands for compound assignment");
+            // Bitwise, shift, and remainder compound assignments are integer-only.
+            switch (e->u.assign.op) {
+            case ASSIGN_MOD:
+            case ASSIGN_LEFT:
+            case ASSIGN_RIGHT:
+            case ASSIGN_AND:
+            case ASSIGN_XOR:
+            case ASSIGN_OR:
+                if (!is_integer(lhs->type) || !is_integer(rhs->type))
+                    fatal_error("Compound bitwise/remainder assignment requires integer operands");
+                break;
+            default:
+                break;
+            }
             rhs = convert_to_type(rhs, lhs->type);
         }
         free_type(e->type);

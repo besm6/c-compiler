@@ -36,6 +36,7 @@ add_executable(parser-tests
     chapter10_tests.cpp
     chapter11_tests.cpp
     chapter12_tests.cpp
+    chapter13_tests.cpp
 )
 target_link_libraries(parser-tests parser GTest::gtest_main)
 gtest_discover_tests(parser-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

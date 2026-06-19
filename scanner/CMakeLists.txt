@@ -15,6 +15,7 @@ add_executable(scanner-tests
     chapter6_tests.cpp
     chapter11_tests.cpp
     chapter12_tests.cpp
+    chapter13_tests.cpp
 )
 target_link_libraries(scanner-tests scanner GTest::gtest_main)
 gtest_discover_tests(scanner-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

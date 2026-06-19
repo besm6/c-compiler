@@ -407,6 +407,9 @@ static int scan_number(void)
             if (next_char == '+' || next_char == '-') {
                 consume_char();
             }
+            if (!isdigit(next_char)) {
+                lex_error("missing exponent in numeric constant '%s'", yytext);
+            }
             while (isdigit(next_char)) {
                 consume_char();
             }
@@ -430,6 +433,9 @@ static int scan_number(void)
             if (next_char == '+' || next_char == '-') {
                 consume_char();
             }
+            if (!isdigit(next_char)) {
+                lex_error("missing exponent in numeric constant '%s'", yytext);
+            }
             while (isdigit(next_char)) {
                 consume_char();
             }
@@ -442,9 +448,10 @@ static int scan_number(void)
         consume_char();
     }
 
-    // A numeric constant may not run straight into an identifier character:
-    // '1foo' is a single invalid token, not '1f' followed by 'oo'.
-    if (isalpha(next_char) || next_char == '_') {
+    // A numeric constant may not run straight into an identifier character or a
+    // second '.': '1foo' is a single invalid token, not '1f' followed by 'oo',
+    // and '1.0e10.0' is one malformed preprocessing number, not '1.0e10' '.' '0'.
+    if (isalpha(next_char) || next_char == '_' || next_char == '.') {
         consume_char();
         lex_error("invalid suffix on numeric constant '%s'", yytext);
     }

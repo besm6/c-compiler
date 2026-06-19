@@ -348,8 +348,32 @@ translation unit.
       0). Like ch11, the group-A/B programs self-check and return an error code on
       mismatch, so a BESM-6-valued expectation would just encode a meaningless
       failure code; `DISABLED_` is the honest call.
-- [ ] **Task 12 — Chapter 13 negative**; **12b — run** (Floating-point; scanner 7 lex —
-      expect many `DISABLED_`).
+- [x] **Task 12 — Chapter 13 negative** (Floating-point; scanner 7 lex): delivered
+      `scanner/chapter13_tests.cpp` (7 lex), `parser/chapter13_tests.cpp` (2 parse),
+      and `semantic/chapter13_tests.cpp` (3 invalid_types + 13 extra_credit = 16).
+      CMake wired; full suite green (1870). Two compiler fixes lit up the five
+      programs that were silently accepted: (1) `scanner/scanner.c` `scan_number()`
+      now requires at least one digit after an exponent marker (`e`/`E`, and the hex
+      `p`/`P` for symmetry) — "missing exponent in numeric constant" — covering
+      `missing_exponent` (`30.e`), `missing_negative_exponent` (`24e-`), and
+      incidentally `another_bad_constant` (`1.ex`, whose `e` is followed by a letter,
+      so it now reports the missing exponent before the trailing-character guard);
+      and the trailing-character guard now also rejects a number immediately
+      followed by a second `.` ("invalid suffix on numeric constant"), covering
+      `malformed_exponent` (`1.0e10.0`, which the book treats as one malformed
+      pp-number — we previously tokenized it as `1.0e10` `.` `0` and died as a parse
+      error). The other three lex programs (`bad_exponent_suffix` `1E2x`,
+      `malformed_const` `2._`, `yet_another_bad_constant` `1.e-10x`) already hit the
+      trailing-character guard. (2) `semantic/expressions.c` `EXPR_ASSIGN` now
+      rejects the compound bitwise/shift/remainder assignments (`%= &= |= ^= <<= >>=`)
+      on floating operands ("Compound bitwise/remainder assignment requires integer
+      operands") — the plain `% & | ^ << >>` already rejected doubles but the
+      compound forms only checked `is_arithmetic`; covers the six `extra_credit`
+      `compound_*` programs. The remaining negatives already diagnosed cleanly:
+      both `invalid_parse` (`double double`, `unsigned double`) via the parser's
+      `fuse_type_specifiers`, and `~`/`%`/bitwise/shift/`switch (double)`/`case 1.0`
+      via the existing typecheck. No `DISABLED_` needed.
+- [ ] **Task 12b — Chapter 13 run** (Floating-point; expect many `DISABLED_`).
 - [ ] **Task 13 — Chapter 14 negative**; **13b — run** (Pointers).
 - [ ] **Task 14 — Chapter 15 negative**; **14b — run** (Arrays / pointer arithmetic).
 - [ ] **Task 15 — Chapter 16 negative**; **15b — run** (Characters/strings; scanner 8 lex).
