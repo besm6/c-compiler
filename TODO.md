@@ -669,8 +669,31 @@ translation unit.
       `sizeof/sizeof_derived_types`; (D) **global array too large for BESM-6 core** (12M
       words vs 32K) — libraries `sizeof_extern`; (E) **loop over the ctest timeout** (10M
       iterations) — libraries `test_for_memory_leaks`.
-- [ ] **Task 17 — Chapter 18 negative**; **17b — run** (Structures/unions — largest set;
-      expect `DISABLED_` for struct-by-value backend gaps). Tests are in local tmp/tests/chapter_18/.
+- [x] **Task 17 — Chapter 18 negative** (Structures/unions — largest set): **delivered**
+      — `parser/chapter18_tests.cpp` (48 programs: `invalid_lex` + `invalid_parse` incl.
+      extra_credit) and `semantic/chapter18_tests.cpp` (152 programs: `invalid_struct_tags`
+      + all `invalid_types`, incl. extra_credit), 200 total. Seven small frontend fixes
+      light up programs we previously accepted: parser (`parser/decl.c`) — (1) a basic type
+      specifier combined with a struct/union/enum/typedef specifier, and (2) a scalar member
+      with no declarator (`int;`), preserving anonymous-aggregate and bitfield members;
+      semantic — (3) `==`/`!=` require scalar operands, (4) a `?:` with mismatched
+      struct/union tags is rejected, (5) `common_pointer_type` rejects pointers to distinct
+      struct/union tags (`semantic/typecheck.c`), (6) `is_complete` now treats an
+      incomplete **union** like an incomplete struct (`semantic/type_utils.c`; unions were
+      always "complete"), and (7) a union value of incomplete type is rejected in
+      `typecheck_and_decay` (`semantic/expressions.c`). The two "member is a function"
+      programs are caught at type checking, so they live in the semantic file. **19
+      `DISABLED_`** (2 parser + 17 semantic), each one-line-noted: empty initializer list
+      `{}` (accepted as C23-style — the parser supports it, see
+      `ParserTest.ParseEmptyCompoundInitializer`); the type checker doesn't track a tag's
+      struct-vs-union kind (4 cross-kind conflicts); the no-shadowing design
+      ([docs] — inner-scope tag can't shadow an outer one with a distinct type) blocks 8
+      tag-shadowing programs; plus array-of-incomplete-element behind a pointer-to-array,
+      static struct initialized with scalar `0`, assignment to an array-typed lvalue, and
+      two non-lvalue struct assignments caught only by the translator's `gen_lval` (not the
+      typecheck-only fixture). Full suite green (2328).
+- [ ] **Task 17b — Chapter 18 run** (Structures/unions; struct-by-value already supported
+      in the backend). Tests are in local tmp/tests/chapter_18/valid/.
 - [ ] **Task 18 — Chapter 19** (optimize): `optimize/chapter19_tests.cpp` for
       constant_folding / copy_propagation / dead_store_elimination /
       unreachable_code_elimination (incl. `dont_*` negatives), plus `whole_pipeline` run.  Tests are in local tmp/tests/chapter_19/.

@@ -47,6 +47,9 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
     /* Collect specifiers */
     for (const TypeSpec *s = specs; s; s = s->next) {
         if (s->kind == TYPE_SPEC_BASIC) {
+            if (struct_spec || union_spec || enum_spec || typedef_spec || atomic_spec) {
+                fatal_error("type specifier cannot combine with struct/union/enum/typedef");
+            }
             switch (s->u.basic->kind) {
             case TYPE_VOID:
                 if (base_kind != -1) {
@@ -723,6 +726,15 @@ Field *parse_struct_declaration()
         if (current_token == TOKEN_COLON) {
             advance_token();
             field->u.member.bitfield = parse_constant_expression();
+        }
+
+        /* A member with a scalar/basic type needs a declarator; only an
+         * anonymous bitfield (`int : 4;`) or an anonymous struct/union member
+         * (`struct { ... };`) may omit it.  Reject e.g. `int;`. */
+        if (!field->u.member.name && !field->u.member.bitfield &&
+            field->u.member.type->kind != TYPE_STRUCT &&
+            field->u.member.type->kind != TYPE_UNION) {
+            fatal_error("struct/union member requires a declarator");
         }
 
         *fields_tail = field;

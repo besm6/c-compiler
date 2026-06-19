@@ -248,8 +248,14 @@ Type *common_pointer_type(const Expr *e1, const Expr *e2)
         printf("--- %s()\n", __func__);
     }
     if (e1->type->kind == e2->type->kind &&
-        e1->type->u.pointer.target->kind == e2->type->u.pointer.target->kind)
+        e1->type->u.pointer.target->kind == e2->type->u.pointer.target->kind) {
+        // Pointers to struct/union are compatible only if the tags match.
+        const Type *t1 = e1->type->u.pointer.target, *t2 = e2->type->u.pointer.target;
+        if ((t1->kind == TYPE_STRUCT || t1->kind == TYPE_UNION) &&
+            strcmp(t1->u.struct_t.name, t2->u.struct_t.name) != 0)
+            fatal_error("Incompatible pointer types");
         return e1->type;
+    }
     if (is_null_pointer_constant(e1))
         return e2->type;
     if (is_null_pointer_constant(e2))

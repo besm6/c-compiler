@@ -360,6 +360,9 @@ static Expr *typecheck_expr(Expr *e)
             if (e1->type->kind == TYPE_VOID || e2->type->kind == TYPE_VOID) {
                 fatal_error("Invalid operands for comparison");
             }
+            if (!is_scalar(e1->type) || !is_scalar(e2->type)) {
+                fatal_error("A scalar operand is required");
+            }
             const Type *common = is_pointer(e1->type) || is_pointer(e2->type)
                                      ? common_pointer_type(e1, e2)
                                      : get_common_type(e1->type, e2->type);
@@ -496,6 +499,11 @@ static Expr *typecheck_expr(Expr *e)
         } else if (is_arithmetic(then_expr->type) && is_arithmetic(else_expr->type)) {
             result_type = get_common_type(then_expr->type, else_expr->type);
         } else if (then_expr->type->kind == else_expr->type->kind) {
+            // For struct/union operands the tags must match, too.
+            if ((then_expr->type->kind == TYPE_STRUCT || then_expr->type->kind == TYPE_UNION) &&
+                strcmp(then_expr->type->u.struct_t.name, else_expr->type->u.struct_t.name) != 0) {
+                fatal_error("Invalid operands for conditional");
+            }
             result_type = then_expr->type;
         } else {
             fatal_error("Invalid operands for conditional");
@@ -798,7 +806,8 @@ Expr *typecheck_and_decay(Expr *e)
     if (!e)
         return NULL;
     Expr *typed = typecheck_expr(e);
-    if (typed->type->kind == TYPE_STRUCT && !is_complete(typed->type)) {
+    if ((typed->type->kind == TYPE_STRUCT || typed->type->kind == TYPE_UNION) &&
+        !is_complete(typed->type)) {
         fatal_error("Incomplete structure type not permitted");
     }
     if (typed->type->kind == TYPE_ARRAY) {

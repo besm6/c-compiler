@@ -328,6 +328,7 @@ bool is_complete(const Type *t)
     case TYPE_VOID:
         return false;
     case TYPE_STRUCT:
+    case TYPE_UNION:
         return structtab_exists(t->u.struct_t.name);
     default:
         return true;
