@@ -40,6 +40,19 @@ static bool is_floating_type(const Type *t)
     return is_arithmetic(t) && !is_integer(t);
 }
 
+// For a word (non-byte) pointer whose pointee is larger than one machine word —
+// a pointer-to-array or pointer-to-struct — return the element size in bytes
+// (the ADD_PTR scale).  Returns 0 when plain one-word arithmetic suffices (a
+// single-word pointee, or not such a pointer): the machine is word-addressed, so
+// a one-word element already advances by exactly one word.
+static int wide_ptr_scale(const Type *t)
+{
+    if (t->kind != TYPE_POINTER || is_byte_pointer(t))
+        return 0;
+    int sz = (int)get_size(t->u.pointer.target);
+    return sz > target_word_bytes() ? sz : 0;
+}
+
 static Tac_BinaryOperator map_binary_op(BinaryOp op, const Type *operand_type)
 {
     bool is_unsigned = is_unsigned_type(operand_type);
@@ -172,13 +185,20 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
             return gen_expr(ctx, e->u.unary_op.expr);
         fatal_error("lvalue not yet supported in gen_lval: expression kind %d", (int)e->kind);
     case EXPR_SUBSCRIPT: {
-        Tac_Val *ptr_val    = gen_expr(ctx, e->u.subscript.left);
-        Tac_Val *idx_val    = gen_expr(ctx, e->u.subscript.right);
-        int scale           = (int)get_size(e->type);
+        // After typecheck exactly one operand is a (decayed) pointer; the other is
+        // the integer index.  Scale by the size of the pointee: for a multi-
+        // dimensional array the pointee is itself the row array, so this is the
+        // row size, not the decayed element-pointer size.
+        Expr *lexp          = e->u.subscript.left;
+        Expr *rexp          = e->u.subscript.right;
+        const Expr *ptr_exp = is_pointer(lexp->type) ? lexp : rexp;
+        int scale           = (int)get_size(ptr_exp->type->u.pointer.target);
+        Tac_Val *lval       = gen_expr(ctx, lexp);
+        Tac_Val *rval       = gen_expr(ctx, rexp);
         Tac_Val *dst        = new_var_val(ctx);
         Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
-        in->u.add_ptr.ptr   = ptr_val;
-        in->u.add_ptr.index = idx_val;
+        in->u.add_ptr.ptr   = ptr_exp == lexp ? lval : rval;
+        in->u.add_ptr.index = ptr_exp == lexp ? rval : lval;
         in->u.add_ptr.scale = scale;
         in->u.add_ptr.dst   = dst;
         tac_append(ctx, in);
@@ -329,12 +349,13 @@ static Tac_Val *gen_unary(TacCtx *ctx, UnaryOp op, Expr *inner)
     return val_var(vd->u.var_name);
 }
 
-// Emit "dst = ptr (+/-) idx" on a char*/void* fat pointer as ADD_PTR scale 1 (the byte
-// delta adjusts the 3-bit offset).  `vptr`/`vidx` are consumed; returns the result val.
-static Tac_Val *gen_byte_ptr_add(TacCtx *ctx, Tac_Val *vptr, Tac_Val *vidx, bool subtract)
+// Emit "dst = ptr (+/-) idx" as ADD_PTR with the given byte scale.  For a char*/void*
+// fat pointer the scale is 1 (the delta adjusts the 3-bit offset); for a pointer-to-array
+// it is the element size.  `vptr`/`vidx` are consumed; returns the result val.
+static Tac_Val *gen_ptr_add(TacCtx *ctx, Tac_Val *vptr, Tac_Val *vidx, bool subtract, int scale)
 {
     if (subtract) {
-        // char* - n : negate the byte delta (b/padd takes a signed count).
+        // ptr - n : negate the index (ADD_PTR / b/padd take a signed count).
         Tac_Val *neg        = new_var_val(ctx);
         Tac_Instruction *un = tac_new_instruction(TAC_INSTRUCTION_UNARY);
         un->u.unary.op      = TAC_UNARY_NEGATE;
@@ -347,7 +368,7 @@ static Tac_Val *gen_byte_ptr_add(TacCtx *ctx, Tac_Val *vptr, Tac_Val *vidx, bool
     Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
     ap->u.add_ptr.ptr   = vptr;
     ap->u.add_ptr.index = vidx;
-    ap->u.add_ptr.scale = 1;
+    ap->u.add_ptr.scale = scale;
     ap->u.add_ptr.dst   = vd;
     tac_append(ctx, ap);
     return val_var(vd->u.var_name);
@@ -383,7 +404,18 @@ static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
             Tac_Val *vr   = gen_expr(ctx, r);
             Tac_Val *vptr = ptr_left ? vl : vr;
             Tac_Val *vidx = ptr_left ? vr : vl;
-            return gen_byte_ptr_add(ctx, vptr, vidx, op == BINARY_SUB);
+            return gen_ptr_add(ctx, vptr, vidx, op == BINARY_SUB, 1);
+        }
+        // Word pointer with a multi-word element (pointer-to-array / -struct):
+        // ptr ± int must scale by the element size, not advance a single word.
+        int l_scale = wide_ptr_scale(l->type);
+        int r_scale = op == BINARY_ADD ? wide_ptr_scale(r->type) : 0;
+        if (l_scale || r_scale) {
+            Tac_Val *vl   = gen_expr(ctx, l); // keep source evaluation order
+            Tac_Val *vr   = gen_expr(ctx, r);
+            Tac_Val *vptr = l_scale ? vl : vr;
+            Tac_Val *vidx = l_scale ? vr : vl;
+            return gen_ptr_add(ctx, vptr, vidx, op == BINARY_SUB, l_scale ? l_scale : r_scale);
         }
     }
 
@@ -451,11 +483,14 @@ static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
 static Tac_Val *gen_step(TacCtx *ctx, const Type *type, Tac_Val *src, bool inc)
 {
     Tac_Val *dst = new_var_val(ctx);
-    if (is_byte_pointer(type)) {
+    int wscale   = wide_ptr_scale(type);
+    if (is_byte_pointer(type) || wscale) {
+        // char*/void* fat pointer (scale 1) or pointer-to-array/-struct (element
+        // size): a one-element step, not a single-word add.
         Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
         ap->u.add_ptr.ptr   = src;
         ap->u.add_ptr.index = val_int(inc ? 1 : -1);
-        ap->u.add_ptr.scale = 1;
+        ap->u.add_ptr.scale = wscale ? wscale : 1;
         ap->u.add_ptr.dst   = dst;
         tac_append(ctx, ap);
     } else {
@@ -582,7 +617,12 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         if (e->u.unary_op.op == UNARY_ADDRESS)
             return gen_lval(ctx, e->u.unary_op.expr);
         if (e->u.unary_op.op == UNARY_DEREF) {
-            Tac_Val *addr       = gen_lval(ctx, e);
+            Tac_Val *addr = gen_lval(ctx, e);
+            // Dereferencing a pointer-to-array yields a sub-array whose value is
+            // its own address (array-to-pointer decay), not a scalar to load.
+            const Type *opnd = e->u.unary_op.expr->type;
+            if (opnd->kind == TYPE_POINTER && opnd->u.pointer.target->kind == TYPE_ARRAY)
+                return addr;
             Tac_Val *dst        = new_var_val(ctx);
             Tac_Instruction *in = tac_new_instruction(
                 byte_access_for(e->type) ? TAC_INSTRUCTION_LOAD_BYTE : TAC_INSTRUCTION_LOAD);
@@ -650,11 +690,13 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 in->u.copy.src      = src;
                 in->u.copy.dst      = val_var(dst);
                 tac_append(ctx, in);
-            } else if (is_byte_pointer(target->type) &&
+            } else if ((is_byte_pointer(target->type) || wide_ptr_scale(target->type)) &&
                        (e->u.assign.op == ASSIGN_ADD || e->u.assign.op == ASSIGN_SUB)) {
-                // char* += n / -= n : fat-pointer byte arithmetic, not a raw word add.
-                Tac_Val *res = gen_byte_ptr_add(ctx, val_var(dst), src,
-                                                e->u.assign.op == ASSIGN_SUB);
+                // char* += n (fat-pointer byte arithmetic) or pointer-to-array/-struct
+                // += n (element-scaled), not a raw word add.
+                int pscale   = is_byte_pointer(target->type) ? 1 : wide_ptr_scale(target->type);
+                Tac_Val *res = gen_ptr_add(ctx, val_var(dst), src,
+                                           e->u.assign.op == ASSIGN_SUB, pscale);
                 Tac_Instruction *cp = tac_new_instruction(TAC_INSTRUCTION_COPY);
                 cp->is_volatile     = vol;
                 cp->u.copy.src      = res;
@@ -713,11 +755,13 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 ld->u.load.dst     = loaded;
                 tac_append(ctx, ld);
                 Tac_Val *result;
-                if (is_byte_pointer(target->type) &&
+                if ((is_byte_pointer(target->type) || wide_ptr_scale(target->type)) &&
                     (e->u.assign.op == ASSIGN_ADD || e->u.assign.op == ASSIGN_SUB)) {
-                    // char* lvalue += n / -= n : fat-pointer byte arithmetic.
-                    result = gen_byte_ptr_add(ctx, val_var(loaded->u.var_name), src,
-                                              e->u.assign.op == ASSIGN_SUB);
+                    // char* lvalue += n (fat-pointer byte arithmetic) or pointer-to-
+                    // array/-struct += n (element-scaled).
+                    int pscale = is_byte_pointer(target->type) ? 1 : wide_ptr_scale(target->type);
+                    result     = gen_ptr_add(ctx, val_var(loaded->u.var_name), src,
+                                             e->u.assign.op == ASSIGN_SUB, pscale);
                 } else {
                     Tac_Val *vd          = new_var_val(ctx);
                     Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
@@ -915,7 +959,14 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         }
     }
     case EXPR_SUBSCRIPT: {
-        Tac_Val *addr       = gen_lval(ctx, e);
+        Tac_Val *addr = gen_lval(ctx, e);
+        // If the subscript selects a sub-array of a multi-dimensional array, its
+        // value is the address of that sub-array (array-to-pointer decay), not a
+        // load of a scalar.
+        const Expr *ptr_exp = is_pointer(e->u.subscript.left->type) ? e->u.subscript.left
+                                                                    : e->u.subscript.right;
+        if (ptr_exp->type->u.pointer.target->kind == TYPE_ARRAY)
+            return addr;
         Tac_Val *dst        = new_var_val(ctx);
         Tac_Instruction *in = tac_new_instruction(
             byte_access_for(e->type) ? TAC_INSTRUCTION_LOAD_BYTE : TAC_INSTRUCTION_LOAD);

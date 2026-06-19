@@ -516,7 +516,45 @@ translation unit.
       `negative_array_dimension` (`int arr[-3]`), `empty_initializer_list` (`{}`, also
       valid as of C23). Each `DISABLED_` carries a one-line reason; fixing them is
       frontend type-checking work, out of scope for the test-import task.
-- [ ] **Task 14b — Chapter 15 run** (Arrays / pointer arithmetic).
+- [x] **Task 14b — Chapter 15 run** (Arrays / pointer arithmetic): delivered
+      `backend/besm6/chapter15_tests.cpp` (23 run + 19 `DISABLED_` = all 42 logical
+      programs, the 6 `libraries` files merged into 3 client-first pairs). CMake wired;
+      full suite green (2012). The array corpus exposed a real cluster of
+      **multi-dimensional array / pointer-to-array bugs**, all fixed (the chapter is core
+      C, not x86-specific, so these are genuine gaps like chapter 14's two fixes):
+      (1) **translator decay** — `typecheck_and_decay` mutates a node's type from array to
+      pointer *in place* ([semantic/expressions.c](semantic/expressions.c)), so a
+      multi-dimensional subscript `a[i]` (whose result is itself a row array) lost its
+      array-ness: the lowerer scaled the index by the decayed *pointer* size (6) instead of
+      the *row* size and emitted a spurious `LOAD`. Fixed in
+      [translator/expr.c](translator/expr.c): `EXPR_SUBSCRIPT` (both `gen_lval` and
+      `gen_expr`) and `UNARY_DEREF` now take the scale from the *pointer operand's pointee*
+      (`get_size(ptr->type->u.pointer.target)`) and, when that pointee is itself an array,
+      return the sub-array's address (array-to-pointer decay) instead of loading a scalar.
+      (2) **pointer-to-array arithmetic** — `ptr ± k`, `++/--`, and `+=`/`-=` on a word
+      pointer assumed a one-word element (`int(*)[3]` advanced by 1 word, not 3). Added
+      `wide_ptr_scale` and routed all four forms (`gen_binary`, `gen_step`, both compound-
+      assign sites) through a generalized `gen_ptr_add` that scales by the element size.
+      (3) **backend ADD_PTR power-of-two scale** — the strength-reduced `asn` left shift for
+      a power-of-two word scale ([backend/besm6/instr.c](backend/besm6/instr.c)) spilled a
+      *negative* index's sign bits into the exponent field, so decrementing a `long(*)[4]`
+      (scale 4) produced a wild address; added the same `aax =37777777777777` 41-bit mask
+      the signed-multiply strength reduction already uses (`AddPtrPowerOfTwoScale` test
+      updated). The 19 `DISABLED_` fall in six groups, each with a one-line reason:
+      (A) **no block-scope static-local storage** — `equivalent_declarators`,
+      `compound_assign_array_of_pointers`, `compound_lval_evaluated_once`,
+      `automatic_nested`, `static`, `static_nested`, `pointer_add`, `pointer_diff`,
+      `simple_subscripts`; (B) **no identifier shadowing** (param/local reuses a file-scope
+      name) — `return_nested_array`, `subscript_nested`, `complex_operands`; (C) **array→
+      pointer parameter adjustment not performed** (`int a[2][3]` vs `int (*a)[3]` read as
+      conflicting) — `array_as_argument`; (D) **x86 byte/alignment assumption** (`ptr % 16
+      == 0`) — `test_alignment`; (E) **value exceeds the BESM-6 integer range** (2⁶⁴/2⁶³/
+      3.46e18) — `implicit_and_explicit_conversions`, `automatic`,
+      `compound_bitwise_subscript`, `compound_pointer_assignment`; (F) **relies on x86
+      32-bit unsigned wraparound** — `compound_assign_to_subscripted_val`. Like chapters
+      11–14 the group-D/E/F programs self-check and return an error code on mismatch, so a
+      BESM-6-valued expectation would just encode a meaningless failure code; `DISABLED_`
+      is the honest call.
 - [ ] **Task 15 — Chapter 16 negative**; **15b — run** (Characters/strings; scanner 8 lex).
 - [ ] **Task 16 — Chapter 17 negative**; **16b — run** (void / sizeof / dynamic alloc).
 - [ ] **Task 17 — Chapter 18 negative**; **17b — run** (Structures/unions — largest set;

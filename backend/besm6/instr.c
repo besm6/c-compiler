@@ -1006,6 +1006,12 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
                     k++;
                 Besm_Instr *asn = emit(block, tail, BESM_EXP_SHIFTN);
                 asn->addr       = 64 - k; // logical left shift by k bits
+                // A signed (possibly negative) index left-shifts its sign bits into
+                // the exponent field (bits 42-48); mask back to the 41-bit two's-
+                // complement representation so the index stays a valid signed offset
+                // (cf. the BINARY signed-multiply strength reduction above).
+                Besm_Instr *aax = emit(block, tail, BESM_LOG_AAX);
+                aax->name       = xstrdup("=37777777777777"); // mask to 41 bits
             } else {
                 // Runtime-helper multiply: push the index, load =word_scale, call b/mul.
                 Besm_Instr *xts = emit(block, tail, BESM_MEM_XTS);

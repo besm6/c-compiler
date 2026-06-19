@@ -65,7 +65,9 @@ TEST_F(CodegenTest, AddPtrPointerLoad)
 
 // Two-word element (a 2-word struct, 12 bytes → word scale 2): the index is scaled by a
 // left shift (,asn, 63 = shift left 1) before adding the pointer base.  No scalar type is
-// two words on BESM-6, so a struct supplies the power-of-two element size here.
+// two words on BESM-6, so a struct supplies the power-of-two element size here.  A signed
+// index left-shifts its sign bits into the exponent field, so the shift is masked back to
+// 41 bits (,aax, =37777777777777) to keep a negative index a valid signed offset.
 TEST_F(CodegenTest, AddPtrPowerOfTwoScale)
 {
     std::string output =
@@ -77,6 +79,7 @@ TEST_F(CodegenTest, AddPtrPowerOfTwoScale)
              ,call, b/save
            6 ,xta, 1
              ,asn, 63
+             ,aax, =37777777777777
            6 ,a+x,
              ,uj, b/ret
              ,end,
