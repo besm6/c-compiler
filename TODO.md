@@ -288,7 +288,29 @@ translation unit.
       are target-semantics gaps, not codegen bugs; unlike ch10's logical-shift
       case the programs self-check and return an error code on mismatch, so a
       BESM-6-valued expectation would just encode a meaningless failure code.
-- [ ] **Task 11 — Chapter 12 negative**; **11b — run** (Unsigned; scanner 2 lex).
+- [x] **Task 11 — Chapter 12 negative** (Unsigned; scanner 2 lex): delivered
+      `scanner/chapter12_tests.cpp` (2 lex), `parser/chapter12_tests.cpp` (2 parse),
+      and `semantic/chapter12_tests.cpp` (2). CMake wired; full suite green (1841).
+      The two `invalid_lex` suffix programs (`0uu`, `0lul`) are already rejected by
+      the task-10 suffix validation; both `invalid_types` programs
+      (`conflicting_signed_unsigned`, `conflicting_uint_ulong`) already diagnose
+      ("Variable x redeclared with different type" / "Conflicting declarations for
+      function"). One compiler fix: `fuse_type_specifiers`
+      ([parser/decl.c](parser/decl.c)) tracked a single `signedness` flag but never
+      rejected a *second* signedness specifier, silently last-wins on
+      `(signed unsigned)` and `unsigned … unsigned`; the `TYPE_SIGNED`/`TYPE_UNSIGNED`
+      cases now reject a duplicate ("duplicate unsigned/signed specifier") or
+      conflicting ("unsigned cannot combine with signed" and vice-versa) signedness —
+      this lights up both `invalid_parse` negatives (the one change covers the
+      declaration and the cast/type-name paths, which share `fuse_type_specifiers`).
+      Omitted (target-semantics gap, not a negative for us):
+      `invalid_labels/extra_credit/switch_duplicate_cases` relies on x86's 32-bit
+      unsigned truncation to collapse `4294967295u` and `1099511627775l` onto the
+      same case (both → 2³²−1); BESM-6 `unsigned int` is a single 41-bit word, so
+      `1099511627775` (2⁴⁰−1) is not truncated, the cases stay distinct, and the
+      program is accepted — like ch11's `switch_duplicate_cases`, it is an 11b run
+      candidate. No `DISABLED_` needed.
+- [ ] **Task 11b — run** (Unsigned).
 - [ ] **Task 12 — Chapter 13 negative**; **12b — run** (Floating-point; scanner 7 lex —
       expect many `DISABLED_`).
 - [ ] **Task 13 — Chapter 14 negative**; **13b — run** (Pointers).

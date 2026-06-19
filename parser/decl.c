@@ -119,6 +119,10 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
                     base_kind != TYPE_INT && base_kind != TYPE_LONG) {
                     fatal_error("signed cannot combine with %s", type_kind_str[base_kind]);
                 }
+                if (signedness == SIGNED_SIGNED)
+                    fatal_error("duplicate signed specifier");
+                if (signedness == SIGNED_UNSIGNED)
+                    fatal_error("signed cannot combine with unsigned");
                 signedness = SIGNED_SIGNED;
                 break;
             case TYPE_UNSIGNED:
@@ -126,6 +130,10 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
                     base_kind != TYPE_INT && base_kind != TYPE_LONG) {
                     fatal_error("unsigned cannot combine with %s", type_kind_str[base_kind]);
                 }
+                if (signedness == SIGNED_UNSIGNED)
+                    fatal_error("duplicate unsigned specifier");
+                if (signedness == SIGNED_SIGNED)
+                    fatal_error("unsigned cannot combine with signed");
                 signedness = SIGNED_UNSIGNED;
                 break;
             case TYPE_COMPLEX:

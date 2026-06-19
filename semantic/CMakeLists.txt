@@ -43,6 +43,7 @@ add_executable(semantic-tests
    chapter9_tests.cpp
    chapter10_tests.cpp
    chapter11_tests.cpp
+   chapter12_tests.cpp
 )
 target_link_libraries(semantic-tests parser semantic GTest::gtest_main)
 gtest_discover_tests(semantic-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
