@@ -310,7 +310,44 @@ translation unit.
       `1099511627775` (2⁴⁰−1) is not truncated, the cases stay distinct, and the
       program is accepted — like ch11's `switch_duplicate_cases`, it is an 11b run
       candidate. No `DISABLED_` needed.
-- [ ] **Task 11b — run** (Unsigned).
+- [x] **Task 11b — Chapter 12 run** (Unsigned): delivered
+      `backend/besm6/chapter12_tests.cpp` (4 run + 25 `DISABLED_`). CMake wired;
+      full suite green (1845). No compiler changes needed. The decisive fact:
+      `semantic/target.c` makes every *unsigned* integer type a single **48-bit**
+      word (`unsigned int` == `unsigned long` == `unsigned long long`, range
+      0…2⁴⁸−1); signed `int`/`long` stay 41-bit. The backend already has every
+      unsigned helper (`b/uadd`, `b/usub`, `b/umul`, `b/udiv`, `b/umod`, `b/uneg`,
+      and the unsigned comparisons `b/ult`/`b/ule`/`b/ugt`/`b/uge`). Chapter 12 is
+      written to prove an x86 compiler distinguishes a 32-bit `unsigned int`
+      (wraps at 2³²) from a 64-bit `unsigned long` (wraps at 2⁶⁴), neither of which
+      BESM-6 has, so — like chapter 11 — the corpus splits. The 4 enabled: `simple`
+      (2³¹−1 + 2 == 2³¹+1, no wrap), `unsigned_type_specifiers` (the initialized
+      def is the *last* declaration so no tentative clobber; the for-loop runs 11×
+      whether the unsigned wraps at 2³² or 2⁴⁸, since both wrapped values exceed the
+      `< 4294967295U` bound), `implicit_casts/promote_constants` (2³⁶ takes
+      unsigned-long type and the −1l comparison goes through the unsigned-long common
+      type via `b/uge`; the `3ul + 4294967293ul == 2³²` stays nonzero), and
+      `explicit_casts/rewrite_movz_regression` (the ch11 twin — small values).
+      The 25 `DISABLED_` fall in three groups, each with a one-line reason:
+      (A) **value exceeds 2⁴⁸ / 64-bit wraparound** — `arithmetic_ops`,
+      `arithmetic_wraparound`, `locals` (−a expects 2⁶⁴ range), `logical` (2⁶⁰),
+      `static_variables` (2⁶³), `common_type`, `convert_by_assignment`,
+      `static_initializers`, `extension`, `round_trip_casts`, `same_size_conversion`,
+      `truncate`, `bitwise_unsigned_ops`, `compound_bitshift`, `compound_bitwise`,
+      libraries `unsigned_args`; (B) **relies on x86 32-bit unsigned-int
+      wraparound/truncation** — BESM-6 `unsigned int` is 48-bit, so `-1u`, `ui++`
+      at 2³²−1, and `(int)`/`(unsigned)` narrowing don't behave as on x86:
+      `chained_casts`, `bitwise_unsigned_shift`, `compound_assign_uint`,
+      `postfix_precedence`, `switch_uint` (2³⁵+10 case not truncated to 10),
+      `unsigned_incr_decr`, libraries `unsigned_global_var`; and (C) **backend
+      limitation unrelated to unsigned width** — `comparisons` collides on the
+      8-char Madlen symbol limit (`one_hundred` and `one_hundred_ulong` both become
+      `ONE*HUND` → "twice-described identifier"), and `signed_type_specifiers` hits
+      the chapter-10 tentative-after-def clobber (`signed int static i;` after
+      `int static signed i = 5;` re-emits an uninitialized toplevel that resets i to
+      0). Like ch11, the group-A/B programs self-check and return an error code on
+      mismatch, so a BESM-6-valued expectation would just encode a meaningless
+      failure code; `DISABLED_` is the honest call.
 - [ ] **Task 12 — Chapter 13 negative**; **12b — run** (Floating-point; scanner 7 lex —
       expect many `DISABLED_`).
 - [ ] **Task 13 — Chapter 14 negative**; **13b — run** (Pointers).
