@@ -94,6 +94,20 @@ again:
         token = scan_identifier();
     } else if (isdigit(next_char)) {
         token = scan_number();
+    } else if (next_char == '.') {
+        // A '.' immediately followed by a digit begins a floating constant with
+        // no integer part (e.g. '.5', '.01e+2').  scan_number's decimal path
+        // already handles a leading '.', so just route to it; otherwise the '.'
+        // is the member-access operator or part of '...'.
+        int after = fgetc(input_file);
+        if (after != EOF) {
+            ungetc(after, input_file);
+        }
+        if (isdigit(after)) {
+            token = scan_number();
+        } else {
+            token = scan_operator();
+        }
     } else if (next_char == '"') {
         token = scan_string();
     } else if (next_char == '\'') {

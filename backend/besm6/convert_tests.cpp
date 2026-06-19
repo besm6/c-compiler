@@ -200,6 +200,7 @@ TEST_F(CodegenTest, DoubleToIntMadlen)
     EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
+        d:   ,subp,
              ,its, 13
              ,call, b/save0
              ,utc, d
@@ -218,6 +219,7 @@ TEST_F(CodegenTest, DoubleToUintMadlen)
     EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
+        d:   ,subp,
              ,its, 13
              ,call, b/save0
              ,utc, d
@@ -236,6 +238,7 @@ TEST_F(CodegenTest, FloatToDoubleMadlen)
     EXPECT_EQ(R"(c
       foo:   ,name,
     b/ret:   ,subp,
+        f:   ,subp,
              ,its, 13
              ,call, b/save0
              ,utc, f

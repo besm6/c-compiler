@@ -250,6 +250,36 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
                     declare_global_operand(block, &tail, f, &declared, a);
                 declare_global_operand(block, &tail, f, &declared, instr->u.fun_call.dst);
                 break;
+            // All width/int-FP/pointer-representation conversions share the {src, dst}
+            // layout (a union common initial sequence), so one representative member
+            // reads either operand.  Their src/dst can be a global (e.g. `(int)glob`
+            // for a module-level double), which must be self-declared external too.
+            case TAC_INSTRUCTION_SIGN_EXTEND:
+            case TAC_INSTRUCTION_TRUNCATE:
+            case TAC_INSTRUCTION_ZERO_EXTEND:
+            case TAC_INSTRUCTION_DOUBLE_TO_INT:
+            case TAC_INSTRUCTION_DOUBLE_TO_UINT:
+            case TAC_INSTRUCTION_INT_TO_DOUBLE:
+            case TAC_INSTRUCTION_UINT_TO_DOUBLE:
+            case TAC_INSTRUCTION_FLOAT_TO_DOUBLE:
+            case TAC_INSTRUCTION_DOUBLE_TO_FLOAT:
+            case TAC_INSTRUCTION_INT_TO_FLOAT:
+            case TAC_INSTRUCTION_UINT_TO_FLOAT:
+            case TAC_INSTRUCTION_FLOAT_TO_INT:
+            case TAC_INSTRUCTION_FLOAT_TO_UINT:
+            case TAC_INSTRUCTION_LONG_DOUBLE_TO_INT:
+            case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
+            case TAC_INSTRUCTION_INT_TO_LONG_DOUBLE:
+            case TAC_INSTRUCTION_UINT_TO_LONG_DOUBLE:
+            case TAC_INSTRUCTION_LONG_DOUBLE_TO_DOUBLE:
+            case TAC_INSTRUCTION_DOUBLE_TO_LONG_DOUBLE:
+            case TAC_INSTRUCTION_LONG_DOUBLE_TO_FLOAT:
+            case TAC_INSTRUCTION_FLOAT_TO_LONG_DOUBLE:
+            case TAC_INSTRUCTION_PTR_TO_CHAR_PTR:
+            case TAC_INSTRUCTION_CHAR_PTR_TO_PTR:
+                declare_global_operand(block, &tail, f, &declared, instr->u.double_to_int.src);
+                declare_global_operand(block, &tail, f, &declared, instr->u.double_to_int.dst);
+                break;
             default:
                 break;
             }

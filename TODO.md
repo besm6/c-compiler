@@ -373,7 +373,59 @@ translation unit.
       both `invalid_parse` (`double double`, `unsigned double`) via the parser's
       `fuse_type_specifiers`, and `~`/`%`/bitwise/shift/`switch (double)`/`case 1.0`
       via the existing typecheck. No `DISABLED_` needed.
-- [ ] **Task 12b — Chapter 13 run** (Floating-point; expect many `DISABLED_`).
+- [x] **Task 12b — Chapter 13 run** (Floating-point): delivered
+      `backend/besm6/chapter13_tests.cpp` (16 run + 23 `DISABLED_` = all 39
+      programs, the 5 `libraries` client/impl pairs merged into one source each).
+      CMake wired; full suite green (1886). Two compiler fixes were needed, both
+      genuine conformance/codegen gaps the book's floating-point corpus exposed:
+      (1) `scanner/scanner.c` now lexes a floating constant with no integer part
+      (`.5`, `.01e+2`, and after a unary minus `-.00004`): the dispatch peeks one
+      char past a leading `.` and, if it is a digit, routes to `scan_number`
+      (whose `decimal:` path already handled a leading `.` — only the routing was
+      missing; member access `a.b` and `...` are unaffected). (2)
+      `backend/besm6/codegen.c` `declare_global_name` is now also called for the
+      width / int↔FP / pointer-representation conversion TAC kinds (they share a
+      `{src,dst}` union common-initial-sequence). Previously `(int)glob` on a
+      module-level `double` referenced `glob` via `,utc,` without emitting the
+      `glob: ,subp,` self-declaration, so the Madlen assembler died with
+      "undescribed identifier"; only integer-global loads (plain COPY/RETURN
+      operands) were being declared. Three golden-Madlen `convert_tests.cpp`
+      cases (`DoubleToIntMadlen`, `DoubleToUintMadlen`, `FloatToDoubleMadlen`)
+      encoded the old, un-assemblable output and were updated to include the now-
+      emitted `,subp,` line. The decisive architectural facts: BESM-6 FP is one
+      48-bit format for float/double/long double — 7-bit exponent (~2^-63 ..
+      2^63, i.e. ~1.08e-19 .. ~9.2e18), 40-bit mantissa (~12 decimal digits) —
+      with NO NaN/infinity/subnormals; signed `long` is 41-bit and `unsigned
+      long` is 48-bit; and there is no libm or static-local storage. The 16
+      enabled are the programs whose every value is in-range, need ≤12 digits, and
+      avoid all of the above: `simple`, `comparisons`, `loop_controlling_
+      expression`, `constant_doubles`, the four `function_calls` calling-
+      convention cases (`double_and_int_parameters`, `double_and_int_params_
+      recursive`, `double_parameters`, `push_xmm`), `use_arg_after_fun_call`,
+      `cvttsd2si_rewrite`, `double_to_signed`, `rewrite_cvttsd2si_regression`,
+      `compound_assign`, and the three runnable `libraries` cases (`double_and_
+      int_params_recursive`, `double_parameters`, `use_arg_after_fun_call`). The
+      23 `DISABLED_` fall in seven groups, each with a one-line reason:
+      (A) **NaN unsupported** — `nan`, `nan_compound_assign`, `nan_incr_and_decr`
+      (also need `isnan`); (B) **infinity / negative-zero / subnormal
+      unsupported** — `infinity`, `negative_zero`, `subnormal_not_zero`;
+      (C) **value > 2^63 exponent** — `return_double` (1234e75), `arithmetic_ops`
+      (12e30; also a 17-digit `0.1+0.2` check), `libraries/extern_double` (1e20),
+      `incr_and_decr` (10e20; also a static local); (D) **value exceeds the
+      narrow 41-bit long / 48-bit ulong range, or relies on x86 64-bit
+      signed→unsigned width** — `signed_to_double` (9e15 long literal),
+      `double_to_unsigned` (3.4e18 > 2^48), `unsigned_to_double`, `common_type`,
+      `convert_for_assignment`, `complex_arithmetic_common_type`
+      ((unsigned long)(int -50) is 2^41-50 here, so `ul + i` does not wrap to
+      9950), `compound_assign_implicit_cast`; (E) **1e-20 < 2^-63 underflows to
+      0**, breaking `non_zero` — `logical`; (F) **no static-local storage** —
+      `static_initialized_double`, `static_initializers`; (G) **17-digit /
+      2^63-boundary precision not meaningful at 40 bits** — `round_constants`;
+      and **requires libm** — `standard_library_call` (fma/ldexp),
+      `libraries/double_params_and_result` (fmax). Like chapters 11 and 12 these
+      programs self-check and return an error code on mismatch, so a BESM-6-valued
+      expectation would just encode a meaningless failure code; `DISABLED_` is the
+      honest call.
 - [ ] **Task 13 — Chapter 14 negative**; **13b — run** (Pointers).
 - [ ] **Task 14 — Chapter 15 negative**; **14b — run** (Arrays / pointer arithmetic).
 - [ ] **Task 15 — Chapter 16 negative**; **15b — run** (Characters/strings; scanner 8 lex).
