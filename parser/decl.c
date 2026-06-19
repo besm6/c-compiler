@@ -1215,8 +1215,11 @@ DeclaratorSuffix *parse_direct_abstract_declarator(Ident *name_out)
                 new_suffix->u.function.variadic = false;
                 *tail                           = new_suffix;
                 tail                            = &new_suffix->next;
-            } else if (current_token == TOKEN_STAR) {
-                // Case: '(' abstract_declarator ')'
+            } else if (current_token == TOKEN_STAR || current_token == TOKEN_LPAREN) {
+                // Case: '(' abstract_declarator ')'.  A following '(' begins a
+                // nested abstract declarator (a parameter list would start with
+                // a type, never '('); parse_pointer() yields NULL so the extra
+                // parens act as pure grouping.
                 DeclaratorSuffix *new_suffix   = new_declarator_suffix(SUFFIX_POINTER);
                 new_suffix->u.pointer.pointers = parse_pointer();
                 new_suffix->u.pointer.suffix   = parse_direct_abstract_declarator(name_out);

@@ -201,14 +201,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         const Tac_Val *src = instr->u.copy.src;
         const Tac_Val *dst = instr->u.copy.dst;
         emit_xta_val(block, tail, f, src);
-        int dr, doff;
-        if (frame_lookup(f, dst->u.var_name, &dr, &doff)) {
-            emit_atx(block, tail, dr, doff);
-        } else {
-            Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
-            utc->name       = xstrdup(dst->u.var_name);
-            emit(block, tail, BESM_MEM_ATX);
-        }
+        emit_store_a(block, tail, f, dst->u.var_name);
         break;
     }
     // GET_ADDRESS  dst = &src
@@ -227,8 +220,6 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
     case TAC_INSTRUCTION_GET_ADDRESS:
     case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
     case TAC_INSTRUCTION_GET_ADDRESS_DECAY: {
-        int dr, doff;
-        lookup(f, instr->u.get_address.dst->u.var_name, &dr, &doff);
         const char *src_name = instr->u.get_address.src->u.var_name;
         int sr, so;
         if (frame_lookup(f, src_name, &sr, &so)) {
@@ -269,7 +260,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
             Besm_Instr *aox = emit(block, tail, BESM_LOG_AOX);
             aox->name       = xstrdup("=6400000000000000"); // bit 48 + offset_enc 5 (MSB)
         }
-        emit_atx(block, tail, dr, doff);
+        emit_store_a(block, tail, f, instr->u.get_address.dst->u.var_name);
         break;
     }
     // LOAD  dst = *src_ptr
@@ -289,9 +280,9 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
     case TAC_INSTRUCTION_LOAD:
     case TAC_INSTRUCTION_LOAD_BYTE: {
         int pr, po, dr, doff;
-        lookup(f, instr->u.load.src_ptr->u.var_name, &pr, &po);
         lookup(f, instr->u.load.dst->u.var_name, &dr, &doff);
         if (instr->kind == TAC_INSTRUCTION_LOAD_BYTE) {
+            lookup(f, instr->u.load.src_ptr->u.var_name, &pr, &po);
             // Byte load through a char*/void* fat pointer.  The pointer word holds the
             // word address in bits 15-1 and the byte offset in its exponent field
             // (= 64 + offset*8).  WTC loads the word address into C; the bare XTA then
@@ -309,9 +300,8 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
             emit_atx(block, tail, dr, doff);
             break;
         }
-        Besm_Instr *wtc = emit(block, tail, BESM_MOD_WTC);
-        wtc->reg        = pr;
-        wtc->addr       = po;        // C = pointer (word address, bits 15:1)
+        // C = pointer (frame slot or global), then bare XTA reads mem[C].
+        emit_wtc_ptr(block, tail, f, instr->u.load.src_ptr->u.var_name);
         emit_xta(block, tail, 0, 0); // A = mem[C]: the dereferenced word
         emit_atx(block, tail, dr, doff);
         break;
@@ -333,9 +323,9 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
     // after the optimizer folds the value), so it is loaded via emit_xta_val.
     case TAC_INSTRUCTION_STORE:
     case TAC_INSTRUCTION_STORE_BYTE: {
-        int pr, po;
-        lookup(f, instr->u.store.dst_ptr->u.var_name, &pr, &po);
         if (instr->kind == TAC_INSTRUCTION_STORE_BYTE) {
+            int pr, po;
+            lookup(f, instr->u.store.dst_ptr->u.var_name, &pr, &po);
             // Byte store through a char*/void* fat pointer.  Read-modify-write is too
             // long to inline, so call the b/stb runtime helper with the lightweight
             // convention: the fat pointer `a` on the stack top, the byte value `b` in A.
@@ -348,9 +338,8 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
             break;
         }
         emit_xta_val(block, tail, f, instr->u.store.src); // A = src (this load resets C)
-        Besm_Instr *wtc = emit(block, tail, BESM_MOD_WTC);
-        wtc->reg        = pr;
-        wtc->addr       = po;        // C = pointer; A unchanged
+        // C = pointer (frame slot or global); A unchanged, then bare ATX writes mem[C].
+        emit_wtc_ptr(block, tail, f, instr->u.store.dst_ptr->u.var_name);
         emit_atx(block, tail, 0, 0); // mem[C] = A
         break;
     }

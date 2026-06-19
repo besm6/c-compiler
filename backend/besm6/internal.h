@@ -31,6 +31,13 @@ void emit_xta_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *
 // Emit XTS for a TAC value (push A to stack, load v into A) — used for args 1..N-1.
 void emit_xts_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *v);
 
+// Set the C modifier register from a pointer variable (frame slot or global) so a
+// following bare XTA/ATX dereferences it.
+void emit_wtc_ptr(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *name);
+
+// Store A into a variable, whether a frame slot or a module-level global.
+void emit_store_a(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *name);
+
 // Emit an arithmetic instruction for a TAC value: local, global (via UTC), or constant literal.
 void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind, const Frame *f,
                     const Tac_Val *v);

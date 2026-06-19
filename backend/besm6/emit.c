@@ -50,6 +50,40 @@ void lookup(const Frame *f, const char *name, int *reg, int *off)
         fatal_error("variable '%s' not in frame", name);
 }
 
+// Store the accumulator A into a variable, whether a frame slot or a module-level
+// global (UTC sets C to the global's address, then a bare ATX writes mem[C]).
+void emit_store_a(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *name)
+{
+    int reg, off;
+    if (frame_lookup(f, name, &reg, &off)) {
+        emit_atx(b, t, reg, off);
+    } else {
+        Besm_Instr *utc = emit(b, t, BESM_MOD_UTC);
+        utc->name       = xstrdup(name); // C = &global
+        emit(b, t, BESM_MEM_ATX);        // reg=0, addr=0 → mem[C] = A
+    }
+}
+
+// Set the C address-modifier register to the value of a pointer variable, so a
+// following bare XTA/ATX dereferences it (EA = C).  For a frame-resident pointer
+// this is a single WTC from its slot.  For a module-level (global) pointer the
+// pointer word is not in the frame: UTC sets C to the global's address, then a
+// bare WTC reads mem[C] (the pointer word) back into C.  Neither instruction
+// touches A, so this is safe between a source load and a store.
+void emit_wtc_ptr(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *name)
+{
+    int reg, off;
+    if (frame_lookup(f, name, &reg, &off)) {
+        Besm_Instr *wtc = emit(b, t, BESM_MOD_WTC);
+        wtc->reg        = reg;
+        wtc->addr       = off; // C = pointer word (bits 15:1)
+    } else {
+        Besm_Instr *utc = emit(b, t, BESM_MOD_UTC);
+        utc->name       = xstrdup(name); // C = &global
+        emit(b, t, BESM_MOD_WTC);        // reg=0, addr=0 → C = mem[C] = pointer word
+    }
+}
+
 // Build a heap-allocated Madlen literal-address string for a TAC constant.
 // Signed int/char/long: masked to 41 bits (raw two's-complement, exponent=0).
 // Unsigned uint/ulong/uchar: masked to 48 bits.

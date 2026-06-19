@@ -446,7 +446,48 @@ translation unit.
       programs (`addr_of_label`, `deref_label`) use a label name as a value, which —
       labels and identifiers being separate namespaces — reports "Symbol not
       found", like chapter 6's `goto_variable`. No `DISABLED_` needed — every
-      program yields a clean diagnostic. **13b — run** (Pointers) still pending.
+      program yields a clean diagnostic. 
+- [x] **Task 13b — Chapter 14 run** (Pointers): delivered
+      `backend/besm6/chapter14_tests.cpp` (16 run + 13 `DISABLED_` = all 29
+      logical programs, the 4 `libraries` files merged into 2 client-first
+      pairs). CMake wired; full suite green (1949). Two compiler fixes lit up
+      programs that are otherwise fully in-range, both genuine gaps the pointer
+      corpus exposed: (1) **parser** — `parse_direct_abstract_declarator`
+      ([parser/decl.c](parser/decl.c)) rejected a nested-parenthesized abstract
+      declarator like `(long unsigned int ((((*))))) 0` with "Empty type
+      specifier list" (after consuming `(`, a following `(` fell through to the
+      parameter-type-list branch). A `(` after `(` can only begin a nested
+      abstract declarator — a parameter list must start with a type — so the `(`
+      case now joins the `*` case (`parse_pointer()` yields NULL, the extra
+      parens act as pure grouping via `type_apply_pointers(NULL)`); lights up
+      `abstract_declarators`. (2) **backend** — LOAD/STORE/GET_ADDRESS through a
+      *module-level (global)* pointer. The word LOAD/STORE and GET_ADDRESS dst
+      assumed the pointer/destination lived in the frame and died with
+      "variable '...' not in frame" for a file-scope `double *d_ptr`. Added
+      `emit_wtc_ptr` (frame slot → single `wtc`; global → `utc name` to set C to
+      the pointer's address, then a bare `wtc` to load the pointer word into C)
+      and `emit_store_a` (store A to a frame slot or, for a global, `utc name`
+      + bare `atx`) in [backend/besm6/emit.c](backend/besm6/emit.c), used by the
+      word LOAD/STORE and by COPY/GET_ADDRESS
+      ([backend/besm6/instr.c](backend/besm6/instr.c)); lights up libraries
+      `global_pointer`. The book's `putchar` is not in our libc, so
+      `eval_compound_lhs_once` calls libc `putch` (output `"AB0\n"`). The 13
+      `DISABLED_` fall in three groups, each with a one-line reason:
+      (A) **no block-scope static-local storage** (a `static` inside a function
+      emits no toplevel) — `cast_between_pointer_types`, `pointer_int_casts`
+      (also relies on x86 byte-addressing, `ptr % 8 == 0`; a BESM-6 pointer is a
+      *word* address), `declarators`, `dereference_expression_result`,
+      `static_var_indirection`; (B) **value exceeds the BESM-6 integer range**
+      (41-bit signed / 48-bit unsigned) — `read_through_pointers` (1.38e19,
+      1.44e17), `update_through_pointers` (long 1.44e17, `d=1e50`),
+      `bitwise_ops_with_dereferenced_ptrs` (2⁶³), `compound_assign_conversion`
+      (2⁶³−1), `compound_bitwise_dereferenced_ptrs` (~1.8e19); and (C) **relies
+      on x86 32/64-bit unsigned wraparound** — `bitshift_dereferenced_ptrs`
+      (32-bit `<<` wrap), `incr_and_decr_through_pointer` (`0ul--` → 2⁶⁴−1),
+      `switch_dereferenced_pointer` (case label ~1.8e19 / `l % 2³²` truncation).
+      Like chapters 11–13 the group-B/C programs self-check and return an error
+      code on mismatch, so a BESM-6-valued expectation would just encode a
+      meaningless failure code; `DISABLED_` is the honest call.
 - [ ] **Task 14 — Chapter 15 negative**; **14b — run** (Arrays / pointer arithmetic).
 - [ ] **Task 15 — Chapter 16 negative**; **15b — run** (Characters/strings; scanner 8 lex).
 - [ ] **Task 16 — Chapter 17 negative**; **16b — run** (void / sizeof / dynamic alloc).
