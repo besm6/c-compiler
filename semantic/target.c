@@ -97,13 +97,14 @@ static const Target targets[] = {
 
     // BESM-6: 48-bit word-oriented machine.
     // sizeof() values are in 8-bit bytes (CHAR_BIT = 8).
-    // One machine word = 6 bytes.  Two-word types (long long, long double)
-    // are 12 bytes.  All alignments are 1 word = 6 bytes.
+    // One machine word = 6 bytes.  long long is a single word, same as long.
+    // long double is the only two-word type (12 bytes).  All alignments are
+    // 1 word = 6 bytes.
     { "besm6",
       6, 6,   // short   (1 word)
       6, 6,   // int     (1 word)
       6, 6,   // long    (1 word)
-     12, 6,   // long long  (2 words, 1-word aligned)
+      6, 6,   // long long  (1 word, same as long)
       6, 6,   // float   (1 word, BESM-6 native FP)
       6, 6,   // double  (1 word, same as float)
      12, 6,   // long double (2 words, 1-word aligned)

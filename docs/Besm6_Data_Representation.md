@@ -183,38 +183,17 @@ The width rules above apply to integer *constants* as well. At code emission a s
 
 ### `long long`
 
-`long long` occupies two consecutive words and provides 81 bits of two's-complement
-precision. Software routines implement all arithmetic.
+`long long` is a single word, identical in representation to `long` and `int`: a
+41-bit two's-complement value (sign bit + 40 value bits) in one 48-bit word.
+There is no extended-precision two-word form on BESM-6 — `long long` and `long`
+are the same type. Range: −2⁴⁰ to 2⁴⁰ − 1.
 
-**Word 0 (high word):**
-```
-Bit:  48     42  41 40                       1
-     ┌─────────┬───┬──────────────────────────┐
-     │  Zero   │ S │   High 40 value bits     │
-     └─────────┴───┴──────────────────────────┘
-```
-- Bits 48–42: Zero.
-- Bit 41: Sign of the entire 80-bit value (0 = positive, 1 = negative).
-- Bits 40–1: Upper 40 bits of the two's-complement representation.
-
-**Word 1 (low word):**
-```
-Bit:  48     42  41 40                       1
-     ┌─────────┬───┬──────────────────────────┐
-     │  Zero   │   │   Low 40 value bits      │
-     └─────────┴───┴──────────────────────────┘
-```
-- Bits 48–41: Unused (ignored by arithmetic routines).
-- Bits 40–1: Lower 40 bits of the two's-complement representation.
-
-The 81 data bits (1 sign + 40 high + 40 low) give the range −2⁸⁰ to 2⁸⁰ − 1.
-
-`sizeof(long long) == 12` (twelve char-units, two words).
+`sizeof(long long) == 6` (six char-units, one word).
 
 ### `unsigned long long`
 
-Same two-word layout as `long long`, but all 96 bits are used as a non-negative integer.
-Range: 0 to 2⁹⁶ − 1.
+Same single-word layout as `unsigned long`/`unsigned int`: all 48 bits hold a
+non-negative integer. Range: 0 to 2⁴⁸ − 1.
 
 ---
 
@@ -468,9 +447,9 @@ Sizes and alignments in words (1 word = 48 bits). `sizeof` values in char-units:
 | `INT_MIN` | −1,099,511,627,776 | −2⁴⁰ |
 | `INT_MAX` | 1,099,511,627,775 | 2⁴⁰ − 1 |
 | `UINT_MAX` | 281,474,976,710,655 | 2⁴⁸ − 1 |
-| `LLONG_MIN` | −2⁸⁰ | Two-word signed |
-| `LLONG_MAX` | 2⁸⁰ − 1 | Two-word signed |
-| `ULLONG_MAX` | 2⁹⁶ − 1 | Two-word unsigned |
+| `LLONG_MIN` | −2⁴⁰ | Same as `LONG_MIN`/`INT_MIN` (one word) |
+| `LLONG_MAX` | 2⁴⁰ − 1 | Same as `LONG_MAX`/`INT_MAX` (one word) |
+| `ULLONG_MAX` | 2⁴⁸ − 1 | Same as `ULONG_MAX`/`UINT_MAX` (one word) |
 
 For how integer **constants** are sized and why a `U` suffix alone keeps all 48 bits, see
 [Integer constants and literal suffixes](#integer-constants-and-literal-suffixes) in Section 5.
@@ -482,7 +461,7 @@ sizeof(char)        == 1
 sizeof(short)       == 6
 sizeof(int)         == 6
 sizeof(long)        == 6
-sizeof(long long)   == 12
+sizeof(long long)   == 6
 sizeof(float)       == 6
 sizeof(double)      == 6
 sizeof(long double) == 12

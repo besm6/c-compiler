@@ -6,11 +6,10 @@
 // output against the value computed by host cc.
 //
 // Key architectural fact.  On BESM-6 a machine word is 48 bits and
-// semantic/target.c makes "int" and "long"/"long int" the SAME type: a single
-// 41-bit signed word (range -2^40 .. 2^40-1, about +-1.1e12).  codegen_sizeof
-// (abi.h) returns one word for both, and an int<->long conversion is a plain
-// COPY (no truncate/extend).  "long long" (two words) is deferred to task #24
-// and not exercised here.
+// semantic/target.c makes "int", "long"/"long int" and "long long" the SAME
+// type: a single 41-bit signed word (range -2^40 .. 2^40-1, about +-1.1e12).
+// codegen_sizeof (abi.h) returns one word for all of them, and a conversion
+// among them is a plain COPY (no truncate/extend).
 //
 // Chapter 11 is written to prove an x86 compiler distinguishes 32-bit int from
 // 64-bit long.  That distinction does not exist on BESM-6, so the corpus splits
