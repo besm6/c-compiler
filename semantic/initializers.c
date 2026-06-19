@@ -313,6 +313,14 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
                 zero_init->u.zero_bytes   = get_size(var_type);
                 return zero_init;
             }
+            // A non-zero integer initializes a pointer only when it is explicitly
+            // cast to a pointer type (an address constant, e.g.
+            // "(char *)0x4000").  A bare integer is not a null pointer constant
+            // and is rejected (C11 §6.7.9p4 / §6.3.2.3p3).
+            if (init->u.expr->kind != EXPR_CAST ||
+                init->u.expr->u.cast.type->kind != TYPE_POINTER) {
+                fatal_error("Static initializer for pointer must be a null pointer constant");
+            }
             Tac_StaticInit *ptr_init = tac_new_static_init(TAC_STATIC_INIT_I64);
             ptr_init->u.long_val     = val;
             return ptr_init;

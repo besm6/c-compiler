@@ -426,7 +426,27 @@ translation unit.
       programs self-check and return an error code on mismatch, so a BESM-6-valued
       expectation would just encode a meaningless failure code; `DISABLED_` is the
       honest call.
-- [ ] **Task 13 — Chapter 14 negative**; **13b — run** (Pointers).
+- [x] **Task 13 — Chapter 14 negative** (Pointers): delivered
+      `parser/chapter14_tests.cpp` (4 parse) and `semantic/chapter14_tests.cpp`
+      (43). CMake wired; full suite green (1933). Of the 47 book negatives, 46
+      already produced a clean, specific diagnostic; one compiler fix lit up the
+      last: `build_static_init` ([semantic/initializers.c](semantic/initializers.c))
+      silently accepted any non-zero integer constant as a static pointer
+      initializer (`static int *x = 10;` → `TAC_STATIC_INIT_I64` treating it as an
+      address). It now rejects a bare non-zero integer ("Static initializer for
+      pointer must be a null pointer constant") while still accepting an explicit
+      pointer cast (`char *foo = (char *)(0x40000000 + 0xe00000);`, an address
+      constant relied on by `InitVarCastPtrExpression`/`VarIntPtrInitLiteral`) — the
+      distinguishing factor is whether the initializer expression is an
+      `EXPR_CAST` to a pointer type. Reclassifications vs. the book: two
+      `invalid_parse` programs parse cleanly for us and are caught by the type
+      checker (`abstract_function_declarator` → "Can only cast scalar types",
+      `malformed_function_declarator` → "Function cannot return a function"), so
+      they moved to the semantic file; the two `invalid_declarations` label
+      programs (`addr_of_label`, `deref_label`) use a label name as a value, which —
+      labels and identifiers being separate namespaces — reports "Symbol not
+      found", like chapter 6's `goto_variable`. No `DISABLED_` needed — every
+      program yields a clean diagnostic. **13b — run** (Pointers) still pending.
 - [ ] **Task 14 — Chapter 15 negative**; **14b — run** (Arrays / pointer arithmetic).
 - [ ] **Task 15 — Chapter 16 negative**; **15b — run** (Characters/strings; scanner 8 lex).
 - [ ] **Task 16 — Chapter 17 negative**; **16b — run** (void / sizeof / dynamic alloc).
