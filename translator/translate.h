@@ -98,6 +98,7 @@ Tac_Type *ast_type_to_tac_type(const Type *t);
 // Expression and statement lowering (translate_expr.c, translate_stmt.c)
 //
 Tac_Val *gen_expr(TacCtx *ctx, Expr *e);
+Tac_Val *gen_cond_val(TacCtx *ctx, Expr *cond);
 void gen_stmt(TacCtx *ctx, Stmt *stmt);
 void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const Initializer *init);
 

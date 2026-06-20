@@ -175,6 +175,30 @@ TEST_F(CodegenTest, PrintFormatChar)
     EXPECT_EQ("HELLO (-_-)\n", result);
 }
 
+// A char*/void* null must test as false even when it carries the fat-pointer marker.
+// Casting a null int* to char* (PTR_TO_CHAR_PTR) ORs in the marker bit, so the stored
+// word is 0x6400000000000000 rather than all-zero.  Null tests (truthiness, ==/!=, !)
+// must compare only the word-address part, so the marker-tagged null still reads as
+// null; a real pointer (nonzero address, any byte offset) must read as non-null.
+TEST_F(CodegenTest, FatPointerNullTest)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int *ret_null(void) { return 0; }   // null int*, opaque to the optimizer
+        void program() {
+            char buf[6];
+            char *nul = (char*)ret_null();   // marker-tagged null fat pointer
+            char *p0  = buf;                 // real pointer, byte offset 0
+            char *p3  = &buf[3];             // real pointer, byte offset within word
+            printf("%c%c%c%c%c%c%c%c\n",
+                nul ? 'T' : 'F', (nul == 0) ? 'E' : 'N', (nul != 0) ? 'N' : 'E', !nul ? 'Y' : 'F',
+                p0 ? 'T' : 'F', (p0 == 0) ? 'E' : 'N',
+                p3 ? 'T' : 'F', (p3 == 0) ? 'E' : 'N');
+        }
+    )");
+    EXPECT_EQ("FEEYTNTN\n", result);
+}
+
 // TODO: re-enable once the BESM-6 basing/linking issue with malloc.c's
 // module-global pointer statics is resolved (the job loops to the instruction
 // cap with empty output; loader reports "long address" warnings).

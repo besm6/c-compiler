@@ -225,7 +225,7 @@ void gen_stmt(TacCtx *ctx, Stmt *stmt)
         break;
     }
     case STMT_IF: {
-        Tac_Val *cond = gen_expr(ctx, stmt->u.if_stmt.condition);
+        Tac_Val *cond = gen_cond_val(ctx, stmt->u.if_stmt.condition);
         char *else_l  = new_temp(ctx);
         char *end_l   = new_temp(ctx);
 
@@ -250,7 +250,7 @@ void gen_stmt(TacCtx *ctx, Stmt *stmt)
             fatal_error("while: missing loop labels (label_loops not run?)");
         }
         emit_label(ctx, cl);
-        Tac_Val *cond                = gen_expr(ctx, stmt->u.while_stmt.condition);
+        Tac_Val *cond                = gen_cond_val(ctx, stmt->u.while_stmt.condition);
         Tac_Instruction *jz          = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
         jz->u.jump_if_zero.condition = cond;
         jz->u.jump_if_zero.target    = xstrdup(bl);
@@ -270,7 +270,7 @@ void gen_stmt(TacCtx *ctx, Stmt *stmt)
         emit_label(ctx, loop_top);
         gen_stmt(ctx, stmt->u.do_while.body);
         emit_label(ctx, cl);
-        Tac_Val *cond                     = gen_expr(ctx, stmt->u.do_while.condition);
+        Tac_Val *cond                     = gen_cond_val(ctx, stmt->u.do_while.condition);
         Tac_Instruction *jnz              = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
         jnz->u.jump_if_not_zero.condition = cond;
         jnz->u.jump_if_not_zero.target    = loop_top;
@@ -296,7 +296,7 @@ void gen_stmt(TacCtx *ctx, Stmt *stmt)
         char *test_lab = new_temp(ctx);
         emit_label(ctx, test_lab);
         if (stmt->u.for_stmt.condition) {
-            Tac_Val *cond                = gen_expr(ctx, stmt->u.for_stmt.condition);
+            Tac_Val *cond                = gen_cond_val(ctx, stmt->u.for_stmt.condition);
             Tac_Instruction *jz          = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
             jz->u.jump_if_zero.condition = cond;
             jz->u.jump_if_zero.target    = xstrdup(bl);

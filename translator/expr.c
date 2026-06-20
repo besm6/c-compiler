@@ -10,6 +10,7 @@
 #include "semantic.h"
 #include "structtab.h"
 #include "translate.h"
+#include "typecheck.h"
 #include "xalloc.h"
 
 // The declared type of the member named by a FIELD_ACCESS/PTR_ACCESS node, looked
@@ -334,7 +335,7 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
 
 static Tac_Val *gen_logical_and(TacCtx *ctx, Expr *l, Expr *r)
 {
-    Tac_Val *left  = gen_expr(ctx, l);
+    Tac_Val *left  = gen_cond_val(ctx, l);
     char *false_l  = new_temp(ctx);
     char *end_l    = new_temp(ctx);
     char *dst_name = new_temp(ctx);
@@ -344,7 +345,7 @@ static Tac_Val *gen_logical_and(TacCtx *ctx, Expr *l, Expr *r)
     jz->u.jump_if_zero.target    = false_l; // instruction takes ownership
     tac_append(ctx, jz);
 
-    Tac_Val *right       = gen_expr(ctx, r);
+    Tac_Val *right       = gen_cond_val(ctx, r);
     Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
     bin->u.binary.op     = TAC_BINARY_NOT_EQUAL;
     bin->u.binary.src1   = right;
@@ -368,7 +369,7 @@ static Tac_Val *gen_logical_and(TacCtx *ctx, Expr *l, Expr *r)
 
 static Tac_Val *gen_logical_or(TacCtx *ctx, Expr *l, Expr *r)
 {
-    Tac_Val *left  = gen_expr(ctx, l);
+    Tac_Val *left  = gen_cond_val(ctx, l);
     char *true_l   = new_temp(ctx);
     char *end_l    = new_temp(ctx);
     char *dst_name = new_temp(ctx);
@@ -378,7 +379,7 @@ static Tac_Val *gen_logical_or(TacCtx *ctx, Expr *l, Expr *r)
     jnz->u.jump_if_not_zero.target    = true_l; // instruction takes ownership
     tac_append(ctx, jnz);
 
-    Tac_Val *right       = gen_expr(ctx, r);
+    Tac_Val *right       = gen_cond_val(ctx, r);
     Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
     bin->u.binary.op     = TAC_BINARY_NOT_EQUAL;
     bin->u.binary.src1   = right;
@@ -402,7 +403,9 @@ static Tac_Val *gen_logical_or(TacCtx *ctx, Expr *l, Expr *r)
 
 static Tac_Val *gen_unary(TacCtx *ctx, UnaryOp op, Expr *inner)
 {
-    Tac_Val *src = gen_expr(ctx, inner);
+    // Logical NOT of a char*/void* is a null test; gen_cond_val reduces a fat pointer to
+    // its word address so a marker-tagged null still reads as zero (no effect otherwise).
+    Tac_Val *src = op == UNARY_LOG_NOT ? gen_cond_val(ctx, inner) : gen_expr(ctx, inner);
     Tac_Val *vd  = new_var_val(ctx);
 
     Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_UNARY);
@@ -438,6 +441,44 @@ static Tac_Val *gen_ptr_add(TacCtx *ctx, Tac_Val *vptr, Tac_Val *vidx, bool subt
     ap->u.add_ptr.dst   = vd;
     tac_append(ctx, ap);
     return val_var(vd->u.var_name);
+}
+
+// Peel EXPR_CAST wrappers and report whether the underlying expression is a null
+// pointer constant (an integer literal 0).  `p == NULL` arrives as a CAST of the
+// literal 0 to the pointer type, and a coerced `p == 0` likewise, so the bare
+// is_null_pointer_constant check must see through the casts.
+static bool is_null_ptr_operand(const Expr *e)
+{
+    while (e->kind == EXPR_CAST)
+        e = e->u.cast.expr;
+    return is_null_pointer_constant(e);
+}
+
+// Reduce a char*/void* fat pointer to its bare word address (marker bit 48 and the
+// 3-bit byte offset cleared) for null-testing.  Reuses CHAR_PTR_TO_PTR, which the
+// BESM-6 backend already lowers to an AAX address mask (and which is an identity copy
+// on byte-addressed targets).  A fat pointer is null iff this address word is 0,
+// regardless of its marker/offset, so every "== NULL" / "if(p)" test runs the pointer
+// through this first.
+static Tac_Val *gen_ptr_addr_word(TacCtx *ctx, Tac_Val *fat)
+{
+    Tac_Val *vd               = new_var_val(ctx);
+    Tac_Instruction *in       = tac_new_instruction(TAC_INSTRUCTION_CHAR_PTR_TO_PTR);
+    in->u.char_ptr_to_ptr.src = fat;
+    in->u.char_ptr_to_ptr.dst = vd;
+    tac_append(ctx, in);
+    return val_var(vd->u.var_name);
+}
+
+// Evaluate a controlling expression (an if/while/for/do condition, or a &&/||/?:
+// operand) to a value suitable for a zero test.  A char*/void* fat pointer is first
+// reduced to its word address so a marker-tagged null still tests as zero.
+Tac_Val *gen_cond_val(TacCtx *ctx, Expr *cond)
+{
+    Tac_Val *v = gen_expr(ctx, cond);
+    if (is_byte_pointer(cond->type))
+        v = gen_ptr_addr_word(ctx, v);
+    return v;
 }
 
 static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
@@ -489,8 +530,9 @@ static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
     // carries the byte offset in the high (exponent) bits and the word address in the low
     // bits, so a raw-word ordering compare is wrong.  Decode both to absolute byte positions
     // and subtract (PTR_DIFF / b/pdiff), then compare the signed difference against 0:
-    // a >= b  iff  bytepos(a) - bytepos(b) >= 0, and likewise for <, >, <=.  (==/!= are
-    // unaffected — identical positions have identical words — so they fall through.)
+    // a >= b  iff  bytepos(a) - bytepos(b) >= 0, and likewise for <, >, <=.  (==/!=
+    // between two real pointers fall through to a full-word compare — identical positions
+    // have identical words — but ==/!= against a null constant is handled just below.)
     if ((op == BINARY_LT || op == BINARY_GT || op == BINARY_LE || op == BINARY_GE) &&
         is_byte_pointer(l->type) && is_byte_pointer(r->type)) {
         Tac_Val *vl          = gen_expr(ctx, l);
@@ -521,6 +563,29 @@ static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
         Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_BINARY);
         in->u.binary.op     = cmp;
         in->u.binary.src1   = val_var(vdiff->u.var_name);
+        in->u.binary.src2   = val_int(0);
+        in->u.binary.dst    = vd;
+        tac_append(ctx, in);
+        return val_var(vd->u.var_name);
+    }
+
+    // Equality of a char*/void* fat pointer against a null constant (p == NULL, p != 0).
+    // A null fat pointer may carry a marker/offset (e.g. a null word pointer cast to
+    // char*), so a full-word compare would wrongly read it as non-null.  Reduce the
+    // pointer to its word address and compare that against 0; a fat pointer is null iff
+    // its address part is 0.  (Two real pointers fall through to the full-word compare,
+    // which correctly distinguishes distinct byte positions.)
+    if ((op == BINARY_EQ || op == BINARY_NE) && (is_byte_pointer(l->type) || is_byte_pointer(r->type)) &&
+        (is_null_ptr_operand(l) || is_null_ptr_operand(r))) {
+        Tac_Val *vl       = gen_expr(ctx, l); // keep source evaluation order
+        Tac_Val *vr       = gen_expr(ctx, r);
+        bool r_is_null    = is_null_ptr_operand(r);
+        Tac_Val *ptr_addr = gen_ptr_addr_word(ctx, r_is_null ? vl : vr);
+        tac_free_val(r_is_null ? vr : vl); // unused null-constant side
+        Tac_Val *vd       = new_var_val(ctx);
+        Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+        in->u.binary.op     = op == BINARY_EQ ? TAC_BINARY_EQUAL : TAC_BINARY_NOT_EQUAL;
+        in->u.binary.src1   = ptr_addr;
         in->u.binary.src2   = val_int(0);
         in->u.binary.dst    = vd;
         tac_append(ctx, in);
@@ -850,7 +915,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         }
     }
     case EXPR_COND: {
-        Tac_Val *cond_val = gen_expr(ctx, e->u.cond.condition);
+        Tac_Val *cond_val = gen_cond_val(ctx, e->u.cond.condition);
         char *else_l      = new_temp(ctx);
         char *end_l       = new_temp(ctx);
         char *dst_name    = new_temp(ctx);
