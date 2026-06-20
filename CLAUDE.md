@@ -224,6 +224,7 @@ The `chapter*_tests.cpp` files in `parser/`, `scanner/`, `semantic/`, `optimize/
 - [docs/Besm6_Calling_Conventions.md](docs/Besm6_Calling_Conventions.md) — BESM-6 C calling convention (registers, b/save, b/ret)
 - [docs/Besm6_Instruction_Set.md](docs/Besm6_Instruction_Set.md) — BESM-6 instruction set reference
 - [docs/Besm6_Runtime_Library.md](docs/Besm6_Runtime_Library.md) — BESM-6 runtime helper library specifications (`b/save`, `b/mul`, `b/div`, comparisons, etc.)
+- [docs/Standard_Include_Files.md](docs/Standard_Include_Files.md) — C11 standard headers (`backend/besm6/include/`): role of each header, declared functions, inter-header relationships, and BESM-6 specifics (freestanding vs hosted, no complex/atomics/threads)
 - [docs/Madlen.md](docs/Madlen.md) — Madlen assembler syntax for the Dubna monitor
 - [docs/Type_Coercion.md](docs/Type_Coercion.md) — C11 type coercion and arithmetic conversion rules
 - [docs/Type_Sizes_Alignment.md](docs/Type_Sizes_Alignment.md) — type sizes and alignment per target architecture

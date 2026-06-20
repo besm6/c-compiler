@@ -1,7 +1,9 @@
 ## Compiler-Support Routines
 
 These routines are emitted automatically by the compiler. They implement the C calling
-convention and the operators that have no direct BESM-6 instruction equivalents.
+convention and the operators that have no direct BESM-6 instruction equivalents. They are
+distinct from the *user-callable standard library* (`printf`, `malloc`, `strlen`, …);
+for that, see [Standard_Include_Files.md](Standard_Include_Files.md).
 
 For a detailed description of the calling convention, see
 [Besm6_Calling_Conventions.md](Besm6_Calling_Conventions.md).

@@ -31,7 +31,7 @@ Both tools are built from the root `CMakeLists.txt`. Install or run them from th
 
 ### `parse` (parser)
 
-**Input:** one C source file (preprocessor is not implemented; feed the compiler preprocessed C if you rely on `#include` / `#define`).
+**Input:** one C source file (preprocessor is not implemented; feed the compiler preprocessed C if you rely on `#include` / `#define`). The C11 standard headers ship in `backend/besm6/include/` and are consumed via an external `cpp` first — see [Standard_Include_Files.md](Standard_Include_Files.md).
 
 **Output:** one of:
 

@@ -4,6 +4,10 @@ C11 standard-library headers for programs compiled with this toolchain for the
 BESM-6 target.  Types and macros match the BESM-6 data model
 ([docs/Besm6_Data_Representation.md](../../../docs/Besm6_Data_Representation.md)).
 
+For the full narrative reference — the role of each header, the functions it
+declares, how the headers relate, and the target specifics — see
+[docs/Standard_Include_Files.md](../../../docs/Standard_Include_Files.md).
+
 ## Usage — the compiler has no preprocessor
 
 The `parse` front end consumes already-preprocessed C (it understands `#` line
