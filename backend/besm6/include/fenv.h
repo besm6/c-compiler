@@ -28,14 +28,14 @@ int feclearexcept(int excepts);
 int fetestexcept(int excepts);
 int feraiseexcept(int excepts);
 int fegetexceptflag(fexcept_t *flagp, int excepts);
-int fesetexceptflag(fexcept_t *flagp, int excepts);
+int fesetexceptflag(const fexcept_t *flagp, int excepts);
 
 int fegetround(void);
 int fesetround(int round);
 
 int fegetenv(fenv_t *envp);
-int fesetenv(fenv_t *envp);
+int fesetenv(const fenv_t *envp);
 int feholdexcept(fenv_t *envp);
-int feupdateenv(fenv_t *envp);
+int feupdateenv(const fenv_t *envp);
 
 #endif /* _FENV_H */

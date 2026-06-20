@@ -37,12 +37,12 @@ void *calloc(size_t nmemb, size_t size);
 void *realloc(void *ptr, size_t size);
 void  free(void *ptr);
 
-int   atoi(char *nptr);
-long  atol(char *nptr);
-double atof(char *nptr);
-long  strtol(char *nptr, char **endptr, int base);
-unsigned long strtoul(char *nptr, char **endptr, int base);
-double strtod(char *nptr, char **endptr);
+int   atoi(const char *nptr);
+long  atol(const char *nptr);
+double atof(const char *nptr);
+long  strtol(const char *nptr, char **endptr, int base);
+unsigned long strtoul(const char *nptr, char **endptr, int base);
+double strtod(const char *nptr, char **endptr);
 
 int   abs(int j);
 long  labs(long j);
@@ -53,11 +53,11 @@ int   rand(void);
 void  srand(unsigned seed);
 
 void  qsort(void *base, size_t nmemb, size_t size,
-            int (*compar)(void *, void *));
-void *bsearch(void *key, void *base, size_t nmemb, size_t size,
-              int (*compar)(void *, void *));
+            int (*compar)(const void *, const void *));
+void *bsearch(const void *key, const void *base, size_t nmemb, size_t size,
+              int (*compar)(const void *, const void *));
 
-char *getenv(char *name);
-int   system(char *command);
+char *getenv(const char *name);
+int   system(const char *command);
 
 #endif /* _STDLIB_H */

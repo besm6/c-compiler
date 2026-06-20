@@ -29,36 +29,36 @@ extern FILE *stdout;
 extern FILE *stderr;
 
 /* ---- implemented in libc.bin ---- */
-int printf(char *fmt, ...);
-int sprintf(char *buf, char *fmt, ...);
-int snprintf(char *buf, int size, char *fmt, ...);
+int printf(const char *fmt, ...);
+int sprintf(char *buf, const char *fmt, ...);
+int snprintf(char *buf, int size, const char *fmt, ...);
 
 /* ---- declared for future implementation (TODO) ---- */
-int   fprintf(FILE *stream, char *fmt, ...);
-int   vprintf(char *fmt, va_list ap);
-int   vfprintf(FILE *stream, char *fmt, va_list ap);
-int   vsprintf(char *buf, char *fmt, va_list ap);
-int   vsnprintf(char *buf, size_t size, char *fmt, va_list ap);
+int   fprintf(FILE *stream, const char *fmt, ...);
+int   vprintf(const char *fmt, va_list ap);
+int   vfprintf(FILE *stream, const char *fmt, va_list ap);
+int   vsprintf(char *buf, const char *fmt, va_list ap);
+int   vsnprintf(char *buf, size_t size, const char *fmt, va_list ap);
 
-int   scanf(char *fmt, ...);
-int   sscanf(char *str, char *fmt, ...);
-int   fscanf(FILE *stream, char *fmt, ...);
+int   scanf(const char *fmt, ...);
+int   sscanf(const char *str, const char *fmt, ...);
+int   fscanf(FILE *stream, const char *fmt, ...);
 
 int   putchar(int c);
 int   getchar(void);
-int   puts(char *s);
-int   fputs(char *s, FILE *stream);
+int   puts(const char *s);
+int   fputs(const char *s, FILE *stream);
 int   fputc(int c, FILE *stream);
 int   fgetc(FILE *stream);
 char *fgets(char *s, int n, FILE *stream);
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
-size_t fwrite(void *ptr, size_t size, size_t nmemb, FILE *stream);
+size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 
-FILE *fopen(char *path, char *mode);
+FILE *fopen(const char *path, const char *mode);
 int   fclose(FILE *stream);
 int   fflush(FILE *stream);
-void  perror(char *s);
+void  perror(const char *s);
 
 /* ---- BESM-6 runtime extensions (implemented in libc.bin) ---- */
 /*

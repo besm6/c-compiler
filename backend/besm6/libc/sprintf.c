@@ -7,9 +7,9 @@
  */
 #include <stdio.h>
 
-extern int __doprnt(char *fmt, va_list ap, char *buf, int size, int to_buf);
+extern int __doprnt(const char *fmt, va_list ap, char *buf, int size, int to_buf);
 
-int sprintf(char *buf, char *fmt, ...)
+int sprintf(char *buf, const char *fmt, ...)
 {
     va_list ap;
     int n;

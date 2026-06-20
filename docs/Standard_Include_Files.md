@@ -266,8 +266,10 @@ BESM-6 specifics worth remembering:
   the foundation the higher-level routines are built on.
 - **Floating output** reflects the 48-bit format: about 12 significant decimal digits.
 
-The `printf` family uses ordinary ISO variadic prototypes — `int printf(char *fmt, ...)` —
-and you call them exactly as on any platform.
+The `printf` family uses ordinary ISO variadic prototypes — `int printf(const char *fmt, ...)`
+— and you call them exactly as on any platform. Read-only pointer parameters throughout these
+headers carry `const` exactly where ISO C11 specifies it (the format string here, the source
+operand of `strcpy`/`memcpy`, and so on), so the prototypes match modern systems.
 
 ### General utilities — `<stdlib.h>`
 

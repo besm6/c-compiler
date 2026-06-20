@@ -31,7 +31,7 @@ struct lconv {
     char  n_cs_precedes;
 };
 
-char         *setlocale(int category, char *locale);
+char         *setlocale(int category, const char *locale);
 struct lconv *localeconv(void);
 
 #endif /* _LOCALE_H */

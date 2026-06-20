@@ -99,7 +99,7 @@ static char *ksprintn(char *nbuf, unsigned ul, int base, int prec, int *lenp)
 static int cvt(double number, int prec, int sharpflag, int *negp, int fmtch, char *b, int bsize,
                int *startidx);
 
-int __doprnt(char *fmt, va_list ap, char *buf, int size, int to_buf)
+int __doprnt(const char *fmt, va_list ap, char *buf, int size, int to_buf)
 {
     char nbuf[MAXNBUF];
     int i, c, base, ladjust, sharpflag, neg, dot;

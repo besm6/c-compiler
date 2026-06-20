@@ -15,7 +15,7 @@
 #else
 
 /* TODO: provide __assert_fail in libc.bin. */
-_Noreturn void __assert_fail(char *expr, char *file, int line);
+_Noreturn void __assert_fail(const char *expr, const char *file, int line);
 
 #define assert(expr) \
     ((expr) ? (void)0 : __assert_fail(#expr, __FILE__, __LINE__))

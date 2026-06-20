@@ -31,10 +31,10 @@ time_t  time(time_t *t);
 double  difftime(time_t end, time_t start);
 time_t  mktime(struct tm *tm);
 
-struct tm *localtime(time_t *timep);
-struct tm *gmtime(time_t *timep);
-char      *asctime(struct tm *tm);
-char      *ctime(time_t *timep);
-size_t     strftime(char *s, size_t max, char *format, struct tm *tm);
+struct tm *localtime(const time_t *timep);
+struct tm *gmtime(const time_t *timep);
+char      *asctime(const struct tm *tm);
+char      *ctime(const time_t *timep);
+size_t     strftime(char *s, size_t max, const char *format, const struct tm *tm);
 
 #endif /* _TIME_H */
