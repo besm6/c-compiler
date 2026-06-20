@@ -390,7 +390,7 @@ identically on BESM-6 (one 48-bit word, masked to 41/48 bits).
 - **Compiler flags:** `-Wall -Werror -Wshadow` for C++ (see root `CMakeLists.txt`).
 - **GoogleTest:** FetchContent, tag `v1.15.2`, `BUILD_GMOCK=OFF`.
 - **cppcheck:** If `cppcheck` is found, it is attached to C and C++ targets with project-specific suppressions and `scripts/googletest.xml` for tests.
-- **Makefile:** Creates `build/`, runs `cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo`, delegates `all` to `$(MAKE) -C build`. Targets: `make`, `make test`, `make clean`, `make debug` (cmake Debug build into `build`).
+- **Makefile:** Creates `build/`, runs `cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo`, delegates `all` to `$(MAKE) -C build`. Targets: `make`, `make test` (unit tests, `ctest -LE book`), `make book_tests`/`make book_test` (the textbook chapter tests, `ctest -L book`), `make clean`, `make debug` (cmake Debug build into `build`).
 
 Common build types: `Debug`, `RelWithDebInfo`, `Release`.
 
@@ -402,15 +402,16 @@ Backend ISA descriptions (`backend/besm6/besm6.asdl`, `backend/x86/x86_64.asdl`,
 
 ## Testing
 
-Run all tests:
+Run all unit tests:
 
 ```bash
 make test
 # or
-ctest --test-dir build
+ctest --test-dir build -LE book
 ```
 
-Test executables and their sources:
+The "Writing a C Compiler" chapter tests are split out (see **Book tests** below); plain
+`make` / `make test` skip them. Test executables and their sources:
 
 | Executable | Sources (under repo root) |
 |------------|---------------------------|
@@ -435,6 +436,30 @@ Run a single binary from `build/`:
 ./build/translator/translate-tests
 ./build/backend/besm6/besm-tests
 ```
+
+### Book tests
+
+The "Writing a C Compiler" chapter tests (`*/chapter*_tests.cpp`,
+`backend/besm6/chapter*_tests.cpp`) are compiled into separate `*-book-tests` executables
+(`parser-book-tests`, `scanner-book-tests`, `semantic-book-tests`, `optimizer-book-tests`,
+`besm-book-tests`) marked `EXCLUDE_FROM_ALL` and registered with ctest under the `book`
+label. Plain `make` and `make test` do not compile or run them; the root `book_tests` CMake
+target builds all five, and `make book_tests` (alias `make book_test`) builds them and runs
+`ctest -L book`:
+
+```bash
+make book_tests
+# or
+cmake --build build --target book_tests
+ctest --test-dir build -L book
+```
+
+Each book executable needs its own `fatal_error()` (the compiler libraries call it, but its
+definition lives in the executables, not a library, and a single shared copy cannot link
+into book executables that pull in different libraries). It is defined at the top of each
+module's first chapter source: `parser/chapter1_tests.cpp`, `semantic/chapter3_tests.cpp`,
+`optimize/chapter19_tests.cpp`, `backend/besm6/chapter1_tests.cpp`. `scanner-book-tests`
+needs none — the scanner reports lexical errors via its own `lex_error()`/`exit()`.
 
 ## Development notes
 

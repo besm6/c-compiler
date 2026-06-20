@@ -6,10 +6,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```sh
 make              # configure + build (RelWithDebInfo) into ./build/
-make test         # build + run all tests via ctest
+make test         # build + run the unit tests via ctest (excludes book tests)
+make book_tests   # build + run only the textbook chapter tests
 make debug        # build with Debug flags
 make clean        # remove ./build/
 ```
+
+**Book (chapter) tests are split out.** The "Writing a C Compiler" chapter tests
+(`*/chapter*_tests.cpp`, `backend/besm6/chapter*_tests.cpp`) are compiled into separate
+`*-book-tests` executables marked `EXCLUDE_FROM_ALL` and labeled `book` in ctest, so plain
+`make` and `make test` neither compile nor run them. `make test` runs
+`ctest --test-dir build -LE book -E _NOT_BUILT`; `make book_tests` (alias `make book_test`)
+builds the `book_tests` CMake target and runs `ctest -L book`. Each book executable needs
+its own `fatal_error()` definition (the libraries call it but it lives in the executables);
+it is defined at the top of each module's first chapter source
+(`parser/chapter1_tests.cpp`, `semantic/chapter3_tests.cpp`, `optimize/chapter19_tests.cpp`,
+`backend/besm6/chapter1_tests.cpp`). `scanner-book-tests` needs none — the scanner uses its
+own `lex_error()`/`exit()`.
 
 Run a single test binary directly (semantic and translator tests live in subdirectories):
 ```sh
@@ -182,6 +195,12 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`
 - `optimize/const_fold_tests.cpp`, `jump_unreachable_tests.cpp`, `copy_prop_tests.cpp`, `dead_store_tests.cpp`, `type_conv_tests.cpp`, `pipeline_tests.cpp` → `optimizer-tests`
 - `libutil/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-tests`
+
+The `chapter*_tests.cpp` files in `parser/`, `scanner/`, `semantic/`, `optimize/`, and
+`backend/besm6/` are the "Writing a C Compiler" book tests; they compile into separate
+`*-book-tests` executables (`parser-book-tests`, `scanner-book-tests`,
+`semantic-book-tests`, `optimizer-book-tests`, `besm-book-tests`) built and run only via
+`make book_tests` (see **Build & Test** above).
 
 ## Documentation
 

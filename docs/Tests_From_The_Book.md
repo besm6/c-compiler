@@ -498,9 +498,10 @@ A few simple conventions keep the growing suite navigable:
   directory layout maps onto ours almost perfectly, which — adjusting for the
   reclassifications of §5 — is why the import is largely mechanical.
 
-Each new test file is added to its component's build list in the relevant `CMakeLists.txt`
-(for example `parser/CMakeLists.txt` lists the sources of the `parser-tests` binary), so it
-is picked up automatically when you build.
+Each new chapter file is added to its component's **book** test executable in the relevant
+`CMakeLists.txt` (for example `parser/CMakeLists.txt` lists the chapter sources of the
+`parser-book-tests` binary, kept separate from the everyday `parser-tests`), so it is picked
+up by `make book_tests` (see §14).
 
 ## 13. The incremental workflow
 
@@ -508,7 +509,8 @@ We imported the corpus **one chapter at a time, in order**, because each chapter
 on features from earlier chapters. A chapter is considered *done* when:
 
 1. its new test files build, and
-2. the **entire** test suite still passes (`make test`).
+2. the **entire** test suite still passes — the unit tests (`make test`) and the chapter
+   tests (`make book_tests`).
 
 Two pieces of discipline kept the import honest as it scaled to 2,548 tests, and both are
 worth carrying into any test-import work of your own:
@@ -525,33 +527,41 @@ worth carrying into any test-import work of your own:
 
 ## 14. Running the tests
 
-Build everything and run the whole suite from the top of the repository:
+The chapter tests are **split out** from the everyday unit tests. They compile into their
+own `*-book-tests` executables (`parser-book-tests`, `scanner-book-tests`,
+`semantic-book-tests`, `optimizer-book-tests`, `besm-book-tests`), which plain `make` and
+`make test` do not build or run. Use the dedicated target from the top of the repository:
 
 ```sh
-make test                 # configure, build, and run every test via ctest
+make test                 # the unit tests (excludes the chapter tests)
+make book_tests           # build and run only the chapter tests (alias: make book_test)
 ```
 
-To run a single component or a single test while developing, **run from inside the `build/`
-directory**, not from the repository root:
+`make book_tests` builds the five book executables and runs `ctest -L book` (the chapter
+tests carry the ctest label `book`; the unit `make test` runs `ctest -LE book`).
+
+To run a single component or a single test while developing, first make sure the book
+executables are built (`make book_tests`, or `cmake --build build --target book_tests`),
+then **run from inside the `build/` directory**, not from the repository root:
 
 ```sh
-ctest --test-dir build -R Chapter1            # every chapter-1 test, anywhere
-cd build/parser   && ./parser-tests           # just the parser tests
-cd build/scanner  && ./scanner-tests
-cd build/backend/besm6 && ./besm-tests        # the run tests (need libc.bin here)
+ctest --test-dir build -L book -R Chapter1            # every chapter-1 test, anywhere
+cd build/parser        && ./parser-book-tests         # just the parser chapter tests
+cd build/scanner       && ./scanner-book-tests
+cd build/backend/besm6 && ./besm-book-tests           # the run tests (need libc.bin here)
 ```
 
 Why the `cd`? Some fixtures write small temporary files into the *current directory* while
 they run. If you launch a test binary from the repository root, those scratch files litter
 your source tree; launched from inside `build/`, they stay out of the way. The BESM-6 run
 tests have an extra reason: they link the runtime library `libc.bin`, which is built in
-`build/backend/besm6`, so they must run from there. (Also: don't run two `besm-tests`
+`build/backend/besm6`, so they must run from there. (Also: don't run two `besm-book-tests`
 processes at once — they share scratch filenames.)
 
 To run just one test by name:
 
 ```sh
-cd build/backend/besm6 && ./besm-tests --gtest_filter='CodegenTest.Chapter1_Return2'
+cd build/backend/besm6 && ./besm-book-tests --gtest_filter='CodegenTest.Chapter1_Return2'
 ```
 
 ## 15. Takeaways
