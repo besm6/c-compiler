@@ -4,7 +4,25 @@
 // Each program is lexically valid but cannot be parsed; the parser reports a
 // fatal error.  Tests assert on the diagnostic text.
 //
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+
 #include "fixture.h"
+
+// fatal_error() for the parser-book-tests executable.  The compiler libraries
+// call it; the regular parser-tests binary defines its own copy (in
+// simple_tests.cpp), so the book executable needs this one.
+extern "C" _Noreturn void fatal_error(const char *message, ...)
+{
+    fprintf(stderr, "Fatal error: ");
+    va_list ap;
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
+    exit(1);
+}
 
 // return with no expression, then end of file.
 TEST_F(ParserTest, Chapter1_EndBeforeExpr_Neg)

@@ -89,6 +89,16 @@ add_executable(besm-tests
     peephole_tests.cpp
     printf_tests.cpp
     funcptr_tests.cpp
+)
+target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
+add_dependencies(besm-tests besm-libc)
+add_definitions(-DTEST_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+gtest_discover_tests(besm-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+
+#
+# Book tests for the BESM-6 backend (built and run only via `make book_tests`)
+#
+add_executable(besm-book-tests EXCLUDE_FROM_ALL
     chapter1_tests.cpp
     chapter2_tests.cpp
     chapter3_tests.cpp
@@ -110,7 +120,6 @@ add_executable(besm-tests
     chapter19_tests.cpp
     chapter20_tests.cpp
 )
-target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
-add_dependencies(besm-tests besm-libc)
-add_definitions(-DTEST_DIR="${CMAKE_CURRENT_BINARY_DIR}")
-gtest_discover_tests(besm-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+target_link_libraries(besm-book-tests besm parser translator semantic GTest::gtest_main)
+add_dependencies(besm-book-tests besm-libc)
+gtest_discover_tests(besm-book-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10 LABELS "book")

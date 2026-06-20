@@ -35,6 +35,14 @@ add_executable(semantic-tests
    label_loops_tests.cpp
    const_convert_tests.cpp
    coercion_tests.cpp
+)
+target_link_libraries(semantic-tests parser semantic GTest::gtest_main)
+gtest_discover_tests(semantic-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+
+#
+# Book tests for semantic (built and run only via `make book_tests`)
+#
+add_executable(semantic-book-tests EXCLUDE_FROM_ALL
    chapter3_tests.cpp
    chapter5_tests.cpp
    chapter6_tests.cpp
@@ -51,5 +59,5 @@ add_executable(semantic-tests
    chapter17_tests.cpp
    chapter18_tests.cpp
 )
-target_link_libraries(semantic-tests parser semantic GTest::gtest_main)
-gtest_discover_tests(semantic-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+target_link_libraries(semantic-book-tests parser semantic GTest::gtest_main)
+gtest_discover_tests(semantic-book-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10 LABELS "book")

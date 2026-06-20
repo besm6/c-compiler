@@ -25,7 +25,25 @@
 // This file is generated content pinned against the optimizer's actual output;
 // regenerate goldens if the optimizer's TAC emission changes intentionally.
 //
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+
 #include "pipeline_test_fixture.h"
+
+// fatal_error() for the optimizer-book-tests executable.  The compiler libraries
+// call it; the regular optimizer-tests binary defines its own copy (in
+// pipeline_tests.cpp), so the book executable needs this one.
+extern "C" _Noreturn void fatal_error(const char *message, ...)
+{
+    fprintf(stderr, "Fatal error: ");
+    va_list ap;
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
+    exit(1);
+}
 
 TEST_F(PipelineTest, Chapter19_CF_IntOnly_FoldBinary)
 {

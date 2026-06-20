@@ -4,7 +4,25 @@
 // Each program is `int main(void) { return N; }` with varied whitespace; the
 // wrapper prints main()'s return value, which we compare against.
 //
+#include <cstdarg>
+#include <cstdio>
+#include <cstdlib>
+
 #include "book_run.h"
+
+// fatal_error() for the besm-book-tests executable.  The compiler libraries
+// call it; the regular besm-tests binary defines its own copy (in
+// codegen_tests.cpp), so the book executable needs this one.
+extern "C" _Noreturn void fatal_error(const char *message, ...)
+{
+    fprintf(stderr, "Fatal error: ");
+    va_list ap;
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
+    exit(1);
+}
 
 // return 100; — multi-digit constant.
 TEST_F(CodegenTest, Chapter1_MultiDigit)

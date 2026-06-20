@@ -73,6 +73,19 @@ add_custom_target(build_tests
 )
 
 #
+# Book tests (textbook chapter tests) — excluded from the default build; compiled
+# and run only via `make book_tests`.
+#
+add_custom_target(book_tests
+    DEPENDS
+        parser-book-tests
+        scanner-book-tests
+        semantic-book-tests
+        optimizer-book-tests
+        besm-book-tests
+)
+
+#
 # 'parse' executable
 #
 add_executable(parse
