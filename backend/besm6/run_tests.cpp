@@ -174,3 +174,45 @@ TEST_F(CodegenTest, PrintFormatChar)
     )");
     EXPECT_EQ("HELLO (-_-)\n", result);
 }
+
+// TODO: re-enable once the BESM-6 basing/linking issue with malloc.c's
+// module-global pointer statics is resolved (the job loops to the instruction
+// cap with empty output; loader reports "long address" warnings).
+TEST_F(CodegenTest, DISABLED_MallocHeapRoundTrip)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        #include <stdlib.h>
+        #include <malloc.h>
+
+        static long arena[200];
+
+        void program() {
+            heap_setup(arena, 200);
+            long avail0 = heap_available();
+
+            int *a = malloc(10 * sizeof(int));
+            int *b = malloc(5 * sizeof(int));
+            for (int i = 0; i < 10; i++) a[i] = i * i;
+            int sum = 0;
+            for (int i = 0; i < 10; i++) sum += a[i];
+            printf("SUM %d\n", sum);
+
+            free(a);
+            int *c = malloc(8 * sizeof(int));
+            printf("REUSE %d\n", c == a);
+
+            free(b);
+            free(c);
+            printf("FULL %d\n", heap_available() == avail0);
+
+            int *d = calloc(4, sizeof(int));
+            printf("ZERO %d\n", d[0] + d[1] + d[2] + d[3]);
+            d = realloc(d, 12 * sizeof(int));
+            d[11] = 7;
+            printf("REALLOC %d\n", d[11]);
+            free(d);
+        }
+    )");
+    EXPECT_EQ("SUM 285\nREUSE 1\nFULL 1\nZERO 0\nREALLOC 7\n", result);
+}

@@ -48,7 +48,7 @@ file(GLOB BESM6_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
 # the .madlen extension, so genbesm writes there.
 set(LIBC_C
     putbyte putch flush printf getch
-    doprnt sprintf snprintf modf)
+    doprnt sprintf snprintf modf malloc)
 set(LIBC_C_MADLEN "")
 foreach(name ${LIBC_C})
     set(c_src  ${LIBC_DIR}/${name}.c)
