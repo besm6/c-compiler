@@ -116,7 +116,10 @@ add_executable(besm-book-tests EXCLUDE_FROM_ALL
     chapter15_tests.cpp
     chapter16_tests.cpp
     chapter17_tests.cpp
-    chapter18_tests.cpp
+    chapter18_tests1.cpp
+    chapter18_tests2.cpp
+    chapter18_tests3.cpp
+    chapter18_tests4.cpp
     chapter19_tests.cpp
     chapter20_tests.cpp
 )

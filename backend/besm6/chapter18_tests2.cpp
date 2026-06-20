@@ -1,0 +1,2752 @@
+#include "book_run.h"
+
+// tag shadowing (no-shadowing design) + malloc.
+TEST_F(CodegenTest, DISABLED_Chapter18_ResolveTags)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Test that we resolve struct tags wherever they appear:
+ * In function, member, and variable declarations,
+ * for loop headers, cast expressions, sizeof, derived types
+ * and does nothing if one is already in scope?
+ * */
+
+void *calloc(unsigned long nmemb, unsigned long size);
+void *malloc(unsigned long size);
+
+// simple struct type used in several tests
+struct s {
+    int a;
+};
+
+// tag resolution in variable declarations
+// (based on Listing 18-5)
+int test_var_declaration(void) {
+    struct shadow {
+        int x;
+    };
+    struct shadow outer;
+    outer.x = 2;
+    {
+        // define new struct type, shadowing first one
+        struct shadow {
+            int y;
+        };
+
+        // define a variable with this type
+        struct shadow inner;
+
+        // make sure we still know that outer has outer type
+        // and inner has inner type, and we can access members in both
+        inner.y = 3;
+        if (outer.x != 2) {
+            return 0;
+        }
+
+        if (inner.y != 3) {
+            return 0;
+        }
+    }
+
+    return 1;  // success
+}
+
+// tag resolution in struct member declaration
+int test_member_declaration(void) {
+    struct s {
+        int b;
+        // this specifies a pointer to the "struct s" type
+        // we're currently defining, not the type declared at file scope
+        struct s *self_ptr;
+    };
+
+    struct s my_struct = {123, 0};
+
+    // make sure we've inferred the correct type for self_ptr by
+    // assigning to it and then accessing a member through it
+    my_struct.self_ptr = &my_struct;
+    if (my_struct.self_ptr->b != 123) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// tag resolution in function declaration
+int test_function_declaration(void) {
+    // this has struct type declared at file scope
+    struct s outer_struct = {1};
+    {
+        // shadow the file-scope declaration
+        struct s {
+            int arr[40];
+        };
+    }
+
+    // tag resolution in function declaration:
+    // now that inner 'struct s' is out of scope,
+    // declaration will refer to out one
+    struct s *copy_struct(struct s * arg);
+
+    // make sure we can call this function
+    struct s *copy = copy_struct(&outer_struct);
+    if (copy->a != outer_struct.a) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+struct s *copy_struct(struct s *arg) {
+    struct s *ptr = malloc(4);
+    ptr->a = arg->a;
+    return ptr;
+}
+
+// tag resolution in for loops
+int test_for_loop(void) {
+    // make sure we can declare variables of structure type in for loop headers
+    for (struct s loop_struct = {10}; loop_struct.a > 0;
+         loop_struct.a = loop_struct.a - 1) {
+        // this is a new scope, make sure we can define a new struct s here
+        struct s {
+            double d;
+        };
+        static struct s loop_body_struct = {0};
+
+        // make sure we know the types of both structs
+        loop_body_struct.d = loop_body_struct.d + 1;
+
+        if (loop_struct.a == 1) {
+            // last iteration
+            if (loop_body_struct.d != 10.0) {
+                return 0;
+            }
+        }
+    }
+
+    return 1;  // success
+}
+
+// tag resolution in cast expressions
+int test_cast(void) {
+    void *ptr = malloc(10);
+
+    if (ptr) {
+        struct s {
+            char arr[10];
+        };
+
+        // we can cast to inner struct type
+        ((struct s *)ptr)->arr[2] = 10;
+
+        // examine struct as char array to make sure assignment worked
+        char byte = ((char *)ptr)[2];
+        if (byte != 10) {
+            return 0;
+        }
+    }
+
+    // back out of scope, 'struct s' refers to file scope struct again
+    void *second_ptr = malloc(4);
+
+    ((struct s *)second_ptr)->a = 10;
+    char lowest_byte = ((char *)second_ptr)[0];
+    if (lowest_byte != 10) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// tag resolution in sizeof expressions
+int test_sizeof(void) {
+    struct s {
+        int a;
+        int b;
+    };
+    struct s x;  // x is an eight-byte struct
+    {
+        struct s {
+            char arr[15];
+        };  // declare a 15-byte struct type
+
+        // in this scope, 'x' has outer type but specifier refers to inner type
+        if (sizeof x != 8) {
+            return 0;
+        };
+
+        if (sizeof(struct s) != 15) {
+            return 0;
+        }
+    }
+
+    // now 'struct s' refers to struct declared at start of function,
+    // still shadowing 'struct s' from file scope
+    if (sizeof(struct s) != 8) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// tag resolution in derived types
+int test_derived_types(void) {
+    struct s outer_struct = {1};
+
+    // pointer to array of three pointers to struct s
+    struct s *(*outer_arr)[3] = calloc(3, sizeof(void *));
+
+    // declare another struct type to shadow outer one
+    struct s {
+        int x;
+    };
+
+    struct s inner_struct = {2};
+
+    // pointer to array of three pointers to inner struct s
+    struct s *(*inner_arr)[3] = calloc(3, sizeof(void *));
+
+    // the type checker should recognize that outer_arr[0][0] and &outer_struct
+    // have the same type, so these assignments are valid
+    outer_arr[0][0] = &outer_struct;
+    outer_arr[0][1] = &outer_struct;
+
+    // the type checker should recognize that inner_arr[0][0] and &inner_struct
+    // have the same type, so these assignments are valid
+    inner_arr[0][0] = &inner_struct;
+    inner_arr[0][2] = &inner_struct;
+
+    if (outer_arr[0][0]->a != 1) {
+        return 0;
+    }
+
+    if (inner_arr[0][0]->x != 2) {
+        return 0;
+    }
+
+    return 1;
+}
+
+// a struct tag declaration with no member list does nothing
+// if that tag was already declared in the current scope
+int test_contentless_tag_noop(void) {
+    struct s {
+        int x;
+        int y;
+    };
+
+    struct s;
+
+    struct s var;  // this has the type declared at the start of this function
+
+    var.x = 10;
+    var.y = 11;
+
+    if (var.x != 10 || var.y != 11) {
+        return 0;
+    }
+
+    return 1;
+}
+
+int main(void) {
+    if (!test_var_declaration()) {
+        return 1;
+    }
+
+    if (!test_member_declaration()) {
+        return 2;
+    }
+
+    if (!test_function_declaration()) {
+        return 3;
+    }
+
+    if (!test_for_loop()) {
+        return 4;
+    }
+
+    if (!test_cast()) {
+        return 5;
+    }
+
+    if (!test_sizeof()) {
+        return 6;
+    }
+
+    if (!test_derived_types()) {
+        return 7;
+    }
+
+    if (!test_contentless_tag_noop()) {
+        return 8;
+    }
+
+    return 0;  // success
+}
+)PROG")));
+}
+
+// calloc not in libc.
+TEST_F(CodegenTest, DISABLED_Chapter18_MemberComparisons)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Test comparisons between pointers to structures and structure members:
+ * 1. Pointers to a structure and its first member compare equal
+ * 2. Pointers to later structure members compare greater than pointers
+ *    to earlier structure members
+ */
+
+struct three_ints {
+    int a;
+    int b;
+    int c;
+};
+
+void* calloc(unsigned long nmem, unsigned long size);
+
+int main(void) {
+    struct three_ints* my_struct = calloc(1, sizeof(struct three_ints));
+
+    // compare struct pointer with pointer to first member
+    if ((void*)my_struct != &my_struct->a) {
+        return 1; // fail
+    }
+
+    // do the same with a relational operator
+    if (!((int *)my_struct <= &my_struct->a)) {
+        return 2; // fail
+    }
+
+    // compare earlier to later members using a few different relational operators
+    if (&my_struct->c <= &my_struct->a) {
+        return 3;  // fail
+    }
+
+    if (&my_struct->b > &my_struct->c) {
+        return 4;  // fail
+    }
+
+    if (!(&my_struct->b > &my_struct->a)) {
+        return 5;  // fail
+    }
+
+    return 0; // success
+}
+)PROG")));
+}
+
+// malloc + pointer-to-integer byte-address arithmetic.
+TEST_F(CodegenTest, DISABLED_Chapter18_MemberOffsets)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+// struct declarations for size/layout tests
+
+struct eight_bytes {
+    int i;   // bytes 0-3
+    char c;  // byte 4
+             // 3 more bytes of padding to make size a multiple of 4
+};
+
+struct two_bytes {
+    char arr[2];  // bytes 0-1
+                  // no padding
+};
+
+struct three_bytes {
+    char arr[3];  // bytes 0-2
+                  // no padding
+};
+
+struct sixteen_bytes {
+    struct eight_bytes eight;  // bytes 0-7
+    struct two_bytes two;      // bytes 8-9
+    struct three_bytes three;  // bytes 10-12
+    // 3 bytes of padding to make size a multiple of 4  (i.e. 16 bytes)
+    // b/c struct eightbyte is 4 byte-aligned)
+};
+
+struct seven_bytes {
+    struct two_bytes two;      // bytes 0-1
+    struct three_bytes three;  // bytes 2-4
+    struct two_bytes two2;     // bytes 5-6
+};                             // total size is 7 bytes
+
+struct twentyfour_bytes {
+    struct seven_bytes seven;  // bytes 0-6
+    // 1 byte padding to make next member four-byte aligned
+    struct sixteen_bytes sixteen;  // bytes 8-24 (four-byte aligned)
+};
+
+struct twenty_bytes {
+    struct sixteen_bytes sixteen;  // bytes 0-15
+    struct two_bytes two;          // bytes 16-17
+    // 2 bytes padding to make the whole struct four-byte aligned
+};  // 20 bytes b/c it's four-byte aligned
+
+struct wonky {
+    char arr[19];
+};  // 19 bytes w/ no padding
+
+struct internal_padding {
+    char c;
+    // 7 bytes of padding so next member is eight byte-aligned
+    double d;
+};  // 16 bytes total
+
+struct contains_struct_array {
+    char c;  // byte 0
+    // 3 bytes padding so next member is 4 byte-aligned
+    struct eight_bytes struct_array[3];  // bytes 4-27
+};                                       // 28 bytes total
+/* Get the addresses of structure members to validate their offset and alignment
+ * (including nested members accessed through chains of . and -> operations)
+ * and addresses of one-past-the-end of structs to validate trailing padding
+ * */
+
+void *malloc(unsigned long size);
+
+// test 1: validate struct w/ scalar members (includes trailing padding)
+// test member accesses of the form &x.y
+int test_eightbytes(void) {
+    struct eight_bytes s;
+    unsigned long start_addr = (unsigned long)&s;
+    unsigned long i_addr = (unsigned long)&s.i;
+    unsigned long c_addr = (unsigned long)&s.c;
+    unsigned long end_addr = (unsigned long)(&s + 1);
+
+    // this struct should be four byte-aligned
+    if (start_addr % 4 != 0) {
+        return 0;
+    }
+
+    // first element should always have same address as whole struct
+    if (start_addr != i_addr) {
+        return 0;
+    }
+
+    // next element should be at byte 4 (next available byte)
+    if (c_addr - start_addr != 4) {
+        return 0;
+    }
+
+    // end of struct should be at byte 8 due to 3 bytes of padding
+    if (end_addr - start_addr != 8) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// test 2: validate struct w/ padding between members (accessing struct thru
+// pointer) test member accesses of the form &x->y
+int test_internal_padding(void) {
+    struct internal_padding *s_ptr = malloc(sizeof(struct internal_padding));
+    unsigned long start_addr = (unsigned long)s_ptr;
+    unsigned long c_addr = (unsigned long)&s_ptr->c;
+    unsigned long d_addr = (unsigned long)&s_ptr->d;
+    unsigned long end_ptr = (unsigned long)(s_ptr + 1);
+
+    // this struct should be eight byte-aligned
+    if (start_addr % 8 != 0) {
+        return 0;
+    }
+
+    // first element should always have same address as whole struct
+    if (start_addr != c_addr) {
+        return 0;
+    }
+
+    // next element should be at byte 8 (so it's correctly aligned)
+    if (d_addr - c_addr != 8) {
+        return 0;
+    }
+
+    // size of whole struct should be 16 bytes
+    if (end_ptr - start_addr != 16) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// test 3: validate struct that contains an array
+// test member accesses of the form &x.y[i], x.y + i
+int test_three_bytes(void) {
+    // use static struct here to make sure that doesn't impact address
+    // calculation
+    static struct three_bytes s;
+
+    unsigned long start_addr = (unsigned long)&s;
+    unsigned long arr_addr = (unsigned long)&s.arr;
+    unsigned long arr0_addr = (unsigned long)&s.arr[0];
+    unsigned long arr1_addr = (unsigned long)&s.arr[1];
+    // different way to calculate same address as above
+    unsigned long arr1_addr_alt = (unsigned long)(s.arr + 1);
+    unsigned long arr2_addr = (unsigned long)&s.arr[2];
+    unsigned long arr_end = (unsigned long)(&s.arr + 1);
+    unsigned long struct_end = (unsigned long)(&s + 1);
+
+    // struct, array, and first array element should all have same address
+    if (start_addr != arr_addr) {
+        return 0;
+    }
+
+    if (start_addr != arr0_addr) {
+        return 0;
+    }
+
+    // s.arr[1] and s.arr[2] should be at byte offsets 1 and 2
+    if (arr1_addr - start_addr != 1) {
+        return 0;
+    }
+
+    if (arr1_addr != arr1_addr_alt) {
+        return 0;
+    }
+
+    if (arr2_addr - start_addr != 2) {
+        return 0;
+    }
+
+    // arr_end and struct_end should both be at byte offset 3
+    if (arr_end - start_addr != 3) {
+        return 0;
+    }
+
+    if (struct_end - start_addr != 3) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// test 4: validate struct containing nested structs
+// test accesses of the form &x->y.z, &x->y.z[i],
+// &x.y.z, &x.y.z[i]
+int test_sixteen_bytes(void) {
+    static struct sixteen_bytes s;
+    struct sixteen_bytes *s_ptr = &s;
+
+    // get addresses of various members through s_ptr
+    unsigned long start_addr = (unsigned long)s_ptr;
+    unsigned long eight_addr = (unsigned long)&s_ptr->eight;
+    unsigned long eight_i_addr = (unsigned long)&s_ptr->eight.i;
+    unsigned long eight_c_addr = (unsigned long)&s_ptr->eight.c;
+    unsigned long two = (unsigned long)&s_ptr->two;
+    unsigned long two_arr = (unsigned long)s_ptr->two.arr;
+    unsigned long two_arr0 = (unsigned long)&s_ptr->two.arr[0];
+    unsigned long two_arr1 = (unsigned long)&s_ptr->two.arr[1];
+    unsigned long two_arr_end = (unsigned long)(&s_ptr->two.arr + 1);
+    unsigned long two_end = (unsigned long)(&s_ptr->two + 1);
+    unsigned long three = (unsigned long)&s_ptr->three;
+    // not going to validate every individual element in three.arr
+    // since we already did that for two.arr
+    unsigned long three_end = (unsigned long)(&s_ptr->three + 1);
+    unsigned long struct_end = (unsigned long)(s_ptr + 1);
+
+    // struct is 4-byte aligned
+    if (start_addr % 4 != 0) {
+        return 0;
+    }
+
+    // struct, first member, first member's first member all have same address
+    if (start_addr != eight_addr) {
+        return 0;
+    }
+
+    if (start_addr != eight_i_addr) {
+        return 0;
+    }
+
+    if (eight_c_addr - start_addr != 4) {
+        return 0;
+    }
+
+    // next member starts at byte 8
+    if (two - start_addr != 8) {
+        return 0;
+    }
+
+    if (two_arr - start_addr != 8) {
+        return 0;
+    }
+
+    if (two_arr0 - start_addr != 8) {
+        return 0;
+    }
+
+    // validate next array element in s_ptr->two.arr
+    if (two_arr1 - start_addr != 9) {
+        return 0;
+    }
+
+    // no padding at end of s_ptr->two
+    if (two_arr_end - start_addr != 10) {
+        return 0;
+    }
+
+    if (two_arr_end != two_end) {
+        return 0;
+    }
+
+    if (three - start_addr != 10) {
+        return 0;
+    }
+
+    if (three_end - start_addr != 13) {
+        return 0;
+    }
+
+    if (struct_end - start_addr != 16) {
+        return 0;
+    }
+
+    // now get addresses of a few members thru s directly and make sure they're
+    // the same
+
+    unsigned long eight_i_addr_alt = (unsigned long)&s.eight.i;
+    unsigned long eight_c_addr_alt = (unsigned long)&s.eight.c;
+    unsigned long two_arr_alt = (unsigned long)s.two.arr;
+    unsigned long two_arr1_alt = (unsigned long)&s.two.arr[1];
+    unsigned long three_alt = (unsigned long)&s.three;
+
+    if (eight_i_addr_alt != eight_i_addr) {
+        return 0;
+    }
+
+    if (eight_c_addr_alt != eight_c_addr) {
+        return 0;
+    }
+
+    if (two_arr_alt != two_arr) {
+        return 0;
+    }
+
+    if (two_arr1_alt != two_arr1) {
+        return 0;
+    }
+
+    if (three_alt != three) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// test 5: validate array of irregularly-sized structs; make sure there's no
+// padding b/t array elements test access of the form x[i].y, &x[i].y[j]
+int test_wonky_array(void) {
+    struct wonky wonky_array[5];
+    unsigned long array_start = (unsigned long)wonky_array;
+    unsigned long elem3 = (unsigned long)(wonky_array + 3);
+    unsigned long elem3_arr = (unsigned long)wonky_array[3].arr;
+    unsigned long elem2_arr2 = (unsigned long)&wonky_array[2].arr[2];
+    unsigned long elem2_arr_end = (unsigned long)(wonky_array[2].arr + 19);
+    unsigned long elem4_arr_end = (unsigned long)(wonky_array[4].arr + 19);
+    unsigned long array_end = (unsigned long)(wonky_array + 5);
+
+    if (elem3 - array_start != 19 * 3) {
+        return 0;
+    }
+
+    if (elem3_arr != elem3) {
+        return 0;
+    }
+
+    if (elem2_arr2 - array_start != 19 * 2 + 2) {
+        return 0;
+    }
+
+    // no gap b/t last member of elem2 and start of elem3
+    if (elem2_arr_end != elem3) {
+        return 0;
+    }
+
+    // no gap b/t last member of elem4 and end of whole array
+    if (elem4_arr_end != array_end) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// test 6: validate array of structs containing arrays of structs
+// test access of the form x[i].y->z, x->y->z, where x and y are arrays that
+// decay to pointers
+int test_contains_struct_array_array(void) {
+    struct contains_struct_array arr[3];
+    unsigned long array_start = (unsigned long)arr;
+    unsigned long first_scalar_elem = (unsigned long)(&arr[0].c);
+
+    // arr[0].struct_array[0].i
+    unsigned long outer0_inner0_i = (unsigned long)(&arr[0].struct_array->i);
+
+    // arr[0].struct_array[0].i
+    unsigned long outer0_inner0_c = (unsigned long)(&arr->struct_array->c);
+
+    // one-past-the-end of arr[0].struct_array
+    unsigned long outer0_end = (unsigned long)(arr->struct_array + 3);
+
+    // start of arr[1] (should be the same as one-past-end of
+    // arr[0].struct_array)
+    unsigned long outer1 = (unsigned long)(&arr[1]);
+
+    // second element of arr[1]
+    unsigned long outer1_arr = (unsigned long)(arr[1].struct_array);
+
+    // arr[1].struct_array[1].i
+    unsigned long outer1_inner1_i =
+        (unsigned long)&(((arr + 1)->struct_array + 1)->i);
+
+    // arr[2].struct_array[0].c
+    unsigned long outer2_inner0_c =
+        (unsigned long)&((arr + 2)->struct_array->c);
+
+    // whole thing should be 4-byte aligned
+    if (array_start % 4 != 0) {
+        return 0;
+    }
+
+    // validate pointers to start of struct
+    if (first_scalar_elem != array_start) {
+        return 0;
+    }
+
+    // 4 bytes into array (struct_array offset in contains_struct_array is 4,
+    // i offset in struct_array is 0)
+    if (outer0_inner0_i - array_start != 4) {
+        return 0;
+    }
+
+    // 8 bytes into array (struct_array offset in contains_struct_array is 4,
+    // c offset in struct_array is 4)
+    if (outer0_inner0_c - array_start != 8) {
+        return 0;
+    }
+
+    // no trailing padding in arr[0]
+    if (outer0_end != outer1) {
+        return 0;
+    }
+
+    // check offsets in arr[0]
+    if (outer1_arr - array_start != 32) {
+        return 0;
+    }
+
+    if (outer1_arr - outer1 != 4) {
+        return 0;
+    }
+
+    // arr[1] is 28 bytes into arr
+    // arr[1].struct_array is 4 bytes into arr[1]
+    // arr[1].struct_array[1] is 8 bytes into struct_array
+    // arr[1].struct_array[1].i is 0 bytes into arr[1].struct_array[1]
+    // total offset: 28+4+8 = 40
+    if (outer1_inner1_i - array_start != 40) {
+        return 0;
+    }
+
+    // arr[2] is 56 bytes into arr
+    // arr[2].struct_array is 4 bytes into arr[2]
+    // arr[2].struct_array[0] is 0 bytes into arr[2]
+    // arr[2].struct_array[0].c is 4 bytes into arr[2].struct_array[0]
+    // total offset: 56 + 4 + 4 = 64
+    if (outer2_inner0_c - array_start != 64) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+int main(void) {
+    if (!test_eightbytes()) {
+        return 1;
+    }
+
+    if (!test_internal_padding()) {
+        return 2;
+    }
+
+    if (!test_three_bytes()) {
+        return 3;
+    }
+
+    if (!test_sixteen_bytes()) {
+        return 4;
+    }
+
+    if (!test_wonky_array()) {
+        return 5;
+    }
+
+    if (!test_contains_struct_array_array()) {
+        return 6;
+    }
+
+    return 0;  // success
+}
+)PROG")));
+}
+
+// x86 .s page-boundary helper.
+TEST_F(CodegenTest, DISABLED_Chapter18_PassArgsOnPageBoundary)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Test that we don't read past the bounds of a structure when passing it as a
+ * parameter: pass a structure parameter that ends at the end
+ * of a page, where the next page isn't mapped. If we read past the end of the
+ * structure we'll trigger a memory access violation and crash the program.
+ * */
+
+// structure type is two eightbytes
+struct nine_bytes {
+    char arr[11];
+};
+
+// irregularly-sized struct that's right on a page boundary,
+// defined in data_on_page_boundary_<PLATFORM>.s
+extern struct nine_bytes on_page_boundary;
+
+int f(struct nine_bytes in_reg, int a, int b, int c, int d, int e,
+      struct nine_bytes on_stack) {
+    // validate structs
+    for (int i = 0; i < 9; i = i + 1) {
+        char in_reg_c = in_reg.arr[i];
+        char on_stack_c = on_stack.arr[i];
+        if (i == 2) {
+            // on_page_boundary[2] == 4
+            if (in_reg_c != 4 || on_stack_c != 4) {
+                return 1;
+            }
+        } else if (i == 3) {
+            // on_page_boundary[3] == 5
+            if (in_reg_c != 5 || on_stack_c != 5) {
+                return 2;
+            }
+        } else if (i == 8) {
+            // on_page_boundary[8] == 6
+            if (in_reg_c != 6 || on_stack_c != 6) {
+                return 3;
+            }
+        } else {
+            // all other array elements are 0
+            if (in_reg_c || on_stack_c) {
+                return 4;
+            }
+        }
+    }
+
+    // validate other args
+    if (a != 101 || b != 102 || c != 103 || d != 104 || e != 105) {
+        return 5;
+    }
+
+    return 0;  // success
+}
+
+int main(void) {
+    on_page_boundary.arr[2] = 4;
+    on_page_boundary.arr[3] = 5;
+    on_page_boundary.arr[8] = 6;
+    // pass this struct in register and on stack
+    return f(on_page_boundary, 101, 102, 103, 104, 105,
+             on_page_boundary);  // 0 is success
+}
+)PROG")));
+}
+
+// block-scope static + strcmp + local char-array string init.
+TEST_F(CodegenTest, DISABLED_Chapter18_ParametersStackClobber)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Test that passing structures as parameters doesn't clobber the stack.
+ * To test this, we store some bytes to the stack, pass the struct, then
+ * validate that those bytes haven't changed.
+ * Our test functions don't store any values on the stack except the ones we
+ * explicitly validate; e.g. they don't call functions that return values,
+ * evaluate any expressions that undergo array decay (because the result of
+ * GetAddr would be stored on the stack) or perform any other computations that
+ * produce intermediate expressions. This ensures that if any value on the stack
+ * is clobbered, we'll detect it.
+ */
+
+
+int strcmp(char *s1, char *s2);
+void exit(int status);
+
+struct stack_bytes {
+    char bytes[16];
+};
+
+// we copy bytes from the stack to here, then validate them
+static struct stack_bytes to_validate;
+
+// use this to validate to_validate after copying bytes from stack to it
+void validate_stack_bytes(int code) {
+    if (strcmp(to_validate.bytes, "efghijklmnopqrs")) {
+        exit(code);
+    }
+    return;
+}
+
+// test case 1: passing a struct holding four-byte int
+struct one_longword {
+    int i;
+};
+
+void take_longword(struct one_longword s, int code) {
+    if (s.i != 10) {
+        exit(code);
+    }
+    return;
+}
+
+int pass_longword(void) {
+    // write some bytes to the stack
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    // make this static so it's not on the stack
+    static struct one_longword my_var = {10};
+    // this funcall doesn't require temporary values on the stack
+    // b/c its args are just a variable and int (not more complex expressions)
+    // and its return type is void
+    take_longword(my_var, 1);
+
+    // assigning a variable doesn't produce any temporary values
+    to_validate = bytes;
+
+    // this funcall doesn't require temporary values on the stack
+    // b/c its arg is just an int(not a more complex expression)
+    // and its return type
+    validate_stack_bytes(2);
+    return 0;
+}
+
+// test case #2: passing a struct holding an eight-byte int
+struct one_quadword {
+    long l;
+};
+
+void take_quadword(struct one_quadword s, int code) {
+    if (s.l != 10) {
+        exit(code);
+    }
+    return;
+}
+
+int pass_quadword(void) {
+    // write some bytes to the stack
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+
+    static struct one_quadword my_var = {10};
+    take_quadword(my_var, 3);
+
+    // validate stack
+    to_validate = bytes;
+    validate_stack_bytes(4);
+    return 0;
+}
+
+// test case #3: passing a struct holding a double
+struct one_double {
+    double d;
+};
+
+void take_double(struct one_double s, int code) {
+    if (s.d != 10) {
+        exit(code);
+    }
+    return;
+}
+
+int pass_double(void) {
+    // write some bytes to the stack
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    static struct one_double my_var = {10};
+    take_double(my_var, 5);
+
+    // validate stack
+    to_validate = bytes;
+    validate_stack_bytes(6);
+    return 0;
+}
+
+// test case #4: passing a struct holding twelve bytes
+struct twelve_bytes {
+    char arr[12];
+};
+
+void take_twelve_bytes(struct twelve_bytes s, int code) {
+    if (strcmp(s.arr, "abcdefghijk")) {
+        exit(code);
+    }
+    return;
+}
+
+int pass_twelve_bytes(void) {
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    static struct twelve_bytes my_var = {"abcdefghijk"};
+    take_twelve_bytes(my_var, 7);
+
+    // validate stack
+    to_validate = bytes;
+    validate_stack_bytes(8);
+    return 0;
+}
+
+// test case #5: passing a struct in memory
+// make sure this is an even number of quadwords so we don't need to add stack
+// padding
+struct memory {
+    char arr[32];
+};
+
+void take_struct_in_mem(struct memory s, int code) {
+    if (strcmp(s.arr, "Here's the thing: I'm a string.")) {
+        exit(code);
+    }
+    return;
+}
+
+int pass_struct_in_mem(void) {
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    static struct memory my_var = {"Here's the thing: I'm a string."};
+    take_struct_in_mem(my_var, 9);
+
+    // validate stack
+    to_validate = bytes;
+    validate_stack_bytes(10);
+    return 0;
+}
+
+// test case #6: passing a 3-byte struct
+struct irregular {
+    char arr[3];
+};
+
+void take_irregular_struct(struct irregular s, int code) {
+    if (strcmp(s.arr, "12")) {
+        exit(code);
+    }
+    return;
+}
+
+int pass_irregular_struct(void) {
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    static struct irregular my_var = {"12"};
+    take_irregular_struct(my_var, 11);
+
+    // validate stack
+    to_validate = bytes;
+    validate_stack_bytes(12);
+    return 0;
+}
+
+// test case #7: passing an irregularly-sized struct in memory
+// make sure this is an even number of quadwords so we don't need to add stack
+// padding
+struct irregular_memory {
+    char arr[27];
+};
+
+void take_irregular_memory_struct(struct irregular_memory s, int code) {
+    if (strcmp(s.arr, "The quick brown fox jumped")) {
+        exit(code);
+    }
+    return;
+}
+
+int pass_irregular_memory_struct(void) {
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+
+    static struct irregular_memory my_var = {"The quick brown fox jumped"};
+    take_irregular_memory_struct(my_var, 13);
+
+    // validate stack
+    to_validate = bytes;
+    validate_stack_bytes(14);
+    return 0;
+}
+
+int main(void) {
+    pass_longword();
+    pass_quadword();
+    pass_double();
+    pass_twelve_bytes();
+    pass_struct_in_mem();
+    pass_irregular_struct();
+    pass_irregular_memory_struct();
+    return 0;
+}
+)PROG")));
+}
+
+// x86 .s page-boundary helper.
+TEST_F(CodegenTest, DISABLED_Chapter18_ReturnBigStructOnPageBoundary)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Test that we don't read past the bounds of a structure when passing it as a
+ * return value: return a structure that ends at the end
+ * of a page, where the next page isn't mapped. If we read past the end of the
+ * structure we'll trigger a memory access violation and crash the program.
+ * This test is similar to return_struct_on_page_boundary except the struct is
+ * large enough to be passed in memory instead of registers
+ * */
+
+struct eighteen_bytes {
+    char arr[18];
+};
+
+// irregularly-sized struct that's right on a page boundary,
+// defined in big_data_on_page_boundary_<PLATFORM>.s
+extern struct eighteen_bytes on_page_boundary;
+
+struct eighteen_bytes return_struct(void) {
+    on_page_boundary.arr[17] = 12;
+    on_page_boundary.arr[9] = -1;
+    on_page_boundary.arr[8] = -2;
+    on_page_boundary.arr[7] = -3;
+    return on_page_boundary;
+}
+
+int main(void) {
+    // call function that returns on_page_boundary
+    struct eighteen_bytes x = return_struct();
+
+    // validate it
+    for (int i = 0; i < 18; i = i + 1) {
+        char val = x.arr[i];
+        if (i == 7) {
+            if (val != -3) {
+                return 1;
+            }
+        } else if (i == 8) {
+            if (val != -2) {
+                return 2;
+            }
+        } else if (i == 9) {
+            if (val != -1) {
+                return 3;
+            }
+        } else if (i == 17) {
+            if (val != 12) {
+                return 4;
+            }
+        } else if (x.arr[i]) {  // all other elements are 0
+            return 5;
+        }
+    }
+
+    return 0;  // success
+}
+)PROG")));
+}
+
+// x86 .s helper (RAX return-pointer ABI).
+TEST_F(CodegenTest, DISABLED_Chapter18_ReturnPointerInRax)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+// When we return a value in memory, make sure we pass a pointer
+// to the returned value in RAX.
+// The main function, defined in validate_return_pointer_<PLATFORM>.s,
+// will call return_in_mem, then read through RAX to access/validate the result
+
+
+// This struct will be passed in memory
+struct s {
+    long l1;
+    long l2;
+    long l3;
+};
+
+
+struct s return_in_mem(void) {
+    struct s result = {1, 2, 3};
+    return result;
+}
+)PROG")));
+}
+
+// x86 .s helper (return-space ABI).
+TEST_F(CodegenTest, DISABLED_Chapter18_ReturnSpaceOverlap)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* If a return value is passed on the stack in space allocated by the caller,
+ * test that this space does not overlap with any other objects the callee
+ * can access, as the ABI requires.
+ * This could happen if you implement more aggressive optimizations than
+ * the book covers - e.g. if you rewrote the TACKY code
+ *   tmp = f()
+ *   globvar = tmp
+ * as
+ *   globvar = f()
+ * On the other hand, it's fine to rewrite
+ *   tmp = f()
+ *   localvar = tmp
+ * as
+ *   localvar = f()
+ * as long as f() can't otherwise access localvar (e.g. through a pointer)
+ * */
+struct s {
+    long l1;
+    long l2;
+    long l3;
+};
+
+/* These are defined in
+ * tests/chapter_18/valid/params_and_returns/return_space_address_overlap_<PLATFORM>.s
+ */
+
+extern struct s globvar;  // initialized to 0
+
+// Validate that memory RDI points to does not overlap with globvar,
+// then return { 400, 500, 600 }
+struct s overlap_with_globvar(void);
+// Validate that memory RDI points to does not overlap with ptr,
+// then return { ptr->l1 * 2, ptr->l2 * 2, ptr->l3 * 2 }
+struct s overlap_with_pointer(struct s *ptr);
+
+int main(void) {
+    // make sure we don't pass the address of globvar as the return
+    // address in RDI
+    globvar = overlap_with_globvar();
+    if (globvar.l1 != 400l || globvar.l2 != 500l || globvar.l3 != 600l) {
+        return 2;
+    }
+
+    // make sure we don't pass the address of my_struct as the return
+    // address in RDI, since we also pass it as the first argument
+    struct s my_struct = {10l, 9l, 8l};
+    my_struct = overlap_with_pointer(&my_struct);
+    if (my_struct.l1 != 20l || my_struct.l2 != 18l || my_struct.l3 != 16l) {
+        return 4;
+    }
+
+    return 0;  // success
+}
+)PROG")));
+}
+
+// x86 .s page-boundary helper.
+TEST_F(CodegenTest, DISABLED_Chapter18_ReturnStructOnPageBoundary)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Test that we don't read past the bounds of a structure when passing it as a
+ * return value: return a structure that ends at the end
+ * of a page, where the next page isn't mapped. If we read past the end of the
+ * structure we'll trigger a memory access violation and crash the program.
+ * */
+
+struct ten_bytes {
+    char arr[10];
+};
+
+// irregularly-sized struct that's right on a page boundary,
+// defined in data_on_page_boundary_<PLATFORM>.s
+extern struct ten_bytes on_page_boundary;
+
+struct ten_bytes return_struct(void) {
+    on_page_boundary.arr[9] = -1;
+    on_page_boundary.arr[8] = -2;
+    on_page_boundary.arr[7] = -3;
+    return on_page_boundary;
+}
+
+int main(void) {
+    // call function that returns on_page_boundary
+    struct ten_bytes x = return_struct();
+
+    // validate it
+    for (int i = 0; i < 7; i = i + 1) {
+        if (x.arr[i]) {
+            return 1;
+        }
+    }
+
+    if (x.arr[7] != -3) {
+        return 2;
+    }
+    if (x.arr[8] != -2) {
+        return 2;
+    }
+    if (x.arr[9] != -1) {
+        return 3;
+    }
+    return 0;  // success
+}
+)PROG")));
+}
+
+// block-scope static + strcmp.
+TEST_F(CodegenTest, DISABLED_Chapter18_ParamsAndReturnsStackClobber)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Test that returning a struct doesn't clobber the stack.
+ * This is most likely when we're returning structs in memory, but test other
+ * types of structs too.
+ * To test this, we store some bytes on the stack, call a function that returns
+ * the struct, then validate that those bytes haven't changed. In the functions
+ * whose stacks we validate, we don't store any values on the stack except the
+ * bytes to validate and the return value. This ensures that if the return
+ * value clobbers any other bytes on the stack, we'll detect it. This is a
+ * similar technique to
+ * chapter_18/valid/no_structure_parameters/struct_copy/stack_clobber.c
+ * This test assumes structures are allocated on the stack in the same order
+ * they're declared/initialized (otherwise clobbers may overwrite stack padding
+ * instead of data that we validate, and go undetected).
+ */
+
+
+int strcmp(char *s1, char *s2);
+void exit(int status);
+
+struct stack_bytes {
+    char bytes[16];
+};
+
+// we copy bytes from the stack to here, then validate them
+static struct stack_bytes to_validate;
+
+// use this to validate to_validate after copying bytes from stack to it
+void validate_stack_bytes(int code) {
+    if (strcmp(to_validate.bytes, "efghijklmnopqrs")) {
+        exit(code);
+    }
+    return;
+}
+
+// test case 1: return a struct in a general-purpose register
+struct one_int_reg {
+    char cs[7];
+};
+
+struct one_int_reg return_int_struct(void) {
+    struct one_int_reg retval = {{0, 0, 0, 0, 0, 0, 0}};
+    return retval;
+}
+
+static struct one_int_reg one_int_struct;
+void validate_one_int_struct(int code) {
+    for (int i = 0; i < 7; i = i + 1) {
+        if (one_int_struct.cs[i]) {
+            exit(code);
+        }
+    }
+}
+
+int test_int_struct(void) {
+    // write some bytes to the stack
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+
+    // call a function that returns a one-int struct
+    // copy it to a static variable so we can validate it later
+    // without putting more temporary variables on the satck
+    one_int_struct = return_int_struct();
+
+    // assigning a variable doesn't produce any temporary values
+    to_validate = bytes;
+
+    // this funcall doesn't require temporary values on the stack
+    // b/c its arg is just an int(not a more complex expression)
+    // and its return type
+    validate_stack_bytes(1);
+
+    /// validate the static struct we copied the return val into earlier
+    validate_one_int_struct(2);
+    return 0;
+}
+
+// test case 2: return a struct in two general-purpose registers
+struct two_int_regs {
+    char cs[15];
+};
+
+struct two_int_regs return_two_int_struct(void) {
+    struct two_int_regs retval = {
+        {20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34}};
+    return retval;
+}
+
+static struct two_int_regs two_int_struct;
+void validate_two_int_struct(int code) {
+    for (int i = 0; i < 15; i = i + 1)
+        if (two_int_struct.cs[i] != i + 20) {
+            exit(code);
+        }
+}
+
+int test_two_int_struct(void) {
+    // write some bytes to the stack
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+
+    two_int_struct = return_two_int_struct();
+
+    // assigning a variable doesn't produce any temporary values
+    to_validate = bytes;
+
+    // validate stack
+    validate_stack_bytes(3);
+
+    /// validate returned struct
+    validate_two_int_struct(4);
+    return 0;
+}
+
+// test case 3: return a struct in one XMM register
+struct one_xmm_reg {
+    double d;
+};
+
+struct one_xmm_reg return_one_xmm_struct(void) {
+    struct one_xmm_reg retval = {234.5};
+    return retval;
+}
+
+static struct one_xmm_reg one_double_struct;
+void validate_one_double_struct(int code) {
+    if (one_double_struct.d != 234.5) {
+        exit(code);
+    }
+}
+
+int test_one_double_struct(void) {
+    // write some bytes to the stack
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+
+    one_double_struct = return_one_xmm_struct();
+
+    // assigning a variable doesn't produce any temporary values
+    to_validate = bytes;
+
+    // validate stack
+    validate_stack_bytes(5);
+
+    /// validate returned struct
+    validate_one_double_struct(6);
+    return 0;
+}
+
+// test case 4: return a struct in two XMM registers
+struct two_xmm_regs {
+    double d1;
+    double d2;
+};
+
+struct two_xmm_regs return_two_xmm_struct(void) {
+    struct two_xmm_regs retval = {234.5, 678.25};
+    return retval;
+}
+
+static struct two_xmm_regs two_doubles_struct;
+void validate_two_doubles_struct(int code) {
+    if (two_doubles_struct.d1 != 234.5 || two_doubles_struct.d2 != 678.25) {
+        exit(code);
+    }
+}
+
+int test_two_doubles_struct(void) {
+    // write some bytes to the stack
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+
+    two_doubles_struct = return_two_xmm_struct();
+
+    // assigning a variable doesn't produce any temporary values
+    to_validate = bytes;
+
+    // validate stack
+    validate_stack_bytes(7);
+
+    /// validate returned struct
+    validate_two_doubles_struct(8);
+    return 0;
+}
+
+// test case 5: return a stuct in general-purpose and XMM registers
+
+struct int_and_xmm {
+    char c;
+    double d;
+};
+
+struct int_and_xmm return_mixed_struct(void) {
+    struct int_and_xmm retval = {125, 678.25};
+    return retval;
+}
+
+static struct int_and_xmm mixed_struct;
+void validate_mixed_struct(int code) {
+    if (mixed_struct.c != 125 || mixed_struct.d != 678.25) {
+        exit(code);
+    }
+}
+
+int test_mixed_struct(void) {
+    // write some bytes to the stack
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+
+    mixed_struct = return_mixed_struct();
+
+    // assigning a variable doesn't produce any temporary values
+    to_validate = bytes;
+
+    // validate stack
+    validate_stack_bytes(9);
+
+    /// validate returned struct
+    validate_mixed_struct(10);
+    return 0;
+}
+
+// test case 6: return a struct on the stack
+struct stack {
+    char cs[28];
+};
+
+struct stack return_stack_struct(void) {
+    struct stack retval = {{90,  91,  92,  93,  94,  95,  96,  97,  98,  99,
+                            100, 101, 102, 103, 104, 105, 106, 107, 108, 109,
+                            110, 111, 112, 113, 114, 115, 116, 117}};
+    return retval;
+}
+
+static struct stack stack_struct;
+void validate_stack_struct(int code) {
+    for (int i = 0; i < 28; i = i + 1) {
+        if (stack_struct.cs[i] != i + 90) {
+            exit(code);
+        }
+    }
+}
+
+int test_stack_struct(void) {
+    // write some bytes to the stack
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+
+    stack_struct = return_stack_struct();
+
+    // assigning a variable doesn't produce any temporary values
+    to_validate = bytes;
+
+    // validate stack
+    validate_stack_bytes(11);
+
+    /// validate returned struct
+    validate_stack_struct(12);
+    return 0;
+}
+
+// test case 7: return an irregularly-slized struct on the stack
+struct stack_irregular {
+    char cs[19];
+};
+
+struct stack_irregular return_irregular_stack_struct(void) {
+    struct stack_irregular retval = {{70, 71, 72, 73, 74, 75, 76, 77, 78, 79,
+                                      80, 81, 82, 83, 84, 85, 86, 87, 88}};
+    return retval;
+}
+
+static struct stack_irregular irregular_stack_struct;
+void validate_irregular_stack_struct(int code) {
+    for (int i = 0; i < 19; i = i + 1) {
+        if (irregular_stack_struct.cs[i] != i + 70) {
+            exit(code);
+        }
+    }
+}
+
+int test_irregular_stack_struct(void) {
+    // write some bytes to the stack
+    struct stack_bytes bytes = {"efghijklmnopqrs"};
+
+    irregular_stack_struct = return_irregular_stack_struct();
+
+    // assigning a variable doesn't produce any temporary values
+    to_validate = bytes;
+
+    // validate stack
+    validate_stack_bytes(13);
+
+    /// validate returned struct
+    validate_irregular_stack_struct(14);
+    return 0;
+}
+
+int main(void) {
+    test_int_struct();
+    test_two_int_struct();
+    test_one_double_struct();
+    test_two_doubles_struct();
+    test_mixed_struct();
+    test_stack_struct();
+    test_irregular_stack_struct();
+    return 0;
+}
+)PROG")));
+}
+
+// malloc/calloc/strcmp + block-scope static.
+TEST_F(CodegenTest, DISABLED_Chapter18_AutoStructInitializers)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Test initialization of non-nested structs with automatic storage duration,
+ * including:
+ * - partial initialization
+ * - implicit type conversions
+ * - compound and single expressions as initializers
+ * - string literals as pointer and array initializers
+ * */
+
+
+// library functions
+int strcmp(char *s1, char *s2);
+
+void *malloc(unsigned long size);
+void *calloc(unsigned long nmemb, unsigned long size);
+
+// struct type def
+struct s {
+    char *one_msg;
+    unsigned char two_arr[3];
+    struct s *three_self_ptr;
+    double four_d;
+    double *five_d_ptr;
+};
+
+// validation functions defined in library
+int validate_full_initialization(struct s *ptr);
+int validate_partial_initialization(struct s *ptr, char *expected_msg);
+int validate_converted(struct s *ptr);
+int validate_two_structs(struct s *ptr1, struct s *ptr2);
+/* Test initialization of non-nested structs with automatic storage duration,
+ * including:
+ * - partial initialization
+ * - implicit type conversions
+ * - compound and single expressions as initializers
+ * - string literals as pointer and array initializers
+ * */
+
+
+
+double get_double(void) {
+    return 2e12;
+}
+
+// case 1: fully initialized struct
+int test_full_initialization(void) {
+    struct s full = {
+        // use string literals to initialize both pointers and arrays
+        "I'm a struct!", "sup",
+        &full,          // initialize member with pointer to self
+        get_double(),   // initialize member with result of function call
+        &(full.four_d)  // initialize member with pointer to other member in
+                        // self
+    };
+
+    return validate_full_initialization(&full);
+}
+
+// case 2: partially initialized struct
+int test_partial_initialization(void) {
+    static char *msg = "Another string literal";
+    struct s partial = {
+        msg,         // initialize member from variable
+        {'a', 'b'},  // partially initialize array
+        (struct s *)calloc(
+            1,
+            sizeof(struct s))  // initialize ptr with call to calloc
+        // don't initialize last element
+    };
+
+    return validate_partial_initialization(&partial, msg);
+}
+
+// case 3: implicit type conversions for struct members
+int test_implicit_type_conversions(void) {
+    static int i = 3000;
+
+    struct s converted = {
+        malloc(5),              // convert void * to char *
+        {i / 2, i / 3, i * 4},  // truncate ints to chars: 220, 232, and 224
+        0l,                     // convert null pointer constant to null pointer
+        i - 1,                  // convert int to double
+        calloc(1, sizeof(double))  // convert void * to double *
+    };
+
+    return validate_converted(&converted);
+}
+
+// case 4: initialize with single expression instead of compound initiailizer
+int test_single_exp_initializer(void) {
+    double d = 123.4;
+    struct s s1 = {"Yet another string", "xy", &s1, 150.0, &d};
+    struct s s2 = s1;
+
+    return validate_two_structs(&s1, &s2);
+}
+
+int main(void) {
+    if (!test_full_initialization()) {
+        return 1;
+    }
+
+    if (!test_partial_initialization()) {
+        return 2;
+    }
+
+    if (!test_implicit_type_conversions()) {
+        return 3;
+    }
+
+    if (!test_single_exp_initializer()) {
+        return 4;
+    }
+
+    return 0;  // success
+}
+/* Test initialization of non-nested structs with automatic storage duration,
+ * including:
+ * - partial initialization
+ * - implicit type conversions
+ * - compound and single expressions as initializers
+ * - string literals as pointer and array initializers
+ * */
+
+
+int validate_full_initialization(struct s *ptr) {
+    if (strcmp(ptr->one_msg, "I'm a struct!") || ptr->two_arr[0] != 's' ||
+        ptr->two_arr[1] != 'u' || ptr->two_arr[2] != 'p' ||
+        ptr->three_self_ptr != ptr || ptr->four_d != 2e12 ||
+        *ptr->five_d_ptr != 2e12) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+int validate_partial_initialization(struct s *ptr, char *expected_msg) {
+    if (ptr->one_msg != expected_msg || ptr->two_arr[0] != 'a' ||
+        ptr->two_arr[1] != 'b') {
+        return 0;
+    }
+
+    // validate ptr->three_self_ptr by making sure one element in it is 0
+    if (ptr->three_self_ptr->one_msg) {
+        return 0;
+    }
+
+    // validate elements that weren't explicitly initialized are 0
+    if (ptr->two_arr[2] || ptr->four_d || ptr->five_d_ptr) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+int validate_converted(struct s *ptr) {
+    if (!ptr->one_msg ||  // just validate that this pointer isn't null
+        ptr->two_arr[0] != 220 || ptr->two_arr[1] != 232 ||
+        ptr->two_arr[2] != 224 || ptr->three_self_ptr ||
+        ptr->four_d != 2999.0 || *ptr->five_d_ptr != 0.0) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+int validate_two_structs(struct s *ptr1, struct s *ptr2) {
+    // validate elements of ptr2
+    if (strcmp(ptr2->one_msg, "Yet another string") ||
+        ptr2->one_msg != ptr1->one_msg ||  // both one_msg members point to same
+                                           // string literal
+        // contents of two_arr copied from s1 to s2
+        ptr2->two_arr[0] != 'x' || ptr2->two_arr[1] != 'y' ||
+        ptr2->three_self_ptr !=
+            ptr1 ||  // ptr2->three_self_ptr is ptr1, not to itself
+        ptr2->four_d != 150.0 ||
+        *ptr1->five_d_ptr != 123.4) {
+        return 0;
+    }
+
+    // ptr1->two_arr and ptr2->two_arr are distinct arrays with different
+    // addresses, even though contents are the same
+    if (ptr1->two_arr == ptr2->two_arr) {
+        return 0;
+    }
+    return 1;  // success
+}
+)PROG")));
+}
+
+// malloc/calloc/strcmp.
+TEST_F(CodegenTest, DISABLED_Chapter18_NestedAutoStructInitializers)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Test initialization of nested structs with automatic storage duration,
+ * including:
+ * - partial initialization
+ * - using mix of compound and single initializers to initialize nested structs
+ * - arrays of structs, structs containing arrays
+ * */
+
+
+int strcmp(char *s1, char *s2);
+
+// struct type defs
+struct pair {
+    int a;
+    int b;
+};
+
+struct inner {
+    int one_i;
+    unsigned char two_arr[3];
+    unsigned three_u;
+};
+
+struct outer {
+    long one_l;
+    struct inner two_struct;
+    char *three_msg;
+    double four_d;
+    struct pair five_pair;
+};
+
+// validation functions defined in library
+int validate_full_initialization(struct outer *ptr);
+int validate_partial_initialization(struct outer *ptr);
+int validate_mixed_initialization(struct outer *ptr);
+int validate_array_of_structs(struct outer *struct_array);
+/* Test initialization of nested structs with automatic storage duration,
+ * including:
+ * - partial initialization
+ * - using mix of compound and single initializers to initialize nested structs
+ * - arrays of structs, structs containing arrays
+ * */
+
+
+
+// case 1: fully initialized struct (include some implicit conversions while
+// we're at it)
+int test_full_initialization(void) {
+    struct outer full = {-200,
+                         {-171l, {-56, -54, -53}, 40.5},
+                         "Important message!",
+                         -22,
+                         {1, 2}};
+
+    return validate_full_initialization(&full);
+}
+
+// case 2: partially initialized struct
+int test_partial_initialization(void) {
+    struct outer partial = {1000,
+                            {
+                                1,
+                                // leave two_arr and three_u ininitialized
+                            },
+                            "Partial"};  // leave four_d uninitialized
+
+    return validate_partial_initialization(&partial);
+}
+
+// case 3: initialize a nested struct with a single expression of struct type
+// rather than a compound initializer
+int test_mixed_initialization(void) {
+    struct inner inner1 = {10};
+    struct inner inner2 = {20, {21}, 22u};
+    static int flag = 0;
+
+    struct outer mixed = {
+        200,
+        flag ? inner1 : inner2,  // initialize to inner2
+        "mixed",
+        10.0,
+        {99,
+         100}  // still use compound init for second nexted struct, five_pair
+    };
+
+    return validate_mixed_initialization(&mixed);
+}
+
+// case 4: initialize an array of structures
+int test_array_of_structs(void) {
+    struct outer s0 = {1, {2, {3, 4, 5}, 6}, "7", 8.0, {9, 10}};
+
+    struct inner in1 = {102, {103, 104, 105}, 106};
+    struct pair pair1 = {109, 110};
+    struct pair pair2 = {209};
+
+    struct outer s3 = {301};
+
+    struct outer struct_array[4] = {
+        // struct_array[0]: initialize whole array element w/ one struct
+        s0,
+        {101, in1, "107", 108.0, pair1},
+        // struct_array[2]: partial initialization; compound initialize for one
+        // subelement, single for other
+        {201,
+         // struct_array[2].two_struct
+         {202, {203}},
+         "207",
+         208.0,
+         pair2},
+        // struct_array[3]: initialize whole array element from one partially
+        // initialized struct
+        s3};
+
+    return validate_array_of_structs(struct_array);
+}
+
+int main(void) {
+    if (!test_full_initialization()) {
+        return 1;
+    }
+
+    if (!test_partial_initialization()) {
+        return 2;
+    }
+
+    if (!test_mixed_initialization()) {
+        return 3;
+    }
+
+    if (!test_array_of_structs()) {
+        return 4;
+    }
+
+    return 0;  // success
+}
+/* Test initialization of nested structs with automatic storage duration,
+ * including:
+ * - partial initialization
+ * - using mix of compound and single initializers to initialize nested structs
+ * - arrays of structs, structs containing arrays
+ * */
+
+
+int validate_full_initialization(struct outer *ptr) {
+    if (ptr->one_l != -200l || ptr->two_struct.one_i != -171 ||
+        ptr->two_struct.two_arr[0] != 200 ||
+        ptr->two_struct.two_arr[1] != 202 ||
+        ptr->two_struct.two_arr[2] != 203 || ptr->two_struct.three_u != 40u ||
+        strcmp(ptr->three_msg, "Important message!") || ptr->four_d != -22. ||
+        ptr->five_pair.a != 1 || ptr->five_pair.b != 2) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+int validate_partial_initialization(struct outer *ptr) {
+    // validate explicitly initialized members
+    if (ptr->one_l != 1000 || ptr->two_struct.one_i != 1 ||
+        strcmp(ptr->three_msg, "Partial")) {
+        return 0;
+    }
+
+    // validate that uninitialized members are 0
+    if (ptr->two_struct.two_arr[0] || ptr->two_struct.two_arr[1] ||
+        ptr->two_struct.two_arr[2] || ptr->two_struct.three_u || ptr->four_d ||
+        ptr->five_pair.a || ptr->five_pair.b) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+int validate_mixed_initialization(struct outer *ptr) {
+    // validate explicitly initialized elements
+    if (ptr->one_l != 200 || ptr->two_struct.one_i != 20 ||
+        ptr->two_struct.two_arr[0] != 21 || ptr->two_struct.three_u != 22u ||
+        strcmp(ptr->three_msg, "mixed") || ptr->four_d != 10.0 ||
+        ptr->five_pair.a != 99 || ptr->five_pair.b != 100) {
+        return 0;
+    }
+
+    // validate elements that were not explicitly initialized in inner2
+    if (ptr->two_struct.two_arr[1] || ptr->two_struct.two_arr[2]) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+int validate_array_of_structs(struct outer *struct_array) {
+    // validate element 0
+    if (struct_array[0].one_l != 1 || struct_array[0].two_struct.one_i != 2 ||
+        struct_array[0].two_struct.two_arr[0] != 3 ||
+        struct_array[0].two_struct.two_arr[1] != 4 ||
+        struct_array[0].two_struct.two_arr[2] != 5 ||
+        struct_array[0].two_struct.three_u != 6 ||
+        strcmp(struct_array[0].three_msg, "7") ||
+        struct_array[0].four_d != 8.0 || struct_array[0].five_pair.a != 9 ||
+        struct_array[0].five_pair.b != 10) {
+        return 0;
+    }
+
+    // validate element 1
+    if (struct_array[1].one_l != 101 ||
+        struct_array[1].two_struct.one_i != 102 ||
+        struct_array[1].two_struct.two_arr[0] != 103 ||
+        struct_array[1].two_struct.two_arr[1] != 104 ||
+        struct_array[1].two_struct.two_arr[2] != 105 ||
+        struct_array[1].two_struct.three_u != 106 ||
+        strcmp(struct_array[1].three_msg, "107") ||
+        struct_array[1].four_d != 108.0 || struct_array[1].five_pair.a != 109 ||
+        struct_array[1].five_pair.b != 110) {
+        return 0;
+    }
+
+    // validate element 2
+    if (struct_array[2].one_l != 201 ||
+        struct_array[2].two_struct.one_i != 202 ||
+        struct_array[2].two_struct.two_arr[0] != 203 ||
+        // remaining elements of two_struct should be 0 since they weren't
+        // explicitly initialized
+        struct_array[2].two_struct.two_arr[1] ||
+        struct_array[2].two_struct.two_arr[2] ||
+        struct_array[2].two_struct.three_u ||
+        strcmp(struct_array[2].three_msg, "207") ||
+        struct_array[2].four_d != 208.0 || struct_array[2].five_pair.a != 209 ||
+        // five_pair.b should be 0 since it wasn't explicitly initialized
+        struct_array[2].five_pair.b) {
+        return 0;
+    }
+
+    // validate element 3: one_l is 301, everything else is 0
+    if (struct_array[3].one_l != 301 || struct_array[3].two_struct.one_i ||
+        struct_array[3].two_struct.two_arr[0] ||
+        struct_array[3].two_struct.two_arr[1] ||
+        struct_array[3].two_struct.two_arr[2] ||
+        struct_array[3].two_struct.three_u || struct_array[3].three_msg ||
+        struct_array[3].four_d || struct_array[3].five_pair.a ||
+        struct_array[3].five_pair.b) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+)PROG")));
+}
+
+// block-scope static + strcmp.
+TEST_F(CodegenTest, DISABLED_Chapter18_NestedStaticStructInitializers)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Test initialization of nested static structs, including:
+ * - partial initialization
+ * - arrays of structs, structs containing arrays
+ * - implicit conversion of scalar elements, array decay of string literals
+ */
+
+
+// standard library function
+int strcmp(char *s1, char *s2);
+
+// structure type defs
+struct inner {
+    int one_i;
+    signed char two_arr[3];
+    unsigned three_u;
+};
+
+struct outer {
+    long one_l;
+    struct inner two_struct;
+    char *three_msg;
+    double four_d;
+};
+
+// declarations of global vars (defined in client)
+extern struct outer all_zeros;
+extern struct outer partial;
+extern struct outer full;
+extern struct outer converted;
+extern struct outer struct_array[3];
+
+// declarations of validation functions (defined in lib)
+int test_uninitialized(void);
+int test_partially_initialized(void);
+int test_fully_intialized(void);
+int test_implicit_conversions(void);
+int test_array_of_structs(void);
+/* Test initialization of nested static structs, including:
+ * - partial initialization
+ * - arrays of structs, structs containing arrays
+ * - implicit conversion of scalar elements, array decay of string literals
+ */
+
+
+
+
+// structs defined here
+// validation functions defined in library
+
+// case 1: struct with no explicit initializer should be all zeros
+struct outer all_zeros;
+
+// case 2: partially initialized struct
+struct outer partial = {
+    100l,
+    {10, {10}},  // leave arr[1], arr[2], and y uninitialized
+    "Hello!"};   // leave d uninitialized
+
+struct outer full = {
+    18014398509481979l,
+    {1000, "ok",
+     4292870144u},  // can initialized signed char array w/ static string
+    "Another message",
+    2e12};
+
+struct outer converted = {
+    10.5,  // 10l
+    {
+        2147483650u,  // -2147483646
+        {
+            15.6,             // 15
+            17592186044419l,  // 3
+            2147483777u       // -127
+        },
+        1152921506754330624ul  // 2147483648u
+    },
+    0ul,                   // null pointer
+    9223372036854776833ul  // 9223372036854777856.0
+};
+
+struct outer struct_array[3] = {{1, {2, "ab", 3}, 0, 5},
+                                {6, {7, "cd", 8}, "Message", 9}};
+
+int main(void) {
+    if (!test_uninitialized()) {
+        return 1;
+    }
+
+    if (!test_partially_initialized()) {
+        return 2;
+    }
+
+    if (!test_fully_intialized()) {
+        return 3;
+    }
+
+    if (!test_implicit_conversions()) {
+        return 4;
+    }
+
+    if (!test_array_of_structs()) {
+        return 5;
+    }
+
+    return 0;  // success
+}
+/* Test initialization of nested static structs, including:
+ * - partial initialization
+ * - arrays of structs, structs containing arrays
+ * - implicit conversion of scalar elements, array decay of string literals
+ */
+
+
+// structs defined in client but visible here
+// validation functions defined here
+
+// case 1: struct with no explicit initializer should be all zeros
+// struct outer all_zeros;
+int test_uninitialized(void) {
+    // validate elements in struct outer
+    if (all_zeros.one_l || all_zeros.three_msg || all_zeros.four_d) {
+        return 0;
+    }
+
+    // validate elements in struct inner
+    if (all_zeros.two_struct.one_i || all_zeros.two_struct.two_arr[0] ||
+        all_zeros.two_struct.two_arr[1] || all_zeros.two_struct.two_arr[2] ||
+        all_zeros.two_struct.three_u) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// case 2: partially initialized struct
+/*
+    struct outer partial = {
+        100l,
+        {10, {10}},  // leave arr[1], arr[2], and y uninitialized
+        "Hello!"};   // leave d uninitialized
+*/
+int test_partially_initialized(void) {
+    // validate elements in struct outer
+    if (partial.one_l != 100l || strcmp(partial.three_msg, "Hello!")) {
+        return 0;
+    }
+
+    if (partial.four_d) {  // this wasn't explicitly initialized, should be 0
+        return 0;
+    }
+
+    // validate elements in struct inner
+    if (partial.two_struct.one_i != 10 || partial.two_struct.two_arr[0] != 10) {
+        return 0;
+    }
+
+    if (partial.two_struct.two_arr[1] || partial.two_struct.two_arr[2] ||
+        partial.two_struct
+            .three_u) {  // not explicitly initialized, should be 0
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// case 3: fully initialized struct
+/*
+    struct outer full = {
+        18014398509481979l,
+        {1000, "ok",
+        4292870144u},  // can initialized signed char array w/ static string
+        "Another message",
+        2e12};
+*/
+int test_fully_intialized(void) {
+    // validate elements in struct outer
+    if (full.one_l != 18014398509481979l ||
+        strcmp(full.three_msg, "Another message") || full.four_d != 2e12) {
+        return 0;
+    }
+
+    // validate elemetns in string inner
+    if (full.two_struct.one_i != 1000 || full.two_struct.two_arr[0] != 'o' ||
+        full.two_struct.two_arr[1] != 'k' || full.two_struct.two_arr[2] != 0 ||
+        full.two_struct.three_u != 4292870144u) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// case 4: implicit conversion of scalar elements
+/*
+    struct outer converted = {
+        10.5,  // 10l
+        {
+            2147483650u,  // -2147483646
+            {
+                15.6,             // 15
+                17592186044419l,  // 3
+                2147483777u       // -127
+            },
+            1152921506754330624ul  // 2147483648u
+        },
+        0ul,                   // null pointer
+        9223372036854776833ul  // 9223372036854777856.0
+    };
+*/
+int test_implicit_conversions(void) {
+    // validate elements in struct outer
+    if (converted.one_l != 10l || converted.three_msg != 0 ||
+        converted.four_d != 9223372036854777856.0) {
+        return 0;
+    }
+
+    // validate elements in struct inner
+    if (converted.two_struct.one_i != -2147483646 ||
+        converted.two_struct.two_arr[0] != 15 ||
+        converted.two_struct.two_arr[1] != 3 ||
+        converted.two_struct.two_arr[2] != -127 ||
+        converted.two_struct.three_u != 2147483648u) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// case 5: array of structures
+/*
+    struct outer struct_array[3] = {{1, {2, "ab", 3}, 0, 5},
+                                        {6, {7, "cd", 8}, "Message", 9}};
+*/
+int test_array_of_structs(void) {
+    // leave last element uninitialized
+
+    // validate outer members of array element 0
+    if (struct_array[0].one_l != 1 || struct_array[0].three_msg != 0 ||
+        struct_array[0].four_d != 5) {
+        return 0;
+    }
+
+    // validate nested members of array element 0
+    if (struct_array[0].two_struct.one_i != 2 ||
+        strcmp((char *)struct_array[0].two_struct.two_arr, "ab") ||
+        struct_array[0].two_struct.three_u != 3) {
+        return 0;
+    }
+
+    // validate outer members of array element 1
+    if (struct_array[1].one_l != 6 ||
+        strcmp((char *)struct_array[1].three_msg, "Message") ||
+        struct_array[1].four_d != 9) {
+        return 0;
+    }
+
+    // validate nested members of array element 1
+    if (struct_array[1].two_struct.one_i != 7 ||
+        strcmp((char *)struct_array[1].two_struct.two_arr, "cd") ||
+        struct_array[1].two_struct.three_u != 8) {
+        return 0;
+    }
+
+    // validate array element 2 - should be all 0s
+    if (struct_array[2].one_l || struct_array[2].three_msg ||
+        struct_array[2].four_d) {
+        return 0;
+    }
+
+    // validate nested members of array element 2
+    if (struct_array[2].two_struct.one_i ||
+        struct_array[2].two_struct.two_arr[0] ||
+        struct_array[2].two_struct.two_arr[1] ||
+        struct_array[2].two_struct.two_arr[2] ||
+        struct_array[2].two_struct.three_u) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+)PROG")));
+}
+
+// strcmp + 64-bit constants + char* string init.
+TEST_F(CodegenTest, DISABLED_Chapter18_StaticStructInitializers)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Test initialization of non-nested static structs, including:
+ * - partial initialization
+ * - implicit conversion of scalar elements
+ * - array decay of string literals
+ */
+
+int strcmp(char *s1, char *s2);
+
+struct s {
+    double one_d;
+    char *two_msg;
+    unsigned char three_arr[3];
+    int four_i;
+};
+
+// static structures defined in client
+extern struct s uninitialized;
+extern struct s partial;
+extern struct s partial_with_array;
+extern struct s converted;
+
+// validation functions defined in library
+
+// case 1: struct with no explicit initializer should be all zeros
+int test_uninitialized(void);
+
+// case 2: partially initialized struct
+int test_partially_initialized(void);
+
+// case 3: partially initialized array w/in struct
+int test_partial_inner_init(void);
+
+// case 4: implicit conversion of scalar elements
+int test_implicit_conversion(void);
+/* Test initialization of non-nested static structs, including:
+ * - partial initialization
+ * - implicit conversion of scalar elements
+ * - array decay of string literals
+ */
+
+
+
+// case 1: struct with no explicit initializer should be all zeros
+struct s uninitialized;
+
+// case 2: partially initialized struct
+struct s partial = {1.0, "Hello"};
+
+// case 3: partially initialized array w/in struct
+struct s partial_with_array = {3.0, "!", {1}, 2};
+
+// case 4: implicit conversion of scalar elements
+struct s converted = {
+    1152921504606846977l,  // 1152921504606846976.0
+    0l,                    // null ptr
+    "abc",                 // {'a', 'b', 'c'}
+    17179869189l           // 5
+};
+
+int main(void) {
+    if (!test_uninitialized()) {
+        return 1;
+    }
+
+    if (!test_partially_initialized()) {
+        return 2;
+    }
+
+    if (!test_partial_inner_init()) {
+        return 3;
+    }
+
+    if (!test_implicit_conversion()) {
+        return 4;
+    }
+
+    return 0;  // success
+}
+/* Test initialization of non-nested static structs, including:
+ * - partial initialization
+ * - implicit conversion of scalar elements
+ * - array decay of string literals
+ */
+
+
+// structs defined in client but visible here
+// validation functions defined here
+
+// case 1: struct with no explicit initializer should be all zeros
+// struct s uninitialized;
+int test_uninitialized(void) {
+    // make sure all elements are zero
+    if (uninitialized.one_d || uninitialized.two_msg ||
+        uninitialized.three_arr[0] || uninitialized.three_arr[1] ||
+        uninitialized.three_arr[2] || uninitialized.four_i) {
+        return 0;
+    }
+    return 1;  // success
+}
+
+// case 2: partially initialized struct
+// struct s partial = {1.0, "Hello"};
+int test_partially_initialized(void) {
+    // validate first two elements
+    if (partial.one_d != 1.0 || strcmp(partial.two_msg, "Hello")) {
+        return 0;
+    }
+
+    // validate that remaining elements are zero
+    if (partial.three_arr[0] || partial.three_arr[1] || partial.three_arr[2] ||
+        partial.four_i) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// case 3: partially initialized array w/in struct
+// struct s partial with_array = {3.0, "!", {1}, 2};
+int test_partial_inner_init(void) {
+    // validate explicitly initialzed elements
+    if (partial_with_array.one_d != 3.0 ||
+        strcmp(partial_with_array.two_msg, "!") ||
+        partial_with_array.three_arr[0] != 1 ||
+        partial_with_array.four_i != 2) {
+        return 0;
+    }
+
+    // validate that last two elements of arr are 0
+    if (partial_with_array.three_arr[1] || partial_with_array.three_arr[2]) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// case 4: implicit conversion of scalar elements
+/*
+    struct s converted = {
+        1152921504606846977l,  // 1152921504606846976.0
+        0l,                   // null ptr
+        "abc",                // {'a', 'b', 'c'}
+        17179869189l          // 5
+    };
+*/
+int test_implicit_conversion(void) {
+    // validate elements
+    if (converted.one_d != 1152921504606846976.0 || converted.two_msg ||
+        converted.three_arr[0] != 'a' || converted.three_arr[1] != 'b' ||
+        converted.three_arr[2] != 'c' || converted.four_i != 5) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+)PROG")));
+}
+
+// malloc + strcmp + puts.
+TEST_F(CodegenTest, DISABLED_Chapter18_OpaqueStruct)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Test working with a structure whose type is completed in the library but not
+ * the client; this is a common idiom for hiding a library's implementation
+ * details */
+
+struct s;  // declare a type but don't define it
+
+// declare some functions for getting/using pointers to this type
+struct s *create_struct(int i, double d, char *s);
+void increment_struct(struct s *src_ptr);
+
+int check_struct(struct s *ptr, int expected_i, double expected_d,
+                 char *expected_s);
+void print_struct_msg(struct s *ptr);
+struct s *get_internal_struct(void);
+
+// declare a variable with this type
+extern struct s incomplete_var;
+
+int main(void) {
+    struct s *new_struct = create_struct(101, 102.0, "new struct");
+
+    struct s *internal_struct = get_internal_struct();
+
+    // print initial message from all three structs
+    print_struct_msg(new_struct);
+    print_struct_msg(internal_struct);
+    print_struct_msg(&incomplete_var);
+
+    // modify some structs
+    increment_struct(new_struct);
+    increment_struct(&incomplete_var);
+
+    // check values
+    if (!check_struct(new_struct, 102, 103.0, "new struct")) {
+        return 1;
+    }
+
+    if (!check_struct(&incomplete_var, 4, 5.0, "global struct")) {
+        return 2;
+    }
+
+    return 0;  // success (assuming stdout is also correct)
+}
+/* Test working with a structure whose type is completed in the library but not
+ * the client; this is a common idiom for hiding a library's implementation
+ * details */
+
+
+// library functions
+int strcmp(char *s1, char *s2);
+int puts(char *s);
+void *malloc(unsigned long size);
+
+struct s {
+    int member1;
+    double member2;
+    char *member3;
+};
+
+// make a struct
+struct s *create_struct(int i, double d, char *s) {
+    struct s *ptr = malloc(sizeof(struct s));
+    ptr->member1 = i;
+    ptr->member2 = d;
+    ptr->member3 = s;
+    return ptr;
+}
+
+// modify a struct
+void increment_struct(struct s *ptr) {
+    ptr->member1 = ptr->member1 + 1;
+    ptr->member2 = ptr->member2 + 1;
+    ptr->member3 = ptr->member3;
+}
+
+// read struct members
+int check_struct(struct s *ptr, int expected_i, double expected_d,
+                 char *expected_s) {
+    if (ptr->member1 != expected_i) {
+        return 0;
+    }
+    if (ptr->member2 != expected_d) {
+        return 0;
+    }
+    if (strcmp(ptr->member3, expected_s)) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+void print_struct_msg(struct s *ptr) {
+    puts(ptr->member3);
+}
+
+// define a struct s that isn't visible in the other translation unit
+static struct s internal = {1, 2.0, "static struct"};
+
+struct s *get_internal_struct(void) {
+    return &internal;
+}
+
+// define struct that is visible in other translation unit
+// (although its members aren't accessible)
+struct s incomplete_var = {3, 4.0, "global struct"};
+)PROG")));
+}
+
+// malloc not in libc.
+TEST_F(CodegenTest, DISABLED_Chapter18_ReturnStructPointer)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Test returning struct pointers from functions
+ * and using struct pointers returned from functions
+ * */
+
+void *malloc(unsigned long size);
+
+// define some struct types
+struct inner {
+    double d;
+    int i;
+};
+
+struct outer {
+    char a;
+    char b;
+    struct inner substruct;
+};
+
+struct outermost {
+    int i;
+    struct outer *nested_ptr;
+    struct outer nested_struct;
+};
+
+// declare some functions that return pointers to structs
+struct inner *make_struct_inner(int seed);
+struct outer *make_struct_outer(int seed);
+struct outermost *make_struct_outermost(int seed);
+/* Test returning struct pointers from functions
+ * and using struct pointers returned from functions
+ * */
+
+
+// case 1: use a struct pointer returned from a function call
+int test_get_struct_ptr(void) {
+    struct inner *inner_ptr = make_struct_inner(11);
+
+    if (inner_ptr->d != 11 || inner_ptr->i != 11) {
+        return 0;
+    }
+
+    // assign struct pointer to member
+    struct outermost o = {0, 0, {0, 0, {0, 0}}};
+    o.nested_ptr = make_struct_outer(20);
+    if (o.nested_ptr->a != 20 || o.nested_ptr->b != 21 ||
+        o.nested_ptr->substruct.d != 22 || o.nested_ptr->substruct.i != 23) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// case 2: apply member access operations to funcall expression
+int test_get_struct_pointer_member(void) {
+    if (make_struct_inner(2)->d != 2) {
+        return 0;
+    }
+
+    if (make_struct_outer(2)->substruct.d != 4) {
+        return 0;
+    }
+
+    if (make_struct_outermost(0)->nested_ptr->a != 1) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// case 3: update static structure member through pointer returned by funcall
+// f()->member = val
+struct outer *get_static_struct_ptr(void) {
+    static struct outer s;
+    return &s;
+}
+
+int test_update_member_thru_retval(void) {
+    get_static_struct_ptr()->a = 10;
+    get_static_struct_ptr()->substruct.d = 20.0;
+
+    struct outer *ptr = get_static_struct_ptr();
+    if (ptr->a != 10 || ptr->substruct.d != 20.0) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+// case 4: update whole structure member through pointer returned by funcall
+int test_update_nested_struct_thru_retval(void) {
+    struct inner small = {12.0, 13};
+    get_static_struct_ptr()->substruct = small;
+    if (get_static_struct_ptr()->substruct.d != 12.0) {
+        return 0;
+    }
+
+    if (get_static_struct_ptr()->substruct.i != 13) {
+        return 0;
+    }
+
+    return 1;  // success
+}
+
+int main(void) {
+    if (!test_get_struct_ptr()) {
+        return 1;
+    }
+
+    if (!test_get_struct_pointer_member()) {
+        return 2;
+    }
+
+    if (!test_update_member_thru_retval()) {
+        return 3;
+    }
+
+    if (!test_update_nested_struct_thru_retval()) {
+        return 4;
+    }
+
+    return 0;
+}
+/* Test returning struct pointers from functions
+ * and using struct pointers returned from functions
+ * */
+
+
+// define some functions that return pointers to structs
+struct inner *make_struct_inner(int seed) {
+    struct inner *ptr = malloc(sizeof(struct inner));
+    ptr->d = seed;
+    ptr->i = seed;
+    return ptr;
+}
+
+struct outer *make_struct_outer(int seed) {
+    struct outer *ptr = malloc(sizeof(struct outer));
+    ptr->a = seed;
+    ptr->b = seed + 1;
+    ptr->substruct.d = seed + 2;
+    ptr->substruct.i = seed + 3;
+    return ptr;
+}
+
+struct outermost *make_struct_outermost(int seed) {
+    struct outermost *ptr = malloc(sizeof(struct outermost));
+    ptr->i = seed;
+    ptr->nested_ptr = make_struct_outer(seed + 1);
+    ptr->nested_struct.a = seed + 5;
+    ptr->nested_struct.b = seed + 6;
+    ptr->nested_struct.substruct.d = seed + 7;
+    ptr->nested_struct.substruct.i = seed + 8;
+    return ptr;
+}
+)PROG")));
+}

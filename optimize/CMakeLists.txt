@@ -25,7 +25,10 @@ gtest_discover_tests(optimizer-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIME
 # Book tests for optimizer (built and run only via `make book_tests`)
 #
 add_executable(optimizer-book-tests EXCLUDE_FROM_ALL
-    chapter19_tests.cpp
+    chapter19_tests1.cpp
+    chapter19_tests2.cpp
+    chapter19_tests3.cpp
+    chapter19_tests4.cpp
 )
 target_link_libraries(optimizer-book-tests optimize parser translator tac GTest::gtest_main)
 gtest_discover_tests(optimizer-book-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10 LABELS "book")
