@@ -35,6 +35,18 @@ if(NOT (Cppcheck MATCHES "NOTFOUND"))
     )
 endif()
 
+#
+# C preprocessor used by the BESM-6 libc build, the besm-headers test, and the
+# test fixtures (which run their C snippets through it so tests can #include the
+# shipped standard headers).  We use the C compiler's own preprocessor via -E
+# rather than a standalone `cpp`: a traditional cpp (e.g. Apple's /usr/bin/cpp)
+# only recognises a '#' directive in column 1, whereas `cc -E` accepts directives
+# anywhere on the line.  Exposed to all subdirectories as SystemCpp (always
+# invoked with -E); BESM6_INCLUDE_DIR points at the shipped headers.
+#
+set(SystemCpp ${CMAKE_C_COMPILER})
+set(BESM6_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/backend/besm6/include)
+
 # Download GoogleTest
 include(FetchContent)
 FetchContent_Declare(

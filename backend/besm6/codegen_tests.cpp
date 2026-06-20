@@ -385,7 +385,7 @@ TEST_F(CodegenTest, LoadAndStoreThroughPtr)
 TEST_F(CodegenTest, StoreLoadThroughPtrRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             int x = 0;
             int *p = &x;

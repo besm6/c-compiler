@@ -77,7 +77,7 @@ TEST_F(CodegenTest, SignExtendFromSCharMadlen)
 TEST_F(CodegenTest, TruncateToChar)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = 300;
             char c = a;
@@ -91,7 +91,7 @@ TEST_F(CodegenTest, TruncateToChar)
 TEST_F(CodegenTest, SignExtendNegativeByte)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = 200;
             signed char c = a;
@@ -106,7 +106,7 @@ TEST_F(CodegenTest, SignExtendNegativeByte)
 TEST_F(CodegenTest, SignExtendNegativeOne)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile signed char c = -5;
             int x = c;
@@ -120,7 +120,7 @@ TEST_F(CodegenTest, SignExtendNegativeOne)
 TEST_F(CodegenTest, ZeroExtendHighByte)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile unsigned char c = 200;
             unsigned int x = c;
@@ -134,7 +134,7 @@ TEST_F(CodegenTest, ZeroExtendHighByte)
 TEST_F(CodegenTest, TruncateThenZeroExtend)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = 300;
             unsigned char c = a;
@@ -256,7 +256,7 @@ TEST_F(CodegenTest, FloatToDoubleMadlen)
 TEST_F(CodegenTest, IntToDoubleBits)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void show(double x) { printf("%o\n", x); }
         void program() {
             volatile int one = 1, two = 2;
@@ -275,7 +275,7 @@ TEST_F(CodegenTest, IntToDoubleBits)
 TEST_F(CodegenTest, IntDoubleRoundTrip)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void show(int x) { printf("%d\n", x); }
         void program() {
             volatile int i = 42, j = -7, k = 0, big = 1000000;
@@ -292,7 +292,7 @@ TEST_F(CodegenTest, IntDoubleRoundTrip)
 TEST_F(CodegenTest, DoubleToIntTruncates)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void show(int x) { printf("%d\n", x); }
         void program() {
             volatile double a = 2.9, b = -2.9, c = -0.5, d = 7.0;
@@ -312,7 +312,7 @@ TEST_F(CodegenTest, DoubleToIntTruncates)
 TEST_F(CodegenTest, UnsignedDoubleRoundTrip)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile unsigned a = 3, b = 1000000, c = 16777217 /* 2^24 + 1 */;
             volatile unsigned big = (1u << 44) | (1u << 10); /* >= 2^40, exact */
@@ -333,7 +333,7 @@ TEST_F(CodegenTest, UnsignedDoubleRoundTrip)
 TEST_F(CodegenTest, LongDoubleSameAsDouble)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int i = 7;
             volatile unsigned u = 1000000;

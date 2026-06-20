@@ -135,7 +135,7 @@ TEST_F(CodegenTest, BinaryConstSrc1)
 TEST_F(CodegenTest, CompareSignedGreater)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = 5, b = 3;
             printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
@@ -148,7 +148,7 @@ TEST_F(CodegenTest, CompareSignedGreater)
 TEST_F(CodegenTest, CompareSignedLess)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = 3, b = 5;
             printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
@@ -161,7 +161,7 @@ TEST_F(CodegenTest, CompareSignedLess)
 TEST_F(CodegenTest, CompareSignedEqual)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = 4, b = 4;
             printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
@@ -174,7 +174,7 @@ TEST_F(CodegenTest, CompareSignedEqual)
 TEST_F(CodegenTest, CompareSignedNegative)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = -7, b = 2;
             printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
@@ -187,7 +187,7 @@ TEST_F(CodegenTest, CompareSignedNegative)
 TEST_F(CodegenTest, CompareUnsignedGreater)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile unsigned x = 5, y = 3;
             printf("%d%d%d%d\n", x < y, x <= y, x > y, x >= y);
@@ -200,7 +200,7 @@ TEST_F(CodegenTest, CompareUnsignedGreater)
 TEST_F(CodegenTest, CompareUnsignedLess)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile unsigned x = 3, y = 5;
             printf("%d%d%d%d\n", x < y, x <= y, x > y, x >= y);
@@ -213,7 +213,7 @@ TEST_F(CodegenTest, CompareUnsignedLess)
 TEST_F(CodegenTest, CompareUnsignedEqual)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile unsigned x = 4, y = 4;
             printf("%d%d%d%d\n", x < y, x <= y, x > y, x >= y);
@@ -227,7 +227,7 @@ TEST_F(CodegenTest, CompareUnsignedEqual)
 TEST_F(CodegenTest, CompareInBranch)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = 7, b = 4;
             if (a > b)
@@ -320,7 +320,7 @@ TEST_F(CodegenTest, BitwiseXorTwoParams)
 TEST_F(CodegenTest, BitwiseRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = 12, b = 10;
             printf("%d %d %d\n", a & b, a | b, a ^ b);
@@ -415,7 +415,7 @@ TEST_F(CodegenTest, RightShiftVariable)
 TEST_F(CodegenTest, ShiftConstantRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = 1, b = 40;
             printf("%d %d\n", a << 5, b >> 2);
@@ -428,7 +428,7 @@ TEST_F(CodegenTest, ShiftConstantRun)
 TEST_F(CodegenTest, ShiftVariableRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = 3, b = 4, c = 100, d = 3;
             printf("%d %d\n", a << b, c >> d);
@@ -441,7 +441,7 @@ TEST_F(CodegenTest, ShiftVariableRun)
 TEST_F(CodegenTest, ShiftUnsignedRightRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile unsigned a = 200, b = 3;
             printf("%d %d\n", a >> b, a << 1);
@@ -478,7 +478,7 @@ TEST_F(CodegenTest, WideUnsignedLiteralUSuffix)
 TEST_F(CodegenTest, AddUnsignedRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void check(unsigned a, unsigned b) { printf("%o\n", a + b); }
         void program() {
             /* Fixed edge cases. */
@@ -549,7 +549,7 @@ TEST_F(CodegenTest, SubUnsignedMadlenShape)
 TEST_F(CodegenTest, SubUnsignedRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void check(unsigned a, unsigned b) { printf("%o\n", a - b); }
         void program() {
             /* Fixed edge cases. */
@@ -615,7 +615,7 @@ TEST_F(CodegenTest, MultiplyMadlenShape)
 TEST_F(CodegenTest, MultiplyRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void check(int a, int b) { printf("%d\n", a * b); }
         void program() {
             check(3, 5);              /* 15 */
@@ -663,7 +663,7 @@ TEST_F(CodegenTest, MultiplyUnsignedMadlenShape)
 TEST_F(CodegenTest, MultiplyUnsignedRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void check(unsigned a, unsigned b) { printf("%o\n", a * b); }
         void program() {
             /* 24-bit inputs. */
@@ -733,7 +733,7 @@ TEST_F(CodegenTest, RemainderMadlenShape)
 TEST_F(CodegenTest, DivideRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void check(int a, int b) { printf("%d\n", a / b); }
         void program() {
             check(7, 2);            /* 3 */
@@ -764,7 +764,7 @@ TEST_F(CodegenTest, DivideRun)
 TEST_F(CodegenTest, RemainderRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void check(int a, int b) { printf("%d\n", a % b); }
         void program() {
             check(7, 2);            /* 1 */
@@ -813,7 +813,7 @@ TEST_F(CodegenTest, DivideUnsignedMadlenShape)
 TEST_F(CodegenTest, DivideUnsignedRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void check(unsigned a, unsigned b) { printf("%o\n", a / b); }
         void program() {
             /* fast path: both operands < 2^40 */
@@ -899,7 +899,7 @@ TEST_F(CodegenTest, RemainderUnsignedMadlenShape)
 TEST_F(CodegenTest, RemainderUnsignedRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void check(unsigned a, unsigned b) { printf("%o\n", a % b); }
         void program() {
             /* fast path: both operands < 2^40 */
@@ -1032,7 +1032,7 @@ TEST_F(CodegenTest, RemainderSignedPow2StillHelperMadlenShape)
 TEST_F(CodegenTest, MultiplyPow2Run)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void check(int a) { printf("%d\n", a * 8); }
         void program() {
             check(3);        /* 24 */
@@ -1050,7 +1050,7 @@ TEST_F(CodegenTest, MultiplyPow2Run)
 TEST_F(CodegenTest, MultiplyUnsignedPow2Run)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void check(unsigned a) { printf("%o\n", a * 8); }
         void program() {
             check(3);                    /* 30 octal (24) */
@@ -1072,7 +1072,7 @@ TEST_F(CodegenTest, MultiplyUnsignedPow2Run)
 TEST_F(CodegenTest, DivRemUnsignedPow2Run)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void check(unsigned a) { printf("%o %o\n", a / 8, a % 8); }
         void program() {
             check(100);                  /* 100/8=12=014o, 100%8=4 */
@@ -1194,7 +1194,7 @@ TEST_F(CodegenTest, DivDoubleMadlen)
 TEST_F(CodegenTest, FpArithRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void show(double x) { printf("%o\n", x); }
         void program() {
             double a = 1.5, b = 2.5;
@@ -1223,7 +1223,7 @@ TEST_F(CodegenTest, FpArithRun)
 TEST_F(CodegenTest, FpCompoundAssignRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void show(double x) { printf("%o\n", x); }
         void program() {
             double d = 10.0;
@@ -1278,7 +1278,7 @@ TEST_F(CodegenTest, FpCompareMadlen)
 TEST_F(CodegenTest, FpCompareGreaterRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile double a = 2.5, b = 1.5;
             printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
@@ -1291,7 +1291,7 @@ TEST_F(CodegenTest, FpCompareGreaterRun)
 TEST_F(CodegenTest, FpCompareLessRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile double a = 1.5, b = 2.5;
             printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
@@ -1305,7 +1305,7 @@ TEST_F(CodegenTest, FpCompareLessRun)
 TEST_F(CodegenTest, FpCompareEqualRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile double a = 2.0, b = 2.0;
             printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
@@ -1319,7 +1319,7 @@ TEST_F(CodegenTest, FpCompareEqualRun)
 TEST_F(CodegenTest, FpCompareFloatRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile float a = -1.5f, b = 0.5f;
             printf("%d%d%d%d%d%d\n", a < b, a <= b, a > b, a >= b, a == b, a != b);
@@ -1335,7 +1335,7 @@ TEST_F(CodegenTest, FpCompareFloatRun)
 TEST_F(CodegenTest, FpCompareRestoresIntModeRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile double a = 1.5, b = 2.5;
             volatile int x = 10, y = 3;

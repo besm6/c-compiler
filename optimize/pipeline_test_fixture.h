@@ -18,6 +18,8 @@
 #include <sstream>
 #include <string>
 
+#include "test_preprocess.h"
+
 extern "C" {
 #include "optimize.h"
 #include "parser.h"
@@ -103,7 +105,12 @@ protected:
 
     std::string OptimizeYaml(const char *src, OptFlags flags = opt_flags_default())
     {
-        fwrite(src, 1, strlen(src), input_file);
+        std::string source = preprocess_source(src);
+        if (source.empty()) {
+            ADD_FAILURE() << "C preprocessing failed for test source";
+            return {};
+        }
+        fwrite(source.data(), 1, source.size(), input_file);
         rewind(input_file);
         program = parse(input_file);
         EXPECT_NE(nullptr, program);

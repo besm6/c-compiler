@@ -19,6 +19,9 @@ add_executable(optimizer-tests
     pipeline_tests.cpp
 )
 target_link_libraries(optimizer-tests optimize parser translator tac GTest::gtest_main)
+target_compile_definitions(optimizer-tests PRIVATE
+    BESM6_CPP="${SystemCpp}"
+    BESM6_INCLUDE_DIR="${BESM6_INCLUDE_DIR}")
 gtest_discover_tests(optimizer-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
 
 #
@@ -31,4 +34,7 @@ add_executable(optimizer-book-tests EXCLUDE_FROM_ALL
     chapter19_tests4.cpp
 )
 target_link_libraries(optimizer-book-tests optimize parser translator tac GTest::gtest_main)
+target_compile_definitions(optimizer-book-tests PRIVATE
+    BESM6_CPP="${SystemCpp}"
+    BESM6_INCLUDE_DIR="${BESM6_INCLUDE_DIR}")
 gtest_discover_tests(optimizer-book-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10 LABELS "book")

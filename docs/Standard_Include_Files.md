@@ -61,14 +61,18 @@ which translation phases 1–4 are already done: it understands `#`-line markers
 preprocessor first, and the preprocessed result fed to the toolchain:
 
 ```sh
-cpp -P -nostdinc -Ibackend/besm6/include prog.c prog.i
+cc -E -nostdinc -Ibackend/besm6/include prog.c prog.i
 parse  prog.i  prog.ast
 lower  prog.ast prog.tac
 genbesm prog.tac prog.mad
 ```
 
-`-P` suppresses line markers, and `-nostdinc` keeps the *host's* system headers out of the
-way so that only the BESM-6 headers are seen. See
+Use the C compiler's preprocessor (`cc -E`), **not** a standalone `cpp`: a traditional `cpp`
+(such as Apple's `/usr/bin/cpp`) only recognizes a `#` directive in column 1 and ignores
+`-std`, so indented `#include` lines silently fail to expand. `cc -E` accepts directives
+anywhere on the line. `-nostdinc` keeps the *host's* system headers out of the way so that
+only the BESM-6 headers are seen. No `-P` is needed: `parse` consumes the `# line` markers,
+and keeping them preserves the original source line numbers in diagnostics. See
 [Technical_Reference.md](Technical_Reference.md) for the rest of the pipeline.
 
 A first complete program:

@@ -37,6 +37,9 @@ add_executable(semantic-tests
    coercion_tests.cpp
 )
 target_link_libraries(semantic-tests parser semantic GTest::gtest_main)
+target_compile_definitions(semantic-tests PRIVATE
+    BESM6_CPP="${SystemCpp}"
+    BESM6_INCLUDE_DIR="${BESM6_INCLUDE_DIR}")
 gtest_discover_tests(semantic-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
 
 #
@@ -60,4 +63,7 @@ add_executable(semantic-book-tests EXCLUDE_FROM_ALL
    chapter18_tests.cpp
 )
 target_link_libraries(semantic-book-tests parser semantic GTest::gtest_main)
+target_compile_definitions(semantic-book-tests PRIVATE
+    BESM6_CPP="${SystemCpp}"
+    BESM6_INCLUDE_DIR="${BESM6_INCLUDE_DIR}")
 gtest_discover_tests(semantic-book-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10 LABELS "book")

@@ -85,7 +85,7 @@ c
 TEST_F(CodegenTest, CopyOffsetGlobalRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         struct Foo { int x; int y; };
         struct Foo g;
         void program() {
@@ -103,7 +103,7 @@ TEST_F(CodegenTest, CopyOffsetGlobalRun)
 TEST_F(CodegenTest, LocalStructRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         struct Foo { int x; int y; };
         void program() {
             struct Foo s;
@@ -120,7 +120,7 @@ TEST_F(CodegenTest, LocalStructRun)
 TEST_F(CodegenTest, StructByValueReturnRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         struct P { int x; int y; };
         struct P mk(int a, int b) { struct P p; p.x = a; p.y = b; return p; }
         void program() {
@@ -135,7 +135,7 @@ TEST_F(CodegenTest, StructByValueReturnRun)
 TEST_F(CodegenTest, StructWholeCopyRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         struct P { int x; int y; };
         void program() {
             struct P a;
@@ -154,7 +154,7 @@ TEST_F(CodegenTest, StructWholeCopyRun)
 TEST_F(CodegenTest, StructByValueReturnThreeWordRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         struct T { int a; int b; int c; };
         struct T mk(void) { struct T t; t.a = 1; t.b = 2; t.c = 3; return t; }
         void program() {

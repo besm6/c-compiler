@@ -15,14 +15,17 @@ markers only, not `#include`/`#define`, and has no `-I` flag).  Run an external
 preprocessor first, then feed the result to `parse`:
 
 ```sh
-cpp -P -nostdinc -I backend/besm6/include prog.c prog.i
+cc -E -nostdinc -I backend/besm6/include prog.c prog.i
 ./build/parse prog.i prog.ast
 ./build/lower  prog.ast prog.tac
 ./build/genbesm prog.tac prog.mad
 ```
 
-`-P` suppresses line markers; `-nostdinc` keeps the host's system headers out so
-only these BESM-6 headers are seen.
+Use the compiler's preprocessor (`cc -E`), not a standalone `cpp`: a traditional
+`cpp` (e.g. Apple's `/usr/bin/cpp`) only honors a `#` directive in column 1, so
+indented `#include` lines silently fail to expand.  `-nostdinc` keeps the host's
+system headers out so only these BESM-6 headers are seen.  No `-P` is needed —
+`parse` consumes the `# line` markers and they keep the original line numbers.
 
 ## Freestanding subset (C11 §4)
 

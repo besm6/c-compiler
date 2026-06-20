@@ -14,6 +14,7 @@
 #include "semantic.h"
 #include "structtab.h"
 #include "symtab.h"
+#include "test_preprocess.h"
 #include "typetab.h"
 #include "xalloc.h"
 
@@ -52,7 +53,10 @@ protected:
 
     FILE *CreateTempFile(const char *content)
     {
-        fwrite(content, 1, strlen(content), input_file);
+        std::string source = preprocess_source(content);
+        if (source.empty())
+            ADD_FAILURE() << "C preprocessing failed for test source";
+        fwrite(source.data(), 1, source.size(), input_file);
         rewind(input_file);
         return input_file;
     }

@@ -59,7 +59,7 @@ TEST_F(CodegenTest, LoadIntStillWord)
 TEST_F(CodegenTest, CharStoreLoadRoundtrip)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char c;
             char *p = &c;
@@ -75,7 +75,7 @@ TEST_F(CodegenTest, CharStoreLoadRoundtrip)
 TEST_F(CodegenTest, CharCompoundAssign)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char c;
             char *p = &c;
@@ -92,7 +92,7 @@ TEST_F(CodegenTest, CharCompoundAssign)
 TEST_F(CodegenTest, CharPostIncrement)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char c;
             char *p = &c;
@@ -111,7 +111,7 @@ TEST_F(CodegenTest, CharPostIncrement)
 TEST_F(CodegenTest, CharCastOffset5Roundtrip)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             int x = 0;
             char *p = (char*)&x;
@@ -136,7 +136,7 @@ TEST_F(CodegenTest, CharCastOffset5Roundtrip)
 TEST_F(CodegenTest, CharArrayIndexReadWrite)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[6];
             a[0] = 'H';
@@ -153,7 +153,7 @@ TEST_F(CodegenTest, CharArrayIndexReadWrite)
 TEST_F(CodegenTest, StringDecayDeref)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char *s = "HI";
             putbyte(*s);
@@ -168,7 +168,7 @@ TEST_F(CodegenTest, StringDecayDeref)
 TEST_F(CodegenTest, CharPtrIncWordBoundary)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[8];
             for (int i = 0; i < 7; i++)
@@ -188,7 +188,7 @@ TEST_F(CodegenTest, CharPtrIncWordBoundary)
 TEST_F(CodegenTest, CharPtrDecWordBoundary)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[8];
             for (int i = 0; i < 7; i++)
@@ -211,7 +211,7 @@ TEST_F(CodegenTest, CharPtrDecWordBoundary)
 TEST_F(CodegenTest, CharPtrDecWithinWord)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[8];
             a[0]='X'; a[1]='Y'; a[2]='Z';
@@ -230,7 +230,7 @@ TEST_F(CodegenTest, CharPtrDecWithinWord)
 TEST_F(CodegenTest, CharPtrLessThanForward)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[10];
             for (int i = 0; i < 10; i++)
@@ -251,7 +251,7 @@ TEST_F(CodegenTest, CharPtrLessThanForward)
 TEST_F(CodegenTest, CharPtrGreaterThanBackward)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[10];
             for (int i = 0; i < 10; i++)
@@ -272,7 +272,7 @@ TEST_F(CodegenTest, CharPtrGreaterThanBackward)
 TEST_F(CodegenTest, CharPtrLessOrEqualForward)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[10];
             for (int i = 0; i < 10; i++)
@@ -293,7 +293,7 @@ TEST_F(CodegenTest, CharPtrLessOrEqualForward)
 TEST_F(CodegenTest, CharPtrPlusNCarry)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[12];
             for (int i = 0; i < 10; i++)
@@ -311,7 +311,7 @@ TEST_F(CodegenTest, CharPtrPlusNCarry)
 TEST_F(CodegenTest, CharPtrMinusN)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[12];
             for (int i = 0; i < 10; i++)
@@ -330,7 +330,7 @@ TEST_F(CodegenTest, CharPtrMinusN)
 TEST_F(CodegenTest, PackedStructCharMembers)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         struct S { char a; char b; char c; char d; char e; char f; int g; };
         void program() {
             struct S s;
@@ -348,7 +348,7 @@ TEST_F(CodegenTest, PackedStructCharMembers)
 TEST_F(CodegenTest, MixedSubscriptAndDecayConsistency)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[3];
             a[0] = 'X';
@@ -433,7 +433,7 @@ TEST_F(CodegenTest, StructIntMemberStaysWord)
 TEST_F(CodegenTest, GlobalCharArrayIndexRun)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         char g[6];
         void program() {
             g[0] = 'P'; g[3] = 'Q';
@@ -450,7 +450,7 @@ TEST_F(CodegenTest, GlobalCharArrayIndexRun)
 TEST_F(CodegenTest, CharPtrLvalueCompoundAdd)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[6];
             for (int i = 0; i < 6; i++)
@@ -477,7 +477,7 @@ TEST_F(CodegenTest, CharPtrDifferenceCallsPdiff)
 TEST_F(CodegenTest, CharPtrDifferenceSameWordRun)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[12];
             char *p = a + 5;
@@ -493,7 +493,7 @@ TEST_F(CodegenTest, CharPtrDifferenceSameWordRun)
 TEST_F(CodegenTest, CharPtrDifferenceCrossWordRun)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[12];
             char *p = a + 8;
@@ -509,7 +509,7 @@ TEST_F(CodegenTest, CharPtrDifferenceCrossWordRun)
 TEST_F(CodegenTest, CharPtrDifferenceNegativeRun)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             char a[12];
             char *p = a + 2;

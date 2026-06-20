@@ -98,11 +98,17 @@ run `dubna [-d c] job.dub`.
 **Target standard headers (`backend/besm6/include/`).** C11 standard-library headers for
 programs compiled for the BESM-6 (the freestanding subset is complete; the hosted subset
 declares the few implemented libc routines plus future ones — see the dir's `README.md`).
-The compiler has no preprocessor, so these are consumed by an external `cpp` first:
-`cpp -P -nostdinc -Ibackend/besm6/include prog.c | parse`. The `besm-headers` CTest
-(`scripts/check_headers.sh`, run under `make test`, skipped when no `cpp` is found)
-preprocesses and parses every header to catch syntax errors. `<stdarg.h>` is functional
-(word-pointer `va_list`); its runtime behaviour is covered by `stdarg_tests.cpp`.
+The compiler has no preprocessor, so these are consumed by an external preprocessor first.
+Use the C compiler's preprocessor (`cc -E`), not a standalone `cpp`: a traditional `cpp`
+(e.g. Apple's `/usr/bin/cpp`) only recognizes a `#` directive in column 1, so indented
+`#include` lines silently fail to expand. No `-P` is needed — `parse`'s scanner consumes
+`# line` markers and keeping them preserves original line numbers in diagnostics:
+`cc -E -nostdinc -Ibackend/besm6/include prog.c | parse -`. The `besm-headers` CTest
+(`scripts/check_headers.sh`, run under `make test`) preprocesses and parses every header to
+catch syntax errors. The unit-test fixtures preprocess their C snippets automatically via
+`libutil/test_preprocess.h` (using the CMake `BESM6_CPP`/`BESM6_INCLUDE_DIR` defines), so
+tests `#include <stdio.h>` instead of hand-declaring libc routines. `<stdarg.h>` is
+functional (word-pointer `va_list`); its runtime behaviour is covered by `stdarg_tests.cpp`.
 
 Static analysis (requires cppcheck):
 ```sh

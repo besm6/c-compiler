@@ -91,7 +91,7 @@ TEST_F(CodegenTest, AddPtrPowerOfTwoScale)
 TEST_F(CodegenTest, AddPtrVarIndexRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int arr[3];
         void program() {
             int v = 42;
@@ -107,7 +107,7 @@ TEST_F(CodegenTest, AddPtrVarIndexRun)
 TEST_F(CodegenTest, AddPtrGlobalArrayRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int arr[3];
         void program() {
             int a = 10, b = 20, c = 30;
@@ -134,7 +134,7 @@ TEST_F(CodegenTest, LocalArrayFrameSize)
 TEST_F(CodegenTest, LocalArrayRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             int a[4];
             a[0] = 10;
@@ -151,7 +151,7 @@ TEST_F(CodegenTest, LocalArrayRun)
 TEST_F(CodegenTest, ArrayDecayToPointerRun)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int arr[3];
         void program() {
             arr[0] = 10;

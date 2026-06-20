@@ -12,6 +12,7 @@
 #include "symtab.h"
 #include "tac.h"
 #include "target.h"
+#include "test_preprocess.h"
 #include "translate.h"
 #include "typetab.h"
 #include "xalloc.h"
@@ -50,7 +51,12 @@ protected:
     // return the concatenated YAML output for every translated toplevel.
     std::string CompileToYaml(const char *src)
     {
-        fwrite(src, 1, strlen(src), input_file);
+        std::string source = preprocess_source(src);
+        if (source.empty()) {
+            ADD_FAILURE() << "C preprocessing failed for test source";
+            return {};
+        }
+        fwrite(source.data(), 1, source.size(), input_file);
         rewind(input_file);
         program = parse(input_file);
         EXPECT_NE(nullptr, program);

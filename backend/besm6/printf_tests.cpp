@@ -12,7 +12,7 @@
 TEST_F(CodegenTest, PrintfDecimal)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("%d %d %d\n", 0, 42, -2345);
         }
@@ -23,7 +23,7 @@ TEST_F(CodegenTest, PrintfDecimal)
 TEST_F(CodegenTest, PrintfUnsignedOctalHex)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("%u %o %x %X\n", 100, 64, 255, 255);
         }
@@ -34,7 +34,7 @@ TEST_F(CodegenTest, PrintfUnsignedOctalHex)
 TEST_F(CodegenTest, PrintfSharpFlag)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("%#x %#o\n", 255, 64);
         }
@@ -45,7 +45,7 @@ TEST_F(CodegenTest, PrintfSharpFlag)
 TEST_F(CodegenTest, PrintfSignFlags)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("%+d % d %+d\n", 42, 42, -42);
         }
@@ -56,7 +56,7 @@ TEST_F(CodegenTest, PrintfSignFlags)
 TEST_F(CodegenTest, PrintfIntPrecision)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("%.5d %05.3d\n", 42, 42);
         }
@@ -68,7 +68,7 @@ TEST_F(CodegenTest, PrintfIntPrecision)
 TEST_F(CodegenTest, PrintfNegativeHex)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("%x\n", -1);
         }
@@ -81,7 +81,7 @@ TEST_F(CodegenTest, PrintfNegativeHex)
 TEST_F(CodegenTest, PrintfWidth)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("[%5d][%-5d][%05d]\n", 42, 42, 42);
         }
@@ -92,7 +92,7 @@ TEST_F(CodegenTest, PrintfWidth)
 TEST_F(CodegenTest, PrintfStarWidthPrecision)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("[%*d][%.*f]\n", 6, 42, 2, 3.14159);
         }
@@ -105,7 +105,7 @@ TEST_F(CodegenTest, PrintfStarWidthPrecision)
 TEST_F(CodegenTest, PrintfChar)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("%c%c%c\n", 'A', 'B', 'C');
         }
@@ -116,7 +116,7 @@ TEST_F(CodegenTest, PrintfChar)
 TEST_F(CodegenTest, PrintfPercent)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("100%%\n");
         }
@@ -127,7 +127,7 @@ TEST_F(CodegenTest, PrintfPercent)
 TEST_F(CodegenTest, PrintfString)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("[%s]\n", "hello");
         }
@@ -138,7 +138,7 @@ TEST_F(CodegenTest, PrintfString)
 TEST_F(CodegenTest, PrintfStringWidthPrecision)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("[%10s][%-10s][%.3s]\n", "hi", "hi", "hello");
         }
@@ -149,7 +149,7 @@ TEST_F(CodegenTest, PrintfStringWidthPrecision)
 TEST_F(CodegenTest, PrintfNullString)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("[%s]\n", (char *)0);
         }
@@ -162,7 +162,7 @@ TEST_F(CodegenTest, PrintfNullString)
 TEST_F(CodegenTest, PrintfFloatF)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("%f %f %f\n", 1.5, 0.0, -2.5);
         }
@@ -173,7 +173,7 @@ TEST_F(CodegenTest, PrintfFloatF)
 TEST_F(CodegenTest, PrintfFloatPrecisionWidth)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("[%.2f][%10.3f][%-8.3f]\n", 3.14159, 3.14159, 3.14159);
         }
@@ -184,7 +184,7 @@ TEST_F(CodegenTest, PrintfFloatPrecisionWidth)
 TEST_F(CodegenTest, PrintfFloatExp)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("%e\n", 12.34);
         }
@@ -195,7 +195,7 @@ TEST_F(CodegenTest, PrintfFloatExp)
 TEST_F(CodegenTest, PrintfFloatG)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("%g %g\n", 12.34, 100000.0);
         }
@@ -210,7 +210,7 @@ TEST_F(CodegenTest, PrintfFloatG)
 TEST_F(CodegenTest, PrintfFloatRoundCarry)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         void program() {
             printf("%.0f %.0f\n", 0.5, 9.5);
         }
@@ -223,8 +223,7 @@ TEST_F(CodegenTest, PrintfFloatRoundCarry)
 TEST_F(CodegenTest, Snprintf)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
-        int snprintf(char *buf, int size, const char *format, ...);
+#include <stdio.h>
         void program() {
             char buf[32];
             int n = snprintf(buf, 32, "n=%d s=%s", 7, "abc");
@@ -237,8 +236,7 @@ TEST_F(CodegenTest, Snprintf)
 TEST_F(CodegenTest, Sprintf)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
-        int sprintf(char *buf, const char *format, ...);
+#include <stdio.h>
         void program() {
             char buf[40];
             int n = sprintf(buf, "%d-%x-%c", 5, 250, 'Z');
@@ -252,8 +250,7 @@ TEST_F(CodegenTest, Sprintf)
 TEST_F(CodegenTest, SnprintfTruncation)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
-        int snprintf(char *buf, int size, const char *format, ...);
+#include <stdio.h>
         void program() {
             char buf[5];
             int n = snprintf(buf, 5, "%s", "abcdefg");
@@ -288,7 +285,7 @@ TEST_F(CodegenTest, SnprintfTruncation)
 TEST_F(CodegenTest, MutatedParameterInLoop)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int b);
+#include <stdio.h>
         void countdown(int n) {
             while (n > 0) {
                 putbyte('0' + n);
@@ -307,7 +304,7 @@ TEST_F(CodegenTest, MutatedParameterInLoop)
 TEST_F(CodegenTest, CharPtrRelationalCompare)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int b);
+#include <stdio.h>
         void program() {
             char b[4];
             b[0] = 'C'; b[1] = 'B'; b[2] = 'A'; b[3] = 0;
@@ -349,7 +346,7 @@ TEST_F(CodegenTest, StringConstantNameNotGloballyUnique)
 TEST_F(CodegenTest, EnumArrayDimension)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+#include <stdio.h>
         enum { N = 4 };
         void program() { printf("%d\n", (int)sizeof(char[N])); }
     )");

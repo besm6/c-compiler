@@ -70,7 +70,7 @@ TEST_F(CodegenTest, CopyGlobalToGlobal)
 TEST_F(CodegenTest, GlobalScalarReadWrite)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         int g, h;
         void copy_to_h(int v) { g = v; h = g; }
         void write_h(void) { int x; x = h; putbyte(x); putbyte('\n'); }

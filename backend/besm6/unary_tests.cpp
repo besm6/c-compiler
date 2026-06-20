@@ -9,7 +9,7 @@
 TEST_F(CodegenTest, NegateSignedInt)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = 5;
             volatile int b = -7;
@@ -43,7 +43,7 @@ TEST_F(CodegenTest, NegateSignedIntMadlen)
 TEST_F(CodegenTest, NegateUnsigned)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile unsigned a = 5;
             printf("%o\n", -a);
@@ -78,7 +78,7 @@ TEST_F(CodegenTest, NegateUnsignedMadlen)
 TEST_F(CodegenTest, NegateDouble)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         double a = 2.0;
         void program() {
             printf("%o %o\n", a, -a);
@@ -118,7 +118,7 @@ TEST_F(CodegenTest, NegateDoubleMadlen)
 TEST_F(CodegenTest, ComplementUnsigned)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile unsigned a = 5;
             printf("%o\n", ~a);
@@ -132,7 +132,7 @@ TEST_F(CodegenTest, ComplementUnsigned)
 TEST_F(CodegenTest, ComplementSignedInt)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = 5;
             printf("%o\n", ~a);
@@ -168,7 +168,7 @@ TEST_F(CodegenTest, ComplementMadlen)
 TEST_F(CodegenTest, LogicalNot)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             volatile int a = 0;
             volatile int b = 5;

@@ -70,7 +70,7 @@ TEST_F(CodegenTest, FuncPtrNameDecaysToAddress)
 TEST_F(CodegenTest, FuncPtrAssignAndCall)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int add(int a, int b) { return a + b; }
         void program() {
             int (*fp)(int, int) = add;
@@ -84,7 +84,7 @@ TEST_F(CodegenTest, FuncPtrAssignAndCall)
 TEST_F(CodegenTest, FuncPtrPassAsArgument)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int add(int a, int b) { return a + b; }
         int sub(int a, int b) { return a - b; }
         int apply(int (*op)(int, int), int x, int y) { return op(x, y); }
@@ -100,7 +100,7 @@ TEST_F(CodegenTest, FuncPtrPassAsArgument)
 TEST_F(CodegenTest, FuncPtrRuntimeDispatch)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int add(int a, int b) { return a + b; }
         int sub(int a, int b) { return a - b; }
         int dispatch(int which, int x, int y) {
@@ -123,7 +123,7 @@ TEST_F(CodegenTest, FuncPtrRuntimeDispatch)
 TEST_F(CodegenTest, FuncPtrExplicitDerefCall)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int sub(int a, int b) { return a - b; }
         void program() {
             int (*fp)(int, int) = sub;
@@ -137,7 +137,7 @@ TEST_F(CodegenTest, FuncPtrExplicitDerefCall)
 TEST_F(CodegenTest, FuncPtrArrayDispatch)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int add(int a, int b) { return a + b; }
         int sub(int a, int b) { return a - b; }
         void program() {
@@ -155,7 +155,7 @@ TEST_F(CodegenTest, FuncPtrArrayDispatch)
 TEST_F(CodegenTest, FuncPtrReturnedFromFunction)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int add(int a, int b) { return a + b; }
         int sub(int a, int b) { return a - b; }
         int (*pick(int which))(int, int) {
@@ -176,7 +176,7 @@ TEST_F(CodegenTest, FuncPtrReturnedFromFunction)
 TEST_F(CodegenTest, FuncPtrEqualityCompare)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int add(int a, int b) { return a + b; }
         int sub(int a, int b) { return a - b; }
         void program() {
@@ -193,7 +193,7 @@ TEST_F(CodegenTest, FuncPtrEqualityCompare)
 TEST_F(CodegenTest, FuncPtrThreeArgs)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int combine(int a, int b, int c) { return a * 100 + b * 10 + c; }
         void program() {
             int (*fp)(int, int, int) = combine;
@@ -213,9 +213,9 @@ TEST_F(CodegenTest, FuncPtrThreeArgs)
 TEST_F(CodegenTest, FuncPtrVariadicCallMadlen)
 {
     std::string output = CompileToMadlen(R"(
-        int printf(const char *fmt, int a, ...);
+        #include <stdio.h>
         void program() {
-            int (*fp)(const char *, int, ...) = printf;
+            int (*fp)(char *, ...) = printf;
             fp("%d %d\n", 1, 2);
         }
     )");
@@ -230,9 +230,9 @@ TEST_F(CodegenTest, FuncPtrVariadicCallMadlen)
 TEST_F(CodegenTest, FuncPtrVariadicCall)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *fmt, int a, ...);
+        #include <stdio.h>
         void program() {
-            int (*fp)(const char *, int, ...) = printf;
+            int (*fp)(char *, ...) = printf;
             fp("%d %d\n", 1, 2);
         }
     )");
@@ -258,7 +258,7 @@ TEST_F(CodegenTest, FuncPtrVariadicCall)
 TEST_F(CodegenTest, FuncPtrStructByValueArg)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         struct P { int x; int y; };
         int sum(struct P p) { return p.x + p.y; }
         void program() {
@@ -277,7 +277,7 @@ TEST_F(CodegenTest, FuncPtrStructByValueArg)
 TEST_F(CodegenTest, FuncPtrStructByValueReturn)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         struct P { int x; int y; };
         struct P mk(int a, int b) { struct P p; p.x = a; p.y = b; return p; }
         void program() {

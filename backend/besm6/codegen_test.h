@@ -21,6 +21,7 @@
 #include "symtab.h"
 #include "tac.h"
 #include "target.h"
+#include "test_preprocess.h"
 #include "translate.h"
 #include "typetab.h"
 #include "xalloc.h"
@@ -97,7 +98,15 @@ protected:
     // return the concatenated Madlen assembly for every translated toplevel.
     std::string CompileToMadlen(const char *src)
     {
-        fwrite(src, 1, strlen(src), input_file);
+        // Expand any #include/#define directives via the system cpp first so tests
+        // can pull in the shipped standard headers; directive-free source is
+        // returned unchanged.
+        std::string source = preprocess_source(src);
+        if (source.empty()) {
+            ADD_FAILURE() << "C preprocessing failed for test source";
+            return {};
+        }
+        fwrite(source.data(), 1, source.size(), input_file);
         rewind(input_file);
         program = parse(input_file);
         EXPECT_NE(nullptr, program);

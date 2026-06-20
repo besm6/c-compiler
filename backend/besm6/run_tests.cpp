@@ -62,7 +62,7 @@ TEST_F(CodegenTest, EmptyProgram)
 TEST_F(CodegenTest, PrintChar)
 {
     std::string result = CompileAndRun(R"(
-        void putbyte(int ch);
+        #include <stdio.h>
         void program() {
             putbyte('Q');
             putbyte('\n');
@@ -74,7 +74,7 @@ TEST_F(CodegenTest, PrintChar)
 TEST_F(CodegenTest, PrintDecimal)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             printf("%d\n", 42);
         }
@@ -88,7 +88,7 @@ TEST_F(CodegenTest, PrintDecimal)
 TEST_F(CodegenTest, MultiCharConstant)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int g = 'ab';
         void program() {
             printf("%d\n", g);
@@ -101,7 +101,7 @@ TEST_F(CodegenTest, MultiCharConstant)
 TEST_F(CodegenTest, PrintTwoLines)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             printf("First line.\nSecond line.\n");
         }
@@ -134,7 +134,7 @@ TEST_F(CodegenTest, FuncArgFloat)
 TEST_F(CodegenTest, PrintFormatDecimal)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             printf("foo = %d, bar = %d\n", 123, -456);
         }
@@ -145,7 +145,7 @@ TEST_F(CodegenTest, PrintFormatDecimal)
 TEST_F(CodegenTest, PrintFormatOctal)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             printf("foo = %o, bar = %o\n", 123, -456);
         }
@@ -156,7 +156,7 @@ TEST_F(CodegenTest, PrintFormatOctal)
 TEST_F(CodegenTest, PrintFormatString)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             printf("hello %s\n", "world");
         }
@@ -167,7 +167,7 @@ TEST_F(CodegenTest, PrintFormatString)
 TEST_F(CodegenTest, PrintFormatChar)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program() {
             printf("hello %c%c%c%c%c\n", '(', '-', '_', '-', ')');
         }

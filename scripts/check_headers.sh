@@ -30,7 +30,7 @@ for h in "$INCDIR"/*.h; do
 
     printf '#include <%s>\nint main(void){return 0;}\n' "$n" > "$src"
 
-    if ! "$CPP" -P -nostdinc -I"$INCDIR" "$src" > "$pre" 2>"$WORK/cpp.err"; then
+    if ! "$CPP" -E -nostdinc -I"$INCDIR" "$src" > "$pre" 2>"$WORK/cpp.err"; then
         echo "PREPROCESS FAILED: $n"
         cat "$WORK/cpp.err"
         status=1
@@ -48,7 +48,7 @@ done
 
 # One TU that includes everything at once (catches cross-header clashes).
 printf 'int main(void){return 0;}\n' >> "$combined"
-if ! "$CPP" -P -nostdinc -I"$INCDIR" "$combined" > "$WORK/_all.i" 2>"$WORK/cpp.err"; then
+if ! "$CPP" -E -nostdinc -I"$INCDIR" "$combined" > "$WORK/_all.i" 2>"$WORK/cpp.err"; then
     echo "PREPROCESS FAILED: <all headers>"
     cat "$WORK/cpp.err"
     status=1

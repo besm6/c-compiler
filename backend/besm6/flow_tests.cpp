@@ -79,7 +79,7 @@ TEST_F(CodegenTest, DoWhileJumpIfNotZero)
 TEST_F(CodegenTest, SwitchDense)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int classify(int x) {
             switch (x) {
                 case 0: return 10;
@@ -100,7 +100,7 @@ TEST_F(CodegenTest, SwitchDense)
 TEST_F(CodegenTest, SwitchSparse)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int classify(int x) {
             switch (x) {
                 case 1:    return 1;
@@ -122,7 +122,7 @@ TEST_F(CodegenTest, SwitchSparse)
 TEST_F(CodegenTest, SwitchDefaultMiddle)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int classify(int x) {
             switch (x) {
                 case 1:  return 11;
@@ -142,7 +142,7 @@ TEST_F(CodegenTest, SwitchDefaultMiddle)
 TEST_F(CodegenTest, SwitchFallthrough)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int sum_from(int x) {
             volatile int r = 0;
             switch (x) {
@@ -164,7 +164,7 @@ TEST_F(CodegenTest, SwitchFallthrough)
 TEST_F(CodegenTest, SwitchBreak)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int pick(int x) {
             volatile int r = 0;
             switch (x) {
@@ -187,7 +187,7 @@ TEST_F(CodegenTest, SwitchBreak)
 TEST_F(CodegenTest, SwitchNoDefault)
 {
     std::string result = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int pick(int x) {
             volatile int r = -1;
             switch (x) {

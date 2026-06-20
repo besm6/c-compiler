@@ -122,7 +122,7 @@ TEST_F(CodegenTest, TempLiveAcrossBranchKept)
 TEST_F(CodegenTest, TempAcrossBranchBehaviorUnchanged)
 {
     std::string out = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int pick(int a, int b, int c) { return a ? b : c; }
         void program(void) {
             printf("%d %d\n", pick(1, 17, 25), pick(0, 17, 25));
@@ -163,7 +163,7 @@ TEST_F(CodegenTest, ConsecutiveFpOpsCoalesceNtr)
 TEST_F(CodegenTest, FpCoalesceBehaviorUnchanged)
 {
     std::string out = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         double add3(double a, double b, double c) { double e = a + b; return e + c; }
         void program(void) {
             printf("%o\n", add3(1.5, 2.5, 4.0));
@@ -216,7 +216,7 @@ TEST_F(CodegenTest, CompareBranchFused)
 TEST_F(CodegenTest, CompareBranchFusedBehaviorUnchanged)
 {
     std::string out = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program(void) {
             volatile int a = 7, b = 4;
             volatile unsigned ua = 3u, ub = 9u;
@@ -239,7 +239,7 @@ TEST_F(CodegenTest, CompareBranchFusedBehaviorUnchanged)
 TEST_F(CodegenTest, ArithmeticBehaviorUnchanged)
 {
     std::string out = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         void program(void) {
             int a = 17;
             int b = 25;
@@ -301,7 +301,7 @@ TEST_F(CodegenTest, ConditionalOverJumpInverted)
 TEST_F(CodegenTest, ConditionalOverJumpBehaviorUnchanged)
 {
     std::string out = CompileAndRun(R"(
-        int printf(const char *format, ...);
+        #include <stdio.h>
         int pick(int a) { if (a) goto done; a = 5; done: return a; }
         void program(void) {
             printf("%d %d\n", pick(7), pick(0));

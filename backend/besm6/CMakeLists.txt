@@ -35,14 +35,10 @@ set(LIBC_MADLEN
 list(TRANSFORM LIBC_MADLEN PREPEND ${LIBC_DIR}/ OUTPUT_VARIABLE LIBC_SOURCES)
 list(TRANSFORM LIBC_SOURCES APPEND .madlen)
 
-# The libc C sources #include the project's own standard headers, so they must be
-# run through a C preprocessor before our front end.  Locate the system cpp; it is
-# a hard build dependency (also reused by the besm-headers test below).
-find_program(SystemCpp NAMES cpp)
-if(SystemCpp MATCHES "NOTFOUND")
-    message(FATAL_ERROR
-        "C preprocessor (cpp) not found; it is required to build the BESM-6 libc")
-endif()
+# The system cpp (SystemCpp) and the BESM-6 include dir (BESM6_INCLUDE_DIR) are
+# located in the root CMakeLists.txt so every test target can reach them; the libc
+# C sources #include the project's own standard headers and so must be run through
+# a C preprocessor before our front end.
 
 # Standard headers consumed by the libc sources; an edit to any of them rebuilds.
 file(GLOB BESM6_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
@@ -62,8 +58,8 @@ foreach(name ${LIBC_C})
     set(c_mad  ${CMAKE_CURRENT_BINARY_DIR}/${name}.madlen)
     add_custom_command(
         OUTPUT  ${c_mad}
-        COMMAND ${SystemCpp} -P -nostdinc -I${CMAKE_CURRENT_SOURCE_DIR}/include
-                ${c_src} ${c_pre}
+        COMMAND ${SystemCpp} -E -nostdinc -I${CMAKE_CURRENT_SOURCE_DIR}/include
+                ${c_src} -o ${c_pre}
         COMMAND parse   ${c_pre} ${c_ast}
         COMMAND lower   ${c_ast} ${c_tac}
         COMMAND genbesm ${c_tac} ${c_mad}
@@ -110,7 +106,8 @@ target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_ma
 add_dependencies(besm-tests besm-libc)
 add_definitions(-DTEST_DIR="${CMAKE_CURRENT_BINARY_DIR}")
 target_compile_definitions(besm-tests PRIVATE
-    BESM6_INCLUDE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/include")
+    BESM6_CPP="${SystemCpp}"
+    BESM6_INCLUDE_DIR="${BESM6_INCLUDE_DIR}")
 gtest_discover_tests(besm-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
 
 #
@@ -156,4 +153,7 @@ add_executable(besm-book-tests EXCLUDE_FROM_ALL
 )
 target_link_libraries(besm-book-tests besm parser translator semantic GTest::gtest_main)
 add_dependencies(besm-book-tests besm-libc)
+target_compile_definitions(besm-book-tests PRIVATE
+    BESM6_CPP="${SystemCpp}"
+    BESM6_INCLUDE_DIR="${BESM6_INCLUDE_DIR}")
 gtest_discover_tests(besm-book-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10 LABELS "book")
