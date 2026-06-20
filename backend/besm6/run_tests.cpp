@@ -199,6 +199,30 @@ TEST_F(CodegenTest, FatPointerNullTest)
     EXPECT_EQ("FEEYTNTN\n", result);
 }
 
+// Passing a null as a char*/void* argument must arrive as null in the callee.  A literal
+// 0 / NULL is a null-pointer constant (lowered to COPY 0, all-zero), but passing a null
+// int* to a void* parameter goes through the implicit int*->void* conversion
+// (PTR_TO_CHAR_PTR), which marker-tags the null (0x6400000000000000) -- the same shape as
+// free(nullintptr).  The callee's null test must still see it as null.
+TEST_F(CodegenTest, FatPointerNullArgument)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int *ret_null(void) { return 0; }      // null int*, opaque to the optimizer
+        char check_charp(char *p) { return p ? 'T' : 'F'; }
+        char check_voidp(void *p) { return (p == 0) ? 'E' : 'N'; }
+        void program() {
+            char buf[6];
+            char a = check_charp(0);            // literal 0 -> char* param
+            char b = check_voidp(0);            // literal 0 -> void* param
+            char c = check_voidp(ret_null());   // null int* -> void* (marker-tagged)
+            char d = check_charp(buf);          // real pointer -> char* param
+            printf("%c%c%c%c\n", a, b, c, d);
+        }
+    )");
+    EXPECT_EQ("FEET\n", result);
+}
+
 // TODO: re-enable once the BESM-6 basing/linking issue with malloc.c's
 // module-global pointer statics is resolved (the job loops to the instruction
 // cap with empty output; loader reports "long address" warnings).
