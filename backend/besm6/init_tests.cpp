@@ -4,6 +4,50 @@
 
 #include "codegen_test.h"
 
+// A block-scope static is emitted as a module-local labeled datum inside its owning
+// function's own ,name,/,end, module, after the code (before ,end,) — not as a separate
+// top-level module, and without an external SUBP declaration.
+TEST_F(CodegenTest, StaticLocalEmittedInsideFunctionModule)
+{
+    std::string m = CompileToMadlen("int foo(void) { static int x; x = x + 1; return x; }");
+
+    // Exactly one module: a single ,name, for foo (no separate module for x).
+    EXPECT_EQ(std::string::npos, m.find(",name,", m.find(",name,") + 1));
+
+    // The storage is a labeled ,bss, placed after the code (the ,uj, b/ret) and before
+    // the closing ,end,.
+    size_t code   = m.find(",uj, b/ret");
+    size_t datum  = m.find("x:");
+    size_t end    = m.rfind(",end,");
+    ASSERT_NE(std::string::npos, code);
+    ASSERT_NE(std::string::npos, datum);
+    ASSERT_NE(std::string::npos, end);
+    EXPECT_LT(code, datum);
+    EXPECT_LT(datum, end);
+    EXPECT_NE(std::string::npos, m.find("x:   ,bss, 1"));
+
+    // No external declaration for the in-module label.
+    EXPECT_EQ(std::string::npos, m.find("x:   ,subp,"));
+}
+
+// An initialized static local emits its constant value as the labeled datum.
+TEST_F(CodegenTest, StaticLocalInitializedValue)
+{
+    std::string m = CompileToMadlen("int bar(void) { static int x = 4; return x; }");
+    EXPECT_NE(std::string::npos, m.find("x:   ,log, 4"));
+}
+
+// Same-named statics in two functions stay distinct: each function is its own module,
+// so each carries its own module-local `x:` label (no collision, no renaming needed).
+TEST_F(CodegenTest, StaticLocalSameNameDistinctFunctions)
+{
+    std::string m = CompileToMadlen(
+        "int foo(void) { static int x = 1; return x; }\n"
+        "int bar(void) { static int x = 2; return x; }");
+    EXPECT_NE(std::string::npos, m.find("x:   ,log, 1"));
+    EXPECT_NE(std::string::npos, m.find("x:   ,log, 2"));
+}
+
 TEST_F(CodegenTest, VarIntTentative)
 {
     std::string output = CompileToMadlen("int foo;");

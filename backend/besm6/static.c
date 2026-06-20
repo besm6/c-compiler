@@ -10,6 +10,8 @@
 #include "utf8_to_koi7.h"
 #include "xalloc.h"
 
+static void insert_before_end(Besm_Block *block, Besm_Instr *chain);
+
 // True for an array whose innermost element is a character type — its bytes are
 // packed 6-per-word (see codegen_sizeof), so its static init list must be packed
 // the same way rather than emitted one word per element.
@@ -138,38 +140,27 @@ static unsigned long long static_init_log_val(const Tac_StaticInit *init)
     }
 }
 
-void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out)
+// Build the chain of data directives for a static object of the given type and init list.
+// `init == NULL` reserves zeroed storage (a `,bss,`).  The returned items carry no label;
+// callers attach one as needed (a data section's `,name,`, or the first item for a static
+// local emitted inside a function module).
+static Besm_Instr *static_data_items(const Tac_Type *type, const Tac_StaticInit *init)
 {
-    const char *name           = tl->u.static_variable.name;
-    const Tac_StaticInit *init = tl->u.static_variable.init_list;
-
-    Besm_Module *module = besm_new_module(name);
-    Besm_DataSection *section;
-
     if (init == NULL) {
-        section          = besm_new_data_section(BESM_SK_BSS);
-        section->name    = xstrdup(name);
-        module->sections = section;
         Besm_Instr *item = besm_new_instr(BESM_DATA_BSS);
-        item->addr       = codegen_sizeof(tl->u.static_variable.type);
-        section->items   = item;
-    } else {
-        section          = besm_new_data_section(BESM_SK_DATA);
-        section->name    = xstrdup(name);
-        module->sections = section;
+        item->addr       = codegen_sizeof(type);
+        return item;
+    }
 
-        // A character array packs 6 bytes per word, so its whole init list
-        // (byte values, zero runs, embedded strings) is flattened into a packed
-        // byte stream rather than emitted one word per element.
-        if (is_char_array(tl->u.static_variable.type)) {
-            section->items = char_array_log_items(init);
-            besm_fold_string_constants(module, program);
-            emit_madlen_module(out, module);
-            besm_free_module(module);
-            return;
-        }
+    // A character array packs 6 bytes per word, so its whole init list (byte values,
+    // zero runs, embedded strings) is flattened into a packed byte stream rather than
+    // emitted one word per element.
+    if (is_char_array(type))
+        return char_array_log_items(init);
 
-        Besm_Instr **tail = &section->items;
+    Besm_Instr *head  = NULL;
+    Besm_Instr **tail = &head;
+    {
         for (; init; init = init->next) {
             Besm_Instr *item;
             switch (init->kind) {
@@ -250,10 +241,60 @@ void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl
             tail  = &item->next;
         }
     }
+    return head;
+}
+
+void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out)
+{
+    const char *name           = tl->u.static_variable.name;
+    const Tac_StaticInit *init = tl->u.static_variable.init_list;
+
+    Besm_Module *module      = besm_new_module(name);
+    Besm_DataSection *section = besm_new_data_section(init == NULL ? BESM_SK_BSS : BESM_SK_DATA);
+    section->name             = xstrdup(name);
+    section->items            = static_data_items(tl->u.static_variable.type, init);
+    module->sections          = section;
 
     besm_fold_string_constants(module, program);
     emit_madlen_module(out, module);
     besm_free_module(module);
+}
+
+// True for a data directive that stores a word and can therefore carry a Madlen label in
+// its `name` field (unlike SUBP, which declares an external, or Z00, which uses `name` as
+// its operand).
+static bool data_item_labelable(const Besm_Instr *item)
+{
+    switch (item->kind) {
+    case BESM_DATA_LOG:
+    case BESM_DATA_BSS:
+    case BESM_DATA_REAL:
+    case BESM_DATA_INT:
+        return true;
+    default:
+        return false;
+    }
+}
+
+// Emit each block-scope static local of `fn` as a module-local labeled datum, spliced into
+// the function module just before its `,end,` (after the code).  String constants referenced
+// by a static-local initializer are folded in by the caller's besm_fold_string_constants.
+void besm_emit_static_locals(Besm_Module *module, const Tac_TopLevel *fn)
+{
+    if (!module->funcs)
+        return;
+    Besm_Block *last = module->funcs->blocks;
+    while (last->next)
+        last = last->next;
+
+    for (const Tac_StaticLocal *sl = fn->u.function.static_locals; sl; sl = sl->next) {
+        Besm_Instr *items = static_data_items(sl->type, sl->init_list);
+        if (items && data_item_labelable(items))
+            items->name = xstrdup(sl->name);
+        else
+            fatal_error("static local %s: unsupported initializer layout", sl->name);
+        insert_before_end(last, items);
+    }
 }
 
 // Pack a string static-init into a chain of BESM_DATA_LOG words (6 KOI-7 bytes per

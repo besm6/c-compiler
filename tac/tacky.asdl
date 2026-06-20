@@ -1,9 +1,13 @@
 module TAC {
     Program = (TopLevel* decls)
 
-    TopLevel = Function(identifier name, bool global, identifier* params, Instruction* body)
+    TopLevel = Function(identifier name, bool global, identifier* params,
+                        StaticLocal* static_locals, Instruction* body)
              | StaticVariable(identifier name, bool global, Type typ, StaticInit* init_list)
              | StaticConstant(identifier name, Type typ, StaticInit init)
+
+    -- A block-scope static variable, emitted inside its owning function's module.
+    StaticLocal = (identifier name, Type typ, StaticInit* init_list)
 
     Instruction = Return(Val? src)
                 | SignExtend(Val src, Val dst)

@@ -204,6 +204,19 @@ static void export_param(WFILE *out, const Tac_Param *p)
     export_param(out, p->next);
 }
 
+static void export_static_local(WFILE *out, const Tac_StaticLocal *sl)
+{
+    if (!sl) {
+        wputw(TAG_EOL, out);
+        return;
+    }
+    wputw(TAG_TAC_STATIC_LOC, out);
+    wputstr(sl->name ? sl->name : "", out);
+    export_type(out, sl->type);
+    export_static_init(out, sl->init_list);
+    export_static_local(out, sl->next);
+}
+
 void tac_export_toplevel(WFILE *out, const Tac_TopLevel *tl)
 {
     if (!tl) {
@@ -216,6 +229,7 @@ void tac_export_toplevel(WFILE *out, const Tac_TopLevel *tl)
         wputstr(tl->u.function.name ? tl->u.function.name : "", out);
         wputw(tl->u.function.global ? 1 : 0, out);
         export_param(out, tl->u.function.params);
+        export_static_local(out, tl->u.function.static_locals);
         export_instr(out, tl->u.function.body);
         break;
     case TAC_TOPLEVEL_STATIC_VARIABLE:

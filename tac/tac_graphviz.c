@@ -672,6 +672,15 @@ void tac_export_dot(FILE *fd, const Tac_TopLevel *tl)
             fprintf(fd, "\", shape=box];\n");
             fprintf(fd, "  n%d -> n%d [label=\"param\"];\n", root, pid);
         }
+        for (const Tac_StaticLocal *sl = tl->u.function.static_locals; sl; sl = sl->next) {
+            int sid = gen_node_id();
+            fprintf(fd, "  n%d [label=\"StaticLocal: ", sid);
+            emit_string(fd, sl->name);
+            fprintf(fd, "\", shape=box];\n");
+            fprintf(fd, "  n%d -> n%d [label=\"static_local\"];\n", root, sid);
+            emit_type(fd, sl->type, sid, "type");
+            emit_static_init(fd, sl->init_list, sid);
+        }
         for (const Tac_Instruction *in = tl->u.function.body; in; in = in->next)
             emit_instruction(fd, in, root);
         break;

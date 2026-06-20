@@ -651,6 +651,12 @@ void tac_print_toplevel(FILE *fd, const Tac_TopLevel *toplevel, int depth)
         print_indent(fd, depth + 1);
         fprintf(fd, "Params:\n");
         tac_print_param(fd, toplevel->u.function.params, depth + 2);
+        for (const Tac_StaticLocal *sl = toplevel->u.function.static_locals; sl; sl = sl->next) {
+            print_indent(fd, depth + 1);
+            fprintf(fd, "StaticLocal: %s\n", sl->name ? sl->name : "(null)");
+            tac_print_type(fd, sl->type, depth + 2);
+            tac_print_static_init(fd, sl->init_list, depth + 2);
+        }
         print_indent(fd, depth + 1);
         fprintf(fd, "Body:\n");
         tac_print_instruction(fd, toplevel->u.function.body, depth + 2);

@@ -1300,10 +1300,10 @@ int main(void) {
 }
 
 
-// --- No block-scope static-local storage -------------------------------------
-// A function-body `static` emits no TAC toplevel, so the body references an
-// undefined global.  (explicit_casts / convert_by_assignment also use values
-// beyond the BESM-6 integer range.)
+// --- Static locals (now supported) + remaining besm6 gaps -------------------
+// Block-scope statics work now; tests still DISABLED_ here have a separate blocker
+// (values beyond the BESM-6 integer range, narrow-char/charset semantics, or
+// multi-dimensional char-array sub-word scaling).
 
 // chars/explicit_casts: static long *null_ptr; (also 2^44 / 9.2e18 values).
 TEST_F(CodegenTest, DISABLED_Chapter16_ExplicitCasts)
@@ -1464,7 +1464,10 @@ int main(void) {
 })")));
 }
 
-// strings_as_initializers/terminating_null_bytes: static flat/nested arrays.
+// strings_as_initializers/terminating_null_bytes: static flat/nested arrays.  The
+// block-scope statics and the file-scope `nested` shadow were resolved (locals renamed),
+// but the test still needs multi-dimensional char-array indexing, which the backend
+// rejects ("ADD_PTR: unexpected sub-word scale 4").
 TEST_F(CodegenTest, DISABLED_Chapter16_TerminatingNullBytes)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* When we initialize an array from a string literal,
@@ -1480,10 +1483,12 @@ int test_flat_static_with_null_byte(void) {
 }
 
 int test_nested_static_with_null_byte(void) {
-    static char nested[2][4] = {"yes", "yup"};
-    return (nested[0][0] == 'y' && nested[0][1] == 'e' && nested[0][2] == 's' &&
-            nested[0][3] == 0 && nested[1][0] == 'y' && nested[1][1] == 'u' &&
-            nested[1][2] == 'p' && nested[1][3] == 0);
+    // Renamed from `nested` to avoid shadowing the file-scope `nested` below
+    // (no-shadowing is a permanent design decision); behaviour is unchanged.
+    static char nested_s[2][4] = {"yes", "yup"};
+    return (nested_s[0][0] == 'y' && nested_s[0][1] == 'e' && nested_s[0][2] == 's' &&
+            nested_s[0][3] == 0 && nested_s[1][0] == 'y' && nested_s[1][1] == 'u' &&
+            nested_s[1][2] == 'p' && nested_s[1][3] == 0);
 }
 
 int test_flat_auto_with_null_byte(void) {
@@ -1524,11 +1529,13 @@ int test_flat_auto_without_null_byte(void) {
 }
 
 int test_nested_auto_without_null_byte(void) {
-    char nested[3][3] = {"yes", "no", "ok"};
-    char *whole_array = (char *)nested;
-    char *word1 = (char *)nested[0];
-    char *word2 = (char *)nested[1];
-    char *word3 = (char *)nested[2];
+    // Renamed from `nested` to avoid shadowing the file-scope `nested` (no-shadowing
+    // is a permanent design decision); behaviour is unchanged.
+    char nested_a[3][3] = {"yes", "no", "ok"};
+    char *whole_array = (char *)nested_a;
+    char *word1 = (char *)nested_a[0];
+    char *word2 = (char *)nested_a[1];
+    char *word3 = (char *)nested_a[2];
     return !(strcmp(whole_array, "yesno") || strcmp(word1, "yesno") ||
              strcmp(word2, "no") || strcmp(word3, "ok"));
 }
@@ -1674,7 +1681,7 @@ int main(void) {
 }
 
 // extra_credit/char_consts_as_cases: static int i.
-TEST_F(CodegenTest, DISABLED_Chapter16_CharConstsAsCases)
+TEST_F(CodegenTest, Chapter16_CharConstsAsCases)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// Test that we can use character constants as cases in switch statements
 int main(void) {
@@ -1736,7 +1743,7 @@ int main(void) {
 }
 
 // extra_credit/compound_bitwise_ops_chars: static long x.
-TEST_F(CodegenTest, DISABLED_Chapter16_CompoundBitwiseOpsChars)
+TEST_F(CodegenTest, Chapter16_CompoundBitwiseOpsChars)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// Test bitwise compound assignment operators with character types
 
@@ -1772,7 +1779,7 @@ int main(void) {
 }
 
 // extra_credit/bitwise_ops_character_constants: static char/ulong (also 9.2e18).
-TEST_F(CodegenTest, DISABLED_Chapter16_BitwiseOpsCharacterConstants)
+TEST_F(CodegenTest, Chapter16_BitwiseOpsCharacterConstants)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// Test that we can use character constants in bitwise operations
 int main(void) {

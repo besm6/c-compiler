@@ -874,6 +874,18 @@ void tac_export_yaml(FILE *fd, const Tac_TopLevel *tl)
             fprintf(fd, "  params:\n");
             export_yaml_param_list(fd, tl->u.function.params, 2);
         }
+        if (tl->u.function.static_locals) {
+            fprintf(fd, "  static_locals:\n");
+            for (const Tac_StaticLocal *sl = tl->u.function.static_locals; sl; sl = sl->next) {
+                fprintf(fd, "  - name: %s\n", sl->name ? sl->name : "");
+                fprintf(fd, "    type:\n");
+                export_yaml_type(fd, sl->type, 3);
+                if (sl->init_list) {
+                    fprintf(fd, "    init_list:\n");
+                    export_yaml_static_init_list(fd, sl->init_list, 3);
+                }
+            }
+        }
         if (tl->u.function.body) {
             fprintf(fd, "  body:\n");
             tac_export_yaml_instruction_list(fd, tl->u.function.body, 2);

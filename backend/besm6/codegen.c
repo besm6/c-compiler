@@ -183,6 +183,11 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
         // a frame slot is a local/param and is skipped; a map avoids duplicates.
         StringMap declared;
         map_init(&declared);
+        // A block-scope static local is defined inside this very module (its storage is
+        // emitted before the `,end,`), so it must be referenced as a module-local label, not
+        // declared external.  Pre-seeding the "declared" set suppresses its SUBP.
+        for (const Tac_StaticLocal *sl = tl->u.function.static_locals; sl; sl = sl->next)
+            map_insert(&declared, sl->name, 1, 0);
         for (const Tac_Instruction *instr = tl->u.function.body; instr; instr = instr->next) {
             switch (instr->kind) {
             case TAC_INSTRUCTION_RETURN:
@@ -326,6 +331,11 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
 
     if (f)
         frame_free(f);
+
+    // Emit this function's block-scope static locals as module-local labeled data, spliced
+    // in after the code (before `,end,`).  Done before folding string constants so that a
+    // static-local initializer referencing a string literal gets that string folded in too.
+    besm_emit_static_locals(module, tl);
 
     // Fold any string literals this function references into its module as local
     // labels, removing their external SUBP declarations.

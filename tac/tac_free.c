@@ -192,6 +192,20 @@ void tac_free_param(Tac_Param *param)
     xfree(param);
 }
 
+// Free a Tac_StaticLocal list and its contents recursively
+void tac_free_static_local(Tac_StaticLocal *sl)
+{
+    if (!sl)
+        return;
+    if (sl->name) {
+        xfree(sl->name);
+    }
+    tac_free_type(sl->type);
+    tac_free_static_init(sl->init_list);
+    tac_free_static_local(sl->next);
+    xfree(sl);
+}
+
 // Free a Tac_StaticInit and its contents recursively
 void tac_free_static_init(Tac_StaticInit *init)
 {
@@ -220,6 +234,7 @@ void tac_free_toplevel(Tac_TopLevel *toplevel)
         }
         tac_free_param(toplevel->u.function.params);
         tac_free_param(toplevel->u.function.locals);
+        tac_free_static_local(toplevel->u.function.static_locals);
         tac_free_instruction(toplevel->u.function.body);
         break;
     case TAC_TOPLEVEL_STATIC_VARIABLE:

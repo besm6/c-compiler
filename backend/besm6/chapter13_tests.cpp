@@ -893,10 +893,10 @@ int main(void) {
 })")));
 }
 
-// --- DISABLED: no static-local storage --------------------------------------
+// --- Static locals (now supported) ------------------------------------------
 
 // static_initialized_double: local static double.
-TEST_F(CodegenTest, DISABLED_Chapter13_StaticInitializedDouble)
+TEST_F(CodegenTest, Chapter13_StaticInitializedDouble)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(double return_static_variable(void) {
     static double d = 0.5;
@@ -917,7 +917,7 @@ int main(void) {
 }
 
 // implicit_casts/static_initializers: static local int, and 2^62..2^64 consts.
-TEST_F(CodegenTest, DISABLED_Chapter13_StaticInitializers)
+TEST_F(CodegenTest, Chapter13_StaticInitializers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(double d1 = 2147483647;
 double d2 = 4294967295u;

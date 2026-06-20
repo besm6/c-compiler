@@ -631,10 +631,12 @@ int main(void) {
 // DISABLED_ — programs BESM-6 cannot reproduce, grouped by reason.
 // ===========================================================================
 
-// --- No block-scope static-local storage ------------------------------------
+// --- Static locals (now supported) + remaining besm6 gaps -------------------
+// Block-scope statics work now; the tests still DISABLED_ below have a separate,
+// non-static blocker noted on each.
 
 // casts/cast_between_pointer_types: uses `static long *long_ptr` inside a fn.
-TEST_F(CodegenTest, DISABLED_Chapter14_CastBetweenPointerTypes)
+TEST_F(CodegenTest, Chapter14_CastBetweenPointerTypes)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int check_null_ptr_cast(void) {
     static long *long_ptr = 0;
@@ -681,8 +683,10 @@ int main(void)
 })")));
 }
 
-// casts/pointer_int_casts: relies on x86 byte-addressing (ptr % 8 == 0) and a
-// static local.  A BESM-6 pointer is a word address, not 8-byte aligned.
+// casts/pointer_int_casts: relies on x86 byte-addressing (ptr % 8 == 0) — a BESM-6
+// pointer is a word address, not 8-byte aligned.  It also shadows the file-scope `l`
+// with a block-scope `static long l` (rejected by the no-shadowing rule); even renamed,
+// the %8 assumption keeps it from matching the book result.
 TEST_F(CodegenTest, DISABLED_Chapter14_PointerIntCasts)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int i = 128;
@@ -746,7 +750,9 @@ int main(void) {
 })")));
 }
 
-// declarators/declarators: uses `static unsigned u` / `static unsigned *u_ptr`.
+// declarators/declarators: redundant-parenthesized declarator forms (e.g.
+// `int((return_3))(void)`, `long(*two_pointers(double val, double(*d)));`) that our
+// parser rejects ("Empty type specifier list").  Not a static-local issue.
 TEST_F(CodegenTest, DISABLED_Chapter14_Declarators)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int return_3(void);
@@ -832,7 +838,7 @@ int main(void)
 }
 
 // dereference/dereference_expression_result: uses `static int var = 10`.
-TEST_F(CodegenTest, DISABLED_Chapter14_DereferenceExpressionResult)
+TEST_F(CodegenTest, Chapter14_DereferenceExpressionResult)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int *return_pointer(void) {
     static int var = 10;
@@ -880,7 +886,7 @@ int main(void) {
 }
 
 // dereference/static_var_indirection: uses `static long *p` inside modify_ptr.
-TEST_F(CodegenTest, DISABLED_Chapter14_StaticVarIndirection)
+TEST_F(CodegenTest, Chapter14_StaticVarIndirection)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(unsigned int w = 4294967295U;
 int x = 10;

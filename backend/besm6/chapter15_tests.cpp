@@ -985,7 +985,9 @@ int set_nested_element(int (*arr)[2], int i, int j) {
 // DISABLED_ — programs BESM-6 cannot reproduce, grouped by reason.
 // ===========================================================================
 
-// --- No block-scope static-local storage -------------------------------------
+// --- Static locals (now supported) + remaining besm6 gaps -------------------
+// Block-scope statics work now; tests still DISABLED_ here have a separate blocker
+// (multi-dimensional array sub-word scaling, pointer representation, etc.).
 
 // declarators/equivalent_declarators: uses `static int nested_arr[3][6]` inside a function.
 TEST_F(CodegenTest, DISABLED_Chapter15_EquivalentDeclarators)
@@ -1121,7 +1123,7 @@ int main(void) {
 
 
 // extra_credit/compound_lval_evaluated_once: uses a `static int count` local.
-TEST_F(CodegenTest, DISABLED_Chapter15_CompoundLvalEvaluatedOnce)
+TEST_F(CodegenTest, Chapter15_CompoundLvalEvaluatedOnce)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// Make sure the left side of a compound expression is evaluated only once
 
@@ -1153,7 +1155,7 @@ int main(void) {
 
 
 // initialization/automatic_nested: uses a `static int x` local.
-TEST_F(CodegenTest, DISABLED_Chapter15_AutomaticNested)
+TEST_F(CodegenTest, Chapter15_AutomaticNested)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test initializing nested arrays with automatic storage duration */
 
@@ -1592,7 +1594,7 @@ int main(void) {
 
 
 // pointer_arithmetic/pointer_add: many `static` locals (also `static int flag;` zero-init).
-TEST_F(CodegenTest, DISABLED_Chapter15_PointerAdd)
+TEST_F(CodegenTest, Chapter15_PointerAdd)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test pointer addition and subtraction to specify array indices
  * (but not subtracting two pointers to get the distance between them)

@@ -340,15 +340,15 @@ void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
         case BESM_DATA_BSS:
             if (instr->addr)
                 snprintf(a, sizeof(a), "%d", instr->addr);
-            emit_line(out, NULL, 0, "bss", a);
+            emit_line(out, instr->name, 0, "bss", a);
             break;
         case BESM_DATA_INT:
             snprintf(a, sizeof(a), "%d", instr->addr);
-            emit_line(out, NULL, 0, "int", a);
+            emit_line(out, instr->name, 0, "int", a);
             break;
         case BESM_DATA_REAL:
             mad_format_real(a, sizeof(a), instr->real_val);
-            emit_line(out, NULL, 0, "real", a);
+            emit_line(out, instr->name, 0, "real", a);
             break;
         case BESM_DATA_EQU:
             snprintf(a, sizeof(a), "%d", instr->addr);

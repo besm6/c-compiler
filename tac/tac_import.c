@@ -239,6 +239,21 @@ static Tac_Param *import_param(WFILE *in)
     return p;
 }
 
+static Tac_StaticLocal *import_static_local(WFILE *in)
+{
+    size_t tag = wgetw(in);
+    check_input(in, "static local tag");
+    if (tag != TAG_TAC_STATIC_LOC)
+        return NULL;
+    Tac_StaticLocal *sl = tac_new_static_local();
+    sl->name            = wgetstr(in);
+    check_input(in, "static local name");
+    sl->type      = import_type(in);
+    sl->init_list = import_static_init(in);
+    sl->next      = import_static_local(in);
+    return sl;
+}
+
 static Tac_Instruction *import_instr(WFILE *in)
 {
     size_t tag = wgetw(in);
@@ -393,8 +408,9 @@ Tac_TopLevel *tac_import_toplevel(WFILE *in)
         check_input(in, "function name");
         tl->u.function.global = (bool)wgetw(in);
         check_input(in, "function global");
-        tl->u.function.params = import_param(in);
-        tl->u.function.body   = import_instr(in);
+        tl->u.function.params        = import_param(in);
+        tl->u.function.static_locals = import_static_local(in);
+        tl->u.function.body          = import_instr(in);
         break;
     case TAC_TOPLEVEL_STATIC_VARIABLE:
         tl->u.static_variable.name = wgetstr(in);

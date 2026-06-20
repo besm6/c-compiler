@@ -43,6 +43,12 @@ Tac_Param *tac_new_param(void)
     return param;
 }
 
+// Allocate a new Tac_StaticLocal
+Tac_StaticLocal *tac_new_static_local(void)
+{
+    return (Tac_StaticLocal *)xalloc(sizeof(Tac_StaticLocal), __func__, __FILE__, __LINE__);
+}
+
 // Allocate a new Tac_TopLevel with the specified kind
 Tac_TopLevel *tac_new_toplevel(Tac_TopLevelKind kind)
 {

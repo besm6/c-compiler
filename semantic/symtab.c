@@ -57,6 +57,8 @@ static void symtab_destroy_callback(intptr_t ptr)
     free_symbol((Symbol *)ptr);
 }
 
+static void static_locals_clear(void);
+
 //
 // Initialize the symbol table (create an empty table)
 // Postcondition: Symbol table is empty and ready for use.
@@ -72,6 +74,7 @@ void symtab_init()
 //
 void symtab_destroy()
 {
+    static_locals_clear();
     map_destroy_free(&symtab, symtab_destroy_callback);
     str_id = 0;
 }
@@ -117,6 +120,76 @@ void symtab_add_static_var(const char *name, const Type *t, bool global, InitKin
     sym->u.static_var.init_list = init_list;
 
     map_insert_free(&symtab, name, (intptr_t)sym, 0, symtab_destroy_callback);
+}
+
+void symtab_add_static_var_scoped(const char *name, const Type *t, bool global,
+                                  InitKind init_kind, Tac_StaticInit *init_list, int level)
+{
+    Symbol *sym = new_symbol(name, clone_type(t, __func__, __FILE__, __LINE__), SYM_STATIC);
+    sym->u.static_var.global    = global;
+    sym->u.static_var.init_kind = init_kind;
+    sym->u.static_var.init_list = init_list;
+
+    map_insert_free(&symtab, name, (intptr_t)sym, level, symtab_destroy_callback);
+}
+
+//
+// Block-scope static-local capture (see symtab.h).
+//
+static StaticLocalRec *static_locals_list;
+static const char *static_locals_current_func;
+
+void static_locals_set_function(const char *fn)
+{
+    static_locals_current_func = fn;
+}
+
+const char *static_locals_add(const char *source, const Type *type, Tac_StaticInit *init)
+{
+    // Count earlier statics with the same source name in the current function so a
+    // sibling-block repeat (the only intra-module collision possible) gets a unique
+    // `source.N` suffix; the first occurrence keeps the plain name.
+    int count = 0;
+    for (const StaticLocalRec *r = static_locals_list; r; r = r->next)
+        if (strcmp(r->func, static_locals_current_func) == 0 && strcmp(r->source, source) == 0)
+            count++;
+
+    char backend[256];
+    if (count == 0)
+        snprintf(backend, sizeof(backend), "%s", source);
+    else
+        snprintf(backend, sizeof(backend), "%s.%d", source, count);
+
+    StaticLocalRec *rec = xalloc(sizeof(StaticLocalRec), __func__, __FILE__, __LINE__);
+    rec->func           = xstrdup(static_locals_current_func);
+    rec->source         = xstrdup(source);
+    rec->name           = xstrdup(backend);
+    rec->type           = type;
+    rec->init_list      = init;
+    rec->next           = static_locals_list;
+    static_locals_list  = rec;
+    return rec->name;
+}
+
+StaticLocalRec *static_locals_head(void)
+{
+    return static_locals_list;
+}
+
+static void static_locals_clear(void)
+{
+    StaticLocalRec *r = static_locals_list;
+    while (r) {
+        StaticLocalRec *next = r->next;
+        xfree(r->func);
+        xfree(r->source);
+        xfree(r->name);
+        tac_free_static_init(r->init_list); // NULL once the translator has transferred it
+        xfree(r);
+        r = next;
+    }
+    static_locals_list         = NULL;
+    static_locals_current_func = NULL;
 }
 
 //

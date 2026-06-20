@@ -310,7 +310,17 @@ static void typecheck_local_var_decl(const Declaration *d)
                 fatal_error("Duplicate variable declaration %s", decl->name);
             }
             Tac_StaticInit *static_init = build_static_init(var_type, decl->init);
-            symtab_add_static_var(decl->name, var_type, false, INIT_INITIALIZED, static_init);
+            // The storage is emitted inside the owning function's module as a module-local
+            // label.  Capture it (the symbol is scoped and gets purged on block exit) and give
+            // it a backend name unique within this function; the symbol is keyed by the source
+            // name so in-scope references still resolve, while its display name carries the
+            // (possibly suffixed) backend name that typecheck_var propagates to references.
+            const char *backend = static_locals_add(decl->name, var_type, static_init);
+            symtab_add_static_var_scoped(decl->name, var_type, false, INIT_INITIALIZED, NULL,
+                                         scope_level);
+            Symbol *sym = symtab_get(decl->name);
+            xfree(sym->name);
+            sym->name = xstrdup(backend);
             // Drop initializer
             free_initializer(decl->init);
             decl->init = NULL;
@@ -417,8 +427,10 @@ static void typecheck_fn_decl(ExternalDecl *d)
             }
             symtab_add_automatic_var_type(p->name, p->type, scope_level);
         }
+        static_locals_set_function(d->u.function.name);
         d->u.function.body =
             typecheck_statement(fun_type->u.function.return_type, d->u.function.body);
+        static_locals_set_function(NULL);
         scope_decrement();
     }
     free_type(d->u.function.type);

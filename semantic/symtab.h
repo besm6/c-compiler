@@ -79,6 +79,35 @@ void symtab_add_static_var(const char *name, const Type *t, bool global, InitKin
 // INIT_INITIALIZED, else NULL. Postcondition: A Symbol with SYM_STATIC, name, t, global, and init
 // state is added/replaced in symtab.
 
+// Add a static variable at a given scope level (block-scope statics, which must be purged on
+// block exit so the no-shadowing dup-check and visibility are correct).
+void symtab_add_static_var_scoped(const char *name, const Type *t, bool global,
+                                  InitKind init_kind, Tac_StaticInit *init_list, int level);
+
+//
+// Block-scope static locals.  A `static` declared inside a function has static storage
+// duration but no linkage: its storage is emitted inside the owning function's BESM-6 module
+// as a module-local label.  Such a symbol is scoped (purged on block exit), so its storage is
+// captured here at declaration time and read back by the translator (which runs in the same
+// pass, before symtab_destroy).
+//
+typedef struct StaticLocalRec {
+    struct StaticLocalRec *next;
+    char *func;                // owning function name (owned)
+    char *source;              // source name, for intra-function collision counting (owned)
+    char *name;                // backend (possibly suffixed) name (owned)
+    const Type *type;          // AST type (borrowed; the AST outlives lowering of this unit)
+    Tac_StaticInit *init_list; // owned until the translator transfers it (then NULL)
+} StaticLocalRec;
+
+// Set the function whose body is being type-checked (NULL when outside any function body).
+void static_locals_set_function(const char *fn);
+// Record a block-scope static local for the current function, returning the assigned backend
+// name (the source name, or a `name.N` suffix when it repeats within the same function).
+const char *static_locals_add(const char *source, const Type *type, Tac_StaticInit *init);
+// Head of the captured-static-local list (the translator iterates and filters by ->func).
+StaticLocalRec *static_locals_head(void);
+
 // Add a function
 void symtab_add_fun(const char *name, const Type *t, bool global, bool defined);
 // Precondition: name is a non-null string, t is a valid Type* (function type).

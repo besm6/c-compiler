@@ -562,6 +562,21 @@ static Tac_TopLevel *translate_fn(const ExternalDecl *ast)
         tl->u.function.locals = ctx.locals;
         tac_free_param(ctx.array_locals);
 
+        // Attach this function's block-scope statics, captured during typecheck.  The
+        // capture list is newest-first; prepend each as we walk it so the result is in
+        // declaration order.  Ownership of each init list transfers into the TAC node.
+        for (StaticLocalRec *r = static_locals_head(); r; r = r->next) {
+            if (strcmp(r->func, name) != 0)
+                continue;
+            Tac_StaticLocal *sl = tac_new_static_local();
+            sl->name            = xstrdup(r->name);
+            sl->type            = ast_type_to_tac_type(r->type);
+            sl->init_list       = r->init_list;
+            r->init_list        = NULL; // transferred
+            sl->next            = tl->u.function.static_locals;
+            tl->u.function.static_locals = sl;
+        }
+
         if (ctx.static_constants) {
             Tac_TopLevel *last = ctx.static_constants;
             while (last->next)

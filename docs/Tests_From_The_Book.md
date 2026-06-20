@@ -299,7 +299,7 @@ The disagreements all trace back to a handful of architectural facts. For the fu
 | identifiers | Madlen assembler truncates to **8 characters** | effectively unlimited |
 | output charset | lowercase Latin folds to **Cyrillic** (GOST) | ASCII |
 | `>>` of a negative | **logical** (no sign extension) | arithmetic (implementation-defined) |
-| runtime | no `malloc`/`free`, no `<math.h>`, no block-scope `static` storage | full libc + libm |
+| runtime | no `malloc`/`free`, no `<math.h>` | full libc + libm |
 
 Now the worked examples — each one a real program from the corpus.
 
@@ -365,12 +365,11 @@ TEST_F(CodegenTest, DISABLED_Chapter13_Nan) { /* BESM-6 FP has no NaN */ }
 
 The test is visible (reported as skipped) so we remember it, but it does not fail the build.
 Every disabled test carries a **one-line reason**. Across 20 chapters those reasons settle
-into a small, recurring taxonomy — learn these nine and you can predict why almost any book
+into a small, recurring taxonomy — learn these eight and you can predict why almost any book
 program is disabled:
 
 | # | Category | Representative example |
 |---|---|---|
-| A | No block-scope `static` storage in the backend | ch10 `static_local_uninitialized` |
 | B | Value exceeds BESM-6 range (41-bit signed / 48-bit unsigned / FP exponent) | ch11 `simple` (±(2⁶³−1)), ch13 `return_double` |
 | C | Relies on x86 32/64-bit truncation or wraparound | ch11 `truncate`, ch12 `switch_uint` |
 | D | Needs absent runtime: `malloc`/`free`/`memset`, or libm | ch17 `void_pointer/*`, ch13 `standard_library_call` |

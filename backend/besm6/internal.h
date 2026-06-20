@@ -58,4 +58,8 @@ Besm_Instr *besm_string_log_items(const Tac_StaticInit *init, const char *label)
 // dropping the constant's external SUBP (defined in static.c).
 void besm_fold_string_constants(Besm_Module *module, const Tac_TopLevel *program);
 
+// Emit each block-scope static local of function `fn` as a module-local labeled datum,
+// spliced into the function's module just before its `,end,` (defined in static.c).
+void besm_emit_static_locals(Besm_Module *module, const Tac_TopLevel *fn);
+
 #endif // BESM6_INTERNAL_H

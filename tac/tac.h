@@ -16,6 +16,7 @@ typedef struct Tac_Type Tac_Type;
 typedef struct Tac_StaticInit Tac_StaticInit;
 typedef struct Tac_TopLevel Tac_TopLevel;
 typedef struct Tac_Param Tac_Param;
+typedef struct Tac_StaticLocal Tac_StaticLocal;
 
 //
 // Program: TopLevel* decls
@@ -31,6 +32,18 @@ typedef struct Tac_Param {
     struct Tac_Param *next; // Linked list
     char *name;
 } Tac_Param;
+
+//
+// A block-scope static variable, stored per function.  Its storage is emitted
+// inside the owning function's own module (after the code, before the end marker)
+// as a module-local label, rather than as a separate top-level static variable.
+//
+typedef struct Tac_StaticLocal {
+    struct Tac_StaticLocal *next; // Linked list
+    char *name;
+    Tac_Type *type;
+    Tac_StaticInit *init_list; // optional; NULL ⇒ zero-initialized (bss)
+} Tac_StaticLocal;
 
 //
 // TopLevel: Function | StaticVariable | StaticConstant
@@ -53,6 +66,8 @@ typedef struct Tac_TopLevel {
             Tac_Param *locals;     // Automatic local names (in-memory only; the
                                    // optimizer uses these to tell locals from
                                    // observable globals). Not serialized.
+            Tac_StaticLocal *static_locals; // Block-scope static variables, emitted
+                                            // inside this function's module.
             Tac_Instruction *body; // Linked list of instructions
         } function;
         struct {
@@ -506,6 +521,7 @@ Tac_Instruction *tac_new_instruction(Tac_InstructionKind kind);
 Tac_Type *tac_new_type(Tac_TypeKind kind);
 Tac_Const *tac_new_const(Tac_ConstKind kind);
 Tac_Param *tac_new_param(void);
+Tac_StaticLocal *tac_new_static_local(void);
 Tac_TopLevel *tac_new_toplevel(Tac_TopLevelKind kind);
 Tac_StaticInit *tac_new_static_init(Tac_StaticInitKind kind);
 Tac_Program *tac_new_program(void);
@@ -519,6 +535,7 @@ void tac_free_val(Tac_Val *val);
 void tac_free_instruction(Tac_Instruction *instr);
 void tac_free_type(Tac_Type *type);
 void tac_free_param(Tac_Param *param);
+void tac_free_static_local(Tac_StaticLocal *sl);
 void tac_free_static_init(Tac_StaticInit *init);
 void tac_free_toplevel(Tac_TopLevel *toplevel);
 

@@ -67,6 +67,15 @@ static Expr *typecheck_var(Expr *e)
     }
     const Symbol *sym = symtab_get(e->u.var);
 
+    // A block-scope static is keyed in the symtab by its source name but carries a distinct
+    // backend name (so sibling-block repeats stay unique); rewrite the reference to it so the
+    // translator and backend see the same name as the storage definition.  For every other
+    // symbol the names match, making this a no-op.
+    if (sym->name && strcmp(sym->name, e->u.var) != 0) {
+        xfree(e->u.var);
+        e->u.var = xstrdup(sym->name);
+    }
+
     free_type(e->type);
     e->type = clone_type(sym->type, __func__, __FILE__, __LINE__);
     return e;

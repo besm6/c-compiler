@@ -163,7 +163,7 @@ int main(void) { test1(); test2(); test3(); return 0; }
 }
 
 // DISABLED: block-scope `static int i` has no BESM-6 storage.
-TEST_F(CodegenTest, DISABLED_Chapter20_IntNoCoal_CdqInterference)
+TEST_F(CodegenTest, Chapter20_IntNoCoal_CdqInterference)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
 int target(int a, int b, int c) {
@@ -1621,7 +1621,7 @@ int main(void) {
 }
 
 // DISABLED: block-scope static + char-array string init + x86 alignment asm.
-TEST_F(CodegenTest, DISABLED_Chapter20_AllNoCoal_MixedTypeStackAlignment)
+TEST_F(CodegenTest, Chapter20_AllNoCoal_MixedTypeStackAlignment)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + C1I + R"WP(
 int check_alignment(int exit_code) { return 0; }

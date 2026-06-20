@@ -112,6 +112,24 @@ bool tac_compare_param(const Tac_Param *a, const Tac_Param *b)
     return tac_compare_param(a->next, b->next);
 }
 
+// Compare two Tac_StaticLocal lists recursively
+static bool tac_compare_static_local(const Tac_StaticLocal *a, const Tac_StaticLocal *b)
+{
+    if (a == b)
+        return true;
+    if (!a || !b)
+        return false;
+    if ((a->name == NULL) != (b->name == NULL))
+        return false;
+    if (a->name && strcmp(a->name, b->name) != 0)
+        return false;
+    if (!tac_compare_type(a->type, b->type))
+        return false;
+    if (!tac_compare_static_init(a->init_list, b->init_list))
+        return false;
+    return tac_compare_static_local(a->next, b->next);
+}
+
 // Compare two Tac_StaticInit structures recursively
 bool tac_compare_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b)
 {
@@ -324,6 +342,8 @@ bool tac_compare_toplevel(const Tac_TopLevel *a, const Tac_TopLevel *b)
         if (a->u.function.variadic != b->u.function.variadic)
             return false;
         return tac_compare_param(a->u.function.params, b->u.function.params) &&
+               tac_compare_static_local(a->u.function.static_locals,
+                                        b->u.function.static_locals) &&
                tac_compare_instruction(a->u.function.body, b->u.function.body);
     case TAC_TOPLEVEL_STATIC_VARIABLE:
         if ((a->u.static_variable.name == NULL) != (b->u.static_variable.name == NULL))

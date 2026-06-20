@@ -37,10 +37,13 @@
 //    namespace cannot represent — they are DISABLED_ below.
 //    (*external_variable is DISABLED_ for an unrelated reason, see below.)
 //
-// Backend gaps exercised here, each producing a DISABLED_ group below:
-//   (a) No block-scope static-local storage: a "static int x;" inside a
-//       function emits no static_variable toplevel, so the body references an
-//       undefined name.  (Confirmed: Madlen has no static-local support.)
+// Block-scope static locals ARE supported: a "static int x;" inside a function is
+// captured per function (semantic) and emitted as a module-local labeled datum inside
+// that function's own ,name,/,end, module, after the code (see translate_fn +
+// besm_emit_static_locals).  Same-named statics in different functions stay distinct
+// because each function is its own module; sibling-block repeats get a "name.N" suffix.
+//
+// Backend gaps exercised here, producing the remaining DISABLED_ group below:
 //   (b) Tentative/extern clobber: a tentative ("int x;") or "extern int x;"
 //       file-scope declaration that FOLLOWS an initialized definition
 //       ("int x = 3;") emits a second static_variable toplevel with no init,
@@ -232,10 +235,10 @@ int main(void) {
 })")));
 }
 
-// --- DISABLED_ (a): no block-scope static-local storage (see header) --------
+// --- Block-scope static locals (now supported; see header) ------------------
 
 // Uninitialized static local, zero-initialized and persisting across calls.
-TEST_F(CodegenTest, DISABLED_Chapter10_StaticLocalUninitialized)
+TEST_F(CodegenTest, Chapter10_StaticLocalUninitialized)
 {
     EXPECT_EQ("4\n", CompileAndRun(WrapMain(R"(int foo(void) {
     static int x;
@@ -252,7 +255,7 @@ int main(void) {
 }
 
 // Static locals used as memory operands in a relational expression.
-TEST_F(CodegenTest, DISABLED_Chapter10_StaticVariablesInExpressions)
+TEST_F(CodegenTest, Chapter10_StaticVariablesInExpressions)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
     static int i = 2;
@@ -266,7 +269,7 @@ TEST_F(CodegenTest, DISABLED_Chapter10_StaticVariablesInExpressions)
 }
 
 // Compound assignment on several static locals, persisting across calls.
-TEST_F(CodegenTest, DISABLED_Chapter10_CompoundAssignmentStaticVar)
+TEST_F(CodegenTest, Chapter10_CompoundAssignmentStaticVar)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int f(void) {
     static int i = 0;
@@ -300,7 +303,7 @@ int main(void) {
 }
 
 // A static initializer runs at program startup even if a goto jumps over it.
-TEST_F(CodegenTest, DISABLED_Chapter10_GotoSkipStaticInitializer)
+TEST_F(CodegenTest, Chapter10_GotoSkipStaticInitializer)
 {
     EXPECT_EQ("10\n", CompileAndRun(WrapMain(R"(int main(void) {
     goto end;
@@ -312,7 +315,7 @@ TEST_F(CodegenTest, DISABLED_Chapter10_GotoSkipStaticInitializer)
 
 // A static initializer in a switch runs at startup; the later assignment, being
 // a statement, is jumped over.
-TEST_F(CodegenTest, DISABLED_Chapter10_SwitchSkipStaticInitializer)
+TEST_F(CodegenTest, Chapter10_SwitchSkipStaticInitializer)
 {
     EXPECT_EQ("10\n", CompileAndRun(WrapMain(R"(int a = 3;
 int main(void) {
@@ -328,7 +331,7 @@ int main(void) {
 }
 
 // A static variable and a label in the same function may share a name.
-TEST_F(CodegenTest, DISABLED_Chapter10_LabelStaticVarSameName)
+TEST_F(CodegenTest, Chapter10_LabelStaticVarSameName)
 {
     EXPECT_EQ("5\n", CompileAndRun(WrapMain(R"(int main(void) {
     static int x = 5;
@@ -341,7 +344,7 @@ x:
 
 // Same-named static locals in different functions must be distinct (no
 // linkage); our single file-scope namespace also collides them.  Host value 29.
-TEST_F(CodegenTest, DISABLED_Chapter10_MultipleStaticLocal)
+TEST_F(CodegenTest, Chapter10_MultipleStaticLocal)
 {
     EXPECT_EQ("29\n", CompileAndRun(WrapMain(R"(int foo(void) {
     static int a = 3;
@@ -583,7 +586,7 @@ int main(void) {
 
 // main() falls off the end: indeterminate return value (host cc returns stack
 // garbage), like the ch5/ch6 missing-return cases; also needs putchar.
-TEST_F(CodegenTest, DISABLED_Chapter10_StaticRecursiveCall)
+TEST_F(CodegenTest, Chapter10_StaticRecursiveCall)
 {
     EXPECT_EQ("ABCDEFGHIJKLMNOPQRSTUVWXYZ26\n", CompileAndRun(WrapMain(R"(void putch(int ch);
 
