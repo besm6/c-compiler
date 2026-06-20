@@ -1,0 +1,40 @@
+/*
+ * <time.h> — date and time (C11 §7.27), BESM-6 target.
+ *
+ * TODO: implement the clock/time entry points in libc.bin against the Dubna
+ * monitor's timer services.  time_t and clock_t are one signed word each.
+ */
+#ifndef _TIME_H
+#define _TIME_H
+
+#include <stddef.h>
+
+typedef long time_t;
+typedef long clock_t;
+
+#define CLOCKS_PER_SEC 1000000L
+
+struct tm {
+    int tm_sec;
+    int tm_min;
+    int tm_hour;
+    int tm_mday;
+    int tm_mon;
+    int tm_year;
+    int tm_wday;
+    int tm_yday;
+    int tm_isdst;
+};
+
+clock_t clock(void);
+time_t  time(time_t *t);
+double  difftime(time_t end, time_t start);
+time_t  mktime(struct tm *tm);
+
+struct tm *localtime(time_t *timep);
+struct tm *gmtime(time_t *timep);
+char      *asctime(struct tm *tm);
+char      *ctime(time_t *timep);
+size_t     strftime(char *s, size_t max, char *format, struct tm *tm);
+
+#endif /* _TIME_H */

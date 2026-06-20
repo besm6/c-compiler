@@ -95,6 +95,15 @@ hand: assemble a `.mad` with `genbesm`, wrap it with the `*name/*disc/*file:libc
 … *library:40/*execute/*end file` boilerplate (see `codegen_test.h` `CompileAndRun`), and
 run `dubna [-d c] job.dub`.
 
+**Target standard headers (`backend/besm6/include/`).** C11 standard-library headers for
+programs compiled for the BESM-6 (the freestanding subset is complete; the hosted subset
+declares the few implemented libc routines plus future ones — see the dir's `README.md`).
+The compiler has no preprocessor, so these are consumed by an external `cpp` first:
+`cpp -P -nostdinc -Ibackend/besm6/include prog.c | parse`. The `besm-headers` CTest
+(`scripts/check_headers.sh`, run under `make test`, skipped when no `cpp` is found)
+preprocesses and parses every header to catch syntax errors. `<stdarg.h>` is functional
+(word-pointer `va_list`); its runtime behaviour is covered by `stdarg_tests.cpp`.
+
 Static analysis (requires cppcheck):
 ```sh
 ctest --test-dir build -R cppcheck
@@ -191,7 +200,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `parser/simple_tests.cpp`, `statement_tests.cpp`, … (9 files, including `negative_tests.cpp`) → `parser-tests`
 - `tac/yaml_tests.cpp`, `graphviz_tests.cpp`, `binary_tests.cpp` → `tac-tests`
 - `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` → `semantic-tests`
-- `backend/besm6/codegen_tests.cpp`, `arith_tests.cpp`, `copy_tests.cpp`, `flow_tests.cpp`, `run_tests.cpp`, `unary_tests.cpp`, `convert_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp`, `char_tests.cpp`, `peephole_tests.cpp` → `besm-tests`
+- `backend/besm6/codegen_tests.cpp`, `arith_tests.cpp`, `copy_tests.cpp`, `flow_tests.cpp`, `run_tests.cpp`, `unary_tests.cpp`, `convert_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp`, `char_tests.cpp`, `peephole_tests.cpp`, `printf_tests.cpp`, `funcptr_tests.cpp`, `stdarg_tests.cpp` → `besm-tests`
 - `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`
 - `optimize/const_fold_tests.cpp`, `jump_unreachable_tests.cpp`, `copy_prop_tests.cpp`, `dead_store_tests.cpp`, `type_conv_tests.cpp`, `pipeline_tests.cpp` → `optimizer-tests`
 - `libutil/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-tests`

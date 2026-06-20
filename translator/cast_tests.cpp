@@ -626,3 +626,22 @@ TEST_F(TranslateTestX86, CastLongDoubleToFloat)
     std::string yaml = CompileToYaml("float f(long double x) { return (float)x; }");
     EXPECT_NE(yaml.find("kind: long_double_to_float"), std::string::npos);
 }
+
+// (void)ptr discards the value: no conversion is emitted, and crucially the
+// pointer/size path that would call get_size(void) is never reached.  Regression
+// for a fatal "get_size: Type void doesn't have size" on a pointer cast to void
+// (e.g. va_end's ((void)ap)).
+TEST_F(TranslateTestX86, CastPointerToVoid)
+{
+    std::string yaml = CompileToYaml("void f(int *p) { (void)p; }");
+    EXPECT_EQ(yaml.find("instruction:"), std::string::npos);
+}
+
+// (void)x for an integer must likewise emit no conversion (it previously emitted
+// a stray int_to_double whose result was discarded).
+TEST_F(TranslateTestX86, CastIntToVoid)
+{
+    std::string yaml = CompileToYaml("void f(int x) { (void)x; }");
+    EXPECT_EQ(yaml.find("instruction:"), std::string::npos);
+    EXPECT_EQ(yaml.find("int_to_double"), std::string::npos);
+}

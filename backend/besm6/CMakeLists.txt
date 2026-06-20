@@ -89,11 +89,32 @@ add_executable(besm-tests
     peephole_tests.cpp
     printf_tests.cpp
     funcptr_tests.cpp
+    stdarg_tests.cpp
 )
 target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
 add_dependencies(besm-tests besm-libc)
 add_definitions(-DTEST_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+target_compile_definitions(besm-tests PRIVATE
+    BESM6_INCLUDE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/include")
 gtest_discover_tests(besm-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+
+#
+# Standard-library header check: every header in include/ must preprocess (via the
+# system cpp) and parse.  Skipped gracefully when no cpp is found.
+#
+find_program(SystemCpp NAMES cpp)
+if(NOT (SystemCpp MATCHES "NOTFOUND"))
+    add_test(
+        NAME besm-headers
+        COMMAND ${CMAKE_COMMAND} -E env
+                ${CMAKE_SOURCE_DIR}/scripts/check_headers.sh
+                ${SystemCpp}
+                $<TARGET_FILE:parse>
+                ${CMAKE_CURRENT_SOURCE_DIR}/include
+                ${CMAKE_CURRENT_BINARY_DIR}/header-check)
+else()
+    message(STATUS "cpp not found: skipping besm-headers test")
+endif()
 
 #
 # Book tests for the BESM-6 backend (built and run only via `make book_tests`)

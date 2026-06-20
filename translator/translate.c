@@ -182,6 +182,15 @@ static bool is_fat_pointer(const Type *t)
 
 Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
 {
+    // A cast to void discards the value: the operand has already been evaluated
+    // for its side effects, and a void expression can never be used as a value.
+    // Emit no conversion and hand the source back unchanged (the caller drops it).
+    // This must precede the pointer/size logic below, which would otherwise call
+    // get_size(void) — a fatal error — for a pointer cast to void, e.g. va_end's
+    // ((void)ap).
+    if (to->kind == TYPE_VOID)
+        return src;
+
     bool from_int = is_integer(from);
     bool to_int   = is_integer(to);
     bool from_ptr = is_pointer(from);
