@@ -4,13 +4,9 @@
  * Derived from the FreeBSD kernel printf, heavily rewritten for the BESM-6 C
  * runtime.  Key adaptations:
  *
- *   - No <stdarg.h>.  Variadic arguments are read through an explicit pointer
- *     (`ap`) into the caller's parameter block; every BESM-6 argument occupies
- *     exactly one word, so a single `int *ap` walks all argument types.
- *
- *   - No C preprocessor (the scanner handles only `#` line markers, not macros),
- *     so the sink is a file-scope state block driven by emit(), and named
- *     constants are enum values.
+ *   - <stdarg.h> variadic access.  Arguments are read through a va_list (`ap`);
+ *     every BESM-6 argument occupies exactly one word, so each va_arg advances
+ *     by one word regardless of the argument type.
  *
  *   - The output device buffers KOI7 and folds letters to upper case.  Format
  *     conversion letters therefore arrive UPPER CASE ('%d' and '%D' both reach
@@ -25,13 +21,13 @@
  * sprintf/snprintf family.  g_len always counts the total length that would be
  * produced, which is the return value.
  */
-extern void putbyte(int b);
-extern double modf(double x, double *iptr);
+#include <stdio.h>
+#include <math.h>
 
 enum {
-    MAXNBUF = 32, /* digits buffer: 48-bit octal (16) + sign + prefix + slack */
-    DBL_DIG = 12, /* max meaningful significant digits for a 48-bit double     */
-    FLT_DIG = 6,  /* default precision for %f/%e and significant digits for %g */
+    MAXNBUF  = 32, /* digits buffer: 48-bit octal (16) + sign + prefix + slack  */
+    MAX_DIG  = 12, /* max meaningful significant digits for a 48-bit double     */
+    DEF_PREC = 6,  /* default precision for %f/%e and significant digits for %g */
 };
 
 /*
@@ -103,7 +99,7 @@ static char *ksprintn(char *nbuf, unsigned ul, int base, int prec, int *lenp)
 static int cvt(double number, int prec, int sharpflag, int *negp, int fmtch, char *b, int bsize,
                int *startidx);
 
-int __doprnt(char *fmt, int *ap, char *buf, int size, int to_buf)
+int __doprnt(char *fmt, va_list ap, char *buf, int size, int to_buf)
 {
     char nbuf[MAXNBUF];
     int i, c, base, ladjust, sharpflag, neg, dot;
@@ -167,13 +163,13 @@ int __doprnt(char *fmt, int *ap, char *buf, int size, int to_buf)
         }
         if (c == '*') {
             if (!dot) {
-                width = *ap++;
+                width = va_arg(ap, int);
                 if (width < 0) {
                     ladjust = 1;
                     width   = -width;
                 }
             } else {
-                dwidth = *ap++;
+                dwidth = va_arg(ap, int);
             }
             goto reswitch;
         }
@@ -205,7 +201,7 @@ int __doprnt(char *fmt, int *ap, char *buf, int size, int to_buf)
         if (c == 'C') {
             if (!ladjust)
                 emit_pad(' ', width - 1);
-            emit(*ap++);
+            emit(va_arg(ap, int));
             if (ladjust)
                 emit_pad(' ', width - 1);
             continue;
@@ -215,8 +211,7 @@ int __doprnt(char *fmt, int *ap, char *buf, int size, int to_buf)
             /* Detect a null argument from the raw word, then reconstruct the
              * char* from it.  Reading it back through char** would re-decorate a
              * null word into a (nonzero) fat pointer and hide the null. */
-            n = *ap;
-            ++ap;
+            n = va_arg(ap, int);
             if (n == 0) {
                 s = "(NULL)";
             } else {
@@ -245,14 +240,13 @@ int __doprnt(char *fmt, int *ap, char *buf, int size, int to_buf)
         if (c == 'F' || c == 'E' || c == 'G') {
             double d;
             int sidx, slen;
-            d = *(double *)ap;
-            ++ap;
-            if (dwidth > DBL_DIG) {
+            d = va_arg(ap, double);
+            if (dwidth > MAX_DIG) {
                 if (c != 'G' || sharpflag)
-                    extrazeros = dwidth - DBL_DIG;
-                dwidth = DBL_DIG;
+                    extrazeros = dwidth - MAX_DIG;
+                dwidth = MAX_DIG;
             } else if (dwidth == -1) {
-                dwidth = FLT_DIG;
+                dwidth = DEF_PREC;
             }
             if (d < 0) {
                 neg = 1;
@@ -283,29 +277,29 @@ int __doprnt(char *fmt, int *ap, char *buf, int size, int to_buf)
 
         /* ---- integer conversions ---- */
         if (c == 'D' || c == 'I') {
-            ul = (unsigned)*ap++;
+            ul = va_arg(ap, unsigned);
             if (!sign)
                 sign = 1;
             base = 10;
             goto number;
         }
         if (c == 'U') {
-            ul   = (unsigned)*ap++;
+            ul   = va_arg(ap, unsigned);
             base = 10;
             goto nosign;
         }
         if (c == 'O') {
-            ul   = (unsigned)*ap++;
+            ul   = va_arg(ap, unsigned);
             base = 8;
             goto nosign;
         }
         if (c == 'X') {
-            ul   = (unsigned)*ap++;
+            ul   = va_arg(ap, unsigned);
             base = 16;
             goto nosign;
         }
         if (c == 'P') {
-            ul        = (unsigned)*ap++;
+            ul        = va_arg(ap, unsigned);
             base      = 16;
             sharpflag = 1;
             goto nosign;
@@ -379,12 +373,12 @@ done:
 
 /*
  * Round the decimal digits start..end up by one unit in the last place,
- * propagating carries.  `exp` (when non-null) carries the e-format exponent so a
- * carry out of the leading digit bumps it; otherwise an f-format carry extends
+ * propagating carries.  `expo` (when non-null) carries the e-format exponent so
+ * a carry out of the leading digit bumps it; otherwise an f-format carry extends
  * left into the reserved slot and moves *startp back one.  Mirrors the FreeBSD
  * cvtround.
  */
-static void cvtround(double fract, int *exp, char **startp, char *end, int ch, int *negp)
+static void cvtround(double fract, int *expo, char **startp, char *end, int ch, int *negp)
 {
     double tmp;
     char *start, *p;
@@ -408,9 +402,9 @@ static void cvtround(double fract, int *exp, char **startp, char *end, int ch, i
                 break;
             *p = '0';
             if (p == start) {
-                if (exp) { /* e/E: increment exponent */
+                if (expo) { /* e/E: increment exponent */
                     *p = '1';
-                    ++*exp;
+                    ++*expo;
                 } else { /* f: prepend a digit into the reserved slot */
                     --p;
                     *p = '1';
@@ -437,31 +431,31 @@ static void cvtround(double fract, int *exp, char **startp, char *end, int ch, i
 static char *exponent(char *p, int expin, int fmtch)
 {
     char eb[8];
-    int exp, k;
+    int expo, k;
 
-    exp = expin;
+    expo = expin;
 
     *p++ = (char)fmtch;
-    if (exp < 0) {
-        exp  = -exp;
+    if (expo < 0) {
+        expo = -expo;
         *p++ = '-';
     } else {
         *p++ = '+';
     }
     k = 8;
-    if (exp > 9) {
+    if (expo > 9) {
         do {
             --k;
-            eb[k] = (char)(exp % 10 + '0');
-            exp   = exp / 10;
-        } while (exp > 9);
+            eb[k] = (char)(expo % 10 + '0');
+            expo  = expo / 10;
+        } while (expo > 9);
         --k;
-        eb[k] = (char)(exp + '0');
+        eb[k] = (char)(expo + '0');
         for (; k < 8; ++k)
             *p++ = eb[k];
     } else {
         *p++ = '0';
-        *p++ = (char)(exp + '0');
+        *p++ = (char)(expo + '0');
     }
     return p;
 }

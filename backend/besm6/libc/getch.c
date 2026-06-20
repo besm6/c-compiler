@@ -7,6 +7,8 @@
  *
  * Bytes are extracted from the word-packed line via a char* view of MONCARD*.
  */
+#include <stdio.h>
+
 extern int moncard_[25];  /* MONCARD* : current input line buffer */
 extern int kcount_[23];   /* KCOUNT*  : monitor input position */
 extern void monread_(void);

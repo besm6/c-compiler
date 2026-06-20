@@ -1,19 +1,27 @@
 /*
  * Formatted output to standard output.
  *
- * Thin wrapper over the shared formatting engine __doprnt (see doprnt.c).  There
- * is no <stdarg.h>; the variadic arguments are reached by taking the address of
- * the named anchor parameter `args` (the first conversion argument, at r6+1) and
- * walking the parameter block one word per argument.
+ * Thin wrapper over the shared formatting engine __doprnt (see doprnt.c).  The
+ * variadic arguments are reached through <stdarg.h>: va_start aims a va_list at
+ * the first conversion argument and the engine walks the parameter block one
+ * word per argument.
  *
  * Supported conversions: %d %i %u %o %x %X %c %s %p %f %e %g %% with the flags
  * '- 0 + space #', field width (incl. '*') and precision (incl. '.*').  Because
  * output is KOI7 with case folding, all letters print upper case and %x/%X,
  * %e/%E, %g/%G are indistinguishable.
  */
-extern int __doprnt(char *fmt, int *ap, char *buf, int size, int to_buf);
+#include <stdio.h>
 
-int printf(char *fmt, int args, ...)
+extern int __doprnt(char *fmt, va_list ap, char *buf, int size, int to_buf);
+
+int printf(char *fmt, ...)
 {
-    return __doprnt(fmt, &args, 0, 0, 0);
+    va_list ap;
+    int n;
+
+    va_start(ap, fmt);
+    n = __doprnt(fmt, ap, 0, 0, 0);
+    va_end(ap);
+    return n;
 }

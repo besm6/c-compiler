@@ -7,6 +7,8 @@
  * `int`, so a truncating round trip through int recovers it exactly.
  */
 
+#include <math.h>
+
 /* 2^40 — the smallest magnitude with no fractional bits left in the mantissa. */
 static double two40 = 1099511627776.0;
 

@@ -8,7 +8,8 @@
  * the BESM-6 backend.  It takes the buffer address in the accumulator (as the
  * single argument) and preserves the C frame registers.
  */
-extern void putbyte(int b);
+#include <stdio.h>
+
 extern void b$tout(int *buf);
 extern void wrcard(int dev, int *buf);
 

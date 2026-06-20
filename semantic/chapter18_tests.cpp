@@ -22,7 +22,7 @@
 
 // --- invalid_struct_tags ---
 
-TEST_F(PipelineTest, Chapter18_InvalidStructTagsArrayOfUndeclared_Neg)
+TEST_F(PipelineTest, Chapter18_StructTagsArrayOfUndeclared_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 int main(void) {
@@ -37,7 +37,7 @@ int main(void) {
                  "Array of incomplete type");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructTagsCastUndeclared_Neg)
+TEST_F(PipelineTest, Chapter18_StructTagsCastUndeclared_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 int main(void) {
@@ -51,7 +51,7 @@ int main(void) {
                  "Can only cast scalar types");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructTagsDerefUndeclared_Neg)
+TEST_F(PipelineTest, Chapter18_StructTagsDerefUndeclared_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 int main(void) {
@@ -107,7 +107,7 @@ int main(void) {
 
 // --- invalid_struct_tags ---
 
-TEST_F(PipelineTest, Chapter18_InvalidStructTagsFileScopeVarTypeUndeclared_Neg)
+TEST_F(PipelineTest, Chapter18_StructTagsFileScopeVarTypeUndeclared_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 // In our implementation, this fails tag resolution because it specifies
@@ -120,7 +120,7 @@ struct s var;
                  "Can't define a variable with incomplete type");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructTagsForLoopScope_Neg)
+TEST_F(PipelineTest, Chapter18_StructTagsForLoopScope_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 int main(void) {
@@ -143,7 +143,7 @@ int main(void) {
                  "Cannot define a variable with incomplete type");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructTagsForLoopScope2_Neg)
+TEST_F(PipelineTest, Chapter18_StructTagsForLoopScope2_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 // a struct tag declared in a for loop body is not visible in the loop header
@@ -167,7 +167,7 @@ int main(void) {
                  "Struct or union 's' not found");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructTagsMemberTypeUndeclared_Neg)
+TEST_F(PipelineTest, Chapter18_StructTagsMemberTypeUndeclared_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -181,7 +181,7 @@ struct s {
                  "Cannot declare structure member with incomplete type");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructTagsParamUndeclared_Neg)
+TEST_F(PipelineTest, Chapter18_StructTagsParamUndeclared_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 // In our implementation, this function definition fails tag resolution because
@@ -195,7 +195,7 @@ int foo(struct s x) {
                  "Can't define function with incomplete types");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructTagsReturnTypeUndeclared_Neg)
+TEST_F(PipelineTest, Chapter18_StructTagsReturnTypeUndeclared_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 void exit(int status);
@@ -210,7 +210,7 @@ struct s foo(void) {
                  "Can't define function with incomplete types");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructTagsSizeofUndeclared_Neg)
+TEST_F(PipelineTest, Chapter18_StructTagsSizeofUndeclared_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 int main(void) {
@@ -228,7 +228,7 @@ struct c {
                  "Can't apply sizeof to incomplete type");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructTagsVarTypeUndeclared_Neg)
+TEST_F(PipelineTest, Chapter18_StructTagsVarTypeUndeclared_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 int main(void) {
@@ -315,7 +315,7 @@ int main(void) {
 
 // --- invalid_types/extra_credit/incompatible_union_types ---
 
-TEST_F(PipelineTest, Chapter18_IncompatibleUnionTypesAssignDifferentUnionType_Neg)
+TEST_F(PipelineTest, Chapter18_UnionTypesAssignDifferentUnionType_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 // Can't assign one union type to another
@@ -333,7 +333,7 @@ int main(void){
                  "Cannot convert type for assignment");
 }
 
-TEST_F(PipelineTest, Chapter18_IncompatibleUnionTypesAssignScalarToUnion_Neg)
+TEST_F(PipelineTest, Chapter18_UnionTypesAssignScalarToUnion_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 // Can't assign scalar value to union, even if value has same type
@@ -349,7 +349,7 @@ int main(void) {
                  "Cannot convert type for assignment");
 }
 
-TEST_F(PipelineTest, Chapter18_IncompatibleUnionTypesReturnTypeMismatch_Neg)
+TEST_F(PipelineTest, Chapter18_UnionTypesReturnTypeMismatch_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 union u {
@@ -371,7 +371,7 @@ union u return_union(void){
                  "Structure u was already declared");
 }
 
-TEST_F(PipelineTest, Chapter18_IncompatibleUnionTypesUnionBranchMismatch_Neg)
+TEST_F(PipelineTest, Chapter18_UnionTypesUnionBranchMismatch_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 // If either branch of a conditional has union type, branches must have
@@ -392,7 +392,7 @@ int main(void) {
                  "Invalid operands for conditional");
 }
 
-TEST_F(PipelineTest, Chapter18_IncompatibleUnionTypesUnionPointerBranchMismatch_Neg)
+TEST_F(PipelineTest, Chapter18_UnionTypesUnionPointerBranchMismatch_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 int main(void) {
@@ -438,7 +438,7 @@ int main(void) {
 
 // --- invalid_types/extra_credit/invalid_union_lvalues ---
 
-TEST_F(PipelineTest, Chapter18_InvalidUnionLvaluesAddressOfNonLvalueUnionMember_Neg)
+TEST_F(PipelineTest, Chapter18_AddressOfNonLvalueUnionMember_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 union u {
@@ -465,7 +465,7 @@ int main(void) {
 // rejected by the translator gen_lval, which the typecheck-only RunPipeline fixture
 // never reaches (cf. the disabled non-lvalue struct-assignment negatives); it used to
 // "pass" only because union compound init aborted typecheck first.
-TEST_F(PipelineTest, DISABLED_Chapter18_InvalidUnionLvaluesAssignNonLvalueUnionMember_Neg)
+TEST_F(PipelineTest, DISABLED_Chapter18_AssignNonLvalueUnionMember_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 // Can't assign to members in non-lvalue unions
@@ -770,7 +770,7 @@ int main(void) {
 
 // --- invalid_types/extra_credit/union_initializers ---
 
-TEST_F(PipelineTest, Chapter18_UnionInitializersInitializerTooLong_Neg)
+TEST_F(PipelineTest, Chapter18_UnionInitializerTooLong_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* A union initializer must always have exactly one element,
@@ -1025,7 +1025,7 @@ int main(void) {
 // --- invalid_types/extra_credit/union_struct_conflicts ---
 
 // DISABLED: compiler doesn't track struct-vs-union tag kind; the cross-kind tag use is accepted
-TEST_F(PipelineTest, DISABLED_Chapter18_UnionStructConflictsConflictingTagDeclAndUse_Neg)
+TEST_F(PipelineTest, DISABLED_Chapter18_TagDeclAndUse_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* You can't declare a type with a struct specifier and then refer to it with
@@ -1042,7 +1042,7 @@ int main(void) {
 }
 
 // DISABLED: relies on tag shadowing in an inner scope; no-shadowing design has no distinct inner type
-TEST_F(PipelineTest, DISABLED_Chapter18_UnionStructConflictsConflictingTagDeclAndUseSelfReference_Neg)
+TEST_F(PipelineTest, DISABLED_Chapter18_TagDeclAndUseSelfReference_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* It's illegal to use a 'union s' type when a 'struct s' type is in scope ,
@@ -1061,7 +1061,7 @@ int main(void) {
 }
 
 // DISABLED: compiler doesn't track struct-vs-union tag kind; struct+union same tag accepted
-TEST_F(PipelineTest, DISABLED_Chapter18_UnionStructConflictsConflictingTagDeclarations_Neg)
+TEST_F(PipelineTest, DISABLED_Chapter18_TagDeclarations_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* It's illegal to specify struct and union types with the same tag in the same scope */
@@ -1075,7 +1075,7 @@ int main(void) {
                  ".");
 }
 
-TEST_F(PipelineTest, Chapter18_UnionStructConflictsStructShadowedByUnion_Neg)
+TEST_F(PipelineTest, Chapter18_StructShadowedByUnion_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* When one type declaration shadows another with the same tag (including a
@@ -1097,7 +1097,7 @@ int main(void) {
 }
 
 // DISABLED: compiler doesn't track struct-vs-union tag kind; decl/def cross-kind conflict accepted
-TEST_F(PipelineTest, DISABLED_Chapter18_UnionStructConflictsTagDeclConflictsWithDef_Neg)
+TEST_F(PipelineTest, DISABLED_Chapter18_TagDeclConflictsWithDef_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* You can't declare 'struct s' and define 'union s' or vice versa in same scope
@@ -1119,7 +1119,7 @@ int main(void) {
 }
 
 // DISABLED: compiler doesn't track struct-vs-union tag kind; def/decl cross-kind conflict accepted
-TEST_F(PipelineTest, DISABLED_Chapter18_UnionStructConflictsTagDefConflictsWithDecl_Neg)
+TEST_F(PipelineTest, DISABLED_Chapter18_TagDefConflictsWithDecl_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* You can't declare 'struct s' and define 'union s' or vice versa in same scope
@@ -1142,7 +1142,7 @@ int main(void) {
 }
 
 // DISABLED: relies on tag shadowing in an inner scope; no-shadowing design has no distinct inner type
-TEST_F(PipelineTest, DISABLED_Chapter18_UnionStructConflictsUnionShadowedByIncompleteStruct_Neg)
+TEST_F(PipelineTest, DISABLED_Chapter18_UnionShadowedByIncompleteStruct_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 
@@ -1304,7 +1304,7 @@ int main(void) {
 // --- invalid_types/extra_credit/union_type_declarations ---
 
 // DISABLED: array-of-incomplete-element not detected when the array is behind a pointer (union u (*arr)[3])
-TEST_F(PipelineTest, DISABLED_Chapter18_UnionTypeDeclarationsArrayOfIncompleteUnionType_Neg)
+TEST_F(PipelineTest, DISABLED_Chapter18_ArrayOfIncompleteUnionType_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* It's illegal to specify an array type with any incomplete
@@ -1322,7 +1322,7 @@ int main(void) {
                  ".");
 }
 
-TEST_F(PipelineTest, Chapter18_UnionTypeDeclarationsDuplicateUnionDef_Neg)
+TEST_F(PipelineTest, Chapter18_DuplicateUnionDef_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* YOu can't declare the same union type twice. */
@@ -1336,7 +1336,7 @@ int main(void) {
                  "Structure u was already declared");
 }
 
-TEST_F(PipelineTest, Chapter18_UnionTypeDeclarationsIncompleteUnionMember_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteUnionMember_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* You can't declare a union with an incomplete member type */
@@ -1352,7 +1352,7 @@ int main(void){
                  "Cannot declare structure member with incomplete type");
 }
 
-TEST_F(PipelineTest, Chapter18_UnionTypeDeclarationsMemberNameConflicts_Neg)
+TEST_F(PipelineTest, Chapter18_MemberNameConflicts_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* You can't declare two members of the same union with the same name */
@@ -1368,7 +1368,7 @@ int main(void) {
                  "Duplicate member a in structure u");
 }
 
-TEST_F(PipelineTest, Chapter18_UnionTypeDeclarationsUnionSelfReference_Neg)
+TEST_F(PipelineTest, Chapter18_UnionSelfReference_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 union u {
@@ -1386,7 +1386,7 @@ int main(void) {
 
 // --- invalid_types/incompatible_types ---
 
-TEST_F(PipelineTest, Chapter18_IncompatibleTypesAssignDifferentPointerType_Neg)
+TEST_F(PipelineTest, Chapter18_TypesAssignDifferentPointerType_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s1;
@@ -1402,7 +1402,7 @@ int main(void) {
                  "Cannot convert type for assignment");
 }
 
-TEST_F(PipelineTest, Chapter18_IncompatibleTypesAssignDifferentStructType_Neg)
+TEST_F(PipelineTest, Chapter18_TypesAssignDifferentStructType_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 // can't assign one struct type to another
@@ -1425,7 +1425,7 @@ int main(void) {
                  "Cannot convert type for assignment");
 }
 
-TEST_F(PipelineTest, Chapter18_IncompatibleTypesBranchMismatch_Neg)
+TEST_F(PipelineTest, Chapter18_TypesBranchMismatch_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s1 {
@@ -1445,7 +1445,7 @@ int main(void) {
                  "Invalid operands for conditional");
 }
 
-TEST_F(PipelineTest, Chapter18_IncompatibleTypesBranchMismatch2_Neg)
+TEST_F(PipelineTest, Chapter18_TypesBranchMismatch2_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -1461,7 +1461,7 @@ int main(void) {
                  "Invalid operands for conditional");
 }
 
-TEST_F(PipelineTest, Chapter18_IncompatibleTypesCompareDifferentStructPointers_Neg)
+TEST_F(PipelineTest, Chapter18_TypesCompareDifferentStructPointers_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s1;
@@ -1480,7 +1480,7 @@ int main(void) {
                  "Incompatible pointer types");
 }
 
-TEST_F(PipelineTest, Chapter18_IncompatibleTypesReturnWrongStructType_Neg)
+TEST_F(PipelineTest, Chapter18_TypesReturnWrongStructType_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct one {
@@ -1505,7 +1505,7 @@ int main(void) {
                  "Cannot convert type for assignment");
 }
 
-TEST_F(PipelineTest, Chapter18_IncompatibleTypesStructParamMismatch_Neg)
+TEST_F(PipelineTest, Chapter18_TypesStructParamMismatch_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct one {
@@ -1530,7 +1530,7 @@ int main(void) {
                  "Cannot convert type for assignment");
 }
 
-TEST_F(PipelineTest, Chapter18_IncompatibleTypesStructPointerParamMismatch_Neg)
+TEST_F(PipelineTest, Chapter18_TypesStructPointerParamMismatch_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s1 {
@@ -1596,7 +1596,7 @@ int main(void) {
                  "Cannot convert type for assignment");
 }
 
-TEST_F(PipelineTest, Chapter18_InitializersInitializeNestedStaticStructMemberWrongType_Neg)
+TEST_F(PipelineTest, Chapter18_InitializeNestedStaticStructMemberWrongType_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -1611,7 +1611,7 @@ struct s x = {0.0, {1.0}};
 }
 
 // DISABLED: static struct initialized with a scalar 0 is not rejected (static-init path)
-TEST_F(PipelineTest, DISABLED_Chapter18_InitializersInitializeStaticStructWithZero_Neg)
+TEST_F(PipelineTest, DISABLED_Chapter18_InitializersStaticStructWithZero_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -1624,7 +1624,7 @@ struct s x = 0;
                  ".");
 }
 
-TEST_F(PipelineTest, Chapter18_InitializersInitializeStructMemberWrongType_Neg)
+TEST_F(PipelineTest, Chapter18_InitializersStructMemberWrongType_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -1641,7 +1641,7 @@ int main(void) {
                  "Cannot convert type for assignment");
 }
 
-TEST_F(PipelineTest, Chapter18_InitializersInitializeStructWithScalar_Neg)
+TEST_F(PipelineTest, Chapter18_InitializersStructWithScalar_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 int main(void) {
@@ -1657,7 +1657,7 @@ int main(void) {
                  "Cannot convert type for assignment");
 }
 
-TEST_F(PipelineTest, Chapter18_InitializersInitializeStructWrongType_Neg)
+TEST_F(PipelineTest, Chapter18_InitializersStructWrongType_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct one {
@@ -1698,7 +1698,7 @@ int main(void) {
                  "Too many elements in struct initializer");
 }
 
-TEST_F(PipelineTest, Chapter18_InitializersNestedStaticCompoundInitializerTooLong_Neg)
+TEST_F(PipelineTest, Chapter18_InitializersNestedStaticCompoundTooLong_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct inner {
@@ -1788,7 +1788,7 @@ struct pair p = {1, 2, 3};
 
 // --- invalid_types/invalid_incomplete_structs ---
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsAssignToIncompleteVar_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsAssignToIncompleteVar_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -1804,7 +1804,7 @@ int main(void) {
                  "Incomplete structure type not permitted");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsCastIncompleteStruct_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsCastIncompleteStruct_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -1820,7 +1820,7 @@ int main(void) {
                  "Incomplete structure type not permitted");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsDerefIncompleteStructPointer_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsDerefIncompleteStructPointer_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -1837,7 +1837,7 @@ int main(void) {
                  "Incomplete structure type not permitted");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsIncompleteArgFuncall_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsIncompleteArgFuncall_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -1854,7 +1854,7 @@ int main(void) {
                  "Incomplete structure type not permitted");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsIncompleteArrayElement_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsIncompleteArrayElement_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -1875,7 +1875,7 @@ int main(void) {
                  "Array of incomplete type");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsIncompleteLocalVar_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsIncompleteLocalVar_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -1889,7 +1889,7 @@ int main(void) {
                  "Cannot define a variable with incomplete type");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsIncompleteParam_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsIncompleteParam_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -1901,7 +1901,7 @@ int foo(struct s x) { return 0; }
                  "Can't define function with incomplete types");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsIncompletePtrAddition_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsIncompletePtrAddition_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -1916,7 +1916,7 @@ int main(void) {
                  "Invalid operands for addition");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsIncompletePtrSubtraction_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsIncompletePtrSubtraction_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -1931,7 +1931,7 @@ int main(void) {
                  "Invalid operands for subtraction");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsIncompleteReturnTypeFunDef_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsIncompleteReturnTypeFunDef_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 void exit(int status);
@@ -1949,7 +1949,7 @@ int main(void) { return 0; }
                  "Can't define function with incomplete types");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsIncompleteReturnTypeFuncall_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsIncompleteReturnTypeFuncall_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -1964,7 +1964,7 @@ int main(void) {
                  "Incomplete structure type not permitted");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsIncompleteStructConditional_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsIncompleteStructConditional_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -1980,7 +1980,7 @@ int main(void) {
                  "Incomplete structure type not permitted");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsIncompleteStructFullExpr_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsIncompleteStructFullExpr_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -1997,7 +1997,7 @@ int main(void) {
                  "Incomplete structure type not permitted");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsIncompleteStructMember_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsIncompleteStructMember_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -2011,7 +2011,7 @@ int main(void) {
                  "Incomplete structure type not permitted");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsIncompleteSubscript_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsIncompleteSubscript_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -2024,7 +2024,7 @@ int main(void) { ptr[0]; }
                  "Invalid types for subscript operation");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsIncompleteTentativeDef_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsIncompleteTentativeDef_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -2041,7 +2041,7 @@ int main(void) { return 0; }
                  "Can't define a variable with incomplete type");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsInitializeIncomplete_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsInitializeIncomplete_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -2059,7 +2059,7 @@ struct s {
                  "Struct or union 's' not found");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsSizeofIncomplete_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsSizeofIncomplete_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -2071,7 +2071,7 @@ int main(void) {
                  "Can't apply sizeof to incomplete type");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidIncompleteStructsSizeofIncompleteExpr_Neg)
+TEST_F(PipelineTest, Chapter18_IncompleteStructsSizeofIncompleteExpr_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s;
@@ -2090,7 +2090,7 @@ int main(void) {
 
 // --- invalid_types/invalid_lvalues ---
 
-TEST_F(PipelineTest, Chapter18_InvalidLvaluesAddressOfNonLvalue_Neg)
+TEST_F(PipelineTest, Chapter18_LvaluesAddressOfNonLvalue_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -2111,7 +2111,7 @@ int main(void) {
 }
 
 // DISABLED: non-lvalue struct assignment is caught only in the translator (gen_lval), not the typecheck-only fixture
-TEST_F(PipelineTest, DISABLED_Chapter18_InvalidLvaluesAssignNestedNonLvalue_Neg)
+TEST_F(PipelineTest, DISABLED_Chapter18_LvaluesAssignNestedNonLvalue_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct inner {
@@ -2139,7 +2139,7 @@ int main(void) {
 }
 
 // DISABLED: assignment to an array-typed lvalue (array member) is not rejected
-TEST_F(PipelineTest, DISABLED_Chapter18_InvalidLvaluesAssignToArray_Neg)
+TEST_F(PipelineTest, DISABLED_Chapter18_LvaluesAssignToArray_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct chars {
@@ -2158,7 +2158,7 @@ int main(void) {
 }
 
 // DISABLED: non-lvalue struct assignment is caught only in the translator (gen_lval), not the typecheck-only fixture
-TEST_F(PipelineTest, DISABLED_Chapter18_InvalidLvaluesAssignToNonLvalue_Neg)
+TEST_F(PipelineTest, DISABLED_Chapter18_LvaluesAssignToNonLvalue_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -2181,7 +2181,7 @@ int main(void) {
 
 // --- invalid_types/invalid_member_operators ---
 
-TEST_F(PipelineTest, Chapter18_InvalidMemberOperatorsArrowPointerToNonStruct_Neg)
+TEST_F(PipelineTest, Chapter18_MemberOperatorsArrowPointerToNonStruct_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -2197,7 +2197,7 @@ int main(void) {
                  "Arrow operator requires pointer to structure or union");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidMemberOperatorsBadMember_Neg)
+TEST_F(PipelineTest, Chapter18_MemberOperatorsBadMember_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -2218,7 +2218,7 @@ int main(void) {
                  "Struct s has no member blah");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidMemberOperatorsBadPointerMember_Neg)
+TEST_F(PipelineTest, Chapter18_MemberOperatorsBadPointerMember_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 void *malloc(unsigned long size);
@@ -2242,7 +2242,7 @@ int main(void) {
                  "Struct a has no member m");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidMemberOperatorsMemberOfNonStruct_Neg)
+TEST_F(PipelineTest, Chapter18_MemberOperatorsMemberOfNonStruct_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 void *malloc(unsigned long size);
@@ -2260,7 +2260,7 @@ int main(void) {
                  "Dot operator requires structure or union type");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidMemberOperatorsMemberPointerNonStructPointer_Neg)
+TEST_F(PipelineTest, Chapter18_MemberOperatorsMemberPointerNonStructPointer_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct a {
@@ -2277,7 +2277,7 @@ int main(void) {
                  "Arrow operator requires pointer to structure or union");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidMemberOperatorsNestedArrowPointerToNonStruct_Neg)
+TEST_F(PipelineTest, Chapter18_MemberOperatorsNestedArrowPointerToNonStruct_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -2297,7 +2297,7 @@ int main(void) {
                  "Arrow operator requires pointer to structure or union");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidMemberOperatorsPostfixPrecedence_Neg)
+TEST_F(PipelineTest, Chapter18_MemberOperatorsPostfixPrecedence_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 int main(void) {
@@ -2318,7 +2318,7 @@ int main(void) {
 
 // --- invalid_types/invalid_struct_declaration ---
 
-TEST_F(PipelineTest, Chapter18_InvalidStructDeclarationDuplicateMemberName_Neg)
+TEST_F(PipelineTest, Chapter18_StructDeclarationDuplicateMemberName_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -2330,7 +2330,7 @@ struct s {
                  "Duplicate member x in structure s");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructDeclarationDuplicateStructDeclaration_Neg)
+TEST_F(PipelineTest, Chapter18_StructDeclarationDuplicateStructDeclaration_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 int main(void) {
@@ -2348,7 +2348,7 @@ int main(void) {
                  "Structure x was already declared");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructDeclarationIncompleteMember_Neg)
+TEST_F(PipelineTest, Chapter18_StructDeclarationIncompleteMember_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s; // declare incomplete structure type
@@ -2361,7 +2361,7 @@ struct a {
                  "Cannot declare structure member with incomplete type");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructDeclarationInvalidArrayMember_Neg)
+TEST_F(PipelineTest, Chapter18_StructDeclarationInvalidArrayMember_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct incomplete;
@@ -2375,7 +2375,7 @@ struct s {
                  "Array of incomplete type");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructDeclarationInvalidSelfReference_Neg)
+TEST_F(PipelineTest, Chapter18_StructDeclarationInvalidSelfReference_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -2393,7 +2393,7 @@ int main(void) {
                  "Cannot declare structure member with incomplete type");
 }
 
-TEST_F(PipelineTest, Chapter18_InvalidStructDeclarationVoidMember_Neg)
+TEST_F(PipelineTest, Chapter18_StructDeclarationVoidMember_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -2881,7 +2881,7 @@ union s {
 
 // --- invalid_parse ---
 
-TEST_F(PipelineTest, Chapter18_InvalidParseStructMemberIsFunction_Neg)
+TEST_F(PipelineTest, Chapter18_ParseStructMemberIsFunction_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {

@@ -7,7 +7,7 @@
  * flushes.  This file also defines the shared output-buffer globals referenced
  * by putch.c and flush.c.
  */
-extern void flush(void);
+#include <stdio.h>
 
 int out_cnt;
 int out_shft;

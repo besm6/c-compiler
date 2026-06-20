@@ -5,9 +5,17 @@
  * terminating NUL into buf and returns its length.  Shares the engine __doprnt
  * with printf (see doprnt.c).  A large nominal size stands in for "unbounded".
  */
-extern int __doprnt(char *fmt, int *ap, char *buf, int size, int to_buf);
+#include <stdio.h>
 
-int sprintf(char *buf, char *fmt, int args, ...)
+extern int __doprnt(char *fmt, va_list ap, char *buf, int size, int to_buf);
+
+int sprintf(char *buf, char *fmt, ...)
 {
-    return __doprnt(fmt, &args, buf, 1 << 24, 1);
+    va_list ap;
+    int n;
+
+    va_start(ap, fmt);
+    n = __doprnt(fmt, ap, buf, 1 << 24, 1);
+    va_end(ap);
+    return n;
 }

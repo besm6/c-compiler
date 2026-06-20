@@ -5,7 +5,7 @@
  * emits them left to right, skipping leading zero bytes.  `unsigned` makes the
  * `>>` a logical shift (matching B).
  */
-extern void putbyte(int b);
+#include <stdio.h>
 
 void putch(unsigned ch)
 {

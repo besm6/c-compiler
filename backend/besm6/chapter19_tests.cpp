@@ -1814,7 +1814,7 @@ int main(void) {
 }
 
 // DISABLED: NaN constant folding loops in the optimizer
-TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_ExtraCredit_EvalNanCondition)
+TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_EvalNanCondition)
 {
     CompileAndRun(WrapMain(R"WP(
 /* NaN controlling expressions are treated as true */
@@ -1834,7 +1834,7 @@ int main(void) {
 }
 
 // DISABLED: doubles and 64-bit long/ulong beyond 41-bit range
-TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_ExtraCredit_FoldCompoundAssignAllTypes)
+TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_FoldCompoundAssignAllTypes)
 {
     CompileAndRun(WrapMain(R"WP(
 /* Test copy prop/constant folding of compound assignment with non-integer
@@ -2035,7 +2035,7 @@ int main(void) {
 }
 
 // DISABLED: 64-bit long bit patterns beyond 41-bit range
-TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_ExtraCredit_FoldCompoundBitwiseAssignAllTypes)
+TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_FoldCompoundBitwiseAssignAllTypes)
 {
     CompileAndRun(WrapMain(R"WP(
 /* Test copy prop/constant folding of compound bitwise assignment with non-integer
@@ -2292,7 +2292,7 @@ int main(void) {
 )WP"));
 }
 
-TEST_F(CodegenTest, Chapter19_WP_AllTypes_ExtraCredit_FoldIncrDecrChars)
+TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldIncrDecrChars)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
 /* Evaluate ++/-- with character types; make sure we handle integer promotions correctly */
@@ -2324,7 +2324,7 @@ int main(void) {
 }
 
 // DISABLED: double ++/-- magnitudes not representable on BESM-6 floats
-TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_ExtraCredit_FoldIncrDecrDoubles)
+TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_FoldIncrDecrDoubles)
 {
     CompileAndRun(WrapMain(R"WP(
 /* Make sure we can constant fold ++/-- operations on doubles */
@@ -2360,7 +2360,7 @@ int main(void) {
 }
 
 // DISABLED: 32-bit unsigned wraparound semantics differ on BESM-6
-TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_ExtraCredit_FoldIncrDecrUnsigned)
+TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_FoldIncrDecrUnsigned)
 {
     CompileAndRun(WrapMain(R"WP(
 /* Propagate ++/-- with unsigned integers (make sure they wrap around correctly) */
@@ -2392,7 +2392,7 @@ int main(void) {
 )WP"));
 }
 
-TEST_F(CodegenTest, Chapter19_WP_AllTypes_ExtraCredit_FoldNegativeLongBitshift)
+TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldNegativeLongBitshift)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
 /* Test constant folding >> with negative long source value (make sure
@@ -2414,7 +2414,7 @@ int main(void) {
 }
 
 // DISABLED: NaN constant folding loops in the optimizer
-TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_ExtraCredit_Nan)
+TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_Nan)
 {
     CompileAndRun(WrapMain(R"WP(
 // Test that we can constant-fold operations on NaN (and propagate NaN like other values);

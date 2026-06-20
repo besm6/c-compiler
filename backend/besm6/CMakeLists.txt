@@ -35,24 +35,39 @@ set(LIBC_MADLEN
 list(TRANSFORM LIBC_MADLEN PREPEND ${LIBC_DIR}/ OUTPUT_VARIABLE LIBC_SOURCES)
 list(TRANSFORM LIBC_SOURCES APPEND .madlen)
 
+# The libc C sources #include the project's own standard headers, so they must be
+# run through a C preprocessor before our front end.  Locate the system cpp; it is
+# a hard build dependency (also reused by the besm-headers test below).
+find_program(SystemCpp NAMES cpp)
+if(SystemCpp MATCHES "NOTFOUND")
+    message(FATAL_ERROR
+        "C preprocessor (cpp) not found; it is required to build the BESM-6 libc")
+endif()
+
+# Standard headers consumed by the libc sources; an edit to any of them rebuilds.
+file(GLOB BESM6_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
+
 # C runtime routines compiled by our own pipeline.  Each NAME.c becomes NAME.madlen
-# in the build directory via parse -> lower -> genbesm.  besmc only recognizes the
-# .madlen extension, so genbesm writes there.
+# in the build directory via cpp -> parse -> lower -> genbesm.  besmc only recognizes
+# the .madlen extension, so genbesm writes there.
 set(LIBC_C
     putbyte putch flush printf getch
     doprnt sprintf snprintf modf)
 set(LIBC_C_MADLEN "")
 foreach(name ${LIBC_C})
     set(c_src  ${LIBC_DIR}/${name}.c)
+    set(c_pre  ${CMAKE_CURRENT_BINARY_DIR}/${name}.i)
     set(c_ast  ${CMAKE_CURRENT_BINARY_DIR}/${name}.ast)
     set(c_tac  ${CMAKE_CURRENT_BINARY_DIR}/${name}.tac)
     set(c_mad  ${CMAKE_CURRENT_BINARY_DIR}/${name}.madlen)
     add_custom_command(
         OUTPUT  ${c_mad}
-        COMMAND parse   ${c_src} ${c_ast}
+        COMMAND ${SystemCpp} -P -nostdinc -I${CMAKE_CURRENT_SOURCE_DIR}/include
+                ${c_src} ${c_pre}
+        COMMAND parse   ${c_pre} ${c_ast}
         COMMAND lower   ${c_ast} ${c_tac}
         COMMAND genbesm ${c_tac} ${c_mad}
-        DEPENDS ${c_src} parse lower genbesm
+        DEPENDS ${c_src} ${BESM6_HEADERS} parse lower genbesm
         COMMENT "Compiling libc/${name}.c -> ${name}.madlen")
     list(APPEND LIBC_C_MADLEN ${c_mad})
 endforeach()
@@ -100,21 +115,16 @@ gtest_discover_tests(besm-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 1
 
 #
 # Standard-library header check: every header in include/ must preprocess (via the
-# system cpp) and parse.  Skipped gracefully when no cpp is found.
+# system cpp, located above) and parse.
 #
-find_program(SystemCpp NAMES cpp)
-if(NOT (SystemCpp MATCHES "NOTFOUND"))
-    add_test(
-        NAME besm-headers
-        COMMAND ${CMAKE_COMMAND} -E env
-                ${CMAKE_SOURCE_DIR}/scripts/check_headers.sh
-                ${SystemCpp}
-                $<TARGET_FILE:parse>
-                ${CMAKE_CURRENT_SOURCE_DIR}/include
-                ${CMAKE_CURRENT_BINARY_DIR}/header-check)
-else()
-    message(STATUS "cpp not found: skipping besm-headers test")
-endif()
+add_test(
+    NAME besm-headers
+    COMMAND ${CMAKE_COMMAND} -E env
+            ${CMAKE_SOURCE_DIR}/scripts/check_headers.sh
+            ${SystemCpp}
+            $<TARGET_FILE:parse>
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_BINARY_DIR}/header-check)
 
 #
 # Book tests for the BESM-6 backend (built and run only via `make book_tests`)
