@@ -1,10 +1,11 @@
 /*
  * <string.h> — string handling (C11 §7.24), BESM-6 target.
  *
- * All functions are declared for future implementation (TODO); none is in
- * libc.bin yet.  On BESM-6 char* / void* are FAT pointers: a byte cursor carries
- * its in-word offset, so byte-by-byte traversal works across word boundaries
- * (see Besm6_Data_Representation.md and the b/p* runtime helpers).
+ * memcpy, memset and memcmp are implemented in libc.bin; the remaining
+ * functions are declared for future implementation (TODO).  On BESM-6
+ * char* / void* are FAT pointers: a byte cursor carries its in-word offset, so
+ * byte-by-byte traversal works across word boundaries (see
+ * Besm6_Data_Representation.md and the b/p* runtime helpers).
  */
 #ifndef _STRING_H
 #define _STRING_H

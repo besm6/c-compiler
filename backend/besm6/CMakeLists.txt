@@ -48,7 +48,8 @@ file(GLOB BESM6_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
 # the .madlen extension, so genbesm writes there.
 set(LIBC_C
     putbyte putch flush printf getch
-    doprnt sprintf snprintf modf malloc)
+    doprnt sprintf snprintf modf malloc
+    memcpy memset memcmp)
 set(LIBC_C_MADLEN "")
 foreach(name ${LIBC_C})
     set(c_src  ${LIBC_DIR}/${name}.c)
@@ -101,6 +102,7 @@ add_executable(besm-tests
     printf_tests.cpp
     funcptr_tests.cpp
     stdarg_tests.cpp
+    mem_tests.cpp
 )
 target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
 add_dependencies(besm-tests besm-libc)
