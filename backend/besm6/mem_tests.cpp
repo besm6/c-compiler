@@ -159,3 +159,113 @@ TEST_F(CodegenTest, MemcmpBoundedPrefix)
     )");
     EXPECT_EQ("0\n", result);
 }
+
+// ---- memmove -------------------------------------------------------------
+
+TEST_F(CodegenTest, MemmoveNonOverlapping)
+{
+    std::string result = CompileAndRun(R"(
+#include <stdio.h>
+#include <string.h>
+        void program() {
+            char dst[9];
+            memmove(dst, "ABCDEFGH", 8);
+            dst[8] = 0;
+            printf("%s\n", dst);
+        }
+    )");
+    EXPECT_EQ("ABCDEFGH\n", result);
+}
+
+TEST_F(CodegenTest, MemmoveOverlapForward)
+{
+    // dst precedes src: shift left by one.  "ABCDEF" -> "BCDEF".
+    std::string result = CompileAndRun(R"(
+#include <stdio.h>
+#include <string.h>
+        void program() {
+            char buf[8];
+            memcpy(buf, "ABCDEF", 6);
+            buf[6] = 0;
+            memmove(buf, buf + 1, 5);
+            buf[5] = 0;
+            printf("%s\n", buf);
+        }
+    )");
+    EXPECT_EQ("BCDEF\n", result);
+}
+
+TEST_F(CodegenTest, MemmoveOverlapBackward)
+{
+    // dst follows src: shift right by one.  "ABCDEF" -> "AABCDE".
+    std::string result = CompileAndRun(R"(
+#include <stdio.h>
+#include <string.h>
+        void program() {
+            char buf[8];
+            memcpy(buf, "ABCDEF", 6);
+            buf[6] = 0;
+            memmove(buf + 1, buf, 5);
+            printf("%s\n", buf);
+        }
+    )");
+    EXPECT_EQ("AABCDE\n", result);
+}
+
+TEST_F(CodegenTest, MemmoveReturnsDest)
+{
+    std::string result = CompileAndRun(R"(
+#include <stdio.h>
+#include <string.h>
+        void program() {
+            char dst[4];
+            char *r = memmove(dst, "XYZ", 3);
+            printf("%d\n", r == dst);
+        }
+    )");
+    EXPECT_EQ("1\n", result);
+}
+
+// ---- memchr --------------------------------------------------------------
+
+TEST_F(CodegenTest, MemchrFound)
+{
+    // Offset of the matching byte within "ABCDEF".
+    std::string result = CompileAndRun(R"(
+#include <stdio.h>
+#include <string.h>
+        void program() {
+            const char *s = "ABCDEF";
+            char *p = memchr(s, 'C', 6);
+            printf("%d\n", (int)(p - s));
+        }
+    )");
+    EXPECT_EQ("2\n", result);
+}
+
+TEST_F(CodegenTest, MemchrNotFound)
+{
+    std::string result = CompileAndRun(R"(
+#include <stdio.h>
+#include <string.h>
+        void program() {
+            char *p = memchr("ABCDEF", 'Z', 6);
+            printf("%d\n", p == 0);
+        }
+    )");
+    EXPECT_EQ("1\n", result);
+}
+
+TEST_F(CodegenTest, MemchrBounded)
+{
+    // 'D' is at index 3, but only the first 3 bytes are scanned -> not found.
+    std::string result = CompileAndRun(R"(
+#include <stdio.h>
+#include <string.h>
+        void program() {
+            char *p = memchr("ABCDEF", 'D', 3);
+            printf("%d\n", p == 0);
+        }
+    )");
+    EXPECT_EQ("1\n", result);
+}

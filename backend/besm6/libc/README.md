@@ -48,6 +48,31 @@ BESM-6 specifics:
 | `char(str, i)` | [char.madlen](char.madlen) | Return byte `i` of string `str` (left-to-right, 0-based) |
 | `lchar(str, i, ch)` | [lchar.madlen](lchar.madlen) | Set byte `i` of string `str` to `ch`; return `ch` |
 
+### `<string.h>` (C11 §7.24)
+
+All routines treat `char*` / `void*` as fat byte cursors, so they cross word
+boundaries transparently.
+
+| Function | Source | Description |
+|----------|--------|-------------|
+| `strlen(s)` | [strlen.c](strlen.c) | Length of the NUL-terminated string `s` |
+| `strcpy(dest, src)` | [strcpy.c](strcpy.c) | Copy `src` (incl. NUL) into `dest` |
+| `strncpy(dest, src, n)` | [strncpy.c](strncpy.c) | Copy ≤ `n` bytes; pad with NUL if `src` is shorter |
+| `strcat(dest, src)` | [strcat.c](strcat.c) | Append `src` to `dest` |
+| `strncat(dest, src, n)` | [strncat.c](strncat.c) | Append ≤ `n` bytes of `src`; always NUL-terminates |
+| `strcmp(s1, s2)` | [strcmp.c](strcmp.c) | Compare strings (unsigned char), `<0`/`0`/`>0` |
+| `strncmp(s1, s2, n)` | [strncmp.c](strncmp.c) | Compare ≤ `n` bytes |
+| `strchr(s, c)` | [strchr.c](strchr.c) | First occurrence of `c` (incl. the NUL when `c==0`) |
+| `strrchr(s, c)` | [strrchr.c](strrchr.c) | Last occurrence of `c` |
+| `strstr(hay, needle)` | [strstr.c](strstr.c) | First occurrence of substring `needle` |
+| `strtok(str, delim)` | [strtok.c](strtok.c) | Tokenize on `delim`; non-reentrant (file-scope state) |
+| `strerror(errnum)` | [strerror.c](strerror.c) | Static message for an `<errno.h>` code (UPPERCASE) |
+| `memcpy(dest, src, n)` | [memcpy.c](memcpy.c) | Copy `n` bytes; regions must not overlap |
+| `memmove(dest, src, n)` | [memmove.c](memmove.c) | Copy `n` bytes, overlap-safe |
+| `memset(s, c, n)` | [memset.c](memset.c) | Fill `n` bytes with `c` |
+| `memcmp(s1, s2, n)` | [memcmp.c](memcmp.c) | Compare `n` bytes (unsigned char) |
+| `memchr(s, c, n)` | [memchr.c](memchr.c) | First `c` within the first `n` bytes |
+
 ## Program Control
 
 | Function | Source | Description |

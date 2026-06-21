@@ -49,7 +49,10 @@ file(GLOB BESM6_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
 set(LIBC_C
     putbyte putch flush printf getch
     doprnt sprintf snprintf modf malloc
-    memcpy memset memcmp)
+    memcpy memset memcmp memmove memchr
+    strlen strcpy strncpy strcat strncat
+    strcmp strncmp strchr strrchr strstr
+    strtok strerror)
 set(LIBC_C_MADLEN "")
 foreach(name ${LIBC_C})
     set(c_src  ${LIBC_DIR}/${name}.c)
@@ -103,6 +106,7 @@ add_executable(besm-tests
     funcptr_tests.cpp
     stdarg_tests.cpp
     mem_tests.cpp
+    str_tests.cpp
 )
 target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
 add_dependencies(besm-tests besm-libc)
