@@ -163,3 +163,34 @@ TEST_F(CodegenTest, ArrayDecayToPointerRun)
     )");
     EXPECT_EQ("60\n", result);
 }
+
+// A block-scope `static int *` initialized with the address of a global: a plain
+// (word) pointer static local.  Exercises the Z00 `label` field for the
+// TAC_STATIC_INIT_POINTER chain (SUBP + two Z00 words).
+TEST_F(CodegenTest, StaticLocalPtrToGlobalRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int g = 7;
+        void program() {
+            static int *q = &g;
+            printf("%d\n", *q);
+        }
+    )");
+    EXPECT_EQ("7\n", result);
+}
+
+// A `static int *` initialized with the address of an array element (&arr[2]):
+// exercises a non-zero byte_offset in the pointer init.
+TEST_F(CodegenTest, StaticLocalPtrToArrayElemRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int arr[3] = {11, 22, 33};
+        void program() {
+            static int *q = &arr[2];
+            printf("%d\n", *q);
+        }
+    )");
+    EXPECT_EQ("33\n", result);
+}

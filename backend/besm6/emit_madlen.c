@@ -369,7 +369,7 @@ void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
         }
         case BESM_DATA_Z00:
             addr_str(a, sizeof(a), instr->name, instr->addr);
-            emit_line(out, NULL, instr->reg, "z00", a);
+            emit_line(out, instr->label, instr->reg, "z00", a);
             break;
         }
     }

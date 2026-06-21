@@ -105,6 +105,8 @@ struct Besm_Instr {
     unsigned reg;               // index-register 0..15, or displacement (BESM_DATA_Z00)
     int addr;                   // offset, or integer data value (BESM_DATA_INT/BSS/EQU)
     char *name;                 // symbolic name, optional (heap-owned)
+    char *label;                // Madlen label for a data word whose `name` is already an
+                                // operand (currently only BESM_DATA_Z00), optional (heap-owned)
     unsigned long long log_val; // BESM_DATA_LOG: 48-bit logical constant
     double real_val;            // BESM_DATA_REAL
     // TODO: star plus offset

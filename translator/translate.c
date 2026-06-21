@@ -537,6 +537,29 @@ Tac_Type *ast_type_to_tac_type(const Type *t)
 // Top-level translation
 //
 
+// For each POINTER / FAT_POINTER entry in `inits` that references a SYM_CONST string
+// literal whose data has not yet been emitted, build a TAC_TOPLEVEL_STATIC_CONSTANT and
+// append it through `*ctailp`.  Ownership of the const init transfers to the new toplevel,
+// so a string referenced more than once (by several statics or by the body) emits once.
+static void emit_referenced_string_constants(const Tac_StaticInit *inits, Tac_TopLevel ***ctailp)
+{
+    for (const Tac_StaticInit *init = inits; init; init = init->next) {
+        if (init->kind != TAC_STATIC_INIT_POINTER && init->kind != TAC_STATIC_INIT_FAT_POINTER)
+            continue;
+        const char *sname = init->u.pointer.name;
+        Symbol *sym       = symtab_get(sname);
+        if (!sym || sym->kind != SYM_CONST || !sym->u.const_init)
+            continue;
+        Tac_TopLevel *sc           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
+        sc->u.static_constant.name = xstrdup(sname);
+        sc->u.static_constant.type = ast_type_to_tac_type(sym->type);
+        sc->u.static_constant.init = sym->u.const_init;
+        sym->u.const_init          = NULL; // transfer ownership to TAC
+        **ctailp                   = sc;
+        *ctailp                    = &sc->next;
+    }
+}
+
 static Tac_TopLevel *translate_fn(const ExternalDecl *ast)
 {
     const char *name  = ast->u.function.name;
@@ -585,6 +608,15 @@ static Tac_TopLevel *translate_fn(const ExternalDecl *ast)
             sl->next            = tl->u.function.static_locals;
             tl->u.function.static_locals = sl;
         }
+
+        // String literals used to initialize a static local (e.g. `static char *p = "ABC";`)
+        // are referenced only from the static-local init list, not the body, so emit their
+        // data constants here.  Append after the body's expression constants (ctx.static_constants).
+        Tac_TopLevel **ctail = &ctx.static_constants;
+        while (*ctail)
+            ctail = &(*ctail)->next;
+        for (const Tac_StaticLocal *sl = tl->u.function.static_locals; sl; sl = sl->next)
+            emit_referenced_string_constants(sl->init_list, &ctail);
 
         if (ctx.static_constants) {
             Tac_TopLevel *last = ctx.static_constants;
@@ -635,25 +667,8 @@ static Tac_TopLevel *translate_decl(const Declaration *decl)
     // fat pointer, so the string it points at arrives as FAT_POINTER, not POINTER.)
     Tac_TopLevel *constants_head = NULL;
     Tac_TopLevel **ctail         = &constants_head;
-    for (const Tac_TopLevel *cur = head; cur; cur = cur->next) {
-        for (const Tac_StaticInit *init = cur->u.static_variable.init_list; init;
-             init                       = init->next) {
-            if (init->kind != TAC_STATIC_INIT_POINTER &&
-                init->kind != TAC_STATIC_INIT_FAT_POINTER)
-                continue;
-            const char *sname = init->u.pointer.name;
-            Symbol *sym       = symtab_get(sname);
-            if (!sym || sym->kind != SYM_CONST || !sym->u.const_init)
-                continue;
-            Tac_TopLevel *sc           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
-            sc->u.static_constant.name = xstrdup(sname);
-            sc->u.static_constant.type = ast_type_to_tac_type(sym->type);
-            sc->u.static_constant.init = sym->u.const_init;
-            sym->u.const_init          = NULL; // transfer ownership to TAC
-            *ctail                     = sc;
-            ctail                      = &sc->next;
-        }
-    }
+    for (const Tac_TopLevel *cur = head; cur; cur = cur->next)
+        emit_referenced_string_constants(cur->u.static_variable.init_list, &ctail);
     if (constants_head) {
         *ctail = head;
         return constants_head;

@@ -8,6 +8,7 @@ void besm_free_instr(Besm_Instr *instr)
     if (!instr)
         return;
     xfree(instr->name);
+    xfree(instr->label);
     besm_free_instr(instr->next);
     xfree(instr);
 }

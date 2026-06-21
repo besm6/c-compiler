@@ -206,7 +206,9 @@ module Besm6 {
   -- Instruction node
   -- =========================================================
 
-  instr = Instr(instr_kind kind, int reg, int addr, string? name)
+  -- `label` is the Madlen label of a data word whose `name` is already an operand
+  -- (currently only Z00, used to label a pointer-initialized static local).
+  instr = Instr(instr_kind kind, int reg, int addr, string? name, string? label)
 
   -- =========================================================
   -- Code structure

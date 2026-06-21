@@ -276,6 +276,20 @@ static bool data_item_labelable(const Besm_Instr *item)
     }
 }
 
+// Find the first instruction in `items` that can carry the static local's Madlen label:
+// either a directly-labelable data word (scalar/array/string), or — for a pointer/fat-pointer
+// initializer, whose chain begins with a SUBP external declaration — the first Z00 address
+// word, which carries its label in the dedicated `label` field (its `name` is the operand).
+static Besm_Instr *static_local_label_site(Besm_Instr *items)
+{
+    if (items && data_item_labelable(items))
+        return items;
+    for (Besm_Instr *it = items; it; it = it->next)
+        if (it->kind == BESM_DATA_Z00)
+            return it;
+    return NULL;
+}
+
 // Emit each block-scope static local of `fn` as a module-local labeled datum, spliced into
 // the function module just before its `,end,` (after the code).  String constants referenced
 // by a static-local initializer are folded in by the caller's besm_fold_string_constants.
@@ -289,8 +303,13 @@ void besm_emit_static_locals(Besm_Module *module, const Tac_TopLevel *fn)
 
     for (const Tac_StaticLocal *sl = fn->u.function.static_locals; sl; sl = sl->next) {
         Besm_Instr *items = static_data_items(sl->type, sl->init_list);
-        if (items && data_item_labelable(items))
-            items->name = xstrdup(sl->name);
+        Besm_Instr *site  = static_local_label_site(items);
+        // A plain data word labels through `name`; a Z00 address word (pointer init) labels
+        // through `label`, since its `name` already holds the referenced symbol.
+        if (site && site->kind == BESM_DATA_Z00)
+            site->label = xstrdup(sl->name);
+        else if (site)
+            site->name = xstrdup(sl->name);
         else
             fatal_error("static local %s: unsupported initializer layout", sl->name);
         insert_before_end(last, items);

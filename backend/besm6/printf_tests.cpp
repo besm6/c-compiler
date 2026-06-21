@@ -352,3 +352,18 @@ TEST_F(CodegenTest, EnumArrayDimension)
     )");
     EXPECT_EQ("4\n", result);
 }
+
+// A block-scope `static char *` initialized with the address of a string literal:
+// a fat-pointer static local.  Exercises the Z00 `label` field — the pointer datum
+// is labeled inside the function module and references the folded string constant.
+TEST_F(CodegenTest, PrintfStaticStringPointer)
+{
+    std::string result = CompileAndRun(R"(
+#include <stdio.h>
+        void program() {
+            static char *p = "ABC";
+            printf("[%s]\n", p);
+        }
+    )");
+    EXPECT_EQ("[ABC]\n", result);
+}
