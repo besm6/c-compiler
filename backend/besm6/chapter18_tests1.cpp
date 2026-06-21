@@ -730,9 +730,11 @@ void update_members_through_pointer(struct outer *ptr, int a, int b, struct inne
 )")));
 }
 
-// params_and_returns/libraries/missing_retval: a callee whose multi-word struct
-// return type is never given a return statement is well-defined as long as the
-// caller doesn't use the result.
+// params_and_returns/libraries/missing_retval: the book's callee omits its
+// `return` entirely, which is now a compile error (a non-void function may not
+// fall off the end — see semantic/declarations.c).  We give it a (returned but
+// ignored) struct value so the program still exercises the side effect through
+// the pointer parameter while the caller discards the result.
 TEST_F(CodegenTest, Chapter18_MissingRetval)
 {
     EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(
@@ -745,6 +747,8 @@ int main(void) {
 }
 struct big missing_return_value(int *i) {
     *i = 10;
+    struct big result;
+    return result;
 }
 )")));
 }

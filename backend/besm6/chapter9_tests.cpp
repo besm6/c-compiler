@@ -157,10 +157,12 @@ int f(void) {
 })")));
 }
 
-// A non-void function may fall off the end if the caller ignores the result.
+// A void function may fall off the end; the caller ignores it and main returns 3.
+// (A *non-void* function falling off the end is now a compile error — see the
+// missing-return diagnostic in semantic/declarations.c.)
 TEST_F(CodegenTest, Chapter9_NoReturnValue)
 {
-    EXPECT_EQ("3\n", CompileAndRun(WrapMain(R"(int foo(void) {
+    EXPECT_EQ("3\n", CompileAndRun(WrapMain(R"(void foo(void) {
     int x = 1;
 }
 

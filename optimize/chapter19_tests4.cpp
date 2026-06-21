@@ -2581,7 +2581,16 @@ TEST_F(PipelineTest, Chapter19_UCE_Empty)
 int main(void) {
 }
 )SRC"),
-              R"OPT()OPT");
+              // main() falls off the end, so the typechecker appends an implicit
+              // `return 0;` (C11 §5.1.2.2.3); the body is no longer empty.
+              R"OPT(- instruction:
+  kind: return
+  src:
+    kind: constant
+    const:
+      kind: int
+      value: 0
+)OPT");
 }
 
 TEST_F(PipelineTest, Chapter19_UCE_EmptyBlock)

@@ -13,9 +13,9 @@
 //        - remove_unused_labels:  a Label that is no longer any jump's target
 //          (and is not the entry label) is removed for readability.
 //
-// A common beneficiary is the backstop Return(NULL) the translator appends to
-// every function: when the source already ends in a return, that backstop is
-// unreachable and is removed here automatically, with no special case anywhere.
+// A common beneficiary is dead code following an unconditional `return`/`jump`:
+// when a block already ends in a return, any straight-line instructions after it
+// are unreachable and are removed here automatically, with no special case anywhere.
 //
 // See docs/TAC_Optimization.md §"Unreachable code elimination".
 // ============================================================================

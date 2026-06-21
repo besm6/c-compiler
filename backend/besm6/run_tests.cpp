@@ -264,3 +264,25 @@ TEST_F(CodegenTest, DISABLED_MallocHeapRoundTrip)
     )");
     EXPECT_EQ("SUM 285\nREUSE 1\nFULL 1\nZERO 0\nREALLOC 7\n", result);
 }
+
+// main() falling off the end gets an implicit `return 0;` (C11 §5.1.2.2.3), so
+// its return value is a well-defined 0 rather than indeterminate accumulator
+// garbage.  program() prints main()'s value.
+TEST_F(CodegenTest, MainImplicitReturnZero)
+{
+    std::string result = CompileAndRun(
+        "int printf(const char *format, ...);\n"
+        "int main(void) { }\n"
+        "void program(void) { printf(\"%d\\n\", main()); }\n");
+    EXPECT_EQ("0\n", result);
+}
+
+// Same, with a non-empty body that still falls off the end.
+TEST_F(CodegenTest, MainImplicitReturnZeroNonEmptyBody)
+{
+    std::string result = CompileAndRun(
+        "int printf(const char *format, ...);\n"
+        "int main(void) { int a = 3; a = a + 5; }\n"
+        "void program(void) { printf(\"%d\\n\", main()); }\n");
+    EXPECT_EQ("0\n", result);
+}

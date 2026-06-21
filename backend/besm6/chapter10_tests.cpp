@@ -584,11 +584,11 @@ int main(void) {
 
 // --- DISABLED_ (misc) -------------------------------------------------------
 
-// main() falls off the end: indeterminate return value (host cc returns stack
-// garbage), like the ch5/ch6 missing-return cases; also needs putchar.
+// main() falls off the end, so it now gets an implicit `return 0;` (C11
+// §5.1.2.2.3) — the wrapper prints 0 after the alphabet; also needs putchar.
 TEST_F(CodegenTest, Chapter10_StaticRecursiveCall)
 {
-    EXPECT_EQ("ABCDEFGHIJKLMNOPQRSTUVWXYZ26\n", CompileAndRun(WrapMain(R"(void putch(int ch);
+    EXPECT_EQ("ABCDEFGHIJKLMNOPQRSTUVWXYZ0\n", CompileAndRun(WrapMain(R"(void putch(int ch);
 
 int print_alphabet(void) {
     static int count = 0;

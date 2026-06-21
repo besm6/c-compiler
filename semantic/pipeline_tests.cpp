@@ -126,3 +126,85 @@ TEST_F(PipelineTest, StaticAssertInUnionPasses)
     ASSERT_NE(sd->members, nullptr);
     EXPECT_STREQ(sd->members->name, "x");
 }
+
+// --- Missing-return diagnostic & main's implicit return 0 -------------------
+
+// A non-void, non-main function whose body can fall off the end is rejected.
+TEST_F(PipelineTest, NonVoidFallsOffEnd_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"(int f(void) {
+    int x = 1;
+}
+)"),
+                 "may fall off the end");
+}
+
+// A function that returns on every path is accepted.
+TEST_F(PipelineTest, NonVoidAllPathsReturn_Ok)
+{
+    RunPipeline(R"(int f(int x) {
+    if (x)
+        return 1;
+    else
+        return 2;
+})");
+    EXPECT_NE(program, nullptr);
+}
+
+// An infinite loop with no exit makes the end unreachable — accepted.
+TEST_F(PipelineTest, NonVoidInfiniteLoop_Ok)
+{
+    RunPipeline(R"(int f(int x) {
+    for (;;) {
+        if (x)
+            return x;
+    }
+})");
+    EXPECT_NE(program, nullptr);
+}
+
+// A switch is conservatively treated as not falling through, so an exhaustive
+// switch is never flagged (matches the runtime library's strerror()).
+TEST_F(PipelineTest, ExhaustiveSwitch_Ok)
+{
+    RunPipeline(R"(int f(int x) {
+    switch (x) {
+    case 1:
+        return 1;
+    default:
+        return 0;
+    }
+})");
+    EXPECT_NE(program, nullptr);
+}
+
+// A void function may fall off the end with no diagnostic.
+TEST_F(PipelineTest, VoidFallsOffEnd_Ok)
+{
+    RunPipeline(R"(void f(void) {
+    int x = 1;
+})");
+    EXPECT_NE(program, nullptr);
+}
+
+// main() falling off the end is not an error; the typechecker appends an
+// implicit `return 0;` (C11 §5.1.2.2.3).
+TEST_F(PipelineTest, MainFallsOffEndGetsImplicitReturnZero)
+{
+    RunPipeline("int main(void) { }");
+
+    ExternalDecl *fn = program->decls;
+    ASSERT_EQ(fn->kind, EXTERNAL_DECL_FUNCTION);
+    DeclOrStmt *it = fn->u.function.body->u.compound;
+    ASSERT_NE(it, nullptr);
+    while (it->next) {
+        it = it->next;
+    }
+    ASSERT_EQ(it->kind, DECL_OR_STMT_STMT);
+    Stmt *last = it->u.stmt;
+    ASSERT_EQ(last->kind, STMT_RETURN);
+    ASSERT_NE(last->u.expr, nullptr);
+    EXPECT_EQ(last->u.expr->kind, EXPR_LITERAL);
+    EXPECT_EQ(last->u.expr->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(last->u.expr->u.literal->u.int_val, 0);
+}

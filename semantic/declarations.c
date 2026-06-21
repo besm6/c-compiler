@@ -338,6 +338,168 @@ static void typecheck_local_var_decl(const Declaration *d)
     }
 }
 
+// --- Missing-return analysis (helpers for typecheck_fn_decl) ----------------
+
+// True if `cond` is a compile-time integer constant that evaluates to non-zero,
+// i.e. an always-true guard such as `while (1)`.
+static bool is_const_true(const Expr *cond)
+{
+    long v;
+    return cond && try_eval_const_int(cond, &v) && v != 0;
+}
+
+// True if `cond` is a compile-time integer constant that evaluates to zero.
+static bool is_const_false(const Expr *cond)
+{
+    long v;
+    return cond && try_eval_const_int(cond, &v) && v == 0;
+}
+
+// True if `s` contains a `break` that targets the loop/switch we are analysing.
+// A `break` inside a *nested* loop or switch binds to that inner construct, so we
+// do not descend into STMT_WHILE / STMT_DO_WHILE / STMT_FOR / STMT_SWITCH.
+static bool contains_own_break(const Stmt *s)
+{
+    if (!s) {
+        return false;
+    }
+    switch (s->kind) {
+    case STMT_BREAK:
+        return true;
+    case STMT_IF:
+        return contains_own_break(s->u.if_stmt.then_stmt) ||
+               contains_own_break(s->u.if_stmt.else_stmt);
+    case STMT_COMPOUND:
+        for (const DeclOrStmt *it = s->u.compound; it; it = it->next) {
+            if (it->kind == DECL_OR_STMT_STMT && contains_own_break(it->u.stmt)) {
+                return true;
+            }
+        }
+        return false;
+    case STMT_LABELED:
+        return contains_own_break(s->u.labeled.stmt);
+    case STMT_CASE:
+        return contains_own_break(s->u.case_stmt.stmt);
+    case STMT_DEFAULT:
+        return contains_own_break(s->u.default_stmt);
+    default:
+        // STMT_WHILE/STMT_DO_WHILE/STMT_FOR/STMT_SWITCH capture their own break;
+        // everything else cannot contain a break for this loop.
+        return false;
+    }
+}
+
+// True if `s` is an expression statement that calls a function which never
+// returns, so control does not continue past it.  The compiler does not model
+// `_Noreturn` on symbols, so we recognise the standard library's no-return
+// functions by name (C11 §7.22.4 exit/_Exit/abort/quick_exit, §7.13.2.1 longjmp).
+// A user-defined `_Noreturn` function is not recognised; such a function ending a
+// non-void body would be wrongly diagnosed, but that construct does not occur here.
+static bool stmt_is_noreturn_call(const Stmt *s)
+{
+    if (!s || s->kind != STMT_EXPR || !s->u.expr || s->u.expr->kind != EXPR_CALL) {
+        return false;
+    }
+    const Expr *callee = s->u.expr->u.call.func;
+    if (!callee || callee->kind != EXPR_VAR) {
+        return false;
+    }
+    static const char *const noreturn_fns[] = {
+        "exit", "_Exit", "abort", "quick_exit", "longjmp",
+    };
+    for (size_t i = 0; i < sizeof(noreturn_fns) / sizeof(noreturn_fns[0]); i++) {
+        if (strcmp(callee->u.var, noreturn_fns[i]) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// True only when control is *certain* to reach the statement immediately
+// following `s` (i.e. `s` can "fall through").  This is a deliberate
+// under-approximation: when the outcome is uncertain it returns false ("does not
+// fall through").  That keeps the caller's missing-return diagnostic free of
+// false positives — it never rejects code that actually always returns — at the
+// cost of occasionally under-warning (e.g. a switch that is in fact exhaustive,
+// or a goto join point, is treated as not falling through).
+static bool stmt_falls_through(const Stmt *s)
+{
+    if (!s) {
+        return true; // empty / null statement
+    }
+    switch (s->kind) {
+    case STMT_RETURN:
+    case STMT_GOTO:
+    case STMT_BREAK:
+    case STMT_CONTINUE:
+        return false;
+    case STMT_EXPR:
+        // A call to a no-return library function does not fall through.
+        return !stmt_is_noreturn_call(s);
+    case STMT_COMPOUND: {
+        bool reachable = true;
+        for (const DeclOrStmt *it = s->u.compound; it; it = it->next) {
+            if (it->kind != DECL_OR_STMT_STMT) {
+                continue; // a declaration does not change reachability
+            }
+            if (reachable) {
+                reachable = stmt_falls_through(it->u.stmt);
+            }
+        }
+        return reachable;
+    }
+    case STMT_IF: {
+        const Expr *cond = s->u.if_stmt.condition;
+        bool then_ft     = stmt_falls_through(s->u.if_stmt.then_stmt);
+        if (!s->u.if_stmt.else_stmt) {
+            // The body-skipping path falls through, except when the condition is
+            // a compile-time truth (then only the then-branch can run).
+            return is_const_true(cond) ? then_ft : true;
+        }
+        bool else_ft = stmt_falls_through(s->u.if_stmt.else_stmt);
+        if (is_const_true(cond)) {
+            return then_ft;
+        }
+        if (is_const_false(cond)) {
+            return else_ft;
+        }
+        return then_ft || else_ft;
+    }
+    case STMT_WHILE:
+        // A non-constant guard may be false on entry, so the loop is skippable
+        // and certainly falls through.  An always-true guard falls through only
+        // via a break that exits this loop.
+        return is_const_true(s->u.while_stmt.condition)
+                   ? contains_own_break(s->u.while_stmt.body)
+                   : true;
+    case STMT_FOR:
+        // for(;;) has a NULL condition, an always-true guard.
+        return (!s->u.for_stmt.condition || is_const_true(s->u.for_stmt.condition))
+                   ? contains_own_break(s->u.for_stmt.body)
+                   : true;
+    case STMT_DO_WHILE:
+        // The body always runs once.  With an always-true guard the loop falls
+        // through only via a break; otherwise it falls through if the body can
+        // reach the guard (and the guard can be false) or a break exits it.
+        if (is_const_true(s->u.do_while.condition)) {
+            return contains_own_break(s->u.do_while.body);
+        }
+        return stmt_falls_through(s->u.do_while.body) ||
+               contains_own_break(s->u.do_while.body);
+    case STMT_LABELED:
+        return stmt_falls_through(s->u.labeled.stmt);
+    case STMT_CASE:
+        return stmt_falls_through(s->u.case_stmt.stmt);
+    case STMT_DEFAULT:
+        return stmt_falls_through(s->u.default_stmt);
+    case STMT_SWITCH:
+    default:
+        // A switch is not analysed for exhaustiveness; treat it as not certainly
+        // falling through so an exhaustive switch is never flagged.
+        return false;
+    }
+}
+
 // Type-check a function declaration/definition.
 static void typecheck_fn_decl(ExternalDecl *d)
 {
@@ -430,6 +592,36 @@ static void typecheck_fn_decl(ExternalDecl *d)
         static_locals_set_function(d->u.function.name);
         d->u.function.body =
             typecheck_statement(fun_type->u.function.return_type, d->u.function.body);
+
+        // A non-void function whose body can fall off the end yields an
+        // indeterminate value (C11 §6.9.1p12).  Reject that — except for main(),
+        // which by §5.1.2.2.3 implicitly returns 0: synthesize the return instead.
+        const Type *rt = fun_type->u.function.return_type;
+        if (rt->kind != TYPE_VOID && d->u.function.body &&
+            d->u.function.body->kind == STMT_COMPOUND &&
+            stmt_falls_through(d->u.function.body)) {
+            if (strcmp(d->u.function.name, "main") == 0) {
+                Expr *zero                 = new_expression(EXPR_LITERAL);
+                zero->u.literal            = new_literal(LITERAL_INT);
+                zero->u.literal->u.int_val = 0;
+                Stmt *ret_stmt             = new_stmt(STMT_RETURN);
+                ret_stmt->u.expr           = zero;
+                ret_stmt                   = typecheck_statement(rt, ret_stmt);
+
+                DeclOrStmt *item   = new_decl_or_stmt(DECL_OR_STMT_STMT);
+                item->u.stmt       = ret_stmt;
+                DeclOrStmt **tail = &d->u.function.body->u.compound;
+                while (*tail) {
+                    tail = &(*tail)->next;
+                }
+                *tail = item;
+            } else {
+                fatal_error("Non-void function '%s' may fall off the end without "
+                            "returning a value",
+                            d->u.function.name);
+            }
+        }
+
         static_locals_set_function(NULL);
         scope_decrement();
     }

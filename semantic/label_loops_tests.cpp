@@ -62,7 +62,9 @@ TEST_F(LabelLoopsTest, SwitchLabels)
 // break inside while targets the loop's end label.
 TEST_F(LabelLoopsTest, BreakInWhile)
 {
-    RunLabelLoops("int f(void) { while (1) { break; } }");
+    // `void` return: the loop's break exits to the end of the function, which
+    // would otherwise be a missing return in a non-void function.
+    RunLabelLoops("void f(void) { while (1) { break; } }");
 
     Stmt *ws  = fn_first_stmt(program->decls);
     Stmt *brk = compound_first(ws->u.while_stmt.body);
