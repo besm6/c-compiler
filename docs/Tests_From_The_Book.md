@@ -346,6 +346,17 @@ perfectly in range:
   `one_hundred_ulong` (chapter 12 `comparisons`) both become `ONE*HUND` and collide
   ("twice-described identifier"); chapter 20's `glob_four` / `glob_fourteen` collide on
   `glob_fou` and had to be renamed to `gr0…gr14` to enable the test.
+
+  This means **a book test must be updated so that its *external* names — functions and
+  file-scope globals, anything that becomes a Madlen label — are unique within their first 8
+  characters** (after the backend's `_`/`$`/`%`→`*`/`/` substitution; see
+  [Madlen.md §3](Madlen.md)). The collision is silent: the assembler/loader merges the two
+  names and the later definition wins, so calls to one C name run the other's body — a wrong
+  result with no compile- or link-time error. Rename the offending helpers to short distinct
+  stems rather than disabling the test when that is the only obstacle: chapter 15's
+  `pointer_diff`, for example, was enabled by shortening `get_multidim_ptr_diff` /
+  `get_multidim_ptr_diff_2` (both → `get*mult`) to `pdiff_m` / `pdiff_m2`. Block-scope locals
+  are frame slots, not labels, so they need no such care.
 - *Output charset.* The runtime renders lowercase Latin as Cyrillic, so the book's
   `hello_world` prints uppercase letters and our expected strings use UPPERCASE ASCII.
 - *Simulator time budget.* Chapter 8's `empty_loop_body` is correct codegen but spins ~430

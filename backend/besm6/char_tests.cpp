@@ -523,6 +523,23 @@ TEST_F(CodegenTest, CharPtrDifferenceNegativeRun)
     EXPECT_EQ("-7\n", result);
 }
 
+// Runtime: char(*)[N] - char(*)[N] divides the byte difference by the row size to yield
+// a row (element) count. Task #11.
+TEST_F(CodegenTest, CharRowPtrDifferenceRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            char a[4][3];
+            char (*p)[3] = a;
+            char (*q)[3] = a + 2;
+            putbyte('0' + (q - p));   /* 2 */
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("2\n", result);
+}
+
 //
 // Multi-dimensional char arrays (task #5).
 //

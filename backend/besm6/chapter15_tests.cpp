@@ -1799,28 +1799,32 @@ int main(void) {
 
 
 // pointer_arithmetic/pointer_diff: uses a `static double multidim[6][7][3][5]` local.
-TEST_F(CodegenTest, DISABLED_Chapter15_PointerDiff)
+// Exercises the task #11 wide word-pointer difference (double(*)[3][5], double(*)[5]).
+// The book's helper names (`get_multidim_ptr_diff` / `..._2`) are shortened here because
+// Madlen identifiers truncate to 8 chars: the originals both collapse to `get*mult` and
+// would alias each other.  `pdiff_m` / `pdiff_m2` stay distinct after truncation.
+TEST_F(CodegenTest, Chapter15_PointerDiff)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test subtracting two pointers to find the number of elements between them */
 
 
 /* subtract two pointers into a 1D array of ints */
-int get_ptr_diff(int *ptr1, int *ptr2) {
+int pdiff_i(int *ptr1, int *ptr2) {
     return (ptr2 - ptr1);
 }
 
 /* subtract two pointers into array of longs */
-int get_long_ptr_diff(long *ptr1, long *ptr2) {
+int pdiff_l(long *ptr1, long *ptr2) {
     return (ptr2 - ptr1);
 }
 
 /* subtract pointers to two elements in a multi-dimensional array */
-int get_multidim_ptr_diff(double (*ptr1)[3][5], double (*ptr2)[3][5]) {
+int pdiff_m(double (*ptr1)[3][5], double (*ptr2)[3][5]) {
     return (ptr2 - ptr1);
 }
 
 /* subtract pointers into a multi-dimensional array again, but at different levels of nesting */
-int get_multidim_ptr_diff_2(double (*ptr1)[5], double (*ptr2)[5]) {
+int pdiff_m2(double (*ptr1)[5], double (*ptr2)[5]) {
     return (ptr2 - ptr1);
 }
 
@@ -1828,13 +1832,13 @@ int main(void) {
     int arr[5] = {5, 4, 3, 2, 1};
     int *end_of_array = arr + 5;
 
-    if (get_ptr_diff(arr, end_of_array) != 5) {
+    if (pdiff_i(arr, end_of_array) != 5) {
         return 1;
     }
 
     long long_arr[8];
 
-    if (get_long_ptr_diff(long_arr + 3, long_arr) != -3) {
+    if (pdiff_l(long_arr + 3, long_arr) != -3) {
         return 2;
     }
 
@@ -1842,11 +1846,11 @@ int main(void) {
     // also make sure we can handle pointers into array with static storage duration
     static double multidim[6][7][3][5];
 
-    if (get_multidim_ptr_diff(multidim[2] + 1, multidim[2] + 4) != 3) {
+    if (pdiff_m(multidim[2] + 1, multidim[2] + 4) != 3) {
         return 3;
     }
 
-    if (get_multidim_ptr_diff_2(multidim[2][2] + 2, multidim[2][2]) != -2) {
+    if (pdiff_m2(multidim[2][2] + 2, multidim[2][2]) != -2) {
         return 4;
     }
 

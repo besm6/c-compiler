@@ -149,6 +149,21 @@ static Tac_Val *scale_byte_index(TacCtx *ctx, Tac_Val *idx, int scale)
     return val_var(scaled->u.var_name);
 }
 
+// Emit dst = val / divisor (signed) for a positive constant divisor; converts a raw
+// pointer difference into a C element count.  A divisor that is a power of two folds to
+// a shift in the backend; otherwise it calls b/div.
+static Tac_Val *gen_div_const(TacCtx *ctx, Tac_Val *val, int divisor)
+{
+    Tac_Val *vd          = new_var_val(ctx);
+    Tac_Instruction *div = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+    div->u.binary.op     = TAC_BINARY_DIVIDE;
+    div->u.binary.src1   = val;
+    div->u.binary.src2   = val_int(divisor);
+    div->u.binary.dst    = vd;
+    tac_append(ctx, div);
+    return val_var(vd->u.var_name);
+}
+
 static Tac_BinaryOperator map_binary_op(BinaryOp op, const Type *operand_type)
 {
     bool is_unsigned = is_unsigned_type(operand_type);
@@ -530,9 +545,11 @@ static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
         bool l_fat = is_byte_pointer(l->type);
         bool r_fat = is_byte_pointer(r->type);
         if (op == BINARY_SUB && l_fat && r_fat) {
-            // char* - char* : the difference is a ptrdiff_t (long) byte count, not a
-            // pointer.  Decode both fat pointers to absolute byte positions and subtract
-            // (the runtime helper b/pdiff); sizeof(char) == 1, so no scaling is needed.
+            // char* - char* : the difference is a ptrdiff_t (long) element count.  Decode
+            // both fat pointers to absolute byte positions and subtract (the runtime
+            // helper b/pdiff), then divide by the pointee byte size to get the element
+            // count.  sizeof(char) == 1, so plain char*/void* needs no divide; a pointer
+            // to a char-innermost array (char(*)[N]) divides by the row size N.
             Tac_Val *vl         = gen_expr(ctx, l);
             Tac_Val *vr         = gen_expr(ctx, r);
             Tac_Val *vd         = new_var_val(ctx);
@@ -541,7 +558,9 @@ static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
             pd->u.ptr_diff.ptr_b = vr;
             pd->u.ptr_diff.dst   = vd;
             tac_append(ctx, pd);
-            return val_var(vd->u.var_name);
+            int elem_bytes = fat_ptr_byte_scale(l->type);
+            Tac_Val *diff  = val_var(vd->u.var_name);
+            return elem_bytes > 1 ? gen_div_const(ctx, diff, elem_bytes) : diff;
         }
         bool ptr_left  = l_fat && is_integer(r->type);
         bool ptr_right = op == BINARY_ADD && r_fat && is_integer(l->type);
@@ -554,6 +573,23 @@ static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
             // for a pointer to a char-innermost array), then advance at scale 1.
             vidx = scale_byte_index(ctx, vidx, fat_ptr_byte_scale(ptr_left ? l->type : r->type));
             return gen_ptr_add(ctx, vptr, vidx, op == BINARY_SUB, 1);
+        }
+        // Word pointer minus word pointer, both pointing to a multi-word element
+        // (pointer-to-array / -struct): the raw word-address difference must be divided
+        // by the element word size to yield a C element count.  Detect before the ptr ±
+        // int scale block below, which would otherwise misread q as a scaled index.
+        if (op == BINARY_SUB && wide_ptr_scale(l->type) && wide_ptr_scale(r->type)) {
+            Tac_Val *vl          = gen_expr(ctx, l);
+            Tac_Val *vr          = gen_expr(ctx, r);
+            Tac_Val *vd          = new_var_val(ctx);
+            Tac_Instruction *sub = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+            sub->u.binary.op     = TAC_BINARY_SUBTRACT; // raw word-address difference
+            sub->u.binary.src1   = vl;
+            sub->u.binary.src2   = vr;
+            sub->u.binary.dst    = vd;
+            tac_append(ctx, sub);
+            int elem_words = wide_ptr_scale(l->type) / target_word_bytes();
+            return gen_div_const(ctx, val_var(vd->u.var_name), elem_words);
         }
         // Word pointer with a multi-word element (pointer-to-array / -struct):
         // ptr ± int must scale by the element size, not advance a single word.

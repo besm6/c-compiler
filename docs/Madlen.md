@@ -154,6 +154,37 @@ In Madlen, "letters" include all characters from both the Latin and Cyrillic alp
 
 The **maximum length** of an identifier is 8 characters. Spaces within an identifier are ignored during parsing, so `A B C` and `ABC` denote the same identifier.
 
+### The 8-Character Limit Is Significant — Truncation Collisions
+
+This 8-character limit is a **hard, unavoidable constraint** of the Madlen assembler and the
+Dubna monitor's loader/linker, not a compiler choice. Characters past the eighth are simply
+**dropped**: only the first 8 characters distinguish one name from another. Two distinct names
+that share the same first 8 characters become the **same identifier** after truncation, and the
+assembler/loader silently merges them — there is no diagnostic. When two such names are both
+*defined* (e.g. two `,name,` subprograms), the later definition wins and every call to either C
+name resolves to that one body.
+
+The BESM-6 backend maps C identifiers to Madlen identifiers in `sanitize_name`
+([backend/besm6/emit_madlen.c](../backend/besm6/emit_madlen.c)): it replaces `_`→`*`, `$`→`/`,
+`%`→`*`, and **truncates to 8 characters**. Consequently, two C names that agree in their first
+8 significant characters collide. For example:
+
+```
+get_multidim_ptr_diff      →  get*mult
+get_multidim_ptr_diff_2     →  get*mult     (same!)
+```
+
+Both functions emit a `get*mult:` label; the loader keeps one, so `get_multidim_ptr_diff(...)`
+actually runs the body of `get_multidim_ptr_diff_2` (or vice-versa). The symptom is a wrong
+runtime result with **no compile- or link-time error**.
+
+**Mitigation:** keep externally-visible C identifiers (functions, file-scope globals, anything
+that becomes a Madlen label or `,subp,`/`,call,` operand) **distinct within their first 8
+characters** after the `_`/`$`/`%` substitution. Block-scope `%`-locals are frame slots, not
+labels, so they are unaffected. There is no general fix in the toolchain — the limit is imposed
+by Madlen and Dubna themselves; a future name-mangling scheme (hashing the tail into the 8-char
+budget) could reduce, but not eliminate, the risk.
+
 ### Special Identifier `*`
 
 The identifier consisting of a single asterisk, `*`, has a special meaning: **it denotes the address of the instruction in which it appears**. This is the autocode equivalent of the "current location counter". For example:

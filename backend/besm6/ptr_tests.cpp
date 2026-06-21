@@ -194,3 +194,20 @@ TEST_F(CodegenTest, StaticLocalPtrToArrayElemRun)
     )");
     EXPECT_EQ("33\n", result);
 }
+
+// Wide word-pointer difference: int(*)[2] - int(*)[2] divides the raw word-address
+// difference by the element word size to yield a C element count. Task #11.
+TEST_F(CodegenTest, WideWordPtrDifferenceRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            int a[4][2];
+            int (*p)[2] = a;
+            int (*q)[2] = &a[3];
+            putbyte('0' + (q - p));   /* 3 */
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("3\n", result);
+}

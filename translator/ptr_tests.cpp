@@ -573,3 +573,97 @@ TEST_F(TranslateTest, CharPtrDifference)
         name: %0
 )");
 }
+
+// char(*)[N] - char(*)[N]: a fat-pointer difference to a multi-byte element divides the
+// raw b/pdiff byte count by the row size (3) to yield an element (row) count. Task #11.
+TEST_F(TranslateTest, CharRowPtrDifference)
+{
+    std::string yaml = CompileToYaml("long f(char (*p)[3], char (*q)[3]) { return p - q; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: %p
+    - param: %q
+  body:
+    - instruction:
+      kind: ptr_diff
+      ptr_a:
+        kind: var
+        name: %p
+      ptr_b:
+        kind: var
+        name: %q
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: binary
+      op: divide
+      src1:
+        kind: var
+        name: %0
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 3
+      dst:
+        kind: var
+        name: %1
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: %1
+)");
+}
+
+// int(*)[2] - int(*)[2]: a wide word-pointer difference is a raw word-address subtract
+// divided by the element word size (2) to yield a C element count, not the
+// ptr-minus-integer scale path. Task #11.
+TEST_F(TranslateTest, WideWordPtrDifference)
+{
+    std::string yaml = CompileToYaml("long f(int (*p)[2], int (*q)[2]) { return p - q; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: %p
+    - param: %q
+  body:
+    - instruction:
+      kind: binary
+      op: subtract
+      src1:
+        kind: var
+        name: %p
+      src2:
+        kind: var
+        name: %q
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: binary
+      op: divide
+      src1:
+        kind: var
+        name: %0
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 2
+      dst:
+        kind: var
+        name: %1
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: %1
+)");
+}
