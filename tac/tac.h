@@ -137,6 +137,7 @@ typedef enum {
     TAC_INSTRUCTION_JUMP_IF_NOT_ZERO,
     TAC_INSTRUCTION_LABEL,
     TAC_INSTRUCTION_FUN_CALL,
+    TAC_INSTRUCTION_FUN_CALL_NORETURN, // call to a _Noreturn function (shares u.fun_call)
     TAC_INSTRUCTION_ALLOCATE_LOCAL
 } Tac_InstructionKind;
 

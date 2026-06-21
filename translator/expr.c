@@ -1120,7 +1120,16 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         // scalar destination register, so the call has no scalar `dst`.
         Tac_Val *dst            = (e->type->kind != TYPE_VOID && !sret_slot) ? new_var_val(ctx)
                                                                             : NULL;
-        Tac_Instruction *in     = tac_new_instruction(TAC_INSTRUCTION_FUN_CALL);
+        // A direct call to a _Noreturn function never returns, so emit the dedicated kind:
+        // the backend tail-jumps to it and drops the dead post-call path.  (Indirect calls
+        // through a function pointer stay a plain FUN_CALL — the callee is not known here.)
+        Tac_InstructionKind call_kind = TAC_INSTRUCTION_FUN_CALL;
+        if (func->kind == EXPR_VAR) {
+            const Symbol *sym = symtab_get_opt(func->u.var);
+            if (sym && sym->kind == SYM_FUNC && sym->u.func.noret)
+                call_kind = TAC_INSTRUCTION_FUN_CALL_NORETURN;
+        }
+        Tac_Instruction *in     = tac_new_instruction(call_kind);
         in->u.fun_call.fun_name = xstrdup(fun_name);
         in->u.fun_call.args     = args_head;
         in->u.fun_call.dst      = dst;

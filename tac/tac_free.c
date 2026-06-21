@@ -136,6 +136,7 @@ void tac_free_instruction(Tac_Instruction *instr)
         }
         break;
     case TAC_INSTRUCTION_FUN_CALL:
+    case TAC_INSTRUCTION_FUN_CALL_NORETURN:
         if (instr->u.fun_call.fun_name) {
             xfree(instr->u.fun_call.fun_name);
         }

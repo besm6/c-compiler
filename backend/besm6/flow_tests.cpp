@@ -202,3 +202,38 @@ TEST_F(CodegenTest, SwitchNoDefault)
     )");
     EXPECT_EQ("1 2 -1\n", result);
 }
+
+// A direct call to a _Noreturn function is a tail jump (,uj,) instead of ,call,: no
+// return linkage is needed.  The UJ also makes the fall-through unreachable, so the
+// peephole drops the dead post-call path and the function's epilogue (no trailing
+// ,uj, b/ret).  Task #30.
+TEST_F(CodegenTest, NoreturnCallTailJump)
+{
+    std::string output = CompileToMadlen("_Noreturn void die(void); void f(void) { die(); }");
+    EXPECT_EQ(R"(c
+        f:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,uj, die
+             ,end,
+)",
+              output);
+}
+
+// Control: an ordinary (returning) callee still uses ,call, and keeps the epilogue
+// ,uj, b/ret after it.
+TEST_F(CodegenTest, OrdinaryCallKeepsEpilogue)
+{
+    std::string output = CompileToMadlen("void g(void); void f(void) { g(); }");
+    EXPECT_EQ(R"(c
+        f:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,call, g
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}

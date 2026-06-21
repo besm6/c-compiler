@@ -901,3 +901,31 @@ TEST_F(TranslateTest, SignedSubUnchanged)
     EXPECT_NE(yaml.find("op: subtract\n"), std::string::npos);
     EXPECT_EQ(yaml.find("op: subtract_unsigned"), std::string::npos);
 }
+
+// ---------------------------------------------------------------------------
+// _Noreturn calls — task #30
+// ---------------------------------------------------------------------------
+
+// A direct call to a _Noreturn function lowers to the dedicated fun_call_noreturn
+// instruction (the backend tail-jumps to it and drops the dead post-call path).
+TEST_F(TranslateTest, NoreturnCallEmitsFunCallNoreturn)
+{
+    std::string yaml = CompileToYaml("_Noreturn void die(void); void f(void) { die(); }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: fun_call_noreturn
+      fun_name: die
+)");
+}
+
+// A call to an ordinary (returning) function stays a plain fun_call.
+TEST_F(TranslateTest, OrdinaryCallStaysFunCall)
+{
+    std::string yaml = CompileToYaml("void g(void); void f(void) { g(); }");
+    EXPECT_NE(yaml.find("kind: fun_call\n"), std::string::npos);
+    EXPECT_EQ(yaml.find("fun_call_noreturn"), std::string::npos);
+}

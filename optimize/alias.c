@@ -149,6 +149,7 @@ static void note_instr(StringMap *observable, const StringMap *private_set,
         note_vals(observable, private_set, ins->u.jump_if_not_zero.condition);
         break;
     case TAC_INSTRUCTION_FUN_CALL:
+    case TAC_INSTRUCTION_FUN_CALL_NORETURN:
         // fun_name is a function symbol, not a data variable — ignore it.
         note_vals(observable, private_set, ins->u.fun_call.args);
         note_vals(observable, private_set, ins->u.fun_call.dst);

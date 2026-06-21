@@ -178,6 +178,7 @@ static void export_instr(WFILE *out, const Tac_Instruction *instr)
         wputstr(instr->u.label.name ? instr->u.label.name : "", out);
         break;
     case TAC_INSTRUCTION_FUN_CALL:
+    case TAC_INSTRUCTION_FUN_CALL_NORETURN:
         wputstr(instr->u.fun_call.fun_name ? instr->u.fun_call.fun_name : "", out);
         export_val(out, instr->u.fun_call.args);
         export_val(out, instr->u.fun_call.dst);

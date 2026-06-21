@@ -473,7 +473,9 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
         emit_string(fd, instr->u.label.name);
         break;
     case TAC_INSTRUCTION_FUN_CALL:
-        fprintf(fd, "FunCall: ");
+    case TAC_INSTRUCTION_FUN_CALL_NORETURN:
+        fprintf(fd, "%s: ",
+                instr->kind == TAC_INSTRUCTION_FUN_CALL_NORETURN ? "FunCallNoreturn" : "FunCall");
         emit_string(fd, instr->u.fun_call.fun_name);
         break;
     case TAC_INSTRUCTION_ALLOCATE_LOCAL:
@@ -639,6 +641,7 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
         emit_val(fd, instr->u.jump_if_not_zero.condition, id, "cond");
         break;
     case TAC_INSTRUCTION_FUN_CALL:
+    case TAC_INSTRUCTION_FUN_CALL_NORETURN:
         for (const Tac_Val *arg = instr->u.fun_call.args; arg; arg = arg->next)
             emit_val(fd, arg, id, "arg");
         if (instr->u.fun_call.dst)

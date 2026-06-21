@@ -824,7 +824,9 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
         fprintf(fd, "name: %s\n", instr->u.label.name ? instr->u.label.name : "");
         break;
     case TAC_INSTRUCTION_FUN_CALL:
-        fprintf(fd, "fun_call\n");
+    case TAC_INSTRUCTION_FUN_CALL_NORETURN:
+        fprintf(fd, "%s\n",
+                instr->kind == TAC_INSTRUCTION_FUN_CALL_NORETURN ? "fun_call_noreturn" : "fun_call");
         print_indent(fd, level);
         fprintf(fd, "fun_name: %s\n", instr->u.fun_call.fun_name ? instr->u.fun_call.fun_name : "");
         if (instr->u.fun_call.args) {

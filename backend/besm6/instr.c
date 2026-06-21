@@ -711,7 +711,8 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
     //   14 ,WTC, off       — C = mem[slot][15:1] = target function address
     //   13 ,VJM, 0         — M[13] ← return address; jump to 0 + C = the target
     // Nothing may sit between the WTC and the VJM (same C-survival rule as LOAD/STORE).
-    case TAC_INSTRUCTION_FUN_CALL: {
+    case TAC_INSTRUCTION_FUN_CALL:
+    case TAC_INSTRUCTION_FUN_CALL_NORETURN: {
         const char *fun_name = instr->u.fun_call.fun_name;
         const Tac_Val *args  = instr->u.fun_call.args;
         const Tac_Val *dst   = instr->u.fun_call.dst;
@@ -727,6 +728,16 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
             Besm_Instr *vtm = emit(block, tail, BESM_REG_VTM);
             vtm->reg        = REG_CNT;
             vtm->addr       = -nargs;
+        }
+
+        if (instr->kind == TAC_INSTRUCTION_FUN_CALL_NORETURN) {
+            // A _Noreturn callee never returns, so tail-jump to it (,uj,) instead of ,call,
+            // (= 13 ,vjm,): no return-address linkage is needed.  The UJ also marks the
+            // fall-through unreachable, so peephole rule #31(b) deletes the dead post-call
+            // path and the function's epilogue.  Always a direct call, and void: no dst.
+            Besm_Instr *uj = emit(block, tail, BESM_BRANCH_UJ);
+            uj->name       = xstrdup(fun_name);
+            break;
         }
 
         int fr, fo;

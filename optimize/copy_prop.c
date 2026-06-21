@@ -286,7 +286,8 @@ static void apply_transfer(StringMap *cs, const Tac_Instruction *ins, const Stri
         return;
     }
 
-    if (ins->kind == TAC_INSTRUCTION_FUN_CALL) {
+    if (ins->kind == TAC_INSTRUCTION_FUN_CALL ||
+        ins->kind == TAC_INSTRUCTION_FUN_CALL_NORETURN) {
         // A call may read or write any static or address-taken variable, so all
         // copies involving them become invalid; also kill the call's own result.
         OPT_TRACE("[copy-prop] fun-call %s: kill static+address-taken copies\n",
@@ -544,6 +545,7 @@ static void subst_instruction(Tac_Instruction *ins, const StringMap *cs)
         subst_val(&ins->u.jump_if_not_zero.condition, cs);
         break;
     case TAC_INSTRUCTION_FUN_CALL:
+    case TAC_INSTRUCTION_FUN_CALL_NORETURN:
         subst_args(&ins->u.fun_call.args, cs);
         break;
     default:

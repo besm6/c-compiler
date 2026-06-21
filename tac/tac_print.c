@@ -446,6 +446,9 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
     case TAC_INSTRUCTION_FUN_CALL:
         fprintf(fd, "fun_call\n");
         break;
+    case TAC_INSTRUCTION_FUN_CALL_NORETURN:
+        fprintf(fd, "fun_call_noreturn\n");
+        break;
     case TAC_INSTRUCTION_ALLOCATE_LOCAL:
         fprintf(fd, "allocate_local\n");
         break;
@@ -605,6 +608,7 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
         fprintf(fd, "Name: %s\n", instr->u.label.name ? instr->u.label.name : "(null)");
         break;
     case TAC_INSTRUCTION_FUN_CALL:
+    case TAC_INSTRUCTION_FUN_CALL_NORETURN:
         print_indent(fd, depth + 1);
         fprintf(fd, "Fun_name: %s\n",
                 instr->u.fun_call.fun_name ? instr->u.fun_call.fun_name : "(null)");

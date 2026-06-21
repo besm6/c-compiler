@@ -249,6 +249,7 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
                                        instr->u.jump_if_not_zero.condition);
                 break;
             case TAC_INSTRUCTION_FUN_CALL:
+            case TAC_INSTRUCTION_FUN_CALL_NORETURN:
                 // After copy propagation, a global may appear directly as a FUN_CALL
                 // argument (UTC/XTA sequence).
                 for (const Tac_Val *a = instr->u.fun_call.args; a; a = a->next)

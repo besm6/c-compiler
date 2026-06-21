@@ -225,7 +225,8 @@ static const char *live_get_dst_name(const Tac_Instruction *ins)
 static void live_transfer_backward(StringMap *ls, const Tac_Instruction *ins,
                                    const StringMap *static_names, const StringMap *address_taken)
 {
-    if (ins->kind == TAC_INSTRUCTION_FUN_CALL) {
+    if (ins->kind == TAC_INSTRUCTION_FUN_CALL ||
+        ins->kind == TAC_INSTRUCTION_FUN_CALL_NORETURN) {
         // Callee may read any static or address-taken variable.
         live_set_union(ls, static_names);
         live_set_union(ls, address_taken);

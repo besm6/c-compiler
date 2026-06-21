@@ -889,6 +889,7 @@ static void percent_instr(Tac_Instruction *in, const StringMap *autos)
         percent_vals(in->u.jump_if_not_zero.condition, autos);
         break;
     case TAC_INSTRUCTION_FUN_CALL:
+    case TAC_INSTRUCTION_FUN_CALL_NORETURN:
         // An indirect call's callee is a frame-resident pointer (param/local/temp); rename
         // it so the backend recognizes it as a frame slot.  A module-level function name is
         // not in `autos` and is left untouched, so the backend emits a direct CALL.

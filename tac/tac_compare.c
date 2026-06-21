@@ -301,6 +301,7 @@ bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b)
             return false;
         return true;
     case TAC_INSTRUCTION_FUN_CALL:
+    case TAC_INSTRUCTION_FUN_CALL_NORETURN:
         if ((a->u.fun_call.fun_name == NULL) != (b->u.fun_call.fun_name == NULL))
             return false;
         if (a->u.fun_call.fun_name && strcmp(a->u.fun_call.fun_name, b->u.fun_call.fun_name) != 0)

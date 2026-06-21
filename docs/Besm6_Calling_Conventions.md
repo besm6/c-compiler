@@ -12,6 +12,17 @@ We use decimal numbering.
  * Register r14 contains the number of passed arguments, *negative*.
  * Register r13 contains the return address to the calling function.
 
+### Calling a `_Noreturn` function
+
+A function declared `_Noreturn` (e.g. `exit`, `abort`, `longjmp`, or a user function)
+never returns to its caller, so no return linkage is set up: the caller sets up the
+arguments exactly as above but invokes the callee with a tail `,uj,` (unconditional jump)
+instead of `,call,` (which is `13 ,vjm,`, i.e. it loads r13 with the return address).
+Because control never comes back, every instruction after the jump — including the
+caller's own epilogue `,uj, b/ret` — is dead and is removed by the peephole pass. In the
+TAC IR this is the dedicated `FunCallNoreturn` instruction; the front end emits it for a
+*direct* call whose callee carries the `_Noreturn` flag.
+
 ## On Return
 
  * The result value is returned in the accumulator.
