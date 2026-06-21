@@ -874,7 +874,7 @@ TEST_F(CodegenTest, DISABLED_Chapter18_ParametersStackClobber)
 
 
 int strcmp(char *s1, char *s2);
-void exit(int status);
+#include <stdlib.h>
 
 struct stack_bytes {
     char bytes[16];
@@ -1299,7 +1299,7 @@ TEST_F(CodegenTest, DISABLED_Chapter18_ParamsAndReturnsStackClobber)
 
 
 int strcmp(char *s1, char *s2);
-void exit(int status);
+#include <stdlib.h>
 
 struct stack_bytes {
     char bytes[16];

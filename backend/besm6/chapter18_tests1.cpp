@@ -2336,7 +2336,7 @@ TEST_F(CodegenTest, DISABLED_Chapter18_StructCopyStackClobber)
  * validate, and go undetected).
  */
 
-void exit(int status);
+#include <stdlib.h>
 
 struct chars {
     char char_array[3];

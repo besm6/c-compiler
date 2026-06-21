@@ -403,7 +403,7 @@ int main(void) {
 // would call exit, is never run).  sizeof(int) == 6 on BESM-6.
 TEST_F(CodegenTest, Chapter17_SizeofNotEvaluated)
 {
-    EXPECT_EQ("6\n", CompileAndRun(WrapMain(R"(void exit(int status);
+    EXPECT_EQ("6\n", CompileAndRun(WrapMain(R"(#include <stdlib.h>
 int foo(void) { exit(10); }
 
 int main(void) {
@@ -1053,7 +1053,7 @@ int main(void) {
 // (client+impl; void function call exercises stack-frame restore).
 TEST_F(CodegenTest, DISABLED_Chapter17_TestForMemoryLeaks)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(void exit(int status);
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(#include <stdlib.h>
 
 long sum = 0;
 void lots_of_args(int a, int b, int c, int d, int e, int f, int g, int h, int i,

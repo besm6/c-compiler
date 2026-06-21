@@ -271,7 +271,7 @@ TEST_F(CodegenTest, DISABLED_Chapter18_ClassifyUnions)
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 // library functions
 int strcmp(char* s1, char* s2);
-void exit(int status);
+#include <stdlib.h>
 void *malloc(unsigned long size);
 
 // I. unions passed in one register
@@ -975,7 +975,7 @@ TEST_F(CodegenTest, DISABLED_Chapter18_ParamPassing)
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 // library functions
 int strcmp(char* s1, char* s2);
-void exit(int status);
+#include <stdlib.h>
 void *malloc(unsigned long size);
 
 // I. unions passed in one register
@@ -1844,7 +1844,7 @@ TEST_F(CodegenTest, DISABLED_Chapter18_UnionRetvals)
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 // library functions
 int strcmp(char* s1, char* s2);
-void exit(int status);
+#include <stdlib.h>
 void *malloc(unsigned long size);
 
 // I. unions passed in one register

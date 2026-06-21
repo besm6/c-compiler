@@ -25,7 +25,7 @@
 #include "book_run.h"
 
 // --- inlined helper_libs/util.c check_* / id helpers (exit on mismatch) ---
-static const std::string EX  = "void exit(int);\n";
+static const std::string EX  = "#include <stdlib.h>\n";
 static const std::string ID  = "int id(int x) { return x; }\n";
 static const std::string DBLID = "double dbl_id(double x) { return x; }\n";
 static const std::string UID = "unsigned unsigned_id(unsigned u) { return u; }\n";
