@@ -575,6 +575,7 @@ static Tac_TopLevel *translate_fn(const ExternalDecl *ast)
     tl->u.function.params   = params_from_type(ast->u.function.type);
     tl->u.function.variadic = ast->u.function.type && ast->u.function.type->kind == TYPE_FUNCTION &&
                               ast->u.function.type->u.function.variadic;
+    tl->u.function.noret    = sym->u.func.noret;
 
     // A multi-word struct return uses the hidden-pointer (sret) ABI: the caller passes
     // the address of the result slot as an implicit first argument.  Prepend it to the

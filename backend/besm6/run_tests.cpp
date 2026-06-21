@@ -109,6 +109,28 @@ TEST_F(CodegenTest, PrintTwoLines)
     EXPECT_EQ("FIRST LINE.\nSECOND LINE.\n", result);
 }
 
+// End-to-end: a parameterless _Noreturn function (no b/save0 prologue) runs correctly
+// on the simulator — it prints, then tail-calls _Noreturn exit().
+TEST_F(CodegenTest, NoreturnNoParamsRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        #include <stdlib.h>
+        _Noreturn void die(void) {
+            printf("BYE\n");
+            exit(0);
+        }
+        void program() {
+            printf("HELLO\n");
+            die();
+        }
+    )");
+    // die() runs with the elided prologue (no b/save0), prints, then tail-calls exit().
+    // exit() halts the job mid-stream, so the monitor's "*END FILE" marker is captured
+    // in the listing (a normal return ends after the "----" separator and is truncated).
+    EXPECT_EQ("HELLO\nBYE\n\n*END FILE\n", result);
+}
+
 // Float constant in a function-call argument.
 // 1.5 as double → "=r1.5" literal.
 TEST_F(CodegenTest, FuncArgFloat)

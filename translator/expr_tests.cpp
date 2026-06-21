@@ -922,6 +922,15 @@ TEST_F(TranslateTest, NoreturnCallEmitsFunCallNoreturn)
 )");
 }
 
+// A _Noreturn function *definition* carries noret: true into its TAC top-level, so the
+// backend can drop its b/save prologue.  (noret is emitted only when true, so an ordinary
+// definition shows no noret line — as every other translate test's YAML confirms.)
+TEST_F(TranslateTest, NoreturnDefinitionCarriesNoretFlag)
+{
+    std::string yaml = CompileToYaml("_Noreturn void halt(void) { for(;;); }");
+    EXPECT_NE(yaml.find("\n  noret: true\n"), std::string::npos);
+}
+
 // A call to an ordinary (returning) function stays a plain fun_call.
 TEST_F(TranslateTest, OrdinaryCallStaysFunCall)
 {

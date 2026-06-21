@@ -23,6 +23,24 @@ caller's own epilogue `,uj, b/ret` — is dead and is removed by the peephole pa
 TAC IR this is the dedicated `FunCallNoreturn` instruction; the front end emits it for a
 *direct* call whose callee carries the `_Noreturn` flag.
 
+### Defining a parameterless `_Noreturn` function
+
+The standard prologue `,its, 13` / `,call, b/save0` exists to (1) save the return address
+and the caller's `r5`/`r6`/`r7` so they can be restored on return, and (2) set up this
+function's frame pointer `r7` (auto base) and the mode register `R = 7`. A function that is
+itself declared `_Noreturn` **and takes no parameters** never returns, so job (1) is pure
+waste — nothing is ever restored. The backend therefore drops the `b/save0` call (and the
+dead `b/ret` epilogue) and inlines only what remains:
+
+ * `,ntr, 7` — always, to establish the mode register `R = 7` that `b/save0` would have left.
+ * `15 ,mtj, 7` — only when the function has auto locals or compiler temporaries, to point
+   `r7` at the incoming stack top before the `utm` reserves the auto slots. With no register
+   save area pushed, the autos start directly at the caller's stack top.
+
+The `_Noreturn`-ness of the definition is carried on the function's TAC top-level (`noret`,
+serialized alongside `global`/`variadic`) so the machine backend can make this decision.
+Functions with parameters still use `b/save` (its parameter-block setup is needed).
+
 ## On Return
 
  * The result value is returned in the accumulator.

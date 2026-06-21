@@ -872,6 +872,8 @@ void tac_export_yaml(FILE *fd, const Tac_TopLevel *tl)
         fprintf(fd, "  kind: function\n");
         fprintf(fd, "  name: %s\n", tl->u.function.name ? tl->u.function.name : "");
         fprintf(fd, "  global: %s\n", tl->u.function.global ? "true" : "false");
+        if (tl->u.function.noret)
+            fprintf(fd, "  noret: true\n");
         if (tl->u.function.params) {
             fprintf(fd, "  params:\n");
             export_yaml_param_list(fd, tl->u.function.params, 2);

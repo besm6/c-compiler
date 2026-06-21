@@ -168,8 +168,16 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
         f             = frame_build(tl, program);
         int num_autos = frame_num_autos(f);
 
-        Besm_Instr *subp_cret = emit(block, &tail, BESM_STMT_SUBP);
-        subp_cret->name       = xstrdup("b/ret");
+        // A parameterless _Noreturn function never returns, so the b/save0 prologue's
+        // register saving and the b/ret epilogue are pure waste: nothing is ever
+        // restored.  Skip them and inline only the frame setup that still matters —
+        // R = 7 always, plus r7 = stack top when there are auto/temp slots to address.
+        bool noret_no_params = tl->u.function.noret && num_params == 0;
+
+        if (!noret_no_params) {
+            Besm_Instr *subp_cret = emit(block, &tail, BESM_STMT_SUBP);
+            subp_cret->name       = xstrdup("b/ret");
+        }
 
         if (strcmp(name, "main") == 0) {
             Besm_Instr *entry_prog = emit(block, &tail, BESM_STMT_ENTRY);
@@ -255,6 +263,13 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
                 for (const Tac_Val *a = instr->u.fun_call.args; a; a = a->next)
                     declare_global_operand(block, &tail, f, &declared, a);
                 declare_global_operand(block, &tail, f, &declared, instr->u.fun_call.dst);
+                // A _Noreturn tail call is emitted as ,uj, <callee>.  Unlike ,call, (which
+                // the assembler resolves as an implicit external), a ,uj, to an undefined
+                // name is a "undefined identifier" error, so the external callee must be
+                // declared SUBP.  A frame-resident name (function pointer) is skipped by
+                // declare_global_name.
+                if (instr->kind == TAC_INSTRUCTION_FUN_CALL_NORETURN)
+                    declare_global_name(block, &tail, f, &declared, instr->u.fun_call.fun_name);
                 break;
             // All width/int-FP/pointer-representation conversions share the {src, dst}
             // layout (a union common initial sequence), so one representative member
@@ -292,11 +307,25 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
         }
         map_destroy(&declared);
 
-        Besm_Instr *its13 = emit(block, &tail, BESM_MEM_ITS);
-        its13->addr       = REG_RET;
+        if (noret_no_params) {
+            // No b/save0: just establish R = 7 (the mode b/save0 would have left), and
+            // when the function has autos, point r7 at the incoming stack top before the
+            // utm reserves the auto slots.  No register save area is pushed.
+            Besm_Instr *ntr7 = emit(block, &tail, BESM_EXP_SETR);
+            ntr7->addr       = 7;
 
-        Besm_Instr *call_csave = emit(block, &tail, BESM_BRANCH_CALL);
-        call_csave->name       = xstrdup(num_params == 0 ? "b/save0" : "b/save");
+            if (num_autos > 0) {
+                Besm_Instr *mtj7 = emit(block, &tail, BESM_MEM_MTJ);
+                mtj7->reg        = REG_SP;
+                mtj7->addr       = REG_AUTO;
+            }
+        } else {
+            Besm_Instr *its13 = emit(block, &tail, BESM_MEM_ITS);
+            its13->addr       = REG_RET;
+
+            Besm_Instr *call_csave = emit(block, &tail, BESM_BRANCH_CALL);
+            call_csave->name       = xstrdup(num_params == 0 ? "b/save0" : "b/save");
+        }
 
         if (num_autos > 0) {
             utm_sp       = emit(block, &tail, BESM_REG_UTM);
@@ -307,8 +336,12 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
         for (const Tac_Instruction *instr = tl->u.function.body; instr; instr = instr->next)
             codegen_instr(instr, f, block, &tail);
 
-        Besm_Instr *uj_cret = emit(block, &tail, BESM_BRANCH_UJ);
-        uj_cret->name       = xstrdup("b/ret");
+        // A _Noreturn function never reaches its epilogue, and with no b/save there is
+        // nothing for b/ret to restore — omit the epilogue jump entirely.
+        if (!noret_no_params) {
+            Besm_Instr *uj_cret = emit(block, &tail, BESM_BRANCH_UJ);
+            uj_cret->name       = xstrdup("b/ret");
+        }
         emit(block, &tail, BESM_STMT_END);
     }
 

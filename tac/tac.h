@@ -62,6 +62,7 @@ typedef struct Tac_TopLevel {
             char *name;
             bool global;
             bool variadic;
+            bool noret;            // True if declared/defined _Noreturn
             Tac_Param *params;     // Linked list of identifiers
             Tac_Param *locals;     // Automatic local names (in-memory only; the
                                    // optimizer uses these to tell locals from

@@ -100,6 +100,23 @@ TEST_F(TacBinaryTest, EmptyFunction)
     tac_free_program(copy);
 }
 
+TEST_F(TacBinaryTest, FunctionNoreturnFlag)
+{
+    Tac_Program *orig          = tac_new_program();
+    orig->decls                = make_empty_function("die", true);
+    orig->decls->u.function.noret    = true;
+    orig->decls->u.function.variadic = true;
+    Tac_Program *copy = roundtrip(orig);
+
+    ASSERT_NE(nullptr, copy);
+    EXPECT_TRUE(copy->decls->u.function.noret);
+    EXPECT_TRUE(copy->decls->u.function.variadic);
+    EXPECT_TRUE(tac_compare_program(orig, copy));
+
+    tac_free_program(orig);
+    tac_free_program(copy);
+}
+
 TEST_F(TacBinaryTest, FunctionWithParams)
 {
     Tac_Program *orig = tac_new_program();

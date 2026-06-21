@@ -229,6 +229,8 @@ void tac_export_toplevel(WFILE *out, const Tac_TopLevel *tl)
     case TAC_TOPLEVEL_FUNCTION:
         wputstr(tl->u.function.name ? tl->u.function.name : "", out);
         wputw(tl->u.function.global ? 1 : 0, out);
+        wputw(tl->u.function.variadic ? 1 : 0, out);
+        wputw(tl->u.function.noret ? 1 : 0, out);
         export_param(out, tl->u.function.params);
         export_static_local(out, tl->u.function.static_locals);
         export_instr(out, tl->u.function.body);

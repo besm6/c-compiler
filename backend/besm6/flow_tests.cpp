@@ -213,6 +213,7 @@ TEST_F(CodegenTest, NoreturnCallTailJump)
     EXPECT_EQ(R"(c
         f:   ,name,
     b/ret:   ,subp,
+      die:   ,subp,
              ,its, 13
              ,call, b/save0
              ,uj, die
@@ -233,6 +234,46 @@ TEST_F(CodegenTest, OrdinaryCallKeepsEpilogue)
              ,call, b/save0
              ,call, g
              ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// A parameterless _Noreturn function never returns, so its own prologue drops the
+// b/save0 register save and the b/ret epilogue: only ,ntr, 7 (re-establishing the
+// mode register R = 7 that b/save0 would have left) remains.  With no autos there is
+// no frame to set up, so nothing else is emitted.
+TEST_F(CodegenTest, NoreturnNoParamsSkipsSave)
+{
+    std::string output = CompileToMadlen("_Noreturn void halt(void) { for(;;); }");
+    EXPECT_EQ(R"(c
+     halt:   ,name,
+             ,ntr, 7
+       *0:   ,bss,
+             ,uj, *0
+             ,end,
+)",
+              output);
+}
+
+// Same elision, but the function has an auto local, so r7 must still be pointed at the
+// stack top (15 ,mtj, 7) before the utm reserves the auto slot.  Still no b/save0 and
+// no b/ret epilogue.
+TEST_F(CodegenTest, NoreturnNoParamsWithAutoSetsFramePointer)
+{
+    std::string output = CompileToMadlen("_Noreturn void f(void) { int x = 0; for(;;) x++; }");
+    EXPECT_EQ(R"(c
+        f:   ,name,
+             ,ntr, 7
+          15 ,mtj, 7
+          15 ,utm, 1
+             ,xta, =0
+           7 ,atx,
+       *0:   ,bss,
+           7 ,xta,
+             ,a+x, =1
+           7 ,atx,
+             ,uj, *0
              ,end,
 )",
               output);

@@ -409,6 +409,10 @@ Tac_TopLevel *tac_import_toplevel(WFILE *in)
         check_input(in, "function name");
         tl->u.function.global = (bool)wgetw(in);
         check_input(in, "function global");
+        tl->u.function.variadic = (bool)wgetw(in);
+        check_input(in, "function variadic");
+        tl->u.function.noret = (bool)wgetw(in);
+        check_input(in, "function noret");
         tl->u.function.params        = import_param(in);
         tl->u.function.static_locals = import_static_local(in);
         tl->u.function.body          = import_instr(in);

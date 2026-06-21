@@ -342,6 +342,8 @@ bool tac_compare_toplevel(const Tac_TopLevel *a, const Tac_TopLevel *b)
             return false;
         if (a->u.function.variadic != b->u.function.variadic)
             return false;
+        if (a->u.function.noret != b->u.function.noret)
+            return false;
         return tac_compare_param(a->u.function.params, b->u.function.params) &&
                tac_compare_static_local(a->u.function.static_locals,
                                         b->u.function.static_locals) &&
