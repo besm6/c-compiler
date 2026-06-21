@@ -235,7 +235,8 @@ static Besm_Instr *static_data_items(const Tac_Type *type, const Tac_StaticInit 
                     tail = &(*tail)->next;
                 continue;
             default:
-                fatal_error("TODO: non-float static init (Phase C)");
+                // Unreachable: static_data_items handles every Tac_StaticInitKind.
+                fatal_error("internal error: unhandled static init kind %d", (int)init->kind);
             }
             *tail = item;
             tail  = &item->next;
@@ -311,7 +312,8 @@ void besm_emit_static_locals(Besm_Module *module, const Tac_TopLevel *fn)
         else if (site)
             site->name = xstrdup(sl->name);
         else
-            fatal_error("static local %s: unsupported initializer layout", sl->name);
+            // Unreachable: static_data_items always yields a labelable or Z00 first item.
+            fatal_error("internal error: static local %s has no labelable init item", sl->name);
         insert_before_end(last, items);
     }
 }
