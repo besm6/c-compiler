@@ -8,23 +8,9 @@
  */
 #include <string.h>
 
-static char *save;          /* start of the next token search (NULL-init) */
-
-/* Return nonzero if byte c appears in the delimiter set delim. */
-static int is_delim(char c, const char *delim)
-{
-    const char *d = delim;
-    while (*d != 0) {
-        if (*d == c) {
-            return 1;
-        }
-        d++;
-    }
-    return 0;
-}
-
 char *strtok(char *str, const char *delim)
 {
+    static char *save;      /* start of the next token search (NULL-init) */
     char *p;
     char *tok;
 
@@ -38,7 +24,7 @@ char *strtok(char *str, const char *delim)
     }
 
     /* Skip leading delimiters. */
-    while (*p != 0 && is_delim(*p, delim)) {
+    while (*p != 0 && strchr(delim, *p) != 0) {
         p++;
     }
     if (*p == 0) {
@@ -48,7 +34,7 @@ char *strtok(char *str, const char *delim)
 
     /* p now points at the token; find its end. */
     tok = p;
-    while (*p != 0 && !is_delim(*p, delim)) {
+    while (*p != 0 && strchr(delim, *p) == 0) {
         p++;
     }
     if (*p == 0) {
