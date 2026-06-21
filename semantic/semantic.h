@@ -56,6 +56,7 @@ bool is_signed(const Type *t);
 bool type_is_volatile(const Type *t);
 int round_away_from_zero(int alignment, int size);
 Type *resolve_typedef_names(Type *t);
+const Type *unalias(const Type *t);
 
 #ifdef __cplusplus
 }

@@ -217,6 +217,46 @@ TEST_F(TypeTabTest, TypedefToTypedefName)
     EXPECT_EQ(r2->kind, TYPE_INT);
 }
 
+// typetab_add records the scope level on the entry.
+TEST_F(TypeTabTest, AddRecordsLevel)
+{
+    Type *tg = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    Type *tl = new_type(TYPE_LONG, __func__, __FILE__, __LINE__);
+    typetab_add("G", tg, 0);
+    typetab_add("L", tl, 2);
+    free_type(tg);
+    free_type(tl);
+    EXPECT_EQ(typetab_find("G")->level, 0);
+    EXPECT_EQ(typetab_find("L")->level, 2);
+}
+
+// resolve_typedef_names keeps a *global* (level-0) typedef name as a reference,
+// but expands a *local* (level>0) typedef name into a copy of its underlying type.
+TEST_F(TypeTabTest, ResolveKeepsGlobalExpandsLocal)
+{
+    Type *gi = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+    typetab_add("GInt", gi, 0); // global
+    free_type(gi);
+    Type *ld = new_type(TYPE_DOUBLE, __func__, __FILE__, __LINE__);
+    typetab_add("LDbl", ld, 1); // local
+    free_type(ld);
+
+    // A reference to the global typedef survives untouched (same node, no clone).
+    Type *gref                = new_type(TYPE_TYPEDEF_NAME, __func__, __FILE__, __LINE__);
+    gref->u.typedef_name.name = xstrdup("GInt");
+    Type *gout                = resolve_typedef_names(gref);
+    EXPECT_EQ(gout, gref);
+    EXPECT_EQ(gout->kind, TYPE_TYPEDEF_NAME);
+    free_type(gout);
+
+    // A reference to the local typedef is expanded to its underlying type.
+    Type *lref                = new_type(TYPE_TYPEDEF_NAME, __func__, __FILE__, __LINE__);
+    lref->u.typedef_name.name = xstrdup("LDbl");
+    Type *lout                = resolve_typedef_names(lref); // frees lref, returns a clone
+    EXPECT_EQ(lout->kind, TYPE_DOUBLE);
+    free_type(lout);
+}
+
 // Test that the stored type is a clone (independent copy)
 TEST_F(TypeTabTest, AddPreservesOriginalType)
 {

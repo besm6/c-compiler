@@ -58,7 +58,7 @@ static void check_duplicate_params(const Type *fn_type)
 // redefinitions and conflicting declarations across function bodies.
 static void register_function_declaration(InitDeclarator *decl, const DeclSpec *specifiers)
 {
-    const Type *var_type = decl->type;
+    const Type *var_type = unalias(decl->type); // may be a typedef'd function type
     if (decl->init) {
         fatal_error("Function declared with initializer");
     }
@@ -75,7 +75,7 @@ static void register_function_declaration(InitDeclarator *decl, const DeclSpec *
     // call-site argument-count checks see zero params for f(void).
     Type *adj  = clone_type(var_type, __func__, __FILE__, __LINE__);
     Param *vsp = adj->u.function.params;
-    if (vsp && !vsp->next && vsp->type->kind == TYPE_VOID && !vsp->name) {
+    if (vsp && !vsp->next && unalias(vsp->type)->kind == TYPE_VOID && !vsp->name) {
         free_param(vsp);
         adj->u.function.params = NULL;
     }
@@ -129,7 +129,7 @@ static void validate_struct_definition(const char *tag, const Field *members)
             }
             continue;
         }
-        if (m->u.member.type->kind == TYPE_FUNCTION) {
+        if (unalias(m->u.member.type)->kind == TYPE_FUNCTION) {
             fatal_error("Can't declare structure member with function type");
         }
         if (!is_complete(m->u.member.type)) {
@@ -283,11 +283,11 @@ static void typecheck_local_var_decl(const Declaration *d)
         // A block-scope function declaration ("int f(int);" inside a body) has
         // external linkage; register it like a file-scope prototype so later
         // definitions and sibling-scope declarations resolve against it.
-        if (var_type->kind == TYPE_FUNCTION) {
+        if (unalias(var_type)->kind == TYPE_FUNCTION) {
             register_function_declaration(decl, d->u.var.specifiers);
             continue;
         }
-        if (var_type->kind == TYPE_VOID) {
+        if (unalias(var_type)->kind == TYPE_VOID) {
             fatal_error("No void declarations");
         }
         register_inline_struct_defs(var_type);
@@ -305,7 +305,7 @@ static void typecheck_local_var_decl(const Declaration *d)
                 fatal_error("Identifier %s declared both with and without linkage",
                             decl->name);
             }
-            if (existing && existing->type->kind != var_type->kind) {
+            if (existing && unalias(existing->type)->kind != unalias(var_type)->kind) {
                 fatal_error("Variable %s redeclared with different type", decl->name);
             }
             if (!existing) {
@@ -517,23 +517,24 @@ static void typecheck_fn_decl(ExternalDecl *d)
     validate_type(fun_type);
     Type *adjusted_type = clone_type(fun_type, __func__, __FILE__, __LINE__);
     if (fun_type->kind == TYPE_FUNCTION) {
-        if (fun_type->u.function.return_type->kind == TYPE_ARRAY) {
+        if (unalias(fun_type->u.function.return_type)->kind == TYPE_ARRAY) {
             fatal_error("A function cannot return an array");
         }
         // In C, f(void) is represented as a single unnamed void param — it means no parameters.
         Param *p = adjusted_type->u.function.params;
-        if (p && !p->next && p->type->kind == TYPE_VOID && !p->name) {
+        if (p && !p->next && unalias(p->type)->kind == TYPE_VOID && !p->name) {
             free_param(p);
             adjusted_type->u.function.params = NULL;
             p                                = NULL;
         }
         while (p) {
-            if (p->type->kind == TYPE_ARRAY) {
+            const Type *pt = unalias(p->type);
+            if (pt->kind == TYPE_ARRAY) {
                 Type *ptr = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
                 ptr->u.pointer.target =
-                    clone_type(p->type->u.array.element, __func__, __FILE__, __LINE__);
+                    clone_type(pt->u.array.element, __func__, __FILE__, __LINE__);
                 p->type = ptr;
-            } else if (p->type->kind == TYPE_VOID) {
+            } else if (pt->kind == TYPE_VOID) {
                 fatal_error("No void params allowed");
             }
             p = p->next;
@@ -551,7 +552,7 @@ static void typecheck_fn_decl(ExternalDecl *d)
             break;
         }
     }
-    const Type *ret = fun_type->u.function.return_type;
+    const Type *ret = unalias(fun_type->u.function.return_type);
     bool ret_ok     = (ret->kind == TYPE_VOID) || is_complete(ret);
     if (has_body && (!ret_ok || !all_params_complete)) {
         fatal_error("Can't define function with incomplete types");
@@ -560,7 +561,7 @@ static void typecheck_fn_decl(ExternalDecl *d)
     Symbol *existing = symtab_get_opt(d->u.function.name);
     bool defined     = has_body;
     if (existing) {
-        if (existing->type->kind != fun_type->kind) {
+        if (unalias(existing->type)->kind != fun_type->kind) {
             fatal_error("Redeclared function %s with different type", d->u.function.name);
         }
         if (existing->kind == SYM_FUNC) {
@@ -605,7 +606,7 @@ static void typecheck_fn_decl(ExternalDecl *d)
         // A non-void function whose body can fall off the end yields an
         // indeterminate value (C11 §6.9.1p12).  Reject that — except for main(),
         // which by §5.1.2.2.3 implicitly returns 0: synthesize the return instead.
-        const Type *rt = fun_type->u.function.return_type;
+        const Type *rt = unalias(fun_type->u.function.return_type);
         if (rt->kind != TYPE_VOID && d->u.function.body &&
             d->u.function.body->kind == STMT_COMPOUND &&
             stmt_falls_through(d->u.function.body)) {
@@ -681,12 +682,12 @@ static void typecheck_file_scope_var_decl(Declaration *d)
         // as a DECL_VAR with a function type. Register it as SYM_FUNC so that
         // resolve() can find it when it later processes the definition, and so
         // has_linkage is set correctly to allow the redeclaration.
-        if (var_type->kind == TYPE_FUNCTION) {
+        if (unalias(var_type)->kind == TYPE_FUNCTION) {
             register_function_declaration(decl, d->u.var.specifiers);
             continue;
         }
 
-        if (var_type->kind == TYPE_VOID) {
+        if (unalias(var_type)->kind == TYPE_VOID) {
             fatal_error("Void variables not allowed");
         }
         register_inline_struct_defs(var_type);
@@ -708,7 +709,7 @@ static void typecheck_file_scope_var_decl(Declaration *d)
         }
         Symbol *existing = symtab_get_opt(decl->name);
         if (existing) {
-            if (existing->type->kind != var_type->kind) {
+            if (unalias(existing->type)->kind != unalias(var_type)->kind) {
                 fatal_error("Variable %s redeclared with different type", decl->name);
             }
             if (existing->kind == SYM_STATIC) {

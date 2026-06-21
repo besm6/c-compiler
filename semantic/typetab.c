@@ -55,6 +55,7 @@ void typetab_add(const char *ident, const Type *type, int level)
     TypeDef *def = xalloc(sizeof(TypeDef), __func__, __FILE__, __LINE__);
     def->name    = xstrdup(ident);
     def->type    = clone_type(type, __func__, __FILE__, __LINE__);
+    def->level   = level;
 
     map_insert_free(&typetab, ident, (intptr_t)def, level, typetab_destroy_callback);
 }

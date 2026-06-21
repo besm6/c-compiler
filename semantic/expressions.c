@@ -9,13 +9,14 @@
 #include "structtab.h"
 #include "symtab.h"
 #include "typecheck.h"
+#include "typetab.h"
 #include "xalloc.h"
 
 // Parser represents f(void) as a single unnamed TYPE_VOID param; treat as no params.
 static const Param *params_for_call(const Type *fn_type)
 {
     const Param *params = fn_type->u.function.params;
-    if (params && !params->next && params->type->kind == TYPE_VOID && !params->name)
+    if (params && !params->next && unalias(params->type)->kind == TYPE_VOID && !params->name)
         return NULL;
     return params;
 }
@@ -31,7 +32,7 @@ static bool is_function_designator(const Expr *e)
     if (e->kind != EXPR_VAR)
         return false;
     const Symbol *sym = symtab_get_opt(e->u.var);
-    return sym && sym->type && sym->type->kind == TYPE_FUNCTION;
+    return sym && sym->type && unalias(sym->type)->kind == TYPE_FUNCTION;
 }
 
 static bool is_lvalue(const Expr *e)
@@ -157,10 +158,11 @@ static Expr *typecheck_literal(Expr *e)
 // C11 §6.5.2.2: default argument promotions for variadic trailing arguments.
 static Expr *promote_variadic_arg(Expr *e)
 {
-    e = typecheck_and_decay(e);
-    if (is_character(e->type) || e->type->kind == TYPE_SHORT || e->type->kind == TYPE_USHORT)
+    e                = typecheck_and_decay(e);
+    const Type *et   = unalias(e->type);
+    if (is_character(et) || et->kind == TYPE_SHORT || et->kind == TYPE_USHORT)
         e = convert_to_kind(e, TYPE_INT);
-    else if (e->type->kind == TYPE_FLOAT)
+    else if (et->kind == TYPE_FLOAT)
         e = convert_to_kind(e, TYPE_DOUBLE);
     return e;
 }
@@ -180,12 +182,14 @@ static Expr *typecheck_expr(Expr *e)
     case EXPR_CAST: {
         e->u.cast.type = resolve_typedef_names(e->u.cast.type);
         validate_type(e->u.cast.type);
-        Expr *inner = typecheck_and_decay(e->u.cast.expr);
-        if ((e->u.cast.type->kind == TYPE_DOUBLE && is_pointer(inner->type)) ||
-            (is_pointer(e->u.cast.type) && inner->type->kind == TYPE_DOUBLE)) {
+        Expr *inner          = typecheck_and_decay(e->u.cast.expr);
+        const Type *cast_ty  = unalias(e->u.cast.type);
+        const Type *inner_ty = unalias(inner->type);
+        if ((cast_ty->kind == TYPE_DOUBLE && is_pointer(inner_ty)) ||
+            (is_pointer(cast_ty) && inner_ty->kind == TYPE_DOUBLE)) {
             fatal_error("Cannot cast between pointer and double");
         }
-        if (e->u.cast.type->kind == TYPE_VOID) {
+        if (cast_ty->kind == TYPE_VOID) {
             free_type(e->type);
             e->type        = clone_type(e->u.cast.type, __func__, __FILE__, __LINE__);
             e->u.cast.expr = inner;
@@ -213,8 +217,8 @@ static Expr *typecheck_expr(Expr *e)
             if (!is_integer(inner->type)) {
                 fatal_error("Bitwise complement only valid for integer types");
             }
-            if (is_character(inner->type) || inner->type->kind == TYPE_SHORT ||
-                inner->type->kind == TYPE_USHORT)
+            const Type *it = unalias(inner->type);
+            if (is_character(it) || it->kind == TYPE_SHORT || it->kind == TYPE_USHORT)
                 inner = convert_to_kind(inner, TYPE_INT);
             free_type(e->type);
             e->type            = clone_type(inner->type, __func__, __FILE__, __LINE__);
@@ -227,8 +231,8 @@ static Expr *typecheck_expr(Expr *e)
             if (!is_arithmetic(inner->type)) {
                 fatal_error("Can only apply unary +/- to arithmetic types");
             }
-            if (is_character(inner->type) || inner->type->kind == TYPE_SHORT ||
-                inner->type->kind == TYPE_USHORT)
+            const Type *it = unalias(inner->type);
+            if (is_character(it) || it->kind == TYPE_SHORT || it->kind == TYPE_USHORT)
                 inner = convert_to_kind(inner, TYPE_INT);
             free_type(e->type);
             e->type            = clone_type(inner->type, __func__, __FILE__, __LINE__);
@@ -240,8 +244,8 @@ static Expr *typecheck_expr(Expr *e)
             if (!is_pointer(inner->type)) {
                 fatal_error("Tried to dereference non-pointer");
             }
-            const Type *ptr_type = inner->type;
-            if (ptr_type->u.pointer.target->kind == TYPE_VOID) {
+            const Type *ptr_type = unalias(inner->type);
+            if (unalias(ptr_type->u.pointer.target)->kind == TYPE_VOID) {
                 fatal_error("Can't dereference pointer to void");
             }
             free_type(e->type);
@@ -332,7 +336,8 @@ static Expr *typecheck_expr(Expr *e)
             } else if (is_complete_pointer(e1->type) && is_integer(e2->type)) {
                 e2      = convert_to_kind(e2, TYPE_LONG);
                 e->type = clone_type(e1->type, __func__, __FILE__, __LINE__);
-            } else if (is_complete_pointer(e1->type) && e1->type->kind == e2->type->kind) {
+            } else if (is_complete_pointer(e1->type) &&
+                       unalias(e1->type)->kind == unalias(e2->type)->kind) {
                 e->type = new_type(TYPE_LONG, __func__, __FILE__, __LINE__);
             } else {
                 fatal_error("Invalid operands for subtraction");
@@ -366,7 +371,7 @@ static Expr *typecheck_expr(Expr *e)
         case BINARY_NE: {
             e1 = typecheck_and_decay(e1);
             e2 = typecheck_and_decay(e2);
-            if (e1->type->kind == TYPE_VOID || e2->type->kind == TYPE_VOID) {
+            if (unalias(e1->type)->kind == TYPE_VOID || unalias(e2->type)->kind == TYPE_VOID) {
                 fatal_error("Invalid operands for comparison");
             }
             if (!is_scalar(e1->type) || !is_scalar(e2->type)) {
@@ -429,12 +434,11 @@ static Expr *typecheck_expr(Expr *e)
             if (!is_integer(e1->type) || !is_integer(e2->type)) {
                 fatal_error("Shift operators require integer operands");
             }
-            if (is_character(e1->type) || e1->type->kind == TYPE_SHORT ||
-                e1->type->kind == TYPE_USHORT) {
+            const Type *t1 = unalias(e1->type), *t2 = unalias(e2->type);
+            if (is_character(t1) || t1->kind == TYPE_SHORT || t1->kind == TYPE_USHORT) {
                 e1 = convert_to_kind(e1, TYPE_INT);
             }
-            if (is_character(e2->type) || e2->type->kind == TYPE_SHORT ||
-                e2->type->kind == TYPE_USHORT) {
+            if (is_character(t2) || t2->kind == TYPE_SHORT || t2->kind == TYPE_USHORT) {
                 e2 = convert_to_kind(e2, TYPE_INT);
             }
             free_type(e->type);
@@ -493,7 +497,9 @@ static Expr *typecheck_expr(Expr *e)
         Expr *then_expr = typecheck_and_decay(e->u.cond.then_expr);
         Expr *else_expr = typecheck_and_decay(e->u.cond.else_expr);
         const Type *result_type;
-        if (then_expr->type->kind == TYPE_VOID && else_expr->type->kind == TYPE_VOID) {
+        const Type *then_ty = unalias(then_expr->type);
+        const Type *else_ty = unalias(else_expr->type);
+        if (then_ty->kind == TYPE_VOID && else_ty->kind == TYPE_VOID) {
             // A void/void conditional has type void; both operands stay as-is
             // (no conversion needed).  Own the result type directly so it is not
             // leaked by the clone below.
@@ -507,10 +513,10 @@ static Expr *typecheck_expr(Expr *e)
             result_type = common_pointer_type(then_expr, else_expr);
         } else if (is_arithmetic(then_expr->type) && is_arithmetic(else_expr->type)) {
             result_type = get_common_type(then_expr->type, else_expr->type);
-        } else if (then_expr->type->kind == else_expr->type->kind) {
+        } else if (then_ty->kind == else_ty->kind) {
             // For struct/union operands the tags must match, too.
-            if ((then_expr->type->kind == TYPE_STRUCT || then_expr->type->kind == TYPE_UNION) &&
-                strcmp(then_expr->type->u.struct_t.name, else_expr->type->u.struct_t.name) != 0) {
+            if ((then_ty->kind == TYPE_STRUCT || then_ty->kind == TYPE_UNION) &&
+                strcmp(then_ty->u.struct_t.name, else_ty->u.struct_t.name) != 0) {
                 fatal_error("Invalid operands for conditional");
             }
             result_type = then_expr->type;
@@ -529,16 +535,16 @@ static Expr *typecheck_expr(Expr *e)
         const Type *fn_type;
         if (func->kind == EXPR_VAR) {
             const Symbol *sym = symtab_get(func->u.var);
-            fn_type           = sym->type;
+            fn_type           = unalias(sym->type);
             if (fn_type->kind == TYPE_POINTER)
-                fn_type = fn_type->u.pointer.target; // function pointer decay
+                fn_type = unalias(fn_type->u.pointer.target); // function pointer decay
             if (fn_type->kind != TYPE_FUNCTION)
                 fatal_error("Tried to use variable as function name");
         } else {
             func    = typecheck_and_decay(func);
-            fn_type = func->type;
+            fn_type = unalias(func->type);
             if (fn_type->kind == TYPE_POINTER)
-                fn_type = fn_type->u.pointer.target;
+                fn_type = unalias(fn_type->u.pointer.target);
             if (fn_type->kind != TYPE_FUNCTION)
                 fatal_error("Expression is not a function or function pointer");
             e->u.call.func = func;
@@ -585,10 +591,10 @@ static Expr *typecheck_expr(Expr *e)
         Expr *index = typecheck_and_decay(e->u.subscript.right);
         const Type *result_type;
         if (is_complete_pointer(ptr->type) && is_integer(index->type)) {
-            result_type = ptr->type->u.pointer.target;
+            result_type = unalias(ptr->type)->u.pointer.target;
             index       = convert_to_kind(index, TYPE_LONG);
         } else if (is_complete_pointer(index->type) && is_integer(ptr->type)) {
-            result_type = index->type->u.pointer.target;
+            result_type = unalias(index->type)->u.pointer.target;
             ptr         = convert_to_kind(ptr, TYPE_LONG);
         } else {
             fatal_error("Invalid types for subscript operation");
@@ -601,7 +607,7 @@ static Expr *typecheck_expr(Expr *e)
     }
     case EXPR_SIZEOF_EXPR: {
         Expr *inner = typecheck_expr(e->u.sizeof_expr);
-        if (inner->type->kind == TYPE_FUNCTION) {
+        if (unalias(inner->type)->kind == TYPE_FUNCTION) {
             fatal_error("Can't apply sizeof to a function type");
         }
         if (!is_complete(inner->type)) {
@@ -633,11 +639,12 @@ static Expr *typecheck_expr(Expr *e)
         return e;
     }
     case EXPR_FIELD_ACCESS: {
-        Expr *strct = typecheck_and_decay(e->u.field_access.expr);
-        if (strct->type->kind != TYPE_STRUCT && strct->type->kind != TYPE_UNION) {
+        Expr *strct        = typecheck_and_decay(e->u.field_access.expr);
+        const Type *strct_ty = unalias(strct->type);
+        if (strct_ty->kind != TYPE_STRUCT && strct_ty->kind != TYPE_UNION) {
             fatal_error("Dot operator requires structure or union type");
         }
-        const StructDef *entry = structtab_find(strct->type->u.struct_t.name);
+        const StructDef *entry = structtab_find(strct_ty->u.struct_t.name);
         const FieldDef *member = entry->members;
         for (; member; member = member->next) {
             if (strcmp(member->name, e->u.field_access.field) == 0) {
@@ -645,7 +652,7 @@ static Expr *typecheck_expr(Expr *e)
             }
         }
         if (!member) {
-            fatal_error("Struct %s has no member %s", strct->type->u.struct_t.name,
+            fatal_error("Struct %s has no member %s", strct_ty->u.struct_t.name,
                         e->u.field_access.field);
         }
         assert(member);
@@ -657,12 +664,13 @@ static Expr *typecheck_expr(Expr *e)
     }
     case EXPR_PTR_ACCESS: {
         Expr *strct_ptr      = typecheck_and_decay(e->u.ptr_access.expr);
-        const Type *ptr_type = strct_ptr->type;
-        if (!is_pointer(ptr_type) || (ptr_type->u.pointer.target->kind != TYPE_STRUCT &&
-                                      ptr_type->u.pointer.target->kind != TYPE_UNION)) {
+        const Type *ptr_type = unalias(strct_ptr->type);
+        if (!is_pointer(ptr_type) ||
+            (unalias(ptr_type->u.pointer.target)->kind != TYPE_STRUCT &&
+             unalias(ptr_type->u.pointer.target)->kind != TYPE_UNION)) {
             fatal_error("Arrow operator requires pointer to structure or union");
         }
-        const Type *target_type = ptr_type->u.pointer.target;
+        const Type *target_type = unalias(ptr_type->u.pointer.target);
         const StructDef *entry  = structtab_find(target_type->u.struct_t.name);
         const FieldDef *member  = entry->members;
         for (; member; member = member->next) {
@@ -731,7 +739,8 @@ static Expr *typecheck_expr(Expr *e)
                 ga->u.type_assoc.type = resolve_typedef_names(ga->u.type_assoc.type);
                 validate_type(ga->u.type_assoc.type);
                 ga->u.type_assoc.expr = typecheck_and_decay(ga->u.type_assoc.expr);
-                if (!selected && compare_type(ctrl_type, ga->u.type_assoc.type)) {
+                if (!selected &&
+                    compare_type(unalias(ctrl_type), unalias(ga->u.type_assoc.type))) {
                     selected = ga;
                 }
             } else {
@@ -779,7 +788,7 @@ static Expr *typecheck_expr(Expr *e)
         if (!is_complete(lit_type)) {
             fatal_error("Compound literal must have a complete type");
         }
-        if (lit_type->kind == TYPE_ARRAY || lit_type->kind == TYPE_STRUCT) {
+        if (unalias(lit_type)->kind == TYPE_ARRAY || unalias(lit_type)->kind == TYPE_STRUCT) {
             // Wrap InitItem list in a temporary INITIALIZER_COMPOUND to reuse typecheck_init.
             Initializer *wrap   = new_initializer(INITIALIZER_COMPOUND);
             wrap->u.items       = e->u.compound_literal.init;
@@ -814,21 +823,20 @@ Expr *typecheck_and_decay(Expr *e)
     }
     if (!e)
         return NULL;
-    Expr *typed = typecheck_expr(e);
-    if ((typed->type->kind == TYPE_STRUCT || typed->type->kind == TYPE_UNION) &&
-        !is_complete(typed->type)) {
+    Expr *typed    = typecheck_expr(e);
+    const Type *vt = unalias(typed->type);
+    if ((vt->kind == TYPE_STRUCT || vt->kind == TYPE_UNION) && !is_complete(typed->type)) {
         fatal_error("Incomplete structure type not permitted");
     }
-    if (typed->type->kind == TYPE_ARRAY) {
-        Type *ptr = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
-        ptr->u.pointer.target =
-            clone_type(typed->type->u.array.element, __func__, __FILE__, __LINE__);
+    if (vt->kind == TYPE_ARRAY) {
+        // A typedef'd array decays through its resolved element type.
+        Type *ptr             = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
+        ptr->u.pointer.target = clone_type(vt->u.array.element, __func__, __FILE__, __LINE__);
         free_type(typed->type);
         typed->type = ptr; // Modify in place
-    }
-    if (typed->type->kind == TYPE_FUNCTION) {
+    } else if (vt->kind == TYPE_FUNCTION) {
         Type *ptr             = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
-        ptr->u.pointer.target = clone_type(typed->type, __func__, __FILE__, __LINE__);
+        ptr->u.pointer.target = clone_type(vt, __func__, __FILE__, __LINE__);
         free_type(typed->type);
         typed->type = ptr;
     }

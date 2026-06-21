@@ -14,6 +14,7 @@ extern "C" {
 typedef struct {
     char *name; // typedef name (owned copy)
     Type *type; // underlying type (owned clone)
+    int level;  // scope level at which the typedef was declared (0 = file scope)
 } TypeDef;
 
 // Initialize the typedef table (create an empty table)

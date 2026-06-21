@@ -174,13 +174,14 @@ Tac_Val *new_var_val(TacCtx *ctx)
 // or void.  Used to choose the pointer-representation conversion in emit_cast.
 static bool is_fat_pointer(const Type *t)
 {
+    t = unalias(t);
     if (t->kind != TYPE_POINTER)
         return false;
-    const Type *target = t->u.pointer.target;
+    const Type *target = unalias(t->u.pointer.target);
     // A pointer to a char-innermost array (char(*)[N], from decaying a multi-dimensional
     // char array) is a fat byte pointer too: look through array element types.
     while (target->kind == TYPE_ARRAY)
-        target = target->u.array.element;
+        target = unalias(target->u.array.element);
     return is_character(target) || target->kind == TYPE_VOID;
 }
 
@@ -396,6 +397,7 @@ int target_word_bytes(void)
 
 bool type_is_byval_sret(const Type *t)
 {
+    t = unalias(t);
     if (!t || (t->kind != TYPE_STRUCT && t->kind != TYPE_UNION))
         return false;
     return (int)get_size(t) > target_word_bytes();
@@ -464,6 +466,7 @@ static Tac_Param *params_from_type(const Type *fun_type)
 
 Tac_Type *ast_type_to_tac_type(const Type *t)
 {
+    t = unalias(t); // global typedef names survive into the translator as references
     switch (t->kind) {
     case TYPE_VOID:
         return tac_new_type(TAC_TYPE_VOID);
@@ -516,7 +519,7 @@ Tac_Type *ast_type_to_tac_type(const Type *t)
         Tac_Type *tf          = tac_new_type(TAC_TYPE_FUN_TYPE);
         Tac_Type **param_tail = &tf->u.fun_type.param_types;
         for (const Param *p = t->u.function.params; p; p = p->next) {
-            if (!p->name && p->type->kind == TYPE_VOID)
+            if (!p->name && unalias(p->type)->kind == TYPE_VOID)
                 continue; // skip void sentinel
             Tac_Type *pt = ast_type_to_tac_type(p->type);
             *param_tail  = pt;
@@ -647,7 +650,7 @@ static Tac_TopLevel *translate_decl(const Declaration *decl)
         Symbol *sym = symtab_get(id->name);
         Tac_TopLevel *tl;
 
-        if (id->type->kind == TYPE_FUNCTION) {
+        if (unalias(id->type)->kind == TYPE_FUNCTION) {
             continue; // prototype — no TAC needed
         } else if (sym->u.static_var.init_kind == INIT_NONE) {
             // extern-only declaration — no storage to allocate, no TAC emitted.  A later

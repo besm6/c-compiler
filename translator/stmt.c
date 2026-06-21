@@ -83,7 +83,7 @@ static void gen_char_array_string_init(TacCtx *ctx, const char *var_name, int ba
 // top-level 1-D array or an inner row of a multi-dimensional char array.
 static bool is_char_array_string_init(const Type *type, const Initializer *init)
 {
-    return init->kind == INITIALIZER_SINGLE && type && type->kind == TYPE_ARRAY &&
+    return init->kind == INITIALIZER_SINGLE && type && unalias(type)->kind == TYPE_ARRAY &&
            init->u.expr->kind == EXPR_LITERAL &&
            init->u.expr->u.literal->kind == LITERAL_STRING;
 }
@@ -98,9 +98,9 @@ void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const
                                        (int)get_size(init->type));
             return;
         }
-        Tac_Val *src = gen_expr(ctx, init->u.expr);
-        if (init->type &&
-            (init->type->kind == TYPE_STRUCT || init->type->kind == TYPE_UNION)) {
+        Tac_Val *src    = gen_expr(ctx, init->u.expr);
+        const Type *it0 = init->type ? unalias(init->type) : NULL;
+        if (it0 && (it0->kind == TYPE_STRUCT || it0->kind == TYPE_UNION)) {
             // A whole struct/union value (not a scalar leaf) — copy it word by word.
             gen_struct_assign(ctx, var_name, base_offset, src->u.var_name,
                               (int)get_size(init->type));
@@ -119,7 +119,7 @@ void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const
         tac_append(ctx, in);
         return;
     }
-    const Type *t = init->type;
+    const Type *t = unalias(init->type);
     if (t->kind == TYPE_ARRAY) {
         int elem_size = (int)get_size(t->u.array.element);
         int i         = 0;
@@ -156,16 +156,17 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
     for (const InitDeclarator *id = decl->u.var.declarators; id; id = id->next) {
         if (!id->name)
             continue;
+        const Type *idt = id->type ? unalias(id->type) : NULL;
         // A block-scope function declaration (int f(void);) is not an automatic:
         // it names an external-linkage function with no frame slot, so it must
         // not be percent-prefixed like a local.
-        if (id->type && id->type->kind == TYPE_FUNCTION)
+        if (idt && idt->kind == TYPE_FUNCTION)
             continue;
         if (!is_automatic) {
             // A static/extern local array has no frame slot — its storage is the
             // module-local static datum, addressed by its label like a global — but it
             // still decays to its address when used as a value, so record it for the decay.
-            if (id->type && id->type->kind == TYPE_ARRAY)
+            if (idt && idt->kind == TYPE_ARRAY)
                 tac_record_array_local(ctx, id->name);
             continue;
         }
@@ -178,10 +179,10 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
         // by the 6-byte machine word).
         // A local array decays to a pointer when used as a value; record it so gen_expr
         // can emit the array-decay GET_ADDRESS (symtab locals are gone by then).
-        if (id->type && id->type->kind == TYPE_ARRAY)
+        if (idt && idt->kind == TYPE_ARRAY)
             tac_record_array_local(ctx, id->name);
-        if (id->type && (id->type->kind == TYPE_ARRAY || id->type->kind == TYPE_STRUCT ||
-                         id->type->kind == TYPE_UNION)) {
+        if (idt && (idt->kind == TYPE_ARRAY || idt->kind == TYPE_STRUCT ||
+                    idt->kind == TYPE_UNION)) {
             int bytes = (int)get_size(id->type);
             if (bytes > 0) {
                 Tac_Instruction *in       = tac_new_instruction(TAC_INSTRUCTION_ALLOCATE_LOCAL);
@@ -201,8 +202,9 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
                                            (int)get_size(id->type));
                 continue;
             }
-            Tac_Val *src = gen_expr(ctx, id->init->u.expr);
-            if (id->type && (id->type->kind == TYPE_STRUCT || id->type->kind == TYPE_UNION)) {
+            Tac_Val *src     = gen_expr(ctx, id->init->u.expr);
+            const Type *idt2 = id->type ? unalias(id->type) : NULL;
+            if (idt2 && (idt2->kind == TYPE_STRUCT || idt2->kind == TYPE_UNION)) {
                 // Whole-struct initialization (e.g. struct r = other; or struct r = f();):
                 // copy every word from the source aggregate into the new local.
                 gen_struct_assign(ctx, id->name, 0, src->u.var_name, (int)get_size(id->type));

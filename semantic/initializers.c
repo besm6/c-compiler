@@ -77,6 +77,7 @@ static Initializer *make_zero_init(Type *t)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
+    t = (Type *)unalias(t); // look through global typedef references (read-only use)
     if (t->kind == TYPE_ARRAY) {
         Initializer *init = new_initializer(INITIALIZER_COMPOUND);
         init->type        = clone_type(t, __func__, __FILE__, __LINE__);
@@ -175,6 +176,11 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
+    // Look through a global typedef reference. Reads use the resolved type; the only
+    // in-place mutation (set_array_size, below) is reached solely for a genuine
+    // unspecified-size array, never for a (complete) typedef'd array, so it never
+    // touches a shared typetab entry.
+    var_type = (Type *)unalias(var_type);
 
     // Handle null initializer: initialize with zeros.
     if (!init) {
@@ -186,7 +192,7 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
     // Handle array initialized with a string literal.
     if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_SINGLE &&
         init->u.expr->kind == EXPR_LITERAL && init->u.expr->u.literal->kind == LITERAL_STRING) {
-        const Type *element_type = var_type->u.array.element;
+        const Type *element_type = unalias(var_type->u.array.element);
         if (element_type->kind != TYPE_CHAR && element_type->kind != TYPE_SCHAR &&
             element_type->kind != TYPE_UCHAR) {
             fatal_error("String literal can only initialize character array");
@@ -221,7 +227,7 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
     // Handle pointer initialized with a string literal.
     if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
         init->u.expr->kind == EXPR_LITERAL && init->u.expr->u.literal->kind == LITERAL_STRING) {
-        if (var_type->u.pointer.target->kind != TYPE_CHAR) {
+        if (unalias(var_type->u.pointer.target)->kind != TYPE_CHAR) {
             fatal_error("String literal can only initialize pointer to char");
         }
         char *decoded   = decode_c_string_literal(init->u.expr->u.literal->u.string_val);
@@ -239,12 +245,13 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
     if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
         init->u.expr->kind == EXPR_VAR) {
         const Symbol *sym = symtab_get(init->u.expr->u.var);
-        if (sym->type->kind == TYPE_ARRAY) {
-            if (!compatible_type(var_type->u.pointer.target, sym->type->u.array.element)) {
+        const Type *st    = unalias(sym->type);
+        if (st->kind == TYPE_ARRAY) {
+            if (!compatible_type(var_type->u.pointer.target, st->u.array.element)) {
                 fatal_error("Initialization of pointer with incompatible array");
             }
-        } else if (sym->type->kind == TYPE_FUNCTION) {
-            if (!compatible_type(var_type->u.pointer.target, sym->type)) {
+        } else if (st->kind == TYPE_FUNCTION) {
+            if (!compatible_type(var_type->u.pointer.target, st)) {
                 fatal_error("Initialization of pointer with incompatible function");
             }
         } else {
@@ -252,8 +259,8 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         }
         // A char*/void* initialized by a char-array name is a fat pointer to the array's
         // first byte (byte#0 = MSB), i.e. byte_offset 0 / offset_enc 5.
-        const Type *ptr_target = var_type->u.pointer.target;
-        bool is_fat            = sym->type->kind == TYPE_ARRAY &&
+        const Type *ptr_target = unalias(var_type->u.pointer.target);
+        bool is_fat            = st->kind == TYPE_ARRAY &&
                      (ptr_target->kind == TYPE_CHAR || ptr_target->kind == TYPE_SCHAR ||
                       ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
         if (is_fat) {
@@ -272,13 +279,14 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         init->u.expr->kind == EXPR_UNARY_OP && init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
         init->u.expr->u.unary_op.expr->kind == EXPR_VAR) {
         const char *var_name   = init->u.expr->u.unary_op.expr->u.var;
-        const Type *ptr_target = var_type->u.pointer.target;
+        const Type *ptr_target = unalias(var_type->u.pointer.target);
         bool is_fat            = (ptr_target->kind == TYPE_CHAR || ptr_target->kind == TYPE_SCHAR ||
                                   ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
         if (is_fat) {
             const Symbol *sym  = symtab_get(var_name);
-            bool byte_sized    = (sym->type->kind == TYPE_CHAR || sym->type->kind == TYPE_SCHAR ||
-                                  sym->type->kind == TYPE_UCHAR);
+            const Type *st     = unalias(sym->type);
+            bool byte_sized    = (st->kind == TYPE_CHAR || st->kind == TYPE_SCHAR ||
+                                  st->kind == TYPE_UCHAR);
             Tac_StaticInit *fi = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
             fi->u.pointer.name = xstrdup(var_name);
             fi->u.pointer.byte_offset = byte_sized ? 5 : 0;
@@ -301,14 +309,15 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         if (!try_eval_const_int(index_expr, &index))
             fatal_error("Array subscript in static initializer must be a compile-time constant");
         const Symbol *arr_sym = symtab_get(arr_name);
-        if (arr_sym->type->kind != TYPE_ARRAY)
+        const Type *ast       = unalias(arr_sym->type);
+        if (ast->kind != TYPE_ARRAY)
             fatal_error("Subscript of non-array type in static initializer");
-        if (!compatible_type(var_type->u.pointer.target, arr_sym->type->u.array.element))
+        if (!compatible_type(var_type->u.pointer.target, ast->u.array.element))
             fatal_error("Incompatible types in pointer initialization with array element");
-        const Type *ptr_target = var_type->u.pointer.target;
+        const Type *ptr_target = unalias(var_type->u.pointer.target);
         bool is_fat            = (ptr_target->kind == TYPE_CHAR || ptr_target->kind == TYPE_SCHAR ||
                                   ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
-        int byte_offset        = (int)index * (int)get_size(arr_sym->type->u.array.element);
+        int byte_offset        = (int)index * (int)get_size(ast->u.array.element);
         if (is_fat) {
             Tac_StaticInit *fi        = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
             fi->u.pointer.name        = xstrdup(arr_name);
@@ -335,7 +344,7 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
             // "(char *)0x4000").  A bare integer is not a null pointer constant
             // and is rejected (C11 §6.7.9p4 / §6.3.2.3p3).
             if (init->u.expr->kind != EXPR_CAST ||
-                init->u.expr->u.cast.type->kind != TYPE_POINTER) {
+                unalias(init->u.expr->u.cast.type)->kind != TYPE_POINTER) {
                 fatal_error("Static initializer for pointer must be a null pointer constant");
             }
             Tac_StaticInit *ptr_init = tac_new_static_init(TAC_STATIC_INIT_I64);
@@ -497,6 +506,9 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
     if (!init) {
         return NULL;
     }
+    // Look through a global typedef reference (reads + recursion only; the
+    // set_array_size mutations below run solely for genuine unspecified-size arrays).
+    target_type = (Type *)unalias(target_type);
 
     // Update initializer type.
     free_type(init->type);
@@ -505,7 +517,7 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
     // Handle array initialized with a string literal.
     if (target_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_SINGLE &&
         init->u.expr->kind == EXPR_LITERAL && init->u.expr->u.literal->kind == LITERAL_STRING) {
-        const Type *element_type = target_type->u.array.element;
+        const Type *element_type = unalias(target_type->u.array.element);
         if (element_type->kind != TYPE_CHAR && element_type->kind != TYPE_SCHAR &&
             element_type->kind != TYPE_UCHAR) {
             fatal_error("String literal can only initialize character array");

@@ -30,9 +30,9 @@ static const Type *field_member_type(const Expr *e)
         base  = e->u.ptr_access.expr;
         field = e->u.ptr_access.field;
     }
-    const Type *st = base->type;
+    const Type *st = unalias(base->type);
     if (e->kind == EXPR_PTR_ACCESS && st->kind == TYPE_POINTER)
-        st = st->u.pointer.target;
+        st = unalias(st->u.pointer.target);
     if (st->kind != TYPE_STRUCT && st->kind != TYPE_UNION)
         return NULL;
     const StructDef *def = structtab_find_opt(st->u.struct_t.name);
@@ -53,8 +53,9 @@ static bool member_is_byte_addressed(const Type *mt)
 {
     if (!mt)
         return false;
+    mt = unalias(mt);
     while (mt->kind == TYPE_ARRAY)
-        mt = mt->u.array.element;
+        mt = unalias(mt->u.array.element);
     return is_character(mt);
 }
 
@@ -78,6 +79,7 @@ static void emit_member_offset(Tac_Instruction *ap, int byte_offset, const Type 
 
 static bool is_unsigned_type(const Type *t)
 {
+    t = unalias(t);
     return t->kind == TYPE_UCHAR || t->kind == TYPE_UINT || t->kind == TYPE_ULONG ||
            t->kind == TYPE_ULONG_LONG;
 }
@@ -97,11 +99,12 @@ static int byte_access_for(const Type *t)
 // byte storage, so look through array element types to the innermost scalar.
 static bool is_byte_pointer(const Type *t)
 {
+    t = unalias(t);
     if (t->kind != TYPE_POINTER)
         return false;
-    const Type *target = t->u.pointer.target;
+    const Type *target = unalias(t->u.pointer.target);
     while (target->kind == TYPE_ARRAY)
-        target = target->u.array.element;
+        target = unalias(target->u.array.element);
     return is_character(target) || target->kind == TYPE_VOID;
 }
 
@@ -117,6 +120,7 @@ static bool is_floating_type(const Type *t)
 // a one-word element already advances by exactly one word.
 static int wide_ptr_scale(const Type *t)
 {
+    t = unalias(t);
     if (t->kind != TYPE_POINTER || is_byte_pointer(t))
         return 0;
     int sz = (int)get_size(t->u.pointer.target);
@@ -129,7 +133,7 @@ static int wide_ptr_scale(const Type *t)
 // arithmetic runs at scale 1 with the index pre-multiplied by this stride.
 static int fat_ptr_byte_scale(const Type *ptr_type)
 {
-    const Type *target = ptr_type->u.pointer.target;
+    const Type *target = unalias(unalias(ptr_type)->u.pointer.target);
     return target->kind == TYPE_VOID ? 1 : (int)get_size(target);
 }
 
@@ -307,7 +311,7 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         Expr *lexp          = e->u.subscript.left;
         Expr *rexp          = e->u.subscript.right;
         const Expr *ptr_exp = is_pointer(lexp->type) ? lexp : rexp;
-        int scale           = (int)get_size(ptr_exp->type->u.pointer.target);
+        int scale           = (int)get_size(unalias(ptr_exp->type)->u.pointer.target);
         Tac_Val *lval       = gen_expr(ctx, lexp);
         Tac_Val *rval       = gen_expr(ctx, rexp);
         Tac_Val *idx        = ptr_exp == lexp ? rval : lval;
@@ -363,7 +367,7 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
     }
     case EXPR_COMPOUND: {
         char *T              = new_temp(ctx);
-        const Type *lit_type = e->u.compound_literal.type;
+        const Type *lit_type = unalias(e->u.compound_literal.type);
         if (lit_type->kind == TYPE_ARRAY || lit_type->kind == TYPE_STRUCT) {
             Initializer wrap;
             memset(&wrap, 0, sizeof wrap);
@@ -788,9 +792,9 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         // After typecheck a decayed array has pointer type, while its symbol is an array.
         // A char/void array decays to a fat pointer at its first byte (byte#0 = MSB,
         // offset_enc 5) via GET_ADDRESS_DECAY; any other array uses a plain GET_ADDRESS.
-        if (e->type->kind == TYPE_POINTER) {
+        if (unalias(e->type)->kind == TYPE_POINTER) {
             const Symbol *sym = symtab_get_opt(e->u.var);
-            bool is_array     = (sym && sym->type->kind == TYPE_ARRAY) ||
+            bool is_array     = (sym && unalias(sym->type)->kind == TYPE_ARRAY) ||
                             tac_is_array_local(ctx, e->u.var);
             if (is_array) {
                 Tac_Val *dst          = new_var_val(ctx);
@@ -807,7 +811,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             // *variable*'s symbol has pointer type, so the symbol kind disambiguates.
             // Materialize the function's label address explicitly — the bare name would
             // otherwise make the backend load mem[name] (the first code word).
-            if (sym && sym->type->kind == TYPE_FUNCTION) {
+            if (sym && unalias(sym->type)->kind == TYPE_FUNCTION) {
                 Tac_Val *dst          = new_var_val(ctx);
                 Tac_Instruction *in   = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
                 in->u.get_address.src = val_var(e->u.var);
@@ -838,8 +842,8 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             Tac_Val *addr = gen_lval(ctx, e);
             // Dereferencing a pointer-to-array yields a sub-array whose value is
             // its own address (array-to-pointer decay), not a scalar to load.
-            const Type *opnd = e->u.unary_op.expr->type;
-            if (opnd->kind == TYPE_POINTER && opnd->u.pointer.target->kind == TYPE_ARRAY)
+            const Type *opnd = unalias(e->u.unary_op.expr->type);
+            if (opnd->kind == TYPE_POINTER && unalias(opnd->u.pointer.target)->kind == TYPE_ARRAY)
                 return addr;
             Tac_Val *dst        = new_var_val(ctx);
             Tac_Instruction *in = tac_new_instruction(
@@ -898,7 +902,8 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             const char *dst = target->u.var;
             bool vol        = type_is_volatile(target->type);
             if (e->u.assign.op == ASSIGN_SIMPLE &&
-                (target->type->kind == TYPE_STRUCT || target->type->kind == TYPE_UNION)) {
+                (unalias(target->type)->kind == TYPE_STRUCT ||
+                 unalias(target->type)->kind == TYPE_UNION)) {
                 // Whole-struct assignment (a = b;): copy every word.
                 gen_struct_assign(ctx, dst, 0, src->u.var_name, (int)get_size(target->type));
                 tac_free_val(src);
@@ -1107,9 +1112,9 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             // re-decayed pointer type, so the operand's type is the reliable signal.)
             Expr *callee = func;
             if (callee->kind == EXPR_UNARY_OP && callee->u.unary_op.op == UNARY_DEREF) {
-                const Type *opnd = callee->u.unary_op.expr->type;
+                const Type *opnd = unalias(callee->u.unary_op.expr->type);
                 if (opnd && opnd->kind == TYPE_POINTER &&
-                    opnd->u.pointer.target->kind == TYPE_FUNCTION)
+                    unalias(opnd->u.pointer.target)->kind == TYPE_FUNCTION)
                     callee = callee->u.unary_op.expr;
             }
             fn_ptr   = gen_expr(ctx, callee);
@@ -1118,7 +1123,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
 
         // With the sret ABI the struct result lives in the slot we allocated, not in a
         // scalar destination register, so the call has no scalar `dst`.
-        Tac_Val *dst            = (e->type->kind != TYPE_VOID && !sret_slot) ? new_var_val(ctx)
+        Tac_Val *dst            = (unalias(e->type)->kind != TYPE_VOID && !sret_slot) ? new_var_val(ctx)
                                                                             : NULL;
         // A direct call to a _Noreturn function never returns, so emit the dedicated kind:
         // the backend tail-jumps to it and drops the dead post-call path.  (Indirect calls
@@ -1192,7 +1197,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         // load of a scalar.
         const Expr *ptr_exp = is_pointer(e->u.subscript.left->type) ? e->u.subscript.left
                                                                     : e->u.subscript.right;
-        if (ptr_exp->type->u.pointer.target->kind == TYPE_ARRAY)
+        if (unalias(unalias(ptr_exp->type)->u.pointer.target)->kind == TYPE_ARRAY)
             return addr;
         Tac_Val *dst        = new_var_val(ctx);
         Tac_Instruction *in = tac_new_instruction(
@@ -1217,7 +1222,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         // selecting a sub-array.  The member's array type is recovered from
         // structtab because e->type was decayed to a pointer at typecheck.
         {
-            const Type *mt = field_member_type(e);
+            const Type *mt = unalias(field_member_type(e));
             if (mt && mt->kind == TYPE_ARRAY)
                 return gen_lval(ctx, e);
         }
@@ -1247,7 +1252,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
     case EXPR_PTR_ACCESS: {
         // An array-typed member decays to the address of its first element.
         {
-            const Type *mt = field_member_type(e);
+            const Type *mt = unalias(field_member_type(e));
             if (mt && mt->kind == TYPE_ARRAY)
                 return gen_lval(ctx, e);
         }
@@ -1268,7 +1273,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         return gen_expr(ctx, match_expr);
     }
     case EXPR_COMPOUND: {
-        const Type *lit_type = e->u.compound_literal.type;
+        const Type *lit_type = unalias(e->u.compound_literal.type);
         if (lit_type->kind == TYPE_ARRAY || lit_type->kind == TYPE_STRUCT) {
             return gen_lval(ctx, e);
         }

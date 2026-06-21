@@ -9,17 +9,24 @@
 #include "typecheck.h"
 #include "typetab.h"
 
-// Replace every TYPE_TYPEDEF_NAME node in the type tree with a cloned, fully-resolved
-// type. Returns the (potentially new) root pointer; caller must use the return value.
+// Resolve typedef names in a type tree. A *local* (block-scope) typedef name is
+// expanded in place into a cloned copy of its underlying type, because the typetab
+// entry is purged on block exit and a surviving reference would dangle. A *global*
+// (file-scope) typedef name is left untouched: its typetab entry lives for the whole
+// compilation, so downstream code resolves it on demand (via unalias / the type
+// predicates) — this avoids deep-cloning the resolved type at every use.
+// Returns the (potentially new) root pointer; caller must use the return value.
 Type *resolve_typedef_names(Type *t)
 {
     if (!t)
         return NULL;
     if (t->kind == TYPE_TYPEDEF_NAME) {
-        const Type *resolved = typetab_resolve(t->u.typedef_name.name);
-        Type *cloned         = clone_type(resolved, __func__, __FILE__, __LINE__);
+        const TypeDef *def = typetab_find(t->u.typedef_name.name);
+        if (def->level == 0)
+            return t; // global typedef: keep the reference, no clone
+        Type *cloned = clone_type(def->type, __func__, __FILE__, __LINE__);
         free_type(t);
-        return resolve_typedef_names(cloned); // handles chains and nested typedef names
+        return resolve_typedef_names(cloned); // local: expand, handle chains/nesting
     }
     switch (t->kind) {
     case TYPE_POINTER:
@@ -52,10 +59,24 @@ Type *resolve_typedef_names(Type *t)
 }
 
 //
+// Resolve a typedef-name root to its underlying type, following chains of
+// (global) typedefs. Any non-typedef type passes through unchanged. Used to
+// look through the global typedef references that resolve_typedef_names now
+// leaves in place.
+//
+const Type *unalias(const Type *t)
+{
+    while (t && t->kind == TYPE_TYPEDEF_NAME)
+        t = typetab_resolve(t->u.typedef_name.name);
+    return t;
+}
+
+//
 // Get size in bytes for a given type.
 //
 size_t get_size(const Type *t)
 {
+    t = unalias(t);
     switch (t->kind) {
     case TYPE_BOOL:
     case TYPE_CHAR:
@@ -105,6 +126,7 @@ size_t get_size(const Type *t)
 
 size_t get_alignment(const Type *t)
 {
+    t = unalias(t);
     switch (t->kind) {
     case TYPE_BOOL:
     case TYPE_CHAR:
@@ -147,6 +169,7 @@ size_t get_alignment(const Type *t)
 
 bool is_signed(const Type *t)
 {
+    t = unalias(t);
     switch (t->kind) {
     case TYPE_CHAR:
     case TYPE_SCHAR:
@@ -192,13 +215,16 @@ static bool has_volatile_qualifier(const TypeQualifier *q)
 // Checks the type's own qualifier list, plus the pointer/array object's own
 // qualifiers (the `int * volatile p` case). Volatility of a pointee is *not*
 // considered here: it surfaces at the dereference site via that expression's
-// own (pointee) type. Typedefs are already resolved before lowering.
+// own (pointee) type. Local typedefs are resolved before lowering; a global
+// typedef name is looked through after first honoring the node's own qualifiers.
 bool type_is_volatile(const Type *t)
 {
     if (!t)
         return false;
     if (has_volatile_qualifier(t->qualifiers))
         return true;
+    if (t->kind == TYPE_TYPEDEF_NAME)
+        return type_is_volatile(typetab_resolve(t->u.typedef_name.name));
     if (t->kind == TYPE_POINTER)
         return has_volatile_qualifier(t->u.pointer.qualifiers);
     if (t->kind == TYPE_ARRAY)
@@ -208,11 +234,12 @@ bool type_is_volatile(const Type *t)
 
 bool is_pointer(const Type *t)
 {
-    return t->kind == TYPE_POINTER;
+    return unalias(t)->kind == TYPE_POINTER;
 }
 
 bool is_integer(const Type *t)
 {
+    t = unalias(t);
     switch (t->kind) {
     case TYPE_BOOL:
     case TYPE_CHAR:
@@ -244,11 +271,12 @@ bool is_integer(const Type *t)
 
 bool is_array(const Type *t)
 {
-    return t->kind == TYPE_ARRAY;
+    return unalias(t)->kind == TYPE_ARRAY;
 }
 
 bool is_character(const Type *t)
 {
+    t = unalias(t);
     switch (t->kind) {
     case TYPE_CHAR:
     case TYPE_SCHAR:
@@ -261,6 +289,7 @@ bool is_character(const Type *t)
 
 bool is_arithmetic(const Type *t)
 {
+    t = unalias(t);
     switch (t->kind) {
     case TYPE_BOOL:
     case TYPE_CHAR:
@@ -292,6 +321,7 @@ bool is_arithmetic(const Type *t)
 
 bool is_scalar(const Type *t)
 {
+    t = unalias(t);
     switch (t->kind) {
     case TYPE_ARRAY:
     case TYPE_VOID:
@@ -324,6 +354,7 @@ bool is_scalar(const Type *t)
 
 bool is_complete(const Type *t)
 {
+    t = unalias(t);
     switch (t->kind) {
     case TYPE_VOID:
         return false;
@@ -337,6 +368,7 @@ bool is_complete(const Type *t)
 
 bool is_complete_pointer(const Type *t)
 {
+    t = unalias(t);
     if (t->kind == TYPE_POINTER) {
         return is_complete(t->u.pointer.target);
     }

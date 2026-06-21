@@ -54,6 +54,7 @@ size_t get_array_size(const Type *t)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
+    t = unalias(t);
     if (t->kind != TYPE_ARRAY) {
         fatal_error("get_array_size: Array is expected");
     }
@@ -134,6 +135,13 @@ void validate_type(const Type *t)
     case TYPE_UNION:
     case TYPE_ENUM:
         break;
+    case TYPE_TYPEDEF_NAME:
+        // Global typedef names survive resolve_typedef_names as references.
+        if (!typetab_exists(t->u.typedef_name.name)) {
+            fatal_error("Unknown typedef name '%s'", t->u.typedef_name.name);
+        }
+        validate_type(typetab_resolve(t->u.typedef_name.name));
+        break;
     default:
         fatal_error("Unsupported type kind %d", t->kind);
     }
@@ -145,8 +153,8 @@ Expr *convert_to_type(Expr *e, const Type *target_type)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
-    const Type *src = e->type;
-    const Type *tgt = target_type;
+    const Type *src = unalias(e->type);
+    const Type *tgt = unalias(target_type);
     if (src->kind == tgt->kind &&
         (!is_pointer(src) || src->u.pointer.target->kind == tgt->u.pointer.target->kind))
         return e; // Avoid unnecessary casts
@@ -183,6 +191,8 @@ const Type *get_common_type(const Type *t1, const Type *t2)
     static const Type double_type      = { .kind = TYPE_DOUBLE };
     static const Type float_type       = { .kind = TYPE_FLOAT };
     static const Type long_double_type = { .kind = TYPE_LONG_DOUBLE };
+    t1                                 = unalias(t1);
+    t2                                 = unalias(t2);
     if (is_character(t1))
         t1 = &int_type;
     if (is_character(t2))
@@ -247,10 +257,11 @@ Type *common_pointer_type(const Expr *e1, const Expr *e2)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
-    if (e1->type->kind == e2->type->kind &&
-        e1->type->u.pointer.target->kind == e2->type->u.pointer.target->kind) {
+    const Type *p1 = unalias(e1->type), *p2 = unalias(e2->type);
+    if (p1->kind == p2->kind && is_pointer(p1) &&
+        unalias(p1->u.pointer.target)->kind == unalias(p2->u.pointer.target)->kind) {
         // Pointers to struct/union are compatible only if the tags match.
-        const Type *t1 = e1->type->u.pointer.target, *t2 = e2->type->u.pointer.target;
+        const Type *t1 = unalias(p1->u.pointer.target), *t2 = unalias(p2->u.pointer.target);
         if ((t1->kind == TYPE_STRUCT || t1->kind == TYPE_UNION) &&
             strcmp(t1->u.struct_t.name, t2->u.struct_t.name) != 0)
             fatal_error("Incompatible pointer types");
@@ -263,10 +274,10 @@ Type *common_pointer_type(const Expr *e1, const Expr *e2)
 
     // void* is the common type with any other object pointer — but only when both
     // operands are actually pointers (a void* vs. a non-null integer is invalid).
-    bool e1_void_ptr = e1->type->kind == TYPE_POINTER && e1->type->u.pointer.target->kind == TYPE_VOID;
-    bool e2_void_ptr = e2->type->kind == TYPE_POINTER && e2->type->u.pointer.target->kind == TYPE_VOID;
-    if ((e1_void_ptr && e2->type->kind == TYPE_POINTER) ||
-        (e2_void_ptr && e1->type->kind == TYPE_POINTER)) {
+    bool e1_void_ptr = p1->kind == TYPE_POINTER && unalias(p1->u.pointer.target)->kind == TYPE_VOID;
+    bool e2_void_ptr = p2->kind == TYPE_POINTER && unalias(p2->u.pointer.target)->kind == TYPE_VOID;
+    if ((e1_void_ptr && p2->kind == TYPE_POINTER) ||
+        (e2_void_ptr && p1->kind == TYPE_POINTER)) {
         Type *void_ptr             = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
         void_ptr->u.pointer.target = new_type(TYPE_VOID, __func__, __FILE__, __LINE__);
         return void_ptr;
@@ -278,7 +289,7 @@ Type *common_pointer_type(const Expr *e1, const Expr *e2)
 static const Param *params_for_compat(const Type *fn_type)
 {
     const Param *params = fn_type->u.function.params;
-    if (params && !params->next && params->type->kind == TYPE_VOID && !params->name)
+    if (params && !params->next && unalias(params->type)->kind == TYPE_VOID && !params->name)
         return NULL;
     return params;
 }
@@ -301,6 +312,10 @@ bool compatible_type(const Type *target, const Type *src)
         return true;
     if (!target || !src)
         return false;
+    // Look through global typedef references (kept by resolve_typedef_names) so a
+    // nested `MyInt *` compares equal to `int *`.
+    target = unalias(target);
+    src    = unalias(src);
     if (target->kind != src->kind)
         return false;
     switch (target->kind) {
@@ -343,7 +358,8 @@ Expr *coerce_for_assignment(Expr *e, const Type *target_type)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
-    const Type *e_type = e->type;
+    const Type *e_type = unalias(e->type);
+    target_type        = unalias(target_type);
     if (e_type->kind == target_type->kind && compatible_type(target_type, e_type))
         return e;
     if (is_arithmetic(e_type) && is_arithmetic(target_type))

@@ -47,11 +47,11 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
     switch (s->kind) {
     case STMT_RETURN:
         if (s->u.expr) {
-            if (ret_type->kind == TYPE_VOID) {
+            if (unalias(ret_type)->kind == TYPE_VOID) {
                 fatal_error("Void function cannot return a value");
             }
             s->u.expr = coerce_for_assignment(typecheck_and_decay(s->u.expr), ret_type);
-        } else if (ret_type->kind != TYPE_VOID) {
+        } else if (unalias(ret_type)->kind != TYPE_VOID) {
             fatal_error("Non-void function must return a value");
         }
         return s;
@@ -93,7 +93,7 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
             for (const InitDeclarator *id =
                      init_decl->kind == DECL_VAR ? init_decl->u.var.declarators : NULL;
                  id; id = id->next) {
-                if (id->type && id->type->kind == TYPE_FUNCTION) {
+                if (id->type && unalias(id->type)->kind == TYPE_FUNCTION) {
                     fatal_error("Function declaration not permitted in for loop header");
                 }
             }
@@ -121,7 +121,7 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
             fatal_error("Switch controlling expression must be of integer type");
         }
         /* Integer promotion: types narrower than int → int. */
-        TypeKind k = ctrl->type->kind;
+        TypeKind k = unalias(ctrl->type)->kind;
         if (k == TYPE_CHAR || k == TYPE_SCHAR || k == TYPE_UCHAR || k == TYPE_SHORT ||
             k == TYPE_USHORT) {
             ctrl = convert_to_kind(ctrl, TYPE_INT);
