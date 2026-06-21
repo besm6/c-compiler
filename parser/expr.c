@@ -733,7 +733,9 @@ Expr *parse_cast_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    if (current_token == TOKEN_LPAREN && is_type_specifier(next_token())) {
+    if (current_token == TOKEN_LPAREN &&
+        (is_type_specifier(next_token()) || is_type_qualifier(next_token()) ||
+         next_token() == TOKEN_ATOMIC)) {
         advance_token();
         Type *type = parse_type_name();
         expect_token(TOKEN_RPAREN);

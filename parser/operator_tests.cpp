@@ -524,3 +524,36 @@ int f() {
     EXPECT_EQ(LITERAL_INT, last_term->u.binary_op.right->u.literal->kind);
     EXPECT_EQ(3, last_term->u.binary_op.right->u.literal->u.int_val);
 }
+
+// Test cast to a type-name that begins with a type qualifier (const).
+// Regression: the cast lookahead used to test only is_type_specifier(), so a
+// type-name starting with const/volatile/restrict was not recognized as a cast.
+TEST_F(ParserTest, ParseCastQualifiedPointer)
+{
+    DeclOrStmt *body = GetFunctionBody(R"(
+int f(char *p) {
+    return (const unsigned char *)p != 0;
+}
+)");
+    EXPECT_EQ(body->kind, DECL_OR_STMT_STMT);
+    Stmt *stmt = body->u.stmt;
+    EXPECT_EQ(STMT_RETURN, stmt->kind);
+
+    Expr *ret = stmt->u.expr;
+    EXPECT_EQ(EXPR_BINARY_OP, ret->kind);
+    EXPECT_EQ(BINARY_NE, ret->u.binary_op.op);
+
+    Expr *cast = ret->u.binary_op.left;
+    EXPECT_EQ(EXPR_CAST, cast->kind);
+    ASSERT_NE(nullptr, cast->u.cast.type);
+
+    Type *type = cast->u.cast.type;
+    EXPECT_EQ(TYPE_POINTER, type->kind);
+    ASSERT_NE(nullptr, type->u.pointer.target);
+    EXPECT_EQ(TYPE_UCHAR, type->u.pointer.target->kind);
+    ASSERT_NE(nullptr, type->u.pointer.target->qualifiers);
+    EXPECT_EQ(TYPE_QUALIFIER_CONST, type->u.pointer.target->qualifiers->kind);
+
+    EXPECT_EQ(EXPR_VAR, cast->u.cast.expr->kind);
+    EXPECT_STREQ("p", cast->u.cast.expr->u.var);
+}
