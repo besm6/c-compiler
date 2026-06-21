@@ -1464,13 +1464,16 @@ int main(void) {
 })")));
 }
 
-// strings_as_initializers/terminating_null_bytes: static flat/nested arrays.  The
-// block-scope statics and the file-scope `nested` shadow were resolved (locals renamed),
-// but the test still needs multi-dimensional char-array indexing, which the backend
-// rejects ("ADD_PTR: unexpected sub-word scale 4").
-TEST_F(CodegenTest, DISABLED_Chapter16_TerminatingNullBytes)
+// strings_as_initializers/terminating_null_bytes: static flat/nested arrays.  Multi-
+// dimensional char-array initialization and indexing now work (task #5).  The book's
+// lowercase letters were upper-cased: the static-data path packs strings as KOI-7, which
+// folds lowercase Latin to uppercase codes while char literals stay ASCII, so lowercase
+// `arr[i] == 'a'` would compare unequal (see docs/KOI7_Encoding.md); the file-scope
+// `nested` shadow was already resolved by renaming the locals.
+TEST_F(CodegenTest, Chapter16_TerminatingNullBytes)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* When we initialize an array from a string literal,
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+/* When we initialize an array from a string literal,
  * make sure we include the null byte if the array has space for it,
  * and exclude it otherwise
  * */
@@ -1478,66 +1481,66 @@ TEST_F(CodegenTest, DISABLED_Chapter16_TerminatingNullBytes)
 int strcmp(char *s1, char *s2);  // standard library
 
 int test_flat_static_with_null_byte(void) {
-    static unsigned char flat[4] = "dog";
-    return (flat[0] == 'd' && flat[1] == 'o' && flat[2] == 'g' && flat[3] == 0);
+    static unsigned char flat[4] = "DOG";
+    return (flat[0] == 'D' && flat[1] == 'O' && flat[2] == 'G' && flat[3] == 0);
 }
 
 int test_nested_static_with_null_byte(void) {
     // Renamed from `nested` to avoid shadowing the file-scope `nested` below
     // (no-shadowing is a permanent design decision); behaviour is unchanged.
-    static char nested_s[2][4] = {"yes", "yup"};
-    return (nested_s[0][0] == 'y' && nested_s[0][1] == 'e' && nested_s[0][2] == 's' &&
-            nested_s[0][3] == 0 && nested_s[1][0] == 'y' && nested_s[1][1] == 'u' &&
-            nested_s[1][2] == 'p' && nested_s[1][3] == 0);
+    static char nested_s[2][4] = {"YES", "YUP"};
+    return (nested_s[0][0] == 'Y' && nested_s[0][1] == 'E' && nested_s[0][2] == 'S' &&
+            nested_s[0][3] == 0 && nested_s[1][0] == 'Y' && nested_s[1][1] == 'U' &&
+            nested_s[1][2] == 'P' && nested_s[1][3] == 0);
 }
 
 int test_flat_auto_with_null_byte(void) {
-    char flat_auto[2] = "x";
-    return (flat_auto[0] == 'x' && flat_auto[1] == 0);
+    char flat_auto[2] = "X";
+    return (flat_auto[0] == 'X' && flat_auto[1] == 0);
 }
 
 int test_nested_auto_with_null_byte(void) {
-    char nested_auto[2][2][2] = {{"a", "b"}, {"c", "d"}};
-    return (nested_auto[0][0][0] == 'a' && nested_auto[0][0][1] == 0 &&
-            nested_auto[0][1][0] == 'b' && nested_auto[0][1][1] == 0 &&
-            nested_auto[1][0][0] == 'c' && nested_auto[1][0][1] == 0 &&
-            nested_auto[1][1][0] == 'd' && nested_auto[1][1][1] == 0);
+    char nested_auto[2][2][2] = {{"A", "B"}, {"C", "D"}};
+    return (nested_auto[0][0][0] == 'A' && nested_auto[0][0][1] == 0 &&
+            nested_auto[0][1][0] == 'B' && nested_auto[0][1][1] == 0 &&
+            nested_auto[1][0][0] == 'C' && nested_auto[1][0][1] == 0 &&
+            nested_auto[1][1][0] == 'D' && nested_auto[1][1][1] == 0);
 }
 
 int test_flat_static_without_null_byte(void) {
-    static char letters[4] = "abcd";
-    return letters[0] == 'a' && letters[1] == 'b' && letters[2] == 'c' &&
-           letters[3] == 'd';
+    static char letters[4] = "ABCD";
+    return letters[0] == 'A' && letters[1] == 'B' && letters[2] == 'C' &&
+           letters[3] == 'D';
 }
 
-char nested[3][3] = {"yes", "no", "ok"};
+char nested[3][3] = {"YES", "NO", "OK"};
 int test_nested_static_without_null_byte(void) {
     char *whole_array = (char *)nested;
     char *word1 = (char *)nested[0];
     char *word2 = (char *)nested[1];
     char *word3 = (char *)nested[2];
-    return !(strcmp(whole_array, "yesno") || strcmp(word1, "yesno") ||
-             strcmp(word2, "no") || strcmp(word3, "ok"));
+    return !(strcmp(whole_array, "YESNO") || strcmp(word1, "YESNO") ||
+             strcmp(word2, "NO") || strcmp(word3, "OK"));
 }
 
 int test_flat_auto_without_null_byte(void) {
     int x = -1;
-    char letters[4] = "abcd";
+    char letters[4] = "ABCD";
     int y = -1;
-    return (x == -1 && y == -1 && letters[0] == 'a' && letters[1] == 'b' &&
-            letters[2] == 'c' && letters[3] == 'd');
+    return (x == -1 && y == -1 && letters[0] == 'A' && letters[1] == 'B' &&
+            letters[2] == 'C' && letters[3] == 'D');
 }
 
 int test_nested_auto_without_null_byte(void) {
     // Renamed from `nested` to avoid shadowing the file-scope `nested` (no-shadowing
     // is a permanent design decision); behaviour is unchanged.
-    char nested_a[3][3] = {"yes", "no", "ok"};
+    char nested_a[3][3] = {"YES", "NO", "OK"};
     char *whole_array = (char *)nested_a;
     char *word1 = (char *)nested_a[0];
     char *word2 = (char *)nested_a[1];
     char *word3 = (char *)nested_a[2];
-    return !(strcmp(whole_array, "yesno") || strcmp(word1, "yesno") ||
-             strcmp(word2, "no") || strcmp(word3, "ok"));
+    return !(strcmp(whole_array, "YESNO") || strcmp(word1, "YESNO") ||
+             strcmp(word2, "NO") || strcmp(word3, "OK"));
 }
 
 int main(void) {
@@ -1553,29 +1556,32 @@ int main(void) {
 })")));
 }
 
-// strings_as_initializers/partial_initialize_via_string: static arrays in fns.
-TEST_F(CodegenTest, DISABLED_Chapter16_PartialInitializeViaString)
+// strings_as_initializers/partial_initialize_via_string: static arrays in fns.  Enabled
+// with task #5 (multi-dim char arrays); the book's lowercase letters were upper-cased so the
+// KOI-7-packed static data matches the ASCII char literals (see docs/KOI7_Encoding.md).
+TEST_F(CodegenTest, Chapter16_PartialInitializeViaString)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that when we initialize an array from a string literal,
- * we zero out elements that aren't explicitly initialized.
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+/* Test that when we initialize an array from a string literal,
+ * we zero out elements that aren'T EXPLICITLY INITIALIZED.
  * */
 
-static char static_arr[5] = "hi";
+static char static_arr[5] = "HI";
 int test_static(void) {
-    return (static_arr[0] == 'h' && static_arr[1] == 'i' &&
+    return (static_arr[0] == 'H' && static_arr[1] == 'I' &&
             !(static_arr[2] || static_arr[3] || static_arr[4]));
 }
 
-static signed char nested_static_arr[3][4] = {"", "bc"};
+static signed char nested_static_arr[3][4] = {"", "BC"};
 int test_static_nested(void) {
     for (int i = 0; i < 3; i = i + 1)
         for (int j = 0; j < 4; j = j + 1) {
             signed char c = nested_static_arr[i][j];
             signed char expected = 0;
             if (i == 1 && j == 0) {
-                expected = 'b';
+                expected = 'B';
             } else if (i == 1 && j == 1) {
-                expected = 'c';
+                expected = 'C';
             }
             if (c != expected) {
                 return 0;
@@ -1585,12 +1591,12 @@ int test_static_nested(void) {
 }
 
 int test_automatic(void) {
-    unsigned char aut[4] = "ab";
-    return (aut[0] == 'a' && aut[1] == 'b' && !(aut[2] || aut[3]));
+    unsigned char aut[4] = "AB";
+    return (aut[0] == 'A' && aut[1] == 'B' && !(aut[2] || aut[3]));
 }
 
 int test_automatic_nested(void) {
-    signed char nested_auto[2][2][4] = {{"foo"}, {"x", "yz"}};
+    signed char nested_auto[2][2][4] = {{"FOO"}, {"X", "YZ"}};
     for (int i = 0; i < 2; i = i + 1) {
         for (int j = 0; j < 2; j = j + 1) {
             for (int k = 0; k < 4; k = k + 1) {
@@ -1598,16 +1604,16 @@ int test_automatic_nested(void) {
                 signed char expected = 0;
                 if (i == 0 && j == 0) {
                     if (k == 0) {
-                        expected = 'f';
+                        expected = 'F';
                     } else if (k == 1 || k == 2) {
-                        expected = 'o';
+                        expected = 'O';
                     }
                 } else if (i == 1 && j == 0 && k == 0) {
-                    expected = 'x';
+                    expected = 'X';
                 } else if (i == 1 && j == 1 && k == 0) {
-                    expected = 'y';
+                    expected = 'Y';
                 } else if (i == 1 && j == 1 && k == 1) {
-                    expected = 'z';
+                    expected = 'Z';
                 }
                 if (c != expected) {
                     return 0;

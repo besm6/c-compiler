@@ -37,8 +37,11 @@ static size_t char_init_item_bytes(const Tac_StaticInit *init)
     case TAC_STATIC_INIT_ZERO:
         return (size_t)init->u.zero_bytes;
     case TAC_STATIC_INIT_STRING: {
-        char *koi7 = xalloc(strlen(init->u.string.val) + 1, __func__, __FILE__, __LINE__);
-        utf8_to_koi7(init->u.string.val, koi7);
+        // An empty string literal serialises to a zero-length wio string and re-imports
+        // with a NULL `val`; treat it as the empty string.
+        const char *src = init->u.string.val ? init->u.string.val : "";
+        char *koi7      = xalloc(strlen(src) + 1, __func__, __FILE__, __LINE__);
+        utf8_to_koi7(src, koi7);
         size_t nb = strlen(koi7) + (init->u.string.null_terminated ? 1 : 0);
         xfree(koi7);
         return nb;
@@ -70,8 +73,9 @@ static Besm_Instr *char_array_log_items(const Tac_StaticInit *init)
     size_t pos = 0, data_end = 0;
     for (const Tac_StaticInit *it = init; it; it = it->next) {
         if (it->kind == TAC_STATIC_INIT_STRING) {
-            char *koi7 = xalloc(strlen(it->u.string.val) + 1, __func__, __FILE__, __LINE__);
-            utf8_to_koi7(it->u.string.val, koi7);
+            const char *src = it->u.string.val ? it->u.string.val : "";
+            char *koi7      = xalloc(strlen(src) + 1, __func__, __FILE__, __LINE__);
+            utf8_to_koi7(src, koi7);
             size_t nb = strlen(koi7) + (it->u.string.null_terminated ? 1 : 0);
             for (size_t i = 0; i < nb && pos + i < total; i++)
                 buf[pos + i] = (unsigned char)koi7[i];
@@ -327,7 +331,7 @@ Besm_Instr *besm_string_log_items(const Tac_StaticInit *init, const char *label)
     if (init->kind != TAC_STATIC_INIT_STRING)
         fatal_error("string constant init is not a string");
 
-    const char *raw = init->u.string.val;
+    const char *raw = init->u.string.val ? init->u.string.val : "";
     char *koi7      = xalloc(strlen(raw) + 1, __func__, __FILE__, __LINE__);
     utf8_to_koi7(raw, koi7);
     const char *s = koi7;

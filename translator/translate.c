@@ -177,6 +177,10 @@ static bool is_fat_pointer(const Type *t)
     if (t->kind != TYPE_POINTER)
         return false;
     const Type *target = t->u.pointer.target;
+    // A pointer to a char-innermost array (char(*)[N], from decaying a multi-dimensional
+    // char array) is a fat byte pointer too: look through array element types.
+    while (target->kind == TYPE_ARRAY)
+        target = target->u.array.element;
     return is_character(target) || target->kind == TYPE_VOID;
 }
 

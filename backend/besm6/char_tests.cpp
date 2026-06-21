@@ -522,3 +522,99 @@ TEST_F(CodegenTest, CharPtrDifferenceNegativeRun)
     )");
     EXPECT_EQ("-7\n", result);
 }
+
+//
+// Multi-dimensional char arrays (task #5).
+//
+// A char-innermost array of any rank is a flat byte blob, packed 6 bytes per word with rows
+// contiguous (no per-row word padding).  Indexing m[i][j] decays the array to a fat byte
+// pointer and advances it by i*rowsize + j bytes.  Tests use UPPERCASE letters because the
+// static-data path packs strings as KOI-7, which folds lowercase Latin to uppercase codes
+// while char literals stay ASCII (see docs/KOI7_Encoding.md); uppercase keeps both equal.
+
+// Runtime: static multi-dim char array — contiguous packing, per-row null padding, indexing.
+TEST_F(CodegenTest, MultiDimCharArrayStaticRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            static char m[2][4] = {"YES", "YUP"};
+            putbyte(m[0][0]); putbyte(m[0][2]);            /* Y S */
+            putbyte('0' + m[0][3]);                        /* null -> '0' */
+            putbyte(m[1][0]); putbyte(m[1][2]);            /* Y P */
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("YS0YP\n", result);
+}
+
+// Runtime: automatic multi-dim char array initialized from string rows, then indexed.
+TEST_F(CodegenTest, MultiDimCharArrayAutoRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            char m[2][2][2] = {{"A", "B"}, {"C", "D"}};
+            putbyte(m[0][0][0]); putbyte(m[0][1][0]);      /* A B */
+            putbyte(m[1][0][0]); putbyte(m[1][1][0]);      /* C D */
+            putbyte('0' + m[0][0][1]);                     /* null -> '0' */
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("ABCD0\n", result);
+}
+
+// Runtime: global multi-dim char array read through a flat char* (contiguous bytes), and a
+// row decayed to a char*.  Rows that fit a null keep it, so a flat walk stops at the first.
+TEST_F(CodegenTest, MultiDimCharArrayGlobalFlatRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int strcmp(const char *a, const char *b);
+        char nested[3][3] = {"YES", "NO", "OK"};
+        void program() {
+            char *whole = (char *)nested;
+            char *row2 = (char *)nested[2];
+            putbyte('0' + strcmp(whole, "YESNO"));         /* "NO" null-terminates -> 0 */
+            putbyte('0' + strcmp(row2, "OK"));             /* 0 */
+            putbyte(nested[1][0]);                         /* N */
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("00N\n", result);
+}
+
+// Runtime: automatic 1-D char array initialized from a string is a real byte copy into the
+// frame slot (not an alias of the string constant) — a later store does not corrupt others.
+TEST_F(CodegenTest, CharArrayStringInitIsCopyRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            char a[4] = "ABC";
+            char b[4] = "ABC";
+            a[0] = 'X';                                    /* must not touch b */
+            putbyte(a[0]); putbyte(b[0]);                  /* X A */
+            putbyte('0' + a[3]);                           /* null -> '0' */
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("XA0\n", result);
+}
+
+// Runtime: a static multi-dim char array with an empty-string row (the binary .tac
+// round-trip used to crash genbesm with strlen(NULL); the layout zero-fills the row).
+TEST_F(CodegenTest, MultiDimCharArrayEmptyRowRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            static char m[3][4] = {"", "BC"};
+            putbyte('0' + m[0][0]);                        /* empty row -> '0' */
+            putbyte(m[1][0]); putbyte(m[1][1]);            /* B C */
+            putbyte('0' + m[2][0]);                        /* unset row -> '0' */
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("0BC0\n", result);
+}

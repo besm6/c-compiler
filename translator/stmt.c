@@ -3,6 +3,7 @@
 //
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "structtab.h"
 #include "translate.h"
@@ -55,9 +56,48 @@ static void collect_cases(TacCtx *ctx, Stmt *stmt, CaseList *list)
     }
 }
 
+// Lower `char arr[N] = "…"` to a run of byte stores into the frame slot: one
+// COPY_BYTE_TO_OFFSET per source byte at successive byte offsets, then zero-fill up to
+// the array's size (C string-init semantics — the terminating null and any trailing
+// zeros).  Used for a 1-D char array and for each inner string row of a multi-dimensional
+// char array (whose contiguous rows the caller has already offset).  Char data keeps its
+// source (ASCII) encoding, like every scalar char value; only the static-data path repacks
+// to KOI-7 (which differs solely for lowercase Latin — see docs/KOI7_Encoding.md).
+static void gen_char_array_string_init(TacCtx *ctx, const char *var_name, int base_offset,
+                                       const Expr *str_expr, int array_bytes)
+{
+    char *decoded = decode_c_string_literal(str_expr->u.literal->u.string_val);
+    size_t len    = strlen(decoded);
+    for (int i = 0; i < array_bytes; i++) {
+        int byte                    = (size_t)i < len ? (unsigned char)decoded[i] : 0;
+        Tac_Instruction *in         = tac_new_instruction(TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET);
+        in->u.copy_to_offset.src    = val_int(byte);
+        in->u.copy_to_offset.dst    = xstrdup(var_name);
+        in->u.copy_to_offset.offset = base_offset + i;
+        tac_append(ctx, in);
+    }
+    xfree(decoded);
+}
+
+// True for a string literal initializing a char array (`char a[N] = "…"`), whether a
+// top-level 1-D array or an inner row of a multi-dimensional char array.
+static bool is_char_array_string_init(const Type *type, const Initializer *init)
+{
+    return init->kind == INITIALIZER_SINGLE && type && type->kind == TYPE_ARRAY &&
+           init->u.expr->kind == EXPR_LITERAL &&
+           init->u.expr->u.literal->kind == LITERAL_STRING;
+}
+
 void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const Initializer *init)
 {
     if (init->kind == INITIALIZER_SINGLE) {
+        // A string literal initializing a char array (e.g. an inner row of a multi-dim
+        // char array): store its bytes individually rather than COPY a whole-word pointer.
+        if (is_char_array_string_init(init->type, init)) {
+            gen_char_array_string_init(ctx, var_name, base_offset, init->u.expr,
+                                       (int)get_size(init->type));
+            return;
+        }
         Tac_Val *src = gen_expr(ctx, init->u.expr);
         if (init->type &&
             (init->type->kind == TYPE_STRUCT || init->type->kind == TYPE_UNION)) {
@@ -114,13 +154,21 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
     bool is_automatic = storage == STORAGE_CLASS_NONE || storage == STORAGE_CLASS_AUTO ||
                         storage == STORAGE_CLASS_REGISTER;
     for (const InitDeclarator *id = decl->u.var.declarators; id; id = id->next) {
-        if (!is_automatic || !id->name)
+        if (!id->name)
             continue;
         // A block-scope function declaration (int f(void);) is not an automatic:
         // it names an external-linkage function with no frame slot, so it must
         // not be percent-prefixed like a local.
         if (id->type && id->type->kind == TYPE_FUNCTION)
             continue;
+        if (!is_automatic) {
+            // A static/extern local array has no frame slot — its storage is the
+            // module-local static datum, addressed by its label like a global — but it
+            // still decays to its address when used as a value, so record it for the decay.
+            if (id->type && id->type->kind == TYPE_ARRAY)
+                tac_record_array_local(ctx, id->name);
+            continue;
+        }
         tac_record_local(ctx, id->name);
         // Aggregate locals (arrays, structs, unions) occupy contiguous frame slots;
         // emit an AllocateLocal so the backend reserves the full size instead of a
@@ -146,6 +194,13 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
     }
     for (InitDeclarator *id = decl->u.var.declarators; id; id = id->next) {
         if (id->init && id->init->kind == INITIALIZER_SINGLE) {
+            // `char a[N] = "…"`: copy the string's bytes into the frame slot (a real
+            // per-byte copy, not an alias of the string-constant pointer).
+            if (is_char_array_string_init(id->type, id->init)) {
+                gen_char_array_string_init(ctx, id->name, 0, id->init->u.expr,
+                                           (int)get_size(id->type));
+                continue;
+            }
             Tac_Val *src = gen_expr(ctx, id->init->u.expr);
             if (id->type && (id->type->kind == TYPE_STRUCT || id->type->kind == TYPE_UNION)) {
                 // Whole-struct initialization (e.g. struct r = other; or struct r = f();):

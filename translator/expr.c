@@ -92,11 +92,16 @@ static int byte_access_for(const Type *t)
 
 // True for a char*/void* — a fat pointer whose arithmetic adjusts the 3-bit byte
 // offset (scale 1) rather than the word address.  Mirrors is_fat_pointer in translate.c.
+// A pointer to a char-innermost array (e.g. char(*)[4], produced by decaying a
+// multi-dimensional char array) is also a fat byte pointer over the array's contiguous
+// byte storage, so look through array element types to the innermost scalar.
 static bool is_byte_pointer(const Type *t)
 {
     if (t->kind != TYPE_POINTER)
         return false;
     const Type *target = t->u.pointer.target;
+    while (target->kind == TYPE_ARRAY)
+        target = target->u.array.element;
     return is_character(target) || target->kind == TYPE_VOID;
 }
 
@@ -116,6 +121,32 @@ static int wide_ptr_scale(const Type *t)
         return 0;
     int sz = (int)get_size(t->u.pointer.target);
     return sz > target_word_bytes() ? sz : 0;
+}
+
+// Byte stride of a fat (byte) pointer — the size of its pointee: 1 for char*/void*, or the
+// row size for a pointer to a char-innermost array (char(*)[N], from decaying a
+// multi-dimensional char array).  BESM-6 has no sub-word word-scale, so fat-pointer
+// arithmetic runs at scale 1 with the index pre-multiplied by this stride.
+static int fat_ptr_byte_scale(const Type *ptr_type)
+{
+    const Type *target = ptr_type->u.pointer.target;
+    return target->kind == TYPE_VOID ? 1 : (int)get_size(target);
+}
+
+// Multiply a fat-pointer index by its byte stride (a no-op for stride 1).  A constant index
+// folds away in the optimizer.
+static Tac_Val *scale_byte_index(TacCtx *ctx, Tac_Val *idx, int scale)
+{
+    if (scale == 1)
+        return idx;
+    Tac_Val *scaled      = new_var_val(ctx);
+    Tac_Instruction *mul = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+    mul->u.binary.op     = TAC_BINARY_MULTIPLY;
+    mul->u.binary.src1   = idx;
+    mul->u.binary.src2   = val_int(scale);
+    mul->u.binary.dst    = scaled;
+    tac_append(ctx, mul);
+    return val_var(scaled->u.var_name);
 }
 
 static Tac_BinaryOperator map_binary_op(BinaryOp op, const Type *operand_type)
@@ -264,10 +295,18 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         int scale           = (int)get_size(ptr_exp->type->u.pointer.target);
         Tac_Val *lval       = gen_expr(ctx, lexp);
         Tac_Val *rval       = gen_expr(ctx, rexp);
+        Tac_Val *idx        = ptr_exp == lexp ? rval : lval;
+        // Indexing a row of a multi-dimensional char array: the base is a fat byte pointer
+        // over contiguous byte storage, so advance it by index*rowsize BYTES at scale 1
+        // rather than by a whole-word scale (BESM-6 has no sub-word word-scale).
+        if (is_byte_pointer(ptr_exp->type)) {
+            idx   = scale_byte_index(ctx, idx, scale);
+            scale = 1;
+        }
         Tac_Val *dst        = new_var_val(ctx);
         Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
         in->u.add_ptr.ptr   = ptr_exp == lexp ? lval : rval;
-        in->u.add_ptr.index = ptr_exp == lexp ? rval : lval;
+        in->u.add_ptr.index = idx;
         in->u.add_ptr.scale = scale;
         in->u.add_ptr.dst   = dst;
         tac_append(ctx, in);
@@ -511,6 +550,9 @@ static Tac_Val *gen_binary(TacCtx *ctx, BinaryOp op, Expr *l, Expr *r)
             Tac_Val *vr   = gen_expr(ctx, r);
             Tac_Val *vptr = ptr_left ? vl : vr;
             Tac_Val *vidx = ptr_left ? vr : vl;
+            // Scale the index to bytes by the pointee size (1 for char*/void*, the row size
+            // for a pointer to a char-innermost array), then advance at scale 1.
+            vidx = scale_byte_index(ctx, vidx, fat_ptr_byte_scale(ptr_left ? l->type : r->type));
             return gen_ptr_add(ctx, vptr, vidx, op == BINARY_SUB, 1);
         }
         // Word pointer with a multi-word element (pointer-to-array / -struct):
@@ -615,13 +657,22 @@ static Tac_Val *gen_step(TacCtx *ctx, const Type *type, Tac_Val *src, bool inc)
 {
     Tac_Val *dst = new_var_val(ctx);
     int wscale   = wide_ptr_scale(type);
-    if (is_byte_pointer(type) || wscale) {
-        // char*/void* fat pointer (scale 1) or pointer-to-array/-struct (element
-        // size): a one-element step, not a single-word add.
+    if (is_byte_pointer(type)) {
+        // Fat pointer step: ±(pointee byte size) at scale 1 — ±1 for char*/void*, ±row
+        // size for a pointer to a char-innermost array (char(*)[N]).
+        int bscale          = fat_ptr_byte_scale(type);
+        Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
+        ap->u.add_ptr.ptr   = src;
+        ap->u.add_ptr.index = val_int(inc ? bscale : -bscale);
+        ap->u.add_ptr.scale = 1;
+        ap->u.add_ptr.dst   = dst;
+        tac_append(ctx, ap);
+    } else if (wscale) {
+        // Pointer-to-array/-struct (word pointer): a one-element step by the element size.
         Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
         ap->u.add_ptr.ptr   = src;
         ap->u.add_ptr.index = val_int(inc ? 1 : -1);
-        ap->u.add_ptr.scale = wscale ? wscale : 1;
+        ap->u.add_ptr.scale = wscale;
         ap->u.add_ptr.dst   = dst;
         tac_append(ctx, ap);
     } else {
