@@ -37,9 +37,10 @@ typedef struct Symbol {
     bool has_linkage; // When function or global/extern variable
     union {
         struct {
-            bool defined; // True if function body is defined
-            bool global;  // True if function has global linkage
-        } func;           // For SYM_FUNC
+            bool defined;  // True if function body is defined
+            bool global;   // True if function has global linkage
+            bool noret;    // True if declared/defined _Noreturn
+        } func;            // For SYM_FUNC
 
         struct {
             bool global;               // True if variable has global linkage
@@ -109,9 +110,9 @@ const char *static_locals_add(const char *source, const Type *type, Tac_StaticIn
 StaticLocalRec *static_locals_head(void);
 
 // Add a function
-void symtab_add_fun(const char *name, const Type *t, bool global, bool defined);
+void symtab_add_fun(const char *name, const Type *t, bool global, bool defined, bool noret);
 // Precondition: name is a non-null string, t is a valid Type* (function type).
-// Postcondition: A Symbol with SYM_FUNC, name, t, global, and defined is added/replaced in symtab.
+// Postcondition: A Symbol with SYM_FUNC, name, t, global, defined, and noret is added/replaced in symtab.
 
 // Add a string literal
 char *symtab_add_string(const char *s);

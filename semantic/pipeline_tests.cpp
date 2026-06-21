@@ -139,6 +139,28 @@ TEST_F(PipelineTest, NonVoidFallsOffEnd_Neg)
                  "may fall off the end");
 }
 
+// A non-void body ending in a call to a user-defined `_Noreturn` function does
+// not fall off the end — accepted (the noreturn flag is threaded onto the symbol).
+TEST_F(PipelineTest, NonVoidEndsInNoreturnCall_Ok)
+{
+    RunPipeline(R"(_Noreturn void die(void);
+int f(int x) {
+    die();
+})");
+    EXPECT_NE(program, nullptr);
+}
+
+// The same body calling a function that is NOT _Noreturn is still rejected.
+TEST_F(PipelineTest, NonVoidEndsInPlainCall_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"(void g(void);
+int f(int x) {
+    g();
+}
+)"),
+                 "may fall off the end");
+}
+
 // A function that returns on every path is accepted.
 TEST_F(PipelineTest, NonVoidAllPathsReturn_Ok)
 {

@@ -22,6 +22,16 @@ static bool is_static(const DeclSpec *spec)
     return spec && (spec->storage == STORAGE_CLASS_STATIC);
 }
 
+static bool is_noreturn(const DeclSpec *spec)
+{
+    for (const FunctionSpec *fs = spec ? spec->func_specs : NULL; fs; fs = fs->next) {
+        if (fs->kind == FUNC_SPEC_NORETURN) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Reject two parameters with the same name in a function declaration or
 // definition (C11 §6.7.6.3p9, §6.9.1p6).  Param lists are short, so a simple
 // O(n^2) name comparison is fine.  The f(void) sentinel has no name and so is
@@ -84,7 +94,11 @@ static void register_function_declaration(InitDeclarator *decl, const DeclSpec *
     }
     bool defined   = existing && existing->kind == SYM_FUNC && existing->u.func.defined;
     bool fn_global = (existing && existing->kind == SYM_FUNC) ? existing->u.func.global : global;
-    symtab_add_fun(decl->name, adj, fn_global, defined);
+    // _Noreturn is sticky across declarations (C11 §6.7.4): once any declaration
+    // marks the function _Noreturn, it stays noreturn.
+    bool noret = is_noreturn(specifiers) ||
+                 (existing && existing->kind == SYM_FUNC && existing->u.func.noret);
+    symtab_add_fun(decl->name, adj, fn_global, defined, noret);
     free_type(decl->type);
     decl->type = adj; // normalized type now owned by AST
 }
@@ -389,12 +403,11 @@ static bool contains_own_break(const Stmt *s)
     }
 }
 
-// True if `s` is an expression statement that calls a function which never
-// returns, so control does not continue past it.  The compiler does not model
-// `_Noreturn` on symbols, so we recognise the standard library's no-return
-// functions by name (C11 §7.22.4 exit/_Exit/abort/quick_exit, §7.13.2.1 longjmp).
-// A user-defined `_Noreturn` function is not recognised; such a function ending a
-// non-void body would be wrongly diagnosed, but that construct does not occur here.
+// True if `s` is an expression statement that calls a `_Noreturn` function, so
+// control does not continue past it.  The callee's `_Noreturn` is recorded on its
+// symbol (see symtab_add_fun), so a symtab lookup recognises both standard-library
+// no-return functions (exit/abort via <stdlib.h>, longjmp via <setjmp.h>, declared
+// `_Noreturn`) and user-defined ones.
 static bool stmt_is_noreturn_call(const Stmt *s)
 {
     if (!s || s->kind != STMT_EXPR || !s->u.expr || s->u.expr->kind != EXPR_CALL) {
@@ -404,15 +417,8 @@ static bool stmt_is_noreturn_call(const Stmt *s)
     if (!callee || callee->kind != EXPR_VAR) {
         return false;
     }
-    static const char *const noreturn_fns[] = {
-        "exit", "_Exit", "abort", "quick_exit", "longjmp",
-    };
-    for (size_t i = 0; i < sizeof(noreturn_fns) / sizeof(noreturn_fns[0]); i++) {
-        if (strcmp(callee->u.var, noreturn_fns[i]) == 0) {
-            return true;
-        }
-    }
-    return false;
+    const Symbol *sym = symtab_get_opt(callee->u.var);
+    return sym && sym->kind == SYM_FUNC && sym->u.func.noret;
 }
 
 // True only when control is *certain* to reach the statement immediately
@@ -571,7 +577,10 @@ static void typecheck_fn_decl(ExternalDecl *d)
             global  = existing->u.func.global;
         }
     }
-    symtab_add_fun(d->u.function.name, adjusted_type, global, defined);
+    // _Noreturn is sticky across declarations (C11 §6.7.4).
+    bool noret = is_noreturn(d->u.function.specifiers) ||
+                 (existing && existing->kind == SYM_FUNC && existing->u.func.noret);
+    symtab_add_fun(d->u.function.name, adjusted_type, global, defined, noret);
     if (has_body) {
         if (d->u.function.param_decls) {
             fatal_error("Function parameters in K&R style are not supported");

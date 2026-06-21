@@ -143,7 +143,7 @@ TEST_F(SymtabTest, AddFunction)
     Param *param   = create_param("a", clone_type(int_type, __func__, __FILE__, __LINE__));
     Type *fun_type = new_function_type(clone_type(int_type, __func__, __FILE__, __LINE__), param);
 
-    symtab_add_fun("f", fun_type, true, true);
+    symtab_add_fun("f", fun_type, true, true, false);
 
     Symbol *sym = symtab_get("f");
     ASSERT_STREQ(sym->name, "f");
@@ -151,6 +151,7 @@ TEST_F(SymtabTest, AddFunction)
     ASSERT_EQ(sym->kind, SYM_FUNC);
     ASSERT_TRUE(sym->u.func.global);
     ASSERT_TRUE(sym->u.func.defined);
+    ASSERT_FALSE(sym->u.func.noret);
 
     free_type(int_type);
     free_type(fun_type);

@@ -195,14 +195,15 @@ static void static_locals_clear(void)
 //
 // Add a function
 // Precondition: name is a non-null string, t is a valid Type* (function type).
-// Postcondition: A Symbol with SYM_FUNC, name, t, global, and defined is added/replaced in symtab.
+// Postcondition: A Symbol with SYM_FUNC, name, t, global, defined, and noret is added/replaced in symtab.
 //
-void symtab_add_fun(const char *name, const Type *t, bool global, bool defined)
+void symtab_add_fun(const char *name, const Type *t, bool global, bool defined, bool noret)
 {
     Symbol *sym         = new_symbol(name, clone_type(t, __func__, __FILE__, __LINE__), SYM_FUNC);
     sym->has_linkage    = true;
     sym->u.func.global  = global;
     sym->u.func.defined = defined;
+    sym->u.func.noret   = noret;
 
     map_insert_free(&symtab, name, (intptr_t)sym, 0, symtab_destroy_callback);
 }
