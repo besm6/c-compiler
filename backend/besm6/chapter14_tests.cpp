@@ -1137,8 +1137,8 @@ int main(void) {
 })")));
 }
 
-// extra_credit/incr_and_decr_through_pointer: an unsigned subtract underflow yields the
-// 41-bit -1 pattern, so 0ul-- lands at 2^41-1 on BESM-6.
+// extra_credit/incr_and_decr_through_pointer: an unsigned subtract underflow is true
+// 48-bit modular arithmetic (b/usub), so 0ul-- lands at 2^48-1 on BESM-6.
 TEST_F(CodegenTest, Chapter14_IncrAndDecrThroughPointer)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
@@ -1181,7 +1181,7 @@ TEST_F(CodegenTest, Chapter14_IncrAndDecrThroughPointer)
     if ((*ul_ptr)--) {
         return 9;
     }
-    if (ul != 2199023255551UL) { // underflow from 0 -> 2^41 - 1
+    if (ul != 281474976710655UL) { // underflow from 0 -> 2^48 - 1
         return 10;
     }
 

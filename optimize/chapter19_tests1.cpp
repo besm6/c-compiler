@@ -1164,56 +1164,12 @@ int main(void) {
 }
 )SRC"),
               R"OPT(- instruction:
-  kind: zero_extend
-  src:
-    kind: constant
-    const:
-      kind: int
-      value: 300
-  dst:
-    kind: var
-    name: %21
-- instruction:
-  kind: binary
-  op: add
-  src1:
-    kind: var
-    name: %21
-  src2:
-    kind: constant
-    const:
-      kind: int
-      value: 300
-  dst:
-    kind: var
-    name: %22
-- instruction:
-  kind: binary
-  op: add_unsigned
-  src1:
-    kind: var
-    name: %22
-  src2:
-    kind: constant
-    const:
-      kind: long
-      value: 200
-  dst:
-    kind: var
-    name: %24
-- instruction:
-  kind: truncate
-  src:
-    kind: var
-    name: %24
-  dst:
-    kind: var
-    name: %25
-- instruction:
   kind: return
   src:
-    kind: var
-    name: %25
+    kind: constant
+    const:
+      kind: uint
+      value: 800
 )OPT");
 }
 

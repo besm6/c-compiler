@@ -1098,10 +1098,10 @@ int main(void) {
 })")));
 }
 
-// --/-- underflow wraparound on BESM-6. NOTE: an unsigned subtract underflow yields the
-// 41-bit -1 pattern (2^41-1), not 2^48-1, so the decrement-from-0 wrap lands at 2^41-1
-// for both unsigned int and unsigned long. (Increment overflow at ULONG_MAX is a separate,
-// not-yet-correct backend path, so this test exercises the underflow boundary.)
+// --/-- underflow wraparound on BESM-6. An unsigned subtract underflow is true 48-bit
+// modular arithmetic (b/usub), so the decrement-from-0 wrap lands at 2^48-1 for both
+// unsigned int and unsigned long. (Contrast with reinterpreting a signed -1 as unsigned,
+// which keeps the 41-bit pattern 2^41-1; see the conversion tests above.)
 TEST_F(CodegenTest, Chapter12_UnsignedIncrDecr)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
@@ -1110,14 +1110,14 @@ TEST_F(CodegenTest, Chapter12_UnsignedIncrDecr)
     if (i-- != 0) {
         return 1;
     }
-    if (i != 2199023255551U) { // underflow from 0 -> 2^41 - 1
+    if (i != 281474976710655U) { // underflow from 0 -> 2^48 - 1
         return 2;
     }
 
-    if (--i != 2199023255550U) {
+    if (--i != 281474976710654U) {
         return 3;
     }
-    if (i != 2199023255550U) {
+    if (i != 281474976710654U) {
         return 4;
     }
 
@@ -1125,13 +1125,13 @@ TEST_F(CodegenTest, Chapter12_UnsignedIncrDecr)
     if (l-- != 0) {
         return 5;
     }
-    if (l != 2199023255551UL) { // underflow from 0 -> 2^41 - 1
+    if (l != 281474976710655UL) { // underflow from 0 -> 2^48 - 1
         return 6;
     }
-    if (--l != 2199023255550UL) {
+    if (--l != 281474976710654UL) {
         return 7;
     }
-    if (l != 2199023255550UL) {
+    if (l != 281474976710654UL) {
         return 8;
     }
     return 0; // success

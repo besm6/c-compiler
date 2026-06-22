@@ -547,10 +547,11 @@ int main(void) {
 }
 
 // extra_credit/incr_and_decr: static local double (now supported).
-// -100.2/-99.2/-101.2 -> exact .25 fractions; the 1e-21 "increment absorbed by
-// precision" check uses 1e-15 (< half-ulp of 1.0, so d++ -> 1.0). Dropped the
-// symmetric "10e20; d--" check: BESM-6 FP subtract truncates (does not round to
-// nearest), so a decrement is never absorbed by a large magnitude.
+// -100.25/-99.25/-101.25 -> exact .25 fractions. Dropped both "increment absorbed
+// by precision" checks: BESM-6 FP add rounds up on any nonzero discarded residue
+// (and subtract truncates, never rounding to nearest), so a sub-ULP increment such
+// as 1e-15 is never absorbed into 1.0 -- it always bumps the low mantissa bit, and
+// FP == compares raw words, so d would not compare equal to the literal 1.0.
 TEST_F(CodegenTest, Chapter13_IncrAndDecr)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
@@ -564,9 +565,6 @@ TEST_F(CodegenTest, Chapter13_IncrAndDecr)
     if (d != -100.25) { return 6; }
     if (--d != -101.25) { return 7; }
     if (d != -101.25) { return 8; }
-    d = 1e-15;
-    d++;
-    if (d != 1.0) { return 9; }
     return 0;
 })")));
 }
