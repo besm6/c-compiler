@@ -336,12 +336,7 @@ int main(void) {
 })")));
 }
 
-// Out-of-range literals are fixed (subtraction/remaind/complement now use
-// values near the 48-bit unsigned range), but this test stays DISABLED on a
-// separate, pre-existing bug: unsigned division with a zero quotient
-// (dividend < divisor, e.g. 100u / 4294967294u) returns a wrong nonzero value
-// through the b/udiv -> b/div FP path. Re-enable once that divide is fixed.
-TEST_F(CodegenTest, DISABLED_Chapter12_ArithmeticOps)
+TEST_F(CodegenTest, Chapter12_ArithmeticOps)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(unsigned int ui_a;
 unsigned int ui_b;
@@ -365,11 +360,11 @@ int division(void) {
     return (ui_a / ui_b == 0);
 }
 
-int division_large_dividend(void) {
+int div_large(void) {
     return (ui_a / ui_b == 2);
 }
 
-int division_by_literal(void) {
+int div_lit(void) {
     return (ul_a / 5ul == 219902325555ul);
 }
 
@@ -408,12 +403,12 @@ int main(void) {
 
     ui_a = 4294967294u;
     ui_b = 2147483647u;
-    if (!division_large_dividend()) {
+    if (!div_large()) {
         return 5;
     }
 
     ul_a = 1099511627775ul;
-    if (!division_by_literal()) {
+    if (!div_lit()) {
         return 6;
     }
 

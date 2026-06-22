@@ -826,6 +826,7 @@ TEST_F(CodegenTest, DivideUnsignedRun)
             check(1, 1);                    /* 1 */
             check(1000, 8);                 /* 175 octal, power-of-two divisor */
             check(5, 9);                    /* 0, divisor > dividend */
+            check(100, 4294967294U);        /* 0, tiny quotient (a << b) */
             check(0xFFFFFFFFFFU, 7);        /* (2^40-1)/7, top of b/div's exact range */
 
             /* 2-step path: b < 2^32 with a >= 2^40 */
@@ -856,6 +857,7 @@ TEST_F(CodegenTest, DivideUnsignedRun)
         "52\n"
         "1\n"
         "175\n"
+        "0\n"
         "0\n"
         "2222222222222\n"
         "2222222222222\n"
@@ -910,6 +912,7 @@ TEST_F(CodegenTest, RemainderUnsignedRun)
             check(0, 5);                    /* 0 */
             check(42, 1);                   /* 0, divide by 1 */
             check(5, 9);                    /* 5, divisor > dividend */
+            check(100, 4294967294U);        /* 144 octal, tiny quotient (a << b) */
             check(1000, 8);                 /* 0, power-of-two divisor */
             check(0xFFFFFFFFFFU, 7);        /* (2^40-1)%7, top of b/div's exact range */
 
@@ -939,6 +942,7 @@ TEST_F(CodegenTest, RemainderUnsignedRun)
         "0\n"
         "0\n"
         "5\n"
+        "144\n"
         "0\n"
         "1\n"
         "2\n"
