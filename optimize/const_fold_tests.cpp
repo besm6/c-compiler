@@ -1,4 +1,15 @@
 #include "optimizer_test_fixture.h"
+#include "target.h"
+
+namespace {
+// Temporarily switch the active target for a test, restoring it on scope exit
+// (so a width-specific fold does not leak into later, target-agnostic tests).
+struct TargetGuard {
+    const Target *saved;
+    explicit TargetGuard(const char *name) : saved(target_config) { target_config = target_lookup(name); }
+    ~TargetGuard() { target_config = saved; }
+};
+} // namespace
 
 // ---------------------------------------------------------------------------
 // Null / error cases
@@ -300,4 +311,47 @@ TEST_F(OptimizerTest, BinaryFoldDoubleOpVariants)
     Tac_Instruction *div = constant_fold(make_binary(
         TAC_BINARY_DIVIDE_DOUBLE, make_const_double(7.0), make_const_double(2.0), make_var("t")));
     AssertFoldedDouble(div, 3.5);
+}
+
+// ---------------------------------------------------------------------------
+// Target-width-aware integer narrowing (regression for TODO task #6).
+//
+// -5000000 * 10000 == -50000000000.  That fits BESM-6's 41-bit signed int but
+// not the host's 32-bit int.  The folder must wrap the result to the *target*
+// width, not the host C type width, so the product is not truncated to
+// -50000000000 mod 2^32 == 1539607552.
+// ---------------------------------------------------------------------------
+
+// On BESM-6 (int is 41-bit) the product is preserved exactly.
+TEST_F(OptimizerTest, BinaryFoldMultiplyBesm6Width)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_MULTIPLY, make_const_int(-5000000),
+                                        make_const_long(10000), make_var("t"));
+    {
+        TargetGuard besm6("besm6");
+        body = constant_fold(body);
+    }
+    ASSERT_NE(body, nullptr);
+    ASSERT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    ASSERT_NE(body->u.copy.src, nullptr);
+    EXPECT_EQ(body->u.copy.src->kind, TAC_VAL_CONSTANT);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, -50000000000LL);
+}
+
+// On a 32-bit-int target the same product wraps at 2^32 (the intended,
+// unchanged default behavior for machine-independent folding).
+TEST_F(OptimizerTest, BinaryFoldMultiplyHostWidthWraps)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_MULTIPLY, make_const_int(-5000000),
+                                        make_const_long(10000), make_var("t"));
+    {
+        TargetGuard x86("x86_64");
+        body = constant_fold(body);
+    }
+    ASSERT_NE(body, nullptr);
+    ASSERT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    ASSERT_NE(body->u.copy.src, nullptr);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, 1539607552);
 }

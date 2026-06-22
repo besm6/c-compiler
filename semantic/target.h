@@ -22,6 +22,10 @@ typedef struct {
     size_t double_size, double_align;
     size_t ldouble_size, ldouble_align; // long double
     size_t pointer_size, pointer_align;
+    // Signed integer value width in bits (two's-complement, sign bit included).
+    // Normally <type>_size*8, but BESM-6 signed ints are 41-bit inside a 48-bit
+    // word.  The unsigned value width is always the full storage <type>_size*8.
+    int short_bits, int_bits, long_bits, llong_bits;
 } Target;
 
 // Active target.  Defaults to x86_64.  Set this before calling any

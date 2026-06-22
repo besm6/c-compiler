@@ -755,7 +755,7 @@ unsigned long target_implicit(void) {
     kind: constant
     const:
       kind: int
-      value: -2147483648
+      value: -1024
 - instruction:
   kind: return
   src:
@@ -1833,14 +1833,14 @@ int target_le(void) {
     kind: constant
     const:
       kind: uint
-      value: 18446744073709551614
+      value: 4294967294
 - instruction:
   kind: return
   src:
     kind: constant
     const:
       kind: uint
-      value: 18446744073709551606
+      value: 4294967286
 - instruction:
   kind: return
   src:

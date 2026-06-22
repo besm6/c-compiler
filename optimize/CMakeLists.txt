@@ -8,7 +8,10 @@ add_library(optimize STATIC
     dead_store.c
 )
 target_include_directories(optimize PUBLIC .)
-target_link_libraries(optimize tac libutil)
+# const_fold.c queries the active Target (target_config) to wrap folded integer
+# results to the target's signed/unsigned widths.  semantic provides target.{c,h}
+# and does not depend on optimize, so this adds no link cycle.
+target_link_libraries(optimize tac libutil semantic)
 
 add_executable(optimizer-tests
     const_fold_tests.cpp

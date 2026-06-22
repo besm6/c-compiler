@@ -984,18 +984,15 @@ int main(void)
 })")));
 }
 
-// The out-of-range/wraparound expectations are fixed for 41-bit int (c *= 10000
-// is -5e10, which fits), but this stays DISABLED on a separate pre-existing bug:
-// b/mul loses precision for -5000000 * 10000, returning 1539607552 instead of the
-// correct -50000000000 (the FP multiply path drops low bits for this operand
-// pair, though e.g. 5 * 4294967290 is exact). Re-enable once b/mul is fixed.
-TEST_F(CodegenTest, DISABLED_Chapter11_CompoundAssignToInt)
+// Compound assignment to int values, including c *= 10000 with c = -5000000
+// (-5e10, which fits the 41-bit int range).  i, b and c arrive as runtime
+// arguments so the optimizer cannot constant-fold the whole computation away;
+// the multiply therefore runs through the b/mul runtime helper.  (The matching
+// compile-time constant fold of -5000000 * 10000 is covered by the optimizer
+// unit test optimize/const_fold_tests.cpp.)
+TEST_F(CodegenTest, Chapter11_CompoundAssignToInt)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
-    int i = -20;
-    int b = 2147483647;
-    int c = -5000000;
-
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int test(int i, int b, int c) {
     i += 2147483648l;
     if (i != 2147483628) {
         return 1;
@@ -1018,6 +1015,10 @@ TEST_F(CodegenTest, DISABLED_Chapter11_CompoundAssignToInt)
         return 6;
     }
     return 0;
+}
+
+int main(void) {
+    return test(-20, 2147483647, -5000000);
 })")));
 }
 

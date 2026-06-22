@@ -2396,11 +2396,13 @@ TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldNegativeLongBitshift)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
 /* Test constant folding >> with negative long source value (make sure
- * we perform an arithmetic rather than logical bit shit)
+ * we perform an arithmetic rather than logical bit shift).  Source value
+ * adapted to BESM-6's 41-bit long: -2^40 >> 22 == -262144 (arithmetic);
+ * a logical shift would give +262144.
  */
 
 long target(void) {
-    return (-9223372036854775807l - 1) >> 45u;
+    return (-1099511627775l - 1) >> 22u;
 }
 
 int main(void) {

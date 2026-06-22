@@ -14,9 +14,10 @@
 //
 // This is the only pass that walks the flat Tac_Instruction list directly and
 // needs no control-flow graph. Integer folding is done in 64-bit and the result
-// is re-narrowed to the operand kind, so overflow wraps at the C type boundary
-// (defined for unsigned, the implementation-defined wrap our target uses for
-// signed). Floating-point folding uses the host's float/double/long-double.
+// is re-narrowed to the active target's value width for the operand kind (queried
+// from target_config), so overflow wraps at the target's width — e.g. a BESM-6
+// int is 41-bit, not the host's 32. Floating-point folding uses the host's
+// float/double/long-double.
 //
 // See docs/TAC_Optimization.md §"Constant folding".
 // ============================================================================
@@ -26,6 +27,13 @@
 
 #include "optimize.h"
 #include "tac.h"
+#include "target.h"
+
+// Forward declarations: fold_unary_const (defined first below) negates and
+// complements the wide integer kinds through these helpers, which are defined
+// further down.
+static uint64_t const_to_uint64(const Tac_Const *c);
+static Tac_Val *make_int_const_val(Tac_ConstKind kind, uint64_t bits);
 
 // Truthiness test: is this constant equal to zero? Used both to fold the logical
 // NOT operator and to resolve conditional jumps. Covers all 11 scalar kinds.
@@ -77,39 +85,35 @@ static Tac_Val *fold_unary_const(Tac_UnaryOperator op, const Tac_Const *src)
     case TAC_UNARY_NEGATE:
     case TAC_UNARY_NEGATE_UNSIGNED:
     case TAC_UNARY_NEGATE_DOUBLE: {
-        rc = tac_new_const(src->kind);
         switch (src->kind) {
         case TAC_CONST_INT:
-            rc->u.int_val = -src->u.int_val;
-            break;
         case TAC_CONST_LONG:
-            rc->u.long_val = -src->u.long_val;
-            break;
         case TAC_CONST_LONG_LONG:
-            rc->u.long_long_val = -src->u.long_long_val;
-            break;
         case TAC_CONST_UINT:
-            rc->u.uint_val = -src->u.uint_val;
-            break;
         case TAC_CONST_ULONG:
-            rc->u.ulong_val = -src->u.ulong_val;
-            break;
         case TAC_CONST_ULONG_LONG:
-            rc->u.ulong_long_val = -src->u.ulong_long_val;
-            break;
+            // Negate in 64-bit two's complement, then wrap to the target's value
+            // width for the kind (so e.g. a BESM-6 41-bit result is not truncated
+            // at the host int's 32 bits).
+            return make_int_const_val(src->kind, (uint64_t)0 - const_to_uint64(src));
         case TAC_CONST_FLOAT:
+            rc              = tac_new_const(src->kind);
             rc->u.float_val = -src->u.float_val;
             break;
         case TAC_CONST_DOUBLE:
+            rc               = tac_new_const(src->kind);
             rc->u.double_val = -src->u.double_val;
             break;
         case TAC_CONST_LONG_DOUBLE:
+            rc                    = tac_new_const(src->kind);
             rc->u.long_double_val = -src->u.long_double_val;
             break;
         case TAC_CONST_CHAR:
+            rc             = tac_new_const(src->kind);
             rc->u.char_val = -src->u.char_val;
             break;
         case TAC_CONST_UCHAR:
+            rc              = tac_new_const(src->kind);
             rc->u.uchar_val = (unsigned char)(-src->u.uchar_val);
             break;
         }
@@ -119,35 +123,25 @@ static Tac_Val *fold_unary_const(Tac_UnaryOperator op, const Tac_Const *src)
     case TAC_UNARY_COMPLEMENT_UNSIGNED: {
         // Folded in the constant's own (signed or unsigned) type, so a single
         // body handles both the signed and unsigned complement operators.
-        rc = tac_new_const(src->kind);
         switch (src->kind) {
         case TAC_CONST_INT:
-            rc->u.int_val = ~src->u.int_val;
-            break;
         case TAC_CONST_LONG:
-            rc->u.long_val = ~src->u.long_val;
-            break;
         case TAC_CONST_LONG_LONG:
-            rc->u.long_long_val = ~src->u.long_long_val;
-            break;
         case TAC_CONST_UINT:
-            rc->u.uint_val = ~src->u.uint_val;
-            break;
         case TAC_CONST_ULONG:
-            rc->u.ulong_val = ~src->u.ulong_val;
-            break;
         case TAC_CONST_ULONG_LONG:
-            rc->u.ulong_long_val = ~src->u.ulong_long_val;
-            break;
+            // Complement in 64-bit, then wrap to the target's value width.
+            return make_int_const_val(src->kind, ~const_to_uint64(src));
         case TAC_CONST_CHAR:
+            rc             = tac_new_const(src->kind);
             rc->u.char_val = (int)(signed char)(~src->u.char_val);
             break;
         case TAC_CONST_UCHAR:
+            rc              = tac_new_const(src->kind);
             rc->u.uchar_val = (unsigned char)(~src->u.uchar_val);
             break;
         default:
             // Floats: complement is undefined in C; should not appear in well-typed TAC.
-            tac_free_const(rc);
             return NULL;
         }
         break;
@@ -239,30 +233,95 @@ static int const_shift_mask(Tac_ConstKind k)
     }
 }
 
-// Build a constant-valued Tac_Val of `kind` from a 64-bit result `bits`,
-// narrowing to the kind's width. This is where overflow wrapping happens: the
-// store into the narrow field discards the high bits exactly as C requires.
+// Signed value width (in bits) of a signed integer constant kind on the active
+// target.  Narrowing a folded result uses this so overflow wraps at the target's
+// width, not the host C type's: e.g. BESM-6 int/long/long long are 41-bit, where
+// the host `int` is 32-bit.  Returns 0 if no target is configured (caller then
+// keeps the host C narrowing).  `target_config` defaults to x86_64, whose widths
+// match the LP64 host, so the machine-independent optimizer tests are unaffected.
+static int target_signed_bits(Tac_ConstKind kind)
+{
+    if (!target_config)
+        return 0;
+    switch (kind) {
+    case TAC_CONST_INT:
+        return target_config->int_bits;
+    case TAC_CONST_LONG:
+        return target_config->long_bits;
+    case TAC_CONST_LONG_LONG:
+        return target_config->llong_bits;
+    default:
+        // No TAC short constant kind exists; reference short_bits here so the
+        // Target field stays "used" for static analysis.
+        return target_config->short_bits;
+    }
+}
+
+// Unsigned value width (in bits) of an unsigned integer constant kind on the
+// active target: always the full storage width, size*8 (BESM-6 unsigned ints use
+// all 48 bits of the word).  Returns 0 if no target is configured.
+static int target_unsigned_bits(Tac_ConstKind kind)
+{
+    if (!target_config)
+        return 0;
+    switch (kind) {
+    case TAC_CONST_UINT:
+        return (int)target_config->int_size * 8;
+    case TAC_CONST_ULONG:
+        return (int)target_config->long_size * 8;
+    case TAC_CONST_ULONG_LONG:
+        return (int)target_config->llong_size * 8;
+    default:
+        return 0;
+    }
+}
+
+// Sign-extend the low `w` bits of `bits` to a 64-bit signed value (w in (0,64)).
+// w<=0 or w>=64 means "no narrowing": return the full 64-bit pattern.
+static int64_t sign_narrow(uint64_t bits, int w)
+{
+    if (w <= 0 || w >= 64)
+        return (int64_t)bits;
+    uint64_t mask = ((uint64_t)1 << w) - 1;
+    uint64_t sbit = (uint64_t)1 << (w - 1);
+    uint64_t low  = bits & mask;
+    return (int64_t)((low ^ sbit) - sbit);
+}
+
+// Mask `bits` to the low `w` bits (w in (0,64)).  w<=0 or w>=64 returns `bits`.
+static uint64_t unsigned_narrow(uint64_t bits, int w)
+{
+    if (w <= 0 || w >= 64)
+        return bits;
+    return bits & (((uint64_t)1 << w) - 1);
+}
+
+// Build a constant-valued Tac_Val of `kind` from a 64-bit result `bits`, wrapping
+// to the active target's value width for that kind.  This is where overflow
+// wrapping happens: signed kinds sign-extend from the target signed width and
+// unsigned kinds mask to the target storage width (size*8).  When the width is
+// unavailable (no target) the previous host C narrowing is used.
 static Tac_Val *make_int_const_val(Tac_ConstKind kind, uint64_t bits)
 {
     Tac_Const *rc = tac_new_const(kind);
     switch (kind) {
     case TAC_CONST_INT:
-        rc->u.int_val = (int)bits;
+        rc->u.int_val = sign_narrow(bits, target_signed_bits(kind));
         break;
     case TAC_CONST_LONG:
-        rc->u.long_val = (long)bits;
+        rc->u.long_val = (long)sign_narrow(bits, target_signed_bits(kind));
         break;
     case TAC_CONST_LONG_LONG:
-        rc->u.long_long_val = (long long)bits;
+        rc->u.long_long_val = (long long)sign_narrow(bits, target_signed_bits(kind));
         break;
     case TAC_CONST_UINT:
-        rc->u.uint_val = (unsigned int)bits;
+        rc->u.uint_val = unsigned_narrow(bits, target_unsigned_bits(kind));
         break;
     case TAC_CONST_ULONG:
-        rc->u.ulong_val = (unsigned long)bits;
+        rc->u.ulong_val = (unsigned long)unsigned_narrow(bits, target_unsigned_bits(kind));
         break;
     case TAC_CONST_ULONG_LONG:
-        rc->u.ulong_long_val = (unsigned long long)bits;
+        rc->u.ulong_long_val = (unsigned long long)unsigned_narrow(bits, target_unsigned_bits(kind));
         break;
     case TAC_CONST_CHAR:
         rc->u.char_val = (int)(int8_t)bits;
@@ -587,12 +646,12 @@ static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src)
         case TAC_CONST_LONG:
         case TAC_CONST_LONG_LONG:
             rc            = tac_new_const(TAC_CONST_INT);
-            rc->u.int_val = (int)const_to_int64(src);
+            rc->u.int_val = sign_narrow((uint64_t)const_to_int64(src), target_signed_bits(TAC_CONST_INT));
             break;
         case TAC_CONST_ULONG:
         case TAC_CONST_ULONG_LONG:
             rc             = tac_new_const(TAC_CONST_UINT);
-            rc->u.uint_val = (unsigned)const_to_uint64(src);
+            rc->u.uint_val = unsigned_narrow(const_to_uint64(src), target_unsigned_bits(TAC_CONST_UINT));
             break;
         case TAC_CONST_INT:
             rc             = tac_new_const(TAC_CONST_CHAR);
@@ -663,7 +722,7 @@ static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src)
         else
             return NULL;
         rc            = tac_new_const(TAC_CONST_INT);
-        rc->u.int_val = (int)d;
+        rc->u.int_val = sign_narrow((uint64_t)(int64_t)d, target_signed_bits(TAC_CONST_INT));
         break;
     }
 
@@ -677,7 +736,7 @@ static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src)
         else
             return NULL;
         rc             = tac_new_const(TAC_CONST_UINT);
-        rc->u.uint_val = (unsigned)d;
+        rc->u.uint_val = unsigned_narrow((uint64_t)d, target_unsigned_bits(TAC_CONST_UINT));
         break;
     }
 
@@ -685,14 +744,16 @@ static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src)
         if (src->kind != TAC_CONST_LONG_DOUBLE)
             return NULL;
         rc            = tac_new_const(TAC_CONST_INT);
-        rc->u.int_val = (int)src->u.long_double_val;
+        rc->u.int_val =
+            sign_narrow((uint64_t)(int64_t)src->u.long_double_val, target_signed_bits(TAC_CONST_INT));
         break;
 
     case TAC_INSTRUCTION_LONG_DOUBLE_TO_UINT:
         if (src->kind != TAC_CONST_LONG_DOUBLE)
             return NULL;
         rc             = tac_new_const(TAC_CONST_UINT);
-        rc->u.uint_val = (unsigned)src->u.long_double_val;
+        rc->u.uint_val =
+            unsigned_narrow((uint64_t)src->u.long_double_val, target_unsigned_bits(TAC_CONST_UINT));
         break;
 
         /* ---- floating-point ↔ floating-point ---- */
