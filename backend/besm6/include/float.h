@@ -25,9 +25,9 @@
 #define LDBL_DIG 12
 
 /* Binary exponent range of the normalized mantissa in [0.5,1). */
-#define FLT_MIN_EXP  (-63)
-#define DBL_MIN_EXP  (-63)
-#define LDBL_MIN_EXP (-63)
+#define FLT_MIN_EXP  (-64)
+#define DBL_MIN_EXP  (-64)
+#define LDBL_MIN_EXP (-64)
 #define FLT_MAX_EXP  63
 #define DBL_MAX_EXP  63
 #define LDBL_MAX_EXP 63

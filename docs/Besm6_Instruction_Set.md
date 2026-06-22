@@ -787,8 +787,10 @@ if n < 0:  [Y, A] <<= −n
 
 ω mode: **Logical**
 
-Immediate form of ASX: shifts by `N − 64` bits using the low 7 bits of EA. No memory
-access.
+Immediate form of ASX: shifts by `N − 64` bits using the low 7 bits of EA.
+When N > 64 - shift to the right.
+When N < 64 - shift to the left.
+No memory access.
 
 ---
 
