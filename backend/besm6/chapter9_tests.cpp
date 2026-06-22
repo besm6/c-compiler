@@ -233,23 +233,6 @@ int main(void) {
 )" "void program(void) { printf(\"%d\\n\", main()); }\n"));
 }
 
-// DISABLED: stack_alignment depends on even_arguments/odd_arguments defined in
-// external x86 assembly (stack_alignment_check_<platform>.s); there are no
-// BESM-6 definitions, so the program cannot be linked or run here.
-TEST_F(CodegenTest, DISABLED_Chapter9_StackAlignment)
-{
-    EXPECT_EQ("3\n", CompileAndRun(WrapMain(R"(int even_arguments(int a, int b, int c, int d, int e, int f, int g, int h);
-
-int odd_arguments(int a, int b, int c, int d, int e, int f, int g, int h, int i);
-
-int main(void) {
-    int x = 3;
-    even_arguments(1, 2, 3, 4, 5, 6, 7, 8);
-    odd_arguments(1, 2, 3, 4, 5, 6, 7, 8, 9);
-    return x;
-})")));
-}
-
 // DISABLED: the loop runs 10,000,000 iterations of a 15-argument call, far over
 // the 10s ctest timeout on the Dubna simulator.  Codegen is correct.
 TEST_F(CodegenTest, DISABLED_Chapter9_TestForMemoryLeaks)

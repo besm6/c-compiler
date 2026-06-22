@@ -2154,114 +2154,39 @@ int main(void) {
 }
 
 
-// --- x86 byte-layout introspection / page boundary ---------------------------
+// --- read an int's big-endian bytes via char* --------------------------------
 
-// chars/access_through_char_pointer: reads an int as 4 bytes, a double as 8 IEEE bytes.
-TEST_F(CodegenTest, DISABLED_Chapter16_AccessThroughCharPointer)
+// chars/access_through_char_pointer (adapted for BESM-6): an int occupies one
+// 48-bit word = 6 bytes in big-endian order (byte #0 = MSB, byte #5 = LSB), so
+// reading it through a char* inspects those six bytes rather than x86's four.
+TEST_F(CodegenTest, Chapter16_AccessThroughCharPointer)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that we can read/write any object through a pointer to a character type */
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that we can read an object through a pointer to a character type */
 
 int main(void) {
 
-    // inspect the four bytes of an int
+    /* Inspect the six big-endian bytes of an int held in one 48-bit word:
+     * byte #0 is the most significant byte, byte #5 the least significant. */
     int x = 100;
     char *byte_ptr = (char *) &x;
 
-    if (byte_ptr[0] != 100) {
+    /* the value lives in the low byte; the five higher bytes are zero */
+    if (byte_ptr[5] != 100) {
         return 1;
     }
 
-    if (byte_ptr[1] || byte_ptr[2] || byte_ptr[3]) {
+    if (byte_ptr[0] || byte_ptr[1] || byte_ptr[2] || byte_ptr[3] || byte_ptr[4]) {
         return 2;
     }
 
-    // now inspect a double -- only upper bit should be set
-    double d = -0.0; // 0x8000_0000_0000_0000
-    byte_ptr = (char *) &d;
-    if (byte_ptr[7] != -128) {
+    /* a value spanning two bytes demonstrates big-endian ordering in the word */
+    int y = 0x0102; /* 258 */
+    byte_ptr = (char *) &y;
+    if (byte_ptr[5] != 2) {
         return 3;
     }
 
-    for (int i = 0; i < 7; i = i + 1) {
-        if (byte_ptr[i]) {
-            return 4;
-        }
-    }
-
-    // finally, let's look at an array
-    unsigned int array[3][2][1] = {
-        {{-1}, {-1}},
-        {{-1}, {-1}},
-        {{4294901760u}} // 0xffff_0000
-    };
-    byte_ptr = (char *) array;
-    byte_ptr = byte_ptr + 16; // each row is 8 bytes since it has 2 ints
-    if (byte_ptr[0] || byte_ptr[1]) {
-        return 5;
-    }
-
-    if (byte_ptr[2] != -1) {
-        return 6;
-    }
-
-    if (byte_ptr[3] != -1) {
-        return 7;
-    }
-
-    return 0;
-})")));
-}
-
-// chars/push_arg_on_page_boundary: extern in data_on_page_boundary.s; x86 page mapping.
-TEST_F(CodegenTest, DISABLED_Chapter16_PushArgOnPageBoundary)
-{
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// use an int that's within 8 bytes of a page boundary as a stack argument
-
-extern char zed; // defined in data_on_page_boundary.s
-int foo(int a, int b, int c, int d, int e, int f, char g) {
-    return g + 1;
-}
-
-int main(void) {
-    return foo(0, 0, 0, 0, 0, 0, zed);
-})")));
-}
-
-
-// --- 16-byte alignment assumption (l % 16 == 0) ------------------------------
-
-// strings_as_initializers/test_alignment: requires 16-byte-aligned char arrays.
-TEST_F(CodegenTest, DISABLED_Chapter16_TestAlignment)
-{
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// Test that any char array variables larger than 16 bytes are 16-byte aligned
-
-int check_aligment(char *c) {
-    unsigned long l = (unsigned long)c;
-    return (l % 16 == 0);  // return 1 on success, 0 on failure
-}
-
-// define some static arrays that are >= 16 bytes
-static signed char flat_static[16] = "x";
-static unsigned char nested_static[3][4][2] = {{"a"}, {"b"}};
-
-int main(void) {
-    // define some automatic arrays that larger than 16 bytes
-    char flat_auto[22];
-    char nested_auto[10][3];
-
-    if (!check_aligment((char *)flat_static)) {
-        return 1;
-    }
-
-    if (!check_aligment((char *)nested_static)) {
-        return 2;
-    }
-
-    if (!check_aligment((char *)flat_auto)) {
-        return 3;
-    }
-
-    if (!check_aligment((char *)nested_auto)) {
+    if (byte_ptr[4] != 1) {
         return 4;
     }
 
