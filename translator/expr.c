@@ -716,10 +716,29 @@ static Tac_Val *gen_step(TacCtx *ctx, const Type *type, Tac_Val *src, bool inc)
         ap->u.add_ptr.dst   = dst;
         tac_append(ctx, ap);
     } else {
+        // The step is `1` in the operand's own type: a floating-point ++/-- must
+        // add a floating-point 1.0, not an integer 1 (TAC binary ops are typed by
+        // their operands, so an int 1 would be FP-added as a tiny denormal value).
+        Tac_Val *step;
+        if (is_floating_type(type)) {
+            switch (unalias(type)->kind) {
+            case TYPE_FLOAT:
+                step = val_float(1.0f);
+                break;
+            case TYPE_LONG_DOUBLE:
+                step = val_long_double(1.0L);
+                break;
+            default:
+                step = val_double(1.0);
+                break;
+            }
+        } else {
+            step = val_int(1);
+        }
         Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
         bin->u.binary.op     = inc ? TAC_BINARY_ADD : TAC_BINARY_SUBTRACT;
         bin->u.binary.src1   = src;
-        bin->u.binary.src2   = val_int(1);
+        bin->u.binary.src2   = step;
         bin->u.binary.dst    = dst;
         tac_append(ctx, bin);
     }

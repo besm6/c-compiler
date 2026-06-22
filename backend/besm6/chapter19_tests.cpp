@@ -382,8 +382,8 @@ int main(void) {
 )WP")));
 }
 
-// DISABLED: double->int casts and 64-bit long results beyond BESM-6 range
-TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_FoldCastFromDouble)
+// double->int casts; the 64-bit-long sub-check replaced with an in-range value.
+TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldCastFromDouble)
 {
     CompileAndRun(WrapMain(R"WP(
 /* Constant-folding tests for conversions from negative doubles to integer
@@ -400,9 +400,9 @@ int target_to_int(void) {
 }
 
 long target_to_long(void) {
-    // nearest representable double is -9223372036854774784.0,
-    // which will be converted to long int -9223372036854774784
-    return (long)-9223372036854774783.1;
+    // original -9223372036854774783.1 is beyond BESM-6 range; use an in-range
+    // value (truncation toward zero).
+    return (long)-100000000000.5;
 }
 
 int main(void) {
@@ -412,7 +412,7 @@ int main(void) {
     if (target_to_int() != -5) {
         return 2;
     }
-    if (target_to_long() != -9223372036854774784l) {
+    if (target_to_long() != -100000000000l) {
         return 3;
     }
     return 0;
@@ -420,8 +420,9 @@ int main(void) {
 )WP"));
 }
 
-// DISABLED: double results and libc copysign not on BESM-6
-TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_FoldCastToDouble)
+// Conversions to double; the 64-bit-long sub-check replaced with an in-range
+// value and the libc-copysign sub-check dropped (not in BESM-6 libc; -0 == 0).
+TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldCastToDouble)
 {
     CompileAndRun(WrapMain(R"WP(
 /* Constant-folding tests for conversions to double from chars and negative
@@ -429,18 +430,14 @@ TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_FoldCastToDouble)
  * them.
  * */
 
-
-double copysign(double x, double y);  // standard math library
-
 double target_from_neg_int(void) {
     return (double)-2147483647;  // can convert exactly
 }
 
-// exactly between two representable doubles;
-// same as target_from_long in constant_folding/all_types/fold_cast_to_double.c
-// but negated
 double target_from_neg_long(void) {
-    return (double)-4611686018427388416l;
+    // original -4611686018427388416l is beyond BESM-6 range; use an in-range
+    // value (exact as double).
+    return (double)-100000000000l;
 }
 
 // test conversion from char to double
@@ -485,7 +482,7 @@ int main(void) {
     if (target_from_neg_int() != -2147483647.) {
         return 1;
     }
-    if (target_from_neg_long() != -4611686018427387904.0) {
+    if (target_from_neg_long() != -100000000000.0) {
         return 2;
     }
     if (target_from_char() != 127) {
@@ -504,7 +501,7 @@ int main(void) {
         return 7;
     }
     double zero = target_from_negated_int_zero();
-    if (zero != 0 || copysign(5., zero) != 5.) {
+    if (zero != 0) {  // BESM-6 has no -0; negated zero is plain 0.0
         return 8;
     }
     return 0;  // success
