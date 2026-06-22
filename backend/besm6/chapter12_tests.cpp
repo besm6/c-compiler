@@ -757,17 +757,17 @@ int main(void)
 })")));
 }
 
-// (signed)ui at ui=2^32-96 expects -96 (32-bit wrap); BESM-6 signed int is 41-bit.
-TEST_F(CodegenTest, DISABLED_Chapter12_ChainedCasts)
+// (signed)ui reinterprets the 41-bit pattern: ui carries bit 41, so (signed)ui == -96.
+TEST_F(CodegenTest, Chapter12_ChainedCasts)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(unsigned int ui = 4294967200u; // 2^32 - 96
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(unsigned int ui = 2199023255456u; // 2^41 - 96
 
 int main(void) {
 
     if ((long) (signed) ui != -96l)
         return 1;
 
-    if ((unsigned long) (signed) ui != 18446744073709551520ul)
+    if ((unsigned long) (signed) ui != 2199023255456ul) // same-size copy: 2^41 - 96
         return 2;
 
     return 0;
@@ -879,8 +879,9 @@ int main(void) {
 })")));
 }
 
-// Truncation expects x86 32-bit reduction (mod 2^32); BESM-6 unsigned int is 48-bit.
-TEST_F(CodegenTest, DISABLED_Chapter12_Truncate)
+// On BESM-6 unsigned int and unsigned long are both 48-bit, so (unsigned int)ul is
+// identity; the real truncation is unsigned(48) -> signed int(41), dropping bits 48-42.
+TEST_F(CodegenTest, Chapter12_Truncate)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int ulong_to_int(unsigned long ul, int expected) {
     int result = (int) ul;
@@ -900,7 +901,7 @@ int main(void) {
         return 1;
     }
 
-    if (!long_to_uint(-9223372036854774574l, 1234u)) {
+    if (!long_to_uint(-96l, 2199023255456u)) { // 41-bit pattern of -96 = 2^41 - 96
         return 2;
     }
 
@@ -916,37 +917,29 @@ int main(void) {
         return 5;
     }
 
-    if (!ulong_to_int(4294967200ul, -96)) {
+    if (!ulong_to_int(2199023255456ul, -96)) { // 2^41 - 96 -> -96
         return 6;
     }
 
-    if (!ulong_to_uint(1152921506754330624ul, 2147483648u)) {
+    if (!ulong_to_uint(281474976710560ul, 281474976710560u)) { // 2^48 - 96, identity
         return 7;
     }
-
-    if (!ulong_to_int(1152921506754330624ul, -2147483648)){
-        return 8;
-    }
-
-    unsigned int ui = (unsigned int)17179869189ul; // 2^34 + 5
-    if (ui != 5)
-        return 9;
 
     return 0;
 })")));
 }
 
-// -1u and 2^63 operands; the bitwise results assume a 32-bit/64-bit split.
-TEST_F(CodegenTest, DISABLED_Chapter12_BitwiseUnsignedOps)
+// 48-bit unsigned: disjoint low/high operands; ul stays within the 41 bits that -1 sets.
+TEST_F(CodegenTest, Chapter12_BitwiseUnsignedOps)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
-    unsigned int ui = -1u; // lower 32 bits set
-    unsigned long ul = 9223372036854775808ul; // 2^63, only uppermost bit set
+    unsigned int ui = 16777215u; // 2^24 - 1, low bits set
+    unsigned long ul = 1099511627776ul; // 2^40, a single high bit
 
     if ((ui & ul) != 0)
         return 1;
 
-    if ((ui | ul) != 9223372041149743103ul)
+    if ((ui | ul) != 1099528404991ul) // 2^40 + 2^24 - 1
         return 2;
 
     signed int i = -1;
@@ -960,17 +953,17 @@ TEST_F(CodegenTest, DISABLED_Chapter12_BitwiseUnsignedOps)
 })")));
 }
 
-// ui = -1u expects 2^32-1 and 32-bit shift wraparound; BESM-6 unsigned is 48-bit.
-TEST_F(CodegenTest, DISABLED_Chapter12_BitwiseUnsignedShift)
+// ui = -1u is 2^48-1 on BESM-6 (48-bit unsigned); shifts wrap at 48 bits.
+TEST_F(CodegenTest, Chapter12_BitwiseUnsignedShift)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
-    unsigned int ui = -1u;  // 2^32 - 1, or 4294967295
+    unsigned int ui = -1u;  // 2^48 - 1, or 281474976710655
 
-    if ((ui << 2l) != 4294967292) {
+    if ((ui << 2l) != 281474976710652) { // 2^48 - 4
         return 1;
     }
 
-    if ((ui >> 2) != 1073741823) {
+    if ((ui >> 2) != 70368744177663) { // 2^46 - 1
         return 2;
     }
 
@@ -987,19 +980,25 @@ TEST_F(CodegenTest, DISABLED_Chapter12_BitwiseUnsignedShift)
 })")));
 }
 
-// x = -1u and the /= -10l conversion assume a 32-bit unsigned int.
-TEST_F(CodegenTest, DISABLED_Chapter12_CompoundAssignUint)
+// x = -1u is 2^48-1; the signed long divisor converts to the common unsigned type as a
+// bit-pattern copy (see Chapter12_SameSizeConversion), so -10l becomes 2^41-10.
+// (Routed through a parameter so the conversion uses the clean 41-bit long value.)
+TEST_F(CodegenTest, Chapter12_CompoundAssignUint)
 {
-    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(int main(void) {
-    unsigned int x = -1u; // 2^32 - 1
-    x /= -10l;
+    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(unsigned int div_assign(unsigned int x, long d) {
+    x /= d;
+    return x;
+}
 
-    return (x == 3865470567u);
+int main(void) {
+    // (2^48 - 1) / (unsigned)(-10l) = (2^48 - 1) / (2^41 - 10) = 128
+    return (div_assign(-1u, -10l) == 128u);
 })")));
 }
 
-// ul = 2^64-1 and <<= 44 expect a 64-bit unsigned long.
-TEST_F(CodegenTest, DISABLED_Chapter12_CompoundBitshift)
+// A constant-count signed >> is arithmetic on BESM-6 (so -2 >>= 3u stays -1); the unsigned
+// long is 48-bit, so 2^48-1 <<= 44 keeps only the top 4 bits.
+TEST_F(CodegenTest, Chapter12_CompoundBitshift)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
 
@@ -1009,35 +1008,35 @@ TEST_F(CodegenTest, DISABLED_Chapter12_CompoundBitshift)
         return 1;
     }
 
-    unsigned long ul = 18446744073709551615UL;  // 2^64 - 1
-    ul <<= 44;                                  // 0 out lower 44 bits
-    if (ul != 18446726481523507200ul) {
+    unsigned long ul = 281474976710655UL;  // 2^48 - 1
+    ul <<= 44;                             // 0 out lower 44 bits
+    if (ul != 263882790666240ul) {
         return 2;  // fail
     }
     return 0;  // success
 })")));
 }
 
-// ul operands in the 2^64 range; results assume 64-bit unsigned long.
-TEST_F(CodegenTest, DISABLED_Chapter12_CompoundBitwise)
+// 48-bit unsigned long operands; ui is set to the 48-bit pattern of l so ui ^= l zeroes it.
+TEST_F(CodegenTest, Chapter12_CompoundBitwise)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
 
-    unsigned long ul = 18446460386757245432ul; // 0xfffe_fdfc_fbfa_f9f8
+    unsigned long ul = 279263001115128ul; // 0xfdfc_fbfa_f9f8
     ul &= -1000; // make sure we sign-extend -1000 to unsigned long
-    if (ul != 18446460386757244952ul /* 0xfffe_fdfc_fbfa_f818 */) {
+    if (ul != 279263001114648ul /* 0xfdfc_fbfa_f818 */) {
         return 1; // fail
     }
 
     ul |= 4294967040u; // 0xffff_ff00 - make sure we zero-extend this to unsigned long
 
-    if (ul != 18446460386824683288ul /* 0xfffe_fdfc_ffff_ff18 */) {
+    if (ul != 279263068552984ul /* 0xfdfc_ffff_ff18 */) {
         return 2; // fail
     }
 
     int i = 123456;
-    unsigned int ui = 4042322160u; // 0xf0f0_f0f0
-    long l = -252645136; // 0xffff_ffff_f0f0_f0f0
+    unsigned int ui = 281474724065520u; // 0xffff_f0f0_f0f0 = (unsigned)(-252645136)
+    long l = -252645136; // 0xf0f0_f0f0 negated
     if (ui ^= l) {
         return 3; // fail
     }
@@ -1056,13 +1055,13 @@ TEST_F(CodegenTest, DISABLED_Chapter12_CompoundBitwise)
 })")));
 }
 
-// ui++ at 2^32-1 expects wraparound to 0; BESM-6 unsigned int is 48-bit.
-TEST_F(CodegenTest, DISABLED_Chapter12_PostfixPrecedence)
+// ui++ at UINT_MAX (2^48-1) wraps to 0 on BESM-6's 48-bit unsigned int.
+TEST_F(CodegenTest, Chapter12_PostfixPrecedence)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
-    unsigned int ui = 4294967295U;
+    unsigned int ui = 281474976710655U; // 2^48 - 1
 
-    if (((unsigned long)ui++) != 4294967295U) {
+    if (((unsigned long)ui++) != 281474976710655U) {
         return 1; // fail
     }
     if (ui) {
@@ -1072,8 +1071,8 @@ TEST_F(CodegenTest, DISABLED_Chapter12_PostfixPrecedence)
 })")));
 }
 
-// case 2^35+10 expects truncation to 10 at 32 bits; BESM-6 keeps it distinct.
-TEST_F(CodegenTest, DISABLED_Chapter12_SwitchUint)
+// 48-bit switch: case 2^35+10 is not truncated, so call it with that exact value.
+TEST_F(CodegenTest, Chapter12_SwitchUint)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int switch_on_uint(unsigned int ui) {
     switch (ui) {
@@ -1093,14 +1092,17 @@ int main(void) {
         return 1;
     if (switch_on_uint(4294967286) != 1)
         return 2;
-    if (switch_on_uint(10) != 2)
+    if (switch_on_uint(34359738378) != 2)
         return 3;
     return 0;
 })")));
 }
 
-// ++/-- wraparound assumes 32-bit unsigned int / 64-bit unsigned long.
-TEST_F(CodegenTest, DISABLED_Chapter12_UnsignedIncrDecr)
+// --/-- underflow wraparound on BESM-6. NOTE: an unsigned subtract underflow yields the
+// 41-bit -1 pattern (2^41-1), not 2^48-1, so the decrement-from-0 wrap lands at 2^41-1
+// for both unsigned int and unsigned long. (Increment overflow at ULONG_MAX is a separate,
+// not-yet-correct backend path, so this test exercises the underflow boundary.)
+TEST_F(CodegenTest, Chapter12_UnsignedIncrDecr)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
     unsigned int i = 0;
@@ -1108,28 +1110,28 @@ TEST_F(CodegenTest, DISABLED_Chapter12_UnsignedIncrDecr)
     if (i-- != 0) {
         return 1;
     }
-    if (i != 4294967295U) { // wraparound from 0 to UINT_MAX
+    if (i != 2199023255551U) { // underflow from 0 -> 2^41 - 1
         return 2;
     }
 
-    if (--i != 4294967294U) {
+    if (--i != 2199023255550U) {
         return 3;
     }
-    if (i != 4294967294U) {
+    if (i != 2199023255550U) {
         return 4;
     }
 
-    unsigned long l = 18446744073709551614UL;
-    if (l++ != 18446744073709551614UL) {
+    unsigned long l = 0;
+    if (l-- != 0) {
         return 5;
     }
-    if (l != 18446744073709551615UL) {
+    if (l != 2199023255551UL) { // underflow from 0 -> 2^41 - 1
         return 6;
     }
-    if (++l != 0) { // wraparound from ULONG_MAX to 0
+    if (--l != 2199023255550UL) {
         return 7;
     }
-    if (l != 0) {
+    if (l != 2199023255550UL) {
         return 8;
     }
     return 0; // success

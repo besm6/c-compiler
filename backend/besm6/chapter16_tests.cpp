@@ -1824,9 +1824,9 @@ int main(void) {
 
 // --- Negative-operand right shift is logical/impl-defined on BESM-6 -----------
 
-// extra_credit/bitshift_chars: expects (-127 >> 5) == -4 (arithmetic shift); BESM-6
-// right shift of a negative value is logical/implementation-defined.
-TEST_F(CodegenTest, DISABLED_Chapter16_BitshiftChars)
+// extra_credit/bitshift_chars: BESM-6 right shift of a negative value is logical
+// (zero-fill of the 41-bit pattern), so the negative cases yield large positives.
+TEST_F(CodegenTest, Chapter16_BitshiftChars)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// Test << and >> operators with chars (or mix of chars and other types)
 
@@ -1840,18 +1840,18 @@ int main(void) {
 
     signed char sc = -127;
     char c = 5;
-    // sc is promoted to int, then shifted
-    if ((sc >> c) != -4) {
+    // sc is promoted to int, then shifted (logical: (2^41 - 127) >> 5)
+    if ((sc >> c) != 68719476732) {
         return 3;  // fail
     }
 
-    // make sure c << 3ul is promoted to int, not unsigned long
-    if (((-(c << 3ul)) >> 3) != -5) {
+    // make sure c << 3ul is promoted to int, not unsigned long (logical: (2^41 - 40) >> 3)
+    if (((-(c << 3ul)) >> 3) != 274877906939) {
         return 4;  // fail
     }
 
-    // make sure uc << 5u is promoted to int, not unsigned int
-    if ((-(uc << 5u) >> 5u) != -255l) {
+    // make sure uc << 5u is promoted to int, not unsigned int (logical: (2^41 - 8160) >> 5)
+    if ((-(uc << 5u) >> 5u) != 68719476481l) {
         return 5; // fail
     }
 
@@ -1903,8 +1903,10 @@ int main(void) {
 })")));
 }
 
-// chars/common_type: expects (unsigned int)-10 == 2^32-10; BESM-6 uint is 48-bit.
-TEST_F(CodegenTest, DISABLED_Chapter16_CommonType)
+// chars/common_type: the ternary's unsigned-int common type, narrowed to the long
+// return, wraps back to -10 on BESM-6 (41-bit long). char_lt_int/char_lt_uchar are
+// renamed c_lt_int/c_lt_uchar so they stay distinct within Madlen's 8-char limit.
+TEST_F(CodegenTest, Chapter16_CommonType)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that we correctly find the common type of character types and other
  * types (it's always the other type - or, if both are character types, it's int) */
@@ -1913,7 +1915,7 @@ long ternary(int flag, char c) {
     return flag ? c : 1u;
 }
 
-int char_lt_int(char c, int i) {
+int c_lt_int(char c, int i) {
     return c < i;
 }
 
@@ -1921,7 +1923,7 @@ int uchar_gt_long(unsigned char uc, long l) {
     return uc > l;
 }
 
-int char_lt_uchar(char c, unsigned char u) {
+int c_lt_uchar(char c, unsigned char u) {
     return c < u;
 }
 
@@ -1936,11 +1938,11 @@ int multiply(void) {
 }
 
 int main(void) {
-    if (ternary(1, -10) != 4294967286l) {
+    if (ternary(1, -10) != -10l) {
         return 1;
     }
 
-    if (!char_lt_int((char)1, 256)) {
+    if (!c_lt_int((char)1, 256)) {
         return 2;
     }
 
@@ -1950,7 +1952,7 @@ int main(void) {
 
     char c = -1;
     unsigned char u = 2;
-    if (!char_lt_uchar(c, u)) {
+    if (!c_lt_uchar(c, u)) {
         return 4;
     }
 
@@ -1967,8 +1969,8 @@ int main(void) {
 })")));
 }
 
-// extra_credit/bitwise_ops_chars: expects 4294966637 == 2^32-659.
-TEST_F(CodegenTest, DISABLED_Chapter16_BitwiseOpsChars)
+// extra_credit/bitwise_ops_chars: the 48-bit unsigned analogue of 2^32-659 is 2^48-659.
+TEST_F(CodegenTest, Chapter16_BitwiseOpsChars)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// make sure we perform integer promotions when performing bitwise operations on chars
 
@@ -1983,7 +1985,7 @@ int main(void) {
         return 2;  // fail
     }
 
-    if (((c ^ 1001u) | 360l) != 4294966637) {
+    if (((c ^ 1001u) | 360l) != 281474976709997) { // 2^48 - 659
         return 3; // fail
     }
 

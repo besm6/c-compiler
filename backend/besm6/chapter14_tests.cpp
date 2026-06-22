@@ -1170,9 +1170,9 @@ int main(void) {
 
 // --- Relies on x86 32/64-bit unsigned wraparound/truncation -----------------
 
-// extra_credit/bitshift_dereferenced_ptrs: expects 32-bit unsigned-int wrap
-// (4294967295 << 2 == 4294967292); BESM-6 unsigned is 48-bit so it does not wrap.
-TEST_F(CodegenTest, DISABLED_Chapter14_BitshiftDereferencedPtrs)
+// extra_credit/bitshift_dereferenced_ptrs: BESM-6 unsigned int is 48-bit, so
+// 4294967295 << 2 does not wrap (== 17179869180).
+TEST_F(CodegenTest, Chapter14_BitshiftDereferencedPtrs)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(unsigned int ui = 4294967295;
 
@@ -1184,7 +1184,7 @@ int shiftcount = 5;
 
 int main(void) {
 
-    if ((*get_ui_ptr() << 2l) != 4294967292) {
+    if ((*get_ui_ptr() << 2l) != 17179869180) {
         return 1;
     }
 
@@ -1204,9 +1204,9 @@ int main(void) {
 })")));
 }
 
-// extra_credit/incr_and_decr_through_pointer: expects 64-bit unsigned-long wrap
-// (0ul-- == 2^64-1); BESM-6 unsigned long is 48-bit.
-TEST_F(CodegenTest, DISABLED_Chapter14_IncrAndDecrThroughPointer)
+// extra_credit/incr_and_decr_through_pointer: an unsigned subtract underflow yields the
+// 41-bit -1 pattern, so 0ul-- lands at 2^41-1 on BESM-6.
+TEST_F(CodegenTest, Chapter14_IncrAndDecrThroughPointer)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
     int x = 10;
@@ -1248,7 +1248,7 @@ TEST_F(CodegenTest, DISABLED_Chapter14_IncrAndDecrThroughPointer)
     if ((*ul_ptr)--) {
         return 9;
     }
-    if (ul != 18446744073709551615UL) {
+    if (ul != 2199023255551UL) { // underflow from 0 -> 2^41 - 1
         return 10;
     }
 

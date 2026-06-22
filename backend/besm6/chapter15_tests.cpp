@@ -2748,12 +2748,13 @@ int main(void) {
 
 // --- Relies on x86 32-bit unsigned wraparound --------------------------------
 
-// extra_credit/compound_assign_to_subscripted_val: 4294967283u * 4294967295u expects 32-bit wrap; BESM-6 unsigned is 48-bit.
-TEST_F(CodegenTest, DISABLED_Chapter15_CompoundAssignToSubscriptedVal)
+// extra_credit/compound_assign_to_subscripted_val: 48-bit unsigned wrap — element [1] is
+// set to 2^48-2 so += 2 wraps to 0, and the multiply wraps mod 2^48 (not 13).
+TEST_F(CodegenTest, Chapter15_CompoundAssignToSubscriptedVal)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// Test compound assignment where LHS is a subscript expression
 
-unsigned unsigned_arr[4] = {4294967295U, 4294967294U, 4294967293U, 4294967292U};
+unsigned unsigned_arr[4] = {4294967295U, 281474976710654U, 4294967293U, 4294967292U};
 
 int idx = 2;
 long long_idx = 1;
@@ -2776,9 +2777,9 @@ int main(void) {
         return 3;  // fail
     }
 
-    // unsigned_arr[2]; 4294967283 * 4294967295 (wraps around)
+    // unsigned_arr[2]; 4294967283 * 4294967295 (wraps mod 2^48)
     unsigned_ptr[long_idx *= 2] *= unsigned_arr[0];
-    if (unsigned_arr[2] != 13) {
+    if (unsigned_arr[2] != 281414847168525u) {
         return 4;  // fail
     }
 
@@ -2797,7 +2798,7 @@ int main(void) {
         return 7;           // fail
     }
 
-    if (unsigned_arr[2] != 13) {
+    if (unsigned_arr[2] != 281414847168525u) {
         return 8;  // fail
     }
 
