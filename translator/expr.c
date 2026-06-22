@@ -736,7 +736,7 @@ static Tac_Val *gen_step(TacCtx *ctx, const Type *type, Tac_Val *src, bool inc)
             step = val_int(1);
         }
         Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-        bin->u.binary.op     = inc ? TAC_BINARY_ADD : TAC_BINARY_SUBTRACT;
+        bin->u.binary.op     = map_binary_op(inc ? BINARY_ADD : BINARY_SUB, type);
         bin->u.binary.src1   = src;
         bin->u.binary.src2   = step;
         bin->u.binary.dst    = dst;

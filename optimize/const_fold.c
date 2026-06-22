@@ -444,6 +444,45 @@ static Tac_Val *fold_binary_float(Tac_BinaryOperator op, const Tac_Const *c1, co
     return rv;
 }
 
+// Map an integer constant kind to its unsigned counterpart of the same width.
+// The result of an unsigned operator is unsigned regardless of how its operands
+// happen to be typed: a literal `1` (the step of `u--`) is an int-kind constant,
+// so narrowing the wrapped result to that signed kind would sign-narrow a 48-bit
+// unsigned value to the 41-bit signed width.  Forcing the unsigned kind keeps the
+// full storage width.
+static Tac_ConstKind const_kind_to_unsigned(Tac_ConstKind k)
+{
+    switch (k) {
+    case TAC_CONST_INT:
+        return TAC_CONST_UINT;
+    case TAC_CONST_LONG:
+        return TAC_CONST_ULONG;
+    case TAC_CONST_LONG_LONG:
+        return TAC_CONST_ULONG_LONG;
+    case TAC_CONST_CHAR:
+        return TAC_CONST_UCHAR;
+    default:
+        return k; // already unsigned (or non-integer)
+    }
+}
+
+// True for the unsigned-variant arithmetic/shift operators, whose result is an
+// unsigned value (and so must be narrowed to the unsigned storage width).
+static bool binop_is_unsigned(Tac_BinaryOperator op)
+{
+    switch (op) {
+    case TAC_BINARY_ADD_UNSIGNED:
+    case TAC_BINARY_SUBTRACT_UNSIGNED:
+    case TAC_BINARY_MULTIPLY_UNSIGNED:
+    case TAC_BINARY_DIVIDE_UNSIGNED:
+    case TAC_BINARY_REMAINDER_UNSIGNED:
+    case TAC_BINARY_RIGHT_SHIFT_LOGICAL:
+        return true;
+    default:
+        return false;
+    }
+}
+
 // Fold a binary operator on two constant operands. Returns a new constant-valued
 // Tac_Val, or NULL if not foldable. If either operand is floating-point the work
 // is delegated to fold_binary_float; the rest of this function handles integers.
@@ -452,7 +491,8 @@ static Tac_Val *fold_binary_float(Tac_BinaryOperator op, const Tac_Const *c1, co
 // leave the instruction in place rather than invoke undefined behavior at
 // compile time. Comparisons produce an int 0/1; the signed/unsigned operator
 // variants pick the signed (s1/s2) or unsigned (u1/u2) 64-bit view accordingly.
-// Wrapping arithmetic is done in uint64 and narrowed back to c1's kind.
+// Wrapping arithmetic is done in uint64 and narrowed back to c1's kind — forced
+// to the unsigned counterpart for the unsigned-variant operators.
 static Tac_Val *fold_binary_const(Tac_BinaryOperator op, const Tac_Const *c1, const Tac_Const *c2)
 {
     if (!const_is_integer_kind(c1->kind) || !const_is_integer_kind(c2->kind))
@@ -549,7 +589,8 @@ static Tac_Val *fold_binary_const(Tac_BinaryOperator op, const Tac_Const *c1, co
         return NULL;
     }
 
-    return make_int_const_val(c1->kind, result);
+    Tac_ConstKind result_kind = binop_is_unsigned(op) ? const_kind_to_unsigned(c1->kind) : c1->kind;
+    return make_int_const_val(result_kind, result);
 }
 
 // True for all 14 type-conversion instruction kinds (the three integer-width

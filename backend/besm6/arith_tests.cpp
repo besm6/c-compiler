@@ -1073,6 +1073,33 @@ TEST_F(CodegenTest, MultiplyUnsignedPow2Run)
         result);
 }
 
+TEST_F(CodegenTest, DecrementUnderflow)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int gi;
+        unsigned gu;
+        void program() {
+            int i = 0;
+            unsigned u = 0;
+            gi--;
+            printf("%o\n", gi);
+            gu--;
+            printf("%o\n", gu);
+            i--;
+            printf("%o\n", i);
+            u--;
+            printf("%o\n", u);
+        }
+    )");
+    EXPECT_EQ(
+        "37777777777777\n"
+        "7777777777777777\n"
+        "37777777777777\n"
+        "7777777777777777\n",
+        result);
+}
+
 // End-to-end: unsigned divide / remainder by powers of two via ASN / AAX, over the full
 // 48-bit unsigned range (high bit set, exercising the logical-shift / mask path).
 TEST_F(CodegenTest, DivRemUnsignedPow2Run)
