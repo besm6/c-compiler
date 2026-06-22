@@ -1406,78 +1406,84 @@ int main(void) {
 // (values beyond the BESM-6 integer range, narrow-char/charset semantics, or
 // multi-dimensional char-array sub-word scaling).
 
-// chars/explicit_casts: out-of-range long/ulong source values are replaced with
-// in-range ones that keep the same low byte (the task #11 "value parts"). Still
-// DISABLED: the remaining mismatches are char-signedness (plain char is unsigned
-// on BESM-6 — task #16) and the static-local pointer cast (task #18).
+// chars/explicit_casts: the static-local + 8-char-collision + 41-bit-value parts are
+// already adapted here (helpers renamed to short forms like `c2uc`/`sc2ui` because the
+// book names all collided in Madlen's 8-char limit; `sc2ui` uses the BESM-6 41-bit
+// 2^41-10 value, task #14; the `static long *null_ptr` cast works).  But this stays
+// DISABLED for a real, unrelated codegen bug surfaced once the name collisions stopped
+// masking it: `(double)(unsigned char)` is wrong for any value with bit 7 set — e.g.
+// `(double)(unsigned char)250` yields garbage instead of 250.0 (check `uc2d`, return 12),
+// while `(double)(unsigned short)` and `(double)(unsigned int)` are correct.  This is the
+// `UINT_TO_DOUBLE` path mishandling a sub-word unsigned source; not a static-local issue
+// (task #18).  Re-enable once that conversion bug is fixed (see besm6 known-backend-bugs).
 TEST_F(CodegenTest, DISABLED_Chapter16_ExplicitCasts)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test explicit conversions to and from character types */
 
-unsigned char char_to_uchar(char c) { return (unsigned char)c; }
-signed char char_to_schar(char c) { return (signed char)c; }
-char uchar_to_char(unsigned char u) { return (char)u; }
-signed char uchar_to_schar(unsigned char u) { return (signed char)u; }
-unsigned char schar_to_uchar(signed char u) { return (unsigned char)u; }
-int char_to_int(char c) { return (int)c; }
-unsigned long char_to_ulong(char c) { return (unsigned long)c; }
-long schar_to_long(signed char s) { return (long)s; }
-unsigned int schar_to_uint(signed char s) { return (unsigned int)s; }
-double schar_to_double(signed char s) { return (double)s; }
-int uchar_to_int(unsigned char u) { return (int)u; }
-unsigned int uchar_to_uint(unsigned char u) { return (unsigned int)u; }
-long uchar_to_long(unsigned char u) { return (long)u; }
-unsigned long uchar_to_ulong(unsigned char u) { return (unsigned long)u; }
-double uchar_to_double(unsigned char u) { return (double)u; }
-char int_to_char(int i) { return (char)i; }
-char uint_to_char(unsigned int u) { return (char)u; }
-char double_to_char(double d) { return (char)d; }
-signed char ulong_to_schar(unsigned long l) { return (signed char)l; }
-unsigned char int_to_uchar(int i) { return (unsigned char)i; }
-unsigned char uint_to_uchar(unsigned int ui) { return (unsigned char)ui; }
-unsigned char long_to_uchar(long l) { return (unsigned char)l; }
-unsigned char ulong_to_uchar(unsigned long ul) { return (unsigned char)ul; }
-unsigned char double_to_uchar(double d) { return (unsigned char)d; }
-signed char long_to_schar(long l) { return (signed char)l; }
+unsigned char c2uc(char c) { return (unsigned char)c; }
+signed char c2sc(char c) { return (signed char)c; }
+char uc2c(unsigned char u) { return (char)u; }
+signed char uc2sc(unsigned char u) { return (signed char)u; }
+unsigned char sc2uc(signed char u) { return (unsigned char)u; }
+int c2i(char c) { return (int)c; }
+unsigned long c2ul(char c) { return (unsigned long)c; }
+long sc2l(signed char s) { return (long)s; }
+unsigned int sc2ui(signed char s) { return (unsigned int)s; }
+double sc2d(signed char s) { return (double)s; }
+int uc2i(unsigned char u) { return (int)u; }
+unsigned int uc2ui(unsigned char u) { return (unsigned int)u; }
+long uc2l(unsigned char u) { return (long)u; }
+unsigned long uc2ul(unsigned char u) { return (unsigned long)u; }
+double uc2d(unsigned char u) { return (double)u; }
+char i2c(int i) { return (char)i; }
+char ui2c(unsigned int u) { return (char)u; }
+char d2c(double d) { return (char)d; }
+signed char ul2sc(unsigned long l) { return (signed char)l; }
+unsigned char i2uc(int i) { return (unsigned char)i; }
+unsigned char ui2uc(unsigned int ui) { return (unsigned char)ui; }
+unsigned char l2uc(long l) { return (unsigned char)l; }
+unsigned char ul2uc(unsigned long ul) { return (unsigned char)ul; }
+unsigned char d2uc(double d) { return (unsigned char)d; }
+signed char l2sc(long l) { return (signed char)l; }
 
 int main(void) {
     char c = 127;
-    if (char_to_uchar(c) != 127) return 1;
-    if (char_to_int(c) != 127) return 2;
-    if (char_to_ulong(c) != 127) return 3;
+    if (c2uc(c) != 127) return 1;
+    if (c2i(c) != 127) return 2;
+    if (c2ul(c) != 127) return 3;
 
     signed char sc = -10;
-    if (schar_to_uchar(sc) != 246) return 4;
-    if (schar_to_long(sc) != -10) return 5;
-    if (schar_to_uint(sc) != 4294967286u) return 6;
-    if (schar_to_double(sc) != -10.0) return 7;
+    if (sc2uc(sc) != 246) return 4;
+    if (sc2l(sc) != -10) return 5;
+    if (sc2ui(sc) != 2199023255542u) return 6; // (unsigned int)(-10) = 2^41-10 on BESM-6
+    if (sc2d(sc) != -10.0) return 7;
 
     unsigned char uc = 250;
-    if (uchar_to_int(uc) != 250) return 8;
-    if (uchar_to_long(uc) != 250) return 9;
-    if (uchar_to_uint(uc) != 250) return 10;
-    if (uchar_to_ulong(uc) != 250) return 11;
-    if (uchar_to_double(uc) != 250.0) return 12;
-    if (uchar_to_schar(uc) != -6) return 13;
-    if (uchar_to_char(uc) != -6) return 14;
+    if (uc2i(uc) != 250) return 8;
+    if (uc2l(uc) != 250) return 9;
+    if (uc2ui(uc) != 250) return 10;
+    if (uc2ul(uc) != 250) return 11;
+    if (uc2d(uc) != 250.0) return 12;
+    if (uc2sc(uc) != -6) return 13;
+    if (uc2c(uc) != -6) return 14;
 
     c = (char)-128;
-    if (int_to_char(128) != c) return 15;
+    if (i2c(128) != c) return 15;
     c = (char)-6;
-    if (uint_to_char(2147483898u) != c) return 16;
+    if (ui2c(2147483898u) != c) return 16;
     c = (char)-2;
-    if (double_to_char(-2.6) != c) return 17;
+    if (d2c(-2.6) != c) return 17;
 
-    if (long_to_schar(1099511627520l)) return 18; // low byte 0
+    if (l2sc(1099511627520l)) return 18; // low byte 0
     sc = (signed char)-126;
-    if (ulong_to_schar(281474976710530ul) != sc) return 19; // low byte 130
+    if (ul2sc(281474976710530ul) != sc) return 19; // low byte 130
 
     uc = (unsigned char)200;
-    if (int_to_uchar(-1234488) != uc) return 20;
-    if (uint_to_uchar(4293732808) != uc) return 21;
-    if (long_to_uchar(1099511627720l) != uc) return 22; // low byte 200
-    if (ulong_to_uchar(281474976710600ul) != uc) return 23; // low byte 200
-    if (double_to_uchar(200.99) != uc) return 24;
+    if (i2uc(-1234488) != uc) return 20;
+    if (ui2uc(4293732808) != uc) return 21;
+    if (l2uc(1099511627720l) != uc) return 22; // low byte 200
+    if (ul2uc(281474976710600ul) != uc) return 23; // low byte 200
+    if (d2uc(200.99) != uc) return 24;
 
     static long *null_ptr;
     char zero = (char)null_ptr;
@@ -1494,10 +1500,15 @@ int main(void) {
 }
 
 // chars/convert_by_assignment: out-of-range source values are replaced with
-// in-range ones that keep the same low byte (the task #11 "value parts"). Still
-// DISABLED: the remaining mismatches are char-signedness (plain char is unsigned
-// on BESM-6 — task #16) and static-local handling (task #18).
-TEST_F(CodegenTest, DISABLED_Chapter16_ConvertByAssignment)
+// in-range ones that keep the same low byte (the task #11 "value parts").  Helpers
+// whose names collide in Madlen's 8-char limit were renamed: `check_char_on_stack`
+// (vs `check_char` → `check_ch`) → `check_stk`, and the `return_extended_uchar` /
+// `return_extended_schar` / `return_truncated_long` trio (the first two both →
+// `return_e`, and even `ret_ext_uc`/`ret_ext_sc` still share `ret_ext_`) → the
+// 8-char-distinct `rxt_uc`/`rxt_sc`/`rtrunc`.  The `check_uint` expectation uses the
+// BESM-6 41-bit unsigned value (2^41-10) instead of x86's 2^32-10 (task #14).  Plain
+// char is signed on BESM-6, so no char→signed adaptation is needed (task #18).
+TEST_F(CodegenTest, Chapter16_ConvertByAssignment)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test implicit conversions to and from character types as if by assignment. */
 
@@ -1508,19 +1519,19 @@ int check_ulong(unsigned long converted, unsigned long expected) { return (conve
 int check_double(double converted, double expected) { return (converted == expected); }
 int check_char(char converted, char expected) { return (converted == expected); }
 int check_uchar(unsigned char converted, unsigned char expected) { return (converted == expected); }
-int check_char_on_stack(signed char expected, int dummy1, int dummy2, int dummy3,
+int check_stk(signed char expected, int dummy1, int dummy2, int dummy3,
                         int dummy4, int dummy5, int dummy6, signed char converted) {
     return converted == expected;
 }
 
-int return_extended_uchar(unsigned char c) { return c; }
-unsigned long return_extended_schar(signed char sc) { return sc; }
-unsigned char return_truncated_long(long l) { return l; }
+int rxt_uc(unsigned char c) { return c; }
+unsigned long rxt_sc(signed char sc) { return sc; }
+unsigned char rtrunc(long l) { return l; }
 
 int main(void) {
     signed char sc = -10;
     if (!check_long(sc, -10l)) return 1;
-    if (!check_uint(sc, 4294967286u)) return 2;
+    if (!check_uint(sc, 2199023255542u)) return 2; // (unsigned int)(-10) = 2^41-10 on BESM-6
     if (!check_double(sc, -10.0)) return 3;
 
     unsigned char uc = 246;
@@ -1530,7 +1541,7 @@ int main(void) {
     if (!check_char(-10, c)) return 5;
     if (!check_char(4294967286u, c)) return 6;
     if (!check_char(-10.0, c)) return 7;
-    if (!check_char_on_stack(c, 0, 0, 0, 0, 0, 0, -10.0)) return 8;
+    if (!check_stk(c, 0, 0, 0, 0, 0, 0, -10.0)) return 8;
 
     if (!check_int(uc, 246)) return 9;
     if (!check_ulong(uc, 246ul)) return 10;
@@ -1539,9 +1550,9 @@ int main(void) {
 
     if (!check_uchar(281474976710646ul, uc)) return 12; // low byte 246
 
-    if (return_extended_uchar(uc) != 246) return 13;
-    if (return_extended_schar(sc) != 2199023255542ul) return 14; // (ulong)(-10)=2^41-10
-    if (return_truncated_long(5369233654l) != uc) return 15;
+    if (rxt_uc(uc) != 246) return 13;
+    if (rxt_sc(sc) != 2199023255542ul) return 14; // (ulong)(-10)=2^41-10
+    if (rtrunc(5369233654l) != uc) return 15;
 
     char array[3] = {0, 0, 0};
     array[1] = 128;
@@ -1741,7 +1752,7 @@ int main(void) {
 }
 
 // extra_credit/incr_decr_chars: static char chars[5].
-TEST_F(CodegenTest, DISABLED_Chapter16_IncrDecrChars)
+TEST_F(CodegenTest, Chapter16_IncrDecrChars)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// Increment and decrement lvalues of character type
 int main(void) {
@@ -1814,7 +1825,12 @@ int main(void) {
 })")));
 }
 
-// extra_credit/compound_assign_chars: static char/uchar/schar.
+// extra_credit/compound_assign_chars: static char/uchar/schar.  Stays DISABLED for a
+// compound-assignment promotion bug (NOT a static-local issue): a compound op (`/=`,
+// `*=`, `%=`) on an unsigned narrow-type lvalue is computed in *unsigned* even when the
+// operands integer-promote to signed int — e.g. `unsigned char uc=200; uc /= (char)-100`
+// yields 1 instead of 254, while the non-compound `uc = uc / c2` is correct.  Re-enable
+// once that translator bug is fixed (see the besm6 known-backend-bugs note).
 TEST_F(CodegenTest, DISABLED_Chapter16_CompoundAssignChars)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// Test compound assignment with characters; make sure we perform integer promotions

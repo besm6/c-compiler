@@ -14,8 +14,10 @@ TEST_F(CodegenTest, StaticLocalEmittedInsideFunctionModule)
     // Exactly one module: a single ,name, for foo (no separate module for x).
     EXPECT_EQ(std::string::npos, m.find(",name,", m.find(",name,") + 1));
 
-    // The storage is a labeled ,bss, placed after the code (the ,uj, b/ret) and before
-    // the closing ,end,.
+    // The storage is a labeled zero word placed after the code (the ,uj, b/ret) and before
+    // the closing ,end,.  Inside a code module the storage must be an explicit ,log, 0
+    // (not a ,bss, reservation) — the loader does not zero ,bss, space spliced into a code
+    // module, so a zero-init static local would otherwise read back garbage.
     size_t code   = m.find(",uj, b/ret");
     size_t datum  = m.find("x:");
     size_t end    = m.rfind(",end,");
@@ -24,7 +26,7 @@ TEST_F(CodegenTest, StaticLocalEmittedInsideFunctionModule)
     ASSERT_NE(std::string::npos, end);
     EXPECT_LT(code, datum);
     EXPECT_LT(datum, end);
-    EXPECT_NE(std::string::npos, m.find("x:   ,bss, 1"));
+    EXPECT_NE(std::string::npos, m.find("x:   ,log, 0"));
 
     // No external declaration for the in-module label.
     EXPECT_EQ(std::string::npos, m.find("x:   ,subp,"));

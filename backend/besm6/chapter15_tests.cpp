@@ -989,7 +989,11 @@ int set_nested_element(int (*arr)[2], int i, int j) {
 // Block-scope statics work now; tests still DISABLED_ here have a separate blocker
 // (multi-dimensional array sub-word scaling, pointer representation, etc.).
 
-// declarators/equivalent_declarators: uses `static int nested_arr[3][6]` inside a function.
+// declarators/equivalent_declarators: the static-local + pointer-to-2D-array parts now work,
+// but this stays DISABLED for task #19 — the tentative re-declaration `int long arr[4ul];`
+// after `long int(arr)[4] = {1,2,3,4};` re-emits a zero-init that clobbers the initializer
+// (arr reads back 0).  The redundant re-declaration is the whole point of the test, so it
+// can't be dropped; re-enable once task #19 (tentative/extern-after-definition clobber) lands.
 TEST_F(CodegenTest, DISABLED_Chapter15_EquivalentDeclarators)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Declare the same global array multiple times w/ equivalent declarators */
@@ -1087,7 +1091,7 @@ int main(void)
 
 
 // extra_credit/compound_assign_array_of_pointers: uses a `static` array of pointers local.
-TEST_F(CodegenTest, DISABLED_Chapter15_CompoundAssignArrayOfPointers)
+TEST_F(CodegenTest, Chapter15_CompoundAssignArrayOfPointers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// Compound assignment where lval is a subscript expression with pointer type
 int main(void) {
@@ -1294,8 +1298,11 @@ int main(void) {
 }
 
 
-// initialization/static: validates static-storage-duration local arrays.
-TEST_F(CodegenTest, DISABLED_Chapter15_Static)
+// initialization/static: validates static-storage-duration local arrays.  The book's
+// 1000-element `long` arrays were shrunk to 100 so the program fits in BESM-6 memory
+// (the originals overflowed the short address field — "ДЛИHHЫЙ AДPEC"); the construct
+// under test (static-duration init + zero-fill) is unchanged.
+TEST_F(CodegenTest, Chapter15_Static)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test initializing one-dimensional arrays with static storage duration */
 
@@ -1345,10 +1352,10 @@ int check_uint_arr(unsigned *arr) {
 }
 
 // uninitialized; should be all zeros
-long long_arr[1000];
+long long_arr[100];
 
 int check_long_arr(long *arr) {
-    for (int i = 0; i < 1000; i = i + 1) {
+    for (int i = 0; i < 100; i = i + 1) {
         if (arr[i]) {
             return 8;
         }
@@ -1414,7 +1421,7 @@ int test_local(void) {
     };
 
     // uninitialized
-    static long local_long_arr[1000];
+    static long local_long_arr[100];
 
     // initialized w/ values of different types
     static unsigned long local_ulong_arr[4] = {
@@ -1453,7 +1460,10 @@ int main(void) {
 
 
 // initialization/static_nested: validates static-storage-duration multi-dim local arrays.
-TEST_F(CodegenTest, DISABLED_Chapter15_StaticNested)
+// The book's `long[30][50][40]` (60000 words) was shrunk to `[3][5][4]` so the program fits
+// in BESM-6 memory; the partially-initialized `unsigned long[4][6][2]` exercises the static-
+// local zero-fill fixed in backend/besm6/static.c (explicit `,log, 0` words, not `,bss,`).
+TEST_F(CodegenTest, Chapter15_StaticNested)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test initializing multi-dimensional arrays with static storage duration */
 
@@ -1482,12 +1492,12 @@ int check_double_arr(double (*arr)[2]) {
 }
 
 // uninitialized; should be all zeros
-long long_arr[30][50][40];
+long long_arr[3][5][4];
 
-int check_long_arr(long (*arr)[50][40]) {
-    for (int i = 0; i < 30; i = i + 1) {
-        for (int j = 0; j < 50; j = j + 1) {
-            for (int k = 0; k < 40; k = k + 1) {
+int check_long_arr(long (*arr)[5][4]) {
+    for (int i = 0; i < 3; i = i + 1) {
+        for (int j = 0; j < 5; j = j + 1) {
+            for (int k = 0; k < 4; k = k + 1) {
                 if (arr[i][j][k]) {
                     return 5;
                 }
@@ -1565,7 +1575,7 @@ int test_local(void) {
         return 100 + check;
     }
 
-    static long local_long_arr[30][50][40];
+    static long local_long_arr[3][5][4];
     check = check_long_arr(local_long_arr);
     if (check) {
         return 100 + check;
@@ -1860,7 +1870,7 @@ int main(void) {
 
 
 // subscripting/simple_subscripts: uses a `static int arr[4]` local.
-TEST_F(CodegenTest, DISABLED_Chapter15_SimpleSubscripts)
+TEST_F(CodegenTest, Chapter15_SimpleSubscripts)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test out simple cases involving constant indices and one-dimensional arrays */
 

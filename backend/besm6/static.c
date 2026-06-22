@@ -52,11 +52,29 @@ static size_t char_init_item_bytes(const Tac_StaticInit *init)
     }
 }
 
+// Build a chain of `n` explicit all-zero data words (`,log, 0`).  Used for static
+// *locals*, whose zero padding cannot be a `,bss,` reservation: a static local's data
+// is spliced into the function's code module, and the Dubna loader does not zero `,bss,`
+// space there (only a separate global BSS section is loader-zeroed), so the words would
+// read back as garbage.  Explicit zero words become part of the loaded module image.
+static Besm_Instr *zero_log_words(int n)
+{
+    Besm_Instr *head = NULL, **tail = &head;
+    for (int i = 0; i < n; i++) {
+        Besm_Instr *si = besm_new_instr(BESM_DATA_LOG);
+        si->log_val    = 0;
+        *tail          = si;
+        tail           = &si->next;
+    }
+    return head;
+}
+
 // Flatten a character array's static init list (byte values, zero byte-runs, and
 // embedded string literals) into one byte buffer packed 6 bytes per word.  Data
 // words are emitted as BESM_DATA_LOG; complete all-zero words at the tail are
-// coalesced into a single BESM_DATA_BSS (matching the convention for zero padding).
-static Besm_Instr *char_array_log_items(const Tac_StaticInit *init)
+// coalesced into a single BESM_DATA_BSS (matching the convention for zero padding) —
+// unless `zero_as_words` (static local), where they become explicit `,log, 0` words.
+static Besm_Instr *char_array_log_items(const Tac_StaticInit *init, bool zero_as_words)
 {
     size_t total = 0;
     for (const Tac_StaticInit *it = init; it; it = it->next)
@@ -112,9 +130,13 @@ static Besm_Instr *char_array_log_items(const Tac_StaticInit *init)
     }
     long zero_words = (long)n_words - (long)log_words;
     if (zero_words > 0) {
-        Besm_Instr *bss = besm_new_instr(BESM_DATA_BSS);
-        bss->addr       = (int)zero_words;
-        *tail           = bss;
+        if (zero_as_words) {
+            *tail = zero_log_words((int)zero_words);
+        } else {
+            Besm_Instr *bss = besm_new_instr(BESM_DATA_BSS);
+            bss->addr       = (int)zero_words;
+            *tail           = bss;
+        }
     }
     xfree(buf);
     return head;
@@ -145,12 +167,20 @@ static unsigned long long static_init_log_val(const Tac_StaticInit *init)
 }
 
 // Build the chain of data directives for a static object of the given type and init list.
-// `init == NULL` reserves zeroed storage (a `,bss,`).  The returned items carry no label;
-// callers attach one as needed (a data section's `,name,`, or the first item for a static
-// local emitted inside a function module).
-static Besm_Instr *static_data_items(const Tac_Type *type, const Tac_StaticInit *init)
+// `init == NULL` reserves zeroed storage.  The returned items carry no label; callers
+// attach one as needed (a data section's `,name,`, or the first item for a static local
+// emitted inside a function module).
+//
+// `zero_as_words` controls how zero storage is emitted.  A file-scope static (false) uses
+// a `,bss,` reservation, which the loader zeroes for its separate BSS section.  A static
+// *local* (true) must instead emit explicit `,log, 0` words: its data is spliced into the
+// function's code module, where `,bss,` space is left uninitialized (see `zero_log_words`).
+static Besm_Instr *static_data_items(const Tac_Type *type, const Tac_StaticInit *init,
+                                     bool zero_as_words)
 {
     if (init == NULL) {
+        if (zero_as_words)
+            return zero_log_words(codegen_sizeof(type));
         Besm_Instr *item = besm_new_instr(BESM_DATA_BSS);
         item->addr       = codegen_sizeof(type);
         return item;
@@ -160,7 +190,7 @@ static Besm_Instr *static_data_items(const Tac_Type *type, const Tac_StaticInit 
     // zero runs, embedded strings) is flattened into a packed byte stream rather than
     // emitted one word per element.
     if (is_char_array(type))
-        return char_array_log_items(init);
+        return char_array_log_items(init, zero_as_words);
 
     Besm_Instr *head  = NULL;
     Besm_Instr **tail = &head;
@@ -180,6 +210,12 @@ static Besm_Instr *static_data_items(const Tac_Type *type, const Tac_StaticInit 
                 item->log_val = static_init_log_val(init);
                 break;
             case TAC_STATIC_INIT_ZERO:
+                if (zero_as_words) {
+                    *tail = zero_log_words((init->u.zero_bytes + 5) / 6);
+                    while (*tail)
+                        tail = &(*tail)->next;
+                    continue;
+                }
                 item       = besm_new_instr(BESM_DATA_BSS);
                 item->addr = (init->u.zero_bytes + 5) / 6;
                 break;
@@ -257,7 +293,7 @@ void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl
     Besm_Module *module      = besm_new_module(name);
     Besm_DataSection *section = besm_new_data_section(init == NULL ? BESM_SK_BSS : BESM_SK_DATA);
     section->name             = xstrdup(name);
-    section->items            = static_data_items(tl->u.static_variable.type, init);
+    section->items            = static_data_items(tl->u.static_variable.type, init, false);
     module->sections          = section;
 
     besm_fold_string_constants(module, program);
@@ -307,7 +343,7 @@ void besm_emit_static_locals(Besm_Module *module, const Tac_TopLevel *fn)
         last = last->next;
 
     for (const Tac_StaticLocal *sl = fn->u.function.static_locals; sl; sl = sl->next) {
-        Besm_Instr *items = static_data_items(sl->type, sl->init_list);
+        Besm_Instr *items = static_data_items(sl->type, sl->init_list, true);
         Besm_Instr *site  = static_local_label_site(items);
         // A plain data word labels through `name`; a Z00 address word (pointer init) labels
         // through `label`, since its `name` already holds the referenced symbol.
