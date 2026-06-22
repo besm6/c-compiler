@@ -855,8 +855,16 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
     case EXPR_UNARY_OP:
         if (e->u.unary_op.op == UNARY_PLUS)
             return gen_expr(ctx, e->u.unary_op.expr);
-        if (e->u.unary_op.op == UNARY_ADDRESS)
-            return gen_lval(ctx, e->u.unary_op.expr);
+        if (e->u.unary_op.op == UNARY_ADDRESS) {
+            // &"string literal": the address of the string's static storage is exactly
+            // the fat pointer its decayed-value path already materializes.  gen_lval has
+            // no string-literal case, so route it through gen_expr.
+            Expr *operand = e->u.unary_op.expr;
+            if (operand->kind == EXPR_LITERAL &&
+                operand->u.literal->kind == LITERAL_STRING)
+                return gen_expr(ctx, operand);
+            return gen_lval(ctx, operand);
+        }
         if (e->u.unary_op.op == UNARY_DEREF) {
             Tac_Val *addr = gen_lval(ctx, e);
             // Dereferencing a pointer-to-array yields a sub-array whose value is

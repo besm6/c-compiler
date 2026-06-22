@@ -13,14 +13,15 @@
 // in range.  Two facts specific to this chapter drive the split, on top of the
 // chapter 11-15 ones (narrow integers, no static-local storage, no shadowing):
 //
-//   * The output device renders lowercase Latin as Cyrillic, so a program that
-//     prints lowercase/mixed-case text (via puts) cannot match a clean ASCII
-//     expectation.  Char constants are ASCII-valued *internally* (e.g.
-//     'a' == 97), so byte comparisons of lowercase strings still work — only
-//     *printing* them fails.
-//   * libc provides printf/putchar but not strcmp/strlen/atoi/puts; the pure
-//     ones (strcmp/strlen) are supplied inline in the few programs that need
-//     them, replacing the book's standard-library prototype.
+//   * The static-data path repacks string-literal bytes to KOI-7, which folds
+//     lowercase Latin onto uppercase and has no faithful glyph for '\' or '^'.
+//     A byte read from a string literal therefore differs from the same lowercase
+//     char constant ('c' is 67 from a string but 99 as a constant — char constants
+//     keep their ASCII value), and printed lowercase renders as Cyrillic.  The
+//     task-#16 "KOI-7-adapted" group below uses uppercase Latin (ASCII == KOI-7)
+//     in its literals and expected output to sidestep this.
+//   * libc provides printf/puts/strcmp/strlen but not atoi; programs needing atoi
+//     stay DISABLED_ until it is added (task #22).
 //
 // Programs that stay within these limits are enabled run tests below; the rest
 // are DISABLED_ (grouped at the bottom with a one-line reason each).  Most are
@@ -1029,48 +1030,46 @@ int main(void) {
 
 
 // ===========================================================================
-// DISABLED_ — programs BESM-6 cannot reproduce, grouped by reason.
+// KOI-7-adapted string/char tests (task #16).  The BESM-6 static path repacks
+// string-literal bytes to KOI-7, which folds lowercase Latin to uppercase and
+// renders printed lowercase as Cyrillic.  These programs use uppercase Latin
+// (ASCII == KOI-7) in their string literals, char constants, and expected output
+// so the BESM-6 result matches a clean ASCII expectation.
 // ===========================================================================
 
-// --- String literals are KOI-7 encoded (lowercase Latin folds to uppercase) ---
-// utf8_to_koi7 maps 'a'..'z' to 'A'..'Z', but char *constants* keep their ASCII
-// value, so a lowercase byte read out of a string literal differs from the same
-// char constant ('c' is 67 from a string but 99 as a constant).  These programs
-// read a lowercase letter from a string literal and compare it to its ASCII value.
-
-// strings_as_initializers/simple: chars[2] of "abc" expected 99, KOI-7 gives 67.
-TEST_F(CodegenTest, DISABLED_Chapter16_StringInitSimple)
+// strings_as_initializers/simple: chars[2] of "ABC" is 'C' == 67.
+TEST_F(CodegenTest, Chapter16_StringInitSimple)
 {
-    EXPECT_EQ("99\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("67\n", CompileAndRun(WrapMain(R"(int main(void) {
     // simple test of initializing and subscripting char array
-    unsigned char chars[4] = "abc";
+    unsigned char chars[4] = "ABC";
     return chars[2];
 })")));
 }
 
-// strings_as_lvalues/simple: "Hello, World!"[2] expected 108, KOI-7 gives 76.
-TEST_F(CodegenTest, DISABLED_Chapter16_StringLvalueSimple)
+// strings_as_lvalues/simple: "HELLO, WORLD!"[2] is 'L' == 76.
+TEST_F(CodegenTest, Chapter16_StringLvalueSimple)
 {
-    EXPECT_EQ("108\n", CompileAndRun(WrapMain(R"(int main(void) {
-    char *x = "Hello, World!";
+    EXPECT_EQ("76\n", CompileAndRun(WrapMain(R"(int main(void) {
+    char *x = "HELLO, WORLD!";
     return x[2];
 })")));
 }
 
-// strings_as_lvalues/pointer_operations: "abcdefg"[2] vs 'c' (67 vs 99).
-TEST_F(CodegenTest, DISABLED_Chapter16_PointerOperations)
+// strings_as_lvalues/pointer_operations: pointer arithmetic and subscripting.
+TEST_F(CodegenTest, Chapter16_PointerOperations)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test standard pointer operations on string literals
  * including pointer arithmetic and subscripting.
  */
 
 int main(void) {
-    if ("abcdefg"[2] != 'c') {
+    if ("ABCDEFG"[2] != 'C') {
         return 1;
     }
 
-    char *ptr = "This is a string!" + 10;  // point to "string."
-    if (*ptr != 's') {
+    char *ptr = "THIS IS A STRING!" + 10;  // point to "STRING!"
+    if (*ptr != 'S') {
         return 2;
     }
 
@@ -1082,33 +1081,33 @@ int main(void) {
         return 4;
     }
 
-    if (!"Not a null pointer!") {
+    if (!"NOT A NULL POINTER!") {
         return 5;
     }
 })")));
 }
 
-// strings_as_lvalues/cast_string_pointer: "...string!"[3] 's' vs 's' (83 vs 115).
-TEST_F(CodegenTest, DISABLED_Chapter16_CastStringPointer)
+// strings_as_lvalues/cast_string_pointer: casts from char * to other char pointers.
+TEST_F(CodegenTest, Chapter16_CastStringPointer)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test casts from char * to other character pointer types */
 
 int main(void) {
-    char *c = "This is a string!";
+    char *c = "THIS IS A STRING!";
     unsigned char *uc = (unsigned char *)c;
-    if (uc[3] != 's') {
+    if (uc[3] != 'S') {
         return 1;
     }
     signed char *sc = (signed char *)c;
-    if (sc[3] != 's'){
+    if (sc[3] != 'S'){
             return 2;
         }
     return 0;
 })")));
 }
 
-// strings_as_lvalues/strings_in_function_calls: s1[41] 'd' vs 'd' (68 vs 100).
-TEST_F(CodegenTest, DISABLED_Chapter16_StringsInFunctionCalls)
+// strings_as_lvalues/strings_in_function_calls: strings as args/return values (libc strlen).
+TEST_F(CodegenTest, Chapter16_StringsInFunctionCalls)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that we can use strings literals as function arguments/return values */
 
@@ -1117,7 +1116,7 @@ unsigned long strlen(char *s);
 char *return_string(void) {
     // constant strings have static storage duration,
     // so this will persist after the function call;
-    return "I'm a string!";
+    return "I'M A STRING!";
 }
 
 int pass_string_args(char *s1, char *s2) {
@@ -1130,7 +1129,7 @@ int pass_string_args(char *s1, char *s2) {
         return 0;
     }
 
-    if (s1[41] != 'd' || s1[42] != 'o' || s1[43] != 'g') {
+    if (s1[41] != 'D' || s1[42] != 'O' || s1[43] != 'G') {
         return 0;
     }
 
@@ -1154,7 +1153,7 @@ int main(void) {
     }
 
     // pass strings as function arguments
-    if (!pass_string_args("The quick brown fox jumped over the lazy dog.",
+    if (!pass_string_args("THE QUICK BROWN FOX JUMPED OVER THE LAZY DOG.",
                           "")) {
         return 3;
     }
@@ -1163,10 +1162,154 @@ int main(void) {
 
     char *ptr2;
     ptr2 = 1 ? ptr + 2 : ptr + 4;
-    return *ptr2 == 'm';
+    return *ptr2 == 'M';
 })")));
 }
 
+// strings_as_initializers/array_init_special_chars: char special[6] = "...".
+// Escape sequences round-trip through KOI-7 unchanged, and local char-array
+// initialization from a string literal now emits per-byte stores, so this needs
+// no value change — it was blocked only by the (now-fixed) translator gap.
+TEST_F(CodegenTest, Chapter16_ArrayInitSpecialChars)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that we can handle escape sequences in string literals */
+int main(void) {
+    // a mix of escaped and unescaped special characters
+    char special[6] = "\a\b\n\v\f\t";
+
+    if (special[0] != '\a') {
+        return 1;
+    }
+
+    if (special[1] != '\b') {
+        return 2;
+    }
+
+    if (special[2] != '\n') {
+        return 3;
+    }
+    if (special[3] != '\v') {
+        return 4;
+    }
+    if (special[4] != '\f') {
+        return 5;
+    }
+
+    if (special[5] != '\t') {
+        return 6;
+    }
+
+    return 0;
+})")));
+}
+
+// strings_as_initializers/write_to_array: write to a flat and a nested char array.
+TEST_F(CodegenTest, Chapter16_WriteToArray)
+{
+    EXPECT_EQ("ABC\nABX\nHELLO\nWORLD\nJELLO\n0\n", CompileAndRun(WrapMain(R"(// Test writing to a char array
+
+int puts(char *s);
+
+int main(void) {
+    // start with a flat array
+    char flat_arr[4] = "ABC";
+    puts(flat_arr);
+
+    // update it
+    flat_arr[2] = 'X';
+    puts(flat_arr);
+
+    // similar test with nested array
+    char nested_array[2][6] = {"HELLO", "WORLD"};
+    puts(nested_array[0]);
+    puts(nested_array[1]);
+
+    nested_array[0][0] = 'J';
+    puts(nested_array[0]);
+
+    return 0;
+})")));
+}
+
+// strings_as_lvalues/string_special_characters: special characters in string literals.
+// The book's backslash and caret cases are dropped: KOI-7 does not round-trip
+// '\\' (0x5C->0x1D) or '^' (0x5E->0x5C), so neither the byte compare nor the
+// printed output could match.
+TEST_F(CodegenTest, Chapter16_StringSpecialCharacters)
+{
+    EXPECT_EQ("HELLO\"WORLD\nLINE\nBREAK!\nTESTING, 123.\n0\n",
+              CompileAndRun(WrapMain(R"(/* Test that we can handle special characters in string literals
+ * that are not array initializers
+ */
+
+int puts(char *s);
+int strcmp(char *s1, char *s2);
+
+int main(void) {
+    // string literal containing escape sequences
+    char *escape_sequence = "\a\b";
+    if (escape_sequence[0] != 7) {
+        return 1;
+    }
+
+    if (escape_sequence[1] != 8) {
+        return 2;
+    }
+
+    if (escape_sequence[2]) {// check for terminating null byte
+        return 3;
+    }
+
+    // double quote
+    char *with_double_quote = "HELLO\"WORLD";
+    if (with_double_quote[5] != '"') {
+        return 4;
+    }
+    puts(with_double_quote);
+
+    char *with_newline = "LINE\nBREAK!";
+    if (with_newline[4] != 10) {
+        return 6;
+    }
+    puts(with_newline);
+
+    // literal tab
+    char *tab = "\t";
+    if (strcmp(tab, "\t")) {
+        return 7;
+    }
+
+    puts("TESTING, 123.");
+
+    return 0;
+})")));
+}
+
+// strings_as_lvalues/addr_of_string: take the address of a string literal.
+TEST_F(CodegenTest, Chapter16_AddrOfString)
+{
+    EXPECT_EQ("SAMPLE\tSTRING!\n\n0\n", CompileAndRun(WrapMain(R"(/* Test that we can take the address of a string literal and annotate it with the correct type */
+
+int puts(char *s);
+
+int main(void) {
+    char(*str)[16] = &"SAMPLE\tSTRING!\n";
+    puts(*str);
+
+    // get pointer to one-past-the-end of this string
+    char (*one_past_the_end)[16] = str + 1;
+    char *last_byte_pointer = (char *)one_past_the_end - 1; // now get pointer to the last byte
+    if (*last_byte_pointer != 0) {
+        return 1;
+    }
+    return 0;
+})")));
+}
+
+
+// ===========================================================================
+// DISABLED_ — programs BESM-6 cannot reproduce, grouped by reason.
+// ===========================================================================
 
 // --- Multi-dimensional char array (sub-word row pointer) ---------------------
 // Indexing a row of a packed char array yields a pointer into the middle of a
@@ -1253,47 +1396,6 @@ int main(void) {
         if (strings[1][i])
             return 3;
     }
-    return 0;
-})")));
-}
-
-
-// --- Local char-array initialization from a string literal (translator gap) ---
-// A `char s[N] = "..."` local lowers to a COPY of the string-constant pointer into
-// the array slot instead of copying the bytes, so the array holds the pointer
-// encoding rather than the characters.
-
-// strings_as_initializers/array_init_special_chars: char special[6] = "...".
-// (Raw VT/FF/TAB source bytes rewritten as \v/\f/\t escapes; same runtime value.)
-TEST_F(CodegenTest, DISABLED_Chapter16_ArrayInitSpecialChars)
-{
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that we can handle escape sequences in string literals */
-int main(void) {
-    // a mix of escaped and unescaped special characters
-    char special[6] = "\a\b\n\v\f\t";
-
-    if (special[0] != '\a') {
-        return 1;
-    }
-
-    if (special[1] != '\b') {
-        return 2;
-    }
-
-    if (special[2] != '\n') {
-        return 3;
-    }
-    if (special[3] != '\v') {
-        return 4;
-    }
-    if (special[4] != '\f') {
-        return 5;
-    }
-
-    if (special[5] != '\t') {
-        return 6;
-    }
-
     return 0;
 })")));
 }
@@ -1994,51 +2096,9 @@ int main(void) {
 }
 
 
-// --- Prints lowercase/mixed text -> output renders as Cyrillic ---------------
+// --- Missing libc routine ----------------------------------------------------
 
-// strings_as_initializers/write_to_array: puts("abc"/"Hello"/...).
-TEST_F(CodegenTest, DISABLED_Chapter16_WriteToArray)
-{
-    EXPECT_EQ("abc\nabx\nHello\nWorld\nJello\n0\n", CompileAndRun(WrapMain(R"(// Test writing to a char array
-
-int puts(char *s);
-
-int main(void) {
-    // start with a flat array
-    char flat_arr[4] = "abc";
-    puts(flat_arr);
-
-    // update it
-    flat_arr[2] = 'x';
-    puts(flat_arr);
-
-    // similar test with nested array
-    char nested_array[2][6] = {"Hello", "World"};
-    puts(nested_array[0]);
-    puts(nested_array[1]);
-
-    nested_array[0][0] = 'J';
-    puts(nested_array[0]);
-
-    return 0;
-})")));
-}
-
-// strings_as_lvalues/adjacent_strings: puts("Hello, World").
-TEST_F(CodegenTest, DISABLED_Chapter16_AdjacentStrings)
-{
-    EXPECT_EQ("Hello, World\n0\n", CompileAndRun(WrapMain(R"(/* Test that we concatenate adjacent string literal tokens */
-
-int puts(char *s);
-
-int main(void) {
-    char *strings = "Hello," " World";
-    puts(strings);
-    return 0;
-})")));
-}
-
-// strings_as_lvalues/standard_library_calls: puts + atoi (no libc atoi).
+// strings_as_lvalues/standard_library_calls: puts + atoi (no libc atoi — task #22).
 TEST_F(CodegenTest, DISABLED_Chapter16_StandardLibraryCalls)
 {
     EXPECT_EQ("Hello, World!\n0\n", CompileAndRun(WrapMain(R"(/* Test calling string manipulation functions from the standard library */
@@ -2073,86 +2133,24 @@ int main(void) {
 })")));
 }
 
-// strings_as_lvalues/string_special_characters: puts mixed-case strings.
-TEST_F(CodegenTest, DISABLED_Chapter16_StringSpecialCharacters)
+// --- Parser gap: adjacent string-literal concatenation -----------------------
+// The scanner/parser does not concatenate adjacent string-literal tokens
+// (C11 §5.1.1.2 phase 6), so `"HELLO," " WORLD"` is a parse error.  KOI-7-adapted
+// otherwise; re-enable once concatenation is implemented (frontend, task #24).
+
+// strings_as_lvalues/adjacent_strings: puts("HELLO," " WORLD").
+TEST_F(CodegenTest, DISABLED_Chapter16_AdjacentStrings)
 {
-    EXPECT_EQ("Hello\"world\nHello\\World\nLine\nbreak!\nTesting, 123.\n^@1 _\\]\n0\n",
-              CompileAndRun(WrapMain(R"(/* Test that we can handle special characters in string literals
- * that are not array initializers
- */
-
-int puts(char *s);
-int strcmp(char *s1, char *s2);
-
-int main(void) {
-    // string literal containing escape sequences
-    char *escape_sequence = "\a\b";
-    if (escape_sequence[0] != 7) {
-        return 1;
-    }
-
-    if (escape_sequence[1] != 8) {
-        return 2;
-    }
-
-    if (escape_sequence[2]) {// check for terminating null byte
-        return 3;
-    }
-
-    // double quote
-    char *with_double_quote = "Hello\"world";
-    if (with_double_quote[5] != '"') {
-        return 4;
-    }
-    puts(with_double_quote);
-
-    // backslash
-    char *with_backslash = "Hello\\World";
-    if (with_backslash[5] != '\\') {
-        return 5;
-    }
-    puts(with_backslash);
-
-    char *with_newline = "Line\nbreak!";
-    if (with_newline[4] != 10) {
-        return 6;
-    }
-    puts(with_newline);
-
-    // literal tab
-    char *tab = "\t";
-    if (strcmp(tab, "\t")) {
-        return 7;
-    }
-
-    puts("Testing, 123.");
-    puts("^@1 _\\]");
-
-    return 0;
-})")));
-}
-
-// strings_as_lvalues/addr_of_string: puts(*str) + char(*)[16] 16-byte alignment.
-TEST_F(CodegenTest, DISABLED_Chapter16_AddrOfString)
-{
-    EXPECT_EQ("Sample\tstring!\n\n0\n", CompileAndRun(WrapMain(R"(/* Test that we can take the address of a string literal and annotate it with the correct type */
+    EXPECT_EQ("HELLO, WORLD\n0\n", CompileAndRun(WrapMain(R"(/* Test that we concatenate adjacent string literal tokens */
 
 int puts(char *s);
 
 int main(void) {
-    char(*str)[16] = &"Sample\tstring!\n";
-    puts(*str);
-
-    // get pointer to one-past-the-end of this string
-    char (*one_past_the_end)[16] = str + 1;
-    char *last_byte_pointer = (char *)one_past_the_end - 1; // now get pointer to the last byte
-    if (*last_byte_pointer != 0) {
-        return 1;
-    }
+    char *strings = "HELLO," " WORLD";
+    puts(strings);
     return 0;
 })")));
 }
-
 
 // --- read an int's big-endian bytes via char* --------------------------------
 

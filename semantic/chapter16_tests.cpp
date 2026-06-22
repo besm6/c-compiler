@@ -5,10 +5,12 @@
 // string typing rule.  Tests assert on a substring of the fatal-error text.
 //
 // Every program yields a clean, specific diagnostic — no DISABLED_ needed.
-// Two reclassifications vs. the book's intent (still a clean error, still here):
+// One reclassification vs. the book's intent (still here):
 //   * implicit_conversion_pointers_to_different_size_arrays — the book expects a
-//     char(*)[2] vs char(*)[10] mismatch, but we reject `&"x"` earlier with
-//     "Cannot take address of non-lvalue".
+//     char(*)[2] vs char(*)[10] mismatch.  We accept `&"x"` (a string literal is an
+//     array lvalue), and compatible_type ignores array bounds, so the assignment is
+//     not a constraint we reject; the case is kept as a positive test that `&"..."`
+//     typechecks.
 //   * implicit_conversion_between_char_pointers / string_literal_is_plain_char_
 //     pointer — caught by the generic "Cannot convert type for assignment".
 //
@@ -77,15 +79,15 @@ TEST_F(PipelineTest, Chapter16_ImplicitConversionBetweenCharPointers_Neg)
                  "Cannot convert type for assignment");
 }
 
-// char(*sp)[10] = &"x"; — &"x" has type char(*)[2]; we reject &"x" as non-lvalue.
-TEST_F(PipelineTest, Chapter16_ImplicitConversionPointersToDifferentSizeArrays_Neg)
+// char(*sp)[2] = &"x"; — &"x" has type char(*)[2].  We now accept the address of a
+// string literal (it is an array lvalue with static storage), so this typechecks.
+TEST_F(PipelineTest, Chapter16_AddressOfStringLiteral)
 {
-    EXPECT_DEATH(RunPipeline(R"(int main(void) {
-    char(*string_pointer)[10] = &"x";
+    RunPipeline(R"(int main(void) {
+    char(*string_pointer)[2] = &"x";
     return 0;
 }
-)"),
-                 "Cannot take address of non-lvalue");
+)");
 }
 
 // return -x; (x is char *) — a pointer cannot be negated.

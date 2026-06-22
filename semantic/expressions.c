@@ -255,7 +255,11 @@ static Expr *typecheck_expr(Expr *e)
         }
         case UNARY_ADDRESS: {
             Expr *inner = typecheck_expr(e->u.unary_op.expr);
-            if (!is_lvalue(inner)) {
+            // A string literal is an lvalue (an array object with static storage), so
+            // &"..." yields a pointer to its char[N] type.  inner->type is already char[N].
+            bool is_string_literal = inner->kind == EXPR_LITERAL &&
+                                     inner->u.literal->kind == LITERAL_STRING;
+            if (!is_lvalue(inner) && !is_string_literal) {
                 fatal_error("Cannot take address of non-lvalue");
             }
             Type *ptr             = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);

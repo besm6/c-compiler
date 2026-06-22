@@ -32,6 +32,7 @@ extern FILE *stderr;
 int printf(const char *fmt, ...);
 int sprintf(char *buf, const char *fmt, ...);
 int snprintf(char *buf, int size, const char *fmt, ...);
+int puts(const char *s);
 
 /* ---- declared for future implementation (TODO) ---- */
 int   fprintf(FILE *stream, const char *fmt, ...);
@@ -46,7 +47,6 @@ int   fscanf(FILE *stream, const char *fmt, ...);
 
 int   putchar(int c);
 int   getchar(void);
-int   puts(const char *s);
 int   fputs(const char *s, FILE *stream);
 int   fputc(int c, FILE *stream);
 int   fgetc(FILE *stream);
