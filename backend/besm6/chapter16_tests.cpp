@@ -964,14 +964,9 @@ unsigned char return_uchar(void) {
 
 
 
-// ===========================================================================
-// DISABLED_ — programs BESM-6 cannot reproduce, grouped by reason.
-// ===========================================================================
-
-// --- No identifier shadowing (permanent design decision) ---------------------
-
-// char_constants/char_constant_operations: local `double d` shadows file-scope `d`.
-TEST_F(CodegenTest, DISABLED_Chapter16_CharConstantOperations)
+// char_constants/char_constant_operations: local `double d` shadowed file-scope `d`
+// (renamed the local to `d2`).
+TEST_F(CodegenTest, Chapter16_CharConstantOperations)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that we treat character constants like integers */
 
@@ -1023,15 +1018,19 @@ int main(void) {
     }
 
     // You can use character constants in arithmetic expressions
-    double d = 10 % '\a' + 4.0 * '_' - ~'@'; // 10 % 7 + 4.0 * 95 - ~64
+    double d2 = 10 % '\a' + 4.0 * '_' - ~'@'; // 10 % 7 + 4.0 * 95 - ~64
 
-    if (d != 448.0) {
+    if (d2 != 448.0) {
         return 9;
     }
     return 0;
 })")));
 }
 
+
+// ===========================================================================
+// DISABLED_ — programs BESM-6 cannot reproduce, grouped by reason.
+// ===========================================================================
 
 // --- String literals are KOI-7 encoded (lowercase Latin folds to uppercase) ---
 // utf8_to_koi7 maps 'a'..'z' to 'A'..'Z', but char *constants* keep their ASCII

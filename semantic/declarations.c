@@ -533,6 +533,9 @@ static void typecheck_fn_decl(ExternalDecl *d)
                 Type *ptr = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
                 ptr->u.pointer.target =
                     clone_type(pt->u.array.element, __func__, __FILE__, __LINE__);
+                // pt aliases p->type and its element is already cloned, so free the
+                // original (cloned) array type before replacing it with the pointer.
+                free_type(p->type);
                 p->type = ptr;
             } else if (pt->kind == TYPE_VOID) {
                 fatal_error("No void params allowed");

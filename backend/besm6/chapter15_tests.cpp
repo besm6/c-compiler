@@ -2010,16 +2010,16 @@ int main(void) {
 // --- No identifier shadowing (permanent design decision) ---------------------
 
 // declarators/return_nested_array: local `arr` shadows file-scope `arr`.
-TEST_F(CodegenTest, DISABLED_Chapter15_ReturnNestedArray)
+TEST_F(CodegenTest, Chapter15_ReturnNestedArray)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Declare a function that returns a pointer to an array */
 
-int arr[3] = {1, 1, 1};
+int g_arr[3] = {1, 1, 1};
 
 int (*foo(int x, int y))[3] {
-    arr[1] = x;
-    arr[2] = y;
-    return &arr;
+    g_arr[1] = x;
+    g_arr[2] = y;
+    return &g_arr;
 }
 
 int main(void) {
@@ -2038,24 +2038,26 @@ int main(void) {
 }
 
 
-// subscripting/subscript_nested: parameter `nested_arr` shadows file-scope `nested_arr`.
-TEST_F(CodegenTest, DISABLED_Chapter15_SubscriptNested)
+// subscripting/subscript_nested: parameter `nested_arr` shadowed file-scope `nested_arr`
+// (renamed to `s_nested`); `read_nested`/`read_nested_negated` and
+// `write_nested`/`write_nested_complex` collided in the first 8 Madlen chars (renamed).
+TEST_F(CodegenTest, Chapter15_SubscriptNested)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test subscripting multi-dimensional arrays */
 
 // read an element through a nested subscript
-int read_nested(int nested_arr[2][3], int i, int j, int expected) {
+int read_elem(int nested_arr[2][3], int i, int j, int expected) {
     return (nested_arr[i][j] == expected);
 }
 
 // write through a nested subscript
-int write_nested(int nested_arr[2][3], int i, int j, int new_val) {
+int write_elem(int nested_arr[2][3], int i, int j, int new_val) {
     nested_arr[i][j] = new_val;
     return 0;
 }
 
 // read through a more complex index
-int read_nested_negated(int (*nested_arr)[3], int i, int j, int expected) {
+int read_neg(int (*nested_arr)[3], int i, int j, int expected) {
     return (nested_arr[-i][j] == expected);
 }
 
@@ -2066,21 +2068,21 @@ int get_nested_addr(int nested_arr[2][3], int i, int j, int *expected) {
 }
 
 // nested access to a static array
-static int nested_arr[4][3][5] = {
+static int s_nested[4][3][5] = {
     {{1, 2}, {3}},
     {{4}, {5}}
 };
 
 int read_static_nested(int i, int j, int k, int expected) {
-    return nested_arr[i][j][k] == expected;
+    return s_nested[i][j][k] == expected;
 }
 
 // write a nested element using more complex expression to get array
 int (*get_array(void))[3][5] {
-    return nested_arr;
+    return s_nested;
 }
 
-int write_nested_complex(int i, int j, int k, int val) {
+int write_cplx(int i, int j, int k, int val) {
     get_array()[i][j][k] = val;
     return 0;
 }
@@ -2092,16 +2094,16 @@ int *get_subarray(int nested[2][3], int i) {
 
 int main(void) {
     int nested_arr[2][3] = {{1, 2, 3}, {4, 5, 6}};
-    if (!read_nested(nested_arr, 1, 2, 6)) {
+    if (!read_elem(nested_arr, 1, 2, 6)) {
         return 1;
     }
 
-    write_nested(nested_arr, 1, 2, -1);
+    write_elem(nested_arr, 1, 2, -1);
     if (nested_arr[1][2] != -1) {
         return 2;
     }
 
-    if (!read_nested_negated(nested_arr + 2, 2, 0, 1)) {
+    if (!read_neg(nested_arr + 2, 2, 0, 1)) {
         return 3;
     }
 
@@ -2114,7 +2116,7 @@ int main(void) {
         return 5;
     }
 
-    write_nested_complex(0, 2, 3, 111);
+    write_cplx(0, 2, 3, 111);
     if (get_array()[0][2][3] != 111) {
         return 6;
     }
@@ -2129,8 +2131,9 @@ int main(void) {
 }
 
 
-// subscripting/complex_operands: `static` locals plus a `get_array` whose `arr` collides across functions.
-TEST_F(CodegenTest, DISABLED_Chapter15_ComplexOperands)
+// subscripting/complex_operands: `subscript_inception`/`subscript_function_result`
+// collided in the first 8 Madlen chars (`subscrip`); renamed to `sub_incept`/`sub_funcres`.
+TEST_F(CodegenTest, Chapter15_ComplexOperands)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test subscript expressions where both operands are complex sub-expressions,
  * not just variables and constants. This test program only includes 1D arrays. */
@@ -2174,18 +2177,18 @@ int funcall_in_index(void) {
 }
 
 // use result of another subscript expression as index
-int subscript_inception(long *arr, int *a, int b){
+int sub_incept(long *arr, int *a, int b){
     return arr[a[b]];
 }
 
 int check_subscript_inception(void) {
     long arr[4] = {4, 3, 2, 1};
     int indices[2] = {1, 2};
-    if (subscript_inception(arr, indices, 1) != 2) {
+    if (sub_incept(arr, indices, 1) != 2) {
         return 5;
     }
 
-    if (subscript_inception(arr, indices, 0) != 3) {
+    if (sub_incept(arr, indices, 0) != 3) {
         return 6;
     }
 
@@ -2198,7 +2201,7 @@ int *get_array(void) {
     return arr;
 }
 
-int subscript_function_result(void){
+int sub_funcres(void){
     get_array()[2] = 1;
     if (get_array()[2] != 1) {
         return 7;
@@ -2231,7 +2234,7 @@ int main(void) {
         return check;
     }
 
-    check = subscript_function_result();
+    check = sub_funcres();
     if (check) {
         return check;
     }
