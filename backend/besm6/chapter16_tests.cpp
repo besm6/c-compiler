@@ -1305,7 +1305,10 @@ int main(void) {
 // (values beyond the BESM-6 integer range, narrow-char/charset semantics, or
 // multi-dimensional char-array sub-word scaling).
 
-// chars/explicit_casts: static long *null_ptr; (also 2^44 / 9.2e18 values).
+// chars/explicit_casts: out-of-range long/ulong source values are replaced with
+// in-range ones that keep the same low byte (the task #11 "value parts"). Still
+// DISABLED: the remaining mismatches are char-signedness (plain char is unsigned
+// on BESM-6 — task #16) and the static-local pointer cast (task #18).
 TEST_F(CodegenTest, DISABLED_Chapter16_ExplicitCasts)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test explicit conversions to and from character types */
@@ -1364,15 +1367,15 @@ int main(void) {
     c = (char)-2;
     if (double_to_char(-2.6) != c) return 17;
 
-    if (long_to_schar(17592186044416l)) return 18;
+    if (long_to_schar(1099511627520l)) return 18; // low byte 0
     sc = (signed char)-126;
-    if (ulong_to_schar(9224497936761618562ul) != sc) return 19;
+    if (ulong_to_schar(281474976710530ul) != sc) return 19; // low byte 130
 
     uc = (unsigned char)200;
     if (int_to_uchar(-1234488) != uc) return 20;
     if (uint_to_uchar(4293732808) != uc) return 21;
-    if (long_to_uchar(-36283884951096l) != uc) return 22;
-    if (ulong_to_uchar(9224497936761618632ul) != uc) return 23;
+    if (long_to_uchar(1099511627720l) != uc) return 22; // low byte 200
+    if (ulong_to_uchar(281474976710600ul) != uc) return 23; // low byte 200
     if (double_to_uchar(200.99) != uc) return 24;
 
     static long *null_ptr;
@@ -1389,7 +1392,10 @@ int main(void) {
 })")));
 }
 
-// chars/convert_by_assignment: static uc/s_static; (also 2^64 value).
+// chars/convert_by_assignment: out-of-range source values are replaced with
+// in-range ones that keep the same low byte (the task #11 "value parts"). Still
+// DISABLED: the remaining mismatches are char-signedness (plain char is unsigned
+// on BESM-6 — task #16) and static-local handling (task #18).
 TEST_F(CodegenTest, DISABLED_Chapter16_ConvertByAssignment)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test implicit conversions to and from character types as if by assignment. */
@@ -1430,22 +1436,22 @@ int main(void) {
     char expected_char = -10;
     if (!check_char(uc, expected_char)) return 11;
 
-    if (!check_uchar(18446744073709551606ul, uc)) return 12;
+    if (!check_uchar(281474976710646ul, uc)) return 12; // low byte 246
 
     if (return_extended_uchar(uc) != 246) return 13;
-    if (return_extended_schar(sc) != 18446744073709551606ul) return 14;
+    if (return_extended_schar(sc) != 2199023255542ul) return 14; // (ulong)(-10)=2^41-10
     if (return_truncated_long(5369233654l) != uc) return 15;
 
     char array[3] = {0, 0, 0};
     array[1] = 128;
     if (array[0] || array[2] || array[1] != -128) return 16;
-    array[1] = 9224497936761618562ul;
+    array[1] = 281474976710530ul; // low byte 130 (was 9.2e18)
     if (array[0] || array[2] || array[1] != -126) return 17;
     array[1] = -2.6;
     if (array[0] || array[2] || array[1] != -2) return 18;
 
     unsigned char uchar_array[3] = {0, 0, 0};
-    uchar_array[1] = 17592186044416l;
+    uchar_array[1] = 1099511627520l; // low byte 0 (was 2^44)
     if (uchar_array[0] || uchar_array[2] || uchar_array[1] != 0) return 19;
     uchar_array[1] = 2147483898u;
     if (uchar_array[0] || uchar_array[2] || uchar_array[1] != 250) return 20;
@@ -1857,24 +1863,27 @@ int main(void) {
 
 // --- Value exceeds BESM-6 range / relies on 32-bit unsigned width -------------
 
-// chars/static_initializers: 2^44 and 9.2e18 initializers.
+// chars/static_initializers: out-of-range long/ulong initializers are replaced
+// with in-range ones that keep the same low byte (the task #11 "value parts").
+// Still DISABLED: the remaining mismatch is char-signedness (plain char is
+// unsigned on BESM-6 — task #16) and static char-init codegen (task #18).
 TEST_F(CodegenTest, DISABLED_Chapter16_StaticInitializers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that initializers for static objects with character type are correctly
  * converted to the correct type */
 
-char from_long = 17592186044416l;
+char from_long = 1099511627520l;        // low byte 0
 char from_double = 15.6;
-char from_uint = 2147483777u;
-char from_ulong = 9223372037928517642ul;
-signed char schar_from_long = 17592186044419l;
+char from_uint = 2147483777u;            // low byte 129
+char from_ulong = 281474976710410ul;     // low byte 10
+signed char schar_from_long = 1099511627523l; // low byte 3
 signed char schar_from_uint = 2147483898u;
-signed char schar_from_ulong = 9223372037928517642ul;
+signed char schar_from_ulong = 281474976710410ul; // low byte 10
 signed char schar_from_double = 1e-10;
 unsigned char uchar_from_int = 13526;
 unsigned char uchar_from_uint = 2147483898u;
-unsigned char uchar_from_long = 1101659111674l;
-unsigned char uchar_from_ulong = 9223372037928517642ul;
+unsigned char uchar_from_long = 1099511627770l;    // low byte 250
+unsigned char uchar_from_ulong = 281474976710410ul; // low byte 10
 unsigned char uchar_from_double = 77.7;
 
 int main(void) {

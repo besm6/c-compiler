@@ -456,10 +456,8 @@ long add(int a, int b) {
 })")));
 }
 
-// --- DISABLED: value exceeds the 41-bit long range -------------------------
-
-// complement() uses LONG_MAX-1 (9.2e18), far beyond the 41-bit long range.
-TEST_F(CodegenTest, DISABLED_Chapter11_ArithmeticOps)
+// complement() uses 2^40-2, the largest even value in the 41-bit long range.
+TEST_F(CodegenTest, Chapter11_ArithmeticOps)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(long a;
 long b;
@@ -487,7 +485,7 @@ int remaind(void) {
 }
 
 int complement(void) {
-    return (~a == -9223372036854775807l);
+    return (~a == -1099511627775l);
 }
 
 int main(void) {
@@ -513,7 +511,7 @@ int main(void) {
     if (!remaind()) {
         return 5;
     }
-    a = 9223372036854775806l; //LONG_MAX - 1
+    a = 1099511627774l; // 2^40 - 2
     if (!complement()) {
         return 6;
     }
@@ -521,8 +519,8 @@ int main(void) {
 })")));
 }
 
-// Uses 2^60 and LONG_MIN+1, both outside the 41-bit long range.
-TEST_F(CodegenTest, DISABLED_Chapter11_Comparisons)
+// Uses 2^39 as the large threshold; in range on BESM-6.
+TEST_F(CodegenTest, Chapter11_Comparisons)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(long l;
 long l2;
@@ -535,8 +533,8 @@ int compare_constants_2(void) {
     return 255l < 8589934593l;
 }
 
-int l_geq_2_60(void) {
-    return (l >= 1152921504606846976l);
+int l_geq_2_39(void) {
+    return (l >= 549755813888l);
 }
 
 int uint_max_leq_l(void) {
@@ -554,15 +552,15 @@ int main(void) {
     if (!compare_constants_2()) {
         return 2;
     }
-    l = -9223372036854775807l; // LONG_MIN + 1
-    if (l_geq_2_60()) {
+    l = -1099511627775l; // -(2^40 - 1)
+    if (l_geq_2_39()) {
         return 3;
     }
     if (uint_max_leq_l()) {
         return 4;
     }
-    l = 1152921504606846976l; // 2^60
-    if (!l_geq_2_60()) {
+    l = 549755813888l; // 2^39
+    if (!l_geq_2_39()) {
         return 5;
     }
     if (!uint_max_leq_l()) {
@@ -576,8 +574,8 @@ int main(void) {
 })")));
 }
 
-// Uses 2^60 (truncates to 0 mod 2^41), outside the 41-bit long range.
-TEST_F(CodegenTest, DISABLED_Chapter11_Logical)
+// Uses 2^39 as a large nonzero long; in range on BESM-6.
+TEST_F(CodegenTest, Chapter11_Logical)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int not(long l) {
     return !l;
@@ -599,7 +597,7 @@ int or(int l1, long l2) {
 }
 
 int main(void) {
-    long l = 1152921504606846976l; // 2^60
+    long l = 549755813888l; // 2^39
     long zero = 0l;
     if (not(l)) {
         return 1;
@@ -623,17 +621,17 @@ int main(void) {
 })")));
 }
 
-// Uses 2^63-1, far outside the 41-bit long range.
-TEST_F(CodegenTest, DISABLED_Chapter11_Simple)
+// Uses 2^40-1 (INT_MAX), the largest value in the 41-bit long range.
+TEST_F(CodegenTest, Chapter11_Simple)
 {
     EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(int main(void) {
-    long l = 9223372036854775807l;
-    return (l - 2l == 9223372036854775805l);
+    long l = 1099511627775l;
+    return (l - 2l == 1099511627773l);
 })")));
 }
 
-// Assigns 1.15e18, far outside the 41-bit long range.
-TEST_F(CodegenTest, DISABLED_Chapter11_StaticLong)
+// Assigns a large in-range long (~1.1e12, just under 2^40).
+TEST_F(CodegenTest, Chapter11_StaticLong)
 {
     EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(static long foo = 4294967290l;
 
@@ -641,16 +639,16 @@ int main(void)
 {
     if (foo + 5l == 4294967295l)
     {
-        foo = 1152921504606846988l;
-        if (foo == 1152921504606846988l)
+        foo = 1099511627770l;
+        if (foo == 1099511627770l)
             return 1;
     }
     return 0;
 })")));
 }
 
-// for-loop init 2^40 == LONG_MAX+1 on BESM-6 (becomes negative; loop runs 0x).
-TEST_F(CodegenTest, DISABLED_Chapter11_TypeSpecifiers)
+// for-loop init 2^39 (in range); halving down to 1 runs 40 iterations.
+TEST_F(CodegenTest, Chapter11_TypeSpecifiers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(static int long a;
 int static long a;
@@ -668,7 +666,7 @@ int main(void) {
     extern long a;
     a = 4;
    int sum = 0;
-    for (long i = 1099511627776l; i > 0; i = i / 2) {
+    for (long i = 549755813888l; i > 0; i = i / 2) {
         sum = sum + 1;
     }
     if (x != 1) {
@@ -683,15 +681,15 @@ int main(void) {
     if (my_function(x,  y, z) != 6) {
         return 4;
     }
-    if (sum != 41) {
+    if (sum != 40) {
         return 5;
     }
     return 0;
 })")));
 }
 
-// (40 << 40) == 4.4e13, outside the 41-bit long range.
-TEST_F(CodegenTest, DISABLED_Chapter11_Bitshift)
+// (40 << 30) == 4.3e10, in the 41-bit long range.
+TEST_F(CodegenTest, Chapter11_Bitshift)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
     long l = 137438953472l; // 2^37
@@ -706,18 +704,20 @@ TEST_F(CodegenTest, DISABLED_Chapter11_Bitshift)
     if (l << 2 != 549755813888 /* 2 ^ 39 */) {
         return 3;
     }
-    if ((40l << 40) !=  43980465111040l) {
+    if ((40l << 30) !=  42949672960l) {
         return 4;
     }
     long long_shiftcount = 3l;
     int i_neighbor1 = 0;
     int i = -2147483645; // -2^31 + 3
     int i_neighbor2 = 0;
-    if (i >> long_shiftcount != -268435456) {
+    // BESM-6 >> is logical (no sign extension), so a negative value's 41-bit
+    // pattern shifts in zeros and the result is a large positive number.
+    if (i >> long_shiftcount != 274609471488l) {
         return 5;
     }
     i = -1;
-    if (i >> 10l != -1) {
+    if (i >> 10l != 2147483647) {
         return 6;
     }
     if (i_neighbor1) {
@@ -730,20 +730,20 @@ TEST_F(CodegenTest, DISABLED_Chapter11_Bitshift)
 })")));
 }
 
-// Operands ~7.2e16, outside the 41-bit long range.
-TEST_F(CodegenTest, DISABLED_Chapter11_BitwiseLongOp)
+// Operands reduced to 40-bit masks so they stay in the 41-bit long range.
+TEST_F(CodegenTest, Chapter11_BitwiseLongOp)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
-    long l1 = 71777214294589695l;  // 0x00ff_00ff_00ff_00ff
+    long l1 = 1095233372415l;  // 0xff_00ff_00ff
     long l2 = -4294967296;  // -2^32
 
-    if ((l1 & l2) != 71777214277877760l) {
+    if ((l1 & l2) != 1095216660480l) {
         return 1;
     }
     if ((l1 | l2) != -4278255361) {
         return 2;
     }
-    if ((l1 ^ l2) != -71777218556133121) {
+    if ((l1 ^ l2) != -1099494915841l) {
         return 3;
     }
     if ((-1l & 34359738368l) != 34359738368l) {
@@ -755,27 +755,27 @@ TEST_F(CodegenTest, DISABLED_Chapter11_BitwiseLongOp)
     if ((34359738368l ^ 137438953472l) != 171798691840l) {
         return 6;
     }
-    long l = 4611686018427387903l;  // 0x3fff_ffff_ffff_ffff
+    long l = 274877906943l;  // 0x3f_ffff_ffff = 2^38 - 1
     int i = -1073741824;
     int i2 = -1;
-    if ((i & l) != 4611686017353646080l) {
+    if ((i & l) != 273804165120l) {
         return 7;
     }
     if ((l | i) != -1) {
         return 8;
     }
-    if ((l ^ i) != -4611686017353646081) {
+    if ((l ^ i) != -273804165121l) {
         return 9;
     }
-    if ((i2 ^ 4611686018427387903l) != ~4611686018427387903l) {
+    if ((i2 ^ 274877906943l) != ~274877906943l) {
         return 10;
     }
     return 0;
 })")));
 }
 
-// l <<= 33 == 1.06e14, outside the 41-bit long range.
-TEST_F(CodegenTest, DISABLED_Chapter11_CompoundBitshift)
+// l <<= 23 == 1.04e11, in the 41-bit long range.
+TEST_F(CodegenTest, Chapter11_CompoundBitshift)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
     int x = 100;
@@ -790,44 +790,44 @@ TEST_F(CodegenTest, DISABLED_Chapter11_CompoundBitshift)
         return 3;
     }
     long l = 12345l;
-    if ((l <<= 33) != 106042742538240l) {
+    if ((l <<= 23) != 103557365760l) {
         return 4;
     }
     l = -l;
-    if ((l >>= 10) != -103557365760l) {
+    if ((l >>= 10) != 2046353408l) { // BESM-6 >> is logical: -103557365760 -> 2046353408
         return 5;
     }
     return 0;
 })")));
 }
 
-// Operands ~7.2e16, outside the 41-bit long range.
-TEST_F(CodegenTest, DISABLED_Chapter11_CompoundBitwise)
+// Operands reduced to 40-bit masks so they stay in the 41-bit long range.
+TEST_F(CodegenTest, Chapter11_CompoundBitwise)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
-    long l1 = 71777214294589695l;  // 0x00ff_00ff_00ff_00ff
+    long l1 = 1095233372415l;  // 0xff_00ff_00ff
     long l2 = -4294967296;  // -2^32
 
     l1 &= l2;
-    if (l1 != 71777214277877760l) {
+    if (l1 != 1095216660480l) {
         return 1;
     }
     l2 |= 100l;
     if (l2 != -4294967196) {
         return 2;
     }
-    l1 ^= -9223372036854775807l;
-    if (l1 != -9151594822576898047l) {
+    l1 ^= -1099511627775l;
+    if (l1 != -4294967295l) {
         return 3;
     }
-    l1 = 4611686018427387903l;
+    l1 = 274877906943l;
     int i =  -1073741824;
     l1 &= i;
-    if (l1 != 4611686017353646080l) {
+    if (l1 != 273804165120l) {
         return 4;
     }
     i = -2147483648l;
-    if ((i |= 71777214294589695l) != -2130771713) {
+    if ((i |= 1095233372415l) != -2130771713) {
         return 5;
     }
     if (i != -2130771713) {
@@ -837,33 +837,33 @@ TEST_F(CodegenTest, DISABLED_Chapter11_CompoundBitwise)
 })")));
 }
 
-// Uses -(2^63-1), far outside the 41-bit long range.
-TEST_F(CodegenTest, DISABLED_Chapter11_IncrementLong)
+// Uses -(2^40-2), a large negative value in the 41-bit long range.
+TEST_F(CodegenTest, Chapter11_IncrementLong)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
-    long x = -9223372036854775807l;
-    if (x++ != -9223372036854775807l) {
+    long x = -1099511627774l;
+    if (x++ != -1099511627774l) {
         return 1;
     }
-    if (x != -9223372036854775806l) {
+    if (x != -1099511627773l) {
         return 2;
     }
-    if (--x != -9223372036854775807l) {
+    if (--x != -1099511627774l) {
         return 3;
     }
-    if (x != -9223372036854775807l) {
+    if (x != -1099511627774l) {
         return 4;
     }
     return 0;
 })")));
 }
 
-// --- DISABLED: relies on x86 32-bit int truncation of a long ---------------
-// BESM-6 int is 41-bit, so the long value is not truncated and the self-check
-// fails.
+// --- Adapted: int and long are both 41-bit on BESM-6, so int<->long --------
+// conversions never truncate; the expected values are the untruncated
+// results (the correct BESM-6 behavior).
 
-// Expects (int)(2^32+2) == 2 by 32-bit truncation.
-TEST_F(CodegenTest, DISABLED_Chapter11_ConvertByAssignment)
+// On x86 (int)(2^32+2) == 2; on BESM-6 it is unchanged (no truncation).
+TEST_F(CodegenTest, Chapter11_ConvertByAssignment)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int return_truncated_long(long l) {
     return l;
@@ -880,7 +880,7 @@ int truncate_on_assignment(long l, int expected) {
 
 int main(void) {
     long result = return_truncated_long(4294967298l);
-    if (result != 2l) {
+    if (result != 4294967298l) {
         return 1;
     }
     result = return_extended_int(-10);
@@ -888,27 +888,28 @@ int main(void) {
         return 2;
     }
     int i = 4294967298l;
-    if (i != 2) {
+    if (i != 4294967298l) {
         return 3;
     }
-    if (!truncate_on_assignment(17179869184l, 0)) {
+    if (!truncate_on_assignment(17179869184l, 17179869184l)) {
         return 4;
     }
     return 0;
 })")));
 }
 
-// Expects long arguments truncated to int at 32 bits.
-TEST_F(CodegenTest, DISABLED_Chapter11_ConvertFunctionArguments)
+// On x86 the long arguments truncate to int at 32 bits; on BESM-6 int and
+// long are both 41-bit, so they pass through unchanged.
+TEST_F(CodegenTest, Chapter11_ConvertFunctionArguments)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int foo(long a, int b, int c, int d, long e, int f, long g, int h) {
     if (a != -1l)
         return 1;
-    if (b != 2)
+    if (b != 4294967298l)
         return 2;
-    if (c != 0)
+    if (c != -4294967296l)
         return 3;
-    if (d != -5)
+    if (d != 21474836475l)
         return 4;
     if (e != -101l)
         return 5;
@@ -916,7 +917,7 @@ TEST_F(CodegenTest, DISABLED_Chapter11_ConvertFunctionArguments)
         return 6;
     if (g != -10l)
         return 7;
-    if (h != 1234)
+    if (h != 549755813888l)
         return 8;
     return 0;
 }
@@ -929,19 +930,20 @@ int main(void) {
     int e = -101;
     long f = -123;
     int g = -10;
-    long h = -9223372036854774574;
+    long h = 549755813888;
     return foo(a, b, c, d, e, f, g, h);
 })")));
 }
 
-// Expects static int initializer 2^33 truncated to 0.
-TEST_F(CodegenTest, DISABLED_Chapter11_ConvertStaticInitializer)
+// On x86 the static int initializer 2^33 truncates to 0; on BESM-6 it fits a
+// 41-bit int unchanged.
+TEST_F(CodegenTest, Chapter11_ConvertStaticInitializer)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int i = 8589934592l; // 2^33, truncated to 0
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int i = 8589934592l; // 2^33, fits 41-bit int
 long j = 123456;
 
 int main(void) {
-    if (i != 0) {
+    if (i != 8589934592l) {
         return 1;
     }
     if (j != 123456l) {
@@ -951,8 +953,8 @@ int main(void) {
 })")));
 }
 
-// Expects (int)(2^34+5) == 5 by 32-bit truncation.
-TEST_F(CodegenTest, DISABLED_Chapter11_Truncate)
+// On x86 (int)(2^34+5) == 5; on BESM-6 a 41-bit int holds 2^34+5 unchanged.
+TEST_F(CodegenTest, Chapter11_Truncate)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int truncate(long l, int expected) {
     int result = (int) l;
@@ -968,21 +970,25 @@ int main(void)
         return 2;
     }
     if (!truncate(17179869189l, // 2^34 + 5
-                  5)) {
+                  17179869189l)) {
         return 3;
     }
     if (!truncate(-17179869179l, // (-2^34) + 5
-                  5l)) {
+                  -17179869179l)) {
         return 4;
     }
     int i = (int)17179869189l; // 2^34 + 5
-    if (i != 5)
+    if (i != 17179869189l)
         return 5;
     return 0;
 })")));
 }
 
-// c *= 10000 expects int32 wraparound (1539607552).
+// The out-of-range/wraparound expectations are fixed for 41-bit int (c *= 10000
+// is -5e10, which fits), but this stays DISABLED on a separate pre-existing bug:
+// b/mul loses precision for -5000000 * 10000, returning 1539607552 instead of the
+// correct -50000000000 (the FP multiply path drops low bits for this operand
+// pair, though e.g. 5 * 4294967290 is exact). Re-enable once b/mul is fixed.
 TEST_F(CodegenTest, DISABLED_Chapter11_CompoundAssignToInt)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
@@ -1008,23 +1014,24 @@ TEST_F(CodegenTest, DISABLED_Chapter11_CompoundAssignToInt)
         return 5;
     }
     c *= 10000l;
-    if (c != 1539607552) {
+    if (c != -50000000000l) {
         return 6;
     }
     return 0;
 })")));
 }
 
-// case labels 2^33 / 2^35-1 expected to truncate to int 0 / -1.
-TEST_F(CodegenTest, DISABLED_Chapter11_SwitchInt)
+// On x86 the case labels 2^33 / ~3.4e10 truncate to 0 / -1; on BESM-6 they are
+// distinct in-range 41-bit ints, so each case is reached by its own value.
+TEST_F(CodegenTest, Chapter11_SwitchInt)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int switch_on_int(int i) {
     switch(i) {
         case 5:
             return 0;
-        case 8589934592l: // case 0:
+        case 8589934592l: // 2^33
             return 1;
-        case 34359738367: // case -1:
+        case 34359738367l: // ~3.4e10
             return 2;
         default:
             return 3;
@@ -1034,18 +1041,19 @@ TEST_F(CodegenTest, DISABLED_Chapter11_SwitchInt)
 int main(void) {
     if (switch_on_int(5) != 0)
         return 1;
-    if (switch_on_int(0) != 1)
+    if (switch_on_int(8589934592l) != 1)
         return 2;
-    if (switch_on_int(-1) != 2)
+    if (switch_on_int(34359738367l) != 2)
         return 3;
-    if (switch_on_int(17179869184) != 1)
+    if (switch_on_int(17179869184) != 3)
         return 4;
     return 0;
 })")));
 }
 
-// return_l_as_int expects (int) of 2^33 to be 0 by 32-bit truncation.
-TEST_F(CodegenTest, DISABLED_Chapter11_LongGlobalVar)
+// On x86 (int) of 2^33 is 0 by truncation; on BESM-6 a 41-bit int holds it
+// unchanged, so return_l_as_int returns the full value.
+TEST_F(CodegenTest, Chapter11_LongGlobalVar)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(extern long int l;
 long return_l(void);
@@ -1054,12 +1062,12 @@ int return_l_as_int(void);
 int main(void) {
     if (return_l() != 8589934592l)
         return 1;
-    if (return_l_as_int() != 0)
+    if (return_l_as_int() != 8589934592l)
         return 2;
     l = l - 10l;
     if (return_l() != 8589934582l)
         return 3;
-    if (return_l_as_int() != -10)
+    if (return_l_as_int() != 8589934582l)
         return 4;
     return 0;
 }

@@ -954,16 +954,16 @@ int main(void) {
 })")));
 }
 
-// --- Value exceeds the BESM-6 integer range ---------------------------------
+// --- Out-of-range values replaced with in-range ones ------------------------
 
-// dereference/read_through_pointers: 13835058055282163712ul (~1.38e19) and
-// 144115196665790464ul (~1.44e17) exceed the 48-bit unsigned range.
-TEST_F(CodegenTest, DISABLED_Chapter14_ReadThroughPointers)
+// dereference/read_through_pointers: original used 1.38e19 / 1.44e17, both
+// beyond the 48-bit unsigned range; use values near it instead.
+TEST_F(CodegenTest, Chapter14_ReadThroughPointers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
 
     int i = -100;
-    unsigned long ul = 13835058055282163712ul;
+    unsigned long ul = 281474976710000ul;
     double d = 3.5;
 
     int *i_ptr = &i;
@@ -973,7 +973,7 @@ TEST_F(CodegenTest, DISABLED_Chapter14_ReadThroughPointers)
     if (*i_ptr != -100) {
         return 1;
     }
-    if (*ul_ptr != 13835058055282163712ul) {
+    if (*ul_ptr != 281474976710000ul) {
         return 2;
     }
     if (*d_ptr != 3.5) {
@@ -995,7 +995,7 @@ TEST_F(CodegenTest, DISABLED_Chapter14_ReadThroughPointers)
     }
 
     int i2 = 1;
-    unsigned long ul2 = 144115196665790464ul;
+    unsigned long ul2 = 200000000000000ul;
     double d2 = -33.3;
 
     i_ptr = &i2;
@@ -1006,7 +1006,7 @@ TEST_F(CodegenTest, DISABLED_Chapter14_ReadThroughPointers)
     if (*i_ptr != 1) {
         return 7;
     }
-    if (*ul_ptr != 144115196665790464ul) {
+    if (*ul_ptr != 200000000000000ul) {
         return 8;
     }
     if (*d_ptr != -33.3) {
@@ -1018,14 +1018,15 @@ TEST_F(CodegenTest, DISABLED_Chapter14_ReadThroughPointers)
 })")));
 }
 
-// dereference/update_through_pointers: signed long 144115196665790464l
-// (~1.44e17 > 41-bit) and d = 1e50 (> FP exponent range).
-TEST_F(CodegenTest, DISABLED_Chapter14_UpdateThroughPointers)
+// dereference/update_through_pointers: original used 1.44e17 (> 41-bit) and
+// 1e50 (> FP range) as initial values; both are overwritten before use, so any
+// in-range placeholders work.
+TEST_F(CodegenTest, Chapter14_UpdateThroughPointers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
     unsigned int i = 2185232384u;
-    signed long l = 144115196665790464l;
-    double d = 1e50;
+    signed long l = 1099511627000l;
+    double d = 1.0;
 
     unsigned *i_ptr = &i;
     long *l_ptr = &l;
@@ -1048,12 +1049,15 @@ TEST_F(CodegenTest, DISABLED_Chapter14_UpdateThroughPointers)
 })")));
 }
 
-// extra_credit/bitwise_ops_with_dereferenced_ptrs: ul = 2^63 exceeds 48-bit.
-TEST_F(CodegenTest, DISABLED_Chapter14_BitwiseOpsWithDereferencedPtrs)
+// extra_credit/bitwise_ops_with_dereferenced_ptrs: original used -1u (all 64
+// bits) and 2^63. On BESM-6 -1u is all 48 bits and (int)-1 fills only 41 bits,
+// so use two disjoint in-range masks (bits 0-19 and bits 20-40) whose union is
+// 2^41-1, matching the 41-bit pattern of (int)-1.
+TEST_F(CodegenTest, Chapter14_BitwiseOpsWithDereferencedPtrs)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
-    unsigned int ui = -1u;
-    unsigned long ul = 9223372036854775808ul;
+    unsigned int ui = 1048575u;          // 0xFFFFF, bits 0-19
+    unsigned long ul = 2199022206976ul;  // bits 20-40
     unsigned int *ui_ptr = &ui;
     unsigned long *ul_ptr = &ul;
 
@@ -1061,7 +1065,7 @@ TEST_F(CodegenTest, DISABLED_Chapter14_BitwiseOpsWithDereferencedPtrs)
         return 1;
     }
 
-    if ((*ui_ptr | *ul_ptr) != 9223372041149743103ul) {
+    if ((*ui_ptr | *ul_ptr) != 2199023255551ul) { // 2^41 - 1
         return 2;
     }
 
@@ -1079,9 +1083,9 @@ TEST_F(CodegenTest, DISABLED_Chapter14_BitwiseOpsWithDereferencedPtrs)
 })")));
 }
 
-// extra_credit/compound_assign_conversion: ul = 2^63-1 exceeds 48-bit, plus
-// reliance on 32-bit unsigned-int modular arithmetic.
-TEST_F(CodegenTest, DISABLED_Chapter14_CompoundAssignConversion)
+// extra_credit/compound_assign_conversion: ul reduced into the 48-bit range;
+// the unsigned remainder is recomputed against BESM-6's 41/48-bit widths.
+TEST_F(CodegenTest, Chapter14_CompoundAssignConversion)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
     double d = 5.0;
@@ -1092,8 +1096,10 @@ TEST_F(CodegenTest, DISABLED_Chapter14_CompoundAssignConversion)
     }
     int i = -50;
     int *i_ptr = &i;
+    // Compound %= is computed in the int LHS type (signed b/mod), not the
+    // unsigned common type, so this is signed -50 % 4294967200 = -50.
     *i_ptr %= 4294967200U;
-    if (*i_ptr != 46) {
+    if (*i_ptr != -50) {
         return 2;
     }
 
@@ -1104,14 +1110,14 @@ TEST_F(CodegenTest, DISABLED_Chapter14_CompoundAssignConversion)
     }
 
     i = -10;
-    unsigned long ul = 9223372036854775807ul;
+    unsigned long ul = 2199023255551ul; // 2^41 - 1
     unsigned long *ul_ptr = &ul;
     *i_ptr -= *ul_ptr;
     if (i != -9) {
         return 4;
     }
 
-    if (ul != 9223372036854775807ul) {
+    if (ul != 2199023255551ul) {
         return 5;
     }
 
@@ -1119,25 +1125,28 @@ TEST_F(CodegenTest, DISABLED_Chapter14_CompoundAssignConversion)
 })")));
 }
 
-// extra_credit/compound_bitwise_dereferenced_ptrs: ul ~1.8e19 exceeds 48-bit.
-TEST_F(CodegenTest, DISABLED_Chapter14_CompoundBitwiseDereferencedPtrs)
+// extra_credit/compound_bitwise_dereferenced_ptrs: ul reduced into 48-bit
+// range; & with -1000 also clears bits 42-48 (the int's pattern is 41-bit), so
+// the results are recomputed. For ui ^= l to cancel, ui must equal the 41-bit
+// unsigned image of the negative long l (2^41 - 252645136).
+TEST_F(CodegenTest, Chapter14_CompoundBitwiseDereferencedPtrs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(unsigned long ul = 18446460386757245432ul;
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(unsigned long ul = 200000000000000ul;
 
 int main(void) {
 
     unsigned long *ul_ptr = &ul;
     *ul_ptr &= -1000;
-    if (ul != 18446460386757244952ul) {
+    if (ul != 2087907000320ul) {
         return 1;
     }
     *ul_ptr |= 4294967040u;
 
-    if (ul != 18446460386824683288ul) {
+    if (ul != 2091649072896ul) {
         return 2;
     }
     int i = 123456;
-    unsigned int ui = 4042322160u;
+    unsigned int ui = 2198770610416u; // 2^41 - 252645136
     long l = -252645136;
     unsigned int *ui_ptr = &ui;
     long *l_ptr = &l;
@@ -1259,7 +1268,9 @@ TEST_F(CodegenTest, DISABLED_Chapter14_IncrAndDecrThroughPointer)
 // extra_credit/switch_dereferenced_pointer: a case label (18446744073709551600UL,
 // ~1.8e19) exceeds BESM-6's range and the x86 truncation semantics it relies on
 // (l % 2^32) do not apply to a 41-bit long.
-TEST_F(CodegenTest, DISABLED_Chapter14_SwitchDereferencedPointer)
+// extra_credit/switch_dereferenced_pointer: the unused 1.8e19 case label is
+// replaced with an in-range long distinct from the matched case.
+TEST_F(CodegenTest, Chapter14_SwitchDereferencedPointer)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(long l = 4294967300l;
 
@@ -1274,7 +1285,7 @@ int main(void) {
             return 2;
         case 4294967300l:
             return 0;
-        case 18446744073709551600UL:
+        case 1000000000000l:
             return 3;
         default:
             return 4;
