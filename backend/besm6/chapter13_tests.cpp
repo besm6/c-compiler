@@ -822,25 +822,27 @@ int main(void) {
 // 17-digit / 2^63-boundary IEEE-754 rounding with no analogue at BESM-6's
 // 40-bit mantissa (~12 decimal digits). Per task #12, drop precision checks.
 
-// --- DISABLED: requires unimplemented libc math -----------------------------
+// --- libm calls (fma/ldexp/fmax now implemented in libc.bin) ----------------
 
-// standard_library_call: fma/ldexp from libm (also values > 2^63).
-TEST_F(CodegenTest, DISABLED_Chapter13_StandardLibraryCall)
+// standard_library_call: fma/ldexp from libm.  The book's literals (1E22, 92E73,
+// result 2.944E76) are far outside BESM-6's ~+-9.2e18 FP range, so they are scaled
+// into range here while still exercising both calls.
+TEST_F(CodegenTest, Chapter13_StandardLibraryCall)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(double fma(double x, double y, double z);
 double ldexp(double x, int exp);
 
 int main(void) {
-    double fma_result = fma(5.0, 1E22, 4000000.0);
-    double ldexp_result = ldexp(92E73, 5);
-    if (fma_result != 50000000000000004194304.0) { return 1; }
-    if (ldexp_result != 2.944E76) { return 2; }
+    double fma_result = fma(5.0, 1e6, 4000000.0);
+    double ldexp_result = ldexp(1500.0, 5);
+    if (fma_result != 9000000.0) { return 1; }
+    if (ldexp_result != 48000.0) { return 2; }
     return 0;
 })")));
 }
 
 // libraries/double_params_and_result: fmax from libm.
-TEST_F(CodegenTest, DISABLED_Chapter13_DoubleParamsAndResultLibrary)
+TEST_F(CodegenTest, Chapter13_DoubleParamsAndResultLibrary)
 {
     EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(double fmax(double x, double y);
 

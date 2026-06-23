@@ -50,6 +50,7 @@ file(GLOB BESM6_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
 set(LIBC_C
     putbyte putch flush printf getch puts
     doprnt sprintf snprintf modf malloc
+    fabs fmax fmin fma
     memcpy memset memcmp memmove memchr
     strlen strcpy strncpy strcat strncat
     strcmp strncmp strchr strrchr strstr

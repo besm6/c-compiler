@@ -1,9 +1,10 @@
 /*
  * <math.h> — mathematics (C11 §7.12), BESM-6 target.
  *
- * Status: modf(), frexp(), and ldexp() are implemented in libc.bin; the rest are
- * declared for future implementation (TODO).  float == double == long double (one
- * word), so the single double-typed entry points serve every floating type.
+ * Status: modf(), frexp(), ldexp(), fabs(), fmin(), fmax(), and fma() are
+ * implemented in libc.bin; the rest are declared for future implementation (TODO).
+ * float == double == long double (one word), so the single double-typed entry
+ * points serve every floating type.
  *
  * BESM-6 floating point has NO infinities or NaNs, so INFINITY and NAN are not
  * provided.  HUGE_VAL is approximated by the largest finite value.
@@ -24,9 +25,12 @@
 double modf(double x, double *iptr);
 double frexp(double x, int *exp);
 double ldexp(double x, int exp);
+double fabs(double x);
+double fmin(double x, double y);
+double fmax(double x, double y);
+double fma(double x, double y, double z);
 
 /* ---- declared for future implementation (TODO) ---- */
-double fabs(double x);
 double floor(double x);
 double ceil(double x);
 double round(double x);
@@ -51,8 +55,6 @@ double cosh(double x);
 double tanh(double x);
 
 double hypot(double x, double y);
-double fmin(double x, double y);
-double fmax(double x, double y);
 double copysign(double x, double y);
 
 #endif /* _MATH_H */
