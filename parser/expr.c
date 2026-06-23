@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "parser_internal.h"
 #include "xalloc.h"
@@ -462,10 +463,25 @@ Expr *parse_string()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
+    // C11 §5.1.1.2 phase 6: concatenate adjacent string-literal tokens.
+    // Each lexeme is a quoted token (e.g. "HELLO,"); join by dropping the
+    // accumulator's closing quote and the next token's opening quote.
+    char *combined = xstrdup(current_lexeme);
+    advance_token();
+    while (combined[0] == '"' && current_token == TOKEN_STRING_LITERAL) {
+        const char *next = current_lexeme;
+        size_t clen      = strlen(combined);
+        size_t nlen      = strlen(next);
+        char *merged     = xalloc(clen + nlen - 1, __func__, __FILE__, __LINE__);
+        memcpy(merged, combined, clen - 1);        // drop trailing quote
+        memcpy(merged + clen - 1, next + 1, nlen); // drop opening quote, keep NUL
+        xfree(combined);
+        combined = merged;
+        advance_token();
+    }
     Expr *expr                    = new_expression(EXPR_LITERAL);
     expr->u.literal               = new_literal(LITERAL_STRING);
-    expr->u.literal->u.string_val = xstrdup(current_lexeme);
-    advance_token();
+    expr->u.literal->u.string_val = combined;
     return expr;
 }
 

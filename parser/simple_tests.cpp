@@ -72,6 +72,23 @@ TEST_F(ParserTest, ScanCharLiteral)
     free_expression(expr);
 }
 
+// Test primary expression: adjacent string-literal concatenation (C11 §5.1.1.2 phase 6)
+TEST_F(ParserTest, AdjacentStringConcat)
+{
+    init_scanner(CreateTempFile("\"a\" \"b\" \"c\";"));
+    advance_token();
+    Expr *expr = parse_primary_expression();
+    ASSERT_NE(expr, nullptr);
+    print_expression(stdout, expr, 0);
+
+    EXPECT_EQ(EXPR_LITERAL, expr->kind);
+    EXPECT_EQ(LITERAL_STRING, expr->u.literal->kind);
+    // string_val keeps the quoted form; escapes are decoded later.
+    EXPECT_STREQ("\"abc\"", expr->u.literal->u.string_val);
+
+    free_expression(expr);
+}
+
 // Test primary expression: long double literal with L suffix
 TEST_F(ParserTest, ScanLongDoubleLiteralUpperL)
 {

@@ -1347,7 +1347,9 @@ int main(void) {
 }
 
 // strings_as_initializers/adjacent_strings_in_initializer: char[2][3] nested.
-TEST_F(CodegenTest, DISABLED_Chapter16_AdjacentStringsInInitializer)
+// Uppercase Latin: a static char array repacks to KOI-7 while the comparison
+// string literals stay ASCII, and the two encodings coincide only for uppercase.
+TEST_F(CodegenTest, Chapter16_AdjacentStringsInInitializer)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Make sure the parser concatenates adjacent string literals */
 
@@ -1355,20 +1357,20 @@ int strcmp(char *s1, char *s2);  // from standard library
 
 int main(void) {
     char multi_string[6] =
-        "yes"
-        "no";  // can concatenate two string literals in an initializer
+        "YES"
+        "NO";  // can concatenate two string literals in an initializer
     char nested_multi_string[2][3] = {
-        "a"
-        "b",
-        "c"
-        "d"};  // first element is "ab", second is "cd"
+        "A"
+        "B",
+        "C"
+        "D"};  // first element is "AB", second is "CD"
 
     // validate multi_string
-    if (strcmp(multi_string, "yesno"))
+    if (strcmp(multi_string, "YESNO"))
         return 1;
-    if (strcmp(nested_multi_string[0], "ab"))
+    if (strcmp(nested_multi_string[0], "AB"))
         return 2;
-    if (strcmp(nested_multi_string[1], "cd"))
+    if (strcmp(nested_multi_string[1], "CD"))
         return 3;
     return 0;
 })")));
@@ -2153,13 +2155,9 @@ int main(void) {
 })")));
 }
 
-// --- Parser gap: adjacent string-literal concatenation -----------------------
-// The scanner/parser does not concatenate adjacent string-literal tokens
-// (C11 §5.1.1.2 phase 6), so `"HELLO," " WORLD"` is a parse error.  KOI-7-adapted
-// otherwise; re-enable once concatenation is implemented (frontend, task #24).
-
 // strings_as_lvalues/adjacent_strings: puts("HELLO," " WORLD").
-TEST_F(CodegenTest, DISABLED_Chapter16_AdjacentStrings)
+// The parser concatenates adjacent string-literal tokens (C11 §5.1.1.2 phase 6).
+TEST_F(CodegenTest, Chapter16_AdjacentStrings)
 {
     EXPECT_EQ("HELLO, WORLD\n0\n", CompileAndRun(WrapMain(R"(/* Test that we concatenate adjacent string literal tokens */
 
