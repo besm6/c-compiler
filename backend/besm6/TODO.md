@@ -27,7 +27,6 @@ and remove the rest.
 
 | #  | Task | Description |
 |----|------|-------------|
-| 20 | Adapt multi-TU internal-linkage library tests to whole-program concatenation | BESM-6 concatenates TUs into one module, so two distinct same-named file-scope statics collide. Rename per-TU statics to keep them distinct, or remove tests whose sole point is per-TU linkage isolation that concatenation cannot model. (ch10 LibInternalLinkageVar, LibInternalLinkageFunction, LibInternalHidesExternalLinkage, LibSameLabelSameFun; ch12 UnsignedArgsLibrary, UnsignedGlobalVarLibrary; ch13 ExternDoubleLibrary — also needs value substitution.) |
 | 21 | Implement missing math libc & re-enable ch13 library tests | Add `fmax`, `fmin`, `fma`, `ldexp`, `fabs` as C in `libc/`, append to `LIBC_C`, declare in `math.h`. Re-enable ch13 StandardLibraryCall (drop out-of-range part) and DoubleParamsAndResultLibrary (fmax). |
 | 22 | Implement `atoi` & re-enable ch16 StandardLibraryCalls | Add `atoi` to `libc/` (stdlib.h); uppercase any printed text. |
 | 23 | Wire up the heap & re-enable ch17 dynamic-allocation tests | `malloc`/`calloc`/`realloc`/`free` already link into `libc.bin` but the run harness never calls `heap_setup`, so allocations fail. Initialize a heap region at program start, then re-enable VoidPointerSimple, ArrayOfPointersToVoid, CommonPointerType, ConversionByAssignment, VoidPointerExplicitCast, SizeofExpressions, PassAllocedMemory. For MemoryManagementFunctions, implement `aligned_alloc` or drop that sub-call. |

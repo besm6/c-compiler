@@ -421,10 +421,14 @@ int main(void) {
 })")));
 }
 
-// --- DISABLED_ (d): internal linkage needs separate translation units --------
+// --- internal-linkage library tests adapted to whole-program concatenation ---
+// The book ships these as two TUs that each own a distinct same-named static.
+// One TU concatenates here, so the per-TU object on the client side is renamed
+// to keep it distinct from the library's same-named static.
 
-// Two TUs each own a distinct same-named static `x`; concatenation merges them.
-TEST_F(CodegenTest, DISABLED_Chapter10_LibInternalLinkageVar)
+// Library `x` (internal, read/written via accessors) vs. the client's own
+// internal `client_x`; renamed apart so both coexist in one module.
+TEST_F(CodegenTest, Chapter10_LibInternalLinkageVar)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(static int x;
 
@@ -433,62 +437,56 @@ int read_x(void) {
 }
 
 int update_x(int new_val) {
-    extern int x;
     x = new_val;
     return 0;
 }
 
-extern int x;
 static int x = 5;
 static int x;
 
-static int x;
-static int x;
-
 int read_x(void);
-int update_x(int x);
+int update_x(int new_val);
+
+static int client_x;
 
 int main(void) {
-    if (x != 0)
+    if (client_x != 0)
         return 1;
     if (read_x() != 5)
         return 1;
-    extern int x;
     update_x(10);
     if (read_x() != 10)
         return 1;
-    if (x != 0)
+    if (client_x != 0)
         return 1;
-    x = 20;
-    if (x != 20)
+    client_x = 20;
+    if (client_x != 20)
         return 1;
     if (read_x() != 10)
         return 1;
     return 0;
 }
 
-static int x;)")));
+static int client_x;)")));
 }
 
-// Internal- and external-linkage my_fun in two TUs are distinct functions;
-// concatenation redefines my_fun.
-TEST_F(CodegenTest, DISABLED_Chapter10_LibInternalLinkageFunction)
+// Library's internal `my_fun` (a counter) vs. the client's external `my_fun`
+// (returns 100); the static one is renamed `lib_my_fun` so both coexist.
+TEST_F(CodegenTest, Chapter10_LibInternalLinkageFunction)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(static int my_fun(void);
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(static int lib_my_fun(void);
 
 int call_static_my_fun(void) {
-    return my_fun();
+    return lib_my_fun();
 }
 
 int call_static_my_fun_2(void) {
-    int my_fun(void);
-    return my_fun();
+    return lib_my_fun();
 }
 
-extern int my_fun(void);
-static int my_fun(void);
+static int lib_my_fun(void);
 
-int my_fun(void) {
+int lib_my_fun(void) {
     static int i = 0;
     i = i + 1;
     return i;
@@ -513,9 +511,9 @@ int my_fun(void) {
 })")));
 }
 
-// Internal-linkage `x` in the client hides the external `x` in the other TU;
-// concatenation produces a linkage conflict.
-TEST_F(CodegenTest, DISABLED_Chapter10_LibInternalHidesExternalLinkage)
+// Library's external `x` (read via read_x) coexisting with the client's own
+// internal `x`; the static one is renamed `internal_x` so both coexist.
+TEST_F(CodegenTest, Chapter10_LibInternalHidesExternalLinkage)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int x = 10;
 
@@ -523,16 +521,15 @@ int read_x(void){
     return x;
 }
 
-static int x = 1;
+static int internal_x = 1;
 
 int read_internal_x(void);
 int read_x(void);
 
 int main(void) {
-    extern int x;
-    if (x != 1)
+    if (internal_x != 1)
         return 1;
-    x = 2;
+    internal_x = 2;
     if (read_internal_x() != 2)
         return 1;
     if (read_x() != 10)
@@ -540,18 +537,16 @@ int main(void) {
     return 0;
 }
 
-extern int x;
-
 int read_internal_x(void) {
-    return x;
+    return internal_x;
 })")));
 }
 
-// Same label `x` in two same-named functions f (one static, one extern) in
-// different TUs; concatenation redefines f.
-TEST_F(CodegenTest, DISABLED_Chapter10_LibSameLabelSameFun)
+// Library's static `lib_f` and the client's external `f` each reuse the label
+// `x`; the static one is renamed so both coexist (labels are function-scoped).
+TEST_F(CodegenTest, Chapter10_LibSameLabelSameFun)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(static int f(void) {
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(static int lib_f(void) {
     goto x;
     return 0;
     x:
@@ -559,7 +554,7 @@ TEST_F(CodegenTest, DISABLED_Chapter10_LibSameLabelSameFun)
 }
 
 int f_caller(void) {
-    return f();
+    return lib_f();
 }
 
 int f(void) {

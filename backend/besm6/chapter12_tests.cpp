@@ -1139,15 +1139,17 @@ TEST_F(CodegenTest, Chapter12_UnsignedIncrDecr)
 })")));
 }
 
-// libraries: args include -1->2^32-1 and 2^64-range values (client + lib).
-TEST_F(CodegenTest, DISABLED_Chapter12_UnsignedArgsLibrary)
+// libraries: many unsigned args across the calling convention. Values >= 2^48
+// (orig 2^63 / 2^64-range) substituted to fit the BESM-6 48-bit unsigned word;
+// c keeps the "max unsigned" check as UINT_MAX (2^48-1).
+TEST_F(CodegenTest, Chapter12_UnsignedArgsLibrary)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int accept_unsigned(unsigned int a, unsigned int b, unsigned long c, unsigned long d,
                  unsigned int e, unsigned int f, unsigned long g, unsigned int h,
                  unsigned long i);
 
 int main(void) {
-    return accept_unsigned(1, -1, -1, 9223372036854775808ul, 2147483648ul, 0, 123456, 2147487744u, 9223372041149743104ul);
+    return accept_unsigned(1, 4294967295u, 281474976710655u, 140737488355328u, 2147483648u, 0, 123456, 2147487744u, 200000000000000u);
 }
 
 int accept_unsigned(unsigned int a, unsigned int b, unsigned long c, unsigned long d,
@@ -1156,13 +1158,13 @@ int accept_unsigned(unsigned int a, unsigned int b, unsigned long c, unsigned lo
     if (a != 1u) {
         return 1;
     }
-    if (b != 4294967295U) {
+    if (b != 4294967295u) {
         return 2;
     }
-    if (c != 18446744073709551615UL) {
+    if (c != 281474976710655u) {
         return 3;
     }
-    if (d != 9223372036854775808ul) {
+    if (d != 140737488355328u) {
         return 4;
     }
     if (e != 2147483648u) {
@@ -1177,15 +1179,19 @@ int accept_unsigned(unsigned int a, unsigned int b, unsigned long c, unsigned lo
     if (h != 2147487744u) {
         return 10;
     }
-    if (i != 9223372041149743104ul) {
+    if (i != 200000000000000u) {
         return 11;
     }
     return 0;
 })")));
 }
 
-// libraries: ui = -1 expects 2^32-1; BESM-6 unsigned int is 48-bit (client + lib).
-TEST_F(CodegenTest, DISABLED_Chapter12_UnsignedGlobalVarLibrary)
+// libraries: unsigned global read through accessors with uint->uint / uint->int
+// / uint->long conversions. Dropped the orig's `ui = -1` -> 2^32-1 wraparound (a
+// 32/64-bit boundary with no BESM-6 analogue: unsigned int is 48-bit and long is
+// 41-bit) in favour of an in-range value that round-trips exactly through all
+// three accessors.
+TEST_F(CodegenTest, Chapter12_UnsignedGlobalVarLibrary)
 {
     EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(extern unsigned int ui;
 unsigned int return_uint(void);
@@ -1196,18 +1202,15 @@ int main(void) {
     if (ui != 4294967200u)
         return 0;
 
-    ui = -1;
+    ui = 1000000000u;
 
-    long result = (long) return_uint();
-    if (result != 4294967295l)
+    if (return_uint() != 1000000000u)
         return 0;
 
-    result = (long) return_uint_as_signed();
-    if (result != -1l)
+    if (return_uint_as_signed() != 1000000000)
         return 0;
 
-    result = return_uint_as_long();
-    if (result != 4294967295l)
+    if (return_uint_as_long() != 1000000000l)
         return 0;
 
     return 1;
