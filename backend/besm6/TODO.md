@@ -27,7 +27,6 @@ and remove the rest.
 
 | #  | Task | Description |
 |----|------|-------------|
-| 19 | Fix tentative/extern-after-definition clobber bug | A tentative `int x;` or `extern int x;` following an initialized `int x = 3;` emits a second zero-init top-level that overwrites the initializer. Fix top-level emission to not re-emit/zero an already-initialized symbol; re-enable ch10 StaticThenExtern, LibExternalVariable and ch12 SignedTypeSpecifiers. |
 | 20 | Adapt multi-TU internal-linkage library tests to whole-program concatenation | BESM-6 concatenates TUs into one module, so two distinct same-named file-scope statics collide. Rename per-TU statics to keep them distinct, or remove tests whose sole point is per-TU linkage isolation that concatenation cannot model. (ch10 LibInternalLinkageVar, LibInternalLinkageFunction, LibInternalHidesExternalLinkage, LibSameLabelSameFun; ch12 UnsignedArgsLibrary, UnsignedGlobalVarLibrary; ch13 ExternDoubleLibrary — also needs value substitution.) |
 | 21 | Implement missing math libc & re-enable ch13 library tests | Add `fmax`, `fmin`, `fma`, `ldexp`, `fabs` as C in `libc/`, append to `LIBC_C`, declare in `math.h`. Re-enable ch13 StandardLibraryCall (drop out-of-range part) and DoubleParamsAndResultLibrary (fmax). |
 | 22 | Implement `atoi` & re-enable ch16 StandardLibraryCalls | Add `atoi` to `libc/` (stdlib.h); uppercase any printed text. |

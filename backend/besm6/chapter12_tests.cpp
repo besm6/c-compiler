@@ -296,9 +296,9 @@ int main(void) {
 
 // A tentative redeclaration (signed int static i;) follows the initialized
 // definition (int static signed i = 5;), and likewise int long l; follows
-// long l = 7;.  The known chapter-10 "tentative clobber" bug re-emits an
-// uninitialized toplevel that resets i/l to 0, so main returns 1.
-TEST_F(CodegenTest, DISABLED_Chapter12_SignedTypeSpecifiers)
+// long l = 7;.  With the chapter-10 "tentative clobber" bug fixed (task #19),
+// the trailing redeclaration no longer re-emits an uninitialized toplevel.
+TEST_F(CodegenTest, Chapter12_SignedTypeSpecifiers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(static int i;
 signed extern i;

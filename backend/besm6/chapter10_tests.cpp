@@ -363,11 +363,11 @@ int main(void) {
 })")));
 }
 
-// --- DISABLED_ (b): tentative/extern clobbers an initialized definition ------
+// --- (b): tentative/extern after an initialized definition (task #19) --------
 
-// "extern int foo;" after "static int foo = 3;" emits a second (uninitialized)
-// foo toplevel that overwrites the initializer, so foo reads 0 instead of 3.
-TEST_F(CodegenTest, DISABLED_Chapter10_StaticThenExtern)
+// "extern int foo;" after "static int foo = 3;" must not re-emit foo: the
+// initializer was already emitted, and a second module would clobber it to 0.
+TEST_F(CodegenTest, Chapter10_StaticThenExtern)
 {
     EXPECT_EQ("3\n", CompileAndRun(WrapMain(R"(static int foo = 3;
 
@@ -379,8 +379,8 @@ extern int foo;)")));
 }
 
 // Concatenated external_variable + client: "extern int x;" trailing the client
-// follows "int x = 3;" and clobbers it to 0 (same bug as StaticThenExtern).
-TEST_F(CodegenTest, DISABLED_Chapter10_LibExternalVariable)
+// follows "int x = 3;"; with task #19 fixed it no longer clobbers x to 0.
+TEST_F(CodegenTest, Chapter10_LibExternalVariable)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int x;
 

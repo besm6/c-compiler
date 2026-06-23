@@ -720,6 +720,14 @@ static Tac_TopLevel *translate_decl(const Declaration *decl)
             // reference decays the array to its address via GET_ADDRESS, which self-declares
             // the external name (SUBP), so the backend needs no array-ness record here.
             continue;
+        } else if (sym->u.static_var.init_kind == INIT_INITIALIZED &&
+                   sym->u.static_var.init_list == NULL) {
+            // The initializer was already emitted by an earlier declaration of this symbol
+            // (ownership of the init list was transferred to that prior TAC top-level, see
+            // below).  A later tentative ("int x;") or extern redeclaration must NOT re-emit:
+            // each Madlen module silently replaces any prior module with the same ,NAME,, so a
+            // second zero-init module would clobber the value back to 0.
+            continue;
         } else {
             tl                              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
             tl->u.static_variable.name      = xstrdup(id->name);
