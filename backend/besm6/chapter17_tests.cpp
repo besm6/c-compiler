@@ -1049,9 +1049,10 @@ int main(void) {
 
 // --- (C) loop over ctest timeout --------------------------------------------
 
-// libraries/test_for_memory_leaks: 10M-iteration loop, over the 10s timeout
-// (client+impl; void function call exercises stack-frame restore).
-TEST_F(CodegenTest, DISABLED_Chapter17_TestForMemoryLeaks)
+// libraries/test_for_memory_leaks: the textbook 10M-iteration loop is over the
+// 10s timeout (void function call exercises stack-frame restore).  Shrunk to 100
+// iterations: sum accumulates i over 0..99, so sum == 100*99/2 == 4950.
+TEST_F(CodegenTest, Chapter17_TestForMemoryLeaks)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(#include <stdlib.h>
 
@@ -1077,10 +1078,10 @@ void lots_of_args(int a, int b, int c, int d, int e, int f, int g, int h, int i,
 }
 
 int main(void) {
-    for (int i = 0; i < 10000000; i = i + 1) {
+    for (int i = 0; i < 100; i = i + 1) {
         lots_of_args(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, i);
     }
-    if (sum != 49999995000000) {
+    if (sum != 4950) {
         return 15;
     }
     return 0;

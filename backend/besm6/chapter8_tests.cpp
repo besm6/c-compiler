@@ -102,14 +102,14 @@ TEST_F(CodegenTest, Chapter8_EmptyExpression)
 })")));
 }
 
-// do ; while(...) — empty loop body.  DISABLED: the loop runs ~430M iterations
-// (i counts down from 2147483642 by 5 to 252), which takes ~60s on the Dubna
-// simulator — far over the 10s ctest timeout.  Codegen is correct (it passes
-// when run without a timeout); it is simply too slow to run under the simulator.
-TEST_F(CodegenTest, DISABLED_Chapter8_EmptyLoopBody)
+// do ; while(...) — empty loop body.  The original textbook test counts i down
+// from 2147483642 by 5 to 252 (~430M iterations, ~60s on Dubna — far over the
+// 10s ctest timeout).  Start i at 302 instead: still ≡ 2 (mod 5) and > 256, so
+// the loop still exits at 252, but in only 10 iterations of the empty body.
+TEST_F(CodegenTest, Chapter8_EmptyLoopBody)
 {
     EXPECT_EQ("252\n", CompileAndRun(WrapMain(R"(int main(void) {
-    int i = 2147483642;
+    int i = 302;
     do ; while ((i = i - 5) >= 256);
     return i;
 })")));

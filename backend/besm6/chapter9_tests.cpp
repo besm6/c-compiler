@@ -233,9 +233,11 @@ int main(void) {
 )" "void program(void) { printf(\"%d\\n\", main()); }\n"));
 }
 
-// DISABLED: the loop runs 10,000,000 iterations of a 15-argument call, far over
-// the 10s ctest timeout on the Dubna simulator.  Codegen is correct.
-TEST_F(CodegenTest, DISABLED_Chapter9_TestForMemoryLeaks)
+// The textbook test loops 10,000,000 times over a 15-argument call (far over the
+// 10s ctest timeout on Dubna).  Shrunk to 100 iterations: each call returns
+// l + o = ret + 15, so ret == 15 * 100 == 1500, still exercising the multi-arg
+// call and stack-frame restore.
+TEST_F(CodegenTest, Chapter9_TestForMemoryLeaks)
 {
     EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(int lots_of_args(int a, int b, int c, int d, int e, int f, int g, int h, int i, int j, int k, int l, int m, int n, int o) {
     return l + o;
@@ -243,10 +245,10 @@ TEST_F(CodegenTest, DISABLED_Chapter9_TestForMemoryLeaks)
 
 int main(void) {
     int ret = 0;
-    for (int i = 0; i < 10000000; i = i + 1) {
+    for (int i = 0; i < 100; i = i + 1) {
         ret = lots_of_args(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, ret, 13, 14, 15);
     }
-    return ret == 150000000;
+    return ret == 1500;
 })")));
 }
 
