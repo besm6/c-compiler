@@ -954,16 +954,27 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 tac_append(ctx, cp);
                 return val_var(dst);
             } else {
+                // Compound op computed in the common type (== e->u.assign.value->type
+                // after typecheck's promotions): widen the lvalue, operate, narrow the
+                // result back to the lvalue type.  For shift/bitwise (op_type ==
+                // target type) `widen` is false and this is byte-identical to before.
+                const Type *op_type = e->u.assign.value->type;
+                bool widen = unalias(op_type)->kind != unalias(target->type)->kind;
+                Tac_Val *opnd =
+                    widen ? emit_cast(ctx, val_var(dst), target->type, op_type) : val_var(dst);
                 Tac_Val *vd          = new_var_val(ctx);
                 Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-                bin->u.binary.op   = map_assign_op(e->u.assign.op, target->type);
-                bin->u.binary.src1 = val_var(dst);
+                bin->u.binary.op   = map_assign_op(e->u.assign.op, op_type);
+                bin->u.binary.src1 = opnd;
                 bin->u.binary.src2 = src;
                 bin->u.binary.dst  = vd;
                 tac_append(ctx, bin);
+                Tac_Val *result = widen ? emit_cast(ctx, val_var(vd->u.var_name), op_type,
+                                                    target->type)
+                                        : val_var(vd->u.var_name);
                 Tac_Instruction *cp = tac_new_instruction(TAC_INSTRUCTION_COPY);
                 cp->is_volatile     = vol;
-                cp->u.copy.src      = val_var(vd->u.var_name);
+                cp->u.copy.src      = result;
                 cp->u.copy.dst      = val_var(dst);
                 tac_append(ctx, cp);
             }
@@ -1013,14 +1024,24 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                     result     = gen_ptr_add(ctx, val_var(loaded->u.var_name), src,
                                              e->u.assign.op == ASSIGN_SUB, pscale);
                 } else {
+                    // Compound op in the common type (== e->u.assign.value->type): widen
+                    // the loaded lvalue, operate, narrow back.  No-op when op_type ==
+                    // target type (shift/bitwise, same-type arithmetic).
+                    const Type *op_type = e->u.assign.value->type;
+                    bool widen = unalias(op_type)->kind != unalias(target->type)->kind;
+                    Tac_Val *opnd = widen ? emit_cast(ctx, val_var(loaded->u.var_name),
+                                                      target->type, op_type)
+                                          : val_var(loaded->u.var_name);
                     Tac_Val *vd          = new_var_val(ctx);
                     Tac_Instruction *bin = tac_new_instruction(TAC_INSTRUCTION_BINARY);
-                    bin->u.binary.op   = map_assign_op(e->u.assign.op, target->type);
-                    bin->u.binary.src1 = val_var(loaded->u.var_name);
+                    bin->u.binary.op   = map_assign_op(e->u.assign.op, op_type);
+                    bin->u.binary.src1 = opnd;
                     bin->u.binary.src2 = src;
                     bin->u.binary.dst  = vd;
                     tac_append(ctx, bin);
-                    result = val_var(vd->u.var_name);
+                    result = widen ? emit_cast(ctx, val_var(vd->u.var_name), op_type,
+                                               target->type)
+                                   : val_var(vd->u.var_name);
                 }
                 Tac_Instruction *st = tac_new_instruction(
                     byte_access_for(target->type) ? TAC_INSTRUCTION_STORE_BYTE

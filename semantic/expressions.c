@@ -488,7 +488,31 @@ static Expr *typecheck_expr(Expr *e)
             default:
                 break;
             }
-            rhs = convert_to_type(rhs, lhs->type);
+            // C integer promotions: when the lvalue is a *narrow* integer type
+            // (char/short), an arithmetic compound op (+= -= *= /= %=) must be computed
+            // in get_common_type(lhs, rhs) — which promotes the narrow lvalue to at
+            // least int — and the result assigned back to the lvalue type, exactly as
+            // the non-compound `lhs = lhs op rhs` path does (see the BINARY_MUL/DIV/MOD
+            // case above).  Otherwise the op would run in the narrow type's signedness
+            // (e.g. `unsigned char uc; char c2; uc /= c2` would do an unsigned divide
+            // instead of the promoted signed-int divide).  The translator notices the
+            // promotion via the differing operand type and widens/narrows around the op.
+            //
+            // For wider lvalues (int and up) the operation already runs in the lvalue's
+            // own (already-promoted) type, and shift/bitwise ops keep converting the rhs
+            // to the lvalue type (shift rhs is promoted independently; bitwise
+            // truncate-to-lvalue yields the correct low bits) — both unchanged here.
+            const Type *lt = unalias(lhs->type);
+            bool lhs_narrow =
+                is_character(lt) || lt->kind == TYPE_SHORT || lt->kind == TYPE_USHORT;
+            bool is_arith_op = e->u.assign.op == ASSIGN_ADD || e->u.assign.op == ASSIGN_SUB ||
+                               e->u.assign.op == ASSIGN_MUL || e->u.assign.op == ASSIGN_DIV ||
+                               e->u.assign.op == ASSIGN_MOD;
+            if (lhs_narrow && is_arith_op) {
+                rhs = convert_to_type(rhs, get_common_type(lhs->type, rhs->type));
+            } else {
+                rhs = convert_to_type(rhs, lhs->type);
+            }
         }
         free_type(e->type);
         e->type            = clone_type(lhs->type, __func__, __FILE__, __LINE__);

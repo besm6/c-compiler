@@ -1825,13 +1825,14 @@ int main(void) {
 })")));
 }
 
-// extra_credit/compound_assign_chars: static char/uchar/schar.  Stays DISABLED for a
-// compound-assignment promotion bug (NOT a static-local issue): a compound op (`/=`,
-// `*=`, `%=`) on an unsigned narrow-type lvalue is computed in *unsigned* even when the
-// operands integer-promote to signed int — e.g. `unsigned char uc=200; uc /= (char)-100`
-// yields 1 instead of 254, while the non-compound `uc = uc / c2` is correct.  Re-enable
-// once that translator bug is fixed (see the besm6 known-backend-bugs note).
-TEST_F(CodegenTest, DISABLED_Chapter16_CompoundAssignChars)
+// extra_credit/compound_assign_chars: static char/uchar/schar.  Exercises C integer
+// promotions in compound assignment: an arithmetic compound op (`+=`, `-=`, `/=`, `*=`,
+// `%=`) on a narrow-type lvalue is computed in get_common_type(lhs, rhs) (which promotes
+// the narrow lvalue to int/double) and the result narrowed back — e.g.
+// `unsigned char uc=200; uc /= (char)-100` is (unsigned char)((int)200 / (int)-100) = 254.
+// Fixed by typecheck promoting the rhs to the common type plus the translator widening the
+// lvalue and narrowing the result around the op (task #29).
+TEST_F(CodegenTest, Chapter16_CompoundAssignChars)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// Test compound assignment with characters; make sure we perform integer promotions
 
