@@ -2263,7 +2263,7 @@ int main(void) {
 // --- Array->pointer parameter adjustment not performed -----------------------
 
 // declarators/array_as_argument: `int a[2][3]` vs `int (*a)[3]` param forms read as conflicting declarations.
-TEST_F(CodegenTest, DISABLED_Chapter15_ArrayAsArgument)
+TEST_F(CodegenTest, Chapter15_ArrayAsArgument)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that array types in parameters are converted to pointer types */
 

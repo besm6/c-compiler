@@ -56,6 +56,35 @@ static void check_duplicate_params(const Type *fn_type)
 // scope (level 0) regardless of where the declaration textually appears; this
 // lets a later definition or sibling-scope declaration find it and so detects
 // redefinitions and conflicting declarations across function bodies.
+// Adjust a function type's parameters in place per C11 §6.7.6.3:
+//  - a sole unnamed `void` param means "no parameters";
+//  - an array param decays to a pointer to its element type
+//    (int a[5] -> int *a, int a[2][3] -> int (*a)[3]);
+//  - any other void param is an error.
+static void adjust_function_params(Type *fn_type)
+{
+    Param *p = fn_type->u.function.params;
+    if (p && !p->next && unalias(p->type)->kind == TYPE_VOID && !p->name) {
+        free_param(p);
+        fn_type->u.function.params = NULL;
+        return;
+    }
+    for (; p; p = p->next) {
+        const Type *pt = unalias(p->type);
+        if (pt->kind == TYPE_ARRAY) {
+            Type *ptr = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
+            ptr->u.pointer.target =
+                clone_type(pt->u.array.element, __func__, __FILE__, __LINE__);
+            // pt aliases p->type and its element is already cloned, so free the
+            // original (cloned) array type before replacing it with the pointer.
+            free_type(p->type);
+            p->type = ptr;
+        } else if (pt->kind == TYPE_VOID) {
+            fatal_error("No void params allowed");
+        }
+    }
+}
+
 static void register_function_declaration(InitDeclarator *decl, const DeclSpec *specifiers)
 {
     const Type *var_type = unalias(decl->type); // may be a typedef'd function type
@@ -71,14 +100,12 @@ static void register_function_declaration(InitDeclarator *decl, const DeclSpec *
     }
     bool global = !is_static(specifiers);
 
-    // Strip the void sentinel — same normalization as in typecheck_fn_decl so
-    // call-site argument-count checks see zero params for f(void).
-    Type *adj  = clone_type(var_type, __func__, __FILE__, __LINE__);
-    Param *vsp = adj->u.function.params;
-    if (vsp && !vsp->next && unalias(vsp->type)->kind == TYPE_VOID && !vsp->name) {
-        free_param(vsp);
-        adj->u.function.params = NULL;
-    }
+    // Strip the void sentinel and decay array params to pointers — same
+    // normalization as in typecheck_fn_decl so prototypes and definitions store
+    // the same parameter types (and call-site argument-count checks see zero
+    // params for f(void)).
+    Type *adj = clone_type(var_type, __func__, __FILE__, __LINE__);
+    adjust_function_params(adj);
     check_duplicate_params(adj);
 
     Symbol *existing = symtab_get_opt(decl->name);
@@ -520,28 +547,8 @@ static void typecheck_fn_decl(ExternalDecl *d)
         if (unalias(fun_type->u.function.return_type)->kind == TYPE_ARRAY) {
             fatal_error("A function cannot return an array");
         }
-        // In C, f(void) is represented as a single unnamed void param — it means no parameters.
-        Param *p = adjusted_type->u.function.params;
-        if (p && !p->next && unalias(p->type)->kind == TYPE_VOID && !p->name) {
-            free_param(p);
-            adjusted_type->u.function.params = NULL;
-            p                                = NULL;
-        }
-        while (p) {
-            const Type *pt = unalias(p->type);
-            if (pt->kind == TYPE_ARRAY) {
-                Type *ptr = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
-                ptr->u.pointer.target =
-                    clone_type(pt->u.array.element, __func__, __FILE__, __LINE__);
-                // pt aliases p->type and its element is already cloned, so free the
-                // original (cloned) array type before replacing it with the pointer.
-                free_type(p->type);
-                p->type = ptr;
-            } else if (pt->kind == TYPE_VOID) {
-                fatal_error("No void params allowed");
-            }
-            p = p->next;
-        }
+        // Strip the f(void) sentinel and decay array params to pointers.
+        adjust_function_params(adjusted_type);
     } else {
         fatal_error("Function has non-function type");
     }
