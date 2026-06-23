@@ -90,7 +90,11 @@ Expr *typecheck_string(Expr *e)
     }
     Type *array            = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
     array->u.array.element = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
-    set_array_size(array, strlen(e->u.literal->u.string_val) + 1);
+    // Size from the decoded bytes (quotes stripped, escapes processed), not the raw
+    // lexeme, so sizeof "Hello, World!" == 14 (byte length incl. NUL), not 16.
+    char *decoded = decode_c_string_literal(e->u.literal->u.string_val);
+    set_array_size(array, strlen(decoded) + 1);
+    xfree(decoded);
     free_type(e->type);
     e->type = array;
     return e;

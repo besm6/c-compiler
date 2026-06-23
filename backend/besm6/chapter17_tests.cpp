@@ -307,10 +307,10 @@ int main(void) {
 }
 
 
-// sizeof/sizeof_array: array parameter adjustment leaks a cloned type
-// (clone_param), and sizeof of a string literal is word/alignment-padded
-// (sizeof "Hello, World!" == 16 here, not 14) — both frontend gaps.
-TEST_F(CodegenTest, DISABLED_Chapter17_SizeofArray)
+// sizeof/sizeof_array: arrays keep their type under sizeof (no decay), array
+// parameters are adjusted to pointers, and sizeof of a string literal is its
+// decoded byte length incl. NUL (sizeof "Hello, World!" == 14).
+TEST_F(CodegenTest, Chapter17_SizeofArray)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that arrays don't decay to pointers
  * when they're the operands of sizeof expression */
