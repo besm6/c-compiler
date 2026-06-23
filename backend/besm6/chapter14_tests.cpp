@@ -684,9 +684,8 @@ int main(void)
 }
 
 // declarators/declarators: redundant-parenthesized declarator forms (e.g.
-// `int((return_3))(void)`, `long(*two_pointers(double val, double(*d)));`) that our
-// parser rejects ("Empty type specifier list").  Not a static-local issue.
-TEST_F(CodegenTest, DISABLED_Chapter14_Declarators)
+// `int((return_3))(void)`, `long(*two_pointers(double val, double(*d)));`).
+TEST_F(CodegenTest, Chapter14_Declarators)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int return_3(void);
 int(return_3(void));

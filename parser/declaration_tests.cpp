@@ -687,6 +687,25 @@ TEST_F(ParserTest, ParseVolatileScalarDeclaration)
     EXPECT_EQ(nullptr, type->qualifiers->next);
 }
 
+// A parameter's name may be wrapped in redundant parentheses after a pointer,
+// e.g. `int(*(*(p)))`. The extra parens are pure grouping: p is still int**.
+TEST_F(ParserTest, ParseRedundantParenParameter)
+{
+    ExternalDecl *ext = GetExternalDecl("int f(int(*(*(p))));");
+    Declaration *decl = ext->u.declaration;
+    Type *fn          = decl->u.var.declarators->type;
+    ASSERT_EQ(TYPE_FUNCTION, fn->kind);
+
+    Param *p = fn->u.function.params;
+    ASSERT_NE(nullptr, p);
+    EXPECT_STREQ("p", p->name);
+
+    // int(*(*(p))) declares p as int ** (pointer to pointer to int).
+    ASSERT_EQ(TYPE_POINTER, p->type->kind);
+    ASSERT_EQ(TYPE_POINTER, p->type->u.pointer.target->kind);
+    EXPECT_EQ(TYPE_INT, p->type->u.pointer.target->u.pointer.target->kind);
+}
+
 // `volatile int *p` is a pointer to volatile int: the volatile lands on the
 // pointee (pointer target), not on the pointer object itself.
 TEST_F(ParserTest, ParseVolatilePointeeDeclaration)
