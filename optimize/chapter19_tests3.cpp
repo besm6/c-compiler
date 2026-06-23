@@ -294,10 +294,18 @@ int target(void) {
     kind: var
     name: %13
 - instruction:
-  kind: int_to_double
+  kind: sign_extend
   src:
     kind: var
     name: %11
+  dst:
+    kind: var
+    name: %15
+- instruction:
+  kind: int_to_double
+  src:
+    kind: var
+    name: %15
   dst:
     kind: var
     name: %14
@@ -312,20 +320,20 @@ int target(void) {
     name: %14
   dst:
     kind: var
-    name: %15
+    name: %16
 - instruction:
   kind: double_to_int
   src:
     kind: var
-    name: %15
+    name: %16
   dst:
     kind: var
-    name: %16
+    name: %17
 - instruction:
   kind: return
   src:
     kind: var
-    name: %16
+    name: %17
 )OPT");
 }
 

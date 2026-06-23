@@ -311,6 +311,26 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
         }
     } else if (from_int && !to_int) {
         // integer → float/double/long double
+        //
+        // A sub-int integer source (char on BESM-6) must be promoted to a full word
+        // before the FP conversion: b/utod and the inline INT-format path both assume a
+        // full-width operand, so an unwidened unsigned char >= 128 carries garbage in the
+        // high bits (task #30).  Mirror the integer promotion the int->int path performs.
+        if (get_size(from) < target_config->int_size) {
+            Tac_Val *ext = new_var_val(ctx);
+            if (is_signed(from)) {
+                Tac_Instruction *e   = tac_new_instruction(TAC_INSTRUCTION_SIGN_EXTEND);
+                e->u.sign_extend.src = src;
+                e->u.sign_extend.dst = ext;
+                tac_append(ctx, e);
+            } else {
+                Tac_Instruction *e   = tac_new_instruction(TAC_INSTRUCTION_ZERO_EXTEND);
+                e->u.zero_extend.src = src;
+                e->u.zero_extend.dst = ext;
+                tac_append(ctx, e);
+            }
+            src = val_var(ext->u.var_name);
+        }
         bool to_float       = (to->kind == TYPE_FLOAT);
         bool to_long_double = (to->kind == TYPE_LONG_DOUBLE);
         if (is_signed(from)) {

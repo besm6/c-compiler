@@ -1407,16 +1407,12 @@ int main(void) {
 // multi-dimensional char-array sub-word scaling).
 
 // chars/explicit_casts: the static-local + 8-char-collision + 41-bit-value parts are
-// already adapted here (helpers renamed to short forms like `c2uc`/`sc2ui` because the
-// book names all collided in Madlen's 8-char limit; `sc2ui` uses the BESM-6 41-bit
-// 2^41-10 value, task #14; the `static long *null_ptr` cast works).  But this stays
-// DISABLED for a real, unrelated codegen bug surfaced once the name collisions stopped
-// masking it: `(double)(unsigned char)` is wrong for any value with bit 7 set — e.g.
-// `(double)(unsigned char)250` yields garbage instead of 250.0 (check `uc2d`, return 12),
-// while `(double)(unsigned short)` and `(double)(unsigned int)` are correct.  This is the
-// `UINT_TO_DOUBLE` path mishandling a sub-word unsigned source; not a static-local issue
-// (task #18).  Re-enable once that conversion bug is fixed (see besm6 known-backend-bugs).
-TEST_F(CodegenTest, DISABLED_Chapter16_ExplicitCasts)
+// adapted here (helpers renamed to short forms like `c2uc`/`sc2ui` because the book names
+// all collided in Madlen's 8-char limit; `sc2ui` uses the BESM-6 41-bit 2^41-10 value,
+// task #14; the `static long *null_ptr` cast works).  The `(double)(unsigned char)` bit-7
+// conversion bug (task #30) is fixed: a sub-word integer source is now promoted to a full
+// word before the int->FP conversion.
+TEST_F(CodegenTest, Chapter16_ExplicitCasts)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test explicit conversions to and from character types */
 
