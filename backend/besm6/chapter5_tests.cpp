@@ -53,8 +53,8 @@ TEST_F(CodegenTest, Chapter5_AssignmentLowestPrecedence)
     EXPECT_EQ("1\n", CompileAndRun(WrapMain("int main(void) { int a; a = 0 || 5; return a; }")));
 }
 
-// int main(void) {} — no return; value is undefined, host cc and BESM-6 differ.
-TEST_F(CodegenTest, DISABLED_Chapter5_EmptyFunctionBody)
+// int main(void) {} — main falls off the end and implicitly returns 0 (C11 §5.1.2.2.3).
+TEST_F(CodegenTest, Chapter5_EmptyFunctionBody)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain("int main(void) { }")));
 }
@@ -73,8 +73,8 @@ TEST_F(CodegenTest, Chapter5_KwVarNames)
         "int main(void) { int return_val = 3; int void2 = 2; return return_val + void2; }")));
 }
 
-// no return after the body; value is undefined, host cc and BESM-6 differ.
-TEST_F(CodegenTest, DISABLED_Chapter5_LocalVarMissingReturn)
+// no return after the body; main implicitly returns 0 (C11 §5.1.2.2.3).
+TEST_F(CodegenTest, Chapter5_LocalVarMissingReturn)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain("int main(void) { int a = 3; a = a + 5; }")));
 }
@@ -93,8 +93,8 @@ TEST_F(CodegenTest, Chapter5_NonShortCircuitOr)
         "int main(void) { int a = 0; 0 || (a = 1); return a; }")));
 }
 
-// just a null statement; no return — undefined value.
-TEST_F(CodegenTest, DISABLED_Chapter5_NullStatement)
+// just a null statement; main falls off the end and implicitly returns 0 (C11 §5.1.2.2.3).
+TEST_F(CodegenTest, Chapter5_NullStatement)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain("int main(void) { ; }")));
 }

@@ -148,9 +148,8 @@ TEST_F(CodegenTest, Chapter6_TernaryShortCircuit2)
 }
 
 // binary_false_condition: the if is not taken and main falls off the end with no
-// return, so the value returned to the WrapMain caller is indeterminate — host cc
-// and the BESM-6 backend disagree (cf. the Chapter 5 missing-return cases).
-TEST_F(CodegenTest, DISABLED_Chapter6_BinaryFalseCondition)
+// explicit return, so main implicitly returns 0 (C11 §5.1.2.2.3) — matching the host.
+TEST_F(CodegenTest, Chapter6_BinaryFalseCondition)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(
         "int main(void) { if (1 + 2 == 4) return 5; }")));
