@@ -1023,21 +1023,26 @@ TEST_F(CodegenTest, Chapter12_CompoundBitwise)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
 
-    unsigned long ul = 279263001115128ul; // 0xfdfc_fbfa_f9f8
-    ul &= -1000; // make sure we sign-extend -1000 to unsigned long
-    if (ul != 279263001114648ul /* 0xfdfc_fbfa_f818 */) {
+    unsigned long ul = 279263001115128ul;
+    // On BESM-6 int->unsigned long is a same-size reinterpret: the int -1000 word
+    // is 2^41-1000 (bits 42-48 zero), so the AND clears ul's bits 42-48 rather than
+    // sign-extending -1000 across the full 48 bits as on a 64-bit target.
+    ul &= -1000;
+    if (ul != 2186070915096ul) {
         return 1; // fail
     }
 
-    ul |= 4294967040u; // 0xffff_ff00 - make sure we zero-extend this to unsigned long
+    ul |= 4294967040u; // 0xffff_ff00 - zero-extended to unsigned long
 
-    if (ul != 279263068552984ul /* 0xfdfc_ffff_ff18 */) {
+    if (ul != 2186138353432ul) {
         return 2; // fail
     }
 
     int i = 123456;
-    unsigned int ui = 281474724065520u; // 0xffff_f0f0_f0f0 = (unsigned)(-252645136)
-    long l = -252645136; // 0xf0f0_f0f0 negated
+    // (unsigned)(-252645136) on BESM-6 is the 41-bit pattern 2^41-252645136, so ui
+    // must hold that for ui ^= l to cancel to 0.
+    unsigned int ui = 2198770610416u;
+    long l = -252645136;
     if (ui ^= l) {
         return 3; // fail
     }

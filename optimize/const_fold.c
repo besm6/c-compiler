@@ -34,6 +34,8 @@
 // further down.
 static uint64_t const_to_uint64(const Tac_Const *c);
 static Tac_Val *make_int_const_val(Tac_ConstKind kind, uint64_t bits);
+static int target_signed_bits(Tac_ConstKind kind);
+static uint64_t unsigned_narrow(uint64_t bits, int w);
 
 // Truthiness test: is this constant equal to zero? Used both to fold the logical
 // NOT operator and to resolve conditional jumps. Covers all 11 scalar kinds.
@@ -192,15 +194,33 @@ static int64_t const_to_int64(const Tac_Const *c)
 // Widen any integer constant to a 64-bit bit pattern. Unsigned operators and
 // the wrapping arithmetic operators (add/sub/mul, bitwise, shifts) are evaluated
 // through this view; the result is re-narrowed by make_int_const_val.
+//
+// A *negative* signed constant is reduced to the *unsigned view of its target
+// word* — its two's-complement pattern zero-extended from the target signed width
+// (e.g. 41 bits on BESM-6).  This matters because BESM-6 stores a signed `int` in a
+// word whose upper bits are zero, so reinterpreting a negative value as unsigned
+// yields the 41-bit pattern, not a 64-bit sign-extension: e.g. (unsigned)(-1) is
+// 2^41-1, not 2^64-1.  Unsigned divide/remainder/compare and logical right shift —
+// which depend on the high bits — then fold to the value the hardware computes.
+// Non-negative constants keep their full value (a positive signed value's unsigned
+// reinterpretation is itself; this also preserves out-of-target-range positive
+// literals, which the frontend stores unmasked).  With no target configured the
+// width is 0 and unsigned_narrow is a no-op, so the host behavior is unchanged.
 static uint64_t const_to_uint64(const Tac_Const *c)
 {
     switch (c->kind) {
     case TAC_CONST_INT:
-        return (uint64_t)(int64_t)c->u.int_val;
+        return c->u.int_val < 0 ? unsigned_narrow((uint64_t)(int64_t)c->u.int_val,
+                                                   target_signed_bits(TAC_CONST_INT))
+                                : (uint64_t)(int64_t)c->u.int_val;
     case TAC_CONST_LONG:
-        return (uint64_t)c->u.long_val;
+        return c->u.long_val < 0
+                   ? unsigned_narrow((uint64_t)c->u.long_val, target_signed_bits(TAC_CONST_LONG))
+                   : (uint64_t)c->u.long_val;
     case TAC_CONST_LONG_LONG:
-        return (uint64_t)c->u.long_long_val;
+        return c->u.long_long_val < 0 ? unsigned_narrow((uint64_t)c->u.long_long_val,
+                                                         target_signed_bits(TAC_CONST_LONG_LONG))
+                                      : (uint64_t)c->u.long_long_val;
     case TAC_CONST_UINT:
         return c->u.uint_val;
     case TAC_CONST_ULONG:
@@ -219,12 +239,17 @@ static uint64_t const_to_uint64(const Tac_Const *c)
 // Mask applied to a shift count so it stays in [0, width). C leaves shifts by
 // the type width or more undefined; we fold them by masking the count to the
 // operand width, matching the behavior of the target hardware's shift unit.
+//
+// Character operands have no shift of their own: C integer promotions widen them
+// to `int` before the shift, so a char shift is an int shift and uses the int
+// mask (31), not the 8-bit char width.  Using 7 here mis-folds e.g.
+// `(unsigned char)250 >> 31` to `250 >> (31 & 7)` == 1, where the promoted-int
+// shift the hardware performs gives `250 >> 31` == 0.
 static int const_shift_mask(Tac_ConstKind k)
 {
     switch (k) {
     case TAC_CONST_SCHAR:
     case TAC_CONST_UCHAR:
-        return 7;
     case TAC_CONST_INT:
     case TAC_CONST_UINT:
         return 31;
