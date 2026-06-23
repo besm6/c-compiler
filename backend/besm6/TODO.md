@@ -15,16 +15,75 @@ Work plan for the BESM-6 backend, in no partucular order.
 
 ## DISABLED book-test triage
 
-The BESM-6 backend book tests (`backend/besm6/chapter*_tests.cpp`) carry **163 `DISABLED_`
-test cases** inherited from the "Writing a C Compiler" textbook (an x86-64 / IEEE-754
-target). The tasks below adapt each test so it is sensible for the BESM-6 target and
-re-enable it, removing only tests with no BESM-6 analogue. One task per adaptation category.
-Locate the named tests with `grep -n DISABLED_ backend/besm6/chapter*_tests.cpp`. Principles:
-(1) drop `static` on a global where it only blocks the test; (2) replace literals that make
-no sense on BESM-6; (3) implement a missing libc function; (4) remove NaN/inf parts;
-(5) shorten names that collide in 8 chars; (6) for no-analogue tests, adapt where possible
-and remove the rest.
+The "Writing a C Compiler" chapter tests (imported for an x86-64 / IEEE-754 target) carry
+**128 real `DISABLED_` test cases** across the parser, semantic, optimizer, and BESM-6
+backend modules. The tasks below adapt each test so it is sensible for the BESM-6 target and
+re-enable it, removing only tests with no BESM-6 analogue. One task per adaptation category;
+all are tracked here regardless of module. Locate the named tests with
+`grep -n DISABLED_ <file>`. Principles: (1) drop `static` on a global where it only blocks
+the test; (2) replace literals that make no sense on BESM-6; (3) implement a missing libc
+function; (4) remove NaN/inf parts; (5) shorten names that collide in 8 chars; (6) for
+no-analogue tests, adapt where possible and remove the rest.
+
+**Stale headers (no action needed):** six files mention `DISABLED_` only in comments and
+have **zero** real disabled tests — their leftover headers can be tidied opportunistically:
+`semantic/chapter16_tests.cpp`, `semantic/chapter17_tests.cpp`,
+`backend/besm6/chapter11_tests.cpp`, `backend/besm6/chapter13_tests.cpp`,
+`backend/besm6/chapter14_tests.cpp`, `backend/besm6/chapter19_tests.cpp` (the last four were
+re-enabled when block-scope statics landed).
+
+### Backend BESM-6 — dynamic allocation
 
 | #  | Task | Description |
 |----|------|-------------|
-| 23 | Wire up the heap & re-enable ch17 dynamic-allocation tests | `malloc`/`calloc`/`realloc`/`free` already link into `libc.bin` but the run harness never calls `heap_setup`, so allocations fail. Initialize a heap region at program start, then re-enable VoidPointerSimple, ArrayOfPointersToVoid, CommonPointerType, ConversionByAssignment, VoidPointerExplicitCast, SizeofExpressions, PassAllocedMemory. For MemoryManagementFunctions, implement `aligned_alloc` or drop that sub-call. |
+| 23 | Wire up the heap & re-enable dynamic-allocation tests | `malloc`/`calloc`/`realloc`/`free` already link into `libc.bin` but the run harness never calls `heap_setup`, so allocations fail. Initialize a heap region at program start, then re-enable ch17 VoidPointerSimple, ArrayOfPointersToVoid, CommonPointerType, ConversionByAssignment, VoidPointerExplicitCast, SizeofExpressions, PassAllocedMemory. For ch17 MemoryManagementFunctions, implement `aligned_alloc` or drop that sub-call. Also unblocks the ch18 malloc/calloc tests: ScalarMemberAccessArrow, ScalarMemberAccessLinkedList, ScalarMemberAccessNestedStruct, StructCopyWithArrowOperator, AccessRetvalMembers, OpaqueStruct, ReturnStructPointer, IncompleteStructs, IncompleteUnionTypes, MemberOffsets (with #49). |
+
+### Frontend — semantic typecheck (`semantic/`)
+
+| #  | Task | Description |
+|----|------|-------------|
+| 28 | Reject array as non-modifiable lvalue | Diagnose assignment, compound-assignment, and `++`/`--` applied to an array. Re-enables ch15 AssignToArray, AssignToArray2, AssignToArray3, CompoundAssignToArray, CompoundAssignToNestedArray, PostfixIncrArray, PostfixIncrNestedArray, PrefixDecrArray, PrefixDecrNestedArray, plus ch18 LvaluesAssignToArray (10). |
+| 29 | Incompatible-pointer-type diagnostics | Diagnose incompatible pointer types in assignment, comparison, and subtraction. Re-enables ch15 AssignIncompatiblePointerTypes, CompareDifferentPointerTypes, SubDifferentPointerTypes (3). |
+| 30 | Conflicting-redeclaration type checks | Catch a redeclaration whose type conflicts with the prior one. Re-enables ch15 ConflictingArrayDeclarations, ConflictingFunctionDeclarations (2). |
+| 31 | Reject scalar/null initializer for static aggregates | Reject a scalar (null-pointer) initializer for a static array/struct. Re-enables ch15 NullPtrStaticArrayInitializer and ch18 InitializersStaticStructWithZero (2). |
+| 32 | Clean typecheck error for invalid array element types | (a) Array-of-functions is accepted by typecheck and only caught later during lowering by a `get_size` assert; reject it cleanly. Re-enables ch15 ArrayOfFunctions, ArrayOfFunctions2, ParenthesizedArrayOfFunctions (3). (b) Array-of-incomplete-element is not detected when the array is behind a pointer (`union u (*arr)[3]`). Re-enables ch18 ArrayOfIncompleteUnionType_Neg (1). |
+| 33 | Reject non-lvalue struct/union member assignment in typecheck-only path | The non-lvalue check currently lives only in the translator (`gen_lval`); add it to the typecheck-only fixture path. Re-enables ch18 AssignNonLvalueUnionMember, LvaluesAssignNestedNonLvalue, LvaluesAssignToNonLvalue (3). |
+| 34 | Track tag struct-vs-union kind | Record whether a tag was declared `struct` or `union` and reject cross-kind use. Re-enables ch18 TagDeclAndUse, TagDeclarations, TagDeclConflictsWithDef, TagDefConflictsWithDecl, TagDeclAndUseSelfReference (5). |
+| 35 | Distinguish block-scope extern/static from file scope | Block-scope `extern`/`static` are currently stored at file scope, so the type checker cannot tell them from genuine file-scope entities. Re-enables ch10 ExternFollowsStaticLocalVar, OutOfScopeExternVar (2). |
+| 36 | REMOVE tag-shadowing tests (no-shadowing design) | These require an inner-scope tag to shadow an outer one with a distinct type — impossible under the permanent no-shadowing rule. Adapt where a non-shadowing analogue exists, otherwise delete: ch18 UnionShadowedByIncompleteStruct, UnionTagResolutionUnionTypeShadowsStruct, TagResolutionConflictingFunParamTypes, TagResolutionConflictingFunRetTypes, TagResolutionIncompleteShadowsComplete, TagResolutionIncompleteShadowsCompleteCast, TagResolutionShadowStruct (7). |
+
+### Frontend — parser (`parser/`)
+
+| #  | Task | Description |
+|----|------|-------------|
+| 37 | Validate array dimensions | Reject a non-integer (`int x[2.0]`) and a negative (`int arr[-3]`) array size. Re-enables parser ch15 DoubleDeclarator_Neg, NegativeArrayDimension_Neg (2). |
+| 38 | REMOVE/convert C23 empty-initializer negative tests | An empty brace initializer `{}` is valid as of C23 and is accepted; the "must reject" expectation is obsolete. Delete or convert to positive tests: parser ch15 EmptyInitializerList_Neg, parser ch18 InvalidParseEmptyInitializerList_Neg, ExtraCreditUnionEmptyInitializer_Neg (3). |
+
+### Optimizer (`optimize/`)
+
+| #  | Task | Description |
+|----|------|-------------|
+| 39 | Fix NaN constant-fold infinite loop | Folding `0.0/0.0` never converges in the fixed-point loop. Re-enables ch19_tests1 CastNanNotExecuted, FoldNan, ReturnNan and ch19_tests3 RedundantNanCopy (4). |
+| 40 | Adapt static-local name-collision DSE test | A static local `arr` collides with `main`'s `arr` under the no-shadowing / static-naming scheme. Rename to re-enable ch19_tests4 DSE_AllTypes_DontElim_RecognizeAllUses (1). |
+
+### Backend BESM-6 — codegen & libc
+
+| #  | Task | Description |
+|----|------|-------------|
+| 41 | libc string/memory routines | Implement `strcmp`, `memcmp`, `memcpy`, `memset`, `puts`, `putchar` in `libc.bin`. Unblocks the large ch18 cohort blocked only on these (often paired with block-scope statics, now supported): StructCopyCopyStruct, StructCopyThroughPointer, StructCopyStackClobber, ParametersStackClobber, ParamsAndReturnsStackClobber, ClassifyParams, ParamCallingConventions, ReturnCallingConventions, AutoStructInitializers, NestedAutoStructInitializers, NestedStaticStructInitializers, StaticStructInitializers, ScalarMemberAccessStaticStructs (~13+, several also need #23/#47/#48). |
+| 42 | Packed char member at non-zero byte offset (codegen bug) | A char or char-array member at a non-zero byte offset reads wrong through a struct/struct-pointer. Re-enables ch18 GlobalStruct, ArrayOfStructs, ParamStructPointer; also StructSizes, RetvalStructSizes (packed sub-word layout, via memcmp from #41) (5). |
+| 43 | Sub-word char-array row pointer / multi-dim char arrays | Indexing a row of a packed char array yields a pointer into the middle of a word; the pointer model only supports word-aligned word pointers. Re-enables ch16 LiteralsAndCompoundInitializers, TransferByEightbyte (2). |
+| 44 | char-signedness in static initializers | Plain `char` signedness mismatch in static char data. Re-enables ch16 StaticInitializers (1). |
+| 45 | Discarded multi-word (sret) struct return | A discarded multi-word struct return value is mishandled. Re-enables ch18 IgnoreRetval (1). |
+| 46 | gen_lval for function-call (temporary) results | `&f().arr[i]` — `gen_lval` has no case for a function-call (temporary) result. Re-enables ch18 TemporaryLifetime, UnionTempLifetime (2). |
+| 47 | Union member access / punning under BESM-6 integer representation | Reading an integer back through a char/other union member yields a BESM-6-specific value (41-bit + tag bits), not the x86 result. Adapt expected values or restrict to representable cases. Re-enables ch18 UnionInitAndMemberAccess, UnionsInConditionals, NestedUnionAccess, StaticUnionAccess, ClassifyUnions, UnionInits, UnionRetvals, StaticUnionInits, UnionNamespace, MemberComparisons, ParamPassing, CopyThruPointer, CopyNonScalarMembers (~13, several also need #41/#23). |
+| 48 | Adapt 64-bit-constant struct-member tests to 41-bit range | Constants exceed the BESM-6 41-bit integer range. Adapt the literals: ch18 BitwiseOpsStructMembers, CompoundAssignStructMembers, IncrStructMembers (overlaps #41 for the calling-convention tests) (3). |
+| 49 | word/byte pointer-punning arithmetic | Pointer-to-integer byte-address arithmetic / word↔byte pointer comparison. Re-enables ch18 MemberOffsets (also needs #23), CompareUnionPointers (also #47) (2). |
+| 50 | REMOVE x86-only ABI / page-boundary tests | No BESM-6 analogue (hand-written x86 `.s` helpers, RAX return-pointer ABI). Delete: ch10 PushArgOnPageBoundary; ch18 PassArgsOnPageBoundary, ReturnBigStructOnPageBoundary, ReturnPointerInRax, ReturnSpaceOverlap, ReturnStructOnPageBoundary (6). |
+| 51 | REMOVE/adapt no-analogue overflow & oversized tests | Depend on x86 widths/core size. Adapt or delete: ch12 ArithmeticWraparound (wraps at 2^64), Logical (uses 2^60); ch17 SizeofExtern (12M-word array exceeds BESM-6 core) (3). |
+| 52 | REMOVE backend tag-shadowing tests (no-shadowing design) | Require nested tag shadowing or a parameter shadowing a file-scope static — impossible under the permanent no-shadowing rule. Adapt where possible, otherwise delete: ch18 ResolveTags, StructDeclInSwitchStatement, DeclShadowsDecl, StructShadowsUnion, UnionShadowsStruct, Namespaces, LabelTagMemberNamespace, RedeclareUnion, ScalarMemberAccessDot (9). |
+| 53 | Re-test block-scope-static-only tests | These were disabled for "no block-scope static storage", which is now supported; confirm they pass (or surface the residual blocker) and re-enable. ch18 StaticVsAuto, StructCopyWithDotOperator, StructCopyWithArrowOperator (the last also needs the heap, #23) (3). |
+
+**Cross-references (no new task):** besm6 ch15 EquivalentDeclarators re-enables once the
+existing **task #19** (tentative/extern-after-definition clobber) lands. The ch18
+malloc/calloc tests are unblocked by **task #23** above.
