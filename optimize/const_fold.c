@@ -58,7 +58,7 @@ static bool const_is_zero(const Tac_Const *c)
         return c->u.double_val == 0.0;
     case TAC_CONST_LONG_DOUBLE:
         return c->u.long_double_val == 0.0L;
-    case TAC_CONST_CHAR:
+    case TAC_CONST_SCHAR:
         return c->u.char_val == 0;
     case TAC_CONST_UCHAR:
         return c->u.uchar_val == 0;
@@ -108,7 +108,7 @@ static Tac_Val *fold_unary_const(Tac_UnaryOperator op, const Tac_Const *src)
             rc                    = tac_new_const(src->kind);
             rc->u.long_double_val = -src->u.long_double_val;
             break;
-        case TAC_CONST_CHAR:
+        case TAC_CONST_SCHAR:
             rc             = tac_new_const(src->kind);
             rc->u.char_val = -src->u.char_val;
             break;
@@ -132,7 +132,7 @@ static Tac_Val *fold_unary_const(Tac_UnaryOperator op, const Tac_Const *src)
         case TAC_CONST_ULONG_LONG:
             // Complement in 64-bit, then wrap to the target's value width.
             return make_int_const_val(src->kind, ~const_to_uint64(src));
-        case TAC_CONST_CHAR:
+        case TAC_CONST_SCHAR:
             rc             = tac_new_const(src->kind);
             rc->u.char_val = (int)(signed char)(~src->u.char_val);
             break;
@@ -159,7 +159,7 @@ static bool const_is_integer_kind(Tac_ConstKind k)
 {
     return k == TAC_CONST_INT || k == TAC_CONST_LONG || k == TAC_CONST_LONG_LONG ||
            k == TAC_CONST_UINT || k == TAC_CONST_ULONG || k == TAC_CONST_ULONG_LONG ||
-           k == TAC_CONST_CHAR || k == TAC_CONST_UCHAR;
+           k == TAC_CONST_SCHAR || k == TAC_CONST_UCHAR;
 }
 
 // Widen any integer constant to a signed 64-bit value (sign-extending the
@@ -180,7 +180,7 @@ static int64_t const_to_int64(const Tac_Const *c)
         return (int64_t)c->u.ulong_val;
     case TAC_CONST_ULONG_LONG:
         return (int64_t)c->u.ulong_long_val;
-    case TAC_CONST_CHAR:
+    case TAC_CONST_SCHAR:
         return c->u.char_val;
     case TAC_CONST_UCHAR:
         return c->u.uchar_val;
@@ -207,7 +207,7 @@ static uint64_t const_to_uint64(const Tac_Const *c)
         return c->u.ulong_val;
     case TAC_CONST_ULONG_LONG:
         return c->u.ulong_long_val;
-    case TAC_CONST_CHAR:
+    case TAC_CONST_SCHAR:
         return (uint64_t)(int64_t)(int8_t)c->u.char_val;
     case TAC_CONST_UCHAR:
         return c->u.uchar_val;
@@ -222,7 +222,7 @@ static uint64_t const_to_uint64(const Tac_Const *c)
 static int const_shift_mask(Tac_ConstKind k)
 {
     switch (k) {
-    case TAC_CONST_CHAR:
+    case TAC_CONST_SCHAR:
     case TAC_CONST_UCHAR:
         return 7;
     case TAC_CONST_INT:
@@ -255,6 +255,15 @@ static int target_signed_bits(Tac_ConstKind kind)
         // Target field stays "used" for static analysis.
         return target_config->short_bits;
     }
+}
+
+// Plain `char` is signed or unsigned per the active target (default signed when no
+// target is configured).  Used to pick the result kind when folding a truncation to
+// char so a plain-`char` constant on an unsigned-`char` target becomes TAC_CONST_UCHAR
+// and folds through the existing unsigned-char paths.
+static bool char_const_signed(void)
+{
+    return !target_config || target_config->char_signed;
 }
 
 // Unsigned value width (in bits) of an unsigned integer constant kind on the
@@ -323,7 +332,7 @@ static Tac_Val *make_int_const_val(Tac_ConstKind kind, uint64_t bits)
     case TAC_CONST_ULONG_LONG:
         rc->u.ulong_long_val = (unsigned long long)unsigned_narrow(bits, target_unsigned_bits(kind));
         break;
-    case TAC_CONST_CHAR:
+    case TAC_CONST_SCHAR:
         rc->u.char_val = (int)(int8_t)bits;
         break;
     case TAC_CONST_UCHAR:
@@ -459,7 +468,7 @@ static Tac_ConstKind const_kind_to_unsigned(Tac_ConstKind k)
         return TAC_CONST_ULONG;
     case TAC_CONST_LONG_LONG:
         return TAC_CONST_ULONG_LONG;
-    case TAC_CONST_CHAR:
+    case TAC_CONST_SCHAR:
         return TAC_CONST_UCHAR;
     default:
         return k; // already unsigned (or non-integer)
@@ -641,12 +650,12 @@ static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src)
         /* ---- integer width conversions ---- */
 
     case TAC_INSTRUCTION_SIGN_EXTEND:
-        rc = tac_new_const(src->kind == TAC_CONST_CHAR   ? TAC_CONST_INT
+        rc = tac_new_const(src->kind == TAC_CONST_SCHAR   ? TAC_CONST_INT
                            : src->kind == TAC_CONST_INT  ? TAC_CONST_LONG
                            : src->kind == TAC_CONST_LONG ? TAC_CONST_LONG_LONG
                                                          : TAC_CONST_INT);
         switch (src->kind) {
-        case TAC_CONST_CHAR:
+        case TAC_CONST_SCHAR:
             rc->u.int_val = (int)(int8_t)src->u.char_val;
             break;
         case TAC_CONST_INT:
@@ -695,8 +704,20 @@ static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src)
             rc->u.uint_val = unsigned_narrow(const_to_uint64(src), target_unsigned_bits(TAC_CONST_UINT));
             break;
         case TAC_CONST_INT:
-            rc             = tac_new_const(TAC_CONST_CHAR);
-            rc->u.char_val = (int)(int8_t)src->u.int_val;
+            // A truncation to plain `char` cannot be distinguished from one to
+            // `signed char` at this level, so pick the result kind by the target's
+            // plain-char signedness: on an unsigned-char target the folded constant
+            // becomes TAC_CONST_UCHAR and a following ZERO_EXTEND folds through the
+            // existing unsigned-char path.  (Residual: an explicit `signed char`
+            // constant on such a target shares this path; its later SIGN_EXTEND is
+            // simply left unfolded and computed correctly by the backend at runtime.)
+            if (char_const_signed()) {
+                rc             = tac_new_const(TAC_CONST_SCHAR);
+                rc->u.char_val = (int)(int8_t)src->u.int_val;
+            } else {
+                rc              = tac_new_const(TAC_CONST_UCHAR);
+                rc->u.uchar_val = (unsigned char)src->u.int_val;
+            }
             break;
         case TAC_CONST_UINT:
             rc              = tac_new_const(TAC_CONST_UCHAR);

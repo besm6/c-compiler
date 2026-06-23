@@ -491,7 +491,11 @@ Tac_Type *ast_type_to_tac_type(const Type *t)
     case TYPE_VOID:
         return tac_new_type(TAC_TYPE_VOID);
     case TYPE_CHAR:
-        return tac_new_type(TAC_TYPE_CHAR);
+        // Plain `char` has target-defined signedness: it lowers to the signed-char TAC
+        // kind on a signed-`char` target and the unsigned-char kind otherwise.  After
+        // this boundary the TAC layer carries no ambiguous plain `char`.
+        return tac_new_type((target_config && target_config->char_signed) ? TAC_TYPE_SCHAR
+                                                                          : TAC_TYPE_UCHAR);
     case TYPE_SCHAR:
         return tac_new_type(TAC_TYPE_SCHAR);
     case TYPE_UCHAR:

@@ -148,7 +148,7 @@ static void emit_const(FILE *fd, const Tac_Const *c, int parent_id)
     case TAC_CONST_LONG_DOUBLE:
         fprintf(fd, "long_double %La", c->u.long_double_val);
         break;
-    case TAC_CONST_CHAR:
+    case TAC_CONST_SCHAR:
         fprintf(fd, "char %d", c->u.char_val);
         break;
     case TAC_CONST_UCHAR:
@@ -183,9 +183,6 @@ static void emit_type(FILE *fd, const Tac_Type *type, int parent_id, const char 
     int id = gen_node_id();
     fprintf(fd, "  n%d [label=\"Type: ", id);
     switch (type->kind) {
-    case TAC_TYPE_CHAR:
-        fprintf(fd, "char");
-        break;
     case TAC_TYPE_SCHAR:
         fprintf(fd, "schar");
         break;

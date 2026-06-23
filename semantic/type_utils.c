@@ -172,6 +172,10 @@ bool is_signed(const Type *t)
     t = unalias(t);
     switch (t->kind) {
     case TYPE_CHAR:
+        // Plain `char` has target-defined signedness (default signed).  This is a
+        // value-signedness query only; TYPE_CHAR stays a distinct type from
+        // signed/unsigned char for _Generic and pointer compatibility.
+        return !target_config || target_config->char_signed;
     case TYPE_SCHAR:
     case TYPE_SHORT:
     case TYPE_INT:

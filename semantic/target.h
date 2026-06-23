@@ -26,6 +26,9 @@ typedef struct {
     // Normally <type>_size*8, but BESM-6 signed ints are 41-bit inside a 48-bit
     // word.  The unsigned value width is always the full storage <type>_size*8.
     int short_bits, int_bits, long_bits, llong_bits;
+    // Signedness of plain `char` (target-defined in C): 1 = signed, 0 = unsigned.
+    // `signed char` and `unsigned char` are unaffected (always signed/unsigned).
+    int char_signed;
 } Target;
 
 // Active target.  Defaults to x86_64.  Set this before calling any

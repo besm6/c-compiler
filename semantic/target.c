@@ -24,7 +24,8 @@ static const Target targets[] = {
       4, 1,   // double  (same as float in avr-gcc default mode)
       4, 1,   // long double (same as float)
       2, 1,   // pointer (16-bit data address)
-      16, 16, 32, 64 }, // signed bits: short int long llong
+      16, 16, 32, 64, // signed bits: short int long llong
+      0 }, // plain char unsigned (avr-gcc)
 
     { "msp430",
       2, 2,   // short
@@ -35,7 +36,8 @@ static const Target targets[] = {
       8, 2,   // double
       8, 2,   // long double (same as double)
       2, 2,   // pointer (16-bit, 4 bytes on MSP430X)
-      16, 16, 32, 64 }, // signed bits
+      16, 16, 32, 64, // signed bits
+      1 }, // plain char signed (msp430-gcc)
 
     { "arm32",
       2, 2,   // short
@@ -46,7 +48,8 @@ static const Target targets[] = {
       8, 8,   // double
       8, 8,   // long double (same as double on ARM EABI)
       4, 4,   // pointer
-      16, 32, 32, 64 }, // signed bits
+      16, 32, 32, 64, // signed bits
+      0 }, // plain char unsigned (ARM EABI)
 
     { "aarch64",
       2, 2,   // short
@@ -57,7 +60,8 @@ static const Target targets[] = {
       8, 8,   // double
      16,16,   // long double (IEEE 754 binary128)
       8, 8,   // pointer
-      16, 32, 64, 64 }, // signed bits
+      16, 32, 64, 64, // signed bits
+      0 }, // plain char unsigned (AAPCS64)
 
     { "x86_64",
       2, 2,   // short
@@ -68,7 +72,8 @@ static const Target targets[] = {
       8, 8,   // double
      16,16,   // long double (x87 80-bit value in 16-byte slot)
       8, 8,   // pointer
-      16, 32, 64, 64 }, // signed bits
+      16, 32, 64, 64, // signed bits
+      1 }, // plain char signed (x86-64 System V)
 
     { "riscv32",
       2, 2,   // short
@@ -79,7 +84,8 @@ static const Target targets[] = {
       8, 8,   // double
      16,16,   // long double (IEEE 754 binary128, software)
       4, 4,   // pointer
-      16, 32, 32, 64 }, // signed bits
+      16, 32, 32, 64, // signed bits
+      0 }, // plain char unsigned (RISC-V ABI)
 
     { "riscv64",
       2, 2,   // short
@@ -90,7 +96,8 @@ static const Target targets[] = {
       8, 8,   // double
      16,16,   // long double (IEEE 754 binary128, software)
       8, 8,   // pointer
-      16, 32, 64, 64 }, // signed bits
+      16, 32, 64, 64, // signed bits
+      0 }, // plain char unsigned (RISC-V ABI)
 
     { "mmix",
       2, 2,   // short
@@ -101,7 +108,8 @@ static const Target targets[] = {
       8, 8,   // double
       8, 8,   // long double (same as double; no wider FP hardware)
       8, 8,   // pointer
-      16, 32, 64, 64 }, // signed bits
+      16, 32, 64, 64, // signed bits
+      1 }, // plain char signed (MMIXware convention)
 
     // BESM-6: 48-bit word-oriented machine.
     // sizeof() values are in 8-bit bytes (CHAR_BIT = 8).
@@ -119,7 +127,8 @@ static const Target targets[] = {
       6, 6,   // double  (1 word, same as float)
       6, 6,   // long double (1 word, same as double)
       6, 6,   // pointer (1 word, 15-bit word address)
-      41, 41, 41, 41 }, // signed bits
+      41, 41, 41, 41, // signed bits
+      0 }, // plain char unsigned
 };
 // clang-format on
 

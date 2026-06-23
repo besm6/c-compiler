@@ -104,7 +104,7 @@ static char *const_lit_name(const Tac_Const *c)
         snprintf(buf, sizeof(buf), "=%llo",
                  (unsigned long long)(c->u.long_long_val & (long long)0x1FFFFFFFFFF));
         break;
-    case TAC_CONST_CHAR:
+    case TAC_CONST_SCHAR:
         snprintf(buf, sizeof(buf), "=%llo",
                  (unsigned long long)((long long)c->u.char_val & (long long)0x1FFFFFFFFFF));
         break;

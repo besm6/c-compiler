@@ -62,7 +62,7 @@ static void export_yaml_const(FILE *fd, const Tac_Const *c, int level)
         print_indent(fd, level);
         fprintf(fd, "value: %La\n", c->u.long_double_val);
         break;
-    case TAC_CONST_CHAR:
+    case TAC_CONST_SCHAR:
         fprintf(fd, "char\n");
         print_indent(fd, level);
         fprintf(fd, "value: %d\n", c->u.char_val);
@@ -118,9 +118,6 @@ static void export_yaml_type(FILE *fd, const Tac_Type *type, int level)
     print_indent(fd, level);
     fprintf(fd, "kind: ");
     switch (type->kind) {
-    case TAC_TYPE_CHAR:
-        fprintf(fd, "char\n");
-        break;
     case TAC_TYPE_SCHAR:
         fprintf(fd, "schar\n");
         break;

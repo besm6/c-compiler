@@ -63,7 +63,7 @@ static Tac_Const *import_const(WFILE *in)
         c->u.long_double_val = wgetld(in);
         check_input(in, "const long double");
         break;
-    case TAC_CONST_CHAR:
+    case TAC_CONST_SCHAR:
         c->u.char_val = (int)wgetw(in);
         check_input(in, "const char");
         break;
@@ -104,7 +104,6 @@ static Tac_Type *import_type(WFILE *in)
         return NULL;
     Tac_Type *t = tac_new_type((Tac_TypeKind)(tag - TAG_TAC_TYPE));
     switch (t->kind) {
-    case TAC_TYPE_CHAR:
     case TAC_TYPE_SCHAR:
     case TAC_TYPE_UCHAR:
     case TAC_TYPE_SHORT:

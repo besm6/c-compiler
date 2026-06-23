@@ -1,4 +1,5 @@
 #include "optimizer_test_fixture.h"
+#include "target.h"
 
 // ---------------------------------------------------------------------------
 // Type conversion folding tests
@@ -204,6 +205,34 @@ TEST_F(OptimizerTest, ConvTruncateUIntToUChar)
     body = constant_fold(body);
 
     AssertFoldedUChar(body, 44);
+}
+
+// Plain `char` has target-defined signedness, so a truncation to char folds to a
+// signed-char constant on a signed-char target (x86_64) and an unsigned-char constant on
+// an unsigned-char target (besm6).  This lets the later widening fold through the matching
+// SIGN_EXTEND/ZERO_EXTEND path.
+TEST_F(OptimizerTest, ConvTruncateIntToCharUnsignedTarget)
+{
+    const Target *saved = target_config;
+    target_config       = target_lookup("besm6");
+    Tac_Instruction *body =
+        make_conversion(TAC_INSTRUCTION_TRUNCATE, make_const_int(250), make_var("t"));
+    body = constant_fold(body);
+
+    AssertFoldedUChar(body, 250); // (unsigned char)250 = 250, not -6
+    target_config = saved;
+}
+
+TEST_F(OptimizerTest, ConvTruncateIntToCharSignedTarget)
+{
+    const Target *saved = target_config;
+    target_config       = target_lookup("x86_64");
+    Tac_Instruction *body =
+        make_conversion(TAC_INSTRUCTION_TRUNCATE, make_const_int(250), make_var("t"));
+    body = constant_fold(body);
+
+    AssertFoldedChar(body, -6); // (int8_t)250 = -6
+    target_config = saved;
 }
 
 // Truncate(Var)  →  instruction unchanged

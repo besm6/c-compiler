@@ -254,7 +254,7 @@ TEST_F(TacYamlTest, ReturnChar)
     // char
     {
         Tac_TopLevel *tl       = make_empty_function("f", true);
-        Tac_Const *c           = tac_new_const(TAC_CONST_CHAR);
+        Tac_Const *c           = tac_new_const(TAC_CONST_SCHAR);
         c->u.char_val          = 65; // 'A'
         Tac_Val *val           = tac_new_val(TAC_VAL_CONSTANT);
         val->u.constant        = c;
@@ -735,7 +735,7 @@ TEST_F(TacYamlTest, StaticVariableAllInits)
     Tac_TopLevel *tl             = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
     tl->u.static_variable.name   = xstrdup("data");
     tl->u.static_variable.global = false;
-    tl->u.static_variable.type   = tac_new_type(TAC_TYPE_CHAR);
+    tl->u.static_variable.type   = tac_new_type(TAC_TYPE_SCHAR);
 
     Tac_StaticInit *i8            = tac_new_static_init(TAC_STATIC_INIT_I8);
     i8->u.char_val                = -1;
@@ -798,7 +798,7 @@ TEST_F(TacYamlTest, StaticVariableStringNullTerminated)
     Tac_TopLevel *tl             = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
     tl->u.static_variable.name   = xstrdup("s");
     tl->u.static_variable.global = true;
-    tl->u.static_variable.type   = tac_new_type(TAC_TYPE_CHAR);
+    tl->u.static_variable.type   = tac_new_type(TAC_TYPE_SCHAR);
 
     Tac_StaticInit *si              = tac_new_static_init(TAC_STATIC_INIT_STRING);
     si->u.string.val                = xstrdup("world");
@@ -847,7 +847,6 @@ TEST_F(TacYamlTest, AllScalarTypeKinds)
         Tac_TypeKind kind;
         const char *name;
     } scalars[] = {
-        { TAC_TYPE_CHAR, "char" },
         { TAC_TYPE_SCHAR, "schar" },
         { TAC_TYPE_UCHAR, "uchar" },
         { TAC_TYPE_SHORT, "short" },

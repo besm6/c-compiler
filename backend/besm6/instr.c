@@ -119,7 +119,7 @@ static long tac_const_int(const Tac_Const *c)
         return (long)c->u.long_val;
     case TAC_CONST_LONG_LONG:
         return (long)c->u.long_long_val;
-    case TAC_CONST_CHAR:
+    case TAC_CONST_SCHAR:
         return c->u.char_val;
     case TAC_CONST_UINT:
         return (long)c->u.uint_val;

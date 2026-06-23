@@ -165,7 +165,7 @@ TEST_F(TranslateTest, StringLiteralReturned)
   type:
     kind: array
     elem_type:
-      kind: char
+      kind: uchar
     size: 3
   init:
     kind: string
@@ -205,7 +205,7 @@ TEST_F(TranslateTest, TwoFunctionsDistinctStringLiterals)
   type:
     kind: array
     elem_type:
-      kind: char
+      kind: uchar
     size: 4
   init:
     kind: string
@@ -235,7 +235,7 @@ TEST_F(TranslateTest, TwoFunctionsDistinctStringLiterals)
   type:
     kind: array
     elem_type:
-      kind: char
+      kind: uchar
     size: 3
   init:
     kind: string

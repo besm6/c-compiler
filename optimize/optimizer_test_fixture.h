@@ -106,7 +106,7 @@ protected:
 
     static Tac_Val *make_const_char(int v)
     {
-        Tac_Const *c    = tac_new_const(TAC_CONST_CHAR);
+        Tac_Const *c    = tac_new_const(TAC_CONST_SCHAR);
         c->u.char_val   = (int)(int8_t)v;
         Tac_Val *val    = tac_new_val(TAC_VAL_CONSTANT);
         val->u.constant = c;
@@ -387,7 +387,7 @@ protected:
         ASSERT_NE(body, nullptr);
         ASSERT_EQ(body->kind, TAC_INSTRUCTION_COPY);
         ASSERT_NE(body->u.copy.src, nullptr);
-        EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_CHAR);
+        EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_SCHAR);
         EXPECT_EQ(body->u.copy.src->u.constant->u.char_val, expected);
     }
 

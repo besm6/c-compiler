@@ -22,7 +22,7 @@ static bool is_char_array(const Tac_Type *t)
     const Tac_Type *e = t->u.array.elem_type;
     while (e->kind == TAC_TYPE_ARRAY)
         e = e->u.array.elem_type;
-    return e->kind == TAC_TYPE_CHAR || e->kind == TAC_TYPE_SCHAR || e->kind == TAC_TYPE_UCHAR;
+    return e->kind == TAC_TYPE_SCHAR || e->kind == TAC_TYPE_UCHAR;
 }
 
 // Byte count an init item contributes to a packed character array.  A string's

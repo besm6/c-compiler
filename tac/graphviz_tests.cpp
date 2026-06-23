@@ -806,7 +806,7 @@ TEST_F(TacDotTest, ConstDouble)
 TEST_F(TacDotTest, ConstChar)
 {
     Tac_TopLevel *tl       = make_empty_function("f", true);
-    Tac_Const *c           = tac_new_const(TAC_CONST_CHAR);
+    Tac_Const *c           = tac_new_const(TAC_CONST_SCHAR);
     c->u.char_val          = 65; // 'A'
     Tac_Val *val           = tac_new_val(TAC_VAL_CONSTANT);
     val->u.constant        = c;
@@ -866,7 +866,7 @@ TEST_F(TacDotTest, TypeArray)
     tl->u.static_variable.global = false;
     Tac_Type *arr                = tac_new_type(TAC_TYPE_ARRAY);
     arr->u.array.size            = 10;
-    arr->u.array.elem_type       = tac_new_type(TAC_TYPE_CHAR);
+    arr->u.array.elem_type       = tac_new_type(TAC_TYPE_SCHAR);
     tl->u.static_variable.type   = arr;
 
     std::string out = capture(tl);
@@ -874,7 +874,7 @@ TEST_F(TacDotTest, TypeArray)
 
     EXPECT_NE(out.find("Type: array[10]"), std::string::npos);
     EXPECT_NE(out.find("label=\"elem_type\""), std::string::npos);
-    EXPECT_NE(out.find("Type: char"), std::string::npos);
+    EXPECT_NE(out.find("Type: schar"), std::string::npos);
 }
 
 TEST_F(TacDotTest, TypeStructure)
@@ -920,7 +920,7 @@ TEST_F(TacDotTest, StaticInitI8)
     Tac_TopLevel *tl                = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
     tl->u.static_variable.name      = xstrdup("v");
     tl->u.static_variable.global    = false;
-    tl->u.static_variable.type      = tac_new_type(TAC_TYPE_CHAR);
+    tl->u.static_variable.type      = tac_new_type(TAC_TYPE_SCHAR);
     Tac_StaticInit *init            = tac_new_static_init(TAC_STATIC_INIT_I8);
     init->u.char_val                = 10;
     tl->u.static_variable.init_list = init;
@@ -1033,7 +1033,7 @@ TEST_F(TacDotTest, StaticInitZero)
     tl->u.static_variable.name                    = xstrdup("buf");
     tl->u.static_variable.global                  = false;
     tl->u.static_variable.type                    = tac_new_type(TAC_TYPE_ARRAY);
-    tl->u.static_variable.type->u.array.elem_type = tac_new_type(TAC_TYPE_CHAR);
+    tl->u.static_variable.type->u.array.elem_type = tac_new_type(TAC_TYPE_SCHAR);
     tl->u.static_variable.type->u.array.size      = 16;
     Tac_StaticInit *init                          = tac_new_static_init(TAC_STATIC_INIT_ZERO);
     init->u.zero_bytes                            = 16;
@@ -1050,7 +1050,7 @@ TEST_F(TacDotTest, StaticInitString)
     Tac_TopLevel *tl                              = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);
     tl->u.static_constant.name                    = xstrdup("s");
     tl->u.static_constant.type                    = tac_new_type(TAC_TYPE_ARRAY);
-    tl->u.static_constant.type->u.array.elem_type = tac_new_type(TAC_TYPE_CHAR);
+    tl->u.static_constant.type->u.array.elem_type = tac_new_type(TAC_TYPE_SCHAR);
     tl->u.static_constant.type->u.array.size      = 6;
     Tac_StaticInit *init                          = tac_new_static_init(TAC_STATIC_INIT_STRING);
     init->u.string.val                            = xstrdup("hello");
@@ -1069,7 +1069,7 @@ TEST_F(TacDotTest, StaticInitPointer)
     tl->u.static_variable.name   = xstrdup("ptr_init");
     tl->u.static_variable.global = false;
     tl->u.static_variable.type   = tac_new_type(TAC_TYPE_POINTER);
-    tl->u.static_variable.type->u.pointer.target_type = tac_new_type(TAC_TYPE_CHAR);
+    tl->u.static_variable.type->u.pointer.target_type = tac_new_type(TAC_TYPE_SCHAR);
     Tac_StaticInit *init            = tac_new_static_init(TAC_STATIC_INIT_POINTER);
     init->u.pointer.name            = xstrdup("str_const");
     tl->u.static_variable.init_list = init;

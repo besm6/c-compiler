@@ -28,6 +28,7 @@
 #include "semantic.h"
 #include "structtab.h"
 #include "symtab.h"
+#include "target.h"
 #include "typetab.h"
 #include "xalloc.h"
 
@@ -1060,4 +1061,30 @@ TEST_F(CoercionTest, Error_DivAssign_PtrRhs)
     ParseProgram("void f(int x, int *p) { x /= p; }");
     ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
                 "Invalid operands for compound assignment");
+}
+
+// Plain `char` signedness is target-defined (C11 §6.2.5p15): it is signed on x86_64 and
+// unsigned on BESM-6.  `signed char`/`unsigned char` are fixed regardless of target.
+// is_signed() reflects this so that emit_cast picks SIGN_EXTEND vs ZERO_EXTEND correctly.
+TEST_F(CoercionTest, PlainCharSignednessFollowsTarget)
+{
+    const Target *saved = target_config;
+    Type *c             = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
+    Type *sc            = new_type(TYPE_SCHAR, __func__, __FILE__, __LINE__);
+    Type *uc            = new_type(TYPE_UCHAR, __func__, __FILE__, __LINE__);
+
+    target_config = target_lookup("x86_64");
+    EXPECT_TRUE(is_signed(c));
+    EXPECT_TRUE(is_signed(sc));
+    EXPECT_FALSE(is_signed(uc));
+
+    target_config = target_lookup("besm6");
+    EXPECT_FALSE(is_signed(c)); // plain char is unsigned on BESM-6
+    EXPECT_TRUE(is_signed(sc)); // signed char unaffected
+    EXPECT_FALSE(is_signed(uc));
+
+    free_type(c);
+    free_type(sc);
+    free_type(uc);
+    target_config = saved;
 }

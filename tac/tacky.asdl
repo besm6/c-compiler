@@ -71,7 +71,7 @@ module TAC {
                    | AddUnsigned | SubtractUnsigned | MultiplyUnsigned
                    | AddDouble | SubtractDouble | MultiplyDouble | DivideDouble
 
-    Type = Char | SChar | UChar | Short | UShort | Int | Long | LongLong | UInt | ULong | ULongLong
+    Type = SChar | UChar | Short | UShort | Int | Long | LongLong | UInt | ULong | ULongLong
          | Float | Double | LongDouble | Void
          | FunType(Type* params, Type ret)
          | Pointer(Type referenced)
@@ -88,5 +88,5 @@ module TAC {
 
     Const = ConstInt(int val) | ConstLong(long val) | ConstLongLong(long long val)
           | ConstUInt(int val) | ConstULong(long val) | ConstULongLong(unsigned long long val)
-          | ConstFloat(float val) | ConstDouble(double val) | ConstLongDouble(long double val) | ConstChar(int val) | ConstUChar(int val)
+          | ConstFloat(float val) | ConstDouble(double val) | ConstLongDouble(long double val) | ConstSChar(int val) | ConstUChar(int val)
 }

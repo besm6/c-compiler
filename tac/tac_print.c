@@ -51,7 +51,7 @@ void tac_print_const(FILE *fd, const Tac_Const *constant, int depth)
     case TAC_CONST_LONG_DOUBLE:
         fprintf(fd, "long_double %La\n", constant->u.long_double_val);
         break;
-    case TAC_CONST_CHAR:
+    case TAC_CONST_SCHAR:
         fprintf(fd, "char %d\n", constant->u.char_val);
         break;
     case TAC_CONST_UCHAR:
@@ -95,9 +95,6 @@ void tac_print_type(FILE *fd, const Tac_Type *type, int depth)
     print_indent(fd, depth);
     fprintf(fd, "Type: ");
     switch (type->kind) {
-    case TAC_TYPE_CHAR:
-        fprintf(fd, "char\n");
-        break;
     case TAC_TYPE_SCHAR:
         fprintf(fd, "schar\n");
         break;

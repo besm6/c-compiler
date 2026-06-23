@@ -374,7 +374,7 @@ int main(void)
     if (static3[0] != 5 || static3[1] || static3[2])
         return 3;
 
-    char auto1[5] = {-4, 66, 4.0};
+    signed char auto1[5] = {-4, 66, 4.0}; // plain char is unsigned on BESM-6; keep negatives signed
     signed char auto2[3] = {static1[2], -static1[0]};
     unsigned char auto3[2] = {'a'};
 
@@ -397,7 +397,7 @@ TEST_F(CodegenTest, Chapter16_ReturnChar)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that we can call functions with return values of character type */
 
-char return_char(void) {
+signed char return_char(void) { // plain char unsigned on BESM-6; keep signed truncation to -10
     return 5369233654l;  // this will be truncated to -10
 }
 
@@ -410,13 +410,13 @@ unsigned char return_uchar(void) {
 }
 
 int main(void) {
-    char char_array[3] = {121, -122, -3};
-    char retval_c = return_char();
-    char char_array2[3] = {-5, 88, -100};
+    signed char char_array[3] = {121, -122, -3}; // plain char unsigned on BESM-6
+    signed char retval_c = return_char();
+    signed char char_array2[3] = {-5, 88, -100};
     signed char retval_sc = return_schar();
     char char_array3[3] = {10, 11, 12};
     unsigned char retval_uc = return_uchar();
-    char char_array4[2] = {-5, -6};
+    signed char char_array4[2] = {-5, -6};
 
     if (char_array[0] != 121 || char_array[1] != -122 || char_array[2] != -3) {
         return 1;
@@ -910,18 +910,18 @@ int update_global_chars(void) {
 // libraries/return_char: character return values across translation units.
 TEST_F(CodegenTest, Chapter16_LibReturnChar)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(char return_char(void);
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(signed char return_char(void);
 signed char return_schar(void);
 
 unsigned char return_uchar(void);
 int main(void) {
-    char char_array[3] = {121, -122, -3};
-    char retval_c = return_char();
-    char char_array2[3] = {-5, 88, -100};
+    signed char char_array[3] = {121, -122, -3}; // plain char unsigned on BESM-6
+    signed char retval_c = return_char();
+    signed char char_array2[3] = {-5, 88, -100};
     signed char retval_sc = return_schar();
     char char_array3[3] = {10, 11, 12};
     unsigned char retval_uc = return_uchar();
-    char char_array4[2] = {-5, -6};
+    signed char char_array4[2] = {-5, -6};
 
     if (char_array[0] != 121 || char_array[1] != -122 || char_array[2] != -3) {
         return 1;
@@ -950,7 +950,7 @@ int main(void) {
     return 0;
 }
 
-char return_char(void) {
+signed char return_char(void) { // plain char unsigned on BESM-6; keep signed truncation to -10
     return 5369233654l;  // this will be truncated to -10
 }
 
@@ -1418,7 +1418,7 @@ TEST_F(CodegenTest, Chapter16_ExplicitCasts)
 
 unsigned char c2uc(char c) { return (unsigned char)c; }
 signed char c2sc(char c) { return (signed char)c; }
-char uc2c(unsigned char u) { return (char)u; }
+signed char uc2c(unsigned char u) { return (signed char)u; } // plain char unsigned on BESM-6
 signed char uc2sc(unsigned char u) { return (signed char)u; }
 unsigned char sc2uc(signed char u) { return (unsigned char)u; }
 int c2i(char c) { return (int)c; }
@@ -1433,7 +1433,7 @@ unsigned long uc2ul(unsigned char u) { return (unsigned long)u; }
 double uc2d(unsigned char u) { return (double)u; }
 char i2c(int i) { return (char)i; }
 char ui2c(unsigned int u) { return (char)u; }
-char d2c(double d) { return (char)d; }
+signed char d2c(double d) { return (signed char)d; } // plain char unsigned on BESM-6: (char)negative-double is UB
 signed char ul2sc(unsigned long l) { return (signed char)l; }
 unsigned char i2uc(int i) { return (unsigned char)i; }
 unsigned char ui2uc(unsigned int ui) { return (unsigned char)ui; }
@@ -1467,8 +1467,7 @@ int main(void) {
     if (i2c(128) != c) return 15;
     c = (char)-6;
     if (ui2c(2147483898u) != c) return 16;
-    c = (char)-2;
-    if (d2c(-2.6) != c) return 17;
+    if (d2c(-2.6) != -2) return 17; // d2c returns signed char on BESM-6
 
     if (l2sc(1099511627520l)) return 18; // low byte 0
     sc = (signed char)-126;
@@ -1503,7 +1502,7 @@ int main(void) {
 // `return_e`, and even `ret_ext_uc`/`ret_ext_sc` still share `ret_ext_`) → the
 // 8-char-distinct `rxt_uc`/`rxt_sc`/`rtrunc`.  The `check_uint` expectation uses the
 // BESM-6 41-bit unsigned value (2^41-10) instead of x86's 2^32-10 (task #14).  Plain
-// char is signed on BESM-6, so no char→signed adaptation is needed (task #18).
+// char is unsigned on BESM-6, so the negative-valued `array` is declared `signed char`.
 TEST_F(CodegenTest, Chapter16_ConvertByAssignment)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test implicit conversions to and from character types as if by assignment. */
@@ -1550,7 +1549,7 @@ int main(void) {
     if (rxt_sc(sc) != 2199023255542ul) return 14; // (ulong)(-10)=2^41-10
     if (rtrunc(5369233654l) != uc) return 15;
 
-    char array[3] = {0, 0, 0};
+    signed char array[3] = {0, 0, 0}; // plain char unsigned on BESM-6; keep signed wrap
     array[1] = 128;
     if (array[0] || array[2] || array[1] != -128) return 16;
     array[1] = 281474976710530ul; // low byte 130 (was 9.2e18)
@@ -1752,7 +1751,7 @@ TEST_F(CodegenTest, Chapter16_IncrDecrChars)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// Increment and decrement lvalues of character type
 int main(void) {
-    static char chars[5] = {123, 124, 125, 126, 127};
+    static signed char chars[5] = {123, 124, 125, 126, 127}; // plain char unsigned on BESM-6
     if (chars[0]++ != 123) {
         return 1;  // fail
     }
@@ -1834,8 +1833,8 @@ TEST_F(CodegenTest, Chapter16_CompoundAssignChars)
 
 int main(void) {
 
-    static char c = 100;
-    char c2 = 100;
+    static signed char c = 100; // plain char unsigned on BESM-6; keep signed wrap
+    signed char c2 = 100;
     c += c2; // well-defined b/c of integer promotions
     if (c != -56) {
         return 1; // fail
@@ -1914,7 +1913,7 @@ int main(void) {
         return 1;  // fail
     }
 
-    static char c = 132;  // converted to -124
+    static signed char c = 132;  // converted to -124 (plain char unsigned on BESM-6)
     if (('!' | c) != -91) {
         return 2;  // fail
     }
@@ -1941,6 +1940,13 @@ int main(void) {
 
 // extra_credit/bitshift_chars: BESM-6 right shift of a negative value is logical
 // (zero-fill of the 41-bit pattern), so the negative cases yield large positives.
+//
+// KNOWN FAILURE (return 5, pre-existing, orthogonal to plain-char signedness — task #31):
+// `-(uc << 5u) >> 5u` with `unsigned char uc` const-folds to a *uint* (48-bit) value because
+// the optimizer represents `(int)(unsigned char)` via ZERO_EXTEND→uint, so the unary minus
+// wraps at 2^48 instead of int's 2^41 (yields 8796093021953, not 68719476481).  The integer
+// promotion of `unsigned char` is to `int`, not `unsigned int` (the test's own comment), so the
+// fix belongs in const-fold's ZERO_EXTEND result-kind handling, not here.
 TEST_F(CodegenTest, Chapter16_BitshiftChars)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(// Test << and >> operators with chars (or mix of chars and other types)
@@ -1954,7 +1960,7 @@ int main(void) {
     }
 
     signed char sc = -127;
-    char c = 5;
+    signed char c = 5; // plain char unsigned on BESM-6; keep signed for the shift-promotion check
     // sc is promoted to int, then shifted (logical: (2^41 - 127) >> 5)
     if ((sc >> c) != 68719476732) {
         return 3;  // fail
@@ -2026,7 +2032,7 @@ TEST_F(CodegenTest, Chapter16_CommonType)
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that we correctly find the common type of character types and other
  * types (it's always the other type - or, if both are character types, it's int) */
 
-long ternary(int flag, char c) {
+long ternary(int flag, signed char c) { // plain char unsigned on BESM-6; keep c signed
     return flag ? c : 1u;
 }
 
@@ -2038,7 +2044,7 @@ int uchar_gt_long(unsigned char uc, long l) {
     return uc > l;
 }
 
-int c_lt_uchar(char c, unsigned char u) {
+int c_lt_uchar(signed char c, unsigned char u) { // plain char unsigned on BESM-6; keep c signed
     return c < u;
 }
 
@@ -2065,7 +2071,7 @@ int main(void) {
         return 3;
     }
 
-    char c = -1;
+    signed char c = -1; // plain char unsigned on BESM-6; keep c signed
     unsigned char u = 2;
     if (!c_lt_uchar(c, u)) {
         return 4;
@@ -2091,7 +2097,7 @@ TEST_F(CodegenTest, Chapter16_BitwiseOpsChars)
 
 int main(void) {
     unsigned char uc = 135;
-    char c = -116;
+    signed char c = -116; // plain char is unsigned on BESM-6; keep the negative value signed
     if ((uc & c) != 132) {
         return 1;  // fail
     }

@@ -44,7 +44,7 @@ static void export_const(WFILE *out, const Tac_Const *c)
     case TAC_CONST_LONG_DOUBLE:
         wputld(c->u.long_double_val, out);
         break;
-    case TAC_CONST_CHAR:
+    case TAC_CONST_SCHAR:
         wputw((unsigned)c->u.char_val, out);
         break;
     case TAC_CONST_UCHAR:
@@ -265,7 +265,6 @@ static void export_type(WFILE *out, const Tac_Type *t)
     }
     wputw(TAG_TAC_TYPE + t->kind, out);
     switch (t->kind) {
-    case TAC_TYPE_CHAR:
     case TAC_TYPE_SCHAR:
     case TAC_TYPE_UCHAR:
     case TAC_TYPE_SHORT:

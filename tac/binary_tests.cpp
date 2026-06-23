@@ -170,7 +170,7 @@ TEST_F(TacBinaryTest, ReturnAllConstKinds)
         { TAC_CONST_ULONG_LONG, "ulong_long" },
         { TAC_CONST_FLOAT, "float" },
         { TAC_CONST_DOUBLE, "double" },
-        { TAC_CONST_CHAR, "char" },
+        { TAC_CONST_SCHAR, "schar" },
         { TAC_CONST_UCHAR, "uchar" },
     };
 
@@ -201,7 +201,7 @@ TEST_F(TacBinaryTest, ReturnAllConstKinds)
         case TAC_CONST_DOUBLE:
             c->u.double_val = 3.14;
             break;
-        case TAC_CONST_CHAR:
+        case TAC_CONST_SCHAR:
             c->u.char_val = 65;
             break;
         case TAC_CONST_UCHAR:
@@ -741,7 +741,7 @@ TEST_F(TacBinaryTest, InstructionSequence)
 TEST_F(TacBinaryTest, AllScalarTypes)
 {
     Tac_TypeKind kinds[] = {
-        TAC_TYPE_CHAR,       TAC_TYPE_SCHAR,     TAC_TYPE_UCHAR,  TAC_TYPE_SHORT, TAC_TYPE_INT,
+        TAC_TYPE_SCHAR,      TAC_TYPE_UCHAR,     TAC_TYPE_SHORT,  TAC_TYPE_INT,
         TAC_TYPE_LONG,       TAC_TYPE_LONG_LONG, TAC_TYPE_USHORT, TAC_TYPE_UINT,  TAC_TYPE_ULONG,
         TAC_TYPE_ULONG_LONG, TAC_TYPE_FLOAT,     TAC_TYPE_DOUBLE, TAC_TYPE_VOID,
     };
@@ -851,7 +851,7 @@ TEST_F(TacBinaryTest, StaticVariableAllInits)
     orig->decls                           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
     orig->decls->u.static_variable.name   = xstrdup("data");
     orig->decls->u.static_variable.global = false;
-    orig->decls->u.static_variable.type   = tac_new_type(TAC_TYPE_CHAR);
+    orig->decls->u.static_variable.type   = tac_new_type(TAC_TYPE_SCHAR);
 
     Tac_StaticInit *i8            = tac_new_static_init(TAC_STATIC_INIT_I8);
     i8->u.char_val                = -1;
@@ -902,7 +902,7 @@ TEST_F(TacBinaryTest, StaticVariableStringNullTerminated)
     orig->decls                           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
     orig->decls->u.static_variable.name   = xstrdup("s");
     orig->decls->u.static_variable.global = true;
-    orig->decls->u.static_variable.type   = tac_new_type(TAC_TYPE_CHAR);
+    orig->decls->u.static_variable.type   = tac_new_type(TAC_TYPE_SCHAR);
 
     Tac_StaticInit *si                       = tac_new_static_init(TAC_STATIC_INIT_STRING);
     si->u.string.val                         = xstrdup("world");

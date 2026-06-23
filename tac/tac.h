@@ -393,7 +393,7 @@ typedef enum {
     TAC_CONST_FLOAT,
     TAC_CONST_DOUBLE,
     TAC_CONST_LONG_DOUBLE,
-    TAC_CONST_CHAR,
+    TAC_CONST_SCHAR,
     TAC_CONST_UCHAR
 } Tac_ConstKind;
 
@@ -418,7 +418,6 @@ typedef struct Tac_Const {
 // Type: Various type kinds
 //
 typedef enum {
-    TAC_TYPE_CHAR,
     TAC_TYPE_SCHAR,
     TAC_TYPE_UCHAR,
     TAC_TYPE_SHORT,
