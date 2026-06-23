@@ -2115,12 +2115,13 @@ int main(void) {
 }
 
 
-// --- Missing libc routine ----------------------------------------------------
+// --- Standard library calls --------------------------------------------------
 
-// strings_as_lvalues/standard_library_calls: puts + atoi (no libc atoi — task #22).
-TEST_F(CodegenTest, DISABLED_Chapter16_StandardLibraryCalls)
+// strings_as_lvalues/standard_library_calls: strcmp/puts/strlen/atoi (atoi added — task #22).
+// Printed text is UPPERCASE so it survives the run-test charset (lowercase → Cyrillic).
+TEST_F(CodegenTest, Chapter16_StandardLibraryCalls)
 {
-    EXPECT_EQ("Hello, World!\n0\n", CompileAndRun(WrapMain(R"(/* Test calling string manipulation functions from the standard library */
+    EXPECT_EQ("HELLO, WORLD!\n0\n", CompileAndRun(WrapMain(R"(/* Test calling string manipulation functions from the standard library */
 
 int strcmp(char *s1, char *s2);
 int puts(char *s);
@@ -2137,7 +2138,7 @@ int main(void) {
         return 2;
     }
 
-    puts("Hello, World!");
+    puts("HELLO, WORLD!");
 
     if (strlen("")) {
         return 3;

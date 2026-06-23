@@ -54,7 +54,8 @@ set(LIBC_C
     memcpy memset memcmp memmove memchr
     strlen strcpy strncpy strcat strncat
     strcmp strncmp strchr strrchr strstr
-    strtok strerror)
+    strtok strerror
+    atoi)
 set(LIBC_C_MADLEN "")
 foreach(name ${LIBC_C})
     set(c_src  ${LIBC_DIR}/${name}.c)

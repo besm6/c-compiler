@@ -66,6 +66,12 @@ boundaries transparently.
 | `memcmp(s1, s2, n)` | [memcmp.c](memcmp.c) | Compare `n` bytes (unsigned char) |
 | `memchr(s, c, n)` | [memchr.c](memchr.c) | First `c` within the first `n` bytes |
 
+## General Utilities (`<stdlib.h>`, C11 §7.22)
+
+| Function | Source | Description |
+|----------|--------|-------------|
+| `atoi(nptr)` | [atoi.c](atoi.c) | Parse the initial decimal integer (sign + digits) of a string |
+
 ## Program Control
 
 | Function | Source | Description |
