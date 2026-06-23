@@ -31,7 +31,8 @@ set(LIBC_MADLEN
     b_ret b_save0 b_save b_tout b_true char exit lchar
     b_udiv b_umod b_ult b_ule b_ugt b_uge b_dtoi b_dtou b_utod b_uneg
     b_lsh b_rsh b_uadd b_usub b_umul
-    b_flt b_fle b_fgt b_fge b_stb b_padd b_pinc b_pdec b_pdiff)
+    b_flt b_fle b_fgt b_fge b_stb b_padd b_pinc b_pdec b_pdiff
+    ldexp frexp)
 list(TRANSFORM LIBC_MADLEN PREPEND ${LIBC_DIR}/ OUTPUT_VARIABLE LIBC_SOURCES)
 list(TRANSFORM LIBC_SOURCES APPEND .madlen)
 
@@ -108,6 +109,7 @@ add_executable(besm-tests
     mem_tests.cpp
     str_tests.cpp
     typedef_tests.cpp
+    math_tests.cpp
 )
 target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
 add_dependencies(besm-tests besm-libc)

@@ -1,0 +1,12 @@
+     ldexp: ,name,
+c
+c double ldexp(double x, int n) -- return x * 2^n.
+c Entry: x at mem[r15-1], n in the accumulator.  Result in the accumulator.
+c
+            ,aex, =100          . n + 64
+            ,asn, 64-41         . (n+64) << 41  into the exponent field
+         15 ,xts, -2            . x             push stack
+         15 ,e+x,               . x * 2^n       pop stack
+         15 ,utm, -1            . drop x
+         13 ,uj,                . return
+            ,end,
