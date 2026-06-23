@@ -1168,7 +1168,7 @@ int main(void) {
   src:
     kind: constant
     const:
-      kind: uint
+      kind: int
       value: 800
 )OPT");
 }
@@ -1236,21 +1236,21 @@ long ninety_six = 96l;
   src:
     kind: constant
     const:
-      kind: ulong
-      value: 4294967295
-- instruction:
-  kind: return
-  src:
-    kind: constant
-    const:
-      kind: ulong
-      value: 4294967295
-- instruction:
-  kind: return
-  src:
-    kind: constant
-    const:
       kind: long
+      value: 4294967295
+- instruction:
+  kind: return
+  src:
+    kind: constant
+    const:
+      kind: ulong
+      value: 4294967295
+- instruction:
+  kind: return
+  src:
+    kind: constant
+    const:
+      kind: ulong
       value: 2147483647
 - instruction:
   kind: return

@@ -83,7 +83,8 @@ TEST_F(OptimizerTest, ConvSignExtendWrongTypeUnchanged)
 
 // --- ZERO_EXTEND ---
 
-// ZeroExtend(ConstUChar(200))  →  Copy(ConstUInt(200), t)  — >127 shows zero-extension
+// ZeroExtend(ConstUChar(200))  →  Copy(ConstUInt(200), t)  — >127 shows zero-extension.
+// No dst_kind supplied (sentinel -1), so the legacy source-derived kind (uint) is used.
 TEST_F(OptimizerTest, ConvZeroExtendUCharToUInt)
 {
     Tac_Instruction *body =
@@ -91,6 +92,20 @@ TEST_F(OptimizerTest, ConvZeroExtendUCharToUInt)
     body = constant_fold(body);
 
     AssertFoldedUInt(body, 200u);
+}
+
+// The integer promotion `unsigned char → int` lowers to the same ZeroExtend as a cast to
+// unsigned int, so the destination kind is what distinguishes them.  With dst_kind = int
+// the folded constant is a signed int (value still zero-extended), so later folding (e.g.
+// a negation) wraps at int's width rather than the unsigned storage width — task #31.
+TEST_F(OptimizerTest, ConvZeroExtendUCharToIntPromotion)
+{
+    Tac_Instruction *body =
+        make_conversion(TAC_INSTRUCTION_ZERO_EXTEND, make_const_uchar(200), make_var("t"));
+    body->u.zero_extend.dst_kind = TAC_CONST_INT;
+    body                         = constant_fold(body);
+
+    AssertFoldedInt(body, 200);
 }
 
 // ZeroExtend(ConstUInt(100000))  →  Copy(ConstULong(100000), t)

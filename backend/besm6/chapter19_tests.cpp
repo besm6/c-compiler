@@ -328,8 +328,9 @@ int main(void) {
 TEST_F(CodegenTest, Chapter19_WP_IntOnly_ExtraCredit_FoldNegativeBitshift)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
-/* Test constant folding >> with negative source value (make sure
- * we perform an arithmetic rather than logical bit shit)
+/* Test constant folding >> with a negative source value.  On BESM-6 a signed right
+ * shift is logical (the shift unit does no sign extension), so the fold matches the
+ * backend: the 41-bit pattern of -20000 (2^41 - 20000) >> 3 = 274877904444.
  */
 
 int target(void) {
@@ -337,7 +338,7 @@ int target(void) {
 }
 
 int main(void) {
-    if (target() != -2500) {
+    if (target() != 274877904444) {
         return 1;
     }
 
@@ -1859,10 +1860,9 @@ int main(void) {
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldNegativeLongBitshift)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
-/* Test constant folding >> with negative long source value (make sure
- * we perform an arithmetic rather than logical bit shift).  Source value
- * adapted to BESM-6's 41-bit long: -2^40 >> 22 == -262144 (arithmetic);
- * a logical shift would give +262144.
+/* Test constant folding >> with a negative long source value.  On BESM-6 a signed right
+ * shift is logical (the shift unit does no sign extension), so the fold matches the
+ * backend: the 41-bit pattern of -2^40 (which is 2^40) >> 22 == +262144.
  */
 
 long target(void) {
@@ -1870,7 +1870,7 @@ long target(void) {
 }
 
 int main(void) {
-    if (target() != -262144) {
+    if (target() != 262144) {
         return 1;
     }
 

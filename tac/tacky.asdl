@@ -9,10 +9,15 @@ module TAC {
     -- A block-scope static variable, emitted inside its owning function's module.
     StaticLocal = (identifier name, Type typ, StaticInit* init_list)
 
+    -- The integer-width conversions carry the destination's ConstKind (or -1 when not
+    -- supplied) so the constant folder labels a folded result with the conversion's true
+    -- result type (a promotion `unsigned char → int` and a cast `unsigned char → unsigned
+    -- int` lower to the same ZeroExtend; only dst_kind distinguishes them). Not
+    -- serialized: set during lowering and consumed by const-fold before TAC is written.
     Instruction = Return(Val? src)
-                | SignExtend(Val src, Val dst)
-                | Truncate(Val src, Val dst)
-                | ZeroExtend(Val src, Val dst)
+                | SignExtend(Val src, Val dst, int dst_kind)
+                | Truncate(Val src, Val dst, int dst_kind)
+                | ZeroExtend(Val src, Val dst, int dst_kind)
                 | DoubleToInt(Val src, Val dst)
                 | DoubleToUInt(Val src, Val dst)
                 | IntToDouble(Val src, Val dst)

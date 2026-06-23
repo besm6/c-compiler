@@ -185,6 +185,39 @@ static bool is_fat_pointer(const Type *t)
     return is_character(target) || target->kind == TYPE_VOID;
 }
 
+// Map an integer destination type to the Tac_ConstKind a folded conversion result
+// should carry, or -1 when the type has no direct Tac_ConstKind (short, _Bool, enum) so
+// the folder keeps its legacy source-derived kind.  Threaded into the integer-width
+// conversions by emit_cast: it is what lets the folder tell a promotion `unsigned char →
+// int` (signed result) from a cast `unsigned char → unsigned int`, which lower to the
+// same ZERO_EXTEND.  Plain `char` follows the target's signedness via is_signed.
+static int const_kind_of_int_type(const Type *t)
+{
+    t = unalias(t);
+    switch (t->kind) {
+    case TYPE_INT:
+        return TAC_CONST_INT;
+    case TYPE_LONG:
+        return TAC_CONST_LONG;
+    case TYPE_LONG_LONG:
+        return TAC_CONST_LONG_LONG;
+    case TYPE_UINT:
+        return TAC_CONST_UINT;
+    case TYPE_ULONG:
+        return TAC_CONST_ULONG;
+    case TYPE_ULONG_LONG:
+        return TAC_CONST_ULONG_LONG;
+    case TYPE_SCHAR:
+        return TAC_CONST_SCHAR;
+    case TYPE_UCHAR:
+        return TAC_CONST_UCHAR;
+    case TYPE_CHAR:
+        return is_signed(t) ? TAC_CONST_SCHAR : TAC_CONST_UCHAR;
+    default:
+        return -1;
+    }
+}
+
 Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
 {
     // A cast to void discards the value: the operand has already been evaluated
@@ -268,9 +301,10 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
         size_t from_size = get_size(from);
         size_t to_size   = get_size(to);
         if (to_size < from_size) {
-            Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_TRUNCATE);
-            in->u.truncate.src  = src;
-            in->u.truncate.dst  = dst;
+            Tac_Instruction *in     = tac_new_instruction(TAC_INSTRUCTION_TRUNCATE);
+            in->u.truncate.src      = src;
+            in->u.truncate.dst      = dst;
+            in->u.truncate.dst_kind = const_kind_of_int_type(to);
             tac_append(ctx, in);
         } else if (to_size == from_size) {
             Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
@@ -278,14 +312,16 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
             in->u.copy.dst      = dst;
             tac_append(ctx, in);
         } else if (is_signed(from)) {
-            Tac_Instruction *in   = tac_new_instruction(TAC_INSTRUCTION_SIGN_EXTEND);
-            in->u.sign_extend.src = src;
-            in->u.sign_extend.dst = dst;
+            Tac_Instruction *in        = tac_new_instruction(TAC_INSTRUCTION_SIGN_EXTEND);
+            in->u.sign_extend.src      = src;
+            in->u.sign_extend.dst      = dst;
+            in->u.sign_extend.dst_kind = const_kind_of_int_type(to);
             tac_append(ctx, in);
         } else {
-            Tac_Instruction *in   = tac_new_instruction(TAC_INSTRUCTION_ZERO_EXTEND);
-            in->u.zero_extend.src = src;
-            in->u.zero_extend.dst = dst;
+            Tac_Instruction *in        = tac_new_instruction(TAC_INSTRUCTION_ZERO_EXTEND);
+            in->u.zero_extend.src      = src;
+            in->u.zero_extend.dst      = dst;
+            in->u.zero_extend.dst_kind = const_kind_of_int_type(to);
             tac_append(ctx, in);
         }
     } else if (!from_int && to_int) {
@@ -318,15 +354,18 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
         // high bits (task #30).  Mirror the integer promotion the int->int path performs.
         if (get_size(from) < target_config->int_size) {
             Tac_Val *ext = new_var_val(ctx);
+            // The widening promotes to `int`, so label the folded result signed.
             if (is_signed(from)) {
-                Tac_Instruction *e   = tac_new_instruction(TAC_INSTRUCTION_SIGN_EXTEND);
-                e->u.sign_extend.src = src;
-                e->u.sign_extend.dst = ext;
+                Tac_Instruction *e        = tac_new_instruction(TAC_INSTRUCTION_SIGN_EXTEND);
+                e->u.sign_extend.src      = src;
+                e->u.sign_extend.dst      = ext;
+                e->u.sign_extend.dst_kind = TAC_CONST_INT;
                 tac_append(ctx, e);
             } else {
-                Tac_Instruction *e   = tac_new_instruction(TAC_INSTRUCTION_ZERO_EXTEND);
-                e->u.zero_extend.src = src;
-                e->u.zero_extend.dst = ext;
+                Tac_Instruction *e        = tac_new_instruction(TAC_INSTRUCTION_ZERO_EXTEND);
+                e->u.zero_extend.src      = src;
+                e->u.zero_extend.dst      = ext;
+                e->u.zero_extend.dst_kind = TAC_CONST_INT;
                 tac_append(ctx, e);
             }
             src = val_var(ext->u.var_name);

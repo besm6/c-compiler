@@ -582,10 +582,20 @@ static Tac_Val *fold_binary_const(Tac_BinaryOperator op, const Tac_Const *c1, co
         break;
     }
     case TAC_BINARY_RIGHT_SHIFT: {
-        // Arithmetic right shift: operate on the signed view so the sign bit
-        // is replicated (sign-preserving), matching signed >> in C.
         int amt = (int)((unsigned)u2 & (unsigned)const_shift_mask(c1->kind));
-        result  = (uint64_t)(s1 >> amt);
+        if (target_config && target_config->right_shift_is_logical) {
+            // Target (BESM-6) shifts right logically even for signed operands: zero-fill
+            // the operand's target-width bit pattern, matching the backend's shift unit.
+            // u1 is sign-extended to 64 bits, so mask it back to the signed value width
+            // first (e.g. 41 bits on BESM-6) before the logical shift.
+            int w        = target_signed_bits(c1->kind);
+            uint64_t pat = unsigned_narrow(u1, w);
+            result       = pat >> (unsigned)amt;
+        } else {
+            // Arithmetic right shift: operate on the signed view so the sign bit
+            // is replicated (sign-preserving), matching signed >> in C.
+            result = (uint64_t)(s1 >> amt);
+        }
         break;
     }
     case TAC_BINARY_RIGHT_SHIFT_LOGICAL: {
@@ -642,7 +652,13 @@ static bool is_conversion(Tac_InstructionKind k)
 // ZeroExtend does the unsigned ladder; Truncate narrows; the *To* conversions
 // move between integer and floating-point. Float→int conversions truncate
 // toward zero, as C casts do.
-static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src)
+// `dst_kind` is the destination's Tac_ConstKind for the three integer-width
+// conversions (SignExtend/ZeroExtend/Truncate), or -1 when the lowering did not supply
+// one.  When known, the folded result is labelled with it — this is what lets a
+// promotion `unsigned char → int` fold to a signed constant while an explicit cast
+// `unsigned char → unsigned int` folds to an unsigned one, even though both lower to the
+// same ZERO_EXTEND.  When -1, the legacy source-derived kind selection is kept.
+static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src, int dst_kind)
 {
     Tac_Const *rc = NULL;
 
@@ -650,6 +666,8 @@ static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src)
         /* ---- integer width conversions ---- */
 
     case TAC_INSTRUCTION_SIGN_EXTEND:
+        if (dst_kind >= 0 && const_is_integer_kind(src->kind))
+            return make_int_const_val((Tac_ConstKind)dst_kind, (uint64_t)const_to_int64(src));
         rc = tac_new_const(src->kind == TAC_CONST_SCHAR   ? TAC_CONST_INT
                            : src->kind == TAC_CONST_INT  ? TAC_CONST_LONG
                            : src->kind == TAC_CONST_LONG ? TAC_CONST_LONG_LONG
@@ -671,6 +689,8 @@ static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src)
         break;
 
     case TAC_INSTRUCTION_ZERO_EXTEND:
+        if (dst_kind >= 0 && const_is_integer_kind(src->kind))
+            return make_int_const_val((Tac_ConstKind)dst_kind, const_to_uint64(src));
         rc = tac_new_const(src->kind == TAC_CONST_UCHAR   ? TAC_CONST_UINT
                            : src->kind == TAC_CONST_UINT  ? TAC_CONST_ULONG
                            : src->kind == TAC_CONST_ULONG ? TAC_CONST_ULONG_LONG
@@ -692,6 +712,8 @@ static Tac_Val *fold_conversion(Tac_InstructionKind kind, const Tac_Const *src)
         break;
 
     case TAC_INSTRUCTION_TRUNCATE:
+        if (dst_kind >= 0 && const_is_integer_kind(src->kind))
+            return make_int_const_val((Tac_ConstKind)dst_kind, const_to_uint64(src));
         switch (src->kind) {
         case TAC_CONST_LONG:
         case TAC_CONST_LONG_LONG:
@@ -953,7 +975,15 @@ Tac_Instruction *constant_fold(Tac_Instruction *body)
         // Any conversion of a constant source → Copy of the new constant.
         // All 14 conversions share the sign_extend {src, dst} layout.
         if (is_conversion(cur->kind) && cur->u.sign_extend.src->kind == TAC_VAL_CONSTANT) {
-            Tac_Val *folded = fold_conversion(cur->kind, cur->u.sign_extend.src->u.constant);
+            // dst_kind is meaningful only for the three integer-width conversions; the
+            // float conversions ignore it (their result kind is fixed by the op).
+            int dst_kind = (cur->kind == TAC_INSTRUCTION_SIGN_EXTEND ||
+                            cur->kind == TAC_INSTRUCTION_TRUNCATE ||
+                            cur->kind == TAC_INSTRUCTION_ZERO_EXTEND)
+                               ? cur->u.sign_extend.dst_kind
+                               : -1;
+            Tac_Val *folded =
+                fold_conversion(cur->kind, cur->u.sign_extend.src->u.constant, dst_kind);
             if (folded) {
                 opt_trace_instr("[const-fold] conversion fold:", cur);
                 Tac_Instruction *copy = tac_new_instruction(TAC_INSTRUCTION_COPY);

@@ -355,3 +355,41 @@ TEST_F(OptimizerTest, BinaryFoldMultiplyHostWidthWraps)
     EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
     EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, 1539607552);
 }
+
+// ---------------------------------------------------------------------------
+// Signed right shift of a negative value is target-dependent (C leaves it
+// implementation-defined).  BESM-6's shift unit does no sign extension, so its
+// backend shifts logically; the folder follows via Target.right_shift_is_logical
+// so a folded expression matches what the machine computes at runtime.
+// ---------------------------------------------------------------------------
+
+// On BESM-6 (41-bit int) -8160 >> 5 is logical: the bit pattern 2^41 - 8160
+// shifted right by 5 is 68719476481.
+TEST_F(OptimizerTest, BinaryFoldRightShiftNegativeBesm6Logical)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_RIGHT_SHIFT, make_const_int(-8160),
+                                        make_const_int(5), make_var("t"));
+    {
+        TargetGuard besm6("besm6");
+        body = constant_fold(body);
+    }
+    ASSERT_NE(body, nullptr);
+    ASSERT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, 68719476481LL);
+}
+
+// On x86_64 the same signed >> is arithmetic (sign-preserving): -8160 >> 5 == -255.
+TEST_F(OptimizerTest, BinaryFoldRightShiftNegativeX86Arithmetic)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_RIGHT_SHIFT, make_const_int(-8160),
+                                        make_const_int(5), make_var("t"));
+    {
+        TargetGuard x86("x86_64");
+        body = constant_fold(body);
+    }
+    ASSERT_NE(body, nullptr);
+    ASSERT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_INT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, -255);
+}

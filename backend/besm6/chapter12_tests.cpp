@@ -1004,7 +1004,8 @@ TEST_F(CodegenTest, Chapter12_CompoundBitshift)
 
     int i = -2;
     i >>= 3u;
-    if (i != -1) {
+    // BESM-6 signed >> is logical: the 41-bit pattern of -2 (2^41 - 2) >> 3 = 274877906943.
+    if (i != 274877906943) {
         return 1;
     }
 

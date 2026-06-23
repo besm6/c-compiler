@@ -29,6 +29,11 @@ typedef struct {
     // Signedness of plain `char` (target-defined in C): 1 = signed, 0 = unsigned.
     // `signed char` and `unsigned char` are unaffected (always signed/unsigned).
     int char_signed;
+    // Right-shift of a *signed* operand: 0 = arithmetic (sign-preserving, the usual
+    // C-implementation choice), 1 = logical (zero-fill).  BESM-6's shift unit does no
+    // sign extension, so its backend lowers signed `>>` to a logical shift; the constant
+    // folder consults this flag to fold the same value the backend would emit.
+    int right_shift_is_logical;
 } Target;
 
 // Active target.  Defaults to x86_64.  Set this before calling any

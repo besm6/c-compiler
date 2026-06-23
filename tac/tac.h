@@ -199,17 +199,26 @@ typedef struct Tac_Instruction {
         struct {
             Tac_Val *src;
         } return_;
+        // The three integer-width conversions carry the destination's Tac_ConstKind
+        // (or -1 = "unknown / not supplied") so the constant folder can label a folded
+        // result with the conversion's true result type — a promotion `unsigned char →
+        // int` and an explicit cast `unsigned char → unsigned int` both lower to the
+        // same ZERO_EXTEND, and only the destination kind distinguishes them. The shared
+        // {src,dst,dst_kind} prefix lets the folder read it through `u.sign_extend`.
         struct {
             Tac_Val *src;
             Tac_Val *dst;
+            int dst_kind;
         } sign_extend;
         struct {
             Tac_Val *src;
             Tac_Val *dst;
+            int dst_kind;
         } truncate;
         struct {
             Tac_Val *src;
             Tac_Val *dst;
+            int dst_kind;
         } zero_extend;
         struct {
             Tac_Val *src;

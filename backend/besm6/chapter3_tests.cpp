@@ -162,10 +162,10 @@ TEST_F(CodegenTest, Chapter3_BitwiseVariableShiftCount)
               CompileAndRun(WrapMain("int main(void) { return (4 << (2 * 2)) + (100 >> (1 + 2)); }")));
 }
 
-// return -5 >> 30; — arithmetic (sign-extending) right shift = -1.
-// The operands are constant, so the optimizer folds the shift at compile time with correct
-// C semantics; the backend's runtime right shift is logical, but it is never reached here.
+// return -5 >> 30; — on BESM-6 a signed right shift is logical (the shift unit does no
+// sign extension), so the optimizer folds it to match the backend at runtime: the 41-bit
+// pattern of -5 (2^41 - 5) shifted right by 30 is 2047, not the arithmetic -1.
 TEST_F(CodegenTest, Chapter3_BitwiseShiftrNegative)
 {
-    EXPECT_EQ("-1\n", CompileAndRun(WrapMain("int main(void) { return -5 >> 30; }")));
+    EXPECT_EQ("2047\n", CompileAndRun(WrapMain("int main(void) { return -5 >> 30; }")));
 }
