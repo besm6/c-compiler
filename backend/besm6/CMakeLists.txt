@@ -28,7 +28,7 @@ target_link_libraries(besm tac libutil)
 set(LIBC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libc)
 set(LIBC_MADLEN
     b_div b_eq b_ge b_gt b_le b_lt b_mod b_mul b_ne b_not
-    b_ret b_save0 b_save b_tout b_true char exit lchar
+    b_ret b_save0 b_save b_tout b_true exit
     b_udiv b_umod b_ult b_ule b_ugt b_uge b_dtoi b_dtou b_utod b_uneg
     b_lsh b_rsh b_uadd b_usub b_umul
     b_flt b_fle b_fgt b_fge b_stb b_padd b_pinc b_pdec b_pdiff

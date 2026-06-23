@@ -41,13 +41,6 @@ BESM-6 specifics:
   namespace, so a literal inside a runtime routine would collide with the caller's own string
   constants at link time; routines build any fixed text (e.g. `(NULL)`) in a local buffer.
 
-## String / Character Functions
-
-| Function | Source | Description |
-|----------|--------|-------------|
-| `char(str, i)` | [char.madlen](char.madlen) | Return byte `i` of string `str` (left-to-right, 0-based) |
-| `lchar(str, i, ch)` | [lchar.madlen](lchar.madlen) | Set byte `i` of string `str` to `ch`; return `ch` |
-
 ### `<string.h>` (C11 §7.24)
 
 All routines treat `char*` / `void*` as fat byte cursors, so they cross word
