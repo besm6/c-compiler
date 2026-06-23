@@ -1152,6 +1152,48 @@ TEST_F(ParserTest, TypeIntParensPtrArray5)
     free_type(type);
 }
 
+// A nested array abstract declarator grouped in parentheses: the inner group
+// "([3][4])" starts with '[', which the parser must recognize as a grouped
+// abstract declarator (not a parameter list).  double(*([3][4]))[2] is an
+// array[3] of array[4] of (pointer to array[2] of double); sizeof == 3*4*6 == 72.
+TEST_F(ParserTest, TypeDoubleParensPtrNestedArray)
+{
+    Type *type = TestType("double(*([3][4]))[2]");
+
+    // array[3]
+    EXPECT_EQ(type->kind, TYPE_ARRAY);
+    EXPECT_EQ(type->qualifiers, nullptr);
+    ASSERT_NE(type->u.array.size, nullptr);
+    EXPECT_EQ(type->u.array.size->kind, EXPR_LITERAL);
+    EXPECT_EQ(type->u.array.size->u.literal->kind, LITERAL_INT);
+    EXPECT_EQ(type->u.array.size->u.literal->u.int_val, 3);
+
+    // array[4]
+    Type *arr4 = type->u.array.element;
+    ASSERT_NE(arr4, nullptr);
+    EXPECT_EQ(arr4->kind, TYPE_ARRAY);
+    ASSERT_NE(arr4->u.array.size, nullptr);
+    EXPECT_EQ(arr4->u.array.size->u.literal->u.int_val, 4);
+
+    // pointer
+    Type *ptr = arr4->u.array.element;
+    ASSERT_NE(ptr, nullptr);
+    EXPECT_EQ(ptr->kind, TYPE_POINTER);
+
+    // array[2]
+    Type *arr2 = ptr->u.pointer.target;
+    ASSERT_NE(arr2, nullptr);
+    EXPECT_EQ(arr2->kind, TYPE_ARRAY);
+    ASSERT_NE(arr2->u.array.size, nullptr);
+    EXPECT_EQ(arr2->u.array.size->u.literal->u.int_val, 2);
+
+    // double
+    Type *elem = arr2->u.array.element;
+    ASSERT_NE(elem, nullptr);
+    EXPECT_EQ(elem->kind, TYPE_DOUBLE);
+    free_type(type);
+}
+
 TEST_F(ParserTest, TypeVoidParensPtrArrayFuncInt)
 {
     Type *type = TestType("void (*[]) (int)");

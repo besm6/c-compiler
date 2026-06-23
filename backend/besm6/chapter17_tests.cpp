@@ -351,9 +351,9 @@ int main(void) {
 }
 
 
-// sizeof/sizeof_derived_types: the parser rejects the nested abstract declarator
-// double(*([3][4]))[2] with "Empty type specifier list" — a parser limitation.
-TEST_F(CodegenTest, DISABLED_Chapter17_SizeofDerivedTypes)
+// sizeof/sizeof_derived_types: sizes of derived (pointer and array) types,
+// including the nested abstract declarator double(*([3][4]))[2].
+TEST_F(CodegenTest, Chapter17_SizeofDerivedTypes)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Make sure we accurately calculate the size of derived (pointer and array)
  * types */

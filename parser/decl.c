@@ -1228,15 +1228,17 @@ DeclaratorSuffix *parse_direct_abstract_declarator(Ident *name_out)
                 *tail                           = new_suffix;
                 tail                            = &new_suffix->next;
             } else if (current_token == TOKEN_STAR || current_token == TOKEN_LPAREN ||
+                       current_token == TOKEN_LBRACKET ||
                        (name_out && current_token == TOKEN_IDENTIFIER)) {
                 // Case: '(' abstract_declarator ')'.  A following '(' begins a
-                // nested abstract declarator, and a following plain identifier
-                // (only when a name is still expected) is the declared name
-                // wrapped in redundant parens, e.g. the parameter "int(*(p))".
-                // A real parameter list would start with a type specifier or a
-                // TOKEN_TYPEDEF_NAME, never '(' or a plain identifier.
-                // parse_pointer() yields NULL for these, so the extra parens act
-                // as pure grouping.
+                // nested abstract declarator, a following '[' begins a nested
+                // *array* abstract declarator (e.g. the group "([3][4])"), and a
+                // following plain identifier (only when a name is still expected)
+                // is the declared name wrapped in redundant parens, e.g. the
+                // parameter "int(*(p))".  A real parameter list would start with a
+                // type specifier or a TOKEN_TYPEDEF_NAME, never '(', '[', or a
+                // plain identifier.  parse_pointer() yields NULL for these, so the
+                // extra parens act as pure grouping.
                 DeclaratorSuffix *new_suffix   = new_declarator_suffix(SUFFIX_POINTER);
                 new_suffix->u.pointer.pointers = parse_pointer();
                 new_suffix->u.pointer.suffix   = parse_direct_abstract_declarator(name_out);

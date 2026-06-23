@@ -8,7 +8,8 @@
 // Reclassified from invalid_parse (the book calls these parse errors; our grammar
 // accepts the declarator and the type checker rejects it): array_of_functions,
 // array_of_functions_2, parenthesized_array_of_functions, return_array, and the
-// abstract cast-to-array declarator malformed_abstract_array_declarator_2.
+// abstract cast-to-array declarators malformed_abstract_array_declarator_2 and
+// cast_to_array_type_3 (nested parenthesized array abstract declarator).
 //
 // Fifteen invalid_types / extra_credit programs are accepted by our front end today
 // and carry DISABLED_ markers, each with the gap noted.  They fall in four groups:
@@ -35,6 +36,19 @@ TEST_F(PipelineTest, Chapter15_MalformedAbstractArrayDeclarator2_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void) {
     return (int[3](*))0;
+}
+)"),
+                 "Can only cast scalar types");
+}
+
+// (long(([2])[3]))arr — the nested parenthesized array abstract declarator parses
+// (it denotes long[2][3]); casting to an array type is not a scalar cast.
+TEST_F(PipelineTest, Chapter15_CastToArrayType3_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"(int main(void)
+{
+    long arr[6];
+    return ((long(([2])[3]))arr);
 }
 )"),
                  "Can only cast scalar types");

@@ -89,18 +89,6 @@ TEST_F(ParserTest, Chapter15_MalformedTypeName2_Neg)
                  "Expected primary expression");
 }
 
-// long(([2])[3]) — a nested parenthesized array abstract declarator has no type specifier.
-TEST_F(ParserTest, Chapter15_CastToArrayType3_Neg)
-{
-    EXPECT_DEATH(parse(CreateTempFile(R"(int main(void)
-{
-    long arr[6];
-    return ((long(([2])[3]))arr);
-}
-)")),
-                 "Empty type specifier list");
-}
-
 // vals[indices[1]; — the outer subscript is never closed.
 TEST_F(ParserTest, Chapter15_MismatchedSubscript_Neg)
 {
