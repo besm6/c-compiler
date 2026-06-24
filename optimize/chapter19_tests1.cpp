@@ -2091,8 +2091,7 @@ int main(void) {
 )OPT");
 }
 
-// DISABLED: NaN (0.0/0.0) constant folding loops in the optimizer
-TEST_F(PipelineTest, DISABLED_Chapter19_CF_AllTypes_ExtraCredit_CastNanNotExecuted)
+TEST_F(PipelineTest, Chapter19_CF_AllTypes_ExtraCredit_CastNanNotExecuted)
 {
     OptimizeYaml(R"SRC(
 // Make sure the compiler doesn't complain if you try to cast NaN to an int
@@ -2266,8 +2265,7 @@ unsigned long target_shift_ulong_right(void) {
 )OPT");
 }
 
-// DISABLED: NaN (0./0.) constant folding loops in the optimizer
-TEST_F(PipelineTest, DISABLED_Chapter19_CF_AllTypes_ExtraCredit_FoldNan)
+TEST_F(PipelineTest, Chapter19_CF_AllTypes_ExtraCredit_FoldNan)
 {
     OptimizeYaml(R"SRC(
 /* Test that we can constant fold an operation that results in NaN;
@@ -2283,8 +2281,7 @@ double target_nan(void){
 )SRC");
 }
 
-// DISABLED: NaN (0.0/0.0) constant folding loops in the optimizer
-TEST_F(PipelineTest, DISABLED_Chapter19_CF_AllTypes_ExtraCredit_ReturnNan)
+TEST_F(PipelineTest, Chapter19_CF_AllTypes_ExtraCredit_ReturnNan)
 {
     OptimizeYaml(R"SRC(
 /* Test case where we return NaN after constant folding */

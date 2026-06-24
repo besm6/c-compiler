@@ -879,8 +879,7 @@ int target(void) {
               "add_ptr=2 allocate_local=1 copy_to_offset=69 get_address=1 load=1 return=1");
 }
 
-// DISABLED: NaN constant folding loops in the optimizer
-TEST_F(PipelineTest, DISABLED_Chapter19_CP_AllTypes_ExtraCredit_RedundantNanCopy)
+TEST_F(PipelineTest, Chapter19_CP_AllTypes_ExtraCredit_RedundantNanCopy)
 {
     OptimizeYaml(R"SRC(
 /* Make sure we can eliminate redundant copies where source is NaN

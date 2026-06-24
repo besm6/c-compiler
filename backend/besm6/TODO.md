@@ -42,7 +42,6 @@ re-enabled when block-scope statics landed).
 
 | #  | Task | Description |
 |----|------|-------------|
-| 39 | Fix NaN constant-fold infinite loop | Folding `0.0/0.0` never converges in the fixed-point loop. Re-enables ch19_tests1 CastNanNotExecuted, FoldNan, ReturnNan and ch19_tests3 RedundantNanCopy (4). |
 | 40 | Adapt static-local name-collision DSE test | A static local `arr` collides with `main`'s `arr` under the no-shadowing / static-naming scheme. Rename to re-enable ch19_tests4 DSE_AllTypes_DontElim_RecognizeAllUses (1). |
 
 ### Backend BESM-6 — codegen & libc

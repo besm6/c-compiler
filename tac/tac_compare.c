@@ -1,7 +1,16 @@
+#include <math.h>
 #include <stdbool.h>
 #include <string.h>
 
 #include "tac.h"
+
+// Treat two floating-point constants as equal when they compare equal OR both
+// are NaN. Raw == makes NaN != NaN, which would keep the optimizer's fixed-point
+// loop from ever converging on a folded NaN constant (e.g. 0.0/0.0).
+static bool fp_equal(long double x, long double y)
+{
+    return x == y || (isnan(x) && isnan(y));
+}
 
 // Compare two Tac_Const structures
 bool tac_compare_const(const Tac_Const *a, const Tac_Const *b)
@@ -26,11 +35,11 @@ bool tac_compare_const(const Tac_Const *a, const Tac_Const *b)
     case TAC_CONST_ULONG_LONG:
         return a->u.ulong_long_val == b->u.ulong_long_val;
     case TAC_CONST_FLOAT:
-        return a->u.float_val == b->u.float_val;
+        return fp_equal(a->u.float_val, b->u.float_val);
     case TAC_CONST_DOUBLE:
-        return a->u.double_val == b->u.double_val;
+        return fp_equal(a->u.double_val, b->u.double_val);
     case TAC_CONST_LONG_DOUBLE:
-        return a->u.long_double_val == b->u.long_double_val;
+        return fp_equal(a->u.long_double_val, b->u.long_double_val);
     case TAC_CONST_SCHAR:
         return a->u.char_val == b->u.char_val;
     case TAC_CONST_UCHAR:
