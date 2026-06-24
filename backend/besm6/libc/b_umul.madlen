@@ -1,4 +1,6 @@
     b/umul: ,name,
+    b/true: ,subp,
+     bit48: ,equ, b/true + 1        . bit 48
          14 ,base, *
 c
 c Multiply two 48-bit unsigned integers, giving the low 48 bits of the product
@@ -33,7 +35,7 @@ c
 c           short way: single 40x40 -> low 48 (faithful port of u_mul_u short path).
 c           A=prod[80:41], Y=prod[40:1] -> result = (prod[80:41] << 40) | prod[40:1].
          15 ,xta, -2             . A := a                   (operand2)
-            ,aox, =:4            . a |= exponent offset
+            ,aox, bit48          . a |= exponent offset
          15 ,a*x,                . [A,Y] := a*b             (operand1 = b at mem[r15-1])
             ,xts,                . push bits 80:41 ; set logical w
             ,yta,                . A := bits 40:1
@@ -60,7 +62,7 @@ c           stack.  r15 = E+1 here, with a at mem[E-1] and b at mem[E].
 c                                  r15 = E+5 ; slots: aL=-4 aH=-3 bL=-2 bH=-1
 c           main term: pll = (aL*bL) low 48  (inlined umul24, full repack)
          15 ,xta, -2             . A := bL                  (operand2)
-            ,aox, =:4            . bL |= exponent offset
+            ,aox, bit48          . bL |= exponent offset
          15 ,a*x, -4             . [A,Y] := aL * bL         (operand1 = aL)
             ,xts,                . push bits 80:41 ; set logical
             ,yta,                . A := bits 40:1
@@ -71,7 +73,7 @@ c           main term: pll = (aL*bL) low 48  (inlined umul24, full repack)
 c                                  r15 = E+6 ; slots: aL=-5 aH=-4 bL=-3 bH=-2 pll=-1
 c           cross term 1: c1 = (aL*bH) & 0xFF
          15 ,xta, -2             . A := bH                  (operand2)
-            ,aox, =:4
+            ,aox, bit48
          15 ,a*x, -5             . [A,Y] := aL * bH         (operand1 = aL)
             ,xts,                . push junk ; set logical
             ,yta,                . A := bits 40:1
@@ -81,7 +83,7 @@ c           cross term 1: c1 = (aL*bH) & 0xFF
 c                                  r15 = E+7 ; slots: aH=-5 bL=-4 pll=-2 c1=-1
 c           cross term 2: c2 = (aH*bL) & 0xFF ; cross = (c1+c2) & 0xFF
          15 ,xta, -4             . A := bL                  (operand2)
-            ,aox, =:4
+            ,aox, bit48
          15 ,a*x, -5             . [A,Y] := aH * bL         (operand1 = aH)
             ,xts,                . push junk ; set logical
             ,yta,                . A := bits 40:1

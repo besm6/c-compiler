@@ -1,4 +1,6 @@
     b/uadd: ,name,
+    b/true: ,subp,
+     bit48: ,equ, b/true + 1        . bit 48
 c
 c Add two 48-bit unsigned integers, modulo 2^48: a+b.
 c Pop two values from stack, push result back.
@@ -16,24 +18,24 @@ c
          13 ,uj,
 c
    b*large: ,bss,                   . bit B[48] == 1
-            ,aex, =:4               . clear bit 48 of B
+            ,aex, bit48             . clear bit 48 of B
          15 ,xts, -2                . push B on stack, extract A
             ,ntr, 8+3
             ,uza, ab*large          . jump when A[48] = 1
          15 ,arx,                   . add A[47:1] + B[47:1]
-            ,aex, =:4               . restore bit 48 contribution
+            ,aex, bit48             . restore bit 48 contribution
          15 ,utm, -1                . drop A from stack
          13 ,uj,
 c
    a*large: ,bss,                   . bit A[48] == 1, bit B[48] == 0
-            ,aex, =:4               . clear bit 48 of A
+            ,aex, bit48             . clear bit 48 of A
          15 ,arx,                   . add A[47:1] + B[47:1]
-            ,aex, =:4               . restore bit 48 contribution
+            ,aex, bit48             . restore bit 48 contribution
          15 ,utm, -1                . drop A from stack
          13 ,uj,
 c
   ab*large: ,bss,                   . bit A[48] == 1, bit B[48] == 1
-            ,aex, =:4               . clear bit 48 of A
+            ,aex, bit48             . clear bit 48 of A
          15 ,arx,                   . add A[47:1] + B[47:1]
          15 ,utm, -1                . drop A from stack
             ,aox,                   . OR mem[0]=0: ACC unchanged, restore logical w-mode

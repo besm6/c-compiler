@@ -1,4 +1,6 @@
      frexp: ,name,
+    b/true: ,subp,
+     bit48: ,equ, b/true + 1        . bit 48
 c
 c double frexp(double value, int *exp) -- split value = fraction * 2^(*exp),
 c  with 0.5 <= |fraction| < 1, or fraction = 0 (and *exp = 0) when value = 0.
@@ -15,6 +17,6 @@ c        --- *exp := exponent_field(value) - 64 ---
          14 ,stx,               . *exp := e ; pop value from stack
 c        --- fraction := value with the exponent field forced to 64 ---
             ,aax, =37 7777 7777 7777   . keep sign + mantissa (bits 41-1)
-            ,aox, =:4           . set the exponent field to 64 (bit 48)
+            ,aox, bit48         . set the exponent field to 64 (bit 48)
          13 ,uj,                . return the fraction in A
             ,end,

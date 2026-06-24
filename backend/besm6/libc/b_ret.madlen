@@ -17,5 +17,6 @@ c Block of constants for other routines,
 c to be accessed as b/true + offset.
 c
     b/true: ,entry,
-            ,log, 1                 . constant 1, as logical 'true' value
+            ,log, 1                 . bit 1, as logical 'true' value
+     bit48: ,oct, 4                 . offset 1: bit 48
             ,end,
