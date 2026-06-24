@@ -1763,12 +1763,12 @@ int target(void) {
   offset: 0
   dst:
     kind: var
-    name: %5
+    name: %6
 - instruction:
   kind: return
   src:
     kind: var
-    name: %5
+    name: %6
 )OPT");
 }
 
@@ -1834,12 +1834,12 @@ int target(void) {
   offset: 0
   dst:
     kind: var
-    name: %2
+    name: %3
 - instruction:
   kind: return
   src:
     kind: var
-    name: %2
+    name: %3
 )OPT");
 }
 
@@ -1984,20 +1984,6 @@ int main(void) {
     name: %my_union
   dst:
     kind: var
-    name: %1
-- instruction:
-  kind: add_ptr
-  ptr:
-    kind: var
-    name: %1
-  index:
-    kind: constant
-    const:
-      kind: int
-      value: 0
-  scale: 8
-  dst:
-    kind: var
     name: %2
 - instruction:
   kind: add_ptr
@@ -2013,19 +1999,33 @@ int main(void) {
   dst:
     kind: var
     name: %3
+- instruction:
+  kind: add_ptr
+  ptr:
+    kind: var
+    name: %3
+  index:
+    kind: constant
+    const:
+      kind: int
+      value: 0
+  scale: 8
+  dst:
+    kind: var
+    name: %4
 - instruction:
   kind: load
   src_ptr:
     kind: var
-    name: %3
+    name: %4
   dst:
     kind: var
-    name: %4
+    name: %5
 - instruction:
   kind: return
   src:
     kind: var
-    name: %4
+    name: %5
 )OPT");
 }
 

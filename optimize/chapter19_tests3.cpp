@@ -356,12 +356,12 @@ int main(void) {
   offset: 0
   dst:
     kind: var
-    name: %1
+    name: %2
 - instruction:
   kind: return
   src:
     kind: var
-    name: %1
+    name: %2
 )OPT");
 }
 
@@ -833,12 +833,12 @@ int target(void) {
       name: %u2
   dst:
     kind: var
-    name: %4
+    name: %5
 - instruction:
   kind: return
   src:
     kind: var
-    name: %4
+    name: %5
 )OPT");
 }
 
@@ -985,61 +985,61 @@ double target(int flag, int flag2, union u y) {
   condition:
     kind: var
     name: %flag2
-  target: %4
+  target: %5
 - instruction:
   kind: copy_from_offset
   src: %y
   offset: 0
   dst:
     kind: var
-    name: %6
+    name: %7
 - instruction:
   kind: copy_to_offset
   src:
     kind: var
-    name: %6
+    name: %7
   dst: %x
   offset: 0
 - instruction:
   kind: jump
-  target: %5
-- instruction:
-  kind: label
-  name: %4
+  target: %6
 - instruction:
   kind: label
   name: %5
+- instruction:
+  kind: label
+  name: %6
 - instruction:
   kind: copy_from_offset
   src: %x
   offset: 0
   dst:
     kind: var
-    name: %7
+    name: %9
 - instruction:
   kind: copy_from_offset
   src: %y
   offset: 0
   dst:
     kind: var
-    name: %8
+    name: %10
 - instruction:
   kind: binary
   op: add_double
   src1:
     kind: var
-    name: %7
+    name: %9
   src2:
     kind: var
-    name: %8
+    name: %10
   dst:
     kind: var
-    name: %9
+    name: %11
 - instruction:
   kind: return
   src:
     kind: var
-    name: %9
+    name: %11
 )OPT");
 }
 
@@ -1105,12 +1105,12 @@ int main(void) {
   offset: 0
   dst:
     kind: var
-    name: %2
+    name: %3
 - instruction:
   kind: return
   src:
     kind: var
-    name: %2
+    name: %3
 )OPT");
 }
 
