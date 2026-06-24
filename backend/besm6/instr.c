@@ -1021,28 +1021,48 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         int word_scale = scale / 6;
 
         // (a) scaled index in A.
-        emit_xta_val(block, tail, f, index);
-        if (word_scale != 1) {
-            if ((word_scale & (word_scale - 1)) == 0) {
-                int k = 0;
-                while ((1 << k) < word_scale)
-                    k++;
-                Besm_Instr *asn = emit(block, tail, BESM_EXP_SHIFTN);
-                asn->addr       = 64 - k; // logical left shift by k bits
-                // A signed (possibly negative) index left-shifts its sign bits into
-                // the exponent field (bits 42-48); mask back to the 41-bit two's-
-                // complement representation so the index stays a valid signed offset
-                // (cf. the BINARY signed-multiply strength reduction above).
-                Besm_Instr *aax = emit(block, tail, BESM_LOG_AAX);
-                aax->name       = xstrdup("=37777777777777"); // mask to 41 bits
-            } else {
-                // Runtime-helper multiply: push the index, load =word_scale, call b/mul.
-                Besm_Instr *xts = emit(block, tail, BESM_MEM_XTS);
-                char buf[32];
-                snprintf(buf, sizeof(buf), "=%o", word_scale);
-                xts->name        = xstrdup(buf);
-                Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
-                call->name       = xstrdup("b/mul");
+        if (index->kind == TAC_VAL_CONSTANT) {
+            // Constant index: fold index * word_scale at compile time and load the
+            // product as a single 41-bit immediate -- no ASN shift, no runtime b/mul.
+            // This covers the common &arr[k] / p +/- k / struct-member cases (including
+            // word_scale == 1, where the product is just the index).
+            long prod       = tac_const_int(index->u.constant) * word_scale;
+            Besm_Instr *xta = emit(block, tail, BESM_MEM_XTA);
+            char buf[32];
+            snprintf(buf, sizeof(buf), "=%llo",
+                     (unsigned long long)((long long)prod & (long long)0x1FFFFFFFFFF));
+            xta->name = xstrdup(buf);
+        } else {
+            emit_xta_val(block, tail, f, index);
+            if (word_scale != 1) {
+                if ((word_scale & (word_scale - 1)) == 0) {
+                    int k = 0;
+                    while ((1 << k) < word_scale)
+                        k++;
+                    Besm_Instr *asn = emit(block, tail, BESM_EXP_SHIFTN);
+                    asn->addr       = 64 - k; // logical left shift by k bits
+                    // A signed (possibly negative) index left-shifts its sign bits into
+                    // the exponent field (bits 42-48); mask back to the 41-bit two's-
+                    // complement representation so the index stays a valid signed offset
+                    // (cf. the BINARY signed-multiply strength reduction above).
+                    Besm_Instr *aax = emit(block, tail, BESM_LOG_AAX);
+                    aax->name       = xstrdup("=37777777777777"); // mask to 41 bits
+                } else {
+                    // b/mul multiplies two 41-bit *signed* operands.  A negated unsigned
+                    // index (e.g. a runtime `p -= u`) can arrive as a full 48-bit word
+                    // whose bits 42-48 are set; those corrupt the multiply, so mask the
+                    // index back to the 41-bit two's-complement range first (the
+                    // power-of-two path above already masks after its shift).
+                    Besm_Instr *aax = emit(block, tail, BESM_LOG_AAX);
+                    aax->name        = xstrdup("=37777777777777");
+                    // Runtime-helper multiply: push the index, load =word_scale, b/mul.
+                    Besm_Instr *xts = emit(block, tail, BESM_MEM_XTS);
+                    char buf[32];
+                    snprintf(buf, sizeof(buf), "=%o", word_scale);
+                    xts->name        = xstrdup(buf);
+                    Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
+                    call->name       = xstrdup("b/mul");
+                }
             }
         }
 

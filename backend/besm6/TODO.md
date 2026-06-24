@@ -42,13 +42,14 @@ re-enabled when block-scope statics landed).
 
 | #  | Task | Description |
 |----|------|-------------|
-| 47 | Union member access / punning under BESM-6 integer representation | DONE — adapted expected values to BESM-6 representation (char members read byte #0 = MSB; plain char unsigned; long is one 41-bit word; native FP). Re-enabled ch18 UnionInitAndMemberAccess, UnionsInConditionals, NestedUnionAccess, StaticUnionAccess, UnionInits, StaticUnionInits, UnionNamespace, MemberComparisons, CopyThruPointer, CopyNonScalarMembers (the four malloc/calloc ones rewritten to use local/static objects, so #23 is no longer needed). Along the way fixed a translator bug (whole-aggregate `agg = *ptr` copied only one word) and a `common_pointer_type` leak. ClassifyUnions, ParamPassing, UnionRetvals are **deferred** (left DISABLED): they are x86 SysV register-classification ABI tests with no BESM-6 analogue. |
-| 48 | Adapt 64-bit-constant struct-member tests to 41-bit range | Constants exceed the BESM-6 41-bit integer range. Adapt the literals: ch18 BitwiseOpsStructMembers, CompoundAssignStructMembers, IncrStructMembers (overlaps #41 for the calling-convention tests) (3). |
 | 49 | word/byte pointer-punning arithmetic | Pointer-to-integer byte-address arithmetic / word↔byte pointer comparison. Re-enables ch18 MemberOffsets (also needs #23), CompareUnionPointers (also #47) (2). |
 | 50 | REMOVE x86-only ABI / page-boundary tests | No BESM-6 analogue (hand-written x86 `.s` helpers, RAX return-pointer ABI). Delete: ch10 PushArgOnPageBoundary; ch18 PassArgsOnPageBoundary, ReturnBigStructOnPageBoundary, ReturnPointerInRax, ReturnSpaceOverlap, ReturnStructOnPageBoundary (6). |
 | 51 | REMOVE/adapt no-analogue overflow & oversized tests | Depend on x86 widths/core size. Adapt or delete: ch12 ArithmeticWraparound (wraps at 2^64), Logical (uses 2^60); ch17 SizeofExtern (12M-word array exceeds BESM-6 core) (3). |
 | 52 | REMOVE backend tag-shadowing tests (no-shadowing design) | Require nested tag shadowing or a parameter shadowing a file-scope static — impossible under the permanent no-shadowing rule. Adapt where possible, otherwise delete: ch18 ResolveTags, StructDeclInSwitchStatement, DeclShadowsDecl, StructShadowsUnion, UnionShadowsStruct, Namespaces, LabelTagMemberNamespace, RedeclareUnion, ScalarMemberAccessDot (9). |
 | 53 | Re-test block-scope-static-only tests | These were disabled for "no block-scope static storage", which is now supported; confirm they pass (or surface the residual blocker) and re-enable. ch18 StaticVsAuto, StructCopyWithDotOperator, StructCopyWithArrowOperator (the last also needs the heap, #23) (3). |
+| 54 | Adapt test ClassifyUnions for BESM-6. | | 
+| 55 | Adapt test ParamPassing for BESM-6. | | 
+| 56 | Adapt test UnionRetvals for BESM-6. | | 
 
 **Cross-references (no new task):** besm6 ch15 EquivalentDeclarators re-enables once the
 existing **task #19** (tentative/extern-after-definition clobber) lands. The ch18

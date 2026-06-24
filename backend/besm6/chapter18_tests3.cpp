@@ -1807,8 +1807,9 @@ int main(void) {
 )PROG")));
 }
 
-// 64-bit constants exceed BESM-6 41-bit integer range.
-TEST_F(CodegenTest, DISABLED_Chapter18_BitwiseOpsStructMembers)
+// Adapted for BESM-6: unsigned long is 48-bit, so the wide constants use the
+// top word bit (2^47) instead of the x86 2^63 sign bit.
+TEST_F(CodegenTest, Chapter18_BitwiseOpsStructMembers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 // Bitwise operations with structure members
@@ -1827,9 +1828,9 @@ struct outer {
 
 int main(void) {
     struct inner i = {'a', 100000u};
-    struct outer o = {9223372036854775810ul, &i, 100, {-80, 4294967295U}};
+    struct outer o = {140737488355330ul, &i, 100, {-80, 4294967295U}};
 
-    if ((i.b | o.l) != 9223372036854775907ul) {
+    if ((i.b | o.l) != 140737488355427ul) {
         return 1;  // fail
     }
 
@@ -1841,7 +1842,7 @@ int main(void) {
         return 3;  // fail
     }
 
-    if ((o.l >> 26) != 137438953472ul) {
+    if ((o.l >> 26) != 2097152ul) {
         return 4;  // fail
     }
 
@@ -1855,8 +1856,10 @@ int main(void) {
 )PROG")));
 }
 
-// 64-bit constants exceed BESM-6 41-bit integer range.
-TEST_F(CodegenTest, DISABLED_Chapter18_CompoundAssignStructMembers)
+// Adapted for BESM-6: unsigned long is 48-bit (so the wide modulo constant is
+// 2^48-1), plain char is unsigned (so the -12 member is made positive), and the
+// double members stay within the BESM-6 ~2^63 exponent range (80e10 not 80e20).
+TEST_F(CodegenTest, Chapter18_CompoundAssignStructMembers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 // Compound assignment operations with structure members
@@ -1876,13 +1879,13 @@ struct outer {
 int main(void) {
     int i = -1;
     int i2 = -2;
-    struct inner si = {150., -12, &i};
+    struct inner si = {150., 12, &i};
     struct outer o = {// l
-                      18446744073709551615UL,
+                      281474976710655UL,
                       // in_ptr
                       &si,
                       // in_array
-                      {si, {-20e20, 120, 0}, {0, 0, 0}, {1, 1, &i2}},
+                      {si, {-20e10, 120, 0}, {0, 0, 0}, {1, 1, &i2}},
                       // bar
                       2000};
 
@@ -1894,14 +1897,14 @@ int main(void) {
 
     // -=
     // no overflow b/c of integer promotion
-    o.in_array[0].b -= 460;  //  -12 - 460 = -472, reduces to 40
-    if (o.in_array[0].b != 40) {
+    o.in_array[0].b -= 460;  //  12 - 460 = -448, reduces to 64
+    if (o.in_array[0].b != 64) {
         return 2;  // fail
     }
 
     // *=
-    o.in_array[1].a *= -4;  // -20e20 * -4 = 80e20
-    if (o.in_array[1].a != 80e20) {
+    o.in_array[1].a *= -4;  // -20e10 * -4 = 80e10
+    if (o.in_array[1].a != 80e10) {
         return 4;  // fail
     }
 
@@ -1913,8 +1916,8 @@ int main(void) {
     }
 
     // %=
-    (&o)->l %= o.bar;  // 18446744073709551615 % 2000 = 1615
-    if (o.l != 1615) {
+    (&o)->l %= o.bar;  // 281474976710655 % 2000 = 655
+    if (o.l != 655) {
         return 6;  // fail
     }
 
@@ -1934,11 +1937,11 @@ int main(void) {
     }
 
     // validate everything! (make sure nothing was clobbered)
-    if (si.a != 32 || si.b != -12 || si.ptr != &i) {
+    if (si.a != 32 || si.b != 12 || si.ptr != &i) {
         return 10;  // fail
     }
 
-    if (o.l != 1615) {
+    if (o.l != 655) {
         return 11;  // fail
     }
 
@@ -1946,12 +1949,12 @@ int main(void) {
         return 12;  // fail
     }
 
-    if (o.in_array[0].a != 150. || o.in_array[0].b != 40 ||
+    if (o.in_array[0].a != 150. || o.in_array[0].b != 64 ||
         o.in_array[0].ptr != &i) {
         return 13;  // fail
     }
 
-    if (o.in_array[1].a != 80e20 || o.in_array[1].b != 120 ||
+    if (o.in_array[1].a != 80e10 || o.in_array[1].b != 120 ||
         o.in_array[1].ptr) {
         return 14;  // fail
     }
@@ -1974,8 +1977,10 @@ int main(void) {
 )PROG")));
 }
 
-// calloc + 64-bit constants.
-TEST_F(CodegenTest, DISABLED_Chapter18_IncrStructMembers)
+// Adapted for BESM-6: calloc replaced by a zero-initialized static array
+// (heap not yet wired up, task #23); unsigned int wraps at 2^48 and plain char
+// is unsigned, so the wide unsigned and negative-char literals are adjusted.
+TEST_F(CodegenTest, Chapter18_IncrStructMembers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 // Test prefix and postfix ++ and -- with structure members
@@ -1991,26 +1996,25 @@ struct outer {
     int array[3];
 };
 
-void *calloc(unsigned long nmemb, unsigned long size);
-
 int main(void) {
+    static struct inner zeroed[3]; // zero-initialized, stands in for calloc
     struct outer my_struct = {
         // l
-        9223372036854775900ul,
+        999999999999ul,
         // in_ptr
-        calloc(3, sizeof (struct inner)),
+        zeroed,
         // array
         {-1000, -2000, -3000},
     };
     struct outer *my_struct_ptr = &my_struct;
 
     // prefix ++
-    if (++my_struct.l != 9223372036854775901ul) {
+    if (++my_struct.l != 1000000000000ul) {
         return 1; // fail
     }
 
     // prefix --
-    if (--my_struct.in_ptr[0].u != 4294967295U) { // unsigned wraparound
+    if (--my_struct.in_ptr[0].u != 281474976710655U) { // unsigned wraparound
         return 2; // fail
     }
 
@@ -2026,14 +2030,14 @@ int main(void) {
 
     // validate current state of my_struct - make sure we performed updates
     // and didn't clobber anything
-    if (my_struct_ptr->l != 9223372036854775901ul) {
+    if (my_struct_ptr->l != 1000000000000ul) {
         return 5; // fail
     }
 
     if (my_struct.in_ptr->c != 1) {
         return 6; // fail
     }
-    if (my_struct_ptr->in_ptr->u !=  4294967295U) {
+    if (my_struct_ptr->in_ptr->u !=  281474976710655U) {
         return 7; // fail
     }
 
@@ -2058,12 +2062,13 @@ int main(void) {
     // validate - in_ptr currently points to array member at index 2
 
     // element 0 (now at index -2) should have same values as last time we checked
-    if (my_struct_ptr->in_ptr[-2].c != 1 || my_struct_ptr->in_ptr[-2].u != 4294967295U) {
+    if (my_struct_ptr->in_ptr[-2].c != 1 || my_struct_ptr->in_ptr[-2].u != 281474976710655U) {
         return 10;
     }
 
     // we decremented c in element 1 (now at index -1), didn't change u
-    if (my_struct_ptr->in_ptr[-1].c != -2) {
+    // (plain char is unsigned on BESM-6, so 255 decremented reads back as 254)
+    if (my_struct_ptr->in_ptr[-1].c != 254) {
         return 11; // fail
     }
 
