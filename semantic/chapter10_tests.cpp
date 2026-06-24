@@ -25,13 +25,6 @@
 //     without linkage" rather than as the file-scope linkage conflict the book
 //     intends.
 //
-// DISABLED (block-scope extern/static is stored at file scope, so we can't yet
-// distinguish it from a genuine file-scope entity — to be enabled with the
-// chapter-10 run-tests work):
-//   * extern_follows_static_local_var — block-scope static is indistinguishable
-//     from a file-scope static at level 0, so the following extern is accepted.
-//   * out_of_scope_extern_var — a block-scope extern leaks past its block.
-//
 #include "typecheck_fixture.h"
 
 // --- invalid_declarations ---------------------------------------------------
@@ -60,9 +53,8 @@ TEST_F(PipelineTest, Chapter10_ExternFollowsLocalVar_Neg)
                  "declared both with and without linkage");
 }
 
-// DISABLED: block-scope static is indistinguishable from a file-scope static
-// at level 0, so the following extern is wrongly accepted.
-TEST_F(PipelineTest, DISABLED_Chapter10_ExternFollowsStaticLocalVar_Neg)
+// A block-scope static has no linkage, so a following extern conflicts.
+TEST_F(PipelineTest, Chapter10_ExternFollowsStaticLocalVar_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void) {
     static int x  = 0;
@@ -87,9 +79,9 @@ int main(void) {
                  "Duplicate variable declaration i");
 }
 
-// DISABLED: a block-scope extern declaration leaks past its block, so the use
-// of 'a' after the block is wrongly accepted.
-TEST_F(PipelineTest, DISABLED_Chapter10_OutOfScopeExternVar_Neg)
+// A block-scope extern declaration does not leak past its block; the use of
+// 'a' after the block is out of scope.
+TEST_F(PipelineTest, Chapter10_OutOfScopeExternVar_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void) {
     {

@@ -356,8 +356,12 @@ static void typecheck_local_var_decl(const Declaration *d)
             // A block-scope extern declaration may link to a prior declaration
             // with internal or external linkage, but not to one with no linkage
             // at all (C11 §6.7p3).  A SYM_LOCAL is an automatic local or a
-            // parameter — both no-linkage — so an extern following it conflicts.
-            if (existing && existing->kind == SYM_LOCAL) {
+            // parameter, and a block-scope static has static storage but no
+            // linkage — an extern following either conflicts.  (A file-scope
+            // static has internal linkage, so an extern may follow it.)
+            if (existing && (existing->kind == SYM_LOCAL ||
+                             (existing->kind == SYM_STATIC && existing->block_scope &&
+                              !existing->u.static_var.global))) {
                 fatal_error("Identifier %s declared both with and without linkage",
                             decl->name);
             }
@@ -365,7 +369,10 @@ static void typecheck_local_var_decl(const Declaration *d)
                 fatal_error("Variable %s redeclared with different type", decl->name);
             }
             if (!existing) {
-                symtab_add_static_var(decl->name, var_type, true, INIT_NONE, NULL);
+                // Scope the synthesized symbol to this block so its identifier does
+                // not leak past the block (C11 §6.2.1); it is purged on block exit.
+                symtab_add_static_var_scoped(decl->name, var_type, true, INIT_NONE, NULL,
+                                             scope_level);
             }
             continue;
         }

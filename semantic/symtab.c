@@ -129,6 +129,7 @@ void symtab_add_static_var_scoped(const char *name, const Type *t, bool global,
     sym->u.static_var.global    = global;
     sym->u.static_var.init_kind = init_kind;
     sym->u.static_var.init_list = init_list;
+    sym->block_scope            = true;
 
     map_insert_free(&symtab, name, (intptr_t)sym, level, symtab_destroy_callback);
 }

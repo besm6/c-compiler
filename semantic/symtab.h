@@ -35,6 +35,7 @@ typedef struct Symbol {
     Type *type;       // Symbol type (Type* from ast.h)
     SymbolKind kind;  // Kind of symbol (func, static, const, local)
     bool has_linkage; // When function or global/extern variable
+    bool block_scope; // True for a static/extern declared inside a block (not at file scope)
     union {
         struct {
             bool defined;  // True if function body is defined
