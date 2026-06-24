@@ -12,4 +12,10 @@ c
             ,sti, 13
          14 ,mtj, 15
          13 ,uj,
+c
+c Block of constants for other routines,
+c to be accessed as b/true + offset.
+c
+    b/true: ,entry,
+            ,log, 1                 . constant 1, as logical 'true' value
             ,end,
