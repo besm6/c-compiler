@@ -1,11 +1,12 @@
     b/uneg: ,name,
+    b/true: ,subp,
+    bits48: ,equ, b/true + 2        . bits 48...1
 c
 c Compute unary negate operation for unsigned value.
 c
-    b/true: ,subp,
             ,aox,                   . OR mem[0]=0: ACC unchanged, set logical w so uza tests x==0
          13 ,uza,                   . -0u -> 0u  (returns with logical w from the aox above)
-            ,aex, =7777 7777 7777 7777
+            ,aex, bits48            . all ones
             ,arx, b/true            . ~x + 1   (arx sets multiplicative w)
             ,aox,                   . OR mem[0]=0: ACC unchanged, restore logical w-mode
          13 ,uj,
