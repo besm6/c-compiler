@@ -95,6 +95,9 @@ void validate_type(const Type *t)
         if (!is_complete(t->u.array.element)) {
             fatal_error("Array of incomplete type");
         }
+        if (unalias(t->u.array.element)->kind == TYPE_FUNCTION) {
+            fatal_error("Cannot declare an array of functions");
+        }
         validate_type(t->u.array.element);
         break;
     case TYPE_POINTER:

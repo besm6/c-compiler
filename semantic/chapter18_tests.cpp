@@ -1303,8 +1303,10 @@ int main(void) {
 
 // --- invalid_types/extra_credit/union_type_declarations ---
 
-// DISABLED: array-of-incomplete-element not detected when the array is behind a pointer (union u (*arr)[3])
-TEST_F(PipelineTest, DISABLED_Chapter18_ArrayOfIncompleteUnionType_Neg)
+// An array with an incomplete element type is rejected even when the array is
+// behind a pointer (union u (*arr)[3]); validate_type recurses through the
+// pointer into the array and catches the incomplete element.
+TEST_F(PipelineTest, Chapter18_ArrayOfIncompleteUnionType_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* It's illegal to specify an array type with any incomplete

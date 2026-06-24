@@ -410,31 +410,31 @@ TEST_F(PipelineTest, Chapter15_SwitchOnArray_Neg)
                  "Switch controlling expression must be of integer type");
 }
 
-// --- accepted today (type-checker gaps) -------------------------------------
+// --- invalid array element types --------------------------------------------
 
-// int foo[3](int a); — an array of functions passes typecheck; it only trips a
-// get_size assert later during lowering, not a clean typecheck diagnostic (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_ArrayOfFunctions_Neg)
+// int foo[3](int a); — an array of functions is rejected cleanly by the type
+// checker (validate_type), not left to trip a get_size assert during lowering.
+TEST_F(PipelineTest, Chapter15_ArrayOfFunctions_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int foo[3](int a);
 )"),
-                 "doesn't have size");
+                 "array of functions");
 }
 
-// int (foo[3])(int a); — same array of functions, parenthesized differently (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_ArrayOfFunctions2_Neg)
+// int (foo[3])(int a); — same array of functions, parenthesized differently.
+TEST_F(PipelineTest, Chapter15_ArrayOfFunctions2_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int (foo[3])(int a);
 )"),
-                 "doesn't have size");
+                 "array of functions");
 }
 
-// int(foo[3])(int a); — same array of functions (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_ParenthesizedArrayOfFunctions_Neg)
+// int(foo[3])(int a); — same array of functions.
+TEST_F(PipelineTest, Chapter15_ParenthesizedArrayOfFunctions_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int(foo[3])(int a);
 )"),
-                 "doesn't have size");
+                 "array of functions");
 }
 
 // arr = arr2; — an array is not a modifiable lvalue (gap: array assignment accepted).
