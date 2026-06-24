@@ -48,7 +48,7 @@ file(GLOB BESM6_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
 # in the build directory via cpp -> parse -> lower -> genbesm.  besmc only recognizes
 # the .madlen extension, so genbesm writes there.
 set(LIBC_C
-    putbyte putch flush printf getch puts
+    putbyte putch flush printf getch puts putchar
     doprnt sprintf snprintf modf malloc
     fabs fmax fmin fma
     memcpy memset memcmp memmove memchr

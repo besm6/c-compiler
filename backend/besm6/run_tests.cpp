@@ -71,6 +71,20 @@ TEST_F(CodegenTest, PrintChar)
     EXPECT_EQ("Q\n", result);
 }
 
+// putchar writes one byte and returns it; print the byte then its returned value.
+TEST_F(CodegenTest, PutChar)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            int r = putchar('Q');
+            putchar('\n');
+            printf("%d\n", r);
+        }
+    )");
+    EXPECT_EQ("Q\n81\n", result);
+}
+
 TEST_F(CodegenTest, PrintDecimal)
 {
     std::string result = CompileAndRun(R"(
