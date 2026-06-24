@@ -21,6 +21,19 @@ static const Param *params_for_call(const Type *fn_type)
     return params;
 }
 
+static Expr *decay_expr(Expr *typed);
+
+// True if the (pre-decay) operand has array type but is not a string literal:
+// a named array, an array element/member, or a *ptr-to-array is never a
+// modifiable lvalue (C11 6.3.2.1), so =, compound assignment, and ++/-- must
+// reject it before it decays to an assignable-looking pointer.  A string
+// literal is also an array object, but it falls through to the generic
+// is_lvalue() path so its existing diagnostic stays unchanged.
+static bool is_array_lvalue_operand(const Expr *e)
+{
+    return e->kind != EXPR_LITERAL && is_array(e->type);
+}
+
 // Check if an expression is an lvalue.
 // True if the (un-decayed) expression is a function designator: a bare
 // identifier that names a function.  Such an operand decays to a function
@@ -278,7 +291,11 @@ static Expr *typecheck_expr(Expr *e)
             if (is_function_designator(e->u.unary_op.expr)) {
                 fatal_error("Operand of pre-increment/decrement must be a modifiable lvalue");
             }
-            Expr *inner = typecheck_and_decay(e->u.unary_op.expr);
+            Expr *inner = typecheck_expr(e->u.unary_op.expr);
+            if (is_array_lvalue_operand(inner)) {
+                fatal_error("Array is not a modifiable lvalue");
+            }
+            inner = decay_expr(inner);
             if (!is_lvalue(inner)) {
                 fatal_error("Operand of pre-increment/decrement must be a modifiable lvalue");
             }
@@ -463,7 +480,11 @@ static Expr *typecheck_expr(Expr *e)
         if (is_function_designator(e->u.assign.target)) {
             fatal_error("Operand of assignment must be a modifiable lvalue");
         }
-        Expr *lhs = typecheck_and_decay(e->u.assign.target);
+        Expr *lhs = typecheck_expr(e->u.assign.target);
+        if (is_array_lvalue_operand(lhs)) {
+            fatal_error("Array is not a modifiable lvalue");
+        }
+        lhs = decay_expr(lhs);
         if (!is_lvalue(lhs)) {
             fatal_error("Left hand side of assignment is invalid lvalue");
         }
@@ -725,7 +746,11 @@ static Expr *typecheck_expr(Expr *e)
         if (is_function_designator(e->u.post_inc)) {
             fatal_error("Operand of post-increment must be a modifiable lvalue");
         }
-        Expr *inner = typecheck_and_decay(e->u.post_inc);
+        Expr *inner = typecheck_expr(e->u.post_inc);
+        if (is_array_lvalue_operand(inner)) {
+            fatal_error("Array is not a modifiable lvalue");
+        }
+        inner = decay_expr(inner);
         if (!is_lvalue(inner)) {
             fatal_error("Operand of post-increment must be a modifiable lvalue");
         }
@@ -744,7 +769,11 @@ static Expr *typecheck_expr(Expr *e)
         if (is_function_designator(e->u.post_dec)) {
             fatal_error("Operand of post-decrement must be a modifiable lvalue");
         }
-        Expr *inner = typecheck_and_decay(e->u.post_dec);
+        Expr *inner = typecheck_expr(e->u.post_dec);
+        if (is_array_lvalue_operand(inner)) {
+            fatal_error("Array is not a modifiable lvalue");
+        }
+        inner = decay_expr(inner);
         if (!is_lvalue(inner)) {
             fatal_error("Operand of post-decrement must be a modifiable lvalue");
         }
@@ -848,14 +877,13 @@ static Expr *typecheck_expr(Expr *e)
 }
 
 // Type-check an expression and apply array-to-pointer decay.
-Expr *typecheck_and_decay(Expr *e)
+// Apply the lvalue conversions of C11 6.3.2.1 to an already-type-checked
+// expression: an array decays to a pointer to its element, a function to a
+// function pointer; an incomplete struct/union is rejected.  Split out of
+// typecheck_and_decay() so callers that must inspect the *pre-decay* type
+// (e.g. to reject an array as a modifiable lvalue) can decay after their check.
+static Expr *decay_expr(Expr *typed)
 {
-    if (semantic_debug) {
-        printf("--- %s()\n", __func__);
-    }
-    if (!e)
-        return NULL;
-    Expr *typed    = typecheck_expr(e);
     const Type *vt = unalias(typed->type);
     if ((vt->kind == TYPE_STRUCT || vt->kind == TYPE_UNION) && !is_complete(typed->type)) {
         fatal_error("Incomplete structure type not permitted");
@@ -873,6 +901,16 @@ Expr *typecheck_and_decay(Expr *e)
         typed->type = ptr;
     }
     return typed;
+}
+
+Expr *typecheck_and_decay(Expr *e)
+{
+    if (semantic_debug) {
+        printf("--- %s()\n", __func__);
+    }
+    if (!e)
+        return NULL;
+    return decay_expr(typecheck_expr(e));
 }
 
 // Type-check an expression and require it to be scalar.

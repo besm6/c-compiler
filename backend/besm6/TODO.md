@@ -42,7 +42,6 @@ re-enabled when block-scope statics landed).
 
 | #  | Task | Description |
 |----|------|-------------|
-| 28 | Reject array as non-modifiable lvalue | Diagnose assignment, compound-assignment, and `++`/`--` applied to an array. Re-enables ch15 AssignToArray, AssignToArray2, AssignToArray3, CompoundAssignToArray, CompoundAssignToNestedArray, PostfixIncrArray, PostfixIncrNestedArray, PrefixDecrArray, PrefixDecrNestedArray, plus ch18 LvaluesAssignToArray (10). |
 | 29 | Incompatible-pointer-type diagnostics | Diagnose incompatible pointer types in assignment, comparison, and subtraction. Re-enables ch15 AssignIncompatiblePointerTypes, CompareDifferentPointerTypes, SubDifferentPointerTypes (3). |
 | 30 | Conflicting-redeclaration type checks | Catch a redeclaration whose type conflicts with the prior one. Re-enables ch15 ConflictingArrayDeclarations, ConflictingFunctionDeclarations (2). |
 | 31 | Reject scalar/null initializer for static aggregates | Reject a scalar (null-pointer) initializer for a static array/struct. Re-enables ch15 NullPtrStaticArrayInitializer and ch18 InitializersStaticStructWithZero (2). |

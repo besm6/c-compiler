@@ -2139,7 +2139,7 @@ int main(void) {
 }
 
 // DISABLED: assignment to an array-typed lvalue (array member) is not rejected
-TEST_F(PipelineTest, DISABLED_Chapter18_LvaluesAssignToArray_Neg)
+TEST_F(PipelineTest, Chapter18_LvaluesAssignToArray_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct chars {

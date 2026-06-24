@@ -813,9 +813,9 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         // offset_enc 5) via GET_ADDRESS_DECAY; any other array uses a plain GET_ADDRESS.
         if (unalias(e->type)->kind == TYPE_POINTER) {
             const Symbol *sym = symtab_get_opt(e->u.var);
-            bool is_array     = (sym && unalias(sym->type)->kind == TYPE_ARRAY) ||
+            bool sym_is_array = (sym && unalias(sym->type)->kind == TYPE_ARRAY) ||
                             tac_is_array_local(ctx, e->u.var);
-            if (is_array) {
+            if (sym_is_array) {
                 Tac_Val *dst          = new_var_val(ctx);
                 Tac_Instruction *in   = tac_new_instruction(
                     is_byte_pointer(e->type) ? TAC_INSTRUCTION_GET_ADDRESS_DECAY

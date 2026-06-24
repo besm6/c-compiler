@@ -438,7 +438,7 @@ TEST_F(PipelineTest, DISABLED_Chapter15_ParenthesizedArrayOfFunctions_Neg)
 }
 
 // arr = arr2; — an array is not a modifiable lvalue (gap: array assignment accepted).
-TEST_F(PipelineTest, DISABLED_Chapter15_AssignToArray_Neg)
+TEST_F(PipelineTest, Chapter15_AssignToArray_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void)
 {
@@ -452,7 +452,7 @@ TEST_F(PipelineTest, DISABLED_Chapter15_AssignToArray_Neg)
 }
 
 // dim2[0] = dim; — a nested array is not a modifiable lvalue (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_AssignToArray2_Neg)
+TEST_F(PipelineTest, Chapter15_AssignToArray2_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void)
 {
@@ -466,7 +466,7 @@ TEST_F(PipelineTest, DISABLED_Chapter15_AssignToArray2_Neg)
 }
 
 // *ptr_to_array = arr; — *(int(*)[3]) has array type, not a modifiable lvalue (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_AssignToArray3_Neg)
+TEST_F(PipelineTest, Chapter15_AssignToArray3_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void) {
     int arr[3] = { 1, 2, 3};
@@ -554,7 +554,7 @@ TEST_F(PipelineTest, DISABLED_Chapter15_NullPtrStaticArrayInitializer_Neg)
 }
 
 // arr -= 1; — an array is not a modifiable lvalue for compound assignment (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_CompoundAssignToArray_Neg)
+TEST_F(PipelineTest, Chapter15_CompoundAssignToArray_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void) {
     int arr[3] = {1, 2, 3};
@@ -566,7 +566,7 @@ TEST_F(PipelineTest, DISABLED_Chapter15_CompoundAssignToArray_Neg)
 }
 
 // arr[1] += 1; — a nested array is not a modifiable lvalue for compound assignment (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_CompoundAssignToNestedArray_Neg)
+TEST_F(PipelineTest, Chapter15_CompoundAssignToNestedArray_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void) {
     long arr[2][2] = {{1, 2}, {3, 4}};
@@ -578,7 +578,7 @@ TEST_F(PipelineTest, DISABLED_Chapter15_CompoundAssignToNestedArray_Neg)
 }
 
 // arr++; — an array is not a modifiable lvalue for ++ (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_PostfixIncrArray_Neg)
+TEST_F(PipelineTest, Chapter15_PostfixIncrArray_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void) {
     int arr[3] = {1, 2, 3};
@@ -590,7 +590,7 @@ TEST_F(PipelineTest, DISABLED_Chapter15_PostfixIncrArray_Neg)
 }
 
 // arr[2]++; — a nested array is not a modifiable lvalue for ++ (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_PostfixIncrNestedArray_Neg)
+TEST_F(PipelineTest, Chapter15_PostfixIncrNestedArray_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void) {
     int arr[2][3] = {{1, 2, 3}, {4, 5, 6}};
@@ -602,7 +602,7 @@ TEST_F(PipelineTest, DISABLED_Chapter15_PostfixIncrNestedArray_Neg)
 }
 
 // --arr; — an array is not a modifiable lvalue for -- (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_PrefixDecrArray_Neg)
+TEST_F(PipelineTest, Chapter15_PrefixDecrArray_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void) {
     int arr[3] = {1, 2, 3};
@@ -614,7 +614,7 @@ TEST_F(PipelineTest, DISABLED_Chapter15_PrefixDecrArray_Neg)
 }
 
 // --arr[2]; — a nested array is not a modifiable lvalue for -- (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_PrefixDecrNestedArray_Neg)
+TEST_F(PipelineTest, Chapter15_PrefixDecrNestedArray_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void) {
     int arr[2][3] = {{1, 2, 3}, {4, 5, 6}};
