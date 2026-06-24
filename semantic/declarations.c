@@ -722,6 +722,9 @@ static void typecheck_file_scope_var_decl(Declaration *d)
             if (unalias(existing->type)->kind != unalias(var_type)->kind) {
                 fatal_error("Variable %s redeclared with different type", decl->name);
             }
+            if (!compatible_type(existing->type, var_type)) {
+                fatal_error("Conflicting types for variable %s", decl->name);
+            }
             if (existing->kind == SYM_STATIC) {
                 if (!is_extern(d->u.var.specifiers) && existing->u.static_var.global != global) {
                     fatal_error("Conflicting variable linkage");

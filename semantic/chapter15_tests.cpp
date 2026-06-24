@@ -519,7 +519,7 @@ TEST_F(PipelineTest, Chapter15_SubDifferentPointerTypes_Neg)
 }
 
 // int arr[6]; ... int arr[5]; — a conflicting redeclaration is accepted today (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_ConflictingArrayDeclarations_Neg)
+TEST_F(PipelineTest, Chapter15_ConflictingArrayDeclarations_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int arr[6];
 
@@ -533,7 +533,7 @@ int arr[5];
 }
 
 // int f(int arr[2][3]); int f(int arr[2][4]); — conflicting adjusted parameter types (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_ConflictingFunctionDeclarations_Neg)
+TEST_F(PipelineTest, Chapter15_ConflictingFunctionDeclarations_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int f(int arr[2][3]);
 

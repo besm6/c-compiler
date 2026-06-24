@@ -42,7 +42,6 @@ re-enabled when block-scope statics landed).
 
 | #  | Task | Description |
 |----|------|-------------|
-| 30 | Conflicting-redeclaration type checks | Catch a redeclaration whose type conflicts with the prior one. Re-enables ch15 ConflictingArrayDeclarations, ConflictingFunctionDeclarations (2). |
 | 31 | Reject scalar/null initializer for static aggregates | Reject a scalar (null-pointer) initializer for a static array/struct. Re-enables ch15 NullPtrStaticArrayInitializer and ch18 InitializersStaticStructWithZero (2). |
 | 32 | Clean typecheck error for invalid array element types | (a) Array-of-functions is accepted by typecheck and only caught later during lowering by a `get_size` assert; reject it cleanly. Re-enables ch15 ArrayOfFunctions, ArrayOfFunctions2, ParenthesizedArrayOfFunctions (3). (b) Array-of-incomplete-element is not detected when the array is behind a pointer (`union u (*arr)[3]`). Re-enables ch18 ArrayOfIncompleteUnionType_Neg (1). |
 | 33 | Reject non-lvalue struct/union member assignment in typecheck-only path | The non-lvalue check currently lives only in the translator (`gen_lval`); add it to the typecheck-only fixture path. Re-enables ch18 AssignNonLvalueUnionMember, LvaluesAssignNestedNonLvalue, LvaluesAssignToNonLvalue (3). |
