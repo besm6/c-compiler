@@ -477,19 +477,21 @@ TEST_F(PipelineTest, Chapter15_AssignToArray3_Neg)
                  "lvalue");
 }
 
-// int (*arr)[3] = &four_element_array; — int(*)[4] is incompatible with int(*)[3] (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_AssignIncompatiblePointerTypes_Neg)
+// int (*arr)[3] = &four_element_array; — int(*)[4] is incompatible with int(*)[3].
+// (This codebase reports incompatible-pointer assignment as "Cannot convert type for
+// assignment", matching the sibling Chapter15_BadArgType_Neg etc.)
+TEST_F(PipelineTest, Chapter15_AssignIncompatiblePointerTypes_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void) {
     int four_element_array[4] = {1, 2, 3, 4};
     int (*arr)[3] = &four_element_array;
 }
 )"),
-                 "Incompatible pointer types");
+                 "Cannot convert type for assignment");
 }
 
-// array_ptr < ptr — comparing two different pointer types is illegal (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_CompareDifferentPointerTypes_Neg)
+// array_ptr < ptr — comparing two different pointer types is illegal.
+TEST_F(PipelineTest, Chapter15_CompareDifferentPointerTypes_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void)
 {
@@ -502,8 +504,8 @@ TEST_F(PipelineTest, DISABLED_Chapter15_CompareDifferentPointerTypes_Neg)
                  "Incompatible pointer types");
 }
 
-// ptr - ptr2 — subtracting pointers to different types is illegal (gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_SubDifferentPointerTypes_Neg)
+// ptr - ptr2 — subtracting pointers to different types is illegal.
+TEST_F(PipelineTest, Chapter15_SubDifferentPointerTypes_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void)
 {

@@ -332,8 +332,15 @@ bool compatible_type(const Type *target, const Type *src)
     }
     case TYPE_POINTER:
         return compatible_type(target->u.pointer.target, src->u.pointer.target);
-    case TYPE_ARRAY:
-        return compatible_type(target->u.array.element, src->u.array.element);
+    case TYPE_ARRAY: {
+        if (!compatible_type(target->u.array.element, src->u.array.element))
+            return false;
+        // Arrays are incompatible when both dimensions are known and differ
+        // (int[3] vs int[4]). An unknown (incomplete) dimension on either side
+        // stays compatible — get_array_size() returns 0 for an incomplete array.
+        size_t ts = get_array_size(target), ss = get_array_size(src);
+        return !(ts && ss && ts != ss);
+    }
     case TYPE_COMPLEX:
     case TYPE_IMAGINARY:
         return compatible_type(target->u.complex.base, src->u.complex.base);

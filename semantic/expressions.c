@@ -363,6 +363,8 @@ static Expr *typecheck_expr(Expr *e)
                 e->type = clone_type(e1->type, __func__, __FILE__, __LINE__);
             } else if (is_complete_pointer(e1->type) &&
                        unalias(e1->type)->kind == unalias(e2->type)->kind) {
+                if (!compatible_type(e1->type, e2->type))
+                    fatal_error("Incompatible pointer types");
                 e->type = new_type(TYPE_LONG, __func__, __FILE__, __LINE__);
             } else {
                 fatal_error("Invalid operands for subtraction");
@@ -417,8 +419,11 @@ static Expr *typecheck_expr(Expr *e)
         case BINARY_GT:
         case BINARY_LE:
         case BINARY_GE: {
-            e1                 = typecheck_and_decay(e1);
-            e2                 = typecheck_and_decay(e2);
+            e1 = typecheck_and_decay(e1);
+            e2 = typecheck_and_decay(e2);
+            if (is_complete_pointer(e1->type) && is_complete_pointer(e2->type) &&
+                !compatible_type(e1->type, e2->type))
+                fatal_error("Incompatible pointer types");
             const Type *common =
                 is_arithmetic(e1->type) && is_arithmetic(e2->type)
                     ? get_common_type(e1->type, e2->type)

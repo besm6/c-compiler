@@ -42,7 +42,6 @@ re-enabled when block-scope statics landed).
 
 | #  | Task | Description |
 |----|------|-------------|
-| 29 | Incompatible-pointer-type diagnostics | Diagnose incompatible pointer types in assignment, comparison, and subtraction. Re-enables ch15 AssignIncompatiblePointerTypes, CompareDifferentPointerTypes, SubDifferentPointerTypes (3). |
 | 30 | Conflicting-redeclaration type checks | Catch a redeclaration whose type conflicts with the prior one. Re-enables ch15 ConflictingArrayDeclarations, ConflictingFunctionDeclarations (2). |
 | 31 | Reject scalar/null initializer for static aggregates | Reject a scalar (null-pointer) initializer for a static array/struct. Re-enables ch15 NullPtrStaticArrayInitializer and ch18 InitializersStaticStructWithZero (2). |
 | 32 | Clean typecheck error for invalid array element types | (a) Array-of-functions is accepted by typecheck and only caught later during lowering by a `get_size` assert; reject it cleanly. Re-enables ch15 ArrayOfFunctions, ArrayOfFunctions2, ParenthesizedArrayOfFunctions (3). (b) Array-of-incomplete-element is not detected when the array is behind a pointer (`union u (*arr)[3]`). Re-enables ch18 ArrayOfIncompleteUnionType_Neg (1). |
