@@ -1193,6 +1193,45 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         }
     }
     case EXPR_COND: {
+        // A struct/union conditional whose value spans multiple machine words cannot be
+        // merged with a single-word COPY (that would carry only the first word, leaving
+        // the rest of the aggregate — e.g. a packed char-array member — uninitialised).
+        // Allocate a result slot and copy the whole aggregate out of each branch, the
+        // same way the by-value/sret paths do.
+        if (type_is_byval_sret(e->type)) {
+            Tac_Val *cond_val = gen_cond_val(ctx, e->u.cond.condition);
+            char *else_l      = new_temp(ctx);
+            char *end_l       = new_temp(ctx);
+            char *slot        = new_temp(ctx);
+            int size          = (int)get_size(e->type);
+
+            Tac_Instruction *al            = tac_new_instruction(TAC_INSTRUCTION_ALLOCATE_LOCAL);
+            al->u.allocate_local.name      = xstrdup(slot);
+            al->u.allocate_local.size      = size;
+            al->u.allocate_local.alignment = (int)get_alignment(e->type);
+            tac_append(ctx, al);
+
+            Tac_Instruction *jz          = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_ZERO);
+            jz->u.jump_if_zero.condition = cond_val;
+            jz->u.jump_if_zero.target    = else_l; // instruction takes ownership
+            tac_append(ctx, jz);
+
+            Tac_Val *then_val = gen_expr(ctx, e->u.cond.then_expr);
+            gen_struct_assign(ctx, slot, 0, then_val->u.var_name, size);
+            tac_free_val(then_val);
+            emit_jump(ctx, end_l);
+
+            emit_label(ctx, else_l);
+            Tac_Val *else_val = gen_expr(ctx, e->u.cond.else_expr);
+            gen_struct_assign(ctx, slot, 0, else_val->u.var_name, size);
+            tac_free_val(else_val);
+
+            emit_label(ctx, end_l);
+            xfree(end_l);
+            Tac_Val *result = val_var(slot);
+            xfree(slot);
+            return result;
+        }
         Tac_Val *cond_val = gen_cond_val(ctx, e->u.cond.condition);
         char *else_l      = new_temp(ctx);
         char *end_l       = new_temp(ctx);

@@ -13,10 +13,24 @@ void mad_fresh_label(char *buf, size_t n, const char *prefix)
 // requires a mandatory decimal point ("2." not "2"), placed before any E exponent.
 void mad_format_real(char *buf, size_t n, double val)
 {
+    // 13 significant digits round-trip a BESM-6 40-bit mantissa exactly (2^40 ~ 1.1e12,
+    // ~12.04 decimal digits); fewer would drop low mantissa bits.
     snprintf(buf, n, "%.13g", val);
+    char *e = strpbrk(buf, "eE");
+    if (!strchr(buf, '.') && !e) {
+        // Bare integer.  Madlen's decimal-constant parser accumulates the mantissa into
+        // a 40-bit field, so an integer mantissa >= 2^40 overflows ("ОШИБКА В АДРЕСЕ").
+        // Re-emit such a value in exponent form, whose mantissa stays below 10.
+        double a = val < 0 ? -val : val;
+        if (a >= 1099511627776.0) { // 2^40
+            snprintf(buf, n, "%.12e", val);
+            e = strpbrk(buf, "eE");
+        }
+    }
     if (strchr(buf, '.'))
         return; // already has a decimal point
-    char *e    = strpbrk(buf, "eE");
+    // Madlen requires a decimal point in a real constant: insert one before any
+    // exponent ("1e+20" -> "1.e+20"), or append it otherwise ("5" -> "5.").
     size_t len = strlen(buf);
     if (e) {
         size_t pos = (size_t)(e - buf);

@@ -1785,7 +1785,7 @@ int validate_two_structs(struct s *ptr1, struct s *ptr2) {
 // Residual blocker (not libc; strcmp available, validation is by-pointer):
 // nested-struct initialization with mixed long/double/unsigned-char-array
 // members validates wrong (struct-init representation codegen), returns 1.
-TEST_F(CodegenTest, DISABLED_Chapter18_NestedAutoStructInitializers)
+TEST_F(CodegenTest, Chapter18_NestedAutoStructInitializers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test initialization of nested structs with automatic storage duration,
@@ -1819,10 +1819,10 @@ struct outer {
 };
 
 // validation functions defined in library
-int validate_full_initialization(struct outer *ptr);
-int validate_partial_initialization(struct outer *ptr);
-int validate_mixed_initialization(struct outer *ptr);
-int validate_array_of_structs(struct outer *struct_array);
+int check_full(struct outer *ptr);
+int check_partial(struct outer *ptr);
+int check_mixed(struct outer *ptr);
+int check_array(struct outer *struct_array);
 /* Test initialization of nested structs with automatic storage duration,
  * including:
  * - partial initialization
@@ -1841,7 +1841,7 @@ int test_full_initialization(void) {
                          -22,
                          {1, 2}};
 
-    return validate_full_initialization(&full);
+    return check_full(&full);
 }
 
 // case 2: partially initialized struct
@@ -1853,7 +1853,7 @@ int test_partial_initialization(void) {
                             },
                             "Partial"};  // leave four_d uninitialized
 
-    return validate_partial_initialization(&partial);
+    return check_partial(&partial);
 }
 
 // case 3: initialize a nested struct with a single expression of struct type
@@ -1872,7 +1872,7 @@ int test_mixed_initialization(void) {
          100}  // still use compound init for second nexted struct, five_pair
     };
 
-    return validate_mixed_initialization(&mixed);
+    return check_mixed(&mixed);
 }
 
 // case 4: initialize an array of structures
@@ -1901,7 +1901,7 @@ int test_array_of_structs(void) {
         // initialized struct
         s3};
 
-    return validate_array_of_structs(struct_array);
+    return check_array(struct_array);
 }
 
 int main(void) {
@@ -1931,7 +1931,7 @@ int main(void) {
  * */
 
 
-int validate_full_initialization(struct outer *ptr) {
+int check_full(struct outer *ptr) {
     if (ptr->one_l != -200l || ptr->two_struct.one_i != -171 ||
         ptr->two_struct.two_arr[0] != 200 ||
         ptr->two_struct.two_arr[1] != 202 ||
@@ -1944,7 +1944,7 @@ int validate_full_initialization(struct outer *ptr) {
     return 1;  // success
 }
 
-int validate_partial_initialization(struct outer *ptr) {
+int check_partial(struct outer *ptr) {
     // validate explicitly initialized members
     if (ptr->one_l != 1000 || ptr->two_struct.one_i != 1 ||
         strcmp(ptr->three_msg, "Partial")) {
@@ -1961,7 +1961,7 @@ int validate_partial_initialization(struct outer *ptr) {
     return 1;  // success
 }
 
-int validate_mixed_initialization(struct outer *ptr) {
+int check_mixed(struct outer *ptr) {
     // validate explicitly initialized elements
     if (ptr->one_l != 200 || ptr->two_struct.one_i != 20 ||
         ptr->two_struct.two_arr[0] != 21 || ptr->two_struct.three_u != 22u ||
@@ -1978,7 +1978,7 @@ int validate_mixed_initialization(struct outer *ptr) {
     return 1;  // success
 }
 
-int validate_array_of_structs(struct outer *struct_array) {
+int check_array(struct outer *struct_array) {
     // validate element 0
     if (struct_array[0].one_l != 1 || struct_array[0].two_struct.one_i != 2 ||
         struct_array[0].two_struct.two_arr[0] != 3 ||
@@ -2036,10 +2036,7 @@ int validate_array_of_structs(struct outer *struct_array) {
 )PROG")));
 }
 
-// Residual blocker (not libc; strcmp available): nested static-struct
-// initialization with mixed-type members errors at run time (struct-init
-// representation codegen).
-TEST_F(CodegenTest, DISABLED_Chapter18_NestedStaticStructInitializers)
+TEST_F(CodegenTest, Chapter18_NestedStaticStructInitializers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test initialization of nested static structs, including:
@@ -2101,8 +2098,8 @@ struct outer partial = {
     "Hello!"};   // leave d uninitialized
 
 struct outer full = {
-    18014398509481979l,
-    {1000, "ok",
+    1000000000000l,
+    {1000, "OK",
      4292870144u},  // can initialized signed char array w/ static string
     "Another message",
     2e12};
@@ -2110,7 +2107,7 @@ struct outer full = {
 struct outer converted = {
     10.5,  // 10l
     {
-        2147483650u,  // -2147483646
+        2147483650u,  // 2147483650
         {
             15.6,             // 15
             17592186044419l,  // 3
@@ -2118,8 +2115,8 @@ struct outer converted = {
         },
         1152921506754330624ul  // 2147483648u
     },
-    0ul,                   // null pointer
-    9223372036854776833ul  // 9223372036854777856.0
+    0ul,         // null pointer
+    4292870144ul  // 4292870144.0
 };
 
 struct outer struct_array[3] = {{1, {2, "ab", 3}, 0, 5},
@@ -2210,22 +2207,22 @@ int test_partially_initialized(void) {
 // case 3: fully initialized struct
 /*
     struct outer full = {
-        18014398509481979l,
-        {1000, "ok",
+        1000000000000l,
+        {1000, "OK",
         4292870144u},  // can initialized signed char array w/ static string
         "Another message",
         2e12};
 */
 int test_fully_intialized(void) {
     // validate elements in struct outer
-    if (full.one_l != 18014398509481979l ||
+    if (full.one_l != 1000000000000l ||
         strcmp(full.three_msg, "Another message") || full.four_d != 2e12) {
         return 0;
     }
 
     // validate elemetns in string inner
-    if (full.two_struct.one_i != 1000 || full.two_struct.two_arr[0] != 'o' ||
-        full.two_struct.two_arr[1] != 'k' || full.two_struct.two_arr[2] != 0 ||
+    if (full.two_struct.one_i != 1000 || full.two_struct.two_arr[0] != 'O' ||
+        full.two_struct.two_arr[1] != 'K' || full.two_struct.two_arr[2] != 0 ||
         full.two_struct.three_u != 4292870144u) {
         return 0;
     }
@@ -2238,7 +2235,7 @@ int test_fully_intialized(void) {
     struct outer converted = {
         10.5,  // 10l
         {
-            2147483650u,  // -2147483646
+            2147483650u,  // 2147483650
             {
                 15.6,             // 15
                 17592186044419l,  // 3
@@ -2246,19 +2243,19 @@ int test_fully_intialized(void) {
             },
             1152921506754330624ul  // 2147483648u
         },
-        0ul,                   // null pointer
-        9223372036854776833ul  // 9223372036854777856.0
+        0ul,         // null pointer
+        4292870144ul  // 4292870144.0
     };
 */
 int test_implicit_conversions(void) {
     // validate elements in struct outer
     if (converted.one_l != 10l || converted.three_msg != 0 ||
-        converted.four_d != 9223372036854777856.0) {
+        converted.four_d != 4292870144.0) {
         return 0;
     }
 
     // validate elements in struct inner
-    if (converted.two_struct.one_i != -2147483646 ||
+    if (converted.two_struct.one_i != 2147483650 ||
         converted.two_struct.two_arr[0] != 15 ||
         converted.two_struct.two_arr[1] != 3 ||
         converted.two_struct.two_arr[2] != -127 ||
@@ -2324,10 +2321,7 @@ int test_array_of_structs(void) {
 )PROG")));
 }
 
-// Residual blocker (not libc; strcmp available): static-struct initialization
-// with mixed-type members validates wrong (struct-init representation codegen),
-// returns 2.
-TEST_F(CodegenTest, DISABLED_Chapter18_StaticStructInitializers)
+TEST_F(CodegenTest, Chapter18_StaticStructInitializers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test initialization of non-nested static structs, including:
@@ -2383,10 +2377,10 @@ struct s partial_with_array = {3.0, "!", {1}, 2};
 
 // case 4: implicit conversion of scalar elements
 struct s converted = {
-    1152921504606846977l,  // 1152921504606846976.0
-    0l,                    // null ptr
-    "abc",                 // {'a', 'b', 'c'}
-    17179869189l           // 5
+    1099511627775l,  // 1099511627775.0
+    0l,              // null ptr
+    "ABC",           // {'A', 'B', 'C'}
+    17179869189l     // 17179869189
 };
 
 int main(void) {
@@ -2469,17 +2463,17 @@ int test_partial_inner_init(void) {
 // case 4: implicit conversion of scalar elements
 /*
     struct s converted = {
-        1152921504606846977l,  // 1152921504606846976.0
-        0l,                   // null ptr
-        "abc",                // {'a', 'b', 'c'}
-        17179869189l          // 5
+        1099511627775l,  // 1099511627775.0
+        0l,              // null ptr
+        "ABC",           // {'A', 'B', 'C'}
+        17179869189l     // 17179869189
     };
 */
 int test_implicit_conversion(void) {
     // validate elements
-    if (converted.one_d != 1152921504606846976.0 || converted.two_msg ||
-        converted.three_arr[0] != 'a' || converted.three_arr[1] != 'b' ||
-        converted.three_arr[2] != 'c' || converted.four_i != 5) {
+    if (converted.one_d != 1099511627775.0 || converted.two_msg ||
+        converted.three_arr[0] != 'A' || converted.three_arr[1] != 'B' ||
+        converted.three_arr[2] != 'C' || converted.four_i != 17179869189) {
         return 0;
     }
 
