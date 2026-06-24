@@ -264,7 +264,7 @@ int main(void)
     return 0;
 }
 )"),
-                 "Static initializer requires arithmetic type");
+                 "Cannot initialize aggregate type with scalar value");
 }
 
 // int x = {1, 2, 3}; — a scalar can't take a multi-element compound initializer.
@@ -544,7 +544,7 @@ int f(int arr[2][4]);
 
 // static int arr[1] = 0; — a scalar can't initialize a static array (the non-static
 // form is caught; the static path accepts it today — gap).
-TEST_F(PipelineTest, DISABLED_Chapter15_NullPtrStaticArrayInitializer_Neg)
+TEST_F(PipelineTest, Chapter15_NullPtrStaticArrayInitializer_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"(int main(void)
 {

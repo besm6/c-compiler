@@ -938,7 +938,7 @@ int main(void){
     return 0;
 }
 )SRC"),
-                 "Static initializer requires arithmetic type");
+                 "Cannot initialize aggregate type with scalar value");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionInitializersStaticTooLong_Neg)
@@ -1611,7 +1611,7 @@ struct s x = {0.0, {1.0}};
 }
 
 // DISABLED: static struct initialized with a scalar 0 is not rejected (static-init path)
-TEST_F(PipelineTest, DISABLED_Chapter18_InitializersStaticStructWithZero_Neg)
+TEST_F(PipelineTest, Chapter18_InitializersStaticStructWithZero_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {

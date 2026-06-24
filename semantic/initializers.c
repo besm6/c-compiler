@@ -353,6 +353,17 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         }
     }
 
+    // An aggregate (array/struct/union) cannot be initialized by a scalar literal
+    // (e.g. "static int a[1] = 0;", "struct s x = 0;").  The only valid single-expression
+    // aggregate initializer is a string literal for a char array, handled above; a
+    // non-constant single expression (e.g. "struct s y = other;") falls through to the
+    // catch-all below.  (Pointers are scalar and handled by the blocks above.)
+    if (init->kind == INITIALIZER_SINGLE && init->u.expr->kind == EXPR_LITERAL &&
+        (var_type->kind == TYPE_ARRAY || var_type->kind == TYPE_STRUCT ||
+         var_type->kind == TYPE_UNION)) {
+        fatal_error("Cannot initialize aggregate type with scalar value");
+    }
+
     // Handle scalar initialized with a literal.
     if (init->kind == INITIALIZER_SINGLE && init->u.expr->kind == EXPR_LITERAL) {
         const Literal *literal = init->u.expr->u.literal;
@@ -489,9 +500,6 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
     }
 
     // Handle invalid cases.
-    if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_SINGLE) {
-        fatal_error("Cannot initialize array with scalar value");
-    }
     fatal_error("Unsupported initializer for type %s", type_kind_str[var_type->kind]);
 }
 
