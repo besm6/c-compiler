@@ -294,6 +294,40 @@ Type *type_apply_pointers(Type *type, const Pointer *pointers)
     return type;
 }
 
+// Reject a malformed constant array dimension at parse time: a non-integer
+// (e.g. int x[2.0]) or a negative (e.g. int arr[-3]) size.  A non-constant size
+// (a variable, VLA) and an unsized [] (size == NULL) pass through untouched.
+static void validate_array_size(const Expr *size)
+{
+    if (!size)
+        return;
+    if (size->kind == EXPR_LITERAL) {
+        switch (size->u.literal->kind) {
+        case LITERAL_FLOAT:
+        case LITERAL_DOUBLE:
+        case LITERAL_LONG_DOUBLE:
+            fatal_error("array size must have integer type");
+        default:
+            break;
+        }
+        return;
+    }
+    // A negated integer constant, e.g. int arr[-3] -> UNARY_NEG of LITERAL_INT.
+    if (size->kind == EXPR_UNARY_OP && size->u.unary_op.op == UNARY_NEG) {
+        const Expr *operand = size->u.unary_op.expr;
+        if (operand && operand->kind == EXPR_LITERAL) {
+            switch (operand->u.literal->kind) {
+            case LITERAL_FLOAT:
+            case LITERAL_DOUBLE:
+            case LITERAL_LONG_DOUBLE:
+                fatal_error("array size must have integer type");
+            default:
+                fatal_error("array size must be positive");
+            }
+        }
+    }
+}
+
 Type *type_apply_suffixes(Type *type, const DeclaratorSuffix *suffixes)
 {
     if (!suffixes)
@@ -304,6 +338,7 @@ Type *type_apply_suffixes(Type *type, const DeclaratorSuffix *suffixes)
         // Recurse on remaining suffixes first so the leftmost bracket becomes
         // the outermost array dimension, matching C semantics for foo[3][1].
         type                      = type_apply_suffixes(type, s->next);
+        validate_array_size(s->u.array.size);
         Type *array               = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
         array->u.array.element    = type;
         array->u.array.size       = clone_expression(s->u.array.size);

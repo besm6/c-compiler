@@ -42,7 +42,6 @@ re-enabled when block-scope statics landed).
 
 | #  | Task | Description |
 |----|------|-------------|
-| 37 | Validate array dimensions | Reject a non-integer (`int x[2.0]`) and a negative (`int arr[-3]`) array size. Re-enables parser ch15 DoubleDeclarator_Neg, NegativeArrayDimension_Neg (2). |
 | 38 | REMOVE/convert C23 empty-initializer negative tests | An empty brace initializer `{}` is valid as of C23 and is accepted; the "must reject" expectation is obsolete. Delete or convert to positive tests: parser ch15 EmptyInitializerList_Neg, parser ch18 InvalidParseEmptyInitializerList_Neg, ExtraCreditUnionEmptyInitializer_Neg (3). |
 
 ### Optimizer (`optimize/`)

@@ -12,10 +12,9 @@
 //     abstract declarator like `long(([2])[3])` is a parse error for us ("Empty type
 //     specifier list"), so it is here.
 //
-// Three of the book's invalid_parse programs are accepted by our front end today and
-// carry DISABLED_ markers with the gap noted: our array declarator parser does not
-// reject a non-integer size (int x[2.0]), a negative size (int arr[-3]), or an empty
-// brace initializer (int arr[1] = {}; valid as of C23 anyway).
+// One of the book's invalid_parse programs is accepted by our front end today and
+// carries a DISABLED_ marker with the gap noted: an empty brace initializer
+// (int arr[1] = {}; valid as of C23 anyway).
 //
 #include "fixture.h"
 
@@ -134,11 +133,8 @@ TEST_F(ParserTest, Chapter15_UnclosedNestedInitializer_Neg)
                  "expected '}'");
 }
 
-// --- accepted today (front-end gaps) ----------------------------------------
-
-// int x[2.0]; — a non-integer array size is accepted today (no diagnostic for a
-// floating array dimension).
-TEST_F(ParserTest, DISABLED_Chapter15_DoubleDeclarator_Neg)
+// int x[2.0]; — a non-integer array size is rejected (a floating array dimension).
+TEST_F(ParserTest, Chapter15_DoubleDeclarator_Neg)
 {
     EXPECT_DEATH(parse(CreateTempFile(R"(int main(void) {
     int x[2.0];
@@ -147,9 +143,8 @@ TEST_F(ParserTest, DISABLED_Chapter15_DoubleDeclarator_Neg)
                  "array size");
 }
 
-// int arr[-3]; — a negative array dimension is accepted today (no range check on the
-// array size literal).
-TEST_F(ParserTest, DISABLED_Chapter15_NegativeArrayDimension_Neg)
+// int arr[-3]; — a negative array dimension is rejected.
+TEST_F(ParserTest, Chapter15_NegativeArrayDimension_Neg)
 {
     EXPECT_DEATH(parse(CreateTempFile(R"(int main(void)
 {
@@ -159,6 +154,8 @@ TEST_F(ParserTest, DISABLED_Chapter15_NegativeArrayDimension_Neg)
 )")),
                  "array size");
 }
+
+// --- accepted today (front-end gaps) ----------------------------------------
 
 // int arr[1] = {}; — an empty initializer list is accepted today (and is valid as of
 // C23, so this is arguably no longer a negative case).
