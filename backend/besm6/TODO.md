@@ -38,12 +38,6 @@ re-enabled when block-scope statics landed).
 |----|------|-------------|
 | 23 | Wire up the heap & re-enable dynamic-allocation tests | `malloc`/`calloc`/`realloc`/`free` already link into `libc.bin` but the run harness never calls `heap_setup`, so allocations fail. Initialize a heap region at program start, then re-enable ch17 VoidPointerSimple, ArrayOfPointersToVoid, CommonPointerType, ConversionByAssignment, VoidPointerExplicitCast, SizeofExpressions, PassAllocedMemory. For ch17 MemoryManagementFunctions, implement `aligned_alloc` or drop that sub-call. Also unblocks the ch18 malloc/calloc tests: ScalarMemberAccessArrow, ScalarMemberAccessLinkedList, ScalarMemberAccessNestedStruct, StructCopyWithArrowOperator, AccessRetvalMembers, OpaqueStruct, ReturnStructPointer, IncompleteStructs, IncompleteUnionTypes, MemberOffsets (with #49). |
 
-### Optimizer (`optimize/`)
-
-| #  | Task | Description |
-|----|------|-------------|
-| 40 | Adapt static-local name-collision DSE test | A static local `arr` collides with `main`'s `arr` under the no-shadowing / static-naming scheme. Rename to re-enable ch19_tests4 DSE_AllTypes_DontElim_RecognizeAllUses (1). |
-
 ### Backend BESM-6 — codegen & libc
 
 | #  | Task | Description |
