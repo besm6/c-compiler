@@ -461,11 +461,9 @@ int main(void) {
                  "Too many elements in union initializer");
 }
 
-// DISABLED: assigning to a member of a non-lvalue (function-return) union is only
-// rejected by the translator gen_lval, which the typecheck-only RunPipeline fixture
-// never reaches (cf. the disabled non-lvalue struct-assignment negatives); it used to
-// "pass" only because union compound init aborted typecheck first.
-TEST_F(PipelineTest, DISABLED_Chapter18_AssignNonLvalueUnionMember_Neg)
+// Assigning to a member of a non-lvalue (function-return) union is rejected in typecheck:
+// `return_union()` is an rvalue, so `.i.y` is a non-lvalue and cannot be assigned to.
+TEST_F(PipelineTest, Chapter18_AssignNonLvalueUnionMember_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 // Can't assign to members in non-lvalue unions
@@ -490,7 +488,7 @@ int main(void) {
     return 0;
 }
 )SRC"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "invalid lvalue");
 }
 
 
@@ -2109,11 +2107,11 @@ int main(void) {
   return 0;
 }
 )SRC"),
-                 "Cannot convert type for assignment");
+                 "Cannot take address of non-lvalue");
 }
 
-// DISABLED: non-lvalue struct assignment is caught only in the translator (gen_lval), not the typecheck-only fixture
-TEST_F(PipelineTest, DISABLED_Chapter18_LvaluesAssignNestedNonLvalue_Neg)
+// `return_struct()` is an rvalue, so the nested member `.b.x` is a non-lvalue: reject the assignment.
+TEST_F(PipelineTest, Chapter18_LvaluesAssignNestedNonLvalue_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct inner {
@@ -2137,7 +2135,7 @@ int main(void) {
   return 0;
 }
 )SRC"),
-                 ".");
+                 "invalid lvalue");
 }
 
 // DISABLED: assignment to an array-typed lvalue (array member) is not rejected
@@ -2159,8 +2157,8 @@ int main(void) {
                  ".");
 }
 
-// DISABLED: non-lvalue struct assignment is caught only in the translator (gen_lval), not the typecheck-only fixture
-TEST_F(PipelineTest, DISABLED_Chapter18_LvaluesAssignToNonLvalue_Neg)
+// `(1 ? x : y)` is an rvalue, so the member `.d` is a non-lvalue: reject the assignment.
+TEST_F(PipelineTest, Chapter18_LvaluesAssignToNonLvalue_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 struct s {
@@ -2177,7 +2175,7 @@ int main(void) {
   return 0;
 }
 )SRC"),
-                 ".");
+                 "invalid lvalue");
 }
 
 

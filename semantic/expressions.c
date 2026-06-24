@@ -55,10 +55,12 @@ static bool is_lvalue(const Expr *e)
     }
     switch (e->kind) {
     case EXPR_VAR:
-    case EXPR_FIELD_ACCESS:
     case EXPR_PTR_ACCESS:
     case EXPR_SUBSCRIPT:
         return true;
+    case EXPR_FIELD_ACCESS:
+        // `E.member` is an lvalue iff E is an lvalue (e.g. f().m and (c?a:b).m are not).
+        return is_lvalue(e->u.field_access.expr);
     case EXPR_BINARY_OP:
         // No binary operator yields an lvalue in C (there is no comma operator
         // here, and compound assignment is a separate EXPR_ASSIGN node).
