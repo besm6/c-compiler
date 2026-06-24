@@ -627,10 +627,9 @@ union contains_structs *get_union_ptr(void) { return 0; }
 // =============================================================================
 
 // libraries/global_struct: access a global struct across TUs; whole-struct
-// member assignment.
-// DISABLED: a packed char-array member at a non-zero byte offset reads wrong
-// through the struct (packed char member access bug).
-TEST_F(CodegenTest, DISABLED_Chapter18_GlobalStruct)
+// member assignment.  (Original x86 test used -1 char values; plain char is unsigned on
+// BESM-6, so the arr members use positive values that round-trip.)
+TEST_F(CodegenTest, Chapter18_GlobalStruct)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
 struct s { int i; char arr[2]; double d; };
@@ -648,7 +647,7 @@ int main(void) {
     update_outer_struct();
     if (global_outer.c != 5) return 3;
     if (global_outer.inner.i || global_outer.inner.d) return 4;
-    if (global_outer.inner.arr[0] != -1 || global_outer.inner.arr[1] != -1) return 5;
+    if (global_outer.inner.arr[0] != 11 || global_outer.inner.arr[1] != 12) return 5;
     return 0;
 }
 void update_struct(void) {
@@ -656,7 +655,7 @@ void update_struct(void) {
     global.d = 5.0;
 }
 void update_outer_struct(void) {
-    struct s inner = {0, {-1, -1}, 0};
+    struct s inner = {0, {11, 12}, 0};
     global_outer.inner = inner;
 }
 )")));
@@ -664,9 +663,7 @@ void update_outer_struct(void) {
 
 // libraries/array_of_structs: pass a pointer to an array of structs (static and
 // automatic).  Validates member values, not x86 sizes.
-// DISABLED: a char-array member at a non-zero byte offset reads wrong (packed char
-// member access bug).
-TEST_F(CodegenTest, DISABLED_Chapter18_ArrayOfStructs)
+TEST_F(CodegenTest, Chapter18_ArrayOfStructs)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
 struct inner { long l; char arr[2]; };
@@ -695,9 +692,7 @@ int validate_struct_array(struct outer *struct_array) {
 
 // libraries/param_struct_pointer: pass struct pointers as parameters; the
 // declared (unused) malloc prototype is dropped.
-// DISABLED: a char member at byte offset 1 reads wrong through a struct pointer
-// (packed char member access bug).
-TEST_F(CodegenTest, DISABLED_Chapter18_ParamStructPointer)
+TEST_F(CodegenTest, Chapter18_ParamStructPointer)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
 struct inner { double d; int i; };

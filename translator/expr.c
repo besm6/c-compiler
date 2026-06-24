@@ -59,6 +59,17 @@ static bool member_is_byte_addressed(const Type *mt)
     return is_character(mt);
 }
 
+// True when a member at `byte_offset` of declared type `mt` is addressed as a fat byte
+// pointer (ADD_PTR scale 1): a char/char-array member, an unknown-tag member (mt NULL),
+// or a (pathological) misaligned member.  The complement is a word-aligned word member,
+// added as a plain word offset that keeps the pointer a plain word address.  gen_lval and
+// emit_member_offset both consult this so they agree on the addressing mode.
+static bool member_is_byte_offset(const Type *mt, int byte_offset)
+{
+    int w = target_word_bytes();
+    return !(mt && !member_is_byte_addressed(mt) && byte_offset % w == 0);
+}
+
 // Fill in an ADD_PTR's index/scale for a struct member at `byte_offset` whose
 // declared type is `mt` (NULL if the tag is out of scope at lowering time).  A
 // word-addressed member at a word-aligned offset is added as a plain word offset
@@ -67,14 +78,30 @@ static bool member_is_byte_addressed(const Type *mt)
 // (scale 1, fat-pointer) form it has always used.
 static void emit_member_offset(Tac_Instruction *ap, int byte_offset, const Type *mt)
 {
-    int w = target_word_bytes();
-    if (mt && !member_is_byte_addressed(mt) && byte_offset % w == 0) {
-        ap->u.add_ptr.index = val_int(byte_offset / w);
-        ap->u.add_ptr.scale = w;
-    } else {
+    if (member_is_byte_offset(mt, byte_offset)) {
         ap->u.add_ptr.index = val_int(byte_offset);
         ap->u.add_ptr.scale = 1;
+    } else {
+        int w               = target_word_bytes();
+        ap->u.add_ptr.index = val_int(byte_offset / w);
+        ap->u.add_ptr.scale = w;
     }
+}
+
+// Reinterpret a plain word address (a struct base / &struct / struct-pointer value) as a
+// fat char pointer at byte #0 of its first word, so a scale-1 ADD_PTR's byte member offset
+// addresses the member byte directly.  Packed char data is MSB-first (byte #0 = offset 0),
+// but the byte-pointer helpers (b/padd, b/pinc) read a bare word address as byte #5
+// (offset_enc 0).  Mirror the int*->char* cast (PTR_TO_CHAR_PTR sets the fat marker with
+// offset_enc 5 = byte #0) so the member offset lands on the right byte.
+static Tac_Val *member_byte_base(TacCtx *ctx, Tac_Val *word_ptr)
+{
+    Tac_Val *dst              = new_var_val(ctx);
+    Tac_Instruction *in       = tac_new_instruction(TAC_INSTRUCTION_PTR_TO_CHAR_PTR);
+    in->u.ptr_to_char_ptr.src = word_ptr;
+    in->u.ptr_to_char_ptr.dst = dst;
+    tac_append(ctx, in);
+    return val_var(dst->u.var_name);
 }
 
 static bool is_unsigned_type(const Type *t)
@@ -345,10 +372,17 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         } else {
             base_addr = gen_lval(ctx, base);
         }
+        // A byte-addressed member (char/char-array) is reached at scale 1; the byte
+        // helpers read a bare word base as byte #5, so convert it to a fat byte-#0 pointer.
+        // Only a member known to be char-typed needs this — an out-of-scope tag (mt NULL)
+        // keeps the legacy scale-1 form with no conversion, as before.
+        const Type *mt = field_member_type(e);
+        if (member_is_byte_addressed(mt))
+            base_addr = member_byte_base(ctx, base_addr);
         Tac_Val *dst        = new_var_val(ctx);
         Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
         ap->u.add_ptr.ptr   = base_addr;
-        emit_member_offset(ap, offset, field_member_type(e));
+        emit_member_offset(ap, offset, mt);
         ap->u.add_ptr.dst   = dst;
         tac_append(ctx, ap);
         return val_var(dst->u.var_name);
@@ -357,10 +391,14 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         Expr *ptr_expr      = e->u.ptr_access.expr;
         Tac_Val *ptr_val    = gen_expr(ctx, ptr_expr);
         int offset          = e->u.ptr_access.offset;
+        // Same fat-byte-#0 base conversion as FIELD_ACCESS for a byte-addressed member.
+        const Type *mt = field_member_type(e);
+        if (member_is_byte_addressed(mt))
+            ptr_val = member_byte_base(ctx, ptr_val);
         Tac_Val *dst        = new_var_val(ctx);
         Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
         ap->u.add_ptr.ptr   = ptr_val;
-        emit_member_offset(ap, offset, field_member_type(e));
+        emit_member_offset(ap, offset, mt);
         ap->u.add_ptr.dst   = dst;
         tac_append(ctx, ap);
         return val_var(dst->u.var_name);
@@ -389,6 +427,106 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
     default:
         fatal_error("lvalue not yet supported in gen_lval: expression kind %d", (int)e->kind);
     }
+}
+
+// An aggregate (struct/union) lvalue that names a frame/global base directly, so its words
+// are reached by COPY_*_OFFSET: a plain variable, or a `var.member` at a word-aligned byte
+// offset.  Other lvalues (through a pointer, a subscript, a nested member) are reached
+// through their address instead.  On a hit, *name/*off receive the base name and byte offset.
+static bool aggregate_named_base(const Expr *e, const char **name, int *off)
+{
+    if (e->kind == EXPR_VAR) {
+        *name = e->u.var;
+        *off  = 0;
+        return true;
+    }
+    if (e->kind == EXPR_FIELD_ACCESS && e->u.field_access.expr->kind == EXPR_VAR &&
+        e->u.field_access.offset % target_word_bytes() == 0) {
+        *name = e->u.field_access.expr->u.var;
+        *off  = e->u.field_access.offset;
+        return true;
+    }
+    return false;
+}
+
+// Lower a whole-aggregate assignment `target = value` (struct/union, simple assignment) by
+// copying it word by word.  Each side is either a named base (COPY_FROM_OFFSET /
+// COPY_TO_OFFSET) or, for a pointer/subscript/nested lvalue, an address reached by ADD_PTR +
+// LOAD / STORE.  A non-lvalue source (a function-call return or compound literal) is first
+// materialised into a named temporary via gen_expr.  This generalises gen_struct_assign to
+// the cases where either operand is reached through a pointer.
+static Tac_Val *gen_aggregate_assign(TacCtx *ctx, Expr *target, Expr *value)
+{
+    int w      = target_word_bytes();
+    int nbytes = (int)get_size(target->type);
+    int nwords = (nbytes + w - 1) / w;
+
+    const char *dname = NULL;
+    int doff          = 0;
+    Tac_Val *dptr     = NULL;
+    if (!aggregate_named_base(target, &dname, &doff))
+        dptr = gen_lval(ctx, target);
+
+    const char *sname     = NULL;
+    int soff              = 0;
+    Tac_Val *sptr         = NULL;
+    Tac_Val *src_material = NULL; // owned materialised rvalue (freed below)
+    if (!aggregate_named_base(value, &sname, &soff)) {
+        if (value->kind == EXPR_CALL || value->kind == EXPR_COMPOUND) {
+            // An rvalue aggregate: gen_expr leaves it in a named temporary.
+            src_material = gen_expr(ctx, value);
+            sname        = src_material->u.var_name;
+        } else {
+            sptr = gen_lval(ctx, value); // through a pointer / subscript / nested member
+        }
+    }
+
+    for (int i = 0; i < nwords; i++) {
+        Tac_Val *word = new_var_val(ctx);
+        if (sname) {
+            Tac_Instruction *ld           = tac_new_instruction(TAC_INSTRUCTION_COPY_FROM_OFFSET);
+            ld->u.copy_from_offset.src    = xstrdup(sname);
+            ld->u.copy_from_offset.offset = soff + i * w;
+            ld->u.copy_from_offset.dst    = word;
+            tac_append(ctx, ld);
+        } else {
+            Tac_Val *p          = new_var_val(ctx);
+            Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
+            ap->u.add_ptr.ptr   = val_var(sptr->u.var_name);
+            ap->u.add_ptr.index = val_int(i);
+            ap->u.add_ptr.scale = w;
+            ap->u.add_ptr.dst   = p;
+            tac_append(ctx, ap);
+            Tac_Instruction *ld = tac_new_instruction(TAC_INSTRUCTION_LOAD);
+            ld->u.load.src_ptr  = val_var(p->u.var_name);
+            ld->u.load.dst      = word;
+            tac_append(ctx, ld);
+        }
+        if (dname) {
+            Tac_Instruction *st         = tac_new_instruction(TAC_INSTRUCTION_COPY_TO_OFFSET);
+            st->u.copy_to_offset.src    = val_var(word->u.var_name);
+            st->u.copy_to_offset.dst    = xstrdup(dname);
+            st->u.copy_to_offset.offset = doff + i * w;
+            tac_append(ctx, st);
+        } else {
+            Tac_Val *p          = new_var_val(ctx);
+            Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
+            ap->u.add_ptr.ptr   = val_var(dptr->u.var_name);
+            ap->u.add_ptr.index = val_int(i);
+            ap->u.add_ptr.scale = w;
+            ap->u.add_ptr.dst   = p;
+            tac_append(ctx, ap);
+            Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
+            st->u.store.src     = val_var(word->u.var_name);
+            st->u.store.dst_ptr = val_var(p->u.var_name);
+            tac_append(ctx, st);
+        }
+    }
+    // The address/materialised-value Tac_Vals are consumed only by name above; free them.
+    tac_free_val(dptr);
+    tac_free_val(sptr);
+    tac_free_val(src_material);
+    return new_var_val(ctx);
 }
 
 static Tac_Val *gen_logical_and(TacCtx *ctx, Expr *l, Expr *r)
@@ -924,17 +1062,17 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         return gen_binary(ctx, e->u.binary_op.op, e->u.binary_op.left, e->u.binary_op.right);
     case EXPR_ASSIGN: {
         Expr *target = e->u.assign.target;
+        // Whole-aggregate assignment (struct/union, simple `=`): copy word by word, with
+        // each side reached by name or through its address — handles struct members and
+        // pointer/subscript lvalues, not just named-base to named-base.
+        if (e->u.assign.op == ASSIGN_SIMPLE && (unalias(target->type)->kind == TYPE_STRUCT ||
+                                                unalias(target->type)->kind == TYPE_UNION))
+            return gen_aggregate_assign(ctx, target, e->u.assign.value);
         Tac_Val *src = gen_expr(ctx, e->u.assign.value);
         if (target->kind == EXPR_VAR) {
             const char *dst = target->u.var;
             bool vol        = type_is_volatile(target->type);
-            if (e->u.assign.op == ASSIGN_SIMPLE &&
-                (unalias(target->type)->kind == TYPE_STRUCT ||
-                 unalias(target->type)->kind == TYPE_UNION)) {
-                // Whole-struct assignment (a = b;): copy every word.
-                gen_struct_assign(ctx, dst, 0, src->u.var_name, (int)get_size(target->type));
-                tac_free_val(src);
-            } else if (e->u.assign.op == ASSIGN_SIMPLE) {
+            if (e->u.assign.op == ASSIGN_SIMPLE) {
                 Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
                 in->is_volatile     = vol;
                 in->u.copy.src      = src;

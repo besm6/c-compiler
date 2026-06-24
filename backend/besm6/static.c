@@ -166,6 +166,186 @@ static unsigned long long static_init_log_val(const Tac_StaticInit *init)
     }
 }
 
+// Append the data directive(s) for one word-sized, word-aligned static init item — a
+// multi-byte integer, a float, or a pointer relocation.  Shared by the flat generic path
+// and the struct packer; the byte-packed kinds (I8/U8/STRING/ZERO) are handled by callers.
+static void append_word_item(const Tac_StaticInit *init, Besm_Instr ***tailp)
+{
+    Besm_Instr **tail = *tailp;
+    Besm_Instr *item;
+    switch (init->kind) {
+    case TAC_STATIC_INIT_I16:
+    case TAC_STATIC_INIT_I32:
+    case TAC_STATIC_INIT_I64:
+    case TAC_STATIC_INIT_U16:
+    case TAC_STATIC_INIT_U32:
+    case TAC_STATIC_INIT_U64:
+        item          = besm_new_instr(BESM_DATA_LOG);
+        item->log_val = static_init_log_val(init);
+        break;
+    case TAC_STATIC_INIT_POINTER: {
+        int byte_offset = init->u.pointer.byte_offset;
+        if (byte_offset % 6 != 0)
+            fatal_error("Pointer byte offset is not a multiple of word size");
+        Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
+        subp->name       = xstrdup(init->u.pointer.name);
+        *tail            = subp;
+        tail             = &subp->next;
+        Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
+        *tail            = z00a;
+        tail             = &z00a->next;
+        Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
+        z00b->name       = xstrdup(init->u.pointer.name);
+        z00b->addr       = byte_offset / 6;
+        *tail            = z00b;
+        tail             = &z00b->next;
+        *tailp           = tail;
+        return;
+    }
+    case TAC_STATIC_INIT_FAT_POINTER: {
+        int byte_off     = init->u.pointer.byte_offset;
+        Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
+        subp->name       = xstrdup(init->u.pointer.name);
+        *tail            = subp;
+        tail             = &subp->next;
+        Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
+        z00a->reg        = 8 + (unsigned)(5 - byte_off % 6);
+        *tail            = z00a;
+        tail             = &z00a->next;
+        Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
+        z00b->name       = xstrdup(init->u.pointer.name);
+        z00b->addr       = byte_off / 6;
+        *tail            = z00b;
+        tail             = &z00b->next;
+        *tailp           = tail;
+        return;
+    }
+    case TAC_STATIC_INIT_FLOAT:
+        item           = besm_new_instr(BESM_DATA_REAL);
+        item->real_val = init->u.float_val;
+        break;
+    case TAC_STATIC_INIT_DOUBLE:
+        item           = besm_new_instr(BESM_DATA_REAL);
+        item->real_val = init->u.double_val;
+        break;
+    case TAC_STATIC_INIT_LONG_DOUBLE:
+        // long double ≡ double on BESM-6 (one 48-bit native-FP word).
+        item           = besm_new_instr(BESM_DATA_REAL);
+        item->real_val = (double)init->u.long_double_val;
+        break;
+    default:
+        // Unreachable: byte-packed kinds (I8/U8/STRING/ZERO) never reach here.
+        fatal_error("internal error: unhandled word static init kind %d", (int)init->kind);
+    }
+    *tail  = item;
+    *tailp = &item->next;
+}
+
+// True for a byte-packed static init item (occupies sub-word storage in a packed aggregate).
+static bool is_byte_init(const Tac_StaticInit *it)
+{
+    return it->kind == TAC_STATIC_INIT_I8 || it->kind == TAC_STATIC_INIT_U8 ||
+           it->kind == TAC_STATIC_INIT_STRING;
+}
+
+// True for a type whose static layout may place a char member at a non-word byte offset —
+// a struct/union, or an array whose innermost element is a struct/union.  (A char-innermost
+// array is packed by char_array_log_items; a word-element array and a scalar need no packing.)
+static bool needs_byte_packing(const Tac_Type *t)
+{
+    while (t->kind == TAC_TYPE_ARRAY)
+        t = t->u.array.elem_type;
+    return t->kind == TAC_TYPE_STRUCTURE;
+}
+
+// Append `buf[lo, hi)` (word-aligned bounds) as packed BESM_DATA_LOG words, 6 bytes per
+// word big-endian (byte #0 in the MSB — the packed-char member convention from instr.c).
+static void flush_packed_words(const unsigned char *buf, int lo, int hi, Besm_Instr ***tailp)
+{
+    for (int w = lo; w < hi; w += 6) {
+        unsigned long long word = 0;
+        for (int b = 0; b < 6; b++)
+            word = (word << 8) | buf[w + b];
+        Besm_Instr *si = besm_new_instr(BESM_DATA_LOG);
+        si->log_val    = word;
+        **tailp        = si;
+        *tailp         = &si->next;
+    }
+}
+
+// Pack a struct/union (or array-of-struct) static-init list that may interleave sub-word
+// char members with word-aligned members.  Char bytes accumulate into a byte buffer packed
+// 6-per-word; a ZERO run advances the byte cursor; a word-sized member — which a valid C
+// layout always places on a word boundary — first flushes the pending byte word(s) as LOG
+// data, then emits its own directive.  A trailing all-zero word run is coalesced into a
+// single `,bss,` (file scope) or explicit zero words (static local), like the other paths.
+static Besm_Instr *struct_log_items(const Tac_StaticInit *init, bool zero_as_words)
+{
+    int total = 0;
+    for (const Tac_StaticInit *it = init; it; it = it->next) {
+        if (it->kind == TAC_STATIC_INIT_ZERO)
+            total += it->u.zero_bytes;
+        else if (is_byte_init(it))
+            total += (int)char_init_item_bytes(it);
+        else
+            total += 6; // a word-sized, word-aligned member
+    }
+    int nwords = (total + 5) / 6;
+    if (nwords == 0)
+        nwords = 1;
+    unsigned char *buf = xalloc((size_t)nwords * 6, __func__, __FILE__, __LINE__);
+    memset(buf, 0, (size_t)nwords * 6);
+
+    Besm_Instr *head = NULL, **tail = &head;
+    int pos = 0, pstart = 0, data_end = 0; // byte cursor, start of pending word run, last data byte
+
+    for (const Tac_StaticInit *it = init; it; it = it->next) {
+        if (it->kind == TAC_STATIC_INIT_I8) {
+            buf[pos++] = (uint8_t)it->u.char_val;
+            data_end   = pos;
+        } else if (it->kind == TAC_STATIC_INIT_U8) {
+            buf[pos++] = it->u.uchar_val;
+            data_end   = pos;
+        } else if (it->kind == TAC_STATIC_INIT_STRING) {
+            const char *src = it->u.string.val ? it->u.string.val : "";
+            char *koi7      = xalloc(strlen(src) + 1, __func__, __FILE__, __LINE__);
+            utf8_to_koi7(src, koi7);
+            int nb = (int)strlen(koi7) + (it->u.string.null_terminated ? 1 : 0);
+            for (int i = 0; i < nb; i++)
+                buf[pos + i] = (unsigned char)koi7[i];
+            pos += nb;
+            data_end = pos;
+            xfree(koi7);
+        } else if (it->kind == TAC_STATIC_INIT_ZERO) {
+            pos += it->u.zero_bytes; // buffer already zeroed
+        } else {
+            // Word-aligned member: flush the pending char word(s), then emit it.
+            flush_packed_words(buf, pstart, pos, &tail);
+            append_word_item(it, &tail);
+            pos += 6;
+            pstart   = pos;
+            data_end = pos;
+        }
+    }
+    // Final flush: LOG words covering data, then a coalesced all-zero tail.
+    int log_end = ((data_end + 5) / 6) * 6;
+    if (log_end > nwords * 6)
+        log_end = nwords * 6;
+    flush_packed_words(buf, pstart, log_end, &tail);
+    int zero_words = (nwords * 6 - log_end) / 6;
+    if (zero_words > 0) {
+        if (zero_as_words) {
+            *tail = zero_log_words(zero_words);
+        } else {
+            Besm_Instr *bss = besm_new_instr(BESM_DATA_BSS);
+            bss->addr       = zero_words;
+            *tail           = bss;
+        }
+    }
+    xfree(buf);
+    return head;
+}
+
 // Build the chain of data directives for a static object of the given type and init list.
 // `init == NULL` reserves zeroed storage.  The returned items carry no label; callers
 // attach one as needed (a data section's `,name,`, or the first item for a static local
@@ -192,94 +372,47 @@ static Besm_Instr *static_data_items(const Tac_Type *type, const Tac_StaticInit 
     if (is_char_array(type))
         return char_array_log_items(init, zero_as_words);
 
+    // A struct/union (or array thereof) may place a char member at a non-word byte offset,
+    // so its mixed init list is byte-packed the same way (char members share a word).
+    if (needs_byte_packing(type))
+        return struct_log_items(init, zero_as_words);
+
+    // Scalars and word-element arrays: one directive per item.  A standalone char scalar
+    // (I8/U8) is one full word with its value in the low byte (byte #5) — the standalone-char
+    // convention, distinct from the MSB-first packing used for char members above.
     Besm_Instr *head  = NULL;
     Besm_Instr **tail = &head;
-    {
-        for (; init; init = init->next) {
-            Besm_Instr *item;
-            switch (init->kind) {
-            case TAC_STATIC_INIT_I8:
-            case TAC_STATIC_INIT_I16:
-            case TAC_STATIC_INIT_I32:
-            case TAC_STATIC_INIT_I64:
-            case TAC_STATIC_INIT_U8:
-            case TAC_STATIC_INIT_U16:
-            case TAC_STATIC_INIT_U32:
-            case TAC_STATIC_INIT_U64:
-                item          = besm_new_instr(BESM_DATA_LOG);
-                item->log_val = static_init_log_val(init);
-                break;
-            case TAC_STATIC_INIT_ZERO:
-                if (zero_as_words) {
-                    *tail = zero_log_words((init->u.zero_bytes + 5) / 6);
-                    while (*tail)
-                        tail = &(*tail)->next;
-                    continue;
-                }
-                item       = besm_new_instr(BESM_DATA_BSS);
-                item->addr = (init->u.zero_bytes + 5) / 6;
-                break;
-            case TAC_STATIC_INIT_POINTER: {
-                int byte_offset = init->u.pointer.byte_offset;
-                if (byte_offset % 6 != 0)
-                    fatal_error("Pointer byte offset is not a multiple of word size");
-                Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
-                subp->name       = xstrdup(init->u.pointer.name);
-                *tail            = subp;
-                tail             = &subp->next;
-                Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
-                *tail            = z00a;
-                tail             = &z00a->next;
-                Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
-                z00b->name       = xstrdup(init->u.pointer.name);
-                z00b->addr       = byte_offset / 6;
-                *tail            = z00b;
-                tail             = &z00b->next;
-                continue;
+    for (; init; init = init->next) {
+        switch (init->kind) {
+        case TAC_STATIC_INIT_I8:
+        case TAC_STATIC_INIT_U8: {
+            Besm_Instr *item = besm_new_instr(BESM_DATA_LOG);
+            item->log_val    = static_init_log_val(init);
+            *tail            = item;
+            tail             = &item->next;
+            break;
+        }
+        case TAC_STATIC_INIT_ZERO:
+            if (zero_as_words)
+                *tail = zero_log_words((init->u.zero_bytes + 5) / 6);
+            else {
+                Besm_Instr *item = besm_new_instr(BESM_DATA_BSS);
+                item->addr       = (init->u.zero_bytes + 5) / 6;
+                *tail            = item;
             }
-            case TAC_STATIC_INIT_FAT_POINTER: {
-                int byte_off     = init->u.pointer.byte_offset;
-                Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
-                subp->name       = xstrdup(init->u.pointer.name);
-                *tail            = subp;
-                tail             = &subp->next;
-                Besm_Instr *z00a = besm_new_instr(BESM_DATA_Z00);
-                z00a->reg        = 8 + (unsigned)(5 - byte_off % 6);
-                *tail            = z00a;
-                tail             = &z00a->next;
-                Besm_Instr *z00b = besm_new_instr(BESM_DATA_Z00);
-                z00b->name       = xstrdup(init->u.pointer.name);
-                z00b->addr       = byte_off / 6;
-                *tail            = z00b;
-                tail             = &z00b->next;
-                continue;
-            }
-            case TAC_STATIC_INIT_FLOAT:
-                item           = besm_new_instr(BESM_DATA_REAL);
-                item->real_val = init->u.float_val;
-                break;
-            case TAC_STATIC_INIT_DOUBLE:
-                item           = besm_new_instr(BESM_DATA_REAL);
-                item->real_val = init->u.double_val;
-                break;
-            case TAC_STATIC_INIT_LONG_DOUBLE:
-                // long double ≡ double on BESM-6 (one 48-bit native-FP word).
-                item           = besm_new_instr(BESM_DATA_REAL);
-                item->real_val = (double)init->u.long_double_val;
-                break;
-            case TAC_STATIC_INIT_STRING:
-                // Char-array init (e.g. `char arr[] = "ABC"`); the section NAME
-                // already labels the first word, so no per-item label here.
-                *tail = besm_string_log_items(init, NULL);
-                while (*tail)
-                    tail = &(*tail)->next;
-                continue;
-            default:
-                // Unreachable: static_data_items handles every Tac_StaticInitKind.
-                fatal_error("internal error: unhandled static init kind %d", (int)init->kind);
-            }
-            *tail = item;
-            tail  = &item->next;
+            while (*tail)
+                tail = &(*tail)->next;
+            break;
+        case TAC_STATIC_INIT_STRING:
+            // Char-array init (e.g. `char arr[] = "ABC"`); the section NAME
+            // already labels the first word, so no per-item label here.
+            *tail = besm_string_log_items(init, NULL);
+            while (*tail)
+                tail = &(*tail)->next;
+            break;
+        default:
+            append_word_item(init, &tail);
+            break;
         }
     }
     return head;

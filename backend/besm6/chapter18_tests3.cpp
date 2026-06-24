@@ -542,7 +542,9 @@ int pass_later_structs_in_regs(struct memory m, struct twelve_bytes struct1,
 )PROG")));
 }
 
-// memcmp + packed sub-word char-array layout.
+// DISABLED: still blocked by the struct-by-value parameter ABI (task #54) — passes structs
+// of every size 1..24 bytes by value.  The packed sub-word char-array layout (task #42) and
+// memcmp (task #41) are in place; re-enable once #54 lands.
 TEST_F(CodegenTest, DISABLED_Chapter18_StructSizes)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
@@ -1462,7 +1464,9 @@ struct memory pass_and_return_regs(int i, double d, struct int_and_xmm strct,
 )PROG")));
 }
 
-// memcmp + packed layout.
+// DISABLED: still blocked by the multi-word struct-by-value return ABI (task #54) — returns
+// structs of every size 1..24 bytes by value (only <=3-word returns work today).  The packed
+// layout (task #42) and memcmp (task #41) are in place; re-enable once #54 lands.
 TEST_F(CodegenTest, DISABLED_Chapter18_RetvalStructSizes)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
