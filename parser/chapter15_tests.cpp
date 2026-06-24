@@ -12,9 +12,9 @@
 //     abstract declarator like `long(([2])[3])` is a parse error for us ("Empty type
 //     specifier list"), so it is here.
 //
-// One of the book's invalid_parse programs is accepted by our front end today and
-// carries a DISABLED_ marker with the gap noted: an empty brace initializer
-// (int arr[1] = {}; valid as of C23 anyway).
+// One of the book's invalid_parse programs is accepted by our front end today and is
+// reclassified as a positive test: an empty brace initializer (int arr[1] = {}; valid
+// as of C23) parses as an empty compound initializer.
 //
 #include "fixture.h"
 
@@ -155,16 +155,19 @@ TEST_F(ParserTest, Chapter15_NegativeArrayDimension_Neg)
                  "array size");
 }
 
-// --- accepted today (front-end gaps) ----------------------------------------
+// --- accepted today ---------------------------------------------------------
 
-// int arr[1] = {}; — an empty initializer list is accepted today (and is valid as of
-// C23, so this is arguably no longer a negative case).
-TEST_F(ParserTest, DISABLED_Chapter15_EmptyInitializerList_Neg)
+// int arr[1] = {}; — an empty initializer list is accepted (valid as of C23).
+TEST_F(ParserTest, Chapter15_EmptyInitializerList)
 {
-    EXPECT_DEATH(parse(CreateTempFile(R"(int main(void) {
+    DeclOrStmt *body = GetFunctionBody(R"(int main(void) {
     int arr[1] = {};
     return 0;
 }
-)")),
-                 "initializer");
+)");
+    ASSERT_EQ(DECL_OR_STMT_DECL, body->kind);
+    Initializer *init = body->u.decl->u.var.declarators->init;
+    ASSERT_NE(nullptr, init);
+    EXPECT_EQ(INITIALIZER_COMPOUND, init->kind);
+    EXPECT_EQ(nullptr, init->u.items);
 }

@@ -112,21 +112,22 @@ int main(void) {
                  "expected ';', got '\\.'");
 }
 
-// DISABLED: empty initializer list `{}` is accepted (C23-style; see ParserTest.ParseEmptyCompoundInitializer)
-TEST_F(ParserTest, DISABLED_Chapter18_InvalidParseEmptyInitializerList_Neg)
+// An empty initializer list `{}` is accepted (valid as of C23).
+TEST_F(ParserTest, Chapter18_EmptyInitializerList)
 {
-    EXPECT_DEATH(parse(CreateTempFile(R"SRC(
-// An initializer list must have at least one element
-// NOTE: empty initializer lists are valid as of C23
-
+    DeclOrStmt *body = GetFunctionBody(R"SRC(
 struct s {int a;};
 
 int main(void) {
     struct s foo = {};
     return 0;
 }
-)SRC")),
-                 ".");
+)SRC");
+    ASSERT_EQ(DECL_OR_STMT_DECL, body->kind);
+    Initializer *init = body->u.decl->u.var.declarators->init;
+    ASSERT_NE(nullptr, init);
+    EXPECT_EQ(INITIALIZER_COMPOUND, init->kind);
+    EXPECT_EQ(nullptr, init->u.items);
 }
 
 
@@ -298,19 +299,22 @@ int main(void) {
                  "Expected type specifier");
 }
 
-// DISABLED: empty initializer list `{}` is accepted (C23-style; see ParserTest.ParseEmptyCompoundInitializer)
-TEST_F(ParserTest, DISABLED_Chapter18_ExtraCreditUnionEmptyInitializer_Neg)
+// An empty initializer list `{}` for a union is accepted (valid as of C23).
+TEST_F(ParserTest, Chapter18_ExtraCreditUnionEmptyInitializer)
 {
-    EXPECT_DEATH(parse(CreateTempFile(R"SRC(
-// An initializer list must have at least one element
-// NOTE: empty initializer lists are valid as of C23
+    DeclOrStmt *body = GetFunctionBody(R"SRC(
 union u { int a; };
 
 int main(void) {
     union u x = {};
+    return 0;
 }
-)SRC")),
-                 ".");
+)SRC");
+    ASSERT_EQ(DECL_OR_STMT_DECL, body->kind);
+    Initializer *init = body->u.decl->u.var.declarators->init;
+    ASSERT_NE(nullptr, init);
+    EXPECT_EQ(INITIALIZER_COMPOUND, init->kind);
+    EXPECT_EQ(nullptr, init->u.items);
 }
 
 TEST_F(ParserTest, Chapter18_ExtraCreditUnionMemberInitializer_Neg)
