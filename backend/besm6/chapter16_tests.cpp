@@ -1308,38 +1308,37 @@ int main(void) {
 
 
 // ===========================================================================
-// DISABLED_ — programs BESM-6 cannot reproduce, grouped by reason.
+// Multi-dimensional char arrays (sub-word row pointers).  Indexing a row of a
+// packed char array yields a fat byte pointer into the middle of a word; the
+// translator decays a char-innermost array of any rank to a fat pointer and
+// pre-scales the index by the row byte size, so ADD_PTR runs at scale 1.
 // ===========================================================================
 
-// --- Multi-dimensional char array (sub-word row pointer) ---------------------
-// Indexing a row of a packed char array yields a pointer into the middle of a
-// word (row size in bytes is a sub-word ADD_PTR scale); the backend pointer model
-// only supports word-aligned word pointers or fat byte pointers (size-1 pointee),
-// not a byte pointer into a multi-byte row, so ADD_PTR rejects the row scale.
-
 // strings_as_initializers/literals_and_compound_initializers: signed char[3][4].
-TEST_F(CodegenTest, DISABLED_Chapter16_LiteralsAndCompoundInitializers)
+// Uppercase Latin: an automatic char array keeps its source ASCII bytes while a string
+// constant repacks to KOI-7, and the two encodings coincide only for uppercase.
+TEST_F(CodegenTest, Chapter16_LiteralsAndCompoundInitializers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* make sure we can use a mix of string literals and compound initializers to
  * initialize a single nested array */
 
 // array wih static storage duration
-signed char static_array[3][4] = {{'a', 'b', 'c', 'd'}, "efgh", "ijk"};
+signed char static_array[3][4] = {{'A', 'B', 'C', 'D'}, "EFGH", "IJK"};
 
 int main(void) {
     // array with automatic storage duration
-    unsigned char auto_array[2][3] = {"lmn", {'o', 'p'}};
+    unsigned char auto_array[2][3] = {"LMN", {'O', 'P'}};
 
     // validate static array
     for (int i = 0; i < 3; i = i + 1)
         for (int j = 0; j < 4; j = j + 1)
-            if (static_array[i][j] != "abcdefghijk"[i * 4 + j])
+            if (static_array[i][j] != "ABCDEFGHIJK"[i * 4 + j])
                 return 1;
 
     // validate automatic array
     for (int i = 0; i < 2; i = i + 1)
         for (int j = 0; j < 3; j = j + 1)
-            if (auto_array[i][j] != "lmnop"[i * 3 + j])
+            if (auto_array[i][j] != "LMNOP"[i * 3 + j])
                 return 2;
 
     return 0;
@@ -1377,7 +1376,9 @@ int main(void) {
 }
 
 // strings_as_initializers/transfer_by_eightbyte: char[2][13].
-TEST_F(CodegenTest, DISABLED_Chapter16_TransferByEightbyte)
+// Uppercase Latin: an automatic char array keeps its source ASCII bytes while a string
+// constant repacks to KOI-7, and the two encodings coincide only for uppercase.
+TEST_F(CodegenTest, Chapter16_TransferByEightbyte)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that when we initialize an array whose size isn't divisible by 4 or 8,
  * we don't overrun neighboring memory
@@ -1386,11 +1387,11 @@ TEST_F(CodegenTest, DISABLED_Chapter16_TransferByEightbyte)
 int strcmp(char *s1, char *s2);
 
 int main(void) {
-    char strings[2][13] = {"abcdefghijkl", "z"};
-    if (strcmp(strings[0], "abcdefghijkl"))
+    char strings[2][13] = {"ABCDEFGHIJKL", "Z"};
+    if (strcmp(strings[0], "ABCDEFGHIJKL"))
         return 1;
 
-    if (strings[1][0] != 'z')
+    if (strings[1][0] != 'Z')
         return 2;
 
     // remaining bytes should be 0

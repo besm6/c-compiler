@@ -42,7 +42,6 @@ re-enabled when block-scope statics landed).
 
 | #  | Task | Description |
 |----|------|-------------|
-| 43 | Sub-word char-array row pointer / multi-dim char arrays | Indexing a row of a packed char array yields a pointer into the middle of a word; the pointer model only supports word-aligned word pointers. Re-enables ch16 LiteralsAndCompoundInitializers, TransferByEightbyte (2). |
 | 44 | char-signedness in static initializers | Plain `char` signedness mismatch in static char data. Re-enables ch16 StaticInitializers (1). |
 | 45 | Discarded multi-word (sret) struct return | A discarded multi-word struct return value is mishandled. Re-enables ch18 IgnoreRetval (1). |
 | 46 | gen_lval for function-call (temporary) results | `&f().arr[i]` — `gen_lval` has no case for a function-call (temporary) result. Re-enables ch18 TemporaryLifetime, UnionTempLifetime (2). |
