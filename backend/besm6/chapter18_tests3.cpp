@@ -1750,13 +1750,19 @@ int main(void) {
 )PROG")));
 }
 
-// block-scope static + temporary lifetime + union punning.
-TEST_F(CodegenTest, DISABLED_Chapter18_UnionTempLifetime)
+// block-scope static + temporary lifetime + union punning.  We implicitly take the
+// address of a union with temporary lifetime (the conditional-expression result) and
+// subscript a char member of it — exercising gen_lval's EXPR_COND case.
+//
+// Union char-punning values are BESM-6-specific: a `long` is one 48-bit word whose
+// bytes pack 6/word most-significant-first, so the byte that distinguishes the two
+// initializers is arr[5] (the low byte), not arr[0] as on little-endian x86.  Plain
+// char is unsigned here, so the bytes are the positive low-byte values 234 / 210
+// (= 9876543210 & 0xFF / 1234567890 & 0xFF).  get_flag() toggles 0->1 then 1->0, so
+// the first access selects union1 and the second selects union2.
+TEST_F(CodegenTest, Chapter18_UnionTempLifetime)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
-// We can implicitly get the address of a union with temporary lifetime
-// (and subscript it)
-
 struct has_char_array {
     char arr[8];
 };
@@ -1776,13 +1782,13 @@ int main(void) {
     union has_array union1 = {9876543210l};
     union has_array union2 = {1234567890l};
 
-    // first access member in union1
-    if ((get_flag() ? union1 : union2).s.arr[0] != -22) {
+    // first access selects union1
+    if ((get_flag() ? union1 : union2).s.arr[5] != 234) {
         return 1; // fail
     }
 
-    // then access member in union2
-    if ((get_flag() ? union1 : union2).s.arr[0] != -46) {
+    // then access selects union2
+    if ((get_flag() ? union1 : union2).s.arr[5] != 210) {
         return 2; // fail
     }
 

@@ -303,9 +303,9 @@ int main(void) {
 }
 
 // params_and_returns/temporary_lifetime: address of array member of a non-lvalue
-// struct (temporary lifetime).  DISABLED: gen_lval has no case for a function-call
-// (temporary) result, so &f().arr[i] is unsupported.
-TEST_F(CodegenTest, DISABLED_Chapter18_TemporaryLifetime)
+// struct (temporary lifetime).  &f().arr[i] reaches the sret slot via gen_lval's
+// EXPR_CALL case.
+TEST_F(CodegenTest, Chapter18_TemporaryLifetime)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
 struct s { int arr[3]; };

@@ -42,7 +42,6 @@ re-enabled when block-scope statics landed).
 
 | #  | Task | Description |
 |----|------|-------------|
-| 46 | gen_lval for function-call (temporary) results | `&f().arr[i]` — `gen_lval` has no case for a function-call (temporary) result. Re-enables ch18 TemporaryLifetime, UnionTempLifetime (2). |
 | 47 | Union member access / punning under BESM-6 integer representation | Reading an integer back through a char/other union member yields a BESM-6-specific value (41-bit + tag bits), not the x86 result. Adapt expected values or restrict to representable cases. Re-enables ch18 UnionInitAndMemberAccess, UnionsInConditionals, NestedUnionAccess, StaticUnionAccess, ClassifyUnions, UnionInits, UnionRetvals, StaticUnionInits, UnionNamespace, MemberComparisons, ParamPassing, CopyThruPointer, CopyNonScalarMembers (~13, several also need #41/#23). |
 | 48 | Adapt 64-bit-constant struct-member tests to 41-bit range | Constants exceed the BESM-6 41-bit integer range. Adapt the literals: ch18 BitwiseOpsStructMembers, CompoundAssignStructMembers, IncrStructMembers (overlaps #41 for the calling-convention tests) (3). |
 | 49 | word/byte pointer-punning arithmetic | Pointer-to-integer byte-address arithmetic / word↔byte pointer comparison. Re-enables ch18 MemberOffsets (also needs #23), CompareUnionPointers (also #47) (2). |

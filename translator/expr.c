@@ -424,6 +424,20 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         xfree(T);
         return val_var(ptr->u.var_name);
     }
+    case EXPR_CALL:
+    case EXPR_COND: {
+        // An aggregate temporary (struct/union returned by value, or selected by a
+        // conditional) is already materialized into a frame slot by gen_expr — it
+        // returns val_var(slot).  Implicitly take that slot's address so a member /
+        // subscript lvalue (e.g. f().arr[i], (c ? u1 : u2).s.arr[0]) can reach it.
+        Tac_Val *agg          = gen_expr(ctx, e);
+        Tac_Val *ptr          = new_var_val(ctx);
+        Tac_Instruction *ga   = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
+        ga->u.get_address.src = agg; // transfer ownership to the GET_ADDRESS
+        ga->u.get_address.dst = ptr;
+        tac_append(ctx, ga);
+        return val_var(ptr->u.var_name);
+    }
     default:
         fatal_error("lvalue not yet supported in gen_lval: expression kind %d", (int)e->kind);
     }
