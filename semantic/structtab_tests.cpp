@@ -38,12 +38,14 @@ TEST_F(StructTabTest, AddFieldDefinitionSingleMember)
     Type *intType   = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     FieldDef *field = new_member("x", intType, 0);
 
-    structtab_add_struct("point", 4, 4, field, 0);
+    structtab_add_struct("point", TYPE_STRUCT, true, 4, 4, field, 0);
 
     EXPECT_TRUE(structtab_exists("point"));
     StructDef *entry = structtab_find("point");
     ASSERT_NE(entry, nullptr);
     EXPECT_STREQ(entry->tag, "point");
+    EXPECT_EQ(entry->kind, TYPE_STRUCT);
+    EXPECT_TRUE(entry->complete);
     EXPECT_EQ(entry->alignment, 4);
     EXPECT_EQ(entry->size, 4);
     ASSERT_NE(entry->members, nullptr);
@@ -62,7 +64,7 @@ TEST_F(StructTabTest, AddFieldDefinitionMultipleMembers)
     FieldDef *field2 = new_member("y", doubleType, 8);
     field1->next     = field2;
 
-    structtab_add_struct("vector", 8, 16, field1, 0);
+    structtab_add_struct("vector", TYPE_STRUCT, true, 8, 16, field1, 0);
 
     EXPECT_TRUE(structtab_exists("vector"));
     StructDef *entry = structtab_find("vector");
@@ -86,11 +88,11 @@ TEST_F(StructTabTest, ReplaceFieldDefinition)
 {
     Type *intType    = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     FieldDef *field1 = new_member("x", intType, 0);
-    structtab_add_struct("point", 4, 4, field1, 0);
+    structtab_add_struct("point", TYPE_STRUCT, true, 4, 4, field1, 0);
 
     Type *doubleType = new_type(TYPE_DOUBLE, __func__, __FILE__, __LINE__);
     FieldDef *field2 = new_member("y", doubleType, 0);
-    structtab_add_struct("point", 8, 8, field2, 0);
+    structtab_add_struct("point", TYPE_STRUCT, true, 8, 8, field2, 0);
 
     StructDef *entry = structtab_find("point");
     ASSERT_NE(entry, nullptr);
@@ -123,7 +125,7 @@ TEST_F(StructTabTest, DestroyFreesMemory)
 {
     Type *intType   = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
     FieldDef *field = new_member("x", intType, 0);
-    structtab_add_struct("point", 4, 4, field, 0);
+    structtab_add_struct("point", TYPE_STRUCT, true, 4, 4, field, 0);
 
     structtab_destroy();
     structtab_init(); // Re-initialize to ensure table is usable
@@ -133,7 +135,7 @@ TEST_F(StructTabTest, DestroyFreesMemory)
 // Test adding struct with NULL fields
 TEST_F(StructTabTest, AddStructWithNullMembers)
 {
-    structtab_add_struct("empty", 4, 0, nullptr, 0);
+    structtab_add_struct("empty", TYPE_STRUCT, true, 4, 0, nullptr, 0);
 
     EXPECT_TRUE(structtab_exists("empty"));
     StructDef *entry = structtab_find("empty");

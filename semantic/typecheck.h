@@ -19,6 +19,10 @@ void scope_decrement(void);
 
 // Type system utilities — typecheck.c
 void validate_type(const Type *t);
+
+// Reject a struct/union tag reference whose keyword disagrees with an existing tag of the same
+// name (e.g. using `union x` when `struct x` is in scope) — declarations.c.
+void check_tag_kind(const Type *t);
 size_t get_array_size(const Type *t);
 void set_array_size(Type *t, size_t size);
 

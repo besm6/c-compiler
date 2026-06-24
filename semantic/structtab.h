@@ -21,6 +21,8 @@ typedef struct FieldDef {
 // Structure for a struct type entry
 typedef struct {
     char *tag;         // Struct tag (Ident, owned copy)
+    TypeKind kind;     // TYPE_STRUCT or TYPE_UNION
+    bool complete;     // false for a forward declaration, true once defined
     int alignment;     // Alignment requirement (in bytes)
     int size;          // Total size of the struct (in bytes)
     FieldDef *members; // List of members, sorted by offset
@@ -35,11 +37,11 @@ void structtab_destroy(void);
 // Postcondition: All StructDef and FieldDef memory is freed, table is empty.
 
 // Add a struct definition
-void structtab_add_struct(const char *tag, int alignment, int size, FieldDef *members,
-                          int scope_level);
+void structtab_add_struct(const char *tag, TypeKind kind, bool complete, int alignment, int size,
+                          FieldDef *members, int scope_level);
 // Precondition: tag is a non-null string, members is a valid list of elements or NULL.
-// Postcondition: A StructDef with tag, alignment, size, and copied members is added/replaced in
-// structtab.
+// Postcondition: A StructDef with tag, kind, complete, alignment, size, and copied members is
+// added/replaced in structtab.
 
 // Check if a struct tag exists
 bool structtab_exists(const char *tag);

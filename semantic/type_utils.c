@@ -363,8 +363,11 @@ bool is_complete(const Type *t)
     case TYPE_VOID:
         return false;
     case TYPE_STRUCT:
-    case TYPE_UNION:
-        return structtab_exists(t->u.struct_t.name);
+    case TYPE_UNION: {
+        // A forward-declared tag lives in structtab but is not yet a complete type.
+        const StructDef *d = structtab_find_opt(t->u.struct_t.name);
+        return d != NULL && d->complete;
+    }
     default:
         return true;
     }

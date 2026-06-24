@@ -134,9 +134,12 @@ void validate_type(const Type *t)
     case TYPE_FLOAT:
     case TYPE_DOUBLE:
     case TYPE_LONG_DOUBLE:
+    case TYPE_ENUM:
+        break;
     case TYPE_STRUCT:
     case TYPE_UNION:
-    case TYPE_ENUM:
+        // A reference such as `union x foo;` must agree with the tag's declared keyword.
+        check_tag_kind(t);
         break;
     case TYPE_TYPEDEF_NAME:
         // Global typedef names survive resolve_typedef_names as references.

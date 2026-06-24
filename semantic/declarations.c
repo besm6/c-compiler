@@ -136,9 +136,6 @@ static void validate_struct_definition(const char *tag, const Field *members)
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
-    if (structtab_exists(tag)) {
-        fatal_error("Structure %s was already declared", tag);
-    }
 
     // Check for duplicate member names.
     StringMap names;
@@ -192,6 +189,18 @@ static void register_enum_constants(const Type *enum_type)
 static int anon_struct_counter = 0;
 static void register_inline_struct_defs(const Type *t);
 
+// Reject a struct/union tag reference whose keyword disagrees with an existing tag of the
+// same name (C11 §6.7.2.3): e.g. using `union x` where `struct x` is already in scope.
+void check_tag_kind(const Type *t)
+{
+    if ((t->kind != TYPE_STRUCT && t->kind != TYPE_UNION) || !t->u.struct_t.name)
+        return;
+    const StructDef *existing = structtab_find_opt(t->u.struct_t.name);
+    if (existing && existing->kind != t->kind) {
+        fatal_error("'%s' defined as wrong kind of tag", t->u.struct_t.name);
+    }
+}
+
 // Register a struct/union type definition in the struct table.
 // Precondition: t is TYPE_STRUCT or TYPE_UNION with non-NULL fields, not yet in structtab.
 static void register_struct_type(const Type *t)
@@ -213,6 +222,15 @@ static void register_struct_type(const Type *t)
             register_inline_struct_defs(f->u.member.type);
     }
     TypeKind kind = t->kind;
+    // A tag may already be present as a forward declaration (incomplete, same kind — which we
+    // now complete) or as a clash: a second full definition, or a different keyword.
+    const StructDef *existing = structtab_find_opt(t->u.struct_t.name);
+    if (existing) {
+        if (existing->complete)
+            fatal_error("Structure %s was already declared", t->u.struct_t.name);
+        if (existing->kind != kind)
+            fatal_error("'%s' defined as wrong kind of tag", t->u.struct_t.name);
+    }
     validate_struct_definition(t->u.struct_t.name, t->u.struct_t.fields);
     FieldDef *members     = NULL;
     FieldDef **tail       = &members;
@@ -237,7 +255,8 @@ static void register_struct_type(const Type *t)
             current_size = member_end;
     }
     int size = round_away_from_zero(current_alignment, current_size);
-    structtab_add_struct(t->u.struct_t.name, current_alignment, size, members, scope_level);
+    structtab_add_struct(t->u.struct_t.name, kind, true, current_alignment, size, members,
+                         scope_level);
 }
 
 // Register any inline struct/union definitions embedded in a type tree.
@@ -248,10 +267,13 @@ static void register_inline_struct_defs(const Type *t)
         return;
     switch (t->kind) {
     case TYPE_STRUCT:
-    case TYPE_UNION:
-        if (t->u.struct_t.fields && !structtab_exists(t->u.struct_t.name))
+    case TYPE_UNION: {
+        // Register an inline definition when the tag is absent or only forward-declared.
+        const StructDef *e = structtab_find_opt(t->u.struct_t.name);
+        if (t->u.struct_t.fields && (!e || !e->complete))
             register_struct_type(t);
         break;
+    }
     case TYPE_ARRAY:
         register_inline_struct_defs(t->u.array.element);
         break;
@@ -284,9 +306,16 @@ static void typecheck_tag_decl(const Declaration *d)
     }
     if (kind != TYPE_STRUCT && kind != TYPE_UNION)
         return;
-    if (!d->u.empty.type->u.struct_t.fields)
-        return; // Forward declaration or tag reference — not a definition.
-    register_struct_type(d->u.empty.type);
+    const Type *t = d->u.empty.type;
+    if (!t->u.struct_t.fields) {
+        // Forward declaration or tag reference — not a definition. Record the kind so a later
+        // conflicting use (`struct x; union x;`) is caught, but keep the tag incomplete.
+        check_tag_kind(t);
+        if (t->u.struct_t.name && !structtab_exists(t->u.struct_t.name))
+            structtab_add_struct(t->u.struct_t.name, kind, false, 0, 0, NULL, scope_level);
+        return;
+    }
+    register_struct_type(t);
 }
 
 // Type-check a local variable declaration.
@@ -706,6 +735,11 @@ static void typecheck_file_scope_var_decl(Declaration *d)
         InitKind init_kind        = is_extern(d->u.var.specifiers) ? INIT_NONE : INIT_TENTATIVE;
         Tac_StaticInit *init_list = NULL;
         if (decl->init) {
+            // An incomplete type (e.g. a forward-declared struct) can't be initialized;
+            // reject before building the initializer so the diagnostic is meaningful.
+            if (!is_complete(var_type)) {
+                fatal_error("Can't define a variable with incomplete type");
+            }
             // Pre-register tentatively so the variable's own initializer can reference
             // it via sizeof (e.g. int foo = sizeof(foo); — valid C11 §6.2.1p7).
             if (!symtab_get_opt(decl->name)) {

@@ -1022,8 +1022,7 @@ int main(void) {
 
 // --- invalid_types/extra_credit/union_struct_conflicts ---
 
-// DISABLED: compiler doesn't track struct-vs-union tag kind; the cross-kind tag use is accepted
-TEST_F(PipelineTest, DISABLED_Chapter18_TagDeclAndUse_Neg)
+TEST_F(PipelineTest, Chapter18_TagDeclAndUse_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* You can't declare a type with a struct specifier and then refer to it with
@@ -1039,8 +1038,9 @@ int main(void) {
                  ".");
 }
 
-// DISABLED: relies on tag shadowing in an inner scope; no-shadowing design has no distinct inner type
-TEST_F(PipelineTest, DISABLED_Chapter18_TagDeclAndUseSelfReference_Neg)
+// The inner `union s` references the visible outer `struct s` (no shadowing), so the
+// wrong-keyword use is a cross-kind conflict.
+TEST_F(PipelineTest, Chapter18_TagDeclAndUseSelfReference_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* It's illegal to use a 'union s' type when a 'struct s' type is in scope ,
@@ -1058,8 +1058,7 @@ int main(void) {
                  ".");
 }
 
-// DISABLED: compiler doesn't track struct-vs-union tag kind; struct+union same tag accepted
-TEST_F(PipelineTest, DISABLED_Chapter18_TagDeclarations_Neg)
+TEST_F(PipelineTest, Chapter18_TagDeclarations_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* It's illegal to specify struct and union types with the same tag in the same scope */
@@ -1094,8 +1093,7 @@ int main(void) {
                  "Structure tag was already declared");
 }
 
-// DISABLED: compiler doesn't track struct-vs-union tag kind; decl/def cross-kind conflict accepted
-TEST_F(PipelineTest, DISABLED_Chapter18_TagDeclConflictsWithDef_Neg)
+TEST_F(PipelineTest, Chapter18_TagDeclConflictsWithDef_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* You can't declare 'struct s' and define 'union s' or vice versa in same scope
@@ -1116,8 +1114,7 @@ int main(void) {
                  ".");
 }
 
-// DISABLED: compiler doesn't track struct-vs-union tag kind; def/decl cross-kind conflict accepted
-TEST_F(PipelineTest, DISABLED_Chapter18_TagDefConflictsWithDecl_Neg)
+TEST_F(PipelineTest, Chapter18_TagDefConflictsWithDecl_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 /* You can't declare 'struct s' and define 'union s' or vice versa in same scope
@@ -1202,14 +1199,15 @@ int main(void) {
     struct tag;
     struct tag *struct_ptr = 0;
     {
+        // Under the no-shadowing design this 'union tag' refers to the outer
+        // 'struct tag', so the wrong keyword is a cross-kind conflict.
         union tag;
         union tag *union_ptr = 0;
-        // ILLEGAL comparison b/t distinct pointer types
         return (struct_ptr == union_ptr);
     }
 }
 )SRC"),
-                 "Incompatible pointer types");
+                 "'tag' defined as wrong kind of tag");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionTagResolutionConflictingParamUnionTypes_Neg)
@@ -1221,15 +1219,15 @@ struct s;
 int foo(struct s x);
 
 int main(void) {
-    union s;  // declare an incomplete union type w/ same tag
+    // 'union s' here refers to the file-scope 'struct s' (no shadowing), so the
+    // wrong keyword is itself a cross-kind conflict.
+    union s;
 
-    // illegal declaration: this conflicts with earlier declaration of 'foo'
-    // becasue it has a different type ( 'union s' instead of 'struct s')
     int foo(union s x);
     return 0;
 }
 )SRC"),
-                 "Conflicting declarations for function foo");
+                 "'s' defined as wrong kind of tag");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionTagResolutionDistinctUnionTypes_Neg)
@@ -2056,7 +2054,7 @@ struct s {
   int a;
 };
 )SRC"),
-                 "Struct or union 's' not found");
+                 "Can't define a variable with incomplete type");
 }
 
 TEST_F(PipelineTest, Chapter18_IncompleteStructsSizeofIncomplete_Neg)

@@ -42,7 +42,6 @@ re-enabled when block-scope statics landed).
 
 | #  | Task | Description |
 |----|------|-------------|
-| 34 | Track tag struct-vs-union kind | Record whether a tag was declared `struct` or `union` and reject cross-kind use. Re-enables ch18 TagDeclAndUse, TagDeclarations, TagDeclConflictsWithDef, TagDefConflictsWithDecl, TagDeclAndUseSelfReference (5). |
 | 35 | Distinguish block-scope extern/static from file scope | Block-scope `extern`/`static` are currently stored at file scope, so the type checker cannot tell them from genuine file-scope entities. Re-enables ch10 ExternFollowsStaticLocalVar, OutOfScopeExternVar (2). |
 | 36 | REMOVE tag-shadowing tests (no-shadowing design) | These require an inner-scope tag to shadow an outer one with a distinct type — impossible under the permanent no-shadowing rule. Adapt where a non-shadowing analogue exists, otherwise delete: ch18 UnionShadowedByIncompleteStruct, UnionTagResolutionUnionTypeShadowsStruct, TagResolutionConflictingFunParamTypes, TagResolutionConflictingFunRetTypes, TagResolutionIncompleteShadowsComplete, TagResolutionIncompleteShadowsCompleteCast, TagResolutionShadowStruct (7). |
 
