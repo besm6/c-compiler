@@ -857,7 +857,9 @@ int main(void) {
 )PROG")));
 }
 
-// block-scope static + strcmp + local char-array string init.
+// Residual blocker (not libc; strcmp/exit available): passes structs by value
+// as parameters (register and in-memory classes); the struct-by-value parameter
+// ABI is unimplemented, so the stack-clobber check fails ("*END FILE").
 TEST_F(CodegenTest, DISABLED_Chapter18_ParametersStackClobber)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
@@ -1278,7 +1280,9 @@ int main(void) {
 )PROG")));
 }
 
-// block-scope static + strcmp.
+// Residual blocker (not libc; strcmp/exit available): passes and returns
+// multi-word structs by value; the struct-by-value parameter/return ABI is
+// unimplemented, so the stack-clobber check fails ("*END FILE").
 TEST_F(CodegenTest, DISABLED_Chapter18_ParamsAndReturnsStackClobber)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
@@ -1778,7 +1782,9 @@ int validate_two_structs(struct s *ptr1, struct s *ptr2) {
 )PROG")));
 }
 
-// malloc/calloc/strcmp.
+// Residual blocker (not libc; strcmp available, validation is by-pointer):
+// nested-struct initialization with mixed long/double/unsigned-char-array
+// members validates wrong (struct-init representation codegen), returns 1.
 TEST_F(CodegenTest, DISABLED_Chapter18_NestedAutoStructInitializers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
@@ -2030,7 +2036,9 @@ int validate_array_of_structs(struct outer *struct_array) {
 )PROG")));
 }
 
-// block-scope static + strcmp.
+// Residual blocker (not libc; strcmp available): nested static-struct
+// initialization with mixed-type members errors at run time (struct-init
+// representation codegen).
 TEST_F(CodegenTest, DISABLED_Chapter18_NestedStaticStructInitializers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
@@ -2316,7 +2324,9 @@ int test_array_of_structs(void) {
 )PROG")));
 }
 
-// strcmp + 64-bit constants + char* string init.
+// Residual blocker (not libc; strcmp available): static-struct initialization
+// with mixed-type members validates wrong (struct-init representation codegen),
+// returns 2.
 TEST_F(CodegenTest, DISABLED_Chapter18_StaticStructInitializers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(

@@ -2322,7 +2322,9 @@ int main(void) {
 )PROG")));
 }
 
-// block-scope static + local char-array string init.
+// Residual blocker (not libc; strcmp/exit available): test_store declares a
+// local `ptr` shadowing the file-scope `ptr` (no-shadowing design), and the
+// struct copy reads packed char-array members at non-zero byte offsets (#42).
 TEST_F(CodegenTest, DISABLED_Chapter18_StructCopyStackClobber)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(

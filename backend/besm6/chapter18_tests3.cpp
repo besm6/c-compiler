@@ -1,6 +1,8 @@
 #include "book_run.h"
 
-// strcmp + local char-array string init + 64-bit constants.
+// Residual blocker (not libc; strcmp available): passes structs of every
+// classification by value as parameters; the struct-by-value parameter ABI is
+// unimplemented (run errors).
 TEST_F(CodegenTest, DISABLED_Chapter18_ClassifyParams)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
@@ -188,7 +190,9 @@ int test_pass_in_memory(struct pass_in_memory s) {
 )PROG")));
 }
 
-// strcmp + local char-array string init + 64-bit constants.
+// Residual blocker (not libc; strcmp/strncmp available): passes mixed struct/
+// scalar arguments by value; the struct-by-value parameter ABI is unimplemented
+// (validation returns 1).
 TEST_F(CodegenTest, DISABLED_Chapter18_ParamCallingConventions)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
@@ -1244,7 +1248,9 @@ struct outer return_nested_struct(void) {
 )PROG")));
 }
 
-// strcmp + local char-array string init + 64-bit constants.
+// Residual blocker (not libc; strcmp/strncmp available): returns a wide range
+// of struct types by value; the multi-word/in-memory struct-return ABI is
+// unimplemented (run errors).
 TEST_F(CodegenTest, DISABLED_Chapter18_ReturnCallingConventions)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
