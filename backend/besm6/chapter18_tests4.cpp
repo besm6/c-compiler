@@ -1,12 +1,10 @@
 #include "book_run.h"
 
-// malloc/calloc + block-scope static.
-TEST_F(CodegenTest, DISABLED_Chapter18_CopyNonScalarMembers)
+// BESM-6: the arrow case uses static objects instead of calloc (no heap dependency); all
+// member reads here are same-type, so no punning-value changes are needed.
+TEST_F(CodegenTest, Chapter18_CopyNonScalarMembers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
-void *calloc(unsigned long nmemb, unsigned long size);
-void *malloc(unsigned long size);
-
 union simple {
     int i;
     long l;
@@ -42,9 +40,6 @@ union complex_union {
     union has_union *u_ptr;
 };
 // Read and assign to non-scalar union members
-
-
-void* calloc(unsigned long nmemb, unsigned long size);
 
 int test_dot(void) {
     // Test reading/writing whole nested unions/structs w/ . operator
@@ -86,10 +81,13 @@ int test_dot(void) {
 }
 
 int test_arrow(void) {
-    // allocate some objects
-    union complex_union* my_union_ptr = calloc(1, sizeof(union complex_union));
-    my_union_ptr->u_ptr = calloc(1, sizeof(union has_union));
-    my_union_ptr->u_ptr->u_ptr = calloc(1, sizeof(union simple));
+    // static objects in place of heap allocations
+    static union complex_union cu_store;
+    static union has_union hu_store;
+    static union simple su_store;
+    union complex_union* my_union_ptr = &cu_store;
+    my_union_ptr->u_ptr = &hu_store;
+    my_union_ptr->u_ptr->u_ptr = &su_store;
     my_union_ptr->u_ptr->u_ptr->i = 987654321;
 
     // read thru arrow to assign
@@ -124,13 +122,13 @@ int main(void) {
 )PROG")));
 }
 
-// malloc + strcmp + local char-array string init + punning.
-TEST_F(CodegenTest, DISABLED_Chapter18_CopyThruPointer)
+// BESM-6: helper names shortened to stay distinct within 8 chars; the pointed-to union
+// uses a local object instead of malloc; punned bytes read big-endian (byte #0 = MSB);
+// the 64-bit long is brought into the 41-bit range and strcmp strings are UPPERCASE so the
+// automatic (ASCII) char data matches the KOI-7-repacked string constants.
+TEST_F(CodegenTest, Chapter18_CopyThruPointer)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
-void *calloc(unsigned long nmemb, unsigned long size);
-void *malloc(unsigned long size);
-
 union simple {
     int i;
     long l;
@@ -172,14 +170,15 @@ union complex_union {
 int strcmp(char* s1, char* s2);
 
 // case 1: *x = y
-int test_copy_to_pointer(void) {
+int cptoptr(void) {
     union simple y;
     y.l = -20;
-    union simple* x = malloc(sizeof(union simple));
+    union simple xobj;
+    union simple* x = &xobj;
     *x = y;
 
-    // validate
-    if (x->l != -20 || x->i != -20 || x->uc_arr[0] != 236 || x->uc_arr[1] != 255 || x->uc_arr[2] != 255) {
+    // validate (uc_arr reads big-endian bytes #0,#1,#2 of -20 = 1,255,255)
+    if (x->l != -20 || x->i != -20 || x->uc_arr[0] != 1 || x->uc_arr[1] != 255 || x->uc_arr[2] != 255) {
         return 0; // fail
     }
 
@@ -187,9 +186,9 @@ int test_copy_to_pointer(void) {
 }
 
 // case 2: x = *y
-int test_copy_from_pointer(void) {
+int cpfrptr(void) {
     // define/initialize a union object containing a struct
-    struct simple_struct my_struct = { 8223372036854775807l, 20e3, 2147483650u };
+    struct simple_struct my_struct = { 999999999999l, 20e3, 2147483650u };
     static union has_struct my_union;
     my_union.s = my_struct;
 
@@ -201,7 +200,7 @@ int test_copy_from_pointer(void) {
     union has_struct another_union = *union_ptr;
 
     // validate
-    if (another_union.s.l != 8223372036854775807l || another_union.s.d != 20e3 || another_union.s.u != 2147483650u) {
+    if (another_union.s.l != 999999999999l || another_union.s.d != 20e3 || another_union.s.u != 2147483650u) {
         return 0; // fail
     }
 
@@ -217,29 +216,29 @@ union with_padding {
     unsigned int ui;
 };
 
-int test_copy_array_members(void) {
+int cparrmem(void) {
 
     // define/initialize an array of unions
-    union with_padding union_array[3] = { {"foobar"}, {"hello"}, {"itsaunion"} };
+    union with_padding union_array[3] = { {"FOOBAR"}, {"HELLO"}, {"ITSAUNION"} };
 
     // copy element out of array
     union with_padding another_union = union_array[0];
-    union with_padding yet_another_union = { "blahblah" };
+    union with_padding yet_another_union = { "BLAHBLAH" };
 
     // copy an element into the array
     union_array[2] = yet_another_union;
 
     // validate
-    if (strcmp(union_array[0].arr, "foobar") || strcmp(union_array[1].arr, "hello") || strcmp(union_array[2].arr, "blahblah")) {
+    if (strcmp(union_array[0].arr, "FOOBAR") || strcmp(union_array[1].arr, "HELLO") || strcmp(union_array[2].arr, "BLAHBLAH")) {
         return 0; // fail
     }
 
-    if (strcmp(another_union.arr, "foobar")) {
+    if (strcmp(another_union.arr, "FOOBAR")) {
         return 0; // fail
     }
 
     // check yet_another_union too, even though we didn't update it
-    if (strcmp(yet_another_union.arr, "blahblah")) {
+    if (strcmp(yet_another_union.arr, "BLAHBLAH")) {
         return 0; // fail
     }
 
@@ -248,15 +247,15 @@ int test_copy_array_members(void) {
 }
 
 int main(void) {
-    if (!test_copy_to_pointer()){
+    if (!cptoptr()){
         return 1;
     }
 
-    if (!test_copy_from_pointer()) {
+    if (!cpfrptr()) {
         return 2;
     }
 
-    if (!test_copy_array_members()) {
+    if (!cparrmem()) {
         return 3;
     }
 
@@ -265,7 +264,9 @@ int main(void) {
 )PROG")));
 }
 
-// strcmp + union punning + 64-bit + malloc.
+// DEFERRED (task #47): x86 SysV register-classification ABI test (one/two XMM/GP regs,
+// in-memory) with no BESM-6 analogue — every asserted IEEE/8-byte value would need
+// wholesale recomputation. Kept DISABLED rather than adapted.
 TEST_F(CodegenTest, DISABLED_Chapter18_ClassifyUnions)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
@@ -969,7 +970,8 @@ int test_contains_union_array(union contains_union_array u) {
 )PROG")));
 }
 
-// strcmp + union punning.
+// DEFERRED (task #47): x86 SysV register-classification ABI test (union/struct parameter
+// passing in specific registers vs memory) with no BESM-6 analogue. Kept DISABLED.
 TEST_F(CodegenTest, DISABLED_Chapter18_ParamPassing)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
@@ -1543,8 +1545,10 @@ int pass_in_mem_first(union lotsa_doubles mem, union gp_and_xmm mixed_regs,
 )PROG")));
 }
 
-// strcmp + 64-bit + static union punning.
-TEST_F(CodegenTest, DISABLED_Chapter18_StaticUnionInits)
+// BESM-6: validate helpers renamed to stay distinct within 8 chars; char members read
+// byte #0 (MSB), so a small int written through the union reads back 0 there; strcmp
+// strings and the struct char member use UPPERCASE so source/KOI-7 encodings agree.
+TEST_F(CodegenTest, Chapter18_StaticUnionInits)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 int strcmp(char* s1, char* s2);
@@ -1557,7 +1561,7 @@ union simple {
 };
 
 extern union simple s;
-int validate_simple(void);
+int vsimple(void);
 
 // Test case 2 - union w/ another union as first element
 union has_union {
@@ -1566,7 +1570,7 @@ union has_union {
 };
 
 extern union has_union h;
-int validate_has_union(void);
+int vhasun(void);
 
 // Test case 3 - struct containing partially initialized array of unions
 // (make sure we initialize padding to 0 for each of them)
@@ -1578,14 +1582,14 @@ struct has_union_array {
 
 
 extern struct has_union_array my_struct;
-int validate_has_union_array(void);
+int vhasarr(void);
 
 
 // Test case 4 - an uninitialized static union (make sure we initialize the
 // whole thing, including padding, to zeroes)
 
 extern union has_union all_zeros;
-int validate_uninitialized(void);
+int vuninit(void);
 
 // Test case 5 - an array of unions with trailing padding. Make sure padding
 // is included
@@ -1595,7 +1599,7 @@ union with_padding {
 }; // extra 3 bytes of padding to make it 8-byte aligned
 
 extern union with_padding padded_union_array[3];
-int validate_padded_union_array(void);
+int vpadarr(void);
 // Test initialization of static unions; make sure uninitialized
 // unions/sub-objects are initialized to zero
 
@@ -1611,7 +1615,7 @@ union has_union h = {{77}};
 // (make sure we initialize uninitialized values to zero)
 
 struct has_union_array my_struct = {
-    {{{'a'}}, {{'b'}}, {{'c'}}}, '#', {'!'}
+    {{{'a'}}, {{'b'}}, {{'c'}}}, 'X', {'Y'}
 };
 
 // Test case 4 - uninitialized union (make sure whole thing is initialized to
@@ -1622,29 +1626,29 @@ union has_union all_zeros;
 // Test case 5 - an array of unions with trailing padding. Make sure padding
 // is included
 union with_padding padded_union_array[3] = {
-    {"first string"}, {"string #2"}, {
-        "string #3"
+    {"FIRST STRING"}, {"STRING TWO"}, {
+        "STRING THREE"
     }
 };
 
 int main(void) {
-    if (!validate_simple()) {
+    if (!vsimple()) {
         return 1;
     }
 
-    if (!validate_has_union()){
+    if (!vhasun()){
         return 2;
     }
 
-    if (!validate_has_union_array()) {
+    if (!vhasarr()) {
         return 3;
     }
 
-    if (!validate_uninitialized()) {
+    if (!vuninit()) {
         return 4;
     }
 
-    if (!validate_padded_union_array()) {
+    if (!vpadarr()) {
         return 5;
     }
 
@@ -1653,22 +1657,25 @@ int main(void) {
 // Test initialization of static unions; make sure uninitialized unions are initialized to zero
 
 
-int validate_simple(void) {
-    return (s.c == -39 && s.i == 217);
+int vsimple(void) {
+    // s.c reads byte #0 (MSB) of int 217 = 0; char is unsigned on BESM-6
+    return (s.c == 0 && s.i == 217);
 }
 
-int validate_has_union(void) {
-    return (h.u.c == 77 && h.c == 77 && h.u.i == 77);
+int vhasun(void) {
+    // u.c and h.c read byte #0 (MSB) of int 77 = 0; the int member holds 77
+    return (h.u.c == 0 && h.c == 0 && h.u.i == 77);
 }
 
-int validate_has_union_array(void) {
+int vhasarr(void) {
 
     // validate array of unions
     // first validate elements 0-2
     for (int i = 0; i < 3; i = i + 1) {
         int expected = 'a' + i;
-        if (my_struct.union_array[i].u.c != expected
-            || my_struct.union_array[i].c != expected
+        // the int member holds 'a'+i; the char views read byte #0 (MSB) = 0
+        if (my_struct.union_array[i].u.c != 0
+            || my_struct.union_array[i].c != 0
             || my_struct.union_array[i].u.i != expected) {
             return 0;
         }
@@ -1681,34 +1688,35 @@ int validate_has_union_array(void) {
     }
 
     // validate other elements of struct
-    if (my_struct.c != '#') {
+    if (my_struct.c != 'X') {
         return 0; // fail
     }
 
-    if (my_struct.s.c != '!' || my_struct.s.i != '!') {
+    // s.i holds 'Y'; s.c reads byte #0 (MSB) = 0
+    if (my_struct.s.c != 0 || my_struct.s.i != 'Y') {
         return 0; // fail
     }
 
     return 1;
 }
 
-int validate_uninitialized(void) {
+int vuninit(void) {
     if (all_zeros.u.d != 0.0) {
         return 0; // fail
     }
     return 1;
 }
 
-int validate_padded_union_array(void) {
-    if (strcmp(padded_union_array[0].arr, "first string") != 0) {
+int vpadarr(void) {
+    if (strcmp(padded_union_array[0].arr, "FIRST STRING") != 0) {
         return 0; // fail
     }
 
-    if (strcmp(padded_union_array[1].arr, "string #2") != 0) {
+    if (strcmp(padded_union_array[1].arr, "STRING TWO") != 0) {
         return 0; // fail
     }
 
-    if (strcmp(padded_union_array[2].arr, "string #3") != 0) {
+    if (strcmp(padded_union_array[2].arr, "STRING THREE") != 0) {
         return 0; // fail
     }
 
@@ -1717,8 +1725,10 @@ int validate_padded_union_array(void) {
 )PROG")));
 }
 
-// strcmp + 64-bit + union punning.
-TEST_F(CodegenTest, DISABLED_Chapter18_UnionInits)
+// BESM-6: helper names shortened to stay distinct within 8 chars; the converted-init value
+// is brought into range, the negative char-array init reads back as unsigned (255-i), the
+// 64-bit long is reduced to the 41-bit range, and the strcmp string is UPPERCASE.
+TEST_F(CodegenTest, Chapter18_UnionInits)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 // library functions
@@ -1746,55 +1756,54 @@ union nested {
     long l;
 };
 
-int validate_simple(union simple *ptr);
-int validate_simple_converted(union simple *ptr);
-int validate_nested(union nested *ptr);
-int validate_nested_partial(union nested *ptr);
+int vsimp(union simple *ptr);
+int vsimpcv(union simple *ptr);
+int vnest(union nested *ptr);
+int vnestp(union nested *ptr);
 // Test initialization of unions with automatic storage duration
 
 
 
-int test_simple(void) {
+int tsimp(void) {
     // initialize simple union w/ only scalar members
     union simple x = { 123.45 };
-    return validate_simple(&x);
+    return vsimp(&x);
 }
 
-int test_simple_converted(void) {
-    // initialize simple union where value of element is implicitly converted
-    // to target type (in this case the nearest representatble double,
-    // 18446744073709549568.0)
-    union simple x = { 18446744073709550315UL };
-    return validate_simple_converted(&x);
+int tsimpcv(void) {
+    // initialize simple union where the unsigned value is implicitly converted to the
+    // double member (2^32 is exactly representable in the BESM-6 native FP format)
+    union simple x = { 4294967296UL };
+    return vsimpcv(&x);
 }
 
 
-int test_nested(void) {
+int tnest(void) {
     // initalize nested union where first member is a structure
     union nested x = { {4294967395l, {{-1, -2, -3, -4, -5, -6, -7, -8, -9}}} };
-    return validate_nested(&x);
+    return vnest(&x);
 }
 
-int test_nested_partial_init(void) {
+int tnestp(void) {
     // initialize union where inner subobject is a partly initialized struct
-    union nested x = { {9000372036854775800l, {"string"}} };
-    return validate_nested_partial(&x);
+    union nested x = { {900037203685l, {"STRING"}} };
+    return vnestp(&x);
 }
 
 int main(void) {
-    if (!test_simple()) {
+    if (!tsimp()) {
         return 1;
     }
 
-    if (!test_simple_converted()) {
+    if (!tsimpcv()) {
         return 2;
     }
 
-    if (!test_nested()) {
+    if (!tnest()) {
         return 3;
     }
 
-    if (!test_nested_partial_init()) {
+    if (!tnestp()) {
         return 4;
     }
 
@@ -1803,33 +1812,34 @@ int main(void) {
 // Test initialization of unions with both automatic and static storage duration
 
 
-int validate_simple(union simple* ptr) {
+int vsimp(union simple* ptr) {
     return (ptr->d == 123.45);
 }
 
-int validate_simple_converted(union simple* ptr) {
-    return (ptr->d == 18446744073709549568.);
+int vsimpcv(union simple* ptr) {
+    return (ptr->d == 4294967296.);
 }
 
-int validate_nested(union nested* ptr) {
+int vnest(union nested* ptr) {
     if (ptr->str.l != 4294967395l) {
         return 0; // fail
     }
 
     for (int i = 0; i < 9; i = i + 1) {
-        if (ptr->str.u.arr[i] != -1 - i) {
+        // -1-i stored into an unsigned char reads back as 255-i
+        if (ptr->str.u.arr[i] != 255 - i) {
             return 0;  // fail
         }
     }
 
     return 1; // success
 }
-int validate_nested_partial(union nested* ptr) {
-    if (ptr->str.l != 9000372036854775800l) {
+int vnestp(union nested* ptr) {
+    if (ptr->str.l != 900037203685l) {
         return 0; // fail
     }
 
-    if (strcmp(ptr->str.u.arr, "string")) {
+    if (strcmp(ptr->str.u.arr, "STRING")) {
         return 0; // fail
     }
 
@@ -1838,7 +1848,8 @@ int validate_nested_partial(union nested* ptr) {
 )PROG")));
 }
 
-// strcmp + union punning + 64-bit.
+// DEFERRED (task #47): x86 SysV register-classification ABI test (union return values in
+// specific registers vs memory) with no BESM-6 analogue. Kept DISABLED.
 TEST_F(CodegenTest, DISABLED_Chapter18_UnionRetvals)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(

@@ -287,8 +287,8 @@ int main(void) {
 )PROG")));
 }
 
-// calloc not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter18_MemberComparisons)
+// BESM-6: rewritten to use a local struct instead of calloc (no heap dependency).
+TEST_F(CodegenTest, Chapter18_MemberComparisons)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test comparisons between pointers to structures and structure members:
@@ -303,10 +303,9 @@ struct three_ints {
     int c;
 };
 
-void* calloc(unsigned long nmem, unsigned long size);
-
 int main(void) {
-    struct three_ints* my_struct = calloc(1, sizeof(struct three_ints));
+    struct three_ints storage = {0, 0, 0};
+    struct three_ints* my_struct = &storage;
 
     // compare struct pointer with pointer to first member
     if ((void*)my_struct != &my_struct->a) {

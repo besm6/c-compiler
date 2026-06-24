@@ -202,14 +202,16 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
                                            (int)get_size(id->type));
                 continue;
             }
-            Tac_Val *src     = gen_expr(ctx, id->init->u.expr);
             const Type *idt2 = id->type ? unalias(id->type) : NULL;
             if (idt2 && (idt2->kind == TYPE_STRUCT || idt2->kind == TYPE_UNION)) {
-                // Whole-struct initialization (e.g. struct r = other; or struct r = f();):
-                // copy every word from the source aggregate into the new local.
-                gen_struct_assign(ctx, id->name, 0, src->u.var_name, (int)get_size(id->type));
-                tac_free_val(src);
+                // Whole-aggregate initialization (e.g. struct r = other; struct r = f();
+                // union u = *ptr;): copy every word from the source into the new local.
+                // The source may be a named aggregate, a call/compound rvalue, or — the
+                // case gen_struct_assign mishandled — an lvalue reached through a pointer.
+                gen_aggregate_init_from_expr(ctx, id->name, 0, id->init->u.expr,
+                                             (int)get_size(id->type));
             } else {
+                Tac_Val *src        = gen_expr(ctx, id->init->u.expr);
                 Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
                 in->u.copy.src      = src;
                 in->u.copy.dst      = val_var(id->name);

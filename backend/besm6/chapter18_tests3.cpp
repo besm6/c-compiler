@@ -1458,13 +1458,11 @@ struct bytesize24 fun24(void) {
 )PROG")));
 }
 
-// block-scope static + calloc + union punning.
-TEST_F(CodegenTest, DISABLED_Chapter18_NestedUnionAccess)
+// BESM-6: char members read byte #0 (MSB); array-of-pointers case rewritten to use
+// local storage instead of calloc (no heap dependency).
+TEST_F(CodegenTest, Chapter18_NestedUnionAccess)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
-void *calloc(unsigned long nmemb, unsigned long size);
-void *malloc(unsigned long size);
-
 union simple {
     int i;
     long l;
@@ -1502,7 +1500,7 @@ union complex_union {
 /* Test access to nested union members through dot, arrow, and subscript operators */
 
 
-int test_auto_dot(void) {
+int autodot(void) {
     // Test nested access with . in unions/structs containing unions
     // with automatic storage duration
 
@@ -1528,7 +1526,7 @@ int test_auto_dot(void) {
     z.s.u.i = 12345;
     z.s.ul = 0;
 
-    if (z.s.u.c != 57) { // lowest byte of 12345
+    if (z.s.u.c != 0) { // byte #0 (MSB) of 12345 is zero
         return 0; // fail
     }
 
@@ -1547,7 +1545,7 @@ int test_auto_dot(void) {
     return 1; // success
 }
 
-int test_static_dot(void) {
+int statdot(void) {
     // identical to test_auto_dot but using objects
     // with static storage duration
 
@@ -1573,7 +1571,7 @@ int test_static_dot(void) {
     z.s.u.i = 12345;
     z.s.ul = 0;
 
-    if (z.s.u.c != 57) { // lowest byte of 12345
+    if (z.s.u.c != 0) { // byte #0 (MSB) of 12345 is zero
         return 0; // fail
     }
 
@@ -1584,7 +1582,7 @@ int test_static_dot(void) {
     return 1; // success
 }
 
-int test_auto_arrow(void) {
+int autoarr(void) {
     // Test nested access in unions w/ automatic storage duration,
     // using only -> operator
     union simple inner = {100};
@@ -1599,19 +1597,20 @@ int test_auto_arrow(void) {
     outer_ptr->u_ptr->l = -10;
 
     // read through other members that should have same value
-    if (outer_ptr->u_ptr->c != -10 || outer_ptr->u_ptr->i != -10 || outer_ptr->u_ptr->l != -10) {
+    // c reads byte #0 (MSB) of -10 = 1; i and l read the full word = -10
+    if (outer_ptr->u_ptr->c != 1 || outer_ptr->u_ptr->i != -10 || outer_ptr->u_ptr->l != -10) {
         return 0; // fail
     }
 
-    // read through members of uc_arr
-    if (outer_ptr->u_ptr->uc_arr[0] != 246 || outer_ptr->u_ptr->uc_arr[1] != 255 || outer_ptr->u_ptr->uc_arr[2] != 255) {
+    // read through members of uc_arr (bytes #0,#1,#2 of -10 = 1,255,255)
+    if (outer_ptr->u_ptr->uc_arr[0] != 1 || outer_ptr->u_ptr->uc_arr[1] != 255 || outer_ptr->u_ptr->uc_arr[2] != 255) {
         return 0; // fail
     }
 
     return 1; // success
 }
 
-int test_static_arrow(void) {
+int statarr(void) {
     // identical to test_auto_arrow but with objects of static storage duration
     static union simple inner = {100};
     static union has_union outer;
@@ -1626,38 +1625,42 @@ int test_static_arrow(void) {
     outer_ptr->u_ptr->l = -10;
 
     // read through other members that should have same value
-    if (outer_ptr->u_ptr->c != -10 || outer_ptr->u_ptr->i != -10 || outer_ptr->u_ptr->l != -10) {
+    // c reads byte #0 (MSB) of -10 = 1; i and l read the full word = -10
+    if (outer_ptr->u_ptr->c != 1 || outer_ptr->u_ptr->i != -10 || outer_ptr->u_ptr->l != -10) {
         return 0; // fail
     }
 
-    // read through members of uc_arr
-    if (outer_ptr->u_ptr->uc_arr[0] != 246 || outer_ptr->u_ptr->uc_arr[1] != 255 || outer_ptr->u_ptr->uc_arr[2] != 255) {
+    // read through members of uc_arr (bytes #0,#1,#2 of -10 = 1,255,255)
+    if (outer_ptr->u_ptr->uc_arr[0] != 1 || outer_ptr->u_ptr->uc_arr[1] != 255 || outer_ptr->u_ptr->uc_arr[2] != 255) {
         return 0; // fail
     }
 
     return 1; // success
 }
 
-int test_array_of_unions(void) {
+int arrunis(void) {
     // test access to array of unions
     union has_union arr[3];
     arr[0].u.l = -10000;
     arr[1].u.i = 200;
     arr[2].u.c = -120;
 
-    if (arr[0].u.l != -10000 || arr[1].u.c != -56 || arr[2].u.uc_arr[0] != 136) {
+    // arr[1].u.i = 200 → byte #0 (MSB) is 0; arr[2].u.c = -120 stores byte 136
+    if (arr[0].u.l != -10000 || arr[1].u.c != 0 || arr[2].u.uc_arr[0] != 136) {
         return 0; // fail
     }
 
     return 1; // success
 }
 
-int test_array_of_union_pointers(void) {
-    // test access to array of union pointers
+int arrptrs(void) {
+    // test access to array of union pointers (local storage, no heap)
     union has_union *ptr_arr[3];
+    union has_union storage[3];
+    union simple inner_storage[3];
     for (int i = 0; i < 3; i = i + 1) {
-        ptr_arr[i] = calloc(1, sizeof(union has_union));
-        ptr_arr[i]->u_ptr = calloc(1, sizeof (union simple));
+        ptr_arr[i] = &storage[i];
+        ptr_arr[i]->u_ptr = &inner_storage[i];
         ptr_arr[i]->u_ptr->l = i;
     }
 
@@ -1670,27 +1673,27 @@ int test_array_of_union_pointers(void) {
 
 
 int main(void) {
-    if (!test_auto_dot()) {
+    if (!autodot()) {
         return 1;
     }
 
-    if (!test_static_dot()) {
+    if (!statdot()) {
         return 2;
     }
 
-    if (!test_auto_arrow()) {
+    if (!autoarr()) {
         return 3;
     }
 
-    if (!test_static_arrow()) {
+    if (!statarr()) {
         return 4;
     }
 
-    if (!test_array_of_unions()) {
+    if (!arrunis()) {
         return 5;
     }
 
-    if (!test_array_of_union_pointers()) {
+    if (!arrptrs()) {
         return 6;
     }
 
@@ -1699,8 +1702,10 @@ int main(void) {
 )PROG")));
 }
 
-// block-scope static + 64-bit + union punning.
-TEST_F(CodegenTest, DISABLED_Chapter18_StaticUnionAccess)
+// BESM-6: char is unsigned and reads big-endian (byte #0 = MSB); unsigned long is one
+// 48-bit word (6 live bytes, so arr[6]/arr[7] are in the zero second word); the double
+// -1.0 has the native bit pattern exponent=64, sign=1, zero mantissa = 2^47 + 2^40.
+TEST_F(CodegenTest, Chapter18_StaticUnionAccess)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 // Test access to static union members with . and ->
@@ -1710,39 +1715,44 @@ union u {
     char arr[8];
 };
 
-static union u my_union = { 18446744073709551615UL };
+static union u my_union = { 281474976710655UL }; // 2^48 - 1 (all 48 bits set)
 static union u* union_ptr = 0;
 
 int main(void) {
     union_ptr = &my_union;
-    if (my_union.l != 18446744073709551615UL) {
+    if (my_union.l != 281474976710655UL) {
         return 1; // fail
     }
 
-    for (int i = 0; i < 8; i = i + 1) {
-        if (my_union.arr[i] != -1) {
+    // word 0 is all-ones (bytes 0-5 = 255); arr[6]/arr[7] live in the zero second word
+    for (int i = 0; i < 6; i = i + 1) {
+        if (my_union.arr[i] != 255) {
             return 2; // fail
         }
+    }
+    if (my_union.arr[6] != 0 || my_union.arr[7] != 0) {
+        return 3; // fail
     }
 
     union_ptr->d = -1.0;
 
-    if (union_ptr->l != 13830554455654793216ul) {
-        return 3; // fail
+    if (union_ptr->l != 141836999983104UL) {
+        return 4; // fail
     }
 
-    for (int i = 0; i < 6; i = i + 1) {
-        // lower 6 bytes are 0
-        if (my_union.arr[i]) {
-            return 4; // fail
-        }
-    }
-    if (union_ptr->arr[6] != -16) {
+    // byte #0 (MSB) of -1.0 is 0x81 = 129; bytes #1-5 are zero
+    if (union_ptr->arr[0] != 129) {
         return 5; // fail
     }
+    for (int i = 1; i < 6; i = i + 1) {
+        if (my_union.arr[i]) {
+            return 6; // fail
+        }
+    }
 
-    if (union_ptr->arr[7] != -65) {
-        return 6; // fail
+    // the second word is untouched by the one-word double write
+    if (union_ptr->arr[6] != 0 || union_ptr->arr[7] != 0) {
+        return 7; // fail
     }
 
     return 0; // success
@@ -2268,7 +2278,11 @@ int main(void) {
 }
 
 // 64-bit (LONG_MIN) + union punning + block-scope union.
-TEST_F(CodegenTest, DISABLED_Chapter18_UnionNamespace)
+// BESM-6: helper names shortened to stay distinct within 8 chars; the type tags are
+// hoisted to file scope (block-scope tag definitions are unsupported); the shared-member
+// union initializes its double member directly (positive char values; no LONG_MIN→double
+// punning, which has no portable BESM-6 result).
+TEST_F(CodegenTest, Chapter18_UnionNamespace)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test that we treat union tags, function/variable names, and each
@@ -2276,22 +2290,22 @@ TEST_F(CodegenTest, DISABLED_Chapter18_UnionNamespace)
  */
 
 // Different unions/structs can use same member names
-int test_shared_member_names(void) {
-    union u1 {
-        int a;
-    };
-    union u2 {
-        long l;
-        double a;
-    };
-    struct s {
-        char a[2];
-    };
+union u1 {
+    int a;
+};
+union u2 {
+    double a;
+    long l;
+};
+struct s {
+    char a[2];
+};
 
+int sharemem(void) {
     union u1 var1 = {10};
-    union u2 var2 = {-9223372036854775807l - 1}; // LONG_MIN
-    struct s var3 = {{-1, -2}};
-    if (var1.a != 10 || var2.a != -0.0 || var3.a[0] != -1) {
+    union u2 var2 = {2.5};
+    struct s var3 = {{1, 2}};
+    if (var1.a != 10 || var2.a != 2.5 || var3.a[0] != 1) {
         return 0;
     }
 
@@ -2300,10 +2314,11 @@ int test_shared_member_names(void) {
 
 // you can use the same identiifer as a struct tag, member name, and variable
 // name
-int test_same_name_var_member_and_tag(void) {
-    union u {
-        int u;
-    };
+union u {
+    int u;
+};
+
+int samevar(void) {
     union u u = {100};
     if (u.u != 100) {
         return 0;
@@ -2321,7 +2336,7 @@ union f {
     int f;
 };
 
-int test_same_name_fun_and_tag(void) {
+int samefun(void) {
     union f x;
     x.f = f();
     if (x.f != 10) {
@@ -2332,15 +2347,15 @@ int test_same_name_fun_and_tag(void) {
 }
 
 int main(void) {
-    if (!test_shared_member_names()) {
+    if (!sharemem()) {
         return 1;  // fail
     }
 
-    if (!test_same_name_var_member_and_tag()) {
+    if (!samevar()) {
         return 2;  // fail
     }
 
-    if (!test_same_name_fun_and_tag()) {
+    if (!samefun()) {
         return 3;  // fail
     }
 

@@ -282,12 +282,10 @@ Type *common_pointer_type(const Expr *e1, const Expr *e2)
     // operands are actually pointers (a void* vs. a non-null integer is invalid).
     bool e1_void_ptr = p1->kind == TYPE_POINTER && unalias(p1->u.pointer.target)->kind == TYPE_VOID;
     bool e2_void_ptr = p2->kind == TYPE_POINTER && unalias(p2->u.pointer.target)->kind == TYPE_VOID;
-    if ((e1_void_ptr && p2->kind == TYPE_POINTER) ||
-        (e2_void_ptr && p1->kind == TYPE_POINTER)) {
-        Type *void_ptr             = new_type(TYPE_POINTER, __func__, __FILE__, __LINE__);
-        void_ptr->u.pointer.target = new_type(TYPE_VOID, __func__, __FILE__, __LINE__);
-        return void_ptr;
-    }
+    if (e1_void_ptr && p2->kind == TYPE_POINTER)
+        return e1->type; // already void* — return it borrowed (no allocation)
+    if (e2_void_ptr && p1->kind == TYPE_POINTER)
+        return e2->type;
     fatal_error("Incompatible pointer types");
 }
 

@@ -412,9 +412,10 @@ x:
 // =============================================================================
 
 // member_access/union_init_and_member_access: union init + member access.
-// DISABLED: the final check reads integer -1 back through a char member, whose
-// value is BESM-6 integer-representation specific (41-bit value + tag bits), not -1.
-TEST_F(CodegenTest, DISABLED_Chapter18_UnionInitAndMemberAccess)
+// BESM-6: reading -1l back through the unsigned-long member yields its 41 value
+// bits (2^41-1); through the char member it yields byte #0 (MSB, bits 48-41) =
+// 0b00000001 = 1 (bits 48-42 are the zero exponent field, bit 41 is the sign).
+TEST_F(CodegenTest, Chapter18_UnionInitAndMemberAccess)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
 union u { double d; long l; unsigned long ul; char c; };
@@ -425,7 +426,7 @@ int main(void) {
     ptr->l = -1l;
     if (ptr->l != -1l) return 2;
     if (ptr->ul != 2199023255551UL) return 3;
-    if (x.c != -1) return 4;
+    if (x.c != 1) return 4;
     return 0;
 })")));
 }
@@ -502,8 +503,10 @@ int main(void) {
 })")));
 }
 
-// union_copy/unions_in_conditionals: a union value in a ?: expression.
-TEST_F(CodegenTest, DISABLED_Chapter18_UnionsInConditionals)
+// union_copy/unions_in_conditionals: a union value in a ?: expression.  BESM-6: the
+// char member reads byte #0 (MSB), so one.c = byte#0 of -1 = 1 and two.c = byte#0 of
+// 100 = 0 (100 occupies only bits 7-1, so the MSB byte is zero).
+TEST_F(CodegenTest, Chapter18_UnionsInConditionals)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
 union u { long l; int i; char c; };
@@ -515,8 +518,8 @@ int choose_union(int flag) {
     return (flag ? one : two).c;
 }
 int main(void) {
-    if (choose_union(1) != -1) return 1;
-    if (choose_union(0) != 100) return 2;
+    if (choose_union(1) != 1) return 1;
+    if (choose_union(0) != 0) return 2;
     return 0;
 })")));
 }

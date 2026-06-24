@@ -88,6 +88,11 @@ bool type_is_byval_sret(const Type *t);
 // global aggregates (the bases accepted by COPY_TO_OFFSET / COPY_FROM_OFFSET).
 void gen_struct_assign(TacCtx *ctx, const char *dst_name, int dst_off, const char *src_name,
                        int nbytes);
+// Initialize a whole aggregate (named destination base `dst_name`+`dst_off`) from a value
+// expression, reading a pointer/subscript source word by word (unlike gen_struct_assign,
+// which assumes the source is a named aggregate base).  Lives in expr.c.
+void gen_aggregate_init_from_expr(TacCtx *ctx, const char *dst_name, int dst_off, Expr *value,
+                                  int nbytes);
 
 //
 // Type conversion (translate.c)
