@@ -15,8 +15,8 @@ Work plan for the BESM-6 backend, in no partucular order.
 
 ## DISABLED book-test triage
 
-The "Writing a C Compiler" chapter tests (imported for an x86-64 / IEEE-754 target) carry
-**125 real `DISABLED_` test cases** across the parser, semantic, optimizer, and BESM-6
+The "Writing a C Compiler" chapter tests (imported for an x86-64 / IEEE-754 target) carry many
+**`DISABLED_` test cases** across the parser, semantic, optimizer, and BESM-6
 backend modules. The tasks below adapt each test so it is sensible for the BESM-6 target and
 re-enable it, removing only tests with no BESM-6 analogue. One task per adaptation category;
 all are tracked here regardless of module. Locate the named tests with
@@ -42,7 +42,6 @@ re-enabled when block-scope statics landed).
 
 | #  | Task | Description |
 |----|------|-------------|
-| 44 | char-signedness in static initializers | Plain `char` signedness mismatch in static char data. Re-enables ch16 StaticInitializers (1). |
 | 45 | Discarded multi-word (sret) struct return | A discarded multi-word struct return value is mishandled. Re-enables ch18 IgnoreRetval (1). |
 | 46 | gen_lval for function-call (temporary) results | `&f().arr[i]` — `gen_lval` has no case for a function-call (temporary) result. Re-enables ch18 TemporaryLifetime, UnionTempLifetime (2). |
 | 47 | Union member access / punning under BESM-6 integer representation | Reading an integer back through a char/other union member yields a BESM-6-specific value (41-bit + tag bits), not the x86 result. Adapt expected values or restrict to representable cases. Re-enables ch18 UnionInitAndMemberAccess, UnionsInConditionals, NestedUnionAccess, StaticUnionAccess, ClassifyUnions, UnionInits, UnionRetvals, StaticUnionInits, UnionNamespace, MemberComparisons, ParamPassing, CopyThruPointer, CopyNonScalarMembers (~13, several also need #41/#23). |
