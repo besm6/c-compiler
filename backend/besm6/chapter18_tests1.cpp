@@ -539,17 +539,17 @@ struct internal_padding { char c; double d; };
 struct contains_struct_array { char c; struct eight_bytes struct_array[3]; };
 int main(void) {
     if (sizeof(struct eight_bytes) != 12) return 1;
-    if (sizeof(struct two_bytes) != 2) return 2;
-    if (sizeof(struct three_bytes) != 3) return 3;
-    if (sizeof(struct sixteen_bytes) != 18) return 4;
-    if (sizeof(struct seven_bytes) != 7) return 5;
-    if (sizeof(struct twentyfour_bytes) != 30) return 6;
-    if (sizeof(struct twenty_bytes) != 24) return 7;
-    if (sizeof(struct wonky) != 19) return 8;
+    if (sizeof(struct two_bytes) != 6) return 2;
+    if (sizeof(struct three_bytes) != 6) return 3;
+    if (sizeof(struct sixteen_bytes) != 24) return 4;
+    if (sizeof(struct seven_bytes) != 18) return 5;
+    if (sizeof(struct twentyfour_bytes) != 42) return 6;
+    if (sizeof(struct twenty_bytes) != 30) return 7;
+    if (sizeof(struct wonky) != 24) return 8;
     if (sizeof(struct internal_padding) != 12) return 9;
     if (sizeof(struct contains_struct_array) != 42) return 10;
     if (sizeof(struct internal_padding[4]) != 48) return 11;
-    if (sizeof(struct wonky[2]) != 38) return 12;
+    if (sizeof(struct wonky[2]) != 48) return 12;
     return 0;
 })")));
 }
@@ -575,13 +575,13 @@ int main(void) {
     struct contains_struct_array arr_struct;
     if (sizeof arr_struct.struct_array[2] != 12) return 1;
     struct twentyfour_bytes twentyfour;
-    if (sizeof twentyfour.seven.two2 != 2) return 2;
-    if (sizeof get_twentybyte_ptr()->sixteen.three != 3) return 3;
-    if (sizeof get_twentybyte_ptr()->sixteen != 18) return 4;
-    if (sizeof twentyfour.seven != 7) return 5;
-    if (sizeof twentyfour != 30) return 6;
-    if (sizeof *get_twentybyte_ptr() != 24) return 7;
-    if (sizeof *((struct wonky *)0) != 19) return 8;
+    if (sizeof twentyfour.seven.two2 != 6) return 2;
+    if (sizeof get_twentybyte_ptr()->sixteen.three != 6) return 3;
+    if (sizeof get_twentybyte_ptr()->sixteen != 24) return 4;
+    if (sizeof twentyfour.seven != 18) return 5;
+    if (sizeof twentyfour != 42) return 6;
+    if (sizeof *get_twentybyte_ptr() != 30) return 7;
+    if (sizeof *((struct wonky *)0) != 24) return 8;
     extern struct internal_padding struct_array[4];
     if (sizeof struct_array[0] != 12) return 9;
     if (sizeof arr_struct != 42) return 10;
@@ -604,14 +604,14 @@ union double_and_int { int i; double d; };
 union contains_structs { struct wonky x; struct eight_bytes y; };
 union contains_structs *get_union_ptr(void);
 int main(void) {
-    if (sizeof(union no_padding) != 11) return 1;
+    if (sizeof(union no_padding) != 12) return 1;
     if (sizeof(union with_padding) != 12) return 2;
     if (sizeof(union contains_array) != 36) return 3;
     if (sizeof(union double_and_int) != 6) return 4;
     if (sizeof(union contains_structs) != 24) return 5;
     union no_padding x = { 1 };
     union contains_array y = { {{{-1, 2}} }};
-    if (sizeof x != 11) return 6;
+    if (sizeof x != 12) return 6;
     if (sizeof y.arr1 != 24) return 7;
     if (sizeof * get_union_ptr() != 24) return 8;
     return 0;
@@ -2317,10 +2317,10 @@ int main(void) {
 )PROG")));
 }
 
-// Residual blocker (not libc; strcmp/exit available): test_store declares a
-// local `ptr` shadowing the file-scope `ptr` (no-shadowing design), and the
-// struct copy reads packed char-array members at non-zero byte offsets (#42).
-TEST_F(CodegenTest, DISABLED_Chapter18_StructCopyStackClobber)
+// Copies aggregates via Copy/Load/Store/CopyFromOffset/CopyToOffset and verifies the stack is
+// not clobbered.  The shadowing local `ptr` in test_store was renamed `p` (no-shadowing design)
+// and the validate_/test_copy_ helper families renamed to stay distinct within 8 chars.
+TEST_F(CodegenTest, Chapter18_StructCopyStackClobber)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test that copying an aggregate value with Copy, Load, Store,
@@ -2345,7 +2345,7 @@ static struct chars *ptr;  // in main we'll make this point to y
 // validate a three-char array, which should contain
 // an increasing sequence of values starting with 'start'
 // If validation fails, exit with status code 'code'
-void validate_array(char *char_array, int start, int code) {
+void varr(char *char_array, int start, int code) {
 
     for (int i = 0; i < 3; i = i + 1) {
         if (char_array[i] != start + i) {
@@ -2367,7 +2367,7 @@ void increment_y(void) {
 }
 
 // Test case 1: copy struct via Copy instruction
-int test_copy(void) {
+int tcopy(void) {
     // write some values to stack
     struct chars a = {"abc"};
     struct chars b = {"xyz"};
@@ -2375,9 +2375,9 @@ int test_copy(void) {
     // copy struct to b
     b = y;
     // validate a, b, and c - make sure a and c weren't clobbered
-    validate_array(a.char_array, 'a', 1);
-    validate_array(b.char_array, 0, 2);
-    validate_array(c.char_array, 'd', 3);
+    varr(a.char_array, 'a', 1);
+    varr(b.char_array, 0, 2);
+    varr(c.char_array, 'd', 3);
     return 0;
 }
 
@@ -2392,8 +2392,8 @@ int test_copy(void) {
 
 // helpers to validate other stuff on stack without generating any other temporary variables
 static struct chars to_validate;
-void validate_static(int start, int code) {
-    validate_array(to_validate.char_array, start, code);
+void vstat(int start, int code) {
+    varr(to_validate.char_array, start, code);
 }
 
 int test_load(void) {
@@ -2404,9 +2404,9 @@ int test_load(void) {
     b = *ptr; // we set ptr in main
     // validate a and b
     to_validate = a;
-    validate_static('g', 4);
+    vstat('g', 4);
     to_validate = b;
-    validate_static(3, 5);
+    vstat(3, 5);
     return 0;
 }
 
@@ -2414,15 +2414,15 @@ int test_load(void) {
 int test_store(void) {
     // write some values to stack
     struct chars struct_array[3] = {{"jkl"}, {"xyz"}, {"mno"}};
-    struct chars *ptr = &struct_array[1];
+    struct chars *p = &struct_array[1];
 
     // store y through pointer to array element
-    *ptr = y;
+    *p = y;
 
     // validate each array element, make sure elements 0 and 2 weren't changed
-    validate_array(struct_array[0].char_array, 'j', 6);
-    validate_array(struct_array[1].char_array, 6, 7);
-    validate_array(struct_array[2].char_array, 'm', 8);
+    varr(struct_array[0].char_array, 'j', 6);
+    varr(struct_array[1].char_array, 6, 7);
+    varr(struct_array[2].char_array, 'm', 8);
     return 0;
 }
 
@@ -2441,7 +2441,7 @@ struct chars_container {
 // on the stack other than tmp, to we can be sure that
 // clobbers will overwrite the bytes we validate rather than
 // some other temporary value
-int test_copy_from_offset(void) {
+int tcfrom(void) {
     // write some values to stack
     struct chars a = {"pqr"};
 
@@ -2453,14 +2453,14 @@ int test_copy_from_offset(void) {
 
     // validate a and b
     to_validate = a;
-    validate_static('p', 9);
+    vstat('p', 9);
     to_validate = b;
-    validate_static(9, 10);
+    vstat(9, 10);
     return 0;
 }
 
 // Test case 5: copy struct via CopyToOffset instruction
-int test_copy_to_offset(void) {
+int tcto(void) {
 
     struct chars_container container = {
         'x', {{0, 0, 0}}, "stu"
@@ -2474,24 +2474,24 @@ int test_copy_to_offset(void) {
         exit(11);
     }
 
-    validate_array(container.chars.char_array, 12, 12);
+    varr(container.chars.char_array, 12, 12);
 
-    validate_array(container.arr, 's', 13);
+    varr(container.arr, 's', 13);
 
     return 0;
 }
 
 int main(void) {
     ptr = &y;
-    test_copy();
+    tcopy();
     increment_y();
     test_load();
     increment_y();
     test_store();
     increment_y();
-    test_copy_from_offset();
+    tcfrom();
     increment_y();
-    test_copy_to_offset();
+    tcto();
     return 0;
 }
 )PROG")));

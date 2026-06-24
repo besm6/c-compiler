@@ -857,10 +857,10 @@ int main(void) {
 )PROG")));
 }
 
-// Residual blocker (not libc; strcmp/exit available): passes structs by value
-// as parameters (register and in-memory classes); the struct-by-value parameter
-// ABI is unimplemented, so the stack-clobber check fails ("*END FILE").
-TEST_F(CodegenTest, DISABLED_Chapter18_ParametersStackClobber)
+// Passes structs by value as parameters and verifies the stack is not clobbered.  strcmp
+// strings uppercased (KOI-7) and the irregular take_/pass_ helpers renamed to stay distinct
+// within the Madlen 8-char identifier limit.
+TEST_F(CodegenTest, Chapter18_ParametersStackClobber)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test that passing structures as parameters doesn't clobber the stack.
@@ -887,7 +887,7 @@ static struct stack_bytes to_validate;
 
 // use this to validate to_validate after copying bytes from stack to it
 void validate_stack_bytes(int code) {
-    if (strcmp(to_validate.bytes, "efghijklmnopqrs")) {
+    if (strcmp(to_validate.bytes, "EFGHIJKLMNOPQRS")) {
         exit(code);
     }
     return;
@@ -907,7 +907,7 @@ void take_longword(struct one_longword s, int code) {
 
 int pass_longword(void) {
     // write some bytes to the stack
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
     // make this static so it's not on the stack
     static struct one_longword my_var = {10};
     // this funcall doesn't require temporary values on the stack
@@ -939,7 +939,7 @@ void take_quadword(struct one_quadword s, int code) {
 
 int pass_quadword(void) {
     // write some bytes to the stack
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
 
     static struct one_quadword my_var = {10};
     take_quadword(my_var, 3);
@@ -964,7 +964,7 @@ void take_double(struct one_double s, int code) {
 
 int pass_double(void) {
     // write some bytes to the stack
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
     static struct one_double my_var = {10};
     take_double(my_var, 5);
 
@@ -980,15 +980,15 @@ struct twelve_bytes {
 };
 
 void take_twelve_bytes(struct twelve_bytes s, int code) {
-    if (strcmp(s.arr, "abcdefghijk")) {
+    if (strcmp(s.arr, "ABCDEFGHIJK")) {
         exit(code);
     }
     return;
 }
 
 int pass_twelve_bytes(void) {
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
-    static struct twelve_bytes my_var = {"abcdefghijk"};
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
+    static struct twelve_bytes my_var = {"ABCDEFGHIJK"};
     take_twelve_bytes(my_var, 7);
 
     // validate stack
@@ -1005,15 +1005,15 @@ struct memory {
 };
 
 void take_struct_in_mem(struct memory s, int code) {
-    if (strcmp(s.arr, "Here's the thing: I'm a string.")) {
+    if (strcmp(s.arr, "HERE'S THE THING: I'M A STRING.")) {
         exit(code);
     }
     return;
 }
 
 int pass_struct_in_mem(void) {
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
-    static struct memory my_var = {"Here's the thing: I'm a string."};
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
+    static struct memory my_var = {"HERE'S THE THING: I'M A STRING."};
     take_struct_in_mem(my_var, 9);
 
     // validate stack
@@ -1027,17 +1027,17 @@ struct irregular {
     char arr[3];
 };
 
-void take_irregular_struct(struct irregular s, int code) {
+void take3(struct irregular s, int code) {
     if (strcmp(s.arr, "12")) {
         exit(code);
     }
     return;
 }
 
-int pass_irregular_struct(void) {
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
+int pass3(void) {
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
     static struct irregular my_var = {"12"};
-    take_irregular_struct(my_var, 11);
+    take3(my_var, 11);
 
     // validate stack
     to_validate = bytes;
@@ -1052,18 +1052,18 @@ struct irregular_memory {
     char arr[27];
 };
 
-void take_irregular_memory_struct(struct irregular_memory s, int code) {
-    if (strcmp(s.arr, "The quick brown fox jumped")) {
+void take27(struct irregular_memory s, int code) {
+    if (strcmp(s.arr, "THE QUICK BROWN FOX JUMPED")) {
         exit(code);
     }
     return;
 }
 
-int pass_irregular_memory_struct(void) {
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
+int pass27(void) {
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
 
-    static struct irregular_memory my_var = {"The quick brown fox jumped"};
-    take_irregular_memory_struct(my_var, 13);
+    static struct irregular_memory my_var = {"THE QUICK BROWN FOX JUMPED"};
+    take27(my_var, 13);
 
     // validate stack
     to_validate = bytes;
@@ -1077,8 +1077,8 @@ int main(void) {
     pass_double();
     pass_twelve_bytes();
     pass_struct_in_mem();
-    pass_irregular_struct();
-    pass_irregular_memory_struct();
+    pass3();
+    pass27();
     return 0;
 }
 )PROG")));
@@ -1280,10 +1280,10 @@ int main(void) {
 )PROG")));
 }
 
-// Residual blocker (not libc; strcmp/exit available): passes and returns
-// multi-word structs by value; the struct-by-value parameter/return ABI is
-// unimplemented, so the stack-clobber check fails ("*END FILE").
-TEST_F(CodegenTest, DISABLED_Chapter18_ParamsAndReturnsStackClobber)
+// Passes and returns multi-word structs by value and verifies the stack is not clobbered.
+// The validate_/return_/test_ helper families collided within the Madlen 8-char identifier
+// limit, so they were renamed to short distinct names; the stack-bytes string was uppercased.
+TEST_F(CodegenTest, Chapter18_ParamsAndReturnsStackClobber)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test that returning a struct doesn't clobber the stack.
@@ -1313,8 +1313,8 @@ struct stack_bytes {
 static struct stack_bytes to_validate;
 
 // use this to validate to_validate after copying bytes from stack to it
-void validate_stack_bytes(int code) {
-    if (strcmp(to_validate.bytes, "efghijklmnopqrs")) {
+void vsb(int code) {
+    if (strcmp(to_validate.bytes, "EFGHIJKLMNOPQRS")) {
         exit(code);
     }
     return;
@@ -1325,13 +1325,13 @@ struct one_int_reg {
     char cs[7];
 };
 
-struct one_int_reg return_int_struct(void) {
+struct one_int_reg ret1(void) {
     struct one_int_reg retval = {{0, 0, 0, 0, 0, 0, 0}};
     return retval;
 }
 
 static struct one_int_reg one_int_struct;
-void validate_one_int_struct(int code) {
+void vck1(int code) {
     for (int i = 0; i < 7; i = i + 1) {
         if (one_int_struct.cs[i]) {
             exit(code);
@@ -1339,14 +1339,14 @@ void validate_one_int_struct(int code) {
     }
 }
 
-int test_int_struct(void) {
+int tc1(void) {
     // write some bytes to the stack
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
 
     // call a function that returns a one-int struct
     // copy it to a static variable so we can validate it later
     // without putting more temporary variables on the satck
-    one_int_struct = return_int_struct();
+    one_int_struct = ret1();
 
     // assigning a variable doesn't produce any temporary values
     to_validate = bytes;
@@ -1354,10 +1354,10 @@ int test_int_struct(void) {
     // this funcall doesn't require temporary values on the stack
     // b/c its arg is just an int(not a more complex expression)
     // and its return type
-    validate_stack_bytes(1);
+    vsb(1);
 
     /// validate the static struct we copied the return val into earlier
-    validate_one_int_struct(2);
+    vck1(2);
     return 0;
 }
 
@@ -1366,34 +1366,34 @@ struct two_int_regs {
     char cs[15];
 };
 
-struct two_int_regs return_two_int_struct(void) {
+struct two_int_regs ret2(void) {
     struct two_int_regs retval = {
         {20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34}};
     return retval;
 }
 
 static struct two_int_regs two_int_struct;
-void validate_two_int_struct(int code) {
+void vck2(int code) {
     for (int i = 0; i < 15; i = i + 1)
         if (two_int_struct.cs[i] != i + 20) {
             exit(code);
         }
 }
 
-int test_two_int_struct(void) {
+int tc2(void) {
     // write some bytes to the stack
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
 
-    two_int_struct = return_two_int_struct();
+    two_int_struct = ret2();
 
     // assigning a variable doesn't produce any temporary values
     to_validate = bytes;
 
     // validate stack
-    validate_stack_bytes(3);
+    vsb(3);
 
     /// validate returned struct
-    validate_two_int_struct(4);
+    vck2(4);
     return 0;
 }
 
@@ -1402,32 +1402,32 @@ struct one_xmm_reg {
     double d;
 };
 
-struct one_xmm_reg return_one_xmm_struct(void) {
+struct one_xmm_reg ret3(void) {
     struct one_xmm_reg retval = {234.5};
     return retval;
 }
 
 static struct one_xmm_reg one_double_struct;
-void validate_one_double_struct(int code) {
+void vck3(int code) {
     if (one_double_struct.d != 234.5) {
         exit(code);
     }
 }
 
-int test_one_double_struct(void) {
+int tc3(void) {
     // write some bytes to the stack
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
 
-    one_double_struct = return_one_xmm_struct();
+    one_double_struct = ret3();
 
     // assigning a variable doesn't produce any temporary values
     to_validate = bytes;
 
     // validate stack
-    validate_stack_bytes(5);
+    vsb(5);
 
     /// validate returned struct
-    validate_one_double_struct(6);
+    vck3(6);
     return 0;
 }
 
@@ -1437,32 +1437,32 @@ struct two_xmm_regs {
     double d2;
 };
 
-struct two_xmm_regs return_two_xmm_struct(void) {
+struct two_xmm_regs ret4(void) {
     struct two_xmm_regs retval = {234.5, 678.25};
     return retval;
 }
 
 static struct two_xmm_regs two_doubles_struct;
-void validate_two_doubles_struct(int code) {
+void vck4(int code) {
     if (two_doubles_struct.d1 != 234.5 || two_doubles_struct.d2 != 678.25) {
         exit(code);
     }
 }
 
-int test_two_doubles_struct(void) {
+int tc4(void) {
     // write some bytes to the stack
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
 
-    two_doubles_struct = return_two_xmm_struct();
+    two_doubles_struct = ret4();
 
     // assigning a variable doesn't produce any temporary values
     to_validate = bytes;
 
     // validate stack
-    validate_stack_bytes(7);
+    vsb(7);
 
     /// validate returned struct
-    validate_two_doubles_struct(8);
+    vck4(8);
     return 0;
 }
 
@@ -1473,32 +1473,32 @@ struct int_and_xmm {
     double d;
 };
 
-struct int_and_xmm return_mixed_struct(void) {
+struct int_and_xmm ret5(void) {
     struct int_and_xmm retval = {125, 678.25};
     return retval;
 }
 
 static struct int_and_xmm mixed_struct;
-void validate_mixed_struct(int code) {
+void vck5(int code) {
     if (mixed_struct.c != 125 || mixed_struct.d != 678.25) {
         exit(code);
     }
 }
 
-int test_mixed_struct(void) {
+int tc5(void) {
     // write some bytes to the stack
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
 
-    mixed_struct = return_mixed_struct();
+    mixed_struct = ret5();
 
     // assigning a variable doesn't produce any temporary values
     to_validate = bytes;
 
     // validate stack
-    validate_stack_bytes(9);
+    vsb(9);
 
     /// validate returned struct
-    validate_mixed_struct(10);
+    vck5(10);
     return 0;
 }
 
@@ -1507,7 +1507,7 @@ struct stack {
     char cs[28];
 };
 
-struct stack return_stack_struct(void) {
+struct stack ret6(void) {
     struct stack retval = {{90,  91,  92,  93,  94,  95,  96,  97,  98,  99,
                             100, 101, 102, 103, 104, 105, 106, 107, 108, 109,
                             110, 111, 112, 113, 114, 115, 116, 117}};
@@ -1515,7 +1515,7 @@ struct stack return_stack_struct(void) {
 }
 
 static struct stack stack_struct;
-void validate_stack_struct(int code) {
+void vck6(int code) {
     for (int i = 0; i < 28; i = i + 1) {
         if (stack_struct.cs[i] != i + 90) {
             exit(code);
@@ -1523,20 +1523,20 @@ void validate_stack_struct(int code) {
     }
 }
 
-int test_stack_struct(void) {
+int tc6(void) {
     // write some bytes to the stack
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
 
-    stack_struct = return_stack_struct();
+    stack_struct = ret6();
 
     // assigning a variable doesn't produce any temporary values
     to_validate = bytes;
 
     // validate stack
-    validate_stack_bytes(11);
+    vsb(11);
 
     /// validate returned struct
-    validate_stack_struct(12);
+    vck6(12);
     return 0;
 }
 
@@ -1545,14 +1545,14 @@ struct stack_irregular {
     char cs[19];
 };
 
-struct stack_irregular return_irregular_stack_struct(void) {
+struct stack_irregular ret7(void) {
     struct stack_irregular retval = {{70, 71, 72, 73, 74, 75, 76, 77, 78, 79,
                                       80, 81, 82, 83, 84, 85, 86, 87, 88}};
     return retval;
 }
 
 static struct stack_irregular irregular_stack_struct;
-void validate_irregular_stack_struct(int code) {
+void vck7(int code) {
     for (int i = 0; i < 19; i = i + 1) {
         if (irregular_stack_struct.cs[i] != i + 70) {
             exit(code);
@@ -1560,31 +1560,31 @@ void validate_irregular_stack_struct(int code) {
     }
 }
 
-int test_irregular_stack_struct(void) {
+int tc7(void) {
     // write some bytes to the stack
-    struct stack_bytes bytes = {"efghijklmnopqrs"};
+    struct stack_bytes bytes = {"EFGHIJKLMNOPQRS"};
 
-    irregular_stack_struct = return_irregular_stack_struct();
+    irregular_stack_struct = ret7();
 
     // assigning a variable doesn't produce any temporary values
     to_validate = bytes;
 
     // validate stack
-    validate_stack_bytes(13);
+    vsb(13);
 
     /// validate returned struct
-    validate_irregular_stack_struct(14);
+    vck7(14);
     return 0;
 }
 
 int main(void) {
-    test_int_struct();
-    test_two_int_struct();
-    test_one_double_struct();
-    test_two_doubles_struct();
-    test_mixed_struct();
-    test_stack_struct();
-    test_irregular_stack_struct();
+    tc1();
+    tc2();
+    tc3();
+    tc4();
+    tc5();
+    tc6();
+    tc7();
     return 0;
 }
 )PROG")));

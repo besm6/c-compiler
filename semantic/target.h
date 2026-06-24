@@ -34,6 +34,11 @@ typedef struct {
     // sign extension, so its backend lowers signed `>>` to a logical shift; the constant
     // folder consults this flag to fold the same value the backend would emit.
     int right_shift_is_logical;
+    // Minimum alignment (bytes) of any struct/union.  On a word-addressed target the
+    // smallest addressable/copyable unit is a machine word, so aggregates are padded up
+    // to a whole word (BESM-6 = 6); otherwise this is 1 (natural C packing).  This keeps
+    // array element strides a word multiple, so &arr[i] never lands mid-word.
+    size_t aggregate_align;
 } Target;
 
 // Active target.  Defaults to x86_64.  Set this before calling any

@@ -26,7 +26,8 @@ static const Target targets[] = {
       2, 1,   // pointer (16-bit data address)
       16, 16, 32, 64, // signed bits: short int long llong
       0,   // plain char unsigned (avr-gcc)
-      0 }, // signed >> arithmetic
+      0,   // signed >> arithmetic
+      1 }, // aggregate_align (1)
 
     { "msp430",
       2, 2,   // short
@@ -39,7 +40,8 @@ static const Target targets[] = {
       2, 2,   // pointer (16-bit, 4 bytes on MSP430X)
       16, 16, 32, 64, // signed bits
       1,   // plain char signed (msp430-gcc)
-      0 }, // signed >> arithmetic
+      0,   // signed >> arithmetic
+      1 }, // aggregate_align (1)
 
     { "arm32",
       2, 2,   // short
@@ -52,7 +54,8 @@ static const Target targets[] = {
       4, 4,   // pointer
       16, 32, 32, 64, // signed bits
       0,   // plain char unsigned (ARM EABI)
-      0 }, // signed >> arithmetic
+      0,   // signed >> arithmetic
+      1 }, // aggregate_align (1)
 
     { "aarch64",
       2, 2,   // short
@@ -65,7 +68,8 @@ static const Target targets[] = {
       8, 8,   // pointer
       16, 32, 64, 64, // signed bits
       0,   // plain char unsigned (AAPCS64)
-      0 }, // signed >> arithmetic
+      0,   // signed >> arithmetic
+      1 }, // aggregate_align (1)
 
     { "x86_64",
       2, 2,   // short
@@ -78,7 +82,8 @@ static const Target targets[] = {
       8, 8,   // pointer
       16, 32, 64, 64, // signed bits
       1,   // plain char signed (x86-64 System V)
-      0 }, // signed >> arithmetic
+      0,   // signed >> arithmetic
+      1 }, // aggregate_align (1)
 
     { "riscv32",
       2, 2,   // short
@@ -91,7 +96,8 @@ static const Target targets[] = {
       4, 4,   // pointer
       16, 32, 32, 64, // signed bits
       0,   // plain char unsigned (RISC-V ABI)
-      0 }, // signed >> arithmetic
+      0,   // signed >> arithmetic
+      1 }, // aggregate_align (1)
 
     { "riscv64",
       2, 2,   // short
@@ -104,7 +110,8 @@ static const Target targets[] = {
       8, 8,   // pointer
       16, 32, 64, 64, // signed bits
       0,   // plain char unsigned (RISC-V ABI)
-      0 }, // signed >> arithmetic
+      0,   // signed >> arithmetic
+      1 }, // aggregate_align (1)
 
     { "mmix",
       2, 2,   // short
@@ -117,7 +124,8 @@ static const Target targets[] = {
       8, 8,   // pointer
       16, 32, 64, 64, // signed bits
       1,   // plain char signed (MMIXware convention)
-      0 }, // signed >> arithmetic
+      0,   // signed >> arithmetic
+      1 }, // aggregate_align (1)
 
     // BESM-6: 48-bit word-oriented machine.
     // sizeof() values are in 8-bit bytes (CHAR_BIT = 8).
@@ -137,7 +145,8 @@ static const Target targets[] = {
       6, 6,   // pointer (1 word, 15-bit word address)
       41, 41, 41, 41, // signed bits
       0,   // plain char unsigned
-      1 }, // signed >> logical (BESM-6 shift unit does no sign extension)
+      1,   // signed >> logical (BESM-6 shift unit does no sign extension)
+      6 }, // aggregate_align (6)
 };
 // clang-format on
 

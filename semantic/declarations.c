@@ -8,6 +8,7 @@
 #include "string_map.h"
 #include "structtab.h"
 #include "symtab.h"
+#include "target.h"
 #include "typecheck.h"
 #include "typetab.h"
 #include "xalloc.h"
@@ -235,7 +236,12 @@ static void register_struct_type(const Type *t)
     FieldDef *members     = NULL;
     FieldDef **tail       = &members;
     int current_size      = 0;
-    int current_alignment = 1;
+    // On a word-addressed target every aggregate is padded to at least one machine word
+    // (Target.aggregate_align) so array element strides stay word multiples and &arr[i]
+    // never lands mid-word; byte-addressed targets use natural C packing (align 1).
+    int current_alignment = target_config ? (int)target_config->aggregate_align : 1;
+    if (current_alignment < 1)
+        current_alignment = 1;
     for (const Field *f = t->u.struct_t.fields; f; f = f->next) {
         if (f->kind == FIELD_STATIC_ASSERT)
             continue; /* already evaluated in validate_struct_definition */

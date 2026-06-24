@@ -1,9 +1,10 @@
 #include "book_run.h"
 
-// Residual blocker (not libc; strcmp available): passes structs of every
-// classification by value as parameters; the struct-by-value parameter ABI is
-// unimplemented (run errors).
-TEST_F(CodegenTest, DISABLED_Chapter18_ClassifyParams)
+// Passes structs of every classification by value as single parameters.  Out-of-range x86
+// literals adapted to the BESM-6 ranges (doubles 1.7e308 -> 1.0e18; long -9223372036854775807
+// -> -(2^40-1)) and strcmp strings uppercased so the ASCII char path matches the KOI-7 static
+// path (see docs/KOI7_Encoding.md).
+TEST_F(CodegenTest, Chapter18_ClassifyParams)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test that we classify structure parameters correctly,
@@ -70,12 +71,12 @@ struct pass_in_memory {
 
 // validation functions defined in library
 int test_twelve_bytes(struct twelve_bytes s);
-int test_nested_ints(struct nested_ints s);
+int t_nints(struct nested_ints s);
 int test_flattened_ints(struct flattened_ints s);
 int test_large(struct large s);
-int test_two_ints(struct two_ints s);
-int test_nested_double(struct nested_double s);
-int test_two_eightbytes(struct two_eightbytes s);
+int t_2ints(struct two_ints s);
+int t_ndbl(struct nested_double s);
+int t_2eb(struct two_eightbytes s);
 int test_pass_in_memory(struct pass_in_memory s);
 /* Test that we classify structure parameters correctly,
  * by passing a variety of structures as arguments.
@@ -84,42 +85,42 @@ int test_pass_in_memory(struct pass_in_memory s);
 
 
 int main(void) {
-    struct twelve_bytes s1 = {0, "lmnopqr"};
+    struct twelve_bytes s1 = {0, "LMNOPQR"};
     if (!test_twelve_bytes(s1)) {
         return 1;
     }
 
-    struct nested_ints s2 = {127, {2147483647, -128}};
-    if (!test_nested_ints(s2)) {
+    struct nested_ints s2 = {127, {2147483647, 255}};
+    if (!t_nints(s2)) {
         return 2;
     }
 
-    struct flattened_ints s3 = {127, 2147483647, -128};
+    struct flattened_ints s3 = {127, 2147483647, 255};
     if (!test_flattened_ints(s3)) {
         return 3;
     }
 
-    struct large s4 = {200000, 23.25, "abcdefghi"};
+    struct large s4 = {200000, 23.25, "ABCDEFGHI"};
     if (!test_large(s4)) {
         return 4;
     }
 
     struct two_ints s5 = {999, 888};
-    if (!test_two_ints(s5)) {
+    if (!t_2ints(s5)) {
         return 5;
     }
 
     struct nested_double s6 = {{25.125e3}};
-    if (!test_nested_double(s6)) {
+    if (!t_ndbl(s6)) {
         return 6;
     }
 
     struct two_eightbytes s7 = {1000., 'x'};
-    if (!test_two_eightbytes(s7)) {
+    if (!t_2eb(s7)) {
         return 7;
     }
 
-    struct pass_in_memory s8 = {1.7e308, -1.7e308, -2147483647, -9223372036854775807l};
+    struct pass_in_memory s8 = {1.0e18, -1.0e18, -2147483647, -1099511627775l};
     if (!test_pass_in_memory(s8)) {
         return 8;
     }
@@ -133,46 +134,46 @@ int main(void) {
 
 
 int test_twelve_bytes(struct twelve_bytes s) {
-    if (s.i != 0 || strcmp(s.arr, "lmnopqr")) {
+    if (s.i != 0 || strcmp(s.arr, "LMNOPQR")) {
         return 0;
     }
     return 1;  // success
 }
-int test_nested_ints(struct nested_ints s) {
-    if (s.ch1 != 127 || s.nested.i != 2147483647 || s.nested.ch2 != -128) {
+int t_nints(struct nested_ints s) {
+    if (s.ch1 != 127 || s.nested.i != 2147483647 || s.nested.ch2 != 255) {
         return 0;
     }
     return 1;  // success
 }
 int test_flattened_ints(struct flattened_ints s) {
-    if (s.c != 127 || s.i != 2147483647 || s.a != -128) {
+    if (s.c != 127 || s.i != 2147483647 || s.a != 255) {
         return 0;
     }
 
     return 1;  // success
 }
 int test_large(struct large s) {
-    if (s.i != 200000 || s.d != 23.25 || strcmp(s.arr, "abcdefghi")) {
+    if (s.i != 200000 || s.d != 23.25 || strcmp(s.arr, "ABCDEFGHI")) {
         return 0;
     }
 
     return 1;  // success
 }
-int test_two_ints(struct two_ints s) {
+int t_2ints(struct two_ints s) {
     if (s.i != 999 || s.i2 != 888) {
         return 0;
     }
 
     return 1;  // success
 }
-int test_nested_double(struct nested_double s) {
+int t_ndbl(struct nested_double s) {
     if (s.array[0] != 25.125e3) {
         return 0;
     }
 
     return 1;  // success
 }
-int test_two_eightbytes(struct two_eightbytes s) {
+int t_2eb(struct two_eightbytes s) {
     if (s.d != 1000. || s.c != 'x') {
         return 0;
     }
@@ -180,8 +181,8 @@ int test_two_eightbytes(struct two_eightbytes s) {
     return 1;  // success
 }
 int test_pass_in_memory(struct pass_in_memory s) {
-    if (s.w != 1.7e308 || s.x != -1.7e308 || s.y != -2147483647 ||
-        s.z != -9223372036854775807l) {
+    if (s.w != 1.0e18 || s.x != -1.0e18 || s.y != -2147483647 ||
+        s.z != -1099511627775l) {
         return 0;
     }
 
@@ -190,10 +191,10 @@ int test_pass_in_memory(struct pass_in_memory s) {
 )PROG")));
 }
 
-// Residual blocker (not libc; strcmp/strncmp available): passes mixed struct/
-// scalar arguments by value; the struct-by-value parameter ABI is unimplemented
-// (validation returns 1).
-TEST_F(CodegenTest, DISABLED_Chapter18_ParamCallingConventions)
+// Passes a mix of struct and scalar arguments by value.  strcmp strings uppercased (KOI-7),
+// signed-char member values made positive (plain char is unsigned on BESM-6) and out-of-range
+// long literals reduced to the BESM-6 ~2^40 range.
+TEST_F(CodegenTest, Chapter18_ParamCallingConventions)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test that we can pass a mix of struct and non-struct arguments according to
@@ -309,15 +310,15 @@ int main(void) {
     struct one_int_exactly one_long = {567890l};
     struct two_ints two_ints = {'_', {5, 6, 7}};
     struct two_ints_nested two_ints_nested = {one_int, one_int};
-    struct twelve_bytes xii = {123, "string!"};
+    struct twelve_bytes xii = {123, "STRING!"};
 
     struct one_xmm one_xmm = {5.125};
     struct two_xmm two_xmm = {{55.5, 44.4}};
     struct int_and_xmm int_and_xmm = {'p', 4.56};
-    struct xmm_and_int xmm_and_int = {{1.234}, "hi"};
+    struct xmm_and_int xmm_and_int = {{1.234}, "HI"};
 
-    struct odd_size odd = {"lmno"};
-    struct memory mem = {15.75, "rs", 4444, 3333};
+    struct odd_size odd = {"LMNO"};
+    struct memory mem = {15.75, "RS", 4444, 3333};
 
     // call validation functions
 
@@ -348,9 +349,9 @@ int main(void) {
     struct twelve_bytes struct1 = {-1, {127, 126, 125}};
     struct twelve_bytes struct2 = {-5, {100, 101, 102}};
     struct odd_size os = {{100, 99, 98, 97, 96}};
-    struct memory m = {5.345, {-1, -2, -3}, 4294967300l, 10000};
-    if (!pass_uneven_struct_in_mem(struct1, 9223372036854775805l,
-                                   9223372036854775800l, struct2, os, m)) {
+    struct memory m = {5.345, {1, 2, 3}, 4294967300l, 10000};
+    if (!pass_uneven_struct_in_mem(struct1, 1099511627775l,
+                                   1099511627774l, struct2, os, m)) {
         return 5;
     }
 
@@ -378,9 +379,9 @@ int pass_small_structs(struct two_xmm two_xmm_struct, struct one_int int_struct,
         return 0;
     if (xmm_struct.d != 5.125)
         return 0;
-    if (strcmp(mixed_struct.c, "hi") || mixed_struct.dbl.d != 1.234)
+    if (strcmp(mixed_struct.c, "HI") || mixed_struct.dbl.d != 1.234)
         return 0;
-    if (strcmp(int_struct_2.arr, "string!") || int_struct_2.i != 123)
+    if (strcmp(int_struct_2.arr, "STRING!") || int_struct_2.i != 123)
         return 0;
 
     if (another_int_struct.l != 567890)
@@ -410,9 +411,9 @@ int structs_and_scalars(long l, double d, struct odd_size os, struct memory mem,
         return 0;
     if (d != 10.0)
         return 0;
-    if (strcmp(os.arr, "lmno"))
+    if (strcmp(os.arr, "LMNO"))
         return 0;
-    if (strcmp(mem.c, "rs") || mem.d != 15.75 || mem.i != 3333 || mem.l != 4444)
+    if (strcmp(mem.c, "RS") || mem.d != 15.75 || mem.i != 3333 || mem.l != 4444)
         return 0;
     if (xmm_struct.d != 5.125)
         return 0;
@@ -427,7 +428,7 @@ int struct_in_mem(double a, double b, double c, struct xmm_and_int first_struct,
                   struct one_xmm fourth_struct) {
     if (a != 10.0 || b != 11.125 || c != 12.0)
         return 0;
-    if (strcmp(first_struct.c, "hi") || first_struct.dbl.d != 1.234)
+    if (strcmp(first_struct.c, "HI") || first_struct.dbl.d != 1.234)
         return 0;
     if (d != 13.0)
         return 0;
@@ -478,7 +479,7 @@ int pass_uneven_struct_in_mem(struct twelve_bytes struct1, long a, long b,
         struct1.arr[2] != 125) {
         return 0;
     }
-    if (a != 9223372036854775805l || b != 9223372036854775800l) {
+    if (a != 1099511627775l || b != 1099511627774l) {
         return 0;
     }
     if (struct2.i != -5) {
@@ -496,7 +497,7 @@ int pass_uneven_struct_in_mem(struct twelve_bytes struct1, long a, long b,
     if (m.d != 5.345) {
         return 0;
     }
-    if (m.c[0] != -1 || m.c[1] != -2 || m.c[2] != -3) {
+    if (m.c[0] != 1 || m.c[1] != 2 || m.c[2] != 3) {
         return 0;
     }
     if (m.l != 4294967300l) {
@@ -514,7 +515,7 @@ int pass_later_structs_in_regs(struct memory m, struct twelve_bytes struct1,
         return 0;
     }
 
-    if (m.c[0] != -1 || m.c[1] != -2 || m.c[2] != -3) {
+    if (m.c[0] != 1 || m.c[1] != 2 || m.c[2] != 3) {
         return 0;
     }
 
@@ -542,639 +543,188 @@ int pass_later_structs_in_regs(struct memory m, struct twelve_bytes struct1,
 )PROG")));
 }
 
-// DISABLED: still blocked by the struct-by-value parameter ABI (task #54) — passes structs
-// of every size 1..24 bytes by value.  The packed sub-word char-array layout (task #42) and
-// memcmp (task #41) are in place; re-enable once #54 lands.
-TEST_F(CodegenTest, DISABLED_Chapter18_StructSizes)
+TEST_F(CodegenTest, Chapter18_StructSizes1)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
-/* Test that we can pass static and automatic structs of every size between 1 and 24 bytes.
- * Pass each size both in a register (when possible) and on the stack. */
-
-
-struct bytesize1 {
-    unsigned char arr[1];
-};
-
-extern struct bytesize1 globvar_1;
-
-struct bytesize2 {
-    unsigned char arr[2];
-};
-
-extern struct bytesize2 globvar_2;
-
-struct bytesize3 {
-    unsigned char arr[3];
-};
-
-extern struct bytesize3 globvar_3;
-
-struct bytesize4 {
-    unsigned char arr[4];
-};
-
-extern struct bytesize4 globvar_4;
-
-struct bytesize5 {
-    unsigned char arr[5];
-};
-
-extern struct bytesize5 globvar_5;
-
-struct bytesize6 {
-    unsigned char arr[6];
-};
-
-extern struct bytesize6 globvar_6;
-
-struct bytesize7 {
-    unsigned char arr[7];
-};
-
-extern struct bytesize7 globvar_7;
-
-struct bytesize8 {
-    unsigned char arr[8];
-};
-
-extern struct bytesize8 globvar_8;
-
-struct bytesize9 {
-    unsigned char arr[9];
-};
-
-extern struct bytesize9 globvar_9;
-
-struct bytesize10 {
-    unsigned char arr[10];
-};
-
-extern struct bytesize10 globvar_10;
-
-struct bytesize11 {
-    unsigned char arr[11];
-};
-
-extern struct bytesize11 globvar_11;
-
-struct bytesize12 {
-    unsigned char arr[12];
-};
-
-extern struct bytesize12 globvar_12;
-
-struct bytesize13 {
-    unsigned char arr[13];
-};
-
-extern struct bytesize13 globvar_13;
-
-struct bytesize14 {
-    unsigned char arr[14];
-};
-
-extern struct bytesize14 globvar_14;
-
-struct bytesize15 {
-    unsigned char arr[15];
-};
-
-extern struct bytesize15 globvar_15;
-
-struct bytesize16 {
-    unsigned char arr[16];
-};
-
-extern struct bytesize16 globvar_16;
-
-struct bytesize17 {
-    unsigned char arr[17];
-};
-
-extern struct bytesize17 globvar_17;
-
-struct bytesize18 {
-    unsigned char arr[18];
-};
-
-extern struct bytesize18 globvar_18;
-
-struct bytesize19 {
-    unsigned char arr[19];
-};
-
-extern struct bytesize19 globvar_19;
-
-struct bytesize20 {
-    unsigned char arr[20];
-};
-
-extern struct bytesize20 globvar_20;
-
-struct bytesize21 {
-    unsigned char arr[21];
-};
-
-extern struct bytesize21 globvar_21;
-
-struct bytesize22 {
-    unsigned char arr[22];
-};
-
-extern struct bytesize22 globvar_22;
-
-struct bytesize23 {
-    unsigned char arr[23];
-};
-
-extern struct bytesize23 globvar_23;
-
-struct bytesize24 {
-    unsigned char arr[24];
-};
-
-extern struct bytesize24 globvar_24;
-
-// Pass sizes 1 - 6 in registers, remainders on the stack
-int fun0(struct bytesize1 a, struct bytesize2 b, struct bytesize3 c,
-         struct bytesize4 d, struct bytesize5 e, struct bytesize6 f,
-         struct bytesize7 g, struct bytesize8 h, struct bytesize9 i,
-         struct bytesize10 j, struct bytesize11 k, struct bytesize12 l,
-         struct bytesize13 m, struct bytesize14 n, struct bytesize15 o,
-         struct bytesize16 p, struct bytesize17 q, struct bytesize18 r,
-         struct bytesize19 s, struct bytesize20 t, struct bytesize21 u,
-         struct bytesize22 v, struct bytesize23 w, struct bytesize24 x,
-         unsigned char *a_expected, unsigned char *b_expected,
-         unsigned char *c_expected, unsigned char *d_expected,
-         unsigned char *e_expected, unsigned char *f_expected,
-         unsigned char *g_expected, unsigned char *h_expected,
-         unsigned char *i_expected, unsigned char *j_expected,
-         unsigned char *k_expected, unsigned char *l_expected,
-         unsigned char *m_expected, unsigned char *n_expected,
-         unsigned char *o_expected, unsigned char *p_expected,
-         unsigned char *q_expected, unsigned char *r_expected,
-         unsigned char *s_expected, unsigned char *t_expected,
-         unsigned char *u_expected, unsigned char *v_expected,
-         unsigned char *w_expected, unsigned char *x_expected);
-
-// Pass sizes 7-10 bytes in regs, 1-6 on the stack
-int fun1(struct bytesize7 a, struct bytesize8 b, struct bytesize9 c,
-         struct bytesize10 d, struct bytesize1 e, struct bytesize2 f,
-         struct bytesize3 g, struct bytesize4 h, struct bytesize5 i,
-         struct bytesize6 j, unsigned char *a_expected,
-         unsigned char *b_expected, unsigned char *c_expected,
-         unsigned char *d_expected, unsigned char *e_expected,
-         unsigned char *f_expected, unsigned char *g_expected,
-         unsigned char *h_expected, unsigned char *i_expected,
-         unsigned char *j_expected);
-
-// Pass sizes 11-13 in regs, 1 on the stack
-int fun2(struct bytesize11 a, struct bytesize12 b, struct bytesize13 c,
-         struct bytesize1 d, unsigned char *a_expected,
-         unsigned char *b_expected, unsigned char *c_expected,
-         unsigned char *d_expected);
-
-// pass sizes 14-16 in regs, 2 on the stack
-int fun3(struct bytesize14 a, struct bytesize15 b, struct bytesize16 c,
-         struct bytesize2 d, unsigned char *a_expected,
-         unsigned char *b_expected, unsigned char *c_expected,
-         unsigned char *d_expected);
-/* Test that we can pass static and automatic structs of every size between 1 and 24 bytes.
- * Pass each size both in a register (when possible) and on the stack. */
-
-int main(void) {
-
-    // pass global variables of each size
-    if (!fun0(globvar_1, globvar_2, globvar_3, globvar_4, globvar_5, globvar_6,
-             globvar_7, globvar_8, globvar_9, globvar_10, globvar_11,
-             globvar_12, globvar_13, globvar_14, globvar_15, globvar_16,
-             globvar_17, globvar_18, globvar_19, globvar_20, globvar_21,
-             globvar_22, globvar_23, globvar_24, globvar_1.arr, globvar_2.arr,
-             globvar_3.arr, globvar_4.arr, globvar_5.arr, globvar_6.arr,
-             globvar_7.arr, globvar_8.arr, globvar_9.arr, globvar_10.arr,
-             globvar_11.arr, globvar_12.arr, globvar_13.arr, globvar_14.arr,
-             globvar_15.arr, globvar_16.arr, globvar_17.arr, globvar_18.arr,
-             globvar_19.arr, globvar_20.arr, globvar_21.arr, globvar_22.arr,
-             globvar_23.arr, globvar_24.arr)) {
-        return 1;
-    }
-
-    if (!fun1(globvar_7, globvar_8, globvar_9, globvar_10, globvar_1, globvar_2,
-             globvar_3, globvar_4, globvar_5, globvar_6, globvar_7.arr,
-             globvar_8.arr, globvar_9.arr, globvar_10.arr, globvar_1.arr,
-             globvar_2.arr, globvar_3.arr, globvar_4.arr, globvar_5.arr,
-             globvar_6.arr)) {
-        return 2;
-    }
-
-    if (!fun2(globvar_11, globvar_12, globvar_13, globvar_1, globvar_11.arr,
-             globvar_12.arr, globvar_13.arr, globvar_1.arr)) {
-        return 3;
-    }
-
-    if (!fun3(globvar_14, globvar_15, globvar_16, globvar_2, globvar_14.arr,
-             globvar_15.arr, globvar_16.arr, globvar_2.arr)) {
-        return 4;
-    }
-
-    // define local variables of each size
-    struct bytesize1 locvar_1 = {{0}};
-
-    struct bytesize2 locvar_2 = {{1, 2}};
-
-    struct bytesize3 locvar_3 = {{3, 4, 5}};
-
-    struct bytesize4 locvar_4 = {{6, 7, 8, 9}};
-
-    struct bytesize5 locvar_5 = {{10, 11, 12, 13, 14}};
-
-    struct bytesize6 locvar_6 = {{15, 16, 17, 18, 19, 20}};
-
-    struct bytesize7 locvar_7 = {{21, 22, 23, 24, 25, 26, 27}};
-
-    struct bytesize8 locvar_8 = {{28, 29, 30, 31, 32, 33, 34, 35}};
-
-    struct bytesize9 locvar_9 = {{36, 37, 38, 39, 40, 41, 42, 43, 44}};
-
-    struct bytesize10 locvar_10 = {{45, 46, 47, 48, 49, 50, 51, 52, 53, 54}};
-
-    struct bytesize11 locvar_11 = {
-        {55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65}};
-
-    struct bytesize12 locvar_12 = {
-        {66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77}};
-
-    struct bytesize13 locvar_13 = {
-        {78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90}};
-
-    struct bytesize14 locvar_14 = {
-        {91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104}};
-
-    struct bytesize15 locvar_15 = {{105, 106, 107, 108, 109, 110, 111, 112, 113,
-                                    114, 115, 116, 117, 118, 119}};
-
-    struct bytesize16 locvar_16 = {{120, 121, 122, 123, 124, 125, 126, 127, 128,
-                                    129, 130, 131, 132, 133, 134, 135}};
-
-    struct bytesize17 locvar_17 = {{136, 137, 138, 139, 140, 141, 142, 143, 144,
-                                    145, 146, 147, 148, 149, 150, 151, 152}};
-
-    struct bytesize18 locvar_18 = {{153, 154, 155, 156, 157, 158, 159, 160, 161,
-                                    162, 163, 164, 165, 166, 167, 168, 169,
-                                    170}};
-
-    struct bytesize19 locvar_19 = {{171, 172, 173, 174, 175, 176, 177, 178, 179,
-                                    180, 181, 182, 183, 184, 185, 186, 187, 188,
-                                    189}};
-
-    struct bytesize20 locvar_20 = {{190, 191, 192, 193, 194, 195, 196,
-                                    197, 198, 199, 200, 201, 202, 203,
-                                    204, 205, 206, 207, 208, 209}};
-
-    struct bytesize21 locvar_21 = {{210, 211, 212, 213, 214, 215, 216,
-                                    217, 218, 219, 220, 221, 222, 223,
-                                    224, 225, 226, 227, 228, 229, 230}};
-
-    struct bytesize22 locvar_22 = {{231, 232, 233, 234, 235, 236, 237, 238,
-                                    239, 240, 241, 242, 243, 244, 245, 246,
-                                    247, 248, 249, 250, 251, 252}};
-
-    struct bytesize23 locvar_23 = {{253, 254, 255, 0,  1,  2,  3,  4,
-                                    5,   6,   7,   8,  9,  10, 11, 12,
-                                    13,  14,  15,  16, 17, 18, 19}};
-
-    struct bytesize24 locvar_24 = {{20, 21, 22, 23, 24, 25, 26, 27,
-                                    28, 29, 30, 31, 32, 33, 34, 35,
-                                    36, 37, 38, 39, 40, 41, 42, 43}};
-
-    // pass local variables of each size
-    if (!fun0(locvar_1, locvar_2, locvar_3, locvar_4, locvar_5, locvar_6,
-             locvar_7, locvar_8, locvar_9, locvar_10, locvar_11, locvar_12,
-             locvar_13, locvar_14, locvar_15, locvar_16, locvar_17, locvar_18,
-             locvar_19, locvar_20, locvar_21, locvar_22, locvar_23, locvar_24,
-             locvar_1.arr, locvar_2.arr, locvar_3.arr, locvar_4.arr,
-             locvar_5.arr, locvar_6.arr, locvar_7.arr, locvar_8.arr,
-             locvar_9.arr, locvar_10.arr, locvar_11.arr, locvar_12.arr,
-             locvar_13.arr, locvar_14.arr, locvar_15.arr, locvar_16.arr,
-             locvar_17.arr, locvar_18.arr, locvar_19.arr, locvar_20.arr,
-             locvar_21.arr, locvar_22.arr, locvar_23.arr, locvar_24.arr)) {
-        return 5;
-    }
-
-    if (!fun1(locvar_7, locvar_8, locvar_9, locvar_10, locvar_1, locvar_2,
-             locvar_3, locvar_4, locvar_5, locvar_6, locvar_7.arr, locvar_8.arr,
-             locvar_9.arr, locvar_10.arr, locvar_1.arr, locvar_2.arr,
-             locvar_3.arr, locvar_4.arr, locvar_5.arr, locvar_6.arr)) {
-        return 6;
-    }
-
-    if (!fun2(locvar_11, locvar_12, locvar_13, locvar_1, locvar_11.arr,
-             locvar_12.arr, locvar_13.arr, locvar_1.arr)) {
-        return 7;
-    }
-
-    if (!fun3(locvar_14, locvar_15, locvar_16, locvar_2, locvar_14.arr,
-             locvar_15.arr, locvar_16.arr, locvar_2.arr)) {
-        return 8;
-    }
-
-    return 0;
-}
-
-struct bytesize1 globvar_1 = {{0}};
-
-struct bytesize2 globvar_2 = {{1, 2}};
-
-struct bytesize3 globvar_3 = {{3, 4, 5}};
-
-struct bytesize4 globvar_4 = {{6, 7, 8, 9}};
-
-struct bytesize5 globvar_5 = {{10, 11, 12, 13, 14}};
-
-struct bytesize6 globvar_6 = {{15, 16, 17, 18, 19, 20}};
-
-struct bytesize7 globvar_7 = {{21, 22, 23, 24, 25, 26, 27}};
-
-struct bytesize8 globvar_8 = {{28, 29, 30, 31, 32, 33, 34, 35}};
-
-struct bytesize9 globvar_9 = {{36, 37, 38, 39, 40, 41, 42, 43, 44}};
-
-struct bytesize10 globvar_10 = {{45, 46, 47, 48, 49, 50, 51, 52, 53, 54}};
-
-struct bytesize11 globvar_11 = {{55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65}};
-
-struct bytesize12 globvar_12 = {
-    {66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77}};
-
-struct bytesize13 globvar_13 = {
-    {78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90}};
-
-struct bytesize14 globvar_14 = {
-    {91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104}};
-
-struct bytesize15 globvar_15 = {{105, 106, 107, 108, 109, 110, 111, 112, 113,
-                                 114, 115, 116, 117, 118, 119}};
-
-struct bytesize16 globvar_16 = {{120, 121, 122, 123, 124, 125, 126, 127, 128,
-                                 129, 130, 131, 132, 133, 134, 135}};
-
-struct bytesize17 globvar_17 = {{136, 137, 138, 139, 140, 141, 142, 143, 144,
-                                 145, 146, 147, 148, 149, 150, 151, 152}};
-
-struct bytesize18 globvar_18 = {{153, 154, 155, 156, 157, 158, 159, 160, 161,
-                                 162, 163, 164, 165, 166, 167, 168, 169, 170}};
-
-struct bytesize19 globvar_19 = {{171, 172, 173, 174, 175, 176, 177, 178, 179,
-                                 180, 181, 182, 183, 184, 185, 186, 187, 188,
-                                 189}};
-
-struct bytesize20 globvar_20 = {{190, 191, 192, 193, 194, 195, 196,
-                                 197, 198, 199, 200, 201, 202, 203,
-                                 204, 205, 206, 207, 208, 209}};
-
-struct bytesize21 globvar_21 = {{210, 211, 212, 213, 214, 215, 216,
-                                 217, 218, 219, 220, 221, 222, 223,
-                                 224, 225, 226, 227, 228, 229, 230}};
-
-struct bytesize22 globvar_22 = {{231, 232, 233, 234, 235, 236, 237, 238,
-                                 239, 240, 241, 242, 243, 244, 245, 246,
-                                 247, 248, 249, 250, 251, 252}};
-
-struct bytesize23 globvar_23 = {{253, 254, 255, 0,  1,  2,  3,  4,
-                                 5,   6,   7,   8,  9,  10, 11, 12,
-                                 13,  14,  15,  16, 17, 18, 19}};
-
-struct bytesize24 globvar_24 = {{20, 21, 22, 23, 24, 25, 26, 27,
-                                 28, 29, 30, 31, 32, 33, 34, 35,
-                                 36, 37, 38, 39, 40, 41, 42, 43}};
-/* Test that we can pass static and automatic structs of every size between 1 and 24 bytes.
- * Pass each size both in a register (when possible) and on the stack. */
+/* Pass structs of sizes 1..12 bytes by value, validated byte-exact with memcmp. Split from the book's StructSizes (passing all sizes 1..24 through one function exceeds the BESM-6 address range). */
 
 int memcmp(void *s1, void *s2, unsigned long n);
 
-// Pass sizes 1 - 6 in registers, remainders on the stack
-int fun0(struct bytesize1 a, struct bytesize2 b, struct bytesize3 c,
-         struct bytesize4 d, struct bytesize5 e, struct bytesize6 f,
-         struct bytesize7 g, struct bytesize8 h, struct bytesize9 i,
-         struct bytesize10 j, struct bytesize11 k, struct bytesize12 l,
-         struct bytesize13 m, struct bytesize14 n, struct bytesize15 o,
-         struct bytesize16 p, struct bytesize17 q, struct bytesize18 r,
-         struct bytesize19 s, struct bytesize20 t, struct bytesize21 u,
-         struct bytesize22 v, struct bytesize23 w, struct bytesize24 x,
-         unsigned char *a_expected, unsigned char *b_expected,
-         unsigned char *c_expected, unsigned char *d_expected,
-         unsigned char *e_expected, unsigned char *f_expected,
-         unsigned char *g_expected, unsigned char *h_expected,
-         unsigned char *i_expected, unsigned char *j_expected,
-         unsigned char *k_expected, unsigned char *l_expected,
-         unsigned char *m_expected, unsigned char *n_expected,
-         unsigned char *o_expected, unsigned char *p_expected,
-         unsigned char *q_expected, unsigned char *r_expected,
-         unsigned char *s_expected, unsigned char *t_expected,
-         unsigned char *u_expected, unsigned char *v_expected,
-         unsigned char *w_expected, unsigned char *x_expected) {
-    if (memcmp(&a, a_expected, sizeof a)) {
-        return 0;
-    }
+struct bytesize1 { unsigned char arr[1]; };
+extern struct bytesize1 gvar1;
+struct bytesize2 { unsigned char arr[2]; };
+extern struct bytesize2 gvar2;
+struct bytesize3 { unsigned char arr[3]; };
+extern struct bytesize3 gvar3;
+struct bytesize4 { unsigned char arr[4]; };
+extern struct bytesize4 gvar4;
+struct bytesize5 { unsigned char arr[5]; };
+extern struct bytesize5 gvar5;
+struct bytesize6 { unsigned char arr[6]; };
+extern struct bytesize6 gvar6;
+struct bytesize7 { unsigned char arr[7]; };
+extern struct bytesize7 gvar7;
+struct bytesize8 { unsigned char arr[8]; };
+extern struct bytesize8 gvar8;
+struct bytesize9 { unsigned char arr[9]; };
+extern struct bytesize9 gvar9;
+struct bytesize10 { unsigned char arr[10]; };
+extern struct bytesize10 gvar10;
+struct bytesize11 { unsigned char arr[11]; };
+extern struct bytesize11 gvar11;
+struct bytesize12 { unsigned char arr[12]; };
+extern struct bytesize12 gvar12;
 
-    if (memcmp(&b, b_expected, sizeof b)) {
-        return 0;
-    }
+int chk0(struct bytesize1 s1, struct bytesize2 s2, struct bytesize3 s3, struct bytesize4 s4, struct bytesize5 s5, struct bytesize6 s6, unsigned char *e1, unsigned char *e2, unsigned char *e3, unsigned char *e4, unsigned char *e5, unsigned char *e6);
+int chk1(struct bytesize7 s7, struct bytesize8 s8, struct bytesize9 s9, struct bytesize10 s10, struct bytesize11 s11, struct bytesize12 s12, unsigned char *e7, unsigned char *e8, unsigned char *e9, unsigned char *e10, unsigned char *e11, unsigned char *e12);
 
-    if (memcmp(&c, c_expected, sizeof c)) {
-        return 0;
-    }
+int main(void) {
+    if (!chk0(gvar1, gvar2, gvar3, gvar4, gvar5, gvar6, gvar1.arr, gvar2.arr, gvar3.arr, gvar4.arr, gvar5.arr, gvar6.arr)) return 1;
+    if (!chk1(gvar7, gvar8, gvar9, gvar10, gvar11, gvar12, gvar7.arr, gvar8.arr, gvar9.arr, gvar10.arr, gvar11.arr, gvar12.arr)) return 2;
 
-    if (memcmp(&d, d_expected, sizeof d)) {
-        return 0;
-    }
+    struct bytesize1 loc1 = {{1}};
+    struct bytesize2 loc2 = {{1, 2}};
+    struct bytesize3 loc3 = {{1, 2, 3}};
+    struct bytesize4 loc4 = {{1, 2, 3, 4}};
+    struct bytesize5 loc5 = {{1, 2, 3, 4, 5}};
+    struct bytesize6 loc6 = {{1, 2, 3, 4, 5, 6}};
+    struct bytesize7 loc7 = {{1, 2, 3, 4, 5, 6, 7}};
+    struct bytesize8 loc8 = {{1, 2, 3, 4, 5, 6, 7, 8}};
+    struct bytesize9 loc9 = {{1, 2, 3, 4, 5, 6, 7, 8, 9}};
+    struct bytesize10 loc10 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}};
+    struct bytesize11 loc11 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}};
+    struct bytesize12 loc12 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}};
 
-    if (memcmp(&e, e_expected, sizeof e)) {
-        return 0;
-    }
-
-    if (memcmp(&f, f_expected, sizeof f)) {
-        return 0;
-    }
-
-    if (memcmp(&g, g_expected, sizeof g)) {
-        return 0;
-    }
-
-    if (memcmp(&h, h_expected, sizeof h)) {
-        return 0;
-    }
-
-    if (memcmp(&i, i_expected, sizeof i)) {
-        return 0;
-    }
-
-    if (memcmp(&j, j_expected, sizeof j)) {
-        return 0;
-    }
-
-    if (memcmp(&k, k_expected, sizeof k)) {
-        return 0;
-    }
-
-    if (memcmp(&l, l_expected, sizeof l)) {
-        return 0;
-    }
-
-    if (memcmp(&m, m_expected, sizeof m)) {
-        return 0;
-    }
-
-    if (memcmp(&n, n_expected, sizeof n)) {
-        return 0;
-    }
-
-    if (memcmp(&o, o_expected, sizeof o)) {
-        return 0;
-    }
-
-    if (memcmp(&p, p_expected, sizeof p)) {
-        return 0;
-    }
-
-    if (memcmp(&q, q_expected, sizeof q)) {
-        return 0;
-    }
-
-    if (memcmp(&r, r_expected, sizeof r)) {
-        return 0;
-    }
-
-    if (memcmp(&s, s_expected, sizeof s)) {
-        return 0;
-    }
-
-    if (memcmp(&t, t_expected, sizeof t)) {
-        return 0;
-    }
-
-    if (memcmp(&u, u_expected, sizeof u)) {
-        return 0;
-    }
-
-    if (memcmp(&v, v_expected, sizeof v)) {
-        return 0;
-    }
-
-    if (memcmp(&w, w_expected, sizeof w)) {
-        return 0;
-    }
-
-    if (memcmp(&x, x_expected, sizeof x)) {
-        return 0;
-    }
-
-    return 1; // success
+    if (!chk0(loc1, loc2, loc3, loc4, loc5, loc6, loc1.arr, loc2.arr, loc3.arr, loc4.arr, loc5.arr, loc6.arr)) return 3;
+    if (!chk1(loc7, loc8, loc9, loc10, loc11, loc12, loc7.arr, loc8.arr, loc9.arr, loc10.arr, loc11.arr, loc12.arr)) return 4;
+    return 0;
 }
 
-// Pass sizes 7-10 bytes in regs, 1-6 on the stack
-int fun1(struct bytesize7 a, struct bytesize8 b, struct bytesize9 c,
-         struct bytesize10 d, struct bytesize1 e, struct bytesize2 f,
-         struct bytesize3 g, struct bytesize4 h, struct bytesize5 i,
-         struct bytesize6 j, unsigned char *a_expected,
-         unsigned char *b_expected, unsigned char *c_expected,
-         unsigned char *d_expected, unsigned char *e_expected,
-         unsigned char *f_expected, unsigned char *g_expected,
-         unsigned char *h_expected, unsigned char *i_expected,
-         unsigned char *j_expected) {
-    if (memcmp(&a, a_expected, sizeof a)) {
-        return 0;
-    }
+struct bytesize1 gvar1 = {{1}};
+struct bytesize2 gvar2 = {{1, 2}};
+struct bytesize3 gvar3 = {{1, 2, 3}};
+struct bytesize4 gvar4 = {{1, 2, 3, 4}};
+struct bytesize5 gvar5 = {{1, 2, 3, 4, 5}};
+struct bytesize6 gvar6 = {{1, 2, 3, 4, 5, 6}};
+struct bytesize7 gvar7 = {{1, 2, 3, 4, 5, 6, 7}};
+struct bytesize8 gvar8 = {{1, 2, 3, 4, 5, 6, 7, 8}};
+struct bytesize9 gvar9 = {{1, 2, 3, 4, 5, 6, 7, 8, 9}};
+struct bytesize10 gvar10 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}};
+struct bytesize11 gvar11 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}};
+struct bytesize12 gvar12 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}};
 
-    if (memcmp(&b, b_expected, sizeof b)) {
-        return 0;
-    }
-
-    if (memcmp(&c, c_expected, sizeof c)) {
-        return 0;
-    }
-
-    if (memcmp(&d, d_expected, sizeof d)) {
-        return 0;
-    }
-
-    if (memcmp(&e, e_expected, sizeof e)) {
-        return 0;
-    }
-
-    if (memcmp(&f, f_expected, sizeof f)) {
-        return 0;
-    }
-
-    if (memcmp(&g, g_expected, sizeof g)) {
-        return 0;
-    }
-
-    if (memcmp(&h, h_expected, sizeof h)) {
-        return 0;
-    }
-
-    if (memcmp(&i, i_expected, sizeof i)) {
-        return 0;
-    }
-
-    if (memcmp(&j, j_expected, sizeof j)) {
-        return 0;
-    }
-
-    return 1; // success
+int chk0(struct bytesize1 s1, struct bytesize2 s2, struct bytesize3 s3, struct bytesize4 s4, struct bytesize5 s5, struct bytesize6 s6, unsigned char *e1, unsigned char *e2, unsigned char *e3, unsigned char *e4, unsigned char *e5, unsigned char *e6) {
+    if (memcmp(&s1, e1, sizeof s1)) return 0;
+    if (memcmp(&s2, e2, sizeof s2)) return 0;
+    if (memcmp(&s3, e3, sizeof s3)) return 0;
+    if (memcmp(&s4, e4, sizeof s4)) return 0;
+    if (memcmp(&s5, e5, sizeof s5)) return 0;
+    if (memcmp(&s6, e6, sizeof s6)) return 0;
+    return 1;
 }
-
-// Pass sizes 11-13 in regs, 1 on the stack
-int fun2(struct bytesize11 a, struct bytesize12 b, struct bytesize13 c,
-         struct bytesize1 d, unsigned char *a_expected,
-         unsigned char *b_expected, unsigned char *c_expected,
-         unsigned char *d_expected) {
-    if (memcmp(&a, a_expected, sizeof a)) {
-        return 0;
-    }
-
-    if (memcmp(&b, b_expected, sizeof b)) {
-        return 0;
-    }
-
-    if (memcmp(&c, c_expected, sizeof c)) {
-        return 0;
-    }
-
-    if (memcmp(&d, d_expected, sizeof d)) {
-        return 0;
-    }
-
-    return 1; // success
-}
-
-// pass sizes 14-16 in regs, 2 on the stack
-int fun3(struct bytesize14 a, struct bytesize15 b, struct bytesize16 c,
-         struct bytesize2 d, unsigned char *a_expected,
-         unsigned char *b_expected, unsigned char *c_expected,
-         unsigned char *d_expected) {
-    if (memcmp(&a, a_expected, sizeof a)) {
-        return 0;
-    }
-
-    if (memcmp(&b, b_expected, sizeof b)) {
-        return 0;
-    }
-
-    if (memcmp(&c, c_expected, sizeof c)) {
-        return 0;
-    }
-
-    if (memcmp(&d, d_expected, sizeof d)) {
-        return 0;
-    }
-
-    return 1; // success
+int chk1(struct bytesize7 s7, struct bytesize8 s8, struct bytesize9 s9, struct bytesize10 s10, struct bytesize11 s11, struct bytesize12 s12, unsigned char *e7, unsigned char *e8, unsigned char *e9, unsigned char *e10, unsigned char *e11, unsigned char *e12) {
+    if (memcmp(&s7, e7, sizeof s7)) return 0;
+    if (memcmp(&s8, e8, sizeof s8)) return 0;
+    if (memcmp(&s9, e9, sizeof s9)) return 0;
+    if (memcmp(&s10, e10, sizeof s10)) return 0;
+    if (memcmp(&s11, e11, sizeof s11)) return 0;
+    if (memcmp(&s12, e12, sizeof s12)) return 0;
+    return 1;
 }
 )PROG")));
 }
+
+TEST_F(CodegenTest, Chapter18_StructSizes2)
+{
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+/* Pass structs of sizes 13..24 bytes by value, validated byte-exact with memcmp. Split from the book's StructSizes (see StructSizes1). */
+
+int memcmp(void *s1, void *s2, unsigned long n);
+
+struct bytesize13 { unsigned char arr[13]; };
+extern struct bytesize13 gvar13;
+struct bytesize14 { unsigned char arr[14]; };
+extern struct bytesize14 gvar14;
+struct bytesize15 { unsigned char arr[15]; };
+extern struct bytesize15 gvar15;
+struct bytesize16 { unsigned char arr[16]; };
+extern struct bytesize16 gvar16;
+struct bytesize17 { unsigned char arr[17]; };
+extern struct bytesize17 gvar17;
+struct bytesize18 { unsigned char arr[18]; };
+extern struct bytesize18 gvar18;
+struct bytesize19 { unsigned char arr[19]; };
+extern struct bytesize19 gvar19;
+struct bytesize20 { unsigned char arr[20]; };
+extern struct bytesize20 gvar20;
+struct bytesize21 { unsigned char arr[21]; };
+extern struct bytesize21 gvar21;
+struct bytesize22 { unsigned char arr[22]; };
+extern struct bytesize22 gvar22;
+struct bytesize23 { unsigned char arr[23]; };
+extern struct bytesize23 gvar23;
+struct bytesize24 { unsigned char arr[24]; };
+extern struct bytesize24 gvar24;
+
+int chk0(struct bytesize13 s13, struct bytesize14 s14, struct bytesize15 s15, struct bytesize16 s16, struct bytesize17 s17, struct bytesize18 s18, unsigned char *e13, unsigned char *e14, unsigned char *e15, unsigned char *e16, unsigned char *e17, unsigned char *e18);
+int chk1(struct bytesize19 s19, struct bytesize20 s20, struct bytesize21 s21, struct bytesize22 s22, struct bytesize23 s23, struct bytesize24 s24, unsigned char *e19, unsigned char *e20, unsigned char *e21, unsigned char *e22, unsigned char *e23, unsigned char *e24);
+
+int main(void) {
+    if (!chk0(gvar13, gvar14, gvar15, gvar16, gvar17, gvar18, gvar13.arr, gvar14.arr, gvar15.arr, gvar16.arr, gvar17.arr, gvar18.arr)) return 1;
+    if (!chk1(gvar19, gvar20, gvar21, gvar22, gvar23, gvar24, gvar19.arr, gvar20.arr, gvar21.arr, gvar22.arr, gvar23.arr, gvar24.arr)) return 2;
+
+    struct bytesize13 loc13 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}};
+    struct bytesize14 loc14 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}};
+    struct bytesize15 loc15 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}};
+    struct bytesize16 loc16 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}};
+    struct bytesize17 loc17 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17}};
+    struct bytesize18 loc18 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18}};
+    struct bytesize19 loc19 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19}};
+    struct bytesize20 loc20 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}};
+    struct bytesize21 loc21 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}};
+    struct bytesize22 loc22 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22}};
+    struct bytesize23 loc23 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}};
+    struct bytesize24 loc24 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24}};
+
+    if (!chk0(loc13, loc14, loc15, loc16, loc17, loc18, loc13.arr, loc14.arr, loc15.arr, loc16.arr, loc17.arr, loc18.arr)) return 3;
+    if (!chk1(loc19, loc20, loc21, loc22, loc23, loc24, loc19.arr, loc20.arr, loc21.arr, loc22.arr, loc23.arr, loc24.arr)) return 4;
+    return 0;
+}
+
+struct bytesize13 gvar13 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13}};
+struct bytesize14 gvar14 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14}};
+struct bytesize15 gvar15 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}};
+struct bytesize16 gvar16 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}};
+struct bytesize17 gvar17 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17}};
+struct bytesize18 gvar18 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18}};
+struct bytesize19 gvar19 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19}};
+struct bytesize20 gvar20 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20}};
+struct bytesize21 gvar21 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21}};
+struct bytesize22 gvar22 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22}};
+struct bytesize23 gvar23 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23}};
+struct bytesize24 gvar24 = {{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24}};
+
+int chk0(struct bytesize13 s13, struct bytesize14 s14, struct bytesize15 s15, struct bytesize16 s16, struct bytesize17 s17, struct bytesize18 s18, unsigned char *e13, unsigned char *e14, unsigned char *e15, unsigned char *e16, unsigned char *e17, unsigned char *e18) {
+    if (memcmp(&s13, e13, sizeof s13)) return 0;
+    if (memcmp(&s14, e14, sizeof s14)) return 0;
+    if (memcmp(&s15, e15, sizeof s15)) return 0;
+    if (memcmp(&s16, e16, sizeof s16)) return 0;
+    if (memcmp(&s17, e17, sizeof s17)) return 0;
+    if (memcmp(&s18, e18, sizeof s18)) return 0;
+    return 1;
+}
+int chk1(struct bytesize19 s19, struct bytesize20 s20, struct bytesize21 s21, struct bytesize22 s22, struct bytesize23 s23, struct bytesize24 s24, unsigned char *e19, unsigned char *e20, unsigned char *e21, unsigned char *e22, unsigned char *e23, unsigned char *e24) {
+    if (memcmp(&s19, e19, sizeof s19)) return 0;
+    if (memcmp(&s20, e20, sizeof s20)) return 0;
+    if (memcmp(&s21, e21, sizeof s21)) return 0;
+    if (memcmp(&s22, e22, sizeof s22)) return 0;
+    if (memcmp(&s23, e23, sizeof s23)) return 0;
+    if (memcmp(&s24, e24, sizeof s24)) return 0;
+    return 1;
+}
+)PROG")));
+}
+
 
 // calloc + block-scope static.
 TEST_F(CodegenTest, DISABLED_Chapter18_AccessRetvalMembers)
@@ -1250,10 +800,10 @@ struct outer return_nested_struct(void) {
 )PROG")));
 }
 
-// Residual blocker (not libc; strcmp/strncmp available): returns a wide range
-// of struct types by value; the multi-word/in-memory struct-return ABI is
-// unimplemented (run errors).
-TEST_F(CodegenTest, DISABLED_Chapter18_ReturnCallingConventions)
+// Returns a wide range of struct types by value (accumulator and sret classes) and mixes
+// struct returns with scalar/struct params.  Out-of-range double 34e43 adapted to 34e16 and
+// strcmp strings uppercased for the KOI-7 static path.
+TEST_F(CodegenTest, Chapter18_ReturnCallingConventions)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test that we return a wide range of struct types according to the ABI */
@@ -1317,11 +867,11 @@ struct memory {
 // returning structures
 
 struct one_int return_int_struct(void);
-struct twelve_bytes return_two_int_struct(void);
+struct twelve_bytes r_2int(void);
 struct one_xmm return_double_struct(void);
-struct two_xmm return_two_double_struct(void);
-struct xmm_and_int return_mixed(void);
-struct int_and_xmm return_mixed2(void);
+struct two_xmm r_2dbl(void);
+struct xmm_and_int r_mix(void);
+struct int_and_xmm r_mix2(void);
 struct memory return_on_stack(void);
 
 // return on stack + pass other int params
@@ -1342,27 +892,27 @@ int main(void) {
         return 1;
     }
 
-    struct twelve_bytes s2 = return_two_int_struct();
+    struct twelve_bytes s2 = r_2int();
     if (s2.i != 10 || strncmp(s2.arr, "12345678", sizeof s2.arr))
         return 2;
 
     struct one_xmm s3 = return_double_struct();
     if (s3.d != 100.625)
         return 3;
-    struct two_xmm s4 = return_two_double_struct();
+    struct two_xmm s4 = r_2dbl();
     if (s4.d[0] != 8.8 || s4.d[1] != 7.8)
         return 4;
 
-    struct xmm_and_int s5 = return_mixed();
-    if (s5.dbl.d != 10.0 || strcmp(s5.c, "ab"))
+    struct xmm_and_int s5 = r_mix();
+    if (s5.dbl.d != 10.0 || strcmp(s5.c, "AB"))
         return 5;
 
-    struct int_and_xmm s6 = return_mixed2();
-    if (s6.c != 127 || s6.d != 34e43)
+    struct int_and_xmm s6 = r_mix2();
+    if (s6.c != 127 || s6.d != 34e16)
         return 6;
 
     struct memory s7 = return_on_stack();
-    if (s7.d != 1.25 || strcmp(s7.c, "xy") || s7.l != 100l || s7.i != 44)
+    if (s7.d != 1.25 || strcmp(s7.c, "XY") || s7.l != 100l || s7.i != 44)
         return 7;
 
     s7 = pass_and_return_regs(6, 4.0, int_and_xmm, 5, two_ints, 77, one_long,
@@ -1388,7 +938,7 @@ struct one_int return_int_struct(void) {
     return retval;
 }
 
-struct twelve_bytes return_two_int_struct(void) {
+struct twelve_bytes r_2int(void) {
     struct twelve_bytes retval = {10, "12345678"};
     return retval;
 }
@@ -1397,20 +947,20 @@ struct one_xmm return_double_struct(void) {
     struct one_xmm retval = {100.625};
     return retval;
 }
-struct two_xmm return_two_double_struct(void) {
+struct two_xmm r_2dbl(void) {
     struct two_xmm retval = {{8.8, 7.8}};
     return retval;
 }
-struct xmm_and_int return_mixed(void) {
-    struct xmm_and_int retval = {{10.0}, "ab"};
+struct xmm_and_int r_mix(void) {
+    struct xmm_and_int retval = {{10.0}, "AB"};
     return retval;
 }
-struct int_and_xmm return_mixed2(void) {
-    struct int_and_xmm retval = {127, 34e43};
+struct int_and_xmm r_mix2(void) {
+    struct int_and_xmm retval = {127, 34e16};
     return retval;
 }
 struct memory return_on_stack(void) {
-    struct memory retval = {1.25, "xy", 100l, 44};
+    struct memory retval = {1.25, "XY", 100l, 44};
     return retval;
 }
 
@@ -1432,7 +982,7 @@ struct memory pass_and_return_regs(int i, double d, struct int_and_xmm strct,
                                    struct one_int_exactly o_i_e, int c2) {
     // include a stack variable to make sure it doen't overwrite return value
     // pointer or vice versa
-    char stackbytes[8] = "zyxwvut";
+    char stackbytes[8] = "ZYXWVUT";
     struct memory retval = {0, {0, 0, 0}, 0, 0};
 
     // make another function call to ensure that passing parameters
@@ -1454,7 +1004,7 @@ struct memory pass_and_return_regs(int i, double d, struct int_and_xmm strct,
     }
 
     // validate stackbytes
-    if (strcmp(stackbytes, "zyxwvut")) {
+    if (strcmp(stackbytes, "ZYXWVUT")) {
         retval.i = 4;
         return retval;
     }
@@ -1464,10 +1014,9 @@ struct memory pass_and_return_regs(int i, double d, struct int_and_xmm strct,
 )PROG")));
 }
 
-// DISABLED: still blocked by the multi-word struct-by-value return ABI (task #54) — returns
-// structs of every size 1..24 bytes by value (only <=3-word returns work today).  The packed
-// layout (task #42) and memcmp (task #41) are in place; re-enable once #54 lands.
-TEST_F(CodegenTest, DISABLED_Chapter18_RetvalStructSizes)
+// Returns structs of every size 1..24 bytes by value: <=6-byte structs in the accumulator,
+// larger ones via the hidden-pointer (sret) ABI.  Validated byte-exact with memcmp.
+TEST_F(CodegenTest, Chapter18_RetvalStructSizes)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test that we can return structs of every size between 1 and 24 bytes. */
@@ -1476,435 +1025,435 @@ struct bytesize1 {
     unsigned char arr[1];
 };
 
-extern struct bytesize1 globvar_1;
+extern struct bytesize1 gvar1;
 struct bytesize1 fun1(void);
 
 struct bytesize2 {
     unsigned char arr[2];
 };
 
-extern struct bytesize2 globvar_2;
+extern struct bytesize2 gvar2;
 struct bytesize2 fun2(void);
 
 struct bytesize3 {
     unsigned char arr[3];
 };
 
-extern struct bytesize3 globvar_3;
+extern struct bytesize3 gvar3;
 struct bytesize3 fun3(void);
 
 struct bytesize4 {
     unsigned char arr[4];
 };
 
-extern struct bytesize4 globvar_4;
+extern struct bytesize4 gvar4;
 struct bytesize4 fun4(void);
 
 struct bytesize5 {
     unsigned char arr[5];
 };
 
-extern struct bytesize5 globvar_5;
+extern struct bytesize5 gvar5;
 struct bytesize5 fun5(void);
 
 struct bytesize6 {
     unsigned char arr[6];
 };
 
-extern struct bytesize6 globvar_6;
+extern struct bytesize6 gvar6;
 struct bytesize6 fun6(void);
 
 struct bytesize7 {
     unsigned char arr[7];
 };
 
-extern struct bytesize7 globvar_7;
+extern struct bytesize7 gvar7;
 struct bytesize7 fun7(void);
 
 struct bytesize8 {
     unsigned char arr[8];
 };
 
-extern struct bytesize8 globvar_8;
+extern struct bytesize8 gvar8;
 struct bytesize8 fun8(void);
 
 struct bytesize9 {
     unsigned char arr[9];
 };
 
-extern struct bytesize9 globvar_9;
+extern struct bytesize9 gvar9;
 struct bytesize9 fun9(void);
 
 struct bytesize10 {
     unsigned char arr[10];
 };
 
-extern struct bytesize10 globvar_10;
+extern struct bytesize10 gvar10;
 struct bytesize10 fun10(void);
 
 struct bytesize11 {
     unsigned char arr[11];
 };
 
-extern struct bytesize11 globvar_11;
+extern struct bytesize11 gvar11;
 struct bytesize11 fun11(void);
 
 struct bytesize12 {
     unsigned char arr[12];
 };
 
-extern struct bytesize12 globvar_12;
+extern struct bytesize12 gvar12;
 struct bytesize12 fun12(void);
 
 struct bytesize13 {
     unsigned char arr[13];
 };
 
-extern struct bytesize13 globvar_13;
+extern struct bytesize13 gvar13;
 struct bytesize13 fun13(void);
 
 struct bytesize14 {
     unsigned char arr[14];
 };
 
-extern struct bytesize14 globvar_14;
+extern struct bytesize14 gvar14;
 struct bytesize14 fun14(void);
 
 struct bytesize15 {
     unsigned char arr[15];
 };
 
-extern struct bytesize15 globvar_15;
+extern struct bytesize15 gvar15;
 struct bytesize15 fun15(void);
 
 struct bytesize16 {
     unsigned char arr[16];
 };
 
-extern struct bytesize16 globvar_16;
+extern struct bytesize16 gvar16;
 struct bytesize16 fun16(void);
 
 struct bytesize17 {
     unsigned char arr[17];
 };
 
-extern struct bytesize17 globvar_17;
+extern struct bytesize17 gvar17;
 struct bytesize17 fun17(void);
 
 struct bytesize18 {
     unsigned char arr[18];
 };
 
-extern struct bytesize18 globvar_18;
+extern struct bytesize18 gvar18;
 struct bytesize18 fun18(void);
 
 struct bytesize19 {
     unsigned char arr[19];
 };
 
-extern struct bytesize19 globvar_19;
+extern struct bytesize19 gvar19;
 struct bytesize19 fun19(void);
 
 struct bytesize20 {
     unsigned char arr[20];
 };
 
-extern struct bytesize20 globvar_20;
+extern struct bytesize20 gvar20;
 struct bytesize20 fun20(void);
 
 struct bytesize21 {
     unsigned char arr[21];
 };
 
-extern struct bytesize21 globvar_21;
+extern struct bytesize21 gvar21;
 struct bytesize21 fun21(void);
 
 struct bytesize22 {
     unsigned char arr[22];
 };
 
-extern struct bytesize22 globvar_22;
+extern struct bytesize22 gvar22;
 struct bytesize22 fun22(void);
 
 struct bytesize23 {
     unsigned char arr[23];
 };
 
-extern struct bytesize23 globvar_23;
+extern struct bytesize23 gvar23;
 struct bytesize23 fun23(void);
 
 struct bytesize24 {
     unsigned char arr[24];
 };
 
-extern struct bytesize24 globvar_24;
+extern struct bytesize24 gvar24;
 struct bytesize24 fun24(void);
 /* Test that we can return structs of every size between 1 and 24 bytes. */
 int memcmp(void *s1, void *s2, unsigned long n);
 
 int main(void) {
     struct bytesize1 s1 = fun1();
-    if (memcmp(&s1, &globvar_1, sizeof s1)) {
+    if (memcmp(&s1, &gvar1, sizeof s1)) {
         return 1;
     }
 
     struct bytesize2 s2 = fun2();
-    if (memcmp(&s2, &globvar_2, sizeof s2)) {
+    if (memcmp(&s2, &gvar2, sizeof s2)) {
         return 2;
     }
 
     struct bytesize3 s3 = fun3();
-    if (memcmp(&s3, &globvar_3, sizeof s3)) {
+    if (memcmp(&s3, &gvar3, sizeof s3)) {
         return 3;
     }
 
     struct bytesize4 s4 = fun4();
-    if (memcmp(&s4, &globvar_4, sizeof s4)) {
+    if (memcmp(&s4, &gvar4, sizeof s4)) {
         return 4;
     }
 
     struct bytesize5 s5 = fun5();
-    if (memcmp(&s5, &globvar_5, sizeof s5)) {
+    if (memcmp(&s5, &gvar5, sizeof s5)) {
         return 5;
     }
 
     struct bytesize6 s6 = fun6();
-    if (memcmp(&s6, &globvar_6, sizeof s6)) {
+    if (memcmp(&s6, &gvar6, sizeof s6)) {
         return 6;
     }
 
     struct bytesize7 s7 = fun7();
-    if (memcmp(&s7, &globvar_7, sizeof s7)) {
+    if (memcmp(&s7, &gvar7, sizeof s7)) {
         return 7;
     }
 
     struct bytesize8 s8 = fun8();
-    if (memcmp(&s8, &globvar_8, sizeof s8)) {
+    if (memcmp(&s8, &gvar8, sizeof s8)) {
         return 8;
     }
 
     struct bytesize9 s9 = fun9();
-    if (memcmp(&s9, &globvar_9, sizeof s9)) {
+    if (memcmp(&s9, &gvar9, sizeof s9)) {
         return 9;
     }
 
     struct bytesize10 s10 = fun10();
-    if (memcmp(&s10, &globvar_10, sizeof s10)) {
+    if (memcmp(&s10, &gvar10, sizeof s10)) {
         return 10;
     }
 
     struct bytesize11 s11 = fun11();
-    if (memcmp(&s11, &globvar_11, sizeof s11)) {
+    if (memcmp(&s11, &gvar11, sizeof s11)) {
         return 11;
     }
 
     struct bytesize12 s12 = fun12();
-    if (memcmp(&s12, &globvar_12, sizeof s12)) {
+    if (memcmp(&s12, &gvar12, sizeof s12)) {
         return 12;
     }
 
     struct bytesize13 s13 = fun13();
-    if (memcmp(&s13, &globvar_13, sizeof s13)) {
+    if (memcmp(&s13, &gvar13, sizeof s13)) {
         return 13;
     }
 
     struct bytesize14 s14 = fun14();
-    if (memcmp(&s14, &globvar_14, sizeof s14)) {
+    if (memcmp(&s14, &gvar14, sizeof s14)) {
         return 14;
     }
 
     struct bytesize15 s15 = fun15();
-    if (memcmp(&s15, &globvar_15, sizeof s15)) {
+    if (memcmp(&s15, &gvar15, sizeof s15)) {
         return 15;
     }
 
     struct bytesize16 s16 = fun16();
-    if (memcmp(&s16, &globvar_16, sizeof s16)) {
+    if (memcmp(&s16, &gvar16, sizeof s16)) {
         return 16;
     }
 
     struct bytesize17 s17 = fun17();
-    if (memcmp(&s17, &globvar_17, sizeof s17)) {
+    if (memcmp(&s17, &gvar17, sizeof s17)) {
         return 17;
     }
 
     struct bytesize18 s18 = fun18();
-    if (memcmp(&s18, &globvar_18, sizeof s18)) {
+    if (memcmp(&s18, &gvar18, sizeof s18)) {
         return 18;
     }
 
     struct bytesize19 s19 = fun19();
-    if (memcmp(&s19, &globvar_19, sizeof s19)) {
+    if (memcmp(&s19, &gvar19, sizeof s19)) {
         return 19;
     }
 
     struct bytesize20 s20 = fun20();
-    if (memcmp(&s20, &globvar_20, sizeof s20)) {
+    if (memcmp(&s20, &gvar20, sizeof s20)) {
         return 20;
     }
 
     struct bytesize21 s21 = fun21();
-    if (memcmp(&s21, &globvar_21, sizeof s21)) {
+    if (memcmp(&s21, &gvar21, sizeof s21)) {
         return 21;
     }
 
     struct bytesize22 s22 = fun22();
-    if (memcmp(&s22, &globvar_22, sizeof s22)) {
+    if (memcmp(&s22, &gvar22, sizeof s22)) {
         return 22;
     }
 
     struct bytesize23 s23 = fun23();
-    if (memcmp(&s23, &globvar_23, sizeof s23)) {
+    if (memcmp(&s23, &gvar23, sizeof s23)) {
         return 23;
     }
 
     struct bytesize24 s24 = fun24();
-    if (memcmp(&s24, &globvar_24, sizeof s24)) {
+    if (memcmp(&s24, &gvar24, sizeof s24)) {
         return 24;
     }
 
     return 0;
 }
 
-struct bytesize1 globvar_1 = {{0}};
+struct bytesize1 gvar1 = {{0}};
 
-struct bytesize2 globvar_2 = {{1, 2}};
+struct bytesize2 gvar2 = {{1, 2}};
 
-struct bytesize3 globvar_3 = {{3, 4, 5}};
+struct bytesize3 gvar3 = {{3, 4, 5}};
 
-struct bytesize4 globvar_4 = {{6, 7, 8, 9}};
+struct bytesize4 gvar4 = {{6, 7, 8, 9}};
 
-struct bytesize5 globvar_5 = {{10, 11, 12, 13, 14}};
+struct bytesize5 gvar5 = {{10, 11, 12, 13, 14}};
 
-struct bytesize6 globvar_6 = {{15, 16, 17, 18, 19, 20}};
+struct bytesize6 gvar6 = {{15, 16, 17, 18, 19, 20}};
 
-struct bytesize7 globvar_7 = {{21, 22, 23, 24, 25, 26, 27}};
+struct bytesize7 gvar7 = {{21, 22, 23, 24, 25, 26, 27}};
 
-struct bytesize8 globvar_8 = {{28, 29, 30, 31, 32, 33, 34, 35}};
+struct bytesize8 gvar8 = {{28, 29, 30, 31, 32, 33, 34, 35}};
 
-struct bytesize9 globvar_9 = {{36, 37, 38, 39, 40, 41, 42, 43, 44}};
+struct bytesize9 gvar9 = {{36, 37, 38, 39, 40, 41, 42, 43, 44}};
 
-struct bytesize10 globvar_10 = {{45, 46, 47, 48, 49, 50, 51, 52, 53, 54}};
+struct bytesize10 gvar10 = {{45, 46, 47, 48, 49, 50, 51, 52, 53, 54}};
 
-struct bytesize11 globvar_11 = {{55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65}};
+struct bytesize11 gvar11 = {{55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65}};
 
-struct bytesize12 globvar_12 = {
+struct bytesize12 gvar12 = {
     {66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77}};
 
-struct bytesize13 globvar_13 = {
+struct bytesize13 gvar13 = {
     {78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90}};
 
-struct bytesize14 globvar_14 = {
+struct bytesize14 gvar14 = {
     {91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104}};
 
-struct bytesize15 globvar_15 = {{105, 106, 107, 108, 109, 110, 111, 112, 113,
+struct bytesize15 gvar15 = {{105, 106, 107, 108, 109, 110, 111, 112, 113,
                                  114, 115, 116, 117, 118, 119}};
 
-struct bytesize16 globvar_16 = {{120, 121, 122, 123, 124, 125, 126, 127, 128,
+struct bytesize16 gvar16 = {{120, 121, 122, 123, 124, 125, 126, 127, 128,
                                  129, 130, 131, 132, 133, 134, 135}};
 
-struct bytesize17 globvar_17 = {{136, 137, 138, 139, 140, 141, 142, 143, 144,
+struct bytesize17 gvar17 = {{136, 137, 138, 139, 140, 141, 142, 143, 144,
                                  145, 146, 147, 148, 149, 150, 151, 152}};
 
-struct bytesize18 globvar_18 = {{153, 154, 155, 156, 157, 158, 159, 160, 161,
+struct bytesize18 gvar18 = {{153, 154, 155, 156, 157, 158, 159, 160, 161,
                                  162, 163, 164, 165, 166, 167, 168, 169, 170}};
 
-struct bytesize19 globvar_19 = {{171, 172, 173, 174, 175, 176, 177, 178, 179,
+struct bytesize19 gvar19 = {{171, 172, 173, 174, 175, 176, 177, 178, 179,
                                  180, 181, 182, 183, 184, 185, 186, 187, 188,
                                  189}};
 
-struct bytesize20 globvar_20 = {{190, 191, 192, 193, 194, 195, 196,
+struct bytesize20 gvar20 = {{190, 191, 192, 193, 194, 195, 196,
                                  197, 198, 199, 200, 201, 202, 203,
                                  204, 205, 206, 207, 208, 209}};
 
-struct bytesize21 globvar_21 = {{210, 211, 212, 213, 214, 215, 216,
+struct bytesize21 gvar21 = {{210, 211, 212, 213, 214, 215, 216,
                                  217, 218, 219, 220, 221, 222, 223,
                                  224, 225, 226, 227, 228, 229, 230}};
 
-struct bytesize22 globvar_22 = {{231, 232, 233, 234, 235, 236, 237, 238,
+struct bytesize22 gvar22 = {{231, 232, 233, 234, 235, 236, 237, 238,
                                  239, 240, 241, 242, 243, 244, 245, 246,
                                  247, 248, 249, 250, 251, 252}};
 
-struct bytesize23 globvar_23 = {{253, 254, 255, 0,  1,  2,  3,  4,
+struct bytesize23 gvar23 = {{253, 254, 255, 0,  1,  2,  3,  4,
                                  5,   6,   7,   8,  9,  10, 11, 12,
                                  13,  14,  15,  16, 17, 18, 19}};
 
-struct bytesize24 globvar_24 = {{20, 21, 22, 23, 24, 25, 26, 27,
+struct bytesize24 gvar24 = {{20, 21, 22, 23, 24, 25, 26, 27,
                                  28, 29, 30, 31, 32, 33, 34, 35,
                                  36, 37, 38, 39, 40, 41, 42, 43}};
 /* Test that we can return structs of every size between 1 and 24 bytes. */
 
 struct bytesize1 fun1(void) {
-    return globvar_1;
+    return gvar1;
 }
 struct bytesize2 fun2(void) {
-    return globvar_2;
+    return gvar2;
 }
 struct bytesize3 fun3(void) {
-    return globvar_3;
+    return gvar3;
 }
 struct bytesize4 fun4(void) {
-    return globvar_4;
+    return gvar4;
 }
 struct bytesize5 fun5(void) {
-    return globvar_5;
+    return gvar5;
 }
 struct bytesize6 fun6(void) {
-    return globvar_6;
+    return gvar6;
 }
 struct bytesize7 fun7(void) {
-    return globvar_7;
+    return gvar7;
 }
 struct bytesize8 fun8(void) {
-    return globvar_8;
+    return gvar8;
 }
 struct bytesize9 fun9(void) {
-    return globvar_9;
+    return gvar9;
 }
 struct bytesize10 fun10(void) {
-    return globvar_10;
+    return gvar10;
 }
 struct bytesize11 fun11(void) {
-    return globvar_11;
+    return gvar11;
 }
 struct bytesize12 fun12(void) {
-    return globvar_12;
+    return gvar12;
 }
 struct bytesize13 fun13(void) {
-    return globvar_13;
+    return gvar13;
 }
 struct bytesize14 fun14(void) {
-    return globvar_14;
+    return gvar14;
 }
 struct bytesize15 fun15(void) {
-    return globvar_15;
+    return gvar15;
 }
 struct bytesize16 fun16(void) {
-    return globvar_16;
+    return gvar16;
 }
 struct bytesize17 fun17(void) {
-    return globvar_17;
+    return gvar17;
 }
 struct bytesize18 fun18(void) {
-    return globvar_18;
+    return gvar18;
 }
 struct bytesize19 fun19(void) {
-    return globvar_19;
+    return gvar19;
 }
 struct bytesize20 fun20(void) {
-    return globvar_20;
+    return gvar20;
 }
 struct bytesize21 fun21(void) {
-    return globvar_21;
+    return gvar21;
 }
 struct bytesize22 fun22(void) {
-    return globvar_22;
+    return gvar22;
 }
 struct bytesize23 fun23(void) {
-    return globvar_23;
+    return gvar23;
 }
 struct bytesize24 fun24(void) {
-    return globvar_24;
+    return gvar24;
 }
 )PROG")));
 }
