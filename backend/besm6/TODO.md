@@ -38,12 +38,6 @@ re-enabled when block-scope statics landed).
 |----|------|-------------|
 | 23 | Wire up the heap & re-enable dynamic-allocation tests | `malloc`/`calloc`/`realloc`/`free` already link into `libc.bin` but the run harness never calls `heap_setup`, so allocations fail. Initialize a heap region at program start, then re-enable ch17 VoidPointerSimple, ArrayOfPointersToVoid, CommonPointerType, ConversionByAssignment, VoidPointerExplicitCast, SizeofExpressions, PassAllocedMemory. For ch17 MemoryManagementFunctions, implement `aligned_alloc` or drop that sub-call. Also unblocks the ch18 malloc/calloc tests: ScalarMemberAccessArrow, ScalarMemberAccessLinkedList, ScalarMemberAccessNestedStruct, StructCopyWithArrowOperator, AccessRetvalMembers, OpaqueStruct, ReturnStructPointer, IncompleteStructs, IncompleteUnionTypes, MemberOffsets (with #49). |
 
-### Frontend — semantic typecheck (`semantic/`)
-
-| #  | Task | Description |
-|----|------|-------------|
-| 36 | REMOVE tag-shadowing tests (no-shadowing design) | These require an inner-scope tag to shadow an outer one with a distinct type — impossible under the permanent no-shadowing rule. Adapt where a non-shadowing analogue exists, otherwise delete: ch18 UnionShadowedByIncompleteStruct, UnionTagResolutionUnionTypeShadowsStruct, TagResolutionConflictingFunParamTypes, TagResolutionConflictingFunRetTypes, TagResolutionIncompleteShadowsComplete, TagResolutionIncompleteShadowsCompleteCast, TagResolutionShadowStruct (7). |
-
 ### Frontend — parser (`parser/`)
 
 | #  | Task | Description |

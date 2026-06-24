@@ -12,10 +12,11 @@
 // common_pointer_type rejects pointers to distinct struct/union tags
 // (semantic/typecheck.c).
 //
-// The DISABLED_ cases are genuine gaps: the type checker does not track a tag's
-// struct-vs-union kind, and (by the project's no-shadowing design) cannot model
-// an inner-scope tag that shadows an outer one with a distinct type; a few
-// other niche cases are noted inline.
+// Book cases that relied on an inner-scope tag shadowing an outer one with a
+// distinct type have no analogue under the project's permanent no-shadowing
+// design: a same-tag redeclaration either reuses the existing tag (so the
+// program is well-typed) or, with the opposite keyword, is a cross-kind conflict
+// — the latter are kept here as cross-kind negative tests.
 //
 #include "typecheck_fixture.h"
 
@@ -1137,25 +1138,25 @@ int main(void) {
 }
 
 // DISABLED: relies on tag shadowing in an inner scope; no-shadowing design has no distinct inner type
-TEST_F(PipelineTest, DISABLED_Chapter18_UnionShadowedByIncompleteStruct_Neg)
+TEST_F(PipelineTest, Chapter18_UnionShadowedByIncompleteStruct_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
 
-/* When one type declaration shadows another with the same tag (including a
- * union type shadowing struct type or vice versa) you can't specify the outer
- * tag
+/* Under the no-shadowing design the inner block has no separate scope for the
+ * tag, so 'struct tag' reopens the existing 'union tag' with the wrong keyword —
+ * a cross-kind conflict.
  * */
 
 int main(void) {
     union tag {int a;};
     {
-        struct tag;
-        union tag *x; // illegal b/c "union tag" isn't visible
+        struct tag; // illegal: 'tag' already declared as a union
+        union tag *x;
     }
     return 0;
 }
 )SRC"),
-                 ".");
+                 "'tag' defined as wrong kind of tag");
 }
 
 
@@ -1254,11 +1255,12 @@ int main(void) {
                  "Cannot define a variable with incomplete type");
 }
 
-// DISABLED: relies on tag shadowing (incomplete union shadows complete struct); no-shadowing design
-TEST_F(PipelineTest, DISABLED_Chapter18_UnionTagResolutionUnionTypeShadowsStruct_Neg)
+// Under no-shadowing, 'union u' reopens the file-scope 'struct u' with the wrong
+// keyword — a cross-kind conflict.
+TEST_F(PipelineTest, Chapter18_UnionTagResolutionUnionTypeShadowsStruct_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
-// Test that we correctly track unions shadowing structs w/ same tag
+// Test that a same-tag declaration with the wrong keyword is rejected
 
 // define a struct type
 struct u {
@@ -1266,13 +1268,14 @@ struct u {
 };
 
 int main(void) {
-    // declare an incomplete union type shadowing earlier complete type
+    // 'union u' refers to the file-scope 'struct u' (no shadowing), so the wrong
+    // keyword is itself a cross-kind conflict.
     union u;
-    union u my_union; // invalid - type is incomplete
+    union u my_union;
     return 0;
 }
 )SRC"),
-                 ".");
+                 "'u' defined as wrong kind of tag");
 }
 
 TEST_F(PipelineTest, Chapter18_UnionTagResolutionUnionWrongMember_Neg)
@@ -2618,49 +2621,6 @@ int main(void) {
                  "Structure s was already declared");
 }
 
-// DISABLED: relies on tag shadowing across scopes to make a conflicting fn redeclaration; no-shadowing design
-TEST_F(PipelineTest, DISABLED_Chapter18_TagResolutionConflictingFunParamTypes_Neg)
-{
-    EXPECT_DEATH(RunPipeline(R"SRC(
-struct s;
-
-// declare a function that takes param with incomplete struct type
-int foo(struct s x);
-
-int main(void) {
-    struct s;  // declare a different incomplete struct type
-
-    // illegal declaration: this conflicts with earlier declaration of 'foo'
-    // becasue it has a different type (second 'struct s' instead of first)
-    int foo(struct s x);
-    return 0;
-}
-)SRC"),
-                 ".");
-}
-
-// DISABLED: relies on tag shadowing across scopes to make a conflicting fn redeclaration; no-shadowing design
-TEST_F(PipelineTest, DISABLED_Chapter18_TagResolutionConflictingFunRetTypes_Neg)
-{
-    EXPECT_DEATH(RunPipeline(R"SRC(
-struct s;
-
-// declare a function that returns the incomplete structure type 'struct s'
-struct s foo(void);
-
-int main(void) {
-    struct s;  // declare a distinct incomplete struct type
-
-    // illegal declaration: this conflicts w/ earlier declaration of foo
-    // becaues it has a different return type (inner instead of outer 'struct
-    // s')
-    struct s foo(void);
-    return 0;
-}
-)SRC"),
-                 ".");
-}
-
 TEST_F(PipelineTest, Chapter18_TagResolutionDistinctStructTypes_Neg)
 {
     EXPECT_DEATH(RunPipeline(R"SRC(
@@ -2683,46 +2643,6 @@ int main(void) {
 }
 )SRC"),
                  "Cannot define a variable with incomplete type");
-}
-
-// DISABLED: relies on tag shadowing in an inner scope; no-shadowing design has no distinct inner type
-TEST_F(PipelineTest, DISABLED_Chapter18_TagResolutionIncompleteShadowsComplete_Neg)
-{
-    EXPECT_DEATH(RunPipeline(R"SRC(
-struct s {
-    int a;
-};
-
-int main(void) {
-    struct s;  // incomplete declaration shadows complete
-    struct s *x;
-    x->a = 10;  // illegal; x has incomplete type w/out member 'a'
-    return 0;
-}
-)SRC"),
-                 ".");
-}
-
-// DISABLED: relies on tag shadowing in a cast; no-shadowing design has no distinct inner type
-TEST_F(PipelineTest, DISABLED_Chapter18_TagResolutionIncompleteShadowsCompleteCast_Neg)
-{
-    EXPECT_DEATH(RunPipeline(R"SRC(
-// test that we resolve tags in cast expressions
-void *malloc(unsigned long size);
-struct s {
-    int a;
-};
-
-int main(void) {
-    void *ptr = malloc(sizeof(struct s));
-    struct s;  // declare a new, incomplete type 'struct s'
-    // this cast is illegal, because the 'struct s' specifier refers to inner,
-    // incomplete type, which does not have a member 'a'
-    ((struct s *)ptr)->a = 10;
-    return 0;
-}
-)SRC"),
-                 ".");
 }
 
 TEST_F(PipelineTest, Chapter18_TagResolutionInvalidShadowSelfReference_Neg)
@@ -2816,24 +2736,6 @@ struct s return_struct(void) {
 }
 )SRC"),
                  "Structure s was already declared");
-}
-
-// DISABLED: relies on tag shadowing in an inner scope; no-shadowing design has no distinct inner type
-TEST_F(PipelineTest, DISABLED_Chapter18_TagResolutionShadowStruct_Neg)
-{
-    EXPECT_DEATH(RunPipeline(R"SRC(
-// Example from "Test the Semantic Analysis Stage" box
-// intended to test identifier resolution
-
-struct s;
-struct s *ptr1 = 0;
-int main(void) {
-  struct s;
-  struct s *ptr2 = 0;
-  return ptr1 == ptr2;
-}
-)SRC"),
-                 ".");
 }
 
 TEST_F(PipelineTest, Chapter18_TagResolutionShadowedTagBranchMismatch_Neg)
