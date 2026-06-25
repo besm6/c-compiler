@@ -73,6 +73,17 @@ FetchContent_MakeAvailable(googletest)
 include(GoogleTest)
 enable_testing()
 
+# Compile the chdir-to-build-dir environment into a test target and tell it where that
+# dir is.  Every test binary then chdir()s into its own build directory at startup, so a
+# manual run from another directory doesn't litter the source tree (ctest already runs
+# them there).  CMAKE_CURRENT_BINARY_DIR reflects the *calling* directory (functions don't
+# rescope directory vars), so each target gets its own build dir.
+function(test_chdir_to_bindir target)
+    target_sources(${target} PRIVATE ${CMAKE_SOURCE_DIR}/libutil/test/test_chdir.cpp)
+    target_compile_definitions(${target} PRIVATE
+        TEST_BINARY_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+endfunction()
+
 add_subdirectory(libutil)
 add_subdirectory(ast)
 add_subdirectory(scanner)

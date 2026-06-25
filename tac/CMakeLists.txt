@@ -23,4 +23,5 @@ add_executable(tac-tests EXCLUDE_FROM_ALL
     test/graphviz_tests.cpp
 )
 target_link_libraries(tac-tests tac GTest::gtest_main)
+test_chdir_to_bindir(tac-tests)
 gtest_discover_tests(tac-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

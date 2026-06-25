@@ -144,6 +144,7 @@ add_definitions(-DTEST_DIR="${CMAKE_CURRENT_BINARY_DIR}")
 target_compile_definitions(besm-tests PRIVATE
     BESM6_CPP="${SystemCpp}"
     BESM6_INCLUDE_DIR="${BESM6_INCLUDE_DIR}")
+test_chdir_to_bindir(besm-tests)
 gtest_discover_tests(besm-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
 
 #

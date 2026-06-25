@@ -44,4 +44,5 @@ add_executable(parser-tests EXCLUDE_FROM_ALL
     test/chapter18_tests.cpp
 )
 target_link_libraries(parser-tests parser GTest::gtest_main)
+test_chdir_to_bindir(parser-tests)
 gtest_discover_tests(parser-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

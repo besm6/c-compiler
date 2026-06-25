@@ -26,4 +26,5 @@ add_executable(libutil-tests EXCLUDE_FROM_ALL
     test/xalloc_tests.cpp
 )
 target_link_libraries(libutil-tests libutil GTest::gtest_main)
+test_chdir_to_bindir(libutil-tests)
 gtest_discover_tests(libutil-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

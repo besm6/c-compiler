@@ -69,12 +69,19 @@ backend sanitizes it to `/`). An `extern T name[]` array emits no TAC top-level;
 reference decays the array to its address via `GET_ADDRESS`, which self-declares the
 external name (SUBP), so cross-module array indexing needs no special array-ness record.
 
-**Always run the BESM-6 tests (`besm-tests`) from `build/backend/besm6`** — the directory
-that holds the assembled runtime library `libc.bin`. The Dubna simulator job links
-`libc.bin` from the current working directory, so running from anywhere else uses a stale
-or missing library and the run tests report `ERROR`:
+**The BESM-6 tests (`besm-tests`) can be run from any directory.** At startup every test
+binary `chdir()`s into its own build directory (a GoogleTest global environment compiled in
+via `libutil/test/test_chdir.cpp` and the `test_chdir_to_bindir()` CMake helper, keyed off a
+per-target `TEST_BINARY_DIR` define), so `besm-tests` always lands in `build/backend/besm6`
+— the directory that holds the assembled runtime library `libc.bin`, which the Dubna
+simulator job links from the current working directory. (Before this, running from elsewhere
+used a stale or missing library and the run tests reported `ERROR`.) The same chdir keeps
+manual runs of every other test binary from littering the source tree with their scratch
+files (`<TestName>.c`, `.ast`, `.dub`, `.lst`); under `ctest`/`make run` it is a no-op
+because ctest already runs each binary in its build directory. Either of these works:
 ```sh
 cd build/backend/besm6 && ./besm-tests
+./build/backend/besm6/besm-tests          # also fine — it chdir()s itself
 ```
 
 **Debugging a failing run with Dubna instruction tracing.** A `CompileAndRun` test leaves

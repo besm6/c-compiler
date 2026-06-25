@@ -19,4 +19,5 @@ add_executable(scanner-tests EXCLUDE_FROM_ALL
     test/chapter16_tests.cpp
 )
 target_link_libraries(scanner-tests scanner GTest::gtest_main)
+test_chdir_to_bindir(scanner-tests)
 gtest_discover_tests(scanner-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
