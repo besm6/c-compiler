@@ -322,3 +322,34 @@ TEST_F(CodegenTest, MainImplicitReturnZeroNonEmptyBody)
         "void program(void) { printf(\"%d\\n\", main()); }\n");
     EXPECT_EQ("0\n", result);
 }
+
+// KNOWN LIMITATION (BESM-6 backend TODO #62): a `static` local whose type is a struct/union
+// tag declared *inside* the function body aborts `lower` with "Struct or union 'u' not found"
+// (here the union tag `u`).  The block-scope static is captured at typecheck time storing a
+// borrowed AST `Type *` (static_locals_add, semantic/symtab.c); the block-scope tag is then
+// purged from structtab on block exit, so when the translator re-resolves the type via
+// ast_type_to_tac_type -> get_size -> structtab_get (translator/translate.c:676) the tag is
+// already gone.  File-scope struct/union types work fine (their tag lives for the whole unit).
+// DISABLED because the abort is a fatal_error that would kill the whole besm-tests binary if
+// this test ran.  Once the static's size is resolved at typecheck time (while the tag is live)
+// and carried on StaticLocalRec, re-enable: dtoi reinterprets the bits of the double 1.0 as an
+// int, and "%o" prints that word, so the expected output is the octal of 1.0's representation.
+TEST_F(CodegenTest, DISABLED_LocalBlockUnionType)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int dtoi(double d) {
+            union u {
+                double d;
+                int i;
+            };
+            union u x;
+            x.d = d;
+            return x.i;
+        }
+        void program() {
+            printf("%o\n", dtoi(1.0));
+        }
+    )");
+    EXPECT_EQ("4050000000000000\n", result);
+}
