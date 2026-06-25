@@ -1606,7 +1606,7 @@ int target(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_CP_IntOnly_ExtraCredit_GotoDefine)
+TEST_F(PipelineTest, Chapter19_CP_IntOnly_GotoDefine)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 int target(int flag) {
@@ -1629,7 +1629,7 @@ int target(int flag) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_CP_IntOnly_ExtraCredit_PrefixResult)
+TEST_F(PipelineTest, Chapter19_CP_IntOnly_PrefixResult)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Make sure copy propagation can track that the result of ++x and the updated
@@ -1788,7 +1788,7 @@ int target(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_CP_IntOnly_ExtraCredit_PropagateFromDefault)
+TEST_F(PipelineTest, Chapter19_CP_IntOnly_PropagateFromDefault)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Propagate a value that's defined in a default statement that we always
@@ -1948,7 +1948,7 @@ int target(int x) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_CP_IntOnly_ExtraCredit_PropagateIntoCase)
+TEST_F(PipelineTest, Chapter19_CP_IntOnly_PropagateIntoCase)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 int globvar = 0;
@@ -2085,7 +2085,7 @@ int target(int flag) {
 
 // Structural assertion (instruction-kind histogram) — exact TAC
 // YAML too large to pin verbatim (84 instructions).
-TEST_F(PipelineTest, Chapter19_CP_IntOnly_ExtraCredit_DontPropagate_DecrKillsDest)
+TEST_F(PipelineTest, Chapter19_CP_IntOnly_DontPropagate_DecrKillsDest)
 {
     EXPECT_EQ(KindHistogram(OptimizeYaml(R"SRC(
 /* A ++/-- operation kills its operand */
@@ -2132,7 +2132,7 @@ int target(int flag) {
               "binary=18 copy=16 jump=10 jump_if_zero=13 label=23 return=4");
 }
 
-TEST_F(PipelineTest, Chapter19_CP_IntOnly_ExtraCredit_DontPropagate_SwitchFallthrough)
+TEST_F(PipelineTest, Chapter19_CP_IntOnly_DontPropagate_SwitchFallthrough)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Test case where we can't propagate a value into a case statement,

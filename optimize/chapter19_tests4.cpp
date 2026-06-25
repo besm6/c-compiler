@@ -532,7 +532,7 @@ int main(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_DSE_IntOnly_ExtraCredit_DeadCompoundAssignment)
+TEST_F(PipelineTest, Chapter19_DSE_IntOnly_DeadCompoundAssignment)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Test that we delete compound assignment to dead variables */
@@ -556,7 +556,7 @@ int target(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_DSE_IntOnly_ExtraCredit_DeadIncrDecr)
+TEST_F(PipelineTest, Chapter19_DSE_IntOnly_DeadIncrDecr)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Test that we delete ++/-- with dead variables */
@@ -588,7 +588,7 @@ int target(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_DSE_IntOnly_ExtraCredit_DontElim_IncrAndDeadStore)
+TEST_F(PipelineTest, Chapter19_DSE_IntOnly_DontElim_IncrAndDeadStore)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 static int x = 10;
@@ -1660,7 +1660,7 @@ int *target(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_DSE_AllTypes_ExtraCredit_CompoundAssignToDeadStructMember)
+TEST_F(PipelineTest, Chapter19_DSE_AllTypes_CompoundAssignToDeadStructMember)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* compound assignment to struct members can be a dead store */
@@ -1772,7 +1772,7 @@ int target(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_DSE_AllTypes_ExtraCredit_CopyToDeadUnion)
+TEST_F(PipelineTest, Chapter19_DSE_AllTypes_CopyToDeadUnion)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Make sure we detect dead stores to union members */
@@ -1843,7 +1843,7 @@ int target(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_DSE_AllTypes_ExtraCredit_DecrStructMember)
+TEST_F(PipelineTest, Chapter19_DSE_AllTypes_DecrStructMember)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* ++/-- applied to struct members can be a dead store */
@@ -1935,7 +1935,7 @@ int target(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_DSE_AllTypes_ExtraCredit_DontElim_CopyGeneratesUnion)
+TEST_F(PipelineTest, Chapter19_DSE_AllTypes_DontElim_CopyGeneratesUnion)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Reading a sub-object within a union makes the whole union live */
@@ -2029,7 +2029,7 @@ int main(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_DSE_AllTypes_ExtraCredit_DontElim_IncrThroughPointer)
+TEST_F(PipelineTest, Chapter19_DSE_AllTypes_DontElim_IncrThroughPointer)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Dead store elimination should never eliminate Store instructions
@@ -2110,7 +2110,7 @@ int main(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_DSE_AllTypes_ExtraCredit_DontElim_TypePunning)
+TEST_F(PipelineTest, Chapter19_DSE_AllTypes_DontElim_TypePunning)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* It's not safe to eliminate a store to one union member if we read another
@@ -3123,7 +3123,7 @@ int target(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_UCE_ExtraCredit_DeadBeforeFirstSwitchCase)
+TEST_F(PipelineTest, Chapter19_UCE_DeadBeforeFirstSwitchCase)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Anything that appears in a switch statement before the body of the first
@@ -3196,7 +3196,7 @@ int target(int x) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_UCE_ExtraCredit_DeadInSwitchBody)
+TEST_F(PipelineTest, Chapter19_UCE_DeadInSwitchBody)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Eliminate unreachable code witihn a switch statement body */
@@ -3361,7 +3361,7 @@ int target(int x) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_UCE_ExtraCredit_GotoSkipsOverCode)
+TEST_F(PipelineTest, Chapter19_UCE_GotoSkipsOverCode)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Test that we eliminate code that goto jumps over */
@@ -3402,7 +3402,7 @@ int target(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_UCE_ExtraCredit_RemoveUnusedLabel)
+TEST_F(PipelineTest, Chapter19_UCE_RemoveUnusedLabel)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Make sure this pass removes unused label instructions */
@@ -3426,7 +3426,7 @@ int target(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_UCE_ExtraCredit_UnreachableSwitchBody)
+TEST_F(PipelineTest, Chapter19_UCE_UnreachableSwitchBody)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* If a switch body contains no case or default statements, we'll eliminate the whole thing */

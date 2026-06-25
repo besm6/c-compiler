@@ -615,7 +615,7 @@ int two = 2;
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_CF_IntOnly_ExtraCredit_FoldBitwise)
+TEST_F(PipelineTest, Chapter19_CF_IntOnly_FoldBitwise)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Test constant-folding the bitwise &, |, ^, >>, and << expressions */
@@ -2091,7 +2091,7 @@ int main(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_CF_AllTypes_ExtraCredit_CastNanNotExecuted)
+TEST_F(PipelineTest, Chapter19_CF_AllTypes_CastNanNotExecuted)
 {
     OptimizeYaml(R"SRC(
 // Make sure the compiler doesn't complain if you try to cast NaN to an int
@@ -2110,7 +2110,7 @@ int main(void) {
 )SRC");
 }
 
-TEST_F(PipelineTest, Chapter19_CF_AllTypes_ExtraCredit_FoldBitwiseLong)
+TEST_F(PipelineTest, Chapter19_CF_AllTypes_FoldBitwiseLong)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Test constant-folding the bitwise &, |, ^, >>, and << expressions with long operands */
@@ -2176,7 +2176,7 @@ long target_shift_right(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_CF_AllTypes_ExtraCredit_FoldBitwiseUnsigned)
+TEST_F(PipelineTest, Chapter19_CF_AllTypes_FoldBitwiseUnsigned)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Test constant-folding the bitwise &, |, ^, >>, and << expressions with unsigned operands */
@@ -2265,7 +2265,7 @@ unsigned long target_shift_ulong_right(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_CF_AllTypes_ExtraCredit_FoldNan)
+TEST_F(PipelineTest, Chapter19_CF_AllTypes_FoldNan)
 {
     OptimizeYaml(R"SRC(
 /* Test that we can constant fold an operation that results in NaN;
@@ -2281,7 +2281,7 @@ double target_nan(void){
 )SRC");
 }
 
-TEST_F(PipelineTest, Chapter19_CF_AllTypes_ExtraCredit_ReturnNan)
+TEST_F(PipelineTest, Chapter19_CF_AllTypes_ReturnNan)
 {
     OptimizeYaml(R"SRC(
 /* Test case where we return NaN after constant folding */

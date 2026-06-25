@@ -641,7 +641,7 @@ double target(int flag) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_CP_AllTypes_ExtraCredit_CopyUnion)
+TEST_F(PipelineTest, Chapter19_CP_AllTypes_CopyUnion)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Propagate copies of whole unions */
@@ -844,7 +844,7 @@ int target(void) {
 
 // Structural assertion (instruction-kind histogram) — exact TAC
 // YAML too large to pin verbatim (75 instructions).
-TEST_F(PipelineTest, Chapter19_CP_AllTypes_ExtraCredit_PointerCompoundAssignment)
+TEST_F(PipelineTest, Chapter19_CP_AllTypes_PointerCompoundAssignment)
 {
     EXPECT_EQ(KindHistogram(OptimizeYaml(R"SRC(
 /* We can calculate constant offset for +=/-= with pointers into arrays;
@@ -863,7 +863,7 @@ int target(void) {
 
 // Structural assertion (instruction-kind histogram) — exact TAC
 // YAML too large to pin verbatim (75 instructions).
-TEST_F(PipelineTest, Chapter19_CP_AllTypes_ExtraCredit_PointerIncr)
+TEST_F(PipelineTest, Chapter19_CP_AllTypes_PointerIncr)
 {
     EXPECT_EQ(KindHistogram(OptimizeYaml(R"SRC(
 /* We can calculate constant offset for ++/-- with pointers into arrays;
@@ -879,7 +879,7 @@ int target(void) {
               "add_ptr=2 allocate_local=1 copy_to_offset=69 get_address=1 load=1 return=1");
 }
 
-TEST_F(PipelineTest, Chapter19_CP_AllTypes_ExtraCredit_RedundantNanCopy)
+TEST_F(PipelineTest, Chapter19_CP_AllTypes_RedundantNanCopy)
 {
     OptimizeYaml(R"SRC(
 /* Make sure we can eliminate redundant copies where source is NaN
@@ -903,7 +903,7 @@ int target(int flag) {
 )SRC");
 }
 
-TEST_F(PipelineTest, Chapter19_CP_AllTypes_ExtraCredit_RedundantUnionCopy)
+TEST_F(PipelineTest, Chapter19_CP_AllTypes_RedundantUnionCopy)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Test that we eliminate y = x and y = x if we can prove that x and y
@@ -1043,7 +1043,7 @@ double target(int flag, int flag2, union u y) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_CP_AllTypes_ExtraCredit_DontPropagate_UpdateUnionMember)
+TEST_F(PipelineTest, Chapter19_CP_AllTypes_DontPropagate_UpdateUnionMember)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Writing to union member kills previous copies to/from that union */
@@ -1114,7 +1114,7 @@ int main(void) {
 )OPT");
 }
 
-TEST_F(PipelineTest, Chapter19_CP_AllTypes_ExtraCredit_DontPropagate_UpdateUnionMember2)
+TEST_F(PipelineTest, Chapter19_CP_AllTypes_DontPropagate_UpdateUnionMember2)
 {
     EXPECT_EQ(OptimizeYaml(R"SRC(
 /* Copy to one member of a union kills previous copy to other member.

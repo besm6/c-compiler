@@ -148,7 +148,7 @@ int main(void) {
 )WP")));
 }
 
-TEST_F(CodegenTest, Chapter19_WP_IntOnly_ExtraCredit_CompoundAssignExceptions)
+TEST_F(CodegenTest, Chapter19_WP_IntOnly_CompoundAssignExceptions)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
 /* Make sure we don't throw an error when constant folding /= or %=
@@ -193,7 +193,7 @@ int main(void) {
 )WP")));
 }
 
-TEST_F(CodegenTest, Chapter19_WP_IntOnly_ExtraCredit_EvaluateSwitch)
+TEST_F(CodegenTest, Chapter19_WP_IntOnly_EvaluateSwitch)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
 /* If we can determine the value of a switch's controlling expression at
@@ -232,7 +232,7 @@ int main(void) {
 )WP")));
 }
 
-TEST_F(CodegenTest, Chapter19_WP_IntOnly_ExtraCredit_FoldBitwiseCompoundAssignment)
+TEST_F(CodegenTest, Chapter19_WP_IntOnly_FoldBitwiseCompoundAssignment)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
 /* Test that we can evaluate bitwise compound assignment expressions at compile time */
@@ -264,7 +264,7 @@ int main(void) {
 )WP")));
 }
 
-TEST_F(CodegenTest, Chapter19_WP_IntOnly_ExtraCredit_FoldCompoundAssignment)
+TEST_F(CodegenTest, Chapter19_WP_IntOnly_FoldCompoundAssignment)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
 /* Test that we can evaluate compound assignment expressions at compile time */
@@ -296,7 +296,7 @@ int main(void) {
 )WP")));
 }
 
-TEST_F(CodegenTest, Chapter19_WP_IntOnly_ExtraCredit_FoldIncrAndDecr)
+TEST_F(CodegenTest, Chapter19_WP_IntOnly_FoldIncrAndDecr)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
 // Make sure we can track the results and side effects of ++ and -- through copy propagation
@@ -325,7 +325,7 @@ int main(void) {
 )WP")));
 }
 
-TEST_F(CodegenTest, Chapter19_WP_IntOnly_ExtraCredit_FoldNegativeBitshift)
+TEST_F(CodegenTest, Chapter19_WP_IntOnly_FoldNegativeBitshift)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
 /* Test constant folding >> with a negative source value.  On BESM-6 a signed right
