@@ -29,5 +29,4 @@ no-analogue tests, adapt where possible and remove the rest.
 
 | #  | Task | Description |
 |----|------|-------------|
-| 55 | Adapt test ParamPassing for BESM-6. | | 
 | 56 | Adapt test UnionRetvals for BESM-6. | | 

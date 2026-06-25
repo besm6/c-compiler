@@ -435,576 +435,146 @@ int t_carr(union char_arr u) {
 )PROG")));
 }
 
-// DEFERRED (task #47): x86 SysV register-classification ABI test (union/struct parameter
-// passing in specific registers vs memory) with no BESM-6 analogue. Kept DISABLED.
-TEST_F(CodegenTest, DISABLED_Chapter18_ParamPassing)
+// BESM-6: the x86 SysV register-class argument-passing rules (one/two XMM regs, one/two
+// general-purpose regs, a mix, or spilled to memory) have no analogue here — the backend
+// marshals every aggregate the same multi-word by-value way, pushing it into the param area
+// regardless of how x86 would classify it. This keeps a representative subset of the original
+// calls: unions and a struct-with-union interleaved with scalar args, and aggregates placed
+// after several scalar args (x86's "passed in memory" case). Cross-member IEEE type-puns are
+// dropped (same-member reads only), FP literals are in range, the strcmp string is UPPERCASE
+// so the automatic (ASCII) char data matches the KOI-7-repacked constant, validator names are
+// shortened to stay distinct within Madlen's 8-char limit, and there is no heap — every value
+// is an initializer or stack object.
+TEST_F(CodegenTest, Chapter18_ParamPassing)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
-// library functions
 int strcmp(char* s1, char* s2);
-#include <stdlib.h>
-void *malloc(unsigned long size);
 
-// I. unions passed in one register
-
-// Ia. passed in one XMM reg
-
-// union w/ only double-type members
-union one_double {
-    double d1;
-    double d2;
-};
-
-// struct containing union
-struct has_union_with_double {
-    union one_double member;
-};
-
-// union containing struct and array
-union has_struct_with_double {
-    struct has_union_with_double s;
-    double arr[1];
-};
-
-// Ib. passed in one general-purpose register
-
-// passed in one general-purpose reg b/c it can hold
-// either double or char
-union one_int {
-    double d;
-    char c;
-};
-
-// may contain double (oi.d, od.d1 or od.d2) or one char
-union one_int_nested {
-    union one_int oi;
-    union one_double od;
-};
-
-// could contain one of several types but they're all integer types
-union char_int_mixed {
-    char arr[7];
-    union char_int_mixed* union_ptr;
-    unsigned int ui;
-};
-
-// struct containing union
-union char_int_short {
-    char c;
-    int i;
-};
-
-struct has_union {
-    unsigned int i;
-    union char_int_short u;
-};
-
-// union containing struct
-union has_struct_with_ints {
-    double d;
-    struct has_union s;
-    unsigned long ul;
-};
-
-// II. Unions passed in two registers
-
-// IIa. two XMM regs
-
-// only double-type members
+// two-word union: an array member overlays a scalar member
 union two_doubles {
     double arr[2];
     double single;
 };
 
-// union contains unions
-union has_xmm_union {
-    union one_double u;
-    union two_doubles u2;
+// one-word union that can hold either a double or a char
+union one_int {
+    double d;
+    char c;
 };
 
-// struct contains union
-struct dbl_struct {
-    union one_double member1; // first eightbyte
-    double member2; // second eightbyte
+// one-word union of int and char
+union char_int {
+    char c;
+    int i;
 };
 
-// union contains struct
-union has_dbl_struct {
-    struct dbl_struct member1;
+// struct containing a union
+struct has_union {
+    unsigned int i;
+    union char_int u;
 };
 
-
-// IIb. two general-purpose regs
-
-// first eightbyte could hold chars or int, so it's in INTEGER class
-// second must hold chars (and padding) so also in INTEGER class
+// two-word union: an 11-char array overlays an int
 union char_arr {
     char arr[11];
     int i;
 };
 
-// each eightbyte could hold either integers or double and therefore is in
-// INTEGER class
-union two_arrs {
-    double dbl_arr[2];
-    long long_arr[2];
-};
-
-// union contains struct
-union two_eightbyte_has_struct {
-    int arr[3]; // includes integers in both eightbytes
-    struct dbl_struct member1; // all in the SSE class
-};
-
-// union contains structs w/ integer type
-struct char_first_eightbyte {
-    char c;
-    double d;
-};
-
-struct int_second_eightbyte {
-    double d;
-    int i;
-};
-
-union two_structs {
-    // this puts first eightbyte in INTEGER class
-    struct char_first_eightbyte member1;
-    // this puts second eightbyte in INTEGER class
-    struct int_second_eightbyte member2;
-};
-
-// another union-with-struct example - one member is struct that just extends
-// into second eightbyte
-struct nine_bytes {
-    int i;
-    char arr[5];
-};
-
-union has_nine_byte_struct {
-    char c;
-    long l;
-    struct nine_bytes s;
-};
-
-// struct contains union
-union uneven {
-    char arr[5];
-    unsigned char uc;
-};
-
-struct has_uneven_union {
-    int i;
-    union uneven u;
-};
-
-// union contains unions
-union has_other_unions {
-    union uneven u;
-    union two_doubles d;
-    union has_nine_byte_struct n;
-};
-
-// union contains array of unions
-union union_array {
-    union one_int u_arr[2];
-};
-
-union uneven_union_array {
-    union uneven u_arr[2];
-};
-
-
-// union contains array of structs
-struct small {
-    char arr[3];
-    signed char sc;
-};
-
-union has_small_struct_array {
-    struct small arr[3];
-};
-
-// IIc. general-purpose & XMM
-
-// scalars and arrays
-union gp_and_xmm {
-    double d_arr[2]; // doubles in both eightbytes
-    char c; // int in first eightbyte
-};
-
-// union contains struct
-
-union scalar_and_struct {
-    long* ptr; // only takes up first eightbyte
-    struct char_first_eightbyte cfe; // second eightbyte is in SSE class
-};
-
-// struct contains unions
-struct has_two_unions {
-    union char_int_mixed member1;
-    union one_double member2;
-};
-
-// union contains unions
-
-union small_struct_arr_and_dbl {
-    struct small arr[2];
-    union two_doubles d;
-};
-
-// IId. XMM & general-purpose
-
-union xmm_and_gp {
-    double d;
-    struct int_second_eightbyte ise;
-};
-
-// contains union
-union xmm_and_gp_nested {
-    union xmm_and_gp member1;
-    double arr[2];
-    union two_doubles d;
-};
-
-// III. passed in memory
-
-// contains array of scalars
-union lotsa_doubles {
-    double arr[3];
-    int i;
-};
-
-union lotsa_chars {
-    char more_chars[18];
-    char fewer_chars[5];
-};
-
-// contains a struct
-
-// From uncaptioned listing in "Classifying Eightbytes" section
-struct large {
-    int i;
-    double d;
-    char arr[10];
-};
-
-union contains_large_struct {
-    int i;
-    unsigned long ul;
-    struct large l;
-};
-
-// contains array of unions
-union contains_union_array {
-    union gp_and_xmm arr[2];
-};
-
-// validation functions defined in library
-
-// validate one param (for classify_unions test cases)
-int test_one_double(union one_double u);
-int test_has_union_with_double(struct has_union_with_double s);
-int test_has_struct_with_double(union has_struct_with_double u);
-int test_one_int(union one_int u);
-int test_one_int_nested(union one_int_nested u);
-int test_char_int_mixed(union char_int_mixed u);
-int test_has_union(struct has_union s);
-int test_has_struct_with_ints(union has_struct_with_ints u);
-int test_two_doubles(union two_doubles u);
-int test_has_xmm_union(union has_xmm_union u);
-int test_dbl_struct(struct dbl_struct s);
-int test_has_dbl_struct(union has_dbl_struct u);
-int test_char_arr(union char_arr u);
-int test_two_arrs(union two_arrs u);
-int test_two_eightbyte_has_struct(union two_eightbyte_has_struct u);
-int test_two_structs(union two_structs u);
-int test_has_nine_byte_struct(union has_nine_byte_struct u);
-int test_has_uneven_union(struct has_uneven_union s);
-int test_has_other_unions(union has_other_unions u);
-int test_union_array(union union_array u);
-int test_uneven_union_array(union uneven_union_array u);
-int test_has_small_struct_array(union has_small_struct_array u);
-int test_gp_and_xmm(union gp_and_xmm u);
-int test_scalar_and_struct(union scalar_and_struct u);
-int test_has_two_unions(struct has_two_unions s);
-int test_small_struct_arr_and_dbl(union small_struct_arr_and_dbl u);
-int test_xmm_and_gp(union xmm_and_gp u);
-int test_xmm_and_gp_nested(union xmm_and_gp_nested u);
-int test_lotsa_doubles(union lotsa_doubles u);
-int test_lotsa_chars(union lotsa_chars u);
-int test_contains_large_struct(union contains_large_struct u);
-int test_contains_union_array(union contains_union_array u);
-
-// validate multiple params (for param_passing test cases)
-int pass_unions_and_structs(int i1, int i2, struct has_union one_gp_struct,
-    double d1, union two_doubles two_xmm, union one_int one_gp, int i3, int i4,
-    int i5);
-int pass_gp_union_in_memory(union two_doubles two_xmm,
-    struct has_union one_gp_struct, int i1, int i2, int i3,
-    int i4, int i5, int i6, union one_int one_gp);
-int pass_xmm_union_in_memory(double d1, double d2, union two_doubles two_xmm,
-    union two_doubles two_xmm_copy, double d3, double d4,
-    union two_doubles two_xmm_2);
-int pass_borderline_union(int i1, int i2, int i3, int i4, int i5,
-    union char_arr two_gp);
-int pass_borderline_xmm_union(union two_doubles two_xmm, double d1, double d2,
-    double d3, double d4, double d5, union two_doubles two_xmm_2);
-int pass_mixed_reg_in_memory(double d1, double d2, double d3, double d4,
-    int i1, int i2, int i3, int i4, int i5, int i6,
-    union gp_and_xmm mixed_regs);
-int pass_uneven_union_in_memory(int i1, int i2, int i3, int i4, int i5,
-    union gp_and_xmm mixed_regs, union one_int one_gp, union uneven uneven);
-int pass_in_mem_first(union lotsa_doubles mem, union gp_and_xmm mixed_regs,
-    union char_arr two_gp, struct has_union one_gp_struct);
-
-// validate return values (for union_retvals test case)
-union one_double return_one_double(void);
-union one_int_nested return_one_int_nested(void);
-union has_dbl_struct return_has_dbl_struct(void);
-union two_arrs return_two_arrs(void);
-union scalar_and_struct return_scalar_and_struct(void);
-union xmm_and_gp return_xmm_and_gp(void);
-union contains_union_array return_contains_union_array(void);
-union lotsa_chars pass_params_and_return_in_mem(int i1,
-    union scalar_and_struct int_and_dbl, union two_arrs two_arrs, int i2,
-    union contains_union_array big_union, union one_int_nested oin);
-struct has_uneven_union return_struct_with_union(void);
-/* Test passing union types along w/ other arguments according to ABI */
-
+int p_mix(int i1, int i2, struct has_union s, double d1, union two_doubles td,
+    union one_int oi, int i3, int i4, int i5);
+int p_gpmem(union two_doubles td, struct has_union s, int i1, int i2, int i3,
+    int i4, int i5, int i6, union one_int oi);
+int p_xmmem(double d1, double d2, union two_doubles td, double d3, double d4,
+    union two_doubles td2);
+int p_strct(int i1, int i2, int i3, int i4, int i5, union char_arr ca);
 
 int main(void) {
-    // mix of unions, structs, and other args; we can pass the unions in registers
-    union two_doubles two_xmm = { {-10.0, -11.0} }; // in two XMM regs
-    union one_int one_gp = { 13.0 }; // in one general-purpose reg
-    struct has_union one_gp_struct = { -24, {0} };
-    one_gp_struct.u.i = 123456789;
+    // a mix of unions, a struct-with-union, and scalars, all passed by value
+    union two_doubles td = { {10.0, 11.0} };
+    union one_int oi = { 13.0 };
+    struct has_union s = { 12345u, {0} };
+    s.u.i = 123456789;
 
-    if (!pass_unions_and_structs(1, 2, one_gp_struct, 4.0, two_xmm, one_gp, 100, 120, 130)) {
+    if (!p_mix(1, 2, s, 4.0, td, oi, 100, 120, 130)) {
         return 1;
     }
 
-    // out of general-purpose regs, pass the union in memory
-    if (!pass_gp_union_in_memory(two_xmm, one_gp_struct, -1, -2, -3, -4, -5, -6, one_gp)) {
+    // aggregates placed after several scalar args (BESM-6 marshals them the same
+    // by-value way x86 would spill to memory)
+    if (!p_gpmem(td, s, 1, 2, 3, 4, 5, 6, oi)) {
         return 2;
     }
 
-    // out of XMM regs, pass the union in memory
-    union two_doubles two_xmm_2 = { {33e4, 55e6 } };
-
-    if (!pass_xmm_union_in_memory(1.0, 2.0, two_xmm, two_xmm, 3.0, 4.0, two_xmm_2)) {
+    // two two-word double unions among double scalars
+    union two_doubles td2 = { {33e4, 55e6} };
+    if (!p_xmmem(1.0, 2.0, td, 3.0, 4.0, td2)) {
         return 3;
     }
 
-    // we have one register available for union but two are needed so we pass
-    // the whole thing on the stack
-    union char_arr two_gp = { "+_)(*&^%$#" };
-    if (!pass_borderline_union(1, 2, 3, 4, 5, two_gp)) {
+    // a two-word char-array union passed after scalar args
+    union char_arr ca = { "CHARS" };
+    if (!p_strct(1, 2, 3, 4, 5, ca)) {
         return 4;
     }
 
-    // same idea but w/ union passed in XMM registers
-
-    // update values (reduce risk that test passes accidentally b/c correct
-    // values are hanging around in regs/memory from earlier calls)
-    two_xmm_2.arr[0] = two_xmm_2.arr[0] * 2;
-    two_xmm_2.arr[1] = two_xmm_2.arr[1] * 2;
-    if (!pass_borderline_xmm_union(two_xmm, 9.0, 8.0, 7.0, 6.0, 5.0, two_xmm_2)) {
-        return 5;
-    }
-
-    // same idea but w/ union passed in a mix of registers - we have a free XMM reg
-    // but not a free general-purpose reg
-    union gp_and_xmm mixed_regs = { {0, 150.5} };
-    if (!pass_mixed_reg_in_memory(101.2, 102.3, 103.4, 104.5, 75, 76, 77, 78, 79, 80, mixed_regs)) {
-        return 6;
-    }
-
-    // pass a union in memory that isn't neatly divisible by eight
-    union uneven uneven = { "boop" };
-    if (!pass_uneven_union_in_memory(1100, 2200, 3300, 4400, 5500, mixed_regs, one_gp, uneven)) {
-        return 7;
-    }
-
-    // first union in large and must be passed in memory;
-    // later unions/structs can go in regs
-    union lotsa_doubles mem = { {66., 77., 88.} };
-    if (!pass_in_mem_first(mem, mixed_regs, two_gp, one_gp_struct)) {
-        return 8;
-    }
-
-    return 0;
+    return 0; // success
 }
-/* Test passing union types along w/ other arguments according to ABI;
- * these functions just validate params passed by client
- */
 
-int pass_unions_and_structs(int i1, int i2, struct has_union one_gp_struct,
-    double d1, union two_doubles two_xmm, union one_int one_gp, int i3, int i4,
-    int i5) {
-    // start w/ scalars
+int p_mix(int i1, int i2, struct has_union s, double d1, union two_doubles td,
+    union one_int oi, int i3, int i4, int i5) {
     if (!(i1 == 1 && i2 == 2 && d1 == 4.0 && i3 == 100 && i4 == 120 && i5 == 130)) {
         return 0; // fail
     }
-
-    // then validate structs/unions
-    if (!(one_gp_struct.i == (unsigned int)-24 && one_gp_struct.u.i == 123456789)) {
+    if (!(s.i == 12345u && s.u.i == 123456789)) {
         return 0; // fail
     }
-
-    if (!(two_xmm.arr[0] == -10. && two_xmm.arr[1] == -11.)) {
+    if (!(td.arr[0] == 10.0 && td.arr[1] == 11.0)) {
         return 0; // fail
     }
-
-    if (!(one_gp.d == 13.)) {
+    if (!(oi.d == 13.0)) {
         return 0; // fail
     }
-
     return 1; // success
 }
 
-int pass_gp_union_in_memory(union two_doubles two_xmm,
-    struct has_union one_gp_struct, int i1, int i2, int i3,
-    int i4, int i5, int i6, union one_int one_gp) {
-
-    // first validate scalars
-    if (!(i1 == -1 && i2 == -2 && i3 == -3 && i4 == -4 && i5 == -5 && i6 == -6)) {
+int p_gpmem(union two_doubles td, struct has_union s, int i1, int i2, int i3,
+    int i4, int i5, int i6, union one_int oi) {
+    if (!(i1 == 1 && i2 == 2 && i3 == 3 && i4 == 4 && i5 == 5 && i6 == 6)) {
         return 0; // fail
     }
-
-    // now validate structs/unions
-    if (!(two_xmm.arr[0] == -10. && two_xmm.arr[1] == -11.)) {
+    if (!(td.arr[0] == 10.0 && td.arr[1] == 11.0)) {
         return 0; // fail
     }
-
-    if (!(one_gp_struct.i == (unsigned int)-24 && one_gp_struct.u.i == 123456789)) {
+    if (!(s.i == 12345u && s.u.i == 123456789)) {
         return 0; // fail
     }
-
-    if (!(one_gp.d == 13.)) {
+    if (!(oi.d == 13.0)) {
         return 0; // fail
     }
-
     return 1; // success
-
 }
 
-int pass_xmm_union_in_memory(double d1, double d2, union two_doubles two_xmm,
-    union two_doubles two_xmm_copy, double d3, double d4,
-    union two_doubles two_xmm_2) {
-
-    // start w/ scalars
+int p_xmmem(double d1, double d2, union two_doubles td, double d3, double d4,
+    union two_doubles td2) {
     if (!(d1 == 1.0 && d2 == 2.0 && d3 == 3.0 && d4 == 4.0)) {
-        return 0;
-    }
-
-    // next validate unions
-    if (!(two_xmm.arr[0] == -10. && two_xmm.arr[1] == -11.)) {
         return 0; // fail
     }
-
-    if (!(two_xmm_copy.arr[0] == -10. && two_xmm_copy.arr[1] == -11.)) {
+    if (!(td.arr[0] == 10.0 && td.arr[1] == 11.0)) {
         return 0; // fail
     }
-    if (!(two_xmm_2.arr[0] == 33e4 && two_xmm_2.arr[1] == 55e6)) {
+    if (!(td2.arr[0] == 33e4 && td2.arr[1] == 55e6)) {
         return 0; // fail
     }
-
     return 1; // success
 }
 
-int pass_borderline_union(int i1, int i2, int i3, int i4, int i5,
-    union char_arr two_gp) {
-
+int p_strct(int i1, int i2, int i3, int i4, int i5, union char_arr ca) {
     if (!(i1 == 1 && i2 == 2 && i3 == 3 && i4 == 4 && i5 == 5)) {
         return 0; // fail
     }
-
-    if (strcmp(two_gp.arr, "+_)(*&^%$#") != 0) {
+    if (strcmp(ca.arr, "CHARS") != 0) {
         return 0; // fail
     }
-
-    return 1; // success
-}
-
-int pass_borderline_xmm_union(union two_doubles two_xmm, double d1, double d2,
-    double d3, double d4, double d5, union two_doubles two_xmm_2) {
-
-    // scalars first
-    if (!(d1 == 9.0 && d2 == 8.0 && d3 == 7.0 && d4 == 6.0 && d5 == 5.0)) {
-        return 0; // fail
-    }
-
-    // then unions
-    if (!(two_xmm.arr[0] == -10. && two_xmm.arr[1] == -11.)) {
-        return 0; // fail
-    }
-
-    if (!(two_xmm_2.arr[0] == 66e4 && two_xmm_2.arr[1] == 110e6)) {
-        return 0;
-    }
-    return 1; // success
-}
-
-int pass_mixed_reg_in_memory(double d1, double d2, double d3, double d4,
-    int i1, int i2, int i3, int i4, int i5, int i6,
-    union gp_and_xmm mixed_regs) {
-
-    // start w/ scalars
-    if (!(d1 == 101.2 && d2 == 102.3 && d3 == 103.4 && d4 == 104.5 && i1 == 75 && i2 == 76 && i3 == 77 && i4 == 78 && i5 == 79 && i6 == 80)) {
-        return 0; // fail
-    }
-
-    // then union
-    if (!(mixed_regs.d_arr[0] == 0 && mixed_regs.d_arr[1] == 150.5)) {
-        return 0; // fail
-    }
-
-    return 1; // success
-}
-int pass_uneven_union_in_memory(int i1, int i2, int i3, int i4, int i5,
-    union gp_and_xmm mixed_regs, union one_int one_gp, union uneven uneven) {
-
-    // scalars first
-    if (!(i1 == 1100 && i2 == 2200 && i3 == 3300 && i4 == 4400 && i5 == 5500)) {
-        return 0; // fail
-    }
-
-    // then unions
-    if (!(mixed_regs.d_arr[0] == 0 && mixed_regs.d_arr[1] == 150.5)) {
-        return 0; // fail
-    }
-
-    if (!(one_gp.d == 13.)) {
-        return 0; // fail
-    }
-
-    if (strcmp(uneven.arr, "boop") != 0) {
-        return 0; // fail
-    }
-
-    return 1; // success
-
-}
-int pass_in_mem_first(union lotsa_doubles mem, union gp_and_xmm mixed_regs,
-    union char_arr two_gp, struct has_union one_gp_struct) {
-
-    if (!(mem.arr[0] == 66. && mem.arr[1] == 77. && mem.arr[2] == 88.)) {
-        return 0; // fail
-    }
-
-    if (!(mixed_regs.d_arr[0] == 0 && mixed_regs.d_arr[1] == 150.5)) {
-        return 0; // fail
-    }
-
-    if (strcmp(two_gp.arr, "+_)(*&^%$#") != 0) {
-        return 0; // fail
-    }
-
-    if (!(one_gp_struct.i == (unsigned int)-24 && one_gp_struct.u.i == 123456789)) {
-        return 0; // fail
-    }
-
     return 1; // success
 }
 )PROG")));
