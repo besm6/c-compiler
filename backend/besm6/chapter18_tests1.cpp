@@ -1513,29 +1513,40 @@ int main(void) {
 }
 
 // malloc + block-scope static + puts/putchar.
-TEST_F(CodegenTest, DISABLED_Chapter18_ScalarMemberAccessStaticStructs)
+TEST_F(CodegenTest, Chapter18_ScalarMemberAccessStaticStructs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    // BESM-6 adaptation: no working heap, so malloc is replaced by static
+    // backing objects (static zero-init keeps the pointer NULL on the first
+    // call).  Printed letters are UPPERCASE so KOI-7 output matches ASCII.
+    // Helpers renamed to test_sl/test_slp/test_gs/test_gsp because the original
+    // names collide in their first 8 chars (Madlen truncates labels).  Expected
+    // stdout is the full printed sequence followed by WrapMain's "0\n".
+    EXPECT_EQ("ZERO\nMN\nOP\nWX\nYZ\nBCD\nCDE\nDEF\nEFG\nBCD\nCDE\n0\n",
+              CompileAndRun(WrapMain(R"PROG(
 // Make sure members in static structures retain their values
 // across multiple function invocations
 
 
-void *malloc(unsigned long size);
 int putchar(int ch);
 int puts(char *s);
+
+// BESM-6 adaptation: `struct s` is declared at file scope (the book declares it
+// twice inside the two helpers).  A static local of a *block-local* struct type
+// is unsupported: the static-local's type is resolved at translate time, after
+// the block-scope tag has been purged from structtab.  Both helpers use the same
+// {int a; int b;} layout, so a single shared file-scope tag is equivalent.
+struct s {
+    int a;
+    int b;
+};
 
 // test that changes to static struct are retained across function calls
 // do this by validating text written to stdout,
 // instead of usual pattern of signifying success/failure with return value
-void test_static_local(int a, int b) {
-    struct s {
-        int a;
-        int b;
-    };
-
+void test_sl(int a, int b) {
     static struct s static_struct;
     if (!(static_struct.a || static_struct.b)) {
-        puts("zero");
+        puts("ZERO");
     } else {
         putchar(static_struct.a);
         putchar(static_struct.b);
@@ -1548,15 +1559,11 @@ void test_static_local(int a, int b) {
 
 // test that changes to struct made through static pointer are retained across
 // function calls do this by validating text written to stdout
-void test_static_local_pointer(int a, int b) {
-    struct s {
-        int a;
-        int b;
-    };
-
+void test_slp(int a, int b) {
     static struct s *struct_ptr;
+    static struct s backing;  // static storage replaces malloc (no heap)
     if (!struct_ptr) {
-        struct_ptr = malloc(sizeof(struct s));
+        struct_ptr = &backing;
     } else {
         putchar(struct_ptr->a);
         putchar(struct_ptr->b);
@@ -1589,7 +1596,7 @@ void f2(void) {
     putchar('\n');
 }
 
-void test_global_struct(void) {
+void test_gs(void) {
     g.x = 'A';
     g.y = 'B';
     g.z = 'C';
@@ -1602,6 +1609,7 @@ void test_global_struct(void) {
 
 // test that changes to global struct pointer are visible across function calls
 struct global *g_ptr;
+struct global g2;  // static backing replaces malloc (no heap)
 
 void f3(void) {
     g_ptr->x = g_ptr->x + 1;
@@ -1616,17 +1624,17 @@ void f4(void) {
     putchar('\n');
 }
 
-void test_global_struct_pointer(void) {
+void test_gsp(void) {
     g_ptr = &g;  // first, point to global struct from previous test
     f3();
     f4();
     f3();
     f4();
-    // now declare a new struct and point to that instead
-    g_ptr = malloc(sizeof(struct global));
-    g_ptr->x = 'a';
-    g_ptr->y = 'b';
-    g_ptr->z = 'c';
+    // now point to a separate static struct instead
+    g_ptr = &g2;
+    g_ptr->x = 'A';
+    g_ptr->y = 'B';
+    g_ptr->z = 'C';
     f3();
     f4();
     f3();
@@ -1634,16 +1642,16 @@ void test_global_struct_pointer(void) {
 }
 
 int main(void) {
-    test_static_local('m', 'n');
-    test_static_local('o', 'p');
-    test_static_local('!', '!');
+    test_sl('M', 'N');
+    test_sl('O', 'P');
+    test_sl('!', '!');
     ;  // last one, won't be printed
-    test_static_local_pointer('w', 'x');
-    test_static_local_pointer('y', 'z');
-    test_static_local_pointer('!', '!');
+    test_slp('W', 'X');
+    test_slp('Y', 'Z');
+    test_slp('!', '!');
     ;  // last one, won't be printed
-    test_global_struct();
-    test_global_struct_pointer();
+    test_gs();
+    test_gsp();
     return 0;
 }
 )PROG")));
