@@ -27,6 +27,4 @@ no-analogue tests, adapt where possible and remove the rest.
 
 ### Backend BESM-6 — codegen & libc
 
-| #  | Task | Description |
-|----|------|-------------|
-| 56 | Adapt test UnionRetvals for BESM-6. | | 
+All DISABLED book-test triage tasks have been adapted.
