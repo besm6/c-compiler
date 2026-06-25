@@ -1,6 +1,18 @@
 cmake_minimum_required(VERSION 3.10)
 project(c-scanner)
 
+# The new Apple/LLD linkers resolve symbols from all archives in one pass, so
+# repeating static libraries (as a traditional linker needs) makes them warn:
+#   ld: warning: ignoring duplicate libraries: '.../libsemantic.a'
+# Enable CMake's linker-capability-based de-duplication to drop the repeats.
+# (Both policies are OLD by default because cmake_minimum_required is 3.10.)
+if(POLICY CMP0156)
+    cmake_policy(SET CMP0156 NEW)
+endif()
+if(POLICY CMP0179)
+    cmake_policy(SET CMP0179 NEW)
+endif()
+
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

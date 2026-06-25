@@ -2,7 +2,9 @@
 # make
 # make all   -- build everything
 #
-# make test  -- build and run all unit tests (including the textbook chapter tests)
+# make test  -- build all unit tests, do not run
+#
+# make run   -- run all unit tests (including the textbook chapter tests)
 #
 # make clean -- remove build files
 #
@@ -14,6 +16,8 @@ all:    build
 
 test:   build
 	$(MAKE) -Cbuild build_tests
+
+run:    test
 	ctest --test-dir build
 
 clean:
