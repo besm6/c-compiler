@@ -12,9 +12,9 @@ target_include_directories(parser PUBLIC .)
 target_link_libraries(parser scanner ast libutil)
 
 #
-# Tests for parser
+# Tests for parser (including the textbook chapter tests)
 #
-add_executable(parser-tests
+add_executable(parser-tests EXCLUDE_FROM_ALL
     simple_tests.cpp
     statement_tests.cpp
     operator_tests.cpp
@@ -24,14 +24,6 @@ add_executable(parser-tests
     constant_tests.cpp
     serialize_tests.cpp
     negative_tests.cpp
-)
-target_link_libraries(parser-tests parser GTest::gtest_main)
-gtest_discover_tests(parser-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
-
-#
-# Book tests for parser (built and run only via `make book_tests`)
-#
-add_executable(parser-book-tests EXCLUDE_FROM_ALL
     chapter1_tests.cpp
     chapter2_tests.cpp
     chapter3_tests.cpp
@@ -51,5 +43,5 @@ add_executable(parser-book-tests EXCLUDE_FROM_ALL
     chapter17_tests.cpp
     chapter18_tests.cpp
 )
-target_link_libraries(parser-book-tests parser GTest::gtest_main)
-gtest_discover_tests(parser-book-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10 LABELS "book")
+target_link_libraries(parser-tests parser GTest::gtest_main)
+gtest_discover_tests(parser-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

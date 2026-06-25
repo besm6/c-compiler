@@ -13,19 +13,8 @@
 
 #include "typecheck_fixture.h"
 
-// fatal_error() for the semantic-book-tests executable.  The compiler libraries
-// call it; the regular semantic-tests binary defines its own copy (in
-// typecheck_tests.cpp), so the book executable needs this one.
-extern "C" _Noreturn void fatal_error(const char *message, ...)
-{
-    fprintf(stderr, "Fatal error: ");
-    va_list ap;
-    va_start(ap, message);
-    vfprintf(stderr, message, ap);
-    va_end(ap);
-    fprintf(stderr, "\n");
-    exit(1);
-}
+// fatal_error() is defined once for the whole semantic-tests binary in
+// typecheck_tests.cpp; the compiler libraries call it.
 
 // return 2 (- 3); — calling an integer constant as if it were a function.
 TEST_F(PipelineTest, Chapter3_MalformedParen_Neg)

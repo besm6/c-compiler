@@ -5,24 +5,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Test
 
 ```sh
-make              # configure + build (RelWithDebInfo) into ./build/
-make test         # build + run the unit tests via ctest (excludes book tests)
-make book_tests   # build + run only the textbook chapter tests
+make              # configure + build the compiler & runtime (RelWithDebInfo) into ./build/
+make test         # build + run all unit tests via ctest (incl. textbook chapter tests)
 make debug        # build with Debug flags
 make clean        # remove ./build/
 ```
 
-**Book (chapter) tests are split out.** The "Writing a C Compiler" chapter tests
-(`*/chapter*_tests.cpp`, `backend/besm6/chapter*_tests.cpp`) are compiled into separate
-`*-book-tests` executables marked `EXCLUDE_FROM_ALL` and labeled `book` in ctest, so plain
-`make` and `make test` neither compile nor run them. `make test` runs
-`ctest --test-dir build -LE book -E _NOT_BUILT`; `make book_tests` (alias `make book_test`)
-builds the `book_tests` CMake target and runs `ctest -L book`. Each book executable needs
-its own `fatal_error()` definition (the libraries call it but it lives in the executables);
-it is defined at the top of each module's first chapter source
-(`parser/chapter1_tests.cpp`, `semantic/chapter3_tests.cpp`, `optimize/chapter19_tests.cpp`,
-`backend/besm6/chapter1_tests.cpp`). `scanner-book-tests` needs none — the scanner uses its
-own `lex_error()`/`exit()`.
+**All tests are excluded from the default build.** Every per-module test executable is
+marked `EXCLUDE_FROM_ALL`, so a plain `make`/`make all` builds only the compiler and runtime
+(`parse`, `lower`, `genbesm`, and `libc.bin`), not the tests. `make test` builds the
+`build_tests` CMake aggregate (all nine test executables) and then runs `ctest --test-dir
+build` over everything.
+
+**The "Writing a C Compiler" chapter tests are compiled into the regular test binaries.**
+The chapter sources (`*/chapter*_tests.cpp`, `backend/besm6/chapter*_tests.cpp`) are listed
+in the same `add_executable(<module>-tests …)` as the unit tests, so e.g. `parser-tests`
+and `besm-tests` contain both. There are no separate `*-book-tests` executables and no ctest
+`book` label. `fatal_error()` (the libraries call it, but it is defined in the test
+executable) is defined exactly once per binary in a regular unit-test source
+(`parser/simple_tests.cpp`, `semantic/typecheck_tests.cpp`, `optimize/pipeline_tests.cpp`,
+`backend/besm6/codegen_tests.cpp`); the chapter sources do **not** redefine it. The scanner
+needs none — it uses its own `lex_error()`/`exit()`.
 
 Run a single test binary directly (semantic and translator tests live in subdirectories):
 ```sh
@@ -212,10 +215,9 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `libutil/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-tests`
 
 The `chapter*_tests.cpp` files in `parser/`, `scanner/`, `semantic/`, `optimize/`, and
-`backend/besm6/` are the "Writing a C Compiler" book tests; they compile into separate
-`*-book-tests` executables (`parser-book-tests`, `scanner-book-tests`,
-`semantic-book-tests`, `optimizer-book-tests`, `besm-book-tests`) built and run only via
-`make book_tests` (see **Build & Test** above).
+`backend/besm6/` are the "Writing a C Compiler" book tests; they are compiled into the same
+per-module test executables as the unit tests above (e.g. `parser-tests`, `besm-tests`) and
+run by `make test` (see **Build & Test** above).
 
 ## Documentation
 

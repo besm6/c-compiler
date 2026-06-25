@@ -1,12 +1,10 @@
 #
 # make
-# make all      -- build everything
+# make all   -- build everything
 #
-# make test       -- run unit tests
+# make test  -- build and run all unit tests (including the textbook chapter tests)
 #
-# make book_tests -- build and run the textbook chapter tests
-#
-# make clean    -- remove build files
+# make clean -- remove build files
 #
 # To reconfigure for Debug build:
 #   make clean; make debug; make
@@ -16,11 +14,7 @@ all:    build
 
 test:   build
 	$(MAKE) -Cbuild build_tests
-	ctest --test-dir build -LE book -E _NOT_BUILT
-
-book_tests book_test: build
-	$(MAKE) -Cbuild book_tests
-	cd build/backend/besm6 && ctest --test-dir $(CURDIR)/build -L book
+	ctest --test-dir build
 
 clean:
 	rm -rf build

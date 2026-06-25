@@ -71,6 +71,11 @@ add_subdirectory(translator)
 add_subdirectory(optimize)
 add_subdirectory(backend)
 
+#
+# All unit tests, including the textbook chapter tests, are EXCLUDE_FROM_ALL so a
+# plain `make`/`make all` builds only the compiler and runtime.  `make test` builds
+# this aggregate first, then runs ctest over everything.
+#
 add_custom_target(build_tests
     DEPENDS
         libutil-tests
@@ -82,19 +87,6 @@ add_custom_target(build_tests
         translate-tests
         besm-tests
         optimizer-tests
-)
-
-#
-# Book tests (textbook chapter tests) — excluded from the default build; compiled
-# and run only via `make book_tests`.
-#
-add_custom_target(book_tests
-    DEPENDS
-        parser-book-tests
-        scanner-book-tests
-        semantic-book-tests
-        optimizer-book-tests
-        besm-book-tests
 )
 
 #

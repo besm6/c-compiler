@@ -79,24 +79,23 @@ The repository ships two programs: **`parse`** (C → AST) and **`lower`** (bina
 **Build and test:**
 
 ```bash
-make            # creates build/, runs cmake, builds
-make test       # runs the unit tests via ctest in build/
-make book_tests # builds and runs the "Writing a C Compiler" chapter tests
+make            # creates build/, runs cmake, builds the compiler and runtime
+make test       # builds and runs all unit tests via ctest in build/
 ```
 
-The textbook chapter tests (`*/chapter*_tests.cpp`) are split into separate
-`*-book-tests` executables that plain `make` and `make test` do **not** compile or run;
-`make book_tests` builds and runs only those. See
+The textbook chapter tests (`*/chapter*_tests.cpp`) are compiled into the regular
+per-module test binaries (e.g. `parser-tests`, `besm-tests`) and run by `make test` along
+with everything else. The test executables are all `EXCLUDE_FROM_ALL`, so a plain `make`
+builds only the compiler and runtime; `make test` builds them. See
 [docs/Tests_From_The_Book.md](docs/Tests_From_The_Book.md).
 
 Or with CMake directly:
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build build
-ctest --test-dir build -LE book           # unit tests (exclude book tests)
-cmake --build build --target book_tests   # build the chapter-test executables
-ctest --test-dir build -L book            # run only the chapter tests
+cmake --build build                       # compiler and runtime only
+cmake --build build --target build_tests  # build all test executables
+ctest --test-dir build                    # run every test
 ```
 
 **Parse a file to YAML** (human-readable tree):

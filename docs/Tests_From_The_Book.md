@@ -508,10 +508,10 @@ A few simple conventions keep the growing suite navigable:
   directory layout maps onto ours almost perfectly, which — adjusting for the
   reclassifications of §5 — is why the import is largely mechanical.
 
-Each new chapter file is added to its component's **book** test executable in the relevant
-`CMakeLists.txt` (for example `parser/CMakeLists.txt` lists the chapter sources of the
-`parser-book-tests` binary, kept separate from the everyday `parser-tests`), so it is picked
-up by `make book_tests` (see §14).
+Each new chapter file is added to its component's test executable in the relevant
+`CMakeLists.txt` (for example `parser/CMakeLists.txt` lists the chapter sources in the same
+`parser-tests` binary as the everyday unit tests), so it is picked up by `make test`
+(see §14).
 
 ## 13. The incremental workflow
 
@@ -519,8 +519,8 @@ We imported the corpus **one chapter at a time, in order**, because each chapter
 on features from earlier chapters. A chapter is considered *done* when:
 
 1. its new test files build, and
-2. the **entire** test suite still passes — the unit tests (`make test`) and the chapter
-   tests (`make book_tests`).
+2. the **entire** test suite still passes — `make test` runs the unit tests and the chapter
+   tests together.
 
 Two pieces of discipline kept the import honest as it scaled to 2,548 tests, and both are
 worth carrying into any test-import work of your own:
@@ -537,41 +537,41 @@ worth carrying into any test-import work of your own:
 
 ## 14. Running the tests
 
-The chapter tests are **split out** from the everyday unit tests. They compile into their
-own `*-book-tests` executables (`parser-book-tests`, `scanner-book-tests`,
-`semantic-book-tests`, `optimizer-book-tests`, `besm-book-tests`), which plain `make` and
-`make test` do not build or run. Use the dedicated target from the top of the repository:
+The chapter tests are compiled **into the regular per-module test binaries** — the chapter
+sources sit in the same `add_executable(<module>-tests …)` as the unit tests. So
+`parser-tests` holds the parser chapter tests, `besm-tests` holds the BESM-6 run tests, and
+so on. All of the test executables are `EXCLUDE_FROM_ALL`, so a plain `make` builds only the
+compiler and runtime; one target builds and runs everything:
 
 ```sh
-make test                 # the unit tests (excludes the chapter tests)
-make book_tests           # build and run only the chapter tests (alias: make book_test)
+make test                 # builds every test binary, then runs all tests (unit + chapter)
 ```
 
-`make book_tests` builds the five book executables and runs `ctest -L book` (the chapter
-tests carry the ctest label `book`; the unit `make test` runs `ctest -LE book`).
+`make test` builds the `build_tests` aggregate and runs `ctest --test-dir build` over the
+whole suite. There is no separate book target or ctest label any more.
 
-To run a single component or a single test while developing, first make sure the book
-executables are built (`make book_tests`, or `cmake --build build --target book_tests`),
-then **run from inside the `build/` directory**, not from the repository root:
+To run a single component or a single test while developing, first make sure the test
+binaries are built (`make test`, or `cmake --build build --target build_tests`), then
+**run from inside the `build/` directory**, not from the repository root:
 
 ```sh
-ctest --test-dir build -L book -R Chapter1            # every chapter-1 test, anywhere
-cd build/parser        && ./parser-book-tests         # just the parser chapter tests
-cd build/scanner       && ./scanner-book-tests
-cd build/backend/besm6 && ./besm-book-tests           # the run tests (need libc.bin here)
+ctest --test-dir build -R Chapter1                    # every chapter-1 test, anywhere
+cd build/parser        && ./parser-tests              # parser unit + chapter tests
+cd build/scanner       && ./scanner-tests
+cd build/backend/besm6 && ./besm-tests                # the run tests (need libc.bin here)
 ```
 
 Why the `cd`? Some fixtures write small temporary files into the *current directory* while
 they run. If you launch a test binary from the repository root, those scratch files litter
 your source tree; launched from inside `build/`, they stay out of the way. The BESM-6 run
 tests have an extra reason: they link the runtime library `libc.bin`, which is built in
-`build/backend/besm6`, so they must run from there. (Also: don't run two `besm-book-tests`
+`build/backend/besm6`, so they must run from there. (Also: don't run two `besm-tests`
 processes at once — they share scratch filenames.)
 
 To run just one test by name:
 
 ```sh
-cd build/backend/besm6 && ./besm-book-tests --gtest_filter='CodegenTest.Chapter1_Return2'
+cd build/backend/besm6 && ./besm-tests --gtest_filter='CodegenTest.Chapter1_Return2'
 ```
 
 ## 15. Takeaways

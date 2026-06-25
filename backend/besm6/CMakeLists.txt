@@ -85,12 +85,14 @@ add_custom_command(
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Assembling BESM-6 C runtime library (libc.bin)")
 
-add_custom_target(besm-libc DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libc.bin)
+# Built by the default `make`/`make all` (ALL) so the runtime library is always
+# available, independent of the EXCLUDE_FROM_ALL test executables.
+add_custom_target(besm-libc ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libc.bin)
 
 #
 # Tests for the BESM-6 backend
 #
-add_executable(besm-tests
+add_executable(besm-tests EXCLUDE_FROM_ALL
     label_tests.cpp
     frame_tests.cpp
     codegen_tests.cpp
@@ -112,32 +114,6 @@ add_executable(besm-tests
     str_tests.cpp
     typedef_tests.cpp
     math_tests.cpp
-)
-target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
-add_dependencies(besm-tests besm-libc)
-add_definitions(-DTEST_DIR="${CMAKE_CURRENT_BINARY_DIR}")
-target_compile_definitions(besm-tests PRIVATE
-    BESM6_CPP="${SystemCpp}"
-    BESM6_INCLUDE_DIR="${BESM6_INCLUDE_DIR}")
-gtest_discover_tests(besm-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
-
-#
-# Standard-library header check: every header in include/ must preprocess (via the
-# system cpp, located above) and parse.
-#
-add_test(
-    NAME besm-headers
-    COMMAND ${CMAKE_COMMAND} -E env
-            ${CMAKE_SOURCE_DIR}/scripts/check_headers.sh
-            ${SystemCpp}
-            $<TARGET_FILE:parse>
-            ${CMAKE_CURRENT_SOURCE_DIR}/include
-            ${CMAKE_CURRENT_BINARY_DIR}/header-check)
-
-#
-# Book tests for the BESM-6 backend (built and run only via `make book_tests`)
-#
-add_executable(besm-book-tests EXCLUDE_FROM_ALL
     chapter1_tests.cpp
     chapter2_tests.cpp
     chapter3_tests.cpp
@@ -162,9 +138,23 @@ add_executable(besm-book-tests EXCLUDE_FROM_ALL
     chapter19_tests.cpp
     chapter20_tests.cpp
 )
-target_link_libraries(besm-book-tests besm parser translator semantic GTest::gtest_main)
-add_dependencies(besm-book-tests besm-libc)
-target_compile_definitions(besm-book-tests PRIVATE
+target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main)
+add_dependencies(besm-tests besm-libc)
+add_definitions(-DTEST_DIR="${CMAKE_CURRENT_BINARY_DIR}")
+target_compile_definitions(besm-tests PRIVATE
     BESM6_CPP="${SystemCpp}"
     BESM6_INCLUDE_DIR="${BESM6_INCLUDE_DIR}")
-gtest_discover_tests(besm-book-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10 LABELS "book")
+gtest_discover_tests(besm-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)
+
+#
+# Standard-library header check: every header in include/ must preprocess (via the
+# system cpp, located above) and parse.
+#
+add_test(
+    NAME besm-headers
+    COMMAND ${CMAKE_COMMAND} -E env
+            ${CMAKE_SOURCE_DIR}/scripts/check_headers.sh
+            ${SystemCpp}
+            $<TARGET_FILE:parse>
+            ${CMAKE_CURRENT_SOURCE_DIR}/include
+            ${CMAKE_CURRENT_BINARY_DIR}/header-check)

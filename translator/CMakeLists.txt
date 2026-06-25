@@ -12,7 +12,7 @@ target_link_libraries(translator optimize semantic tac ast libutil)
 #
 # Tests for translate
 #
-add_executable(translate-tests
+add_executable(translate-tests EXCLUDE_FROM_ALL
     decl_tests.cpp
     expr_tests.cpp
     stmt_tests.cpp

@@ -31,19 +31,8 @@
 
 #include "pipeline_test_fixture.h"
 
-// fatal_error() for the optimizer-book-tests executable.  The compiler libraries
-// call it; the regular optimizer-tests binary defines its own copy (in
-// pipeline_tests.cpp), so the book executable needs this one.
-extern "C" _Noreturn void fatal_error(const char *message, ...)
-{
-    fprintf(stderr, "Fatal error: ");
-    va_list ap;
-    va_start(ap, message);
-    vfprintf(stderr, message, ap);
-    va_end(ap);
-    fprintf(stderr, "\n");
-    exit(1);
-}
+// fatal_error() is defined once for the whole optimizer-tests binary in
+// pipeline_tests.cpp; the compiler libraries call it.
 
 TEST_F(PipelineTest, Chapter19_CF_IntOnly_FoldBinary)
 {

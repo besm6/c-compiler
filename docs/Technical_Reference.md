@@ -391,7 +391,7 @@ identically on BESM-6 (one 48-bit word, masked to 41/48 bits).
 - **Compiler flags:** `-Wall -Werror -Wshadow` for C++ (see root `CMakeLists.txt`).
 - **GoogleTest:** FetchContent, tag `v1.15.2`, `BUILD_GMOCK=OFF`.
 - **cppcheck:** If `cppcheck` is found, it is attached to C and C++ targets with project-specific suppressions and `scripts/googletest.xml` for tests.
-- **Makefile:** Creates `build/`, runs `cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo`, delegates `all` to `$(MAKE) -C build`. Targets: `make`, `make test` (unit tests, `ctest -LE book`), `make book_tests`/`make book_test` (the textbook chapter tests, `ctest -L book`), `make clean`, `make debug` (cmake Debug build into `build`).
+- **Makefile:** Creates `build/`, runs `cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo`, delegates `all` to `$(MAKE) -C build`. Targets: `make` (compiler & runtime only — all test executables are `EXCLUDE_FROM_ALL`), `make test` (builds the `build_tests` aggregate, then runs every test via `ctest --test-dir build` — including the textbook chapter tests), `make clean`, `make debug` (cmake Debug build into `build`).
 
 Common build types: `Debug`, `RelWithDebInfo`, `Release`.
 
@@ -403,16 +403,20 @@ Backend ISA descriptions (`backend/besm6/besm6.asdl`, `backend/x86/x86_64.asdl`,
 
 ## Testing
 
-Run all unit tests:
+Build and run all tests:
 
 ```bash
 make test
 # or
-ctest --test-dir build -LE book
+cmake --build build --target build_tests
+ctest --test-dir build
 ```
 
-The "Writing a C Compiler" chapter tests are split out (see **Book tests** below); plain
-`make` / `make test` skip them. Test executables and their sources:
+Every test executable is `EXCLUDE_FROM_ALL`, so a plain `make` builds only the compiler and
+runtime; `make test` builds the `build_tests` aggregate first and then runs ctest. The
+"Writing a C Compiler" chapter tests are compiled into these same per-module test binaries
+(see **Chapter (book) tests** below), so `make test` runs them too. Test executables and
+their unit-test sources:
 
 | Executable | Sources (under repo root) |
 |------------|---------------------------|
@@ -438,29 +442,21 @@ Run a single binary from `build/`:
 ./build/backend/besm6/besm-tests
 ```
 
-### Book tests
+### Chapter (book) tests
 
 The "Writing a C Compiler" chapter tests (`*/chapter*_tests.cpp`,
-`backend/besm6/chapter*_tests.cpp`) are compiled into separate `*-book-tests` executables
-(`parser-book-tests`, `scanner-book-tests`, `semantic-book-tests`, `optimizer-book-tests`,
-`besm-book-tests`) marked `EXCLUDE_FROM_ALL` and registered with ctest under the `book`
-label. Plain `make` and `make test` do not compile or run them; the root `book_tests` CMake
-target builds all five, and `make book_tests` (alias `make book_test`) builds them and runs
-`ctest -L book`:
+`backend/besm6/chapter*_tests.cpp`) are compiled **into the regular per-module test
+binaries** — the chapter sources are listed in the same `add_executable(<module>-tests …)`
+as the unit tests. So `parser-tests` contains `chapter1..18_tests.cpp` alongside its unit
+tests, `besm-tests` contains `chapter1..20_tests.cpp`, etc. There are no separate
+`*-book-tests` executables and no ctest `book` label; `make test` builds and runs them with
+everything else.
 
-```bash
-make book_tests
-# or
-cmake --build build --target book_tests
-ctest --test-dir build -L book
-```
-
-Each book executable needs its own `fatal_error()` (the compiler libraries call it, but its
-definition lives in the executables, not a library, and a single shared copy cannot link
-into book executables that pull in different libraries). It is defined at the top of each
-module's first chapter source: `parser/chapter1_tests.cpp`, `semantic/chapter3_tests.cpp`,
-`optimize/chapter19_tests.cpp`, `backend/besm6/chapter1_tests.cpp`. `scanner-book-tests`
-needs none — the scanner reports lexical errors via its own `lex_error()`/`exit()`.
+`fatal_error()` (the compiler libraries call it, but its definition lives in the test
+executable, not a library) is defined exactly once per binary in a regular unit-test source —
+`parser/simple_tests.cpp`, `semantic/typecheck_tests.cpp`, `optimize/pipeline_tests.cpp`,
+`backend/besm6/codegen_tests.cpp` — and the chapter sources do not redefine it. The scanner
+needs none — it reports lexical errors via its own `lex_error()`/`exit()`.
 
 ## Development notes
 
