@@ -36,13 +36,12 @@ re-enabled when block-scope statics landed).
 
 | #  | Task | Description |
 |----|------|-------------|
-| 23 | Wire up the heap & re-enable dynamic-allocation tests | `malloc`/`calloc`/`realloc`/`free` already link into `libc.bin` but the run harness never calls `heap_setup`, so allocations fail. Initialize a heap region at program start, then re-enable ch17 VoidPointerSimple, ArrayOfPointersToVoid, CommonPointerType, ConversionByAssignment, VoidPointerExplicitCast, SizeofExpressions, PassAllocedMemory. For ch17 MemoryManagementFunctions, implement `aligned_alloc` or drop that sub-call. Also unblocks the ch18 malloc/calloc tests: ScalarMemberAccessArrow, ScalarMemberAccessLinkedList, ScalarMemberAccessNestedStruct, StructCopyWithArrowOperator, AccessRetvalMembers, OpaqueStruct, ReturnStructPointer, IncompleteStructs, IncompleteUnionTypes, MemberOffsets (with #49). |
+| 23 | Wire up the heap & re-enable dynamic-allocation tests | `malloc`/`calloc`/`realloc`/`free` already link into `libc.bin` but the run harness never calls `heap_setup`, so allocations fail. Initialize a heap region at program start, then re-enable ch17 VoidPointerSimple, ArrayOfPointersToVoid, CommonPointerType, ConversionByAssignment, VoidPointerExplicitCast, SizeofExpressions, PassAllocedMemory. For ch17 MemoryManagementFunctions, implement `aligned_alloc` or drop that sub-call. Also unblocks the ch18 malloc/calloc tests: ScalarMemberAccessArrow, ScalarMemberAccessLinkedList, ScalarMemberAccessNestedStruct, StructCopyWithArrowOperator, AccessRetvalMembers, OpaqueStruct, ReturnStructPointer, IncompleteStructs, IncompleteUnionTypes. |
 
 ### Backend BESM-6 — codegen & libc
 
 | #  | Task | Description |
 |----|------|-------------|
-| 49 | word/byte pointer-punning arithmetic | Pointer-to-integer byte-address arithmetic / word↔byte pointer comparison. Re-enables ch18 MemberOffsets (also needs #23), CompareUnionPointers (also #47) (2). |
 | 50 | REMOVE x86-only ABI / page-boundary tests | No BESM-6 analogue (hand-written x86 `.s` helpers, RAX return-pointer ABI). Delete: ch10 PushArgOnPageBoundary; ch18 PassArgsOnPageBoundary, ReturnBigStructOnPageBoundary, ReturnPointerInRax, ReturnSpaceOverlap, ReturnStructOnPageBoundary (6). |
 | 51 | REMOVE/adapt no-analogue overflow & oversized tests | Depend on x86 widths/core size. Adapt or delete: ch12 ArithmeticWraparound (wraps at 2^64), Logical (uses 2^60); ch17 SizeofExtern (12M-word array exceeds BESM-6 core) (3). |
 | 52 | REMOVE backend tag-shadowing tests (no-shadowing design) | Require nested tag shadowing or a parameter shadowing a file-scope static — impossible under the permanent no-shadowing rule. Adapt where possible, otherwise delete: ch18 ResolveTags, StructDeclInSwitchStatement, DeclShadowsDecl, StructShadowsUnion, UnionShadowsStruct, Namespaces, LabelTagMemberNamespace, RedeclareUnion, ScalarMemberAccessDot (9). |

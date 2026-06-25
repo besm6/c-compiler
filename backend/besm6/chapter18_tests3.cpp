@@ -2400,7 +2400,7 @@ int main(void) {
 }
 
 // word/byte pointer punning comparison.
-TEST_F(CodegenTest, DISABLED_Chapter18_CompareUnionPointers)
+TEST_F(CodegenTest, Chapter18_CompareUnionPointers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 // Pointers to a union object and to its members all compare equal

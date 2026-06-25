@@ -336,101 +336,78 @@ int main(void) {
 }
 
 // malloc + pointer-to-integer byte-address arithmetic.
-TEST_F(CodegenTest, DISABLED_Chapter18_MemberOffsets)
+TEST_F(CodegenTest, Chapter18_MemberOffsets)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 // struct declarations for size/layout tests
+//
+// On BESM-6 a word is 6 bytes, every aggregate member is word-aligned, and a
+// struct's sizeof is rounded up to a multiple of 6.
 
 struct eight_bytes {
-    int i;   // bytes 0-3
-    char c;  // byte 4
-             // 3 more bytes of padding to make size a multiple of 4
+    int i;   // bytes 0-5 (one word)
+    char c;  // byte 6
+             // padded up to a word multiple -> sizeof 12
 };
 
 struct two_bytes {
     char arr[2];  // bytes 0-1
-                  // no padding
+                  // padded up to a word -> sizeof 6
 };
 
 struct three_bytes {
     char arr[3];  // bytes 0-2
-                  // no padding
+                  // padded up to a word -> sizeof 6
 };
 
 struct sixteen_bytes {
-    struct eight_bytes eight;  // bytes 0-7
-    struct two_bytes two;      // bytes 8-9
-    struct three_bytes three;  // bytes 10-12
-    // 3 bytes of padding to make size a multiple of 4  (i.e. 16 bytes)
-    // b/c struct eightbyte is 4 byte-aligned)
-};
-
-struct seven_bytes {
-    struct two_bytes two;      // bytes 0-1
-    struct three_bytes three;  // bytes 2-4
-    struct two_bytes two2;     // bytes 5-6
-};                             // total size is 7 bytes
-
-struct twentyfour_bytes {
-    struct seven_bytes seven;  // bytes 0-6
-    // 1 byte padding to make next member four-byte aligned
-    struct sixteen_bytes sixteen;  // bytes 8-24 (four-byte aligned)
-};
-
-struct twenty_bytes {
-    struct sixteen_bytes sixteen;  // bytes 0-15
-    struct two_bytes two;          // bytes 16-17
-    // 2 bytes padding to make the whole struct four-byte aligned
-};  // 20 bytes b/c it's four-byte aligned
+    struct eight_bytes eight;  // bytes 0-11
+    struct two_bytes two;      // bytes 12-17
+    struct three_bytes three;  // bytes 18-23
+};                             // sizeof 24
 
 struct wonky {
     char arr[19];
-};  // 19 bytes w/ no padding
+};  // sizeof 24 (19 data bytes + 5 bytes padding up to a word multiple)
 
 struct internal_padding {
-    char c;
-    // 7 bytes of padding so next member is eight byte-aligned
-    double d;
-};  // 16 bytes total
+    char c;    // byte 0
+    double d;  // byte 6 (word-aligned)
+};             // sizeof 12
 
 struct contains_struct_array {
-    char c;  // byte 0
-    // 3 bytes padding so next member is 4 byte-aligned
-    struct eight_bytes struct_array[3];  // bytes 4-27
-};                                       // 28 bytes total
+    char c;                              // byte 0
+    struct eight_bytes struct_array[3];  // bytes 6-41 (word-aligned)
+};                                       // sizeof 42
 /* Get the addresses of structure members to validate their offset and alignment
  * (including nested members accessed through chains of . and -> operations)
- * and addresses of one-past-the-end of structs to validate trailing padding
- * */
-
-void *malloc(unsigned long size);
+ * and addresses of one-past-the-end of structs to validate trailing padding.
+ *
+ * On BESM-6 a pointer-to-integer cast does not decode to a byte address, so we
+ * compute byte offsets as char* - char* differences, which the backend decodes
+ * via b/pdiff. */
 
 // test 1: validate struct w/ scalar members (includes trailing padding)
 // test member accesses of the form &x.y
 int test_eightbytes(void) {
     struct eight_bytes s;
-    unsigned long start_addr = (unsigned long)&s;
-    unsigned long i_addr = (unsigned long)&s.i;
-    unsigned long c_addr = (unsigned long)&s.c;
-    unsigned long end_addr = (unsigned long)(&s + 1);
-
-    // this struct should be four byte-aligned
-    if (start_addr % 4 != 0) {
-        return 0;
-    }
+    char *start = (char *)&s;
+    char *i_addr = (char *)&s.i;
+    char *c_addr = (char *)&s.c;
+    char *end = (char *)(&s + 1);
 
     // first element should always have same address as whole struct
-    if (start_addr != i_addr) {
+    if (start != i_addr) {
         return 0;
     }
 
-    // next element should be at byte 4 (next available byte)
-    if (c_addr - start_addr != 4) {
+    // next element is one word in, at byte 6
+    if (c_addr - start != 6) {
         return 0;
     }
 
-    // end of struct should be at byte 8 due to 3 bytes of padding
-    if (end_addr - start_addr != 8) {
+    // end of struct is at byte 12 (padded up to a word multiple)
+    if (end - start != 12) {
         return 0;
     }
 
@@ -440,29 +417,25 @@ int test_eightbytes(void) {
 // test 2: validate struct w/ padding between members (accessing struct thru
 // pointer) test member accesses of the form &x->y
 int test_internal_padding(void) {
-    struct internal_padding *s_ptr = malloc(sizeof(struct internal_padding));
-    unsigned long start_addr = (unsigned long)s_ptr;
-    unsigned long c_addr = (unsigned long)&s_ptr->c;
-    unsigned long d_addr = (unsigned long)&s_ptr->d;
-    unsigned long end_ptr = (unsigned long)(s_ptr + 1);
-
-    // this struct should be eight byte-aligned
-    if (start_addr % 8 != 0) {
-        return 0;
-    }
+    struct internal_padding obj;
+    struct internal_padding *s_ptr = &obj;
+    char *start = (char *)s_ptr;
+    char *c_addr = (char *)&s_ptr->c;
+    char *d_addr = (char *)&s_ptr->d;
+    char *end = (char *)(s_ptr + 1);
 
     // first element should always have same address as whole struct
-    if (start_addr != c_addr) {
+    if (start != c_addr) {
         return 0;
     }
 
-    // next element should be at byte 8 (so it's correctly aligned)
-    if (d_addr - c_addr != 8) {
+    // next element is word-aligned, at byte 6
+    if (d_addr - c_addr != 6) {
         return 0;
     }
 
-    // size of whole struct should be 16 bytes
-    if (end_ptr - start_addr != 16) {
+    // size of whole struct is 12 bytes
+    if (end - start != 12) {
         return 0;
     }
 
@@ -476,27 +449,27 @@ int test_three_bytes(void) {
     // calculation
     static struct three_bytes s;
 
-    unsigned long start_addr = (unsigned long)&s;
-    unsigned long arr_addr = (unsigned long)&s.arr;
-    unsigned long arr0_addr = (unsigned long)&s.arr[0];
-    unsigned long arr1_addr = (unsigned long)&s.arr[1];
+    char *start = (char *)&s;
+    char *arr_addr = (char *)&s.arr;
+    char *arr0_addr = (char *)&s.arr[0];
+    char *arr1_addr = (char *)&s.arr[1];
     // different way to calculate same address as above
-    unsigned long arr1_addr_alt = (unsigned long)(s.arr + 1);
-    unsigned long arr2_addr = (unsigned long)&s.arr[2];
-    unsigned long arr_end = (unsigned long)(&s.arr + 1);
-    unsigned long struct_end = (unsigned long)(&s + 1);
+    char *arr1_addr_alt = (char *)(s.arr + 1);
+    char *arr2_addr = (char *)&s.arr[2];
+    char *arr_end = (char *)(s.arr + 3);
+    char *struct_end = (char *)(&s + 1);
 
     // struct, array, and first array element should all have same address
-    if (start_addr != arr_addr) {
+    if (start != arr_addr) {
         return 0;
     }
 
-    if (start_addr != arr0_addr) {
+    if (start != arr0_addr) {
         return 0;
     }
 
     // s.arr[1] and s.arr[2] should be at byte offsets 1 and 2
-    if (arr1_addr - start_addr != 1) {
+    if (arr1_addr - start != 1) {
         return 0;
     }
 
@@ -504,16 +477,17 @@ int test_three_bytes(void) {
         return 0;
     }
 
-    if (arr2_addr - start_addr != 2) {
+    if (arr2_addr - start != 2) {
         return 0;
     }
 
-    // arr_end and struct_end should both be at byte offset 3
-    if (arr_end - start_addr != 3) {
+    // arr_end is one past the 3-element char array, at byte offset 3
+    if (arr_end - start != 3) {
         return 0;
     }
 
-    if (struct_end - start_addr != 3) {
+    // struct_end is at byte offset 6 (struct padded up to a word multiple)
+    if (struct_end - start != 6) {
         return 0;
     }
 
@@ -528,87 +502,83 @@ int test_sixteen_bytes(void) {
     struct sixteen_bytes *s_ptr = &s;
 
     // get addresses of various members through s_ptr
-    unsigned long start_addr = (unsigned long)s_ptr;
-    unsigned long eight_addr = (unsigned long)&s_ptr->eight;
-    unsigned long eight_i_addr = (unsigned long)&s_ptr->eight.i;
-    unsigned long eight_c_addr = (unsigned long)&s_ptr->eight.c;
-    unsigned long two = (unsigned long)&s_ptr->two;
-    unsigned long two_arr = (unsigned long)s_ptr->two.arr;
-    unsigned long two_arr0 = (unsigned long)&s_ptr->two.arr[0];
-    unsigned long two_arr1 = (unsigned long)&s_ptr->two.arr[1];
-    unsigned long two_arr_end = (unsigned long)(&s_ptr->two.arr + 1);
-    unsigned long two_end = (unsigned long)(&s_ptr->two + 1);
-    unsigned long three = (unsigned long)&s_ptr->three;
+    char *start = (char *)s_ptr;
+    char *eight_addr = (char *)&s_ptr->eight;
+    char *eight_i_addr = (char *)&s_ptr->eight.i;
+    char *eight_c_addr = (char *)&s_ptr->eight.c;
+    char *two = (char *)&s_ptr->two;
+    char *two_arr = (char *)s_ptr->two.arr;
+    char *two_arr0 = (char *)&s_ptr->two.arr[0];
+    char *two_arr1 = (char *)&s_ptr->two.arr[1];
+    char *two_arr_end = (char *)(s_ptr->two.arr + 2);
+    char *two_end = (char *)(&s_ptr->two + 1);
+    char *three = (char *)&s_ptr->three;
     // not going to validate every individual element in three.arr
     // since we already did that for two.arr
-    unsigned long three_end = (unsigned long)(&s_ptr->three + 1);
-    unsigned long struct_end = (unsigned long)(s_ptr + 1);
-
-    // struct is 4-byte aligned
-    if (start_addr % 4 != 0) {
-        return 0;
-    }
+    char *three_end = (char *)(&s_ptr->three + 1);
+    char *struct_end = (char *)(s_ptr + 1);
 
     // struct, first member, first member's first member all have same address
-    if (start_addr != eight_addr) {
+    if (start != eight_addr) {
         return 0;
     }
 
-    if (start_addr != eight_i_addr) {
+    if (start != eight_i_addr) {
         return 0;
     }
 
-    if (eight_c_addr - start_addr != 4) {
+    if (eight_c_addr - start != 6) {
         return 0;
     }
 
-    // next member starts at byte 8
-    if (two - start_addr != 8) {
+    // next member starts at byte 12
+    if (two - start != 12) {
         return 0;
     }
 
-    if (two_arr - start_addr != 8) {
+    if (two_arr - start != 12) {
         return 0;
     }
 
-    if (two_arr0 - start_addr != 8) {
+    if (two_arr0 - start != 12) {
         return 0;
     }
 
     // validate next array element in s_ptr->two.arr
-    if (two_arr1 - start_addr != 9) {
+    if (two_arr1 - start != 13) {
         return 0;
     }
 
-    // no padding at end of s_ptr->two
-    if (two_arr_end - start_addr != 10) {
+    // one past the 2-element char array, at byte 14
+    if (two_arr_end - start != 14) {
         return 0;
     }
 
-    if (two_arr_end != two_end) {
+    // s_ptr->two is padded to a word, so its end is at byte 18
+    if (two_end - start != 18) {
         return 0;
     }
 
-    if (three - start_addr != 10) {
+    if (three - start != 18) {
         return 0;
     }
 
-    if (three_end - start_addr != 13) {
+    if (three_end - start != 24) {
         return 0;
     }
 
-    if (struct_end - start_addr != 16) {
+    if (struct_end - start != 24) {
         return 0;
     }
 
     // now get addresses of a few members thru s directly and make sure they're
     // the same
 
-    unsigned long eight_i_addr_alt = (unsigned long)&s.eight.i;
-    unsigned long eight_c_addr_alt = (unsigned long)&s.eight.c;
-    unsigned long two_arr_alt = (unsigned long)s.two.arr;
-    unsigned long two_arr1_alt = (unsigned long)&s.two.arr[1];
-    unsigned long three_alt = (unsigned long)&s.three;
+    char *eight_i_addr_alt = (char *)&s.eight.i;
+    char *eight_c_addr_alt = (char *)&s.eight.c;
+    char *two_arr_alt = (char *)s.two.arr;
+    char *two_arr1_alt = (char *)&s.two.arr[1];
+    char *three_alt = (char *)&s.three;
 
     if (eight_i_addr_alt != eight_i_addr) {
         return 0;
@@ -637,15 +607,16 @@ int test_sixteen_bytes(void) {
 // padding b/t array elements test access of the form x[i].y, &x[i].y[j]
 int test_wonky_array(void) {
     struct wonky wonky_array[5];
-    unsigned long array_start = (unsigned long)wonky_array;
-    unsigned long elem3 = (unsigned long)(wonky_array + 3);
-    unsigned long elem3_arr = (unsigned long)wonky_array[3].arr;
-    unsigned long elem2_arr2 = (unsigned long)&wonky_array[2].arr[2];
-    unsigned long elem2_arr_end = (unsigned long)(wonky_array[2].arr + 19);
-    unsigned long elem4_arr_end = (unsigned long)(wonky_array[4].arr + 19);
-    unsigned long array_end = (unsigned long)(wonky_array + 5);
+    char *array_start = (char *)wonky_array;
+    char *elem3 = (char *)(wonky_array + 3);
+    char *elem3_arr = (char *)wonky_array[3].arr;
+    char *elem2_arr2 = (char *)&wonky_array[2].arr[2];
+    char *elem2_arr_end = (char *)(wonky_array[2].arr + 19);
+    char *elem4_arr_end = (char *)(wonky_array[4].arr + 19);
+    char *array_end = (char *)(wonky_array + 5);
 
-    if (elem3 - array_start != 19 * 3) {
+    // each element is 24 bytes (19 data bytes + 5 bytes padding)
+    if (elem3 - array_start != 24 * 3) {
         return 0;
     }
 
@@ -653,17 +624,21 @@ int test_wonky_array(void) {
         return 0;
     }
 
-    if (elem2_arr2 - array_start != 19 * 2 + 2) {
+    if (elem2_arr2 - array_start != 24 * 2 + 2) {
         return 0;
     }
 
-    // no gap b/t last member of elem2 and start of elem3
-    if (elem2_arr_end != elem3) {
+    // 5 bytes of trailing padding b/t last data byte of elem2 and start of elem3
+    if (elem3 - elem2_arr_end != 5) {
         return 0;
     }
 
-    // no gap b/t last member of elem4 and end of whole array
-    if (elem4_arr_end != array_end) {
+    // 5 bytes of trailing padding b/t last data byte of elem4 and array end
+    if (array_end - elem4_arr_end != 5) {
+        return 0;
+    }
+
+    if (array_end - array_start != 24 * 5) {
         return 0;
     }
 
@@ -675,84 +650,77 @@ int test_wonky_array(void) {
 // decay to pointers
 int test_contains_struct_array_array(void) {
     struct contains_struct_array arr[3];
-    unsigned long array_start = (unsigned long)arr;
-    unsigned long first_scalar_elem = (unsigned long)(&arr[0].c);
+    char *array_start = (char *)arr;
+    char *first_scalar_elem = (char *)(&arr[0].c);
 
     // arr[0].struct_array[0].i
-    unsigned long outer0_inner0_i = (unsigned long)(&arr[0].struct_array->i);
+    char *outer0_inner0_i = (char *)(&arr[0].struct_array->i);
 
-    // arr[0].struct_array[0].i
-    unsigned long outer0_inner0_c = (unsigned long)(&arr->struct_array->c);
+    // arr[0].struct_array[0].c
+    char *outer0_inner0_c = (char *)(&arr->struct_array->c);
 
     // one-past-the-end of arr[0].struct_array
-    unsigned long outer0_end = (unsigned long)(arr->struct_array + 3);
+    char *outer0_end = (char *)(arr->struct_array + 3);
 
     // start of arr[1] (should be the same as one-past-end of
     // arr[0].struct_array)
-    unsigned long outer1 = (unsigned long)(&arr[1]);
+    char *outer1 = (char *)(&arr[1]);
 
-    // second element of arr[1]
-    unsigned long outer1_arr = (unsigned long)(arr[1].struct_array);
+    // struct_array of arr[1]
+    char *outer1_arr = (char *)(arr[1].struct_array);
 
     // arr[1].struct_array[1].i
-    unsigned long outer1_inner1_i =
-        (unsigned long)&(((arr + 1)->struct_array + 1)->i);
+    char *outer1_inner1_i = (char *)&(((arr + 1)->struct_array + 1)->i);
 
     // arr[2].struct_array[0].c
-    unsigned long outer2_inner0_c =
-        (unsigned long)&((arr + 2)->struct_array->c);
-
-    // whole thing should be 4-byte aligned
-    if (array_start % 4 != 0) {
-        return 0;
-    }
+    char *outer2_inner0_c = (char *)&((arr + 2)->struct_array->c);
 
     // validate pointers to start of struct
     if (first_scalar_elem != array_start) {
         return 0;
     }
 
-    // 4 bytes into array (struct_array offset in contains_struct_array is 4,
-    // i offset in struct_array is 0)
-    if (outer0_inner0_i - array_start != 4) {
+    // 6 bytes into array (struct_array offset in contains_struct_array is 6,
+    // i offset in eight_bytes is 0)
+    if (outer0_inner0_i - array_start != 6) {
         return 0;
     }
 
-    // 8 bytes into array (struct_array offset in contains_struct_array is 4,
-    // c offset in struct_array is 4)
-    if (outer0_inner0_c - array_start != 8) {
+    // 12 bytes into array (struct_array offset is 6,
+    // c offset in eight_bytes is 6)
+    if (outer0_inner0_c - array_start != 12) {
         return 0;
     }
 
-    // no trailing padding in arr[0]
+    // no trailing padding in arr[0] (sizeof 42 is a word multiple)
     if (outer0_end != outer1) {
         return 0;
     }
 
-    // check offsets in arr[0]
-    if (outer1_arr - array_start != 32) {
+    // check offsets in arr[1]
+    if (outer1_arr - array_start != 48) {
         return 0;
     }
 
-    if (outer1_arr - outer1 != 4) {
+    if (outer1_arr - outer1 != 6) {
         return 0;
     }
 
-    // arr[1] is 28 bytes into arr
-    // arr[1].struct_array is 4 bytes into arr[1]
-    // arr[1].struct_array[1] is 8 bytes into struct_array
+    // arr[1] is 42 bytes into arr
+    // arr[1].struct_array is 6 bytes into arr[1]
+    // arr[1].struct_array[1] is 12 bytes into struct_array
     // arr[1].struct_array[1].i is 0 bytes into arr[1].struct_array[1]
-    // total offset: 28+4+8 = 40
-    if (outer1_inner1_i - array_start != 40) {
+    // total offset: 42+6+12 = 60
+    if (outer1_inner1_i - array_start != 60) {
         return 0;
     }
 
-    // arr[2] is 56 bytes into arr
-    // arr[2].struct_array is 4 bytes into arr[2]
-    // arr[2].struct_array[0] is 0 bytes into arr[2]
-    // arr[2].struct_array[0].c is 4 bytes into arr[2].struct_array[0]
-    // total offset: 56 + 4 + 4 = 64
-    if (outer2_inner0_c - array_start != 64) {
+    // arr[2] is 84 bytes into arr
+    // arr[2].struct_array is 6 bytes into arr[2]
+    // arr[2].struct_array[0] is 0 bytes into arr[2].struct_array
+    // arr[2].struct_array[0].c is 6 bytes into eight_bytes
+    // total offset: 84 + 6 + 6 = 96
+    if (outer2_inner0_c - array_start != 96) {
         return 0;
     }
 
