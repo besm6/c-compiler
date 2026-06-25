@@ -14,19 +14,11 @@
 //
 // Chapter 12 is written to prove an x86 compiler distinguishes a 32-bit
 // "unsigned int" (wraps at 2^32) from a 64-bit "unsigned long" (wraps at 2^64).
-// BESM-6 has neither width, so the corpus splits two ways:
-//
-//   * Programs whose every value fits in 48 bits AND whose result does not depend
-//     on x86 32-/64-bit wraparound or truncation compute the same result the book
-//     expects and are enabled run tests below.
-//
-//   * Programs that depend on a value > 2^48, on 2^32 unsigned-int wraparound, or
-//     on x86 32-bit truncation of a wider value cannot reproduce the book result
-//     on a 48-bit machine.  They are DISABLED_ (grouped at the bottom with a
-//     one-line reason each).  These are not compiler bugs — they test target
-//     semantics BESM-6 does not have.  Like chapter 11, these programs self-check
-//     and return an error code on mismatch, so a BESM-6-valued expectation would
-//     just encode a meaningless failure code; DISABLED_ is the honest call.
+// BESM-6 has neither width: every value fits in 48 bits and arithmetic wraps at
+// the single 48-bit modulus.  Programs that the book wrote around x86 2^32/2^64
+// wraparound or 32-bit truncation are re-expressed here in 48-bit terms — the
+// wraparound and oversized-value tests now seed values relative to 2^48 and
+// check the 48-bit modular result.
 //
 #include "book_run.h"
 
@@ -427,8 +419,10 @@ int main(void) {
 })")));
 }
 
-// Expects unsigned long arithmetic to wrap at 2^64; on BESM-6 it wraps at 2^48.
-TEST_F(CodegenTest, DISABLED_Chapter12_ArithmeticWraparound)
+// Unsigned arithmetic wraps at the 48-bit modulus 2^48 == 281474976710656.
+// addition: (2^48-3) + 3 == 2^48 wraps to 0; subtraction: 10 - 20 == 2^48-10;
+// neg: -1 == 2^48-1.  (The book wrote these around x86 2^32/2^64 wraparound.)
+TEST_F(CodegenTest, Chapter12_ArithmeticWraparound)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(unsigned int ui_a;
 unsigned int ui_b;
@@ -441,15 +435,15 @@ int addition(void) {
 }
 
 int subtraction(void) {
-    return (ul_a - ul_b == 18446744073709551606ul);
+    return (ul_a - ul_b == 281474976710646ul);
 }
 
 int neg(void) {
-    return -ul_a == 18446744073709551615UL;
+    return -ul_a == 281474976710655ul;
 }
 
 int main(void) {
-    ui_a = 4294967293u;
+    ui_a = 281474976710653u;
     ui_b = 3u;
     if (!addition()) {
         return 1;
@@ -515,8 +509,8 @@ TEST_F(CodegenTest, Chapter12_Locals)
 })")));
 }
 
-// ul = 2^60, which exceeds 2^48 (truncates to 0 on BESM-6, so !ul differs).
-TEST_F(CodegenTest, DISABLED_Chapter12_Logical)
+// Logical operators on unsigned values; ul is seeded nonzero (< 2^48) so not(ul)==0.
+TEST_F(CodegenTest, Chapter12_Logical)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int not(unsigned long ul) {
     return !ul;
@@ -538,7 +532,7 @@ int or(int i, unsigned u) {
 }
 
 int main(void) {
-    unsigned long ul = 1152921504606846976ul; // 2^60
+    unsigned long ul = 123456789012345ul; // nonzero, < 2^48
     unsigned int u = 2147483648u; // 2^31
     unsigned long zero = 0l;
     if (not(ul)) {

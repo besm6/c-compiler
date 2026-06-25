@@ -1033,16 +1033,17 @@ int main(void) {
 }
 
 
-// --- (B) global array too large for BESM-6 core -----------------------------
+// --- (B) sizeof a multi-dimensional global array ----------------------------
 
-// libraries/sizeof_extern: double[1000][2000] is 12M words; BESM-6 core is 32K
-// words, so the object can't be allocated (sizeof would be 12000000 here).
-TEST_F(CodegenTest, DISABLED_Chapter17_SizeofExtern)
+// libraries/sizeof_extern, shrunk to fit BESM-6 core: the book's double[1000][2000]
+// is 12M words (core is only 32K), so use double[10][20] == 200 words; sizeof is
+// 200 elements * 6 bytes/word == 1200.
+TEST_F(CodegenTest, Chapter17_SizeofExtern)
 {
-    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(double large_array[1000][2000];
+    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(double large_array[10][20];
 
 int main(void) {
-    return sizeof large_array == 12000000;
+    return sizeof large_array == 1200;
 })")));
 }
 
