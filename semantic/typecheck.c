@@ -137,10 +137,22 @@ void validate_type(const Type *t)
     case TYPE_ENUM:
         break;
     case TYPE_STRUCT:
-    case TYPE_UNION:
+    case TYPE_UNION: {
         // A reference such as `union x foo;` must agree with the tag's declared keyword.
         check_tag_kind(t);
+        // Cache the size/alignment on the AST node while the tag is still live in
+        // structtab.  A block-local tag is purged on block exit, so the translator
+        // (get_size/get_alignment) can no longer resolve it; the cache lets it fall
+        // back without re-querying structtab.  Mirrors field_access.offset, which is
+        // likewise resolved and stashed on the AST during typecheck.
+        const StructDef *d = structtab_find_opt(t->u.struct_t.name);
+        if (d && d->complete) {
+            Type *mut                    = (Type *)t;
+            mut->u.struct_t.cached_size  = (int)d->size;
+            mut->u.struct_t.cached_align = (int)d->alignment;
+        }
         break;
+    }
     case TYPE_TYPEDEF_NAME:
         // Global typedef names survive resolve_typedef_names as references.
         if (!typetab_exists(t->u.typedef_name.name)) {

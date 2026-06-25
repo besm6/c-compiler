@@ -323,18 +323,13 @@ TEST_F(CodegenTest, MainImplicitReturnZeroNonEmptyBody)
     EXPECT_EQ("0\n", result);
 }
 
-// KNOWN LIMITATION (BESM-6 backend TODO #62): a `static` local whose type is a struct/union
-// tag declared *inside* the function body aborts `lower` with "Struct or union 'u' not found"
-// (here the union tag `u`).  The block-scope static is captured at typecheck time storing a
-// borrowed AST `Type *` (static_locals_add, semantic/symtab.c); the block-scope tag is then
-// purged from structtab on block exit, so when the translator re-resolves the type via
-// ast_type_to_tac_type -> get_size -> structtab_get (translator/translate.c:676) the tag is
-// already gone.  File-scope struct/union types work fine (their tag lives for the whole unit).
-// DISABLED because the abort is a fatal_error that would kill the whole besm-tests binary if
-// this test ran.  Once the static's size is resolved at typecheck time (while the tag is live)
-// and carried on StaticLocalRec, re-enable: dtoi reinterprets the bits of the double 1.0 as an
-// int, and "%o" prints that word, so the expected output is the octal of 1.0's representation.
-TEST_F(CodegenTest, DISABLED_LocalBlockUnionType)
+// A local whose struct/union tag is declared *inside* the function body (BESM-6 backend
+// TODO #62).  The tag is purged from structtab on block exit, so the translator can no
+// longer resolve the type's size/alignment; validate_type caches both on the AST node while
+// the tag is live, and get_size/get_alignment fall back to that cache.  Here dtoi
+// reinterprets the bits of the double 1.0 as an int, and "%o" prints that word, so the
+// expected output is the octal of 1.0's representation.
+TEST_F(CodegenTest, LocalBlockUnionType)
 {
     std::string result = CompileAndRun(R"(
         #include <stdio.h>
@@ -352,4 +347,30 @@ TEST_F(CodegenTest, DISABLED_LocalBlockUnionType)
         }
     )");
     EXPECT_EQ("4050000000000000\n", result);
+}
+
+// A `static` local whose struct tag is declared inside the function body (TODO #62, the
+// path the StaticLocalRec borrows a Type* through).  The static struct keeps its value
+// across calls; each call prints the previous {a,b} then stores the new one.
+TEST_F(CodegenTest, StaticLocalBlockStructType)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void bump(int a, int b) {
+            struct s {
+                int a;
+                int b;
+            };
+            static struct s acc;
+            printf("%d %d\n", acc.a, acc.b);
+            acc.a = a;
+            acc.b = b;
+        }
+        void program() {
+            bump(1, 2);
+            bump(3, 4);
+            bump(5, 6);
+        }
+    )");
+    EXPECT_EQ("0 0\n1 2\n3 4\n", result);
 }

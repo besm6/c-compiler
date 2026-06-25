@@ -114,8 +114,16 @@ size_t get_size(const Type *t)
         }
         return t->u.array.size->u.literal->u.int_val * get_size(t->u.array.element);
     case TYPE_STRUCT:
-    case TYPE_UNION:
-        return structtab_find(t->u.struct_t.name)->size;
+    case TYPE_UNION: {
+        // A block-local tag is purged from structtab on block exit, but its
+        // size was cached on the AST node by validate_type while it was live.
+        const StructDef *d = structtab_find_opt(t->u.struct_t.name);
+        if (d)
+            return d->size;
+        if (t->u.struct_t.cached_size)
+            return t->u.struct_t.cached_size;
+        return structtab_find(t->u.struct_t.name)->size; // not found: fatal_error
+    }
     case TYPE_FUNCTION:
     case TYPE_VOID:
     default:
@@ -157,8 +165,15 @@ size_t get_alignment(const Type *t)
     case TYPE_ARRAY:
         return get_alignment(t->u.array.element);
     case TYPE_STRUCT:
-    case TYPE_UNION:
-        return structtab_find(t->u.struct_t.name)->alignment;
+    case TYPE_UNION: {
+        // See get_size: fall back to the cached alignment for a purged block-local tag.
+        const StructDef *d = structtab_find_opt(t->u.struct_t.name);
+        if (d)
+            return d->alignment;
+        if (t->u.struct_t.cached_align)
+            return t->u.struct_t.cached_align;
+        return structtab_find(t->u.struct_t.name)->alignment; // not found: fatal_error
+    }
     case TYPE_FUNCTION:
     case TYPE_VOID:
     default:

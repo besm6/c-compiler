@@ -92,6 +92,8 @@ struct Type {
         struct {
             Ident name;
             Field *fields;
+            int cached_size;  /* bytes; 0 = not resolved (set by validate_type while tag is live) */
+            int cached_align; /* bytes; 0 = not resolved */
         } struct_t; /* optional name */
         struct {
             Ident name;
