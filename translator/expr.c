@@ -424,6 +424,14 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         xfree(T);
         return val_var(ptr->u.var_name);
     }
+    case EXPR_ASSIGN: {
+        // Member / subscript access on an assignment result, e.g. (x = y).member.  The C
+        // result of an assignment is the value of its left operand; for an aggregate that
+        // is the target object itself.  Perform the assignment for its side effect, then
+        // return the target's address so the outer access reads the just-stored value.
+        tac_free_val(gen_expr(ctx, e)); // discard the assignment's (unused) rvalue result
+        return gen_lval(ctx, e->u.assign.target);
+    }
     case EXPR_CALL:
     case EXPR_COND: {
         // An aggregate temporary (struct/union returned by value, or selected by a

@@ -39,8 +39,8 @@ int main(void) {
 }
 
 // smoke_tests/static_vs_auto: auto structs reinitialized each scope entry,
-// static structs initialized once.  DISABLED: no block-scope static storage.
-TEST_F(CodegenTest, DISABLED_Chapter18_StaticVsAuto)
+// static structs initialized once.  Re-enabled once block-scope statics landed.
+TEST_F(CodegenTest, Chapter18_StaticVsAuto)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
 struct s { int a; int b; };
@@ -1927,8 +1927,9 @@ int main(void) {
 )PROG")));
 }
 
-// block-scope static storage.
-TEST_F(CodegenTest, DISABLED_Chapter18_StructCopyWithDotOperator)
+// Re-enabled once block-scope statics landed.  The six test_copy_* helpers all collided
+// in the first 8 chars (Madlen label `test*cop`), so they were shortened to tc_* names.
+TEST_F(CodegenTest, Chapter18_StructCopyWithDotOperator)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 // Test using . to copy entire structures
@@ -1951,7 +1952,7 @@ struct outermost {
 };
 
 // case 1: x = y.z
-int test_copy_from_member(void) {
+int tc_fmem(void) {
     static struct outer big_struct = {{10, 9, {8, 7, 6}}, 5, 4};
     // allocate other objects on the stack around substruct, make sure they
     // aren't overwritten
@@ -1977,7 +1978,7 @@ int test_copy_from_member(void) {
 }
 
 // case 2: x.y = z
-int test_copy_to_member(void) {
+int tc_tmem(void) {
     static struct outer big_struct = {{0, 0, {0, 0, 0}}, 0, 0};
     struct inner small_struct = {-1, -2, {-3, -4, -5}};
     big_struct.substruct = small_struct;
@@ -1998,7 +1999,7 @@ int test_copy_to_member(void) {
 }
 
 // case 3: a = x.y.z
-int test_copy_from_nested_member(void) {
+int tc_fnest(void) {
     struct outermost biggest_struct = {{{-1, -2, {-3, -4, -5}}, -6, -7}, 0};
     static struct inner small_struct;
 
@@ -2014,7 +2015,7 @@ int test_copy_from_nested_member(void) {
 }
 
 // case 4: x.y.z = a
-int test_copy_to_nested_member(void) {
+int tc_tnest(void) {
     struct outermost biggest_struct = {{{0, 0, {0, 0, 0}}, 0, 0}, -1};
     static struct inner small_struct = {50, 51, {52, 53, 54}};
     biggest_struct.nested.substruct = small_struct;
@@ -2039,7 +2040,7 @@ int test_copy_to_nested_member(void) {
 }
 
 // case 5: a = (flag ? x : y).z
-int test_copy_from_conditional(void) {
+int tc_fcond(void) {
     struct outer big_struct = {{127, -128, {61, 62, 63}}, -10, -11};
     struct outer big_struct2 = {{0, 1, {2, 3, 4}}, 5, 6};
     static int t = 1;
@@ -2070,7 +2071,7 @@ int test_copy_from_conditional(void) {
 }
 
 // case 6: a = (x = y).z
-int test_copy_from_assignment(void) {
+int tc_fasgn(void) {
     struct outer big_struct = {{127, -128, {61, 62, 63}}, -10, -11};
     static struct outer big_struct2;
 
@@ -2100,27 +2101,27 @@ int test_copy_from_assignment(void) {
 }
 
 int main(void) {
-    if (!test_copy_from_member()) {
+    if (!tc_fmem()) {
         return 1;
     }
 
-    if (!test_copy_to_member()) {
+    if (!tc_tmem()) {
         return 2;
     }
 
-    if (!test_copy_from_nested_member()) {
+    if (!tc_fnest()) {
         return 3;
     }
 
-    if (!test_copy_to_nested_member()) {
+    if (!tc_tnest()) {
         return 4;
     }
 
-    if (!test_copy_from_conditional()) {
+    if (!tc_fcond()) {
         return 6;
     }
 
-    if (!test_copy_from_assignment()) {
+    if (!tc_fasgn()) {
         return 7;
     }
 
@@ -2129,15 +2130,14 @@ int main(void) {
 )PROG")));
 }
 
-// malloc/calloc not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter18_StructCopyWithArrowOperator)
+// Re-enabled by backing each pointer with a stack struct instead of malloc/calloc (libc
+// has no live heap in the run harness yet); the six test_* helpers were also shortened to
+// ta_* names to stay distinct within the Madlen 8-char label limit.
+TEST_F(CodegenTest, Chapter18_StructCopyWithArrowOperator)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 // Test using -> to copy entire structures,
 // including large structures w/ members of different sizes
-
-void *calloc(unsigned long nmemb, unsigned long size);
-void *malloc(unsigned long size);
 
 struct inner {
     double d;
@@ -2157,9 +2157,10 @@ struct outermost {
 };
 
 // case 1: x = y->z
-int test_copy_from_member_pointer(void) {
+int ta_fmem(void) {
     struct inner small = {0.0, 0};
-    struct outer *outer_ptr = malloc(sizeof(struct outer));
+    struct outer obj;
+    struct outer *outer_ptr = &obj;
     outer_ptr->a = 100;
     outer_ptr->substruct.d = 21.5;
     outer_ptr->substruct.i = 100001;
@@ -2174,9 +2175,10 @@ int test_copy_from_member_pointer(void) {
 }
 
 // case 2: y->z = x
-int test_copy_to_member_pointer(void) {
+int ta_tmem(void) {
     struct inner small = {99.25, 987654};
-    struct outer *outer_ptr = calloc(1, sizeof(struct outer));
+    struct outer obj = {0, 0, {0.0, 0}};
+    struct outer *outer_ptr = &obj;
     outer_ptr->substruct = small;
 
     // validate
@@ -2193,10 +2195,12 @@ int test_copy_to_member_pointer(void) {
 }
 
 // case 3: a = x->y->z
-int test_copy_from_nested_member_pointer(void) {
+int ta_fnest(void) {
     struct inner small = {99.25, 987654};
-    struct outermost *outer_ptr = calloc(1, sizeof(struct outermost));
-    outer_ptr->nested_ptr = calloc(1, sizeof(struct outer));
+    struct outermost om = {0, 0, {0, 0, {0.0, 0}}};
+    struct outer no;
+    struct outermost *outer_ptr = &om;
+    outer_ptr->nested_ptr = &no;
 
     // initialize allocated pointer
     outer_ptr->i = -5;
@@ -2221,10 +2225,12 @@ int test_copy_from_nested_member_pointer(void) {
 }
 
 // case 4: x->y->z = a
-int test_copy_to_nested_member_pointer(void) {
+int ta_tnest(void) {
     struct inner small = {99.25, 987654};
-    struct outermost *outer_ptr = calloc(1, sizeof(struct outermost));
-    outer_ptr->nested_ptr = calloc(1, sizeof(struct outer));
+    struct outermost om;
+    struct outer no = {0, 0, {0.0, 0}};
+    struct outermost *outer_ptr = &om;
+    outer_ptr->nested_ptr = &no;
 
     outer_ptr->nested_ptr->substruct = small;
 
@@ -2244,13 +2250,16 @@ int test_copy_to_nested_member_pointer(void) {
 
 // case 5: assign one member to another,
 // copy to/from x->y.z and x.y->z
-int test_mixed_nested_access(void) {
+int ta_mixed(void) {
     struct outermost s1 = {100, 0, {0, 0, {0, 0}}};
-    struct outermost *s2_ptr = calloc(1, sizeof(struct outermost));
+    struct outermost s2;
+    struct outer s1_np;
+    struct outer s2_np;
+    struct outermost *s2_ptr = &s2;
 
     // populate s1
     s1.i = 2147483647;
-    s1.nested_ptr = calloc(1, sizeof(struct outermost));
+    s1.nested_ptr = &s1_np;
     s1.nested_ptr->a = 125;
     s1.nested_ptr->b = 126;
     s1.nested_ptr->substruct.d = -50.;
@@ -2260,7 +2269,7 @@ int test_mixed_nested_access(void) {
 
     // populate s2_ptr
     s2_ptr->i = -2147483647;
-    s2_ptr->nested_ptr = calloc(1, sizeof(struct outermost));
+    s2_ptr->nested_ptr = &s2_np;
     s2_ptr->nested_ptr->a = 5;
     s2_ptr->nested_ptr->b = 6;
     s2_ptr->nested_struct.substruct.d = 8.e8;
@@ -2285,10 +2294,11 @@ int test_mixed_nested_access(void) {
 
 // case 6: assign to member of struct pointer produced by cast expression,
 // ((struct s *)x) -> y = z
-int test_member_from_cast(void) {
+int ta_cast(void) {
     struct inner small = {20.0, 10};
 
-    void *outer_ptr = calloc(1, sizeof(struct outer));
+    struct outer obj;
+    void *outer_ptr = &obj;
     ((struct outer *)outer_ptr)->substruct = small;
 
     // validate
@@ -2301,27 +2311,27 @@ int test_member_from_cast(void) {
 }
 
 int main(void) {
-    if (!test_copy_from_member_pointer()) {
+    if (!ta_fmem()) {
         return 1;
     }
 
-    if (!test_copy_to_member_pointer()) {
+    if (!ta_tmem()) {
         return 2;
     }
 
-    if (!test_copy_from_nested_member_pointer()) {
+    if (!ta_fnest()) {
         return 3;
     }
 
-    if (!test_copy_to_nested_member_pointer()) {
+    if (!ta_tnest()) {
         return 4;
     }
 
-    if (!test_mixed_nested_access()) {
+    if (!ta_mixed()) {
         return 5;
     }
 
-    if (!test_member_from_cast()) {
+    if (!ta_cast()) {
         return 6;
     }
 

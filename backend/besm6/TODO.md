@@ -36,13 +36,12 @@ re-enabled when block-scope statics landed).
 
 | #  | Task | Description |
 |----|------|-------------|
-| 23 | Wire up the heap & re-enable dynamic-allocation tests | `malloc`/`calloc`/`realloc`/`free` already link into `libc.bin` but the run harness never calls `heap_setup`, so allocations fail. Initialize a heap region at program start, then re-enable ch17 VoidPointerSimple, ArrayOfPointersToVoid, CommonPointerType, ConversionByAssignment, VoidPointerExplicitCast, SizeofExpressions, PassAllocedMemory. For ch17 MemoryManagementFunctions, implement `aligned_alloc` or drop that sub-call. Also unblocks the ch18 malloc/calloc tests: ScalarMemberAccessArrow, ScalarMemberAccessLinkedList, ScalarMemberAccessNestedStruct, StructCopyWithArrowOperator, AccessRetvalMembers, OpaqueStruct, ReturnStructPointer, IncompleteStructs, IncompleteUnionTypes. |
+| 23 | Wire up the heap & re-enable dynamic-allocation tests | `malloc`/`calloc`/`realloc`/`free` already link into `libc.bin` but the run harness never calls `heap_setup`, so allocations fail. Initialize a heap region at program start, then re-enable ch17 VoidPointerSimple, ArrayOfPointersToVoid, CommonPointerType, ConversionByAssignment, VoidPointerExplicitCast, SizeofExpressions, PassAllocedMemory. For ch17 MemoryManagementFunctions, implement `aligned_alloc` or drop that sub-call. Also unblocks the ch18 malloc/calloc tests: ScalarMemberAccessArrow, ScalarMemberAccessLinkedList, ScalarMemberAccessNestedStruct, AccessRetvalMembers, OpaqueStruct, ReturnStructPointer, IncompleteStructs, IncompleteUnionTypes. |
 
 ### Backend BESM-6 — codegen & libc
 
 | #  | Task | Description |
 |----|------|-------------|
-| 53 | Re-test block-scope-static-only tests | These were disabled for "no block-scope static storage", which is now supported; confirm they pass (or surface the residual blocker) and re-enable. ch18 StaticVsAuto, StructCopyWithDotOperator, StructCopyWithArrowOperator (the last also needs the heap, #23) (3). |
 | 54 | Adapt test ClassifyUnions for BESM-6. | | 
 | 55 | Adapt test ParamPassing for BESM-6. | | 
 | 56 | Adapt test UnionRetvals for BESM-6. | | 
