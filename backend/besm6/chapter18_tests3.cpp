@@ -2086,78 +2086,6 @@ int main(void) {
 )PROG")));
 }
 
-// tag shadowing (no-shadowing design).
-TEST_F(CodegenTest, DISABLED_Chapter18_StructDeclInSwitchStatement)
-{
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
-// Declare a structure inside a switch statement (basically just to make sure
-// we're resolving structure tags inside switch statements)
-struct s {
-    int a;
-    int b;
-};
-
-int main(void) {
-    struct s my_struct = {1, 2};
-    int result = 0;
-    switch (my_struct.a) {
-        // even though switch statement jumps over this declaration,
-        // it's still in scope, shadowing outer one
-        struct s {
-            double x;
-            double y;
-            double z;
-        };
-        // declare inner variable, shadowing outer one
-        struct s my_struct;
-        case 1:
-            my_struct.x = 20.0;
-            my_struct.y = 30.0;
-            result = my_struct.x + my_struct.y;
-            break;
-        case 2:
-            my_struct.x = 11.;
-            my_struct.y = 12.;
-            result = my_struct.x + my_struct.y;
-            break;
-        default:
-            my_struct.x = 0.;
-            my_struct.y = 0.;
-            result = my_struct.x + my_struct.y;
-    }
-    return result; // expected result is 50
-}
-)PROG")));
-}
-
-// tag shadowing (no-shadowing design).
-TEST_F(CodegenTest, DISABLED_Chapter18_DeclShadowsDecl)
-{
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
-/* A struct type declaration can shadow a union type declaration
- * with the same tag, or vice versa. See
- * chapter_18/invalid_types/extra_credit/struct_and_union_ptrs.c
- * for a similar test case where we verify that the typechecker
- * can distinguish between pointers to these types
- */
-
-int main(void) {
-    struct tag; // declare (don't define) a struct type
-    struct tag *struct_ptr = 0;
-    {
-        union tag; // declare (don't define) a union type, shadowing outer declaration
-        union tag *union_ptr = 0;
-
-        // both pointers are null
-        if (struct_ptr || union_ptr) {
-            return 1;// fail
-        }
-    }
-    return 0;
-}
-)PROG")));
-}
-
 // calloc/puts not in libc.
 TEST_F(CodegenTest, DISABLED_Chapter18_IncompleteUnionTypes)
 {
@@ -2253,21 +2181,21 @@ int main(void) {
 )PROG")));
 }
 
-// tag shadowing (no-shadowing design) + malloc.
-TEST_F(CodegenTest, DISABLED_Chapter18_StructShadowsUnion)
+// Union punning through a pointer + nested struct member access.
+// BESM-6: the original test (named StructShadowsUnion) used different tags and did
+// not actually shadow; the heap (malloc) is replaced with a stack union object so the
+// test runs without the heap.
+TEST_F(CodegenTest, Chapter18_StructShadowsUnion)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
-// One type declaration can shadow another with the same tag
-void *malloc(unsigned long size);
+struct s {int a; int b;};
+union u {int i; unsigned int u;};
 
 int main(void) {
-    struct s {int a; int b;};
     struct s my_struct = {12, 13};
     {
-        // union type declaration shadows declaration of struct s
-        union u;
-        union u *ptr = malloc(4);
-        union u {int i; unsigned int u;};
+        union u storage;
+        union u *ptr = &storage;
         ptr->i = 10;
         if (ptr->u != 10) {
             return 1; // fail
@@ -2364,36 +2292,6 @@ int main(void) {
         return 3;  // fail
     }
 
-    return 0;  // success
-}
-)PROG")));
-}
-
-// tag shadowing (no-shadowing design).
-TEST_F(CodegenTest, DISABLED_Chapter18_UnionShadowsStruct)
-{
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
-// A union type declaration can shadow a struct type declaration with the same tag
-struct tag {
-    int a;
-    int b;
-};
-
-struct tag global_struct = {1, 2};
-
-int main(void) {
-    // this shadows the declaration of 'struct tag'
-    union tag {
-        int x;
-        long y;
-    };
-    union tag local_union = {100};
-    if (global_struct.a != 1) {
-        return 1;  // fail
-    }
-    if (local_union.x != 100) {
-        return 2;  // fail
-    }
     return 0;  // success
 }
 )PROG")));

@@ -42,7 +42,6 @@ re-enabled when block-scope statics landed).
 
 | #  | Task | Description |
 |----|------|-------------|
-| 52 | REMOVE backend tag-shadowing tests (no-shadowing design) | Require nested tag shadowing or a parameter shadowing a file-scope static — impossible under the permanent no-shadowing rule. Adapt where possible, otherwise delete: ch18 ResolveTags, StructDeclInSwitchStatement, DeclShadowsDecl, StructShadowsUnion, UnionShadowsStruct, Namespaces, LabelTagMemberNamespace, RedeclareUnion, ScalarMemberAccessDot (9). |
 | 53 | Re-test block-scope-static-only tests | These were disabled for "no block-scope static storage", which is now supported; confirm they pass (or surface the residual blocker) and re-enable. ch18 StaticVsAuto, StructCopyWithDotOperator, StructCopyWithArrowOperator (the last also needs the heap, #23) (3). |
 | 54 | Adapt test ClassifyUnions for BESM-6. | | 
 | 55 | Adapt test ParamPassing for BESM-6. | | 

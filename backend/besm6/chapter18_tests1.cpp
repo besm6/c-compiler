@@ -331,34 +331,38 @@ int main(void) {
 
 // semantic_analysis/namespaces: struct tags, names, and member names are
 // distinct namespaces (no nested tag shadowing here).
-TEST_F(CodegenTest, DISABLED_Chapter18_Namespaces)
+// BESM-6: tags are hoisted to file scope (block-scope tag definitions are unsupported);
+// the second pair of structs is renamed pair3/pair4 to avoid a file-scope redefinition
+// (the original reused pair1/pair2 in sibling function scopes). Function names are
+// shortened so they stay distinct within Madlen's 8-character identifier limit.
+TEST_F(CodegenTest, Chapter18_Namespaces)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
-int test_shared_member_names(void) {
-    struct pair1 { int x; int y; };
-    struct pair2 { double x; char y; };
+struct pair1 { int x; int y; };
+struct pair2 { double x; char y; };
+struct pair3 { int x; int *y; };
+struct pair4 { void *x; double y[4]; };
+struct x { int x; };
+struct f { int f; };
+int sharedmem(void) {
     struct pair1 p1 = {1, 2};
     struct pair2 p2 = {3.0, 4};
     if (p1.x != 1 || p2.x != 3.0) return 0;
     return 1;
 }
-int test_shared_nested_member_names(void) {
-    struct pair1 { int x; int *y; };
-    struct pair2 { void *x; double y[4]; };
-    struct pair1 p1 = {3, &(p1.x)};
-    struct pair2 p2 = {&p1, {1.0, 2.0, 3.0, 4.0}};
-    if (((struct pair1 *)p2.x)->x != 3) return 0;
+int nestedmem(void) {
+    struct pair3 p1 = {3, &(p1.x)};
+    struct pair4 p2 = {&p1, {1.0, 2.0, 3.0, 4.0}};
+    if (((struct pair3 *)p2.x)->x != 3) return 0;
     return 1;
 }
-int test_same_name_var_member_and_tag(void) {
-    struct x { int x; };
+int varname(void) {
     struct x x = {10};
     if (x.x != 10) return 0;
     return 1;
 }
 int f(void);
-int test_same_name_fun_member_and_tag(void) {
-    struct f { int f; };
+int funname(void) {
     struct f my_struct;
     my_struct.f = f();
     if (my_struct.f != 10) return 0;
@@ -366,10 +370,10 @@ int test_same_name_fun_member_and_tag(void) {
 }
 int f(void) { return 10; }
 int main(void) {
-    if (!test_shared_member_names()) return 1;
-    if (!test_shared_nested_member_names()) return 2;
-    if (!test_same_name_var_member_and_tag()) return 3;
-    if (!test_same_name_fun_member_and_tag()) return 4;
+    if (!sharedmem()) return 1;
+    if (!nestedmem()) return 2;
+    if (!varname()) return 3;
+    if (!funname()) return 4;
     return 0;
 })")));
 }
@@ -393,11 +397,12 @@ int main(void) {
 
 // other_features/label_tag_member_namespace: a label, struct tag, and member
 // name may all be the identifier 'x' (distinct namespaces); goto jumps past it.
-TEST_F(CodegenTest, DISABLED_Chapter18_LabelTagMemberNamespace)
+// BESM-6: the tag is hoisted to file scope (block-scope tag definitions are unsupported).
+TEST_F(CodegenTest, Chapter18_LabelTagMemberNamespace)
 {
     EXPECT_EQ("10\n", CompileAndRun(WrapMain(R"(
+struct x { int x; };
 int main(void) {
-    struct x { int x; };
     struct x x = {10};
     goto x;
     return 0;
@@ -445,12 +450,13 @@ int main(void) {
 }
 
 // semantic_analysis/redeclare_union: a content-less re-declaration is a no-op.
-TEST_F(CodegenTest, DISABLED_Chapter18_RedeclareUnion)
+// BESM-6: the tag is hoisted to file scope (block-scope tag definitions are unsupported).
+TEST_F(CodegenTest, Chapter18_RedeclareUnion)
 {
     EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(
+union u { int a; };
+union u;
 int main(void) {
-    union u { int a; };
-    union u;
     union u my_union = {1};
     return my_union.a;
 })")));

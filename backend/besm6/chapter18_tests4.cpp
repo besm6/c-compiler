@@ -2341,9 +2341,9 @@ struct has_uneven_union return_struct_with_union(void) {
 }
 )PROG")));
 }
-// no identifier shadowing (a parameter named l shadows the file-scope static l)
-// plus block-scope static storage.
-TEST_F(CodegenTest, DISABLED_Chapter18_ScalarMemberAccessDot)
+// BESM-6: the accept_params parameter `l` was renamed to `lval` (no identifier
+// shadowing of the file-scope static `l`); block-scope static storage is supported.
+TEST_F(CodegenTest, Chapter18_ScalarMemberAccessDot)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test the . operator.
@@ -2370,8 +2370,8 @@ static long l = 34359738378l;
 // validate members (and values derived from members) that are passed as
 // parameters
 int accept_params(int d_divided, int c_doubled, double l_cast,
-                  int dereferenced_ptr, double d, int c, long l, char *ptr) {
-    if (d != 4e12 || c != 127 || l != 8589934594l || *ptr != 100 ||
+                  int dereferenced_ptr, double d, int c, long lval, char *ptr) {
+    if (d != 4e12 || c != 127 || lval != 8589934594l || *ptr != 100 ||
         d_divided != 100.0 || c_doubled != 254 || l_cast != 8589934594.0 ||
         dereferenced_ptr != 100) {
         return 0;
