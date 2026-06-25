@@ -6,6 +6,9 @@
 #
 # make run   -- run all unit tests (including the textbook chapter tests)
 #
+# make install -- install b6parse, b6lower, b6codegen and libc.bin
+#               (to ~/.local if it exists, otherwise /usr/local)
+#
 # make clean -- remove build files
 #
 # To reconfigure for Debug build:
@@ -19,6 +22,11 @@ test:   build
 
 run:    test
 	ctest --test-dir build
+
+install: all
+	@prefix=$$( [ -d "$$HOME/.local" ] && echo "$$HOME/.local" || echo /usr/local ); \
+	echo "Installing to $$prefix"; \
+	cmake --install build --prefix "$$prefix"
 
 clean:
 	rm -rf build

@@ -89,6 +89,8 @@ add_custom_command(
 # available, independent of the EXCLUDE_FROM_ALL test executables.
 add_custom_target(besm-libc ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libc.bin)
 
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libc.bin DESTINATION lib/besm6)
+
 #
 # Tests for the BESM-6 backend
 #

@@ -82,7 +82,22 @@ The repository ships two programs: **`parse`** (C → AST) and **`lower`** (bina
 make            # creates build/, runs cmake, builds the compiler and runtime
 make test       # builds all unit tests in build/ (does not run them)
 make run        # builds and runs all unit tests via ctest in build/
+make install    # installs the compiler and runtime (see below)
 ```
+
+**Install:** `make install` builds everything and installs four artifacts to `~/.local`
+if that directory exists, otherwise to `/usr/local`:
+
+| Build artifact | Installed path        |
+| -------------- | --------------------- |
+| `parse`        | `bin/b6parse`         |
+| `lower`        | `bin/b6lower`         |
+| `genbesm`      | `bin/b6codegen`       |
+| `libc.bin`     | `lib/besm6/libc.bin`  |
+
+The driver binaries are renamed (`b6` prefix) at install time only; the in-tree build
+outputs keep their original names. To install elsewhere, pass a prefix to CMake directly:
+`cmake --install build --prefix /opt/besm6`.
 
 The textbook chapter tests (`*/chapter*_tests.cpp`) are compiled into the regular
 per-module test binaries (e.g. `parser-tests`, `besm-tests`) and run by `make run` along

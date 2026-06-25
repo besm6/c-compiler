@@ -8,9 +8,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 make              # configure + build the compiler & runtime (RelWithDebInfo) into ./build/
 make test         # build all unit tests (incl. textbook chapter tests), do not run
 make run          # build + run all unit tests via ctest
+make install      # build + install the compiler & runtime (see below)
 make debug        # build with Debug flags
 make clean        # remove ./build/
 ```
+
+**`make install`** builds everything, then installs four artifacts via `cmake --install`
+to `~/.local` if that directory exists, otherwise `/usr/local`: `parse` → `bin/b6parse`,
+`lower` → `bin/b6lower`, `genbesm` → `bin/b6codegen`, and `libc.bin` → `lib/besm6/libc.bin`.
+The prefix is chosen in the Makefile at install time and passed as `cmake --install build
+--prefix`; the driver binaries are renamed (`b6` prefix) only at install time via
+`install(PROGRAMS … RENAME)`, so the in-tree build outputs (`build/parse`, `build/lower`,
+`build/backend/genbesm`) keep their original names.
 
 **All tests are excluded from the default build.** Every per-module test executable is
 marked `EXCLUDE_FROM_ALL`, so a plain `make`/`make all` builds only the compiler and runtime
