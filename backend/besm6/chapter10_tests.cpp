@@ -599,17 +599,3 @@ int main(void) {
     print_alphabet();
 })")));
 }
-
-// References external symbol `zed` from a hand-written x86 .s file; an x86
-// page-boundary stack-argument test with no BESM-6 analogue.
-TEST_F(CodegenTest, DISABLED_Chapter10_PushArgOnPageBoundary)
-{
-    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(extern int zed;
-int foo(int a, int b, int c, int d, int e, int f, int g) {
-    return g + 1;
-}
-
-int main(void) {
-    return foo(0, 0, 0, 0, 0, 0, zed);
-})")));
-}
