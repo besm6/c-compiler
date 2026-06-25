@@ -25,20 +25,9 @@ the test; (2) replace literals that make no sense on BESM-6; (3) implement a mis
 function; (4) remove NaN/inf parts; (5) shorten names that collide in 8 chars; (6) for
 no-analogue tests, adapt where possible and remove the rest.
 
-**Stale headers (no action needed):** six files mention `DISABLED_` only in comments and
-have **zero** real disabled tests — their leftover headers can be tidied opportunistically:
-`semantic/chapter16_tests.cpp`, `semantic/chapter17_tests.cpp`,
-`backend/besm6/chapter11_tests.cpp`, `backend/besm6/chapter13_tests.cpp`,
-`backend/besm6/chapter14_tests.cpp`, `backend/besm6/chapter19_tests.cpp` (the last four were
-re-enabled when block-scope statics landed).
-
 ### Backend BESM-6 — codegen & libc
 
 | #  | Task | Description |
 |----|------|-------------|
-| 54 | Adapt test ClassifyUnions for BESM-6. | | 
 | 55 | Adapt test ParamPassing for BESM-6. | | 
 | 56 | Adapt test UnionRetvals for BESM-6. | | 
-
-**Cross-references (no new task):** besm6 ch15 EquivalentDeclarators re-enables once the
-existing **task #19** (tentative/extern-after-definition clobber) lands.
