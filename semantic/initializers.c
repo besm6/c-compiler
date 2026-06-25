@@ -99,6 +99,11 @@ static Initializer *make_zero_init(Type *t)
         FieldDef *members = structtab_find(t->u.struct_t.name)->members;
         for (; members; members = members->next) {
             InitItem *item = new_init_item(NULL, make_zero_init(members->type));
+            // Stash the member's byte offset, as typecheck_init does for an explicit
+            // initializer.  gen_compound_init's struct branch addresses each member at
+            // base_offset + item->offset; without this, every member of a zero-filled
+            // nested struct collapses onto offset 0.
+            item->offset   = members->offset;
             *tail          = item;
             tail           = &item->next;
         }
