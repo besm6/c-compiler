@@ -80,14 +80,15 @@ The repository ships two programs: **`parse`** (C → AST) and **`lower`** (bina
 
 ```bash
 make            # creates build/, runs cmake, builds the compiler and runtime
-make test       # builds and runs all unit tests via ctest in build/
+make test       # builds all unit tests in build/ (does not run them)
+make run        # builds and runs all unit tests via ctest in build/
 ```
 
 The textbook chapter tests (`*/chapter*_tests.cpp`) are compiled into the regular
-per-module test binaries (e.g. `parser-tests`, `besm-tests`) and run by `make test` along
+per-module test binaries (e.g. `parser-tests`, `besm-tests`) and run by `make run` along
 with everything else. The test executables are all `EXCLUDE_FROM_ALL`, so a plain `make`
-builds only the compiler and runtime; `make test` builds them. See
-[docs/Tests_From_The_Book.md](docs/Tests_From_The_Book.md).
+builds only the compiler and runtime; `make test` builds them too, and `make run` runs them.
+See [docs/Tests_From_The_Book.md](docs/Tests_From_The_Book.md).
 
 Or with CMake directly:
 

@@ -6,7 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```sh
 make              # configure + build the compiler & runtime (RelWithDebInfo) into ./build/
-make test         # build + run all unit tests via ctest (incl. textbook chapter tests)
+make test         # build all unit tests (incl. textbook chapter tests), do not run
+make run          # build + run all unit tests via ctest
 make debug        # build with Debug flags
 make clean        # remove ./build/
 ```
@@ -14,8 +15,8 @@ make clean        # remove ./build/
 **All tests are excluded from the default build.** Every per-module test executable is
 marked `EXCLUDE_FROM_ALL`, so a plain `make`/`make all` builds only the compiler and runtime
 (`parse`, `lower`, `genbesm`, and `libc.bin`), not the tests. `make test` builds the
-`build_tests` CMake aggregate (all nine test executables) and then runs `ctest --test-dir
-build` over everything.
+`build_tests` CMake aggregate (all nine test executables) but does not run them; `make run`
+depends on `make test` and then runs `ctest --test-dir build` over everything.
 
 **The "Writing a C Compiler" chapter tests are compiled into the regular test binaries.**
 The chapter sources (`*/test/chapter*_tests.cpp`, `backend/besm6/test/chapter*_tests.cpp`) are listed
@@ -113,7 +114,7 @@ Use the C compiler's preprocessor (`cc -E`), not a standalone `cpp`: a tradition
 `#include` lines silently fail to expand. No `-P` is needed — `parse`'s scanner consumes
 `# line` markers and keeping them preserves original line numbers in diagnostics:
 `cc -E -nostdinc -Ibackend/besm6/include prog.c | parse -`. The `besm-headers` CTest
-(`scripts/check_headers.sh`, run under `make test`) preprocesses and parses every header to
+(`scripts/check_headers.sh`, run under `make run`) preprocesses and parses every header to
 catch syntax errors. The unit-test fixtures preprocess their C snippets automatically via
 `libutil/test/test_preprocess.h` (using the CMake `BESM6_CPP`/`BESM6_INCLUDE_DIR` defines), so
 tests `#include <stdio.h>` instead of hand-declaring libc routines. `<stdarg.h>` is
@@ -223,7 +224,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 The `chapter*_tests.cpp` files in `parser/test/`, `scanner/test/`, `semantic/test/`,
 `optimize/test/`, and `backend/besm6/test/` are the "Writing a C Compiler" book tests; they are compiled into the same
 per-module test executables as the unit tests above (e.g. `parser-tests`, `besm-tests`) and
-run by `make test` (see **Build & Test** above).
+run by `make run` (see **Build & Test** above).
 
 ## Documentation
 
