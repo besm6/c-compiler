@@ -1007,8 +1007,17 @@ int main(void) {
 )PROG")));
 }
 
-// malloc/calloc/strcmp + block-scope static.
-TEST_F(CodegenTest, DISABLED_Chapter18_AutoStructInitializers)
+// BESM-6 adaptation: there is no heap, so the `malloc(5)`,
+// `calloc(1, sizeof(struct s))` and `calloc(1, sizeof(double))` allocations are
+// replaced with zero-initialized block-scope statics (`struct s` is a file-scope
+// tag, so task #62's block-local-static-struct limit does not apply; zeroed
+// statics reproduce calloc's zero-init).  The four `validate_*` helpers all collide
+// on the first 8 chars (`validate`) in Madlen's identifier space, so they are
+// renamed to distinct `v*` names.  The message/strcmp string literals are
+// UPPERCASED so the automatic (ASCII) and static-literal (KOI-7) paths compare
+// equal.  The doubles (2e12, 2999.0, 150.0, 123.4) are each compared only against
+// the compiler's own representation of the same constant, so equality is exact.
+TEST_F(CodegenTest, Chapter18_AutoStructInitializers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test initialization of non-nested structs with automatic storage duration,
@@ -1023,9 +1032,6 @@ TEST_F(CodegenTest, DISABLED_Chapter18_AutoStructInitializers)
 // library functions
 int strcmp(char *s1, char *s2);
 
-void *malloc(unsigned long size);
-void *calloc(unsigned long nmemb, unsigned long size);
-
 // struct type def
 struct s {
     char *one_msg;
@@ -1036,10 +1042,10 @@ struct s {
 };
 
 // validation functions defined in library
-int validate_full_initialization(struct s *ptr);
-int validate_partial_initialization(struct s *ptr, char *expected_msg);
-int validate_converted(struct s *ptr);
-int validate_two_structs(struct s *ptr1, struct s *ptr2);
+int vfull(struct s *ptr);
+int vpart(struct s *ptr, char *expected_msg);
+int vconv(struct s *ptr);
+int vtwo(struct s *ptr1, struct s *ptr2);
 /* Test initialization of non-nested structs with automatic storage duration,
  * including:
  * - partial initialization
@@ -1058,53 +1064,54 @@ double get_double(void) {
 int test_full_initialization(void) {
     struct s full = {
         // use string literals to initialize both pointers and arrays
-        "I'm a struct!", "sup",
+        "I'M A STRUCT!", "SUP",
         &full,          // initialize member with pointer to self
         get_double(),   // initialize member with result of function call
         &(full.four_d)  // initialize member with pointer to other member in
                         // self
     };
 
-    return validate_full_initialization(&full);
+    return vfull(&full);
 }
 
 // case 2: partially initialized struct
 int test_partial_initialization(void) {
-    static char *msg = "Another string literal";
+    static char *msg = "ANOTHER STRING LITERAL";
+    static struct s bk;  // zeroed static stands in for calloc(1, sizeof(struct s))
     struct s partial = {
         msg,         // initialize member from variable
         {'a', 'b'},  // partially initialize array
-        (struct s *)calloc(
-            1,
-            sizeof(struct s))  // initialize ptr with call to calloc
+        &bk          // initialize ptr with zeroed static backing storage
         // don't initialize last element
     };
 
-    return validate_partial_initialization(&partial, msg);
+    return vpart(&partial, msg);
 }
 
 // case 3: implicit type conversions for struct members
 int test_implicit_type_conversions(void) {
     static int i = 3000;
+    static char mbuf[5];  // non-null static buffer stands in for malloc(5)
+    static double zd;     // zeroed static stands in for calloc(1, sizeof(double))
 
     struct s converted = {
-        malloc(5),              // convert void * to char *
+        mbuf,                   // non-null char *
         {i / 2, i / 3, i * 4},  // truncate ints to chars: 220, 232, and 224
         0l,                     // convert null pointer constant to null pointer
         i - 1,                  // convert int to double
-        calloc(1, sizeof(double))  // convert void * to double *
+        &zd                     // zeroed double *
     };
 
-    return validate_converted(&converted);
+    return vconv(&converted);
 }
 
 // case 4: initialize with single expression instead of compound initiailizer
 int test_single_exp_initializer(void) {
     double d = 123.4;
-    struct s s1 = {"Yet another string", "xy", &s1, 150.0, &d};
+    struct s s1 = {"YET ANOTHER STRING", "XY", &s1, 150.0, &d};
     struct s s2 = s1;
 
-    return validate_two_structs(&s1, &s2);
+    return vtwo(&s1, &s2);
 }
 
 int main(void) {
@@ -1135,9 +1142,9 @@ int main(void) {
  * */
 
 
-int validate_full_initialization(struct s *ptr) {
-    if (strcmp(ptr->one_msg, "I'm a struct!") || ptr->two_arr[0] != 's' ||
-        ptr->two_arr[1] != 'u' || ptr->two_arr[2] != 'p' ||
+int vfull(struct s *ptr) {
+    if (strcmp(ptr->one_msg, "I'M A STRUCT!") || ptr->two_arr[0] != 'S' ||
+        ptr->two_arr[1] != 'U' || ptr->two_arr[2] != 'P' ||
         ptr->three_self_ptr != ptr || ptr->four_d != 2e12 ||
         *ptr->five_d_ptr != 2e12) {
         return 0;
@@ -1146,7 +1153,7 @@ int validate_full_initialization(struct s *ptr) {
     return 1;  // success
 }
 
-int validate_partial_initialization(struct s *ptr, char *expected_msg) {
+int vpart(struct s *ptr, char *expected_msg) {
     if (ptr->one_msg != expected_msg || ptr->two_arr[0] != 'a' ||
         ptr->two_arr[1] != 'b') {
         return 0;
@@ -1164,7 +1171,7 @@ int validate_partial_initialization(struct s *ptr, char *expected_msg) {
 
     return 1;  // success
 }
-int validate_converted(struct s *ptr) {
+int vconv(struct s *ptr) {
     if (!ptr->one_msg ||  // just validate that this pointer isn't null
         ptr->two_arr[0] != 220 || ptr->two_arr[1] != 232 ||
         ptr->two_arr[2] != 224 || ptr->three_self_ptr ||
@@ -1175,13 +1182,13 @@ int validate_converted(struct s *ptr) {
     return 1;  // success
 }
 
-int validate_two_structs(struct s *ptr1, struct s *ptr2) {
+int vtwo(struct s *ptr1, struct s *ptr2) {
     // validate elements of ptr2
-    if (strcmp(ptr2->one_msg, "Yet another string") ||
+    if (strcmp(ptr2->one_msg, "YET ANOTHER STRING") ||
         ptr2->one_msg != ptr1->one_msg ||  // both one_msg members point to same
                                            // string literal
         // contents of two_arr copied from s1 to s2
-        ptr2->two_arr[0] != 'x' || ptr2->two_arr[1] != 'y' ||
+        ptr2->two_arr[0] != 'X' || ptr2->two_arr[1] != 'Y' ||
         ptr2->three_self_ptr !=
             ptr1 ||  // ptr2->three_self_ptr is ptr1, not to itself
         ptr2->four_d != 150.0 ||
