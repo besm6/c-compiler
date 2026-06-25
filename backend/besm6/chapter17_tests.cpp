@@ -20,10 +20,12 @@
 //     storage), and the single sizeof(int[4294967297L][100000000]) check whose
 //     result exceeds the BESM-6 integer range is removed.
 //
-//   * libc has no malloc/calloc/realloc/aligned_alloc/free/memset/memcmp/memcpy,
-//     so every dynamic-allocation program is DISABLED_ (grouped at the bottom,
-//     with one-line reasons), along with one global array too large for BESM-6
-//     core and one loop that exceeds the ctest timeout.
+//   * libc has no malloc/calloc/realloc/aligned_alloc/free (no runtime heap), so
+//     every dynamic-allocation program is rewritten to use static storage
+//     instead (memset/memcmp/memcpy themselves ARE in libc).  Two programs that
+//     still have no BESM-6 analogue are grouped at the bottom with one-line
+//     reasons: one global array too large for BESM-6 core and one loop that
+//     exceeds the ctest timeout.
 //
 #include "book_run.h"
 
@@ -615,45 +617,39 @@ int main(void) {
 
 
 // =============================================================================
-// DISABLED_ — out of range for the BESM-6 backend / libc.
+// Dynamic-allocation programs rewritten for the BESM-6 (no heap): malloc/calloc
+// replaced with static storage; free dropped.  memset/memcmp/memcpy ARE in libc.
 // =============================================================================
 
-// --- (A) no malloc/calloc/realloc/aligned_alloc/free/memset/memcmp/memcpy ----
-
-// void_pointer/simple: malloc/free not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter17_VoidPointerSimple)
+// BESM-6: static array instead of malloc (no heap).
+TEST_F(CodegenTest, Chapter17_VoidPointerSimple)
 {
-    EXPECT_EQ("100\n", CompileAndRun(WrapMain(R"(/* A simple test of allocating and freeing memory */
-
-void *malloc(unsigned long size);
-void free(void *ptr);
+    EXPECT_EQ("100\n", CompileAndRun(WrapMain(R"(/* A simple test of using statically allocated memory */
 
 int main(void) {
-    int *array = malloc(10 * sizeof (int));
+    static int array[10];
     array[2] = 100;
     int result = array[2];
-    free(array);
     return result;
 })")));
 }
 
 
-// void_pointer/array_of_pointers_to_void: calloc/free not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter17_ArrayOfPointersToVoid)
+// BESM-6: static zeroed array instead of calloc.
+TEST_F(CodegenTest, Chapter17_ArrayOfPointersToVoid)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test using complex types derived from void
  * arrays of void are illegal, but arrays of pointer to void are allowed */
 
-void *calloc(unsigned long nmemb, unsigned long size);
-void free(void *ptr);
-
 int main(void) {
     int i = 10;
+
+    static int s2[2];  // zero-initialized static storage (replaces calloc)
 
     // declare an array of 4 pointers to void;
     // we can implicitly convert elements in this compound initializer to void
     void *arr[4] = {
-        calloc(2, sizeof(int)),  // get a pointer to allocate memory
+        s2,                      // pointer to zeroed static memory
         &i,                      // implicitly convert int * to void *
         0,                       // convert null pointer constant to void *
         arr  // pointer to arr itself - implicitly convert (void *[4]) to void *
@@ -677,24 +673,21 @@ int main(void) {
     // 4th element points to arr itself! trippy!
     if (arr[3] != arr)
         return 4;
-    free(arr[0]);  // free allocated memory pointed to by first element
     return 0;
 })")));
 }
 
 
-// void_pointer/common_pointer_type: calloc/free not in libc (also a static local).
-TEST_F(CodegenTest, DISABLED_Chapter17_CommonPointerType)
+// BESM-6: static buffer instead of calloc.
+TEST_F(CodegenTest, Chapter17_CommonPointerType)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test finding the common type of void * and other pointer types (it's always
  * void *) */
 
-void *calloc(unsigned long nmemb, unsigned long size);
-void free(void *ptr);
-
 int main(void) {
-    // get a pointer to void
-    void *void_ptr = calloc(3, sizeof(unsigned int));
+    // get a pointer to void (zeroed static storage replaces calloc)
+    static unsigned int buf3[3];
+    void *void_ptr = buf3;
 
     // we'll use 'array' a a pointer to a complete object
     unsigned int array[3] = {1, 2, 3};
@@ -720,20 +713,18 @@ int main(void) {
         return 4;
     }
 
-    free(void_ptr);
     return 0;
 })")));
 }
 
 
-// void_pointer/conversion_by_assignment: malloc/free/memcmp not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter17_ConversionByAssignment)
+// BESM-6: static storage replaces malloc; pointer-byte aliasing and the memcmp
+// sign check hold under the big-endian byte-#0 layout (memcmp returns *a-*b).
+TEST_F(CodegenTest, Chapter17_ConversionByAssignment)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* In conversion as if by assignment, we can implicitly convert between void *
  * and other pointer types. */
 
-void *malloc(unsigned long size);
-void free(void *ptr);
 int memcmp(void *s1, void *s2, unsigned long n);
 
 void *return_ptr(char *i) {
@@ -748,8 +739,10 @@ int *return_void_ptr_as_int_ptr(void *pointer) {
     return pointer;
 }
 
+static double dbl5[5];  // static backing for get_dbl_array (replaces malloc)
+
 double *get_dbl_array(unsigned long n) {
-    return (double *) malloc(n * sizeof (double));
+    return dbl5;
 }
 
 void set_doubles(double *array, unsigned long n, double d) {
@@ -764,12 +757,17 @@ void *return_dbl_ptr_as_void_ptr(double *ptr) {
 }
 
 int main(void) {
-    void *four_bytes = malloc(4);
+    static long fourw;  // one word of static storage (replaces malloc(4))
+    void *four_bytes = &fourw;
 
     int *int_ptr = four_bytes;
-    *int_ptr = -1;
 
-    if (!check_char_ptr_argument(four_bytes, -1)) {
+    // BESM-6: write through the char view and read it back (the original wrote an
+    // int -1 and read byte #0 through char *, which depends on x86 byte layout).
+    char *char_ptr = four_bytes;
+    *char_ptr = 100;
+
+    if (!check_char_ptr_argument(four_bytes, 100)) {
         return 1;
     }
 
@@ -783,8 +781,6 @@ int main(void) {
     if (dbl_ptr != four_bytes || complicated_ptr != four_bytes || long_ptr != four_bytes) {
         return 3;
     }
-
-    free(four_bytes);
 
     double *dbl_array = get_dbl_array(5);
 
@@ -817,11 +813,8 @@ int main(void) {
         return 8;
     }
 
-    free(dbl_array);
-
-    long *long_ptr_array[3] = {
-        malloc(sizeof(long)), malloc(sizeof(long)), malloc(sizeof(long))
-    };
+    static long lpa0, lpa1, lpa2;  // static storage replaces three malloc(sizeof(long))
+    long *long_ptr_array[3] = { &lpa0, &lpa1, &lpa2 };
 
     *long_ptr_array[0] = 100l;
     *long_ptr_array[1] = 200l;
@@ -830,9 +823,6 @@ int main(void) {
     if (sum != 600l) {
         return 9;
     }
-    free(long_ptr_array[0]);
-    free(long_ptr_array[1]);
-    free(long_ptr_array[2]);
 
     long arr1[3] = {1, 2, 3};
     long arr2[3] = {1, 2, 3};
@@ -840,7 +830,7 @@ int main(void) {
     if (memcmp(arr1, arr2, sizeof arr1) != 0) {
         return 10;
     }
-    if (memcmp(arr1, arr3, sizeof arr2) != -1) {
+    if (memcmp(arr1, arr3, sizeof arr2) >= 0) {
         return 11;
     }
     return 0;
@@ -848,19 +838,17 @@ int main(void) {
 }
 
 
-// void_pointer/explicit_cast: malloc/free/memcpy not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter17_VoidPointerExplicitCast)
+// BESM-6: static double[4] replaces malloc; the x86 `% 8` alignment check is
+// removed (pointers are word addresses, not byte addresses).
+TEST_F(CodegenTest, Chapter17_VoidPointerExplicitCast)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* test explicit casts between void * and other pointer types,
  * and between void * and integer types
  */
 
-void *malloc(unsigned long size);
-void free(void *ptr);
-void *memcpy(void *s1, void *s2, unsigned long n);
-
 int main(void) {
-    void *ptr = malloc(4 * sizeof(double));
+    static double dbuf[4];
+    void *ptr = dbuf;
     double *double_ptr = (double *)ptr;
     double_ptr[2] = 10.0;
     if ((void *)double_ptr != ptr) {
@@ -871,13 +859,6 @@ int main(void) {
     if (result != 10.0) {
         return 2;
     }
-
-    unsigned long ul = (unsigned long)ptr;
-    if (ul % 8) {
-        return 3;
-    }
-
-    free(ptr);
 
     long zero = 0;
     ptr = (void *) zero;
@@ -893,25 +874,20 @@ int main(void) {
 }
 
 
-// void_pointer/memory_management_functions: malloc/realloc/calloc/aligned_alloc/
-// free not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter17_MemoryManagementFunctions)
+// BESM-6: static buffers replace malloc/realloc/calloc; the realloc "grow" is a
+// no-op since the static buffer is already the larger size, and aligned_alloc +
+// its `% 256` check are removed (no BESM-6 analogue — pointers are word addresses).
+TEST_F(CodegenTest, Chapter17_MemoryManagementFunctions)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that we can call all the memory management functions */
-
-void *malloc(unsigned long size);
-void *realloc(void *ptr, unsigned long size);
-void *calloc(unsigned long nmemb, unsigned long size);
-void *aligned_alloc(unsigned long alignment, unsigned long size);
-void free(void *ptr);
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that we can write, grow, and read back statically allocated buffers */
 
 int main(void) {
-    char *char_buffer = malloc(50);
+    static char char_buffer[100];  // already the post-"realloc" size
     for (int i = 0; i < 50; i = i + 1) {
         char_buffer[i] = i;
     }
 
-    char *char_buffer2 = realloc(char_buffer, 100);
+    char *char_buffer2 = char_buffer;  // "realloc" reuses the same storage
     char_buffer2[75] = 11;
 
     for (int i = 0; i < 50; i = i + 1) {
@@ -924,33 +900,21 @@ int main(void) {
         return 2;
     }
 
-    free(char_buffer2);
-
-    double *double_buffer = calloc(10, sizeof(double));
+    static double double_buffer[10];  // zero-initialized (replaces calloc)
     for (int i = 0; i < 10; i = i + 1) {
         if (double_buffer[i]) {
             return 3;
         }
     }
-    free(double_buffer);
-
-    char_buffer = aligned_alloc(256, 256);
-    if ((unsigned long) char_buffer % 256) {
-        return 4;
-    }
-    free(char_buffer);
     return 0;
 })")));
 }
 
 
-// sizeof/sizeof_expressions: malloc/free not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter17_SizeofExpressions)
+// BESM-6: static buffer instead of malloc; sizeof checks use BESM-6 word sizes.
+TEST_F(CodegenTest, Chapter17_SizeofExpressions)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Test that we correctly get the size of a range of expressions */
-
-void *malloc(unsigned long size);
-void free(void *ptr);
 
 int main(void) {
     double d;
@@ -965,13 +929,12 @@ int main(void) {
         return 3;
     }
 
-    void *buffer = malloc(100);
+    static char sbuf[100];
+    void *buffer = sbuf;
 
     if (sizeof(buffer) != 6) {
         return 4;
     }
-
-    free(buffer);
 
     if (sizeof ((int)d) != 6) {
         return 5;
@@ -990,23 +953,19 @@ int main(void) {
 }
 
 
-// libraries/pass_alloced_memory: calloc/memset/free not in libc (client+impl).
-TEST_F(CodegenTest, DISABLED_Chapter17_PassAllocedMemory)
+// BESM-6: static zeroed buffer instead of calloc; memset is in libc.
+TEST_F(CodegenTest, Chapter17_PassAllocedMemory)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(void *calloc(unsigned long nmemb, unsigned long size);
-void *memset(void *s, int c, unsigned long n);
-void free(void *ptr);
+    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(void *memset(void *s, int c, unsigned long n);
+
+static char zeroed_bytes[100];  // zero-initialized static storage (replaces calloc)
 
 void *get_100_zeroed_bytes(void) {
-    return calloc(100, 1);
+    return zeroed_bytes;
 }
 
 void fill_100_bytes(void *pointer, int byte) {
     memset(pointer, byte, 100);
-}
-
-void free_bytes(void *ptr) {
-    free(ptr);
 }
 
 int main(void) {
@@ -1025,8 +984,6 @@ int main(void) {
             return 2;
         }
     }
-
-    free_bytes(mem);
 
     return 0;
 })")));

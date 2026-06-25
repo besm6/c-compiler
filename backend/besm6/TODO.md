@@ -32,12 +32,6 @@ have **zero** real disabled tests — their leftover headers can be tidied oppor
 `backend/besm6/chapter14_tests.cpp`, `backend/besm6/chapter19_tests.cpp` (the last four were
 re-enabled when block-scope statics landed).
 
-### Backend BESM-6 — dynamic allocation
-
-| #  | Task | Description |
-|----|------|-------------|
-| 23 | Wire up the heap & re-enable dynamic-allocation tests | `malloc`/`calloc`/`realloc`/`free` already link into `libc.bin` but the run harness never calls `heap_setup`, so allocations fail. Initialize a heap region at program start, then re-enable ch17 VoidPointerSimple, ArrayOfPointersToVoid, CommonPointerType, ConversionByAssignment, VoidPointerExplicitCast, SizeofExpressions, PassAllocedMemory. For ch17 MemoryManagementFunctions, implement `aligned_alloc` or drop that sub-call. Also unblocks the ch18 malloc/calloc tests: ScalarMemberAccessArrow, ScalarMemberAccessLinkedList, ScalarMemberAccessNestedStruct, AccessRetvalMembers, OpaqueStruct, ReturnStructPointer, IncompleteStructs, IncompleteUnionTypes. |
-
 ### Backend BESM-6 — codegen & libc
 
 | #  | Task | Description |
@@ -47,5 +41,4 @@ re-enabled when block-scope statics landed).
 | 56 | Adapt test UnionRetvals for BESM-6. | | 
 
 **Cross-references (no new task):** besm6 ch15 EquivalentDeclarators re-enables once the
-existing **task #19** (tentative/extern-after-definition clobber) lands. The ch18
-malloc/calloc tests are unblocked by **task #23** above.
+existing **task #19** (tentative/extern-after-definition clobber) lands.

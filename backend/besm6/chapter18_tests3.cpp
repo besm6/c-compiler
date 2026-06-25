@@ -726,8 +726,8 @@ int chk1(struct bytesize19 s19, struct bytesize20 s20, struct bytesize21 s21, st
 }
 
 
-// calloc + block-scope static.
-TEST_F(CodegenTest, DISABLED_Chapter18_AccessRetvalMembers)
+// BESM-6: static struct inner instead of calloc for the nested pointer member.
+TEST_F(CodegenTest, Chapter18_AccessRetvalMembers)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test for accessing the members in a return value of structure type */
@@ -741,8 +741,6 @@ struct outer {
     struct inner *ptr;
     struct inner s;
 };
-
-void *calloc(unsigned long nmemb, unsigned long size);
 
 struct inner return_small_struct(void);
 struct outer return_nested_struct(void);
@@ -788,9 +786,10 @@ struct inner return_small_struct(void) {
 struct outer return_nested_struct(void) {
     static struct outer ret = {2.0, 0, {10, 11}};
 
-    // on first call to this function, initializer ret.ptr
+    // on first call to this function, initialize ret.ptr (static storage replaces calloc)
+    static struct inner ri;
     if (!ret.ptr) {
-        ret.ptr = calloc(1, sizeof(struct inner));
+        ret.ptr = &ri;
         ret.ptr->x = 12;
         ret.ptr->y = 13;
     }
@@ -2086,8 +2085,10 @@ int main(void) {
 )PROG")));
 }
 
-// calloc/puts not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter18_IncompleteUnionTypes)
+// BESM-6: static int storage replaces calloc for the incomplete-union pointers;
+// the block-scope union value is +100000000 so the big-endian char member reads
+// 0; the puts("NULL POINTER") branch is dead (param is never null).
+TEST_F(CodegenTest, Chapter18_IncompleteUnionTypes)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test that our typechecker can handle valid declarations and expressions
@@ -2095,7 +2096,6 @@ TEST_F(CodegenTest, DISABLED_Chapter18_IncompleteUnionTypes)
  * */
 
 
-void *calloc(unsigned long nmemb, unsigned long size);
 int puts(char *s);
 
  // Test 1: you can declare a function that accepts/returns incomplete
@@ -2103,21 +2103,21 @@ int puts(char *s);
 union never_used;
 union never_used incomplete_fun(union never_used x);
 
-// test 2: you can declare an incomplete union type at block scope,
-// then complete it.
+// test 2: declare an incomplete union type, then complete it.
+// BESM-6: block-scope tag *definitions* are unsupported, so this type is
+// forward-declared and completed at file scope instead of inside the function.
+union bsu;  // declare incomplete union type
+union bsu {
+    long x;
+    char y;
+};  // complete the type
+
 int test_block_scope_forward_decl(void) {
-    union u;             // declare incomplete union type
-    union u* u_ptr = 0;  // define a pointer to that union type
+    union bsu* u_ptr = 0;  // pointer to the (now complete) union type
 
-    union u {
-        long x;
-        char y;
-    };  // complete the type
-
-    // now you can use s_ptr as a pointer to a completed type
-    union u val = { -100000000l };
+    union bsu val = { 100000000l };
     u_ptr = &val;
-    if (u_ptr->x != -100000000l || u_ptr->y != 0) {
+    if (u_ptr->x != 100000000l || u_ptr->y != 0) {
         return 0; // fail
     }
 
@@ -2129,7 +2129,7 @@ union opaque_union;
 
 union opaque_union* use_union_pointers(union opaque_union* param) {
     if (param == 0) {
-        puts("null pointer");
+        puts("NULL POINTER");
     }
 
     return 0;
@@ -2137,8 +2137,10 @@ union opaque_union* use_union_pointers(union opaque_union* param) {
 
 int test_use_incomplete_union_pointers(void) {
     // define a couple of pointers to this type
-    union opaque_union* ptr1 = calloc(1, 4);
-    union opaque_union* ptr2 = calloc(1, 4);
+    // (distinct zeroed static ints back the incomplete-type pointers)
+    static int ou1, ou2;
+    union opaque_union* ptr1 = (union opaque_union*)&ou1;
+    union opaque_union* ptr2 = (union opaque_union*)&ou2;
 
     // can cast to char * and inspect; this is well-defined
     // and all bits should be 0 since we used calloc

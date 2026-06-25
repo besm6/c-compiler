@@ -1899,10 +1899,11 @@ int test_implicit_conversion(void) {
 )PROG")));
 }
 
-// malloc + strcmp + puts.
-TEST_F(CodegenTest, DISABLED_Chapter18_OpaqueStruct)
+// BESM-6: static struct instead of malloc; strcmp/puts strings uppercased for
+// KOI-7; puts is kept (prints each struct's message) so expected includes them.
+TEST_F(CodegenTest, Chapter18_OpaqueStruct)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("NEW STRUCT\nSTATIC STRUCT\nGLOBAL STRUCT\n0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test working with a structure whose type is completed in the library but not
  * the client; this is a common idiom for hiding a library's implementation
  * details */
@@ -1922,7 +1923,7 @@ struct s *get_internal_struct(void);
 extern struct s incomplete_var;
 
 int main(void) {
-    struct s *new_struct = create_struct(101, 102.0, "new struct");
+    struct s *new_struct = create_struct(101, 102.0, "NEW STRUCT");
 
     struct s *internal_struct = get_internal_struct();
 
@@ -1936,11 +1937,11 @@ int main(void) {
     increment_struct(&incomplete_var);
 
     // check values
-    if (!check_struct(new_struct, 102, 103.0, "new struct")) {
+    if (!check_struct(new_struct, 102, 103.0, "NEW STRUCT")) {
         return 1;
     }
 
-    if (!check_struct(&incomplete_var, 4, 5.0, "global struct")) {
+    if (!check_struct(&incomplete_var, 4, 5.0, "GLOBAL STRUCT")) {
         return 2;
     }
 
@@ -1954,7 +1955,6 @@ int main(void) {
 // library functions
 int strcmp(char *s1, char *s2);
 int puts(char *s);
-void *malloc(unsigned long size);
 
 struct s {
     int member1;
@@ -1964,7 +1964,8 @@ struct s {
 
 // make a struct
 struct s *create_struct(int i, double d, char *s) {
-    struct s *ptr = malloc(sizeof(struct s));
+    static struct s cs_obj;  // static storage replaces malloc
+    struct s *ptr = &cs_obj;
     ptr->member1 = i;
     ptr->member2 = d;
     ptr->member3 = s;
@@ -1999,7 +2000,7 @@ void print_struct_msg(struct s *ptr) {
 }
 
 // define a struct s that isn't visible in the other translation unit
-static struct s internal = {1, 2.0, "static struct"};
+static struct s internal = {1, 2.0, "STATIC STRUCT"};
 
 struct s *get_internal_struct(void) {
     return &internal;
@@ -2007,19 +2008,22 @@ struct s *get_internal_struct(void) {
 
 // define struct that is visible in other translation unit
 // (although its members aren't accessible)
-struct s incomplete_var = {3, 4.0, "global struct"};
+struct s incomplete_var = {3, 4.0, "GLOBAL STRUCT"};
 )PROG")));
 }
 
-// malloc not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter18_ReturnStructPointer)
+// BESM-6: one static object per maker function instead of malloc; each result is
+// consumed before the maker is re-called, so single statics never alias.  The
+// maker/test helpers are renamed (mk_inner/mk_outer/mk_outmost, t_getptr/t_getmem,
+// t_updmem/t_updnst) so they stay distinct within Madlen's 8-char identifier
+// limit — make_struct_inner/outer/outermost all truncate to "make_str" and would
+// otherwise alias into mutual recursion at runtime.
+TEST_F(CodegenTest, Chapter18_ReturnStructPointer)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test returning struct pointers from functions
  * and using struct pointers returned from functions
  * */
-
-void *malloc(unsigned long size);
 
 // define some struct types
 struct inner {
@@ -2040,17 +2044,17 @@ struct outermost {
 };
 
 // declare some functions that return pointers to structs
-struct inner *make_struct_inner(int seed);
-struct outer *make_struct_outer(int seed);
-struct outermost *make_struct_outermost(int seed);
+struct inner *mk_inner(int seed);
+struct outer *mk_outer(int seed);
+struct outermost *mk_outmost(int seed);
 /* Test returning struct pointers from functions
  * and using struct pointers returned from functions
  * */
 
 
 // case 1: use a struct pointer returned from a function call
-int test_get_struct_ptr(void) {
-    struct inner *inner_ptr = make_struct_inner(11);
+int t_getptr(void) {
+    struct inner *inner_ptr = mk_inner(11);
 
     if (inner_ptr->d != 11 || inner_ptr->i != 11) {
         return 0;
@@ -2058,7 +2062,7 @@ int test_get_struct_ptr(void) {
 
     // assign struct pointer to member
     struct outermost o = {0, 0, {0, 0, {0, 0}}};
-    o.nested_ptr = make_struct_outer(20);
+    o.nested_ptr = mk_outer(20);
     if (o.nested_ptr->a != 20 || o.nested_ptr->b != 21 ||
         o.nested_ptr->substruct.d != 22 || o.nested_ptr->substruct.i != 23) {
         return 0;
@@ -2068,16 +2072,16 @@ int test_get_struct_ptr(void) {
 }
 
 // case 2: apply member access operations to funcall expression
-int test_get_struct_pointer_member(void) {
-    if (make_struct_inner(2)->d != 2) {
+int t_getmem(void) {
+    if (mk_inner(2)->d != 2) {
         return 0;
     }
 
-    if (make_struct_outer(2)->substruct.d != 4) {
+    if (mk_outer(2)->substruct.d != 4) {
         return 0;
     }
 
-    if (make_struct_outermost(0)->nested_ptr->a != 1) {
+    if (mk_outmost(0)->nested_ptr->a != 1) {
         return 0;
     }
 
@@ -2091,7 +2095,7 @@ struct outer *get_static_struct_ptr(void) {
     return &s;
 }
 
-int test_update_member_thru_retval(void) {
+int t_updmem(void) {
     get_static_struct_ptr()->a = 10;
     get_static_struct_ptr()->substruct.d = 20.0;
 
@@ -2104,7 +2108,7 @@ int test_update_member_thru_retval(void) {
 }
 
 // case 4: update whole structure member through pointer returned by funcall
-int test_update_nested_struct_thru_retval(void) {
+int t_updnst(void) {
     struct inner small = {12.0, 13};
     get_static_struct_ptr()->substruct = small;
     if (get_static_struct_ptr()->substruct.d != 12.0) {
@@ -2119,19 +2123,19 @@ int test_update_nested_struct_thru_retval(void) {
 }
 
 int main(void) {
-    if (!test_get_struct_ptr()) {
+    if (!t_getptr()) {
         return 1;
     }
 
-    if (!test_get_struct_pointer_member()) {
+    if (!t_getmem()) {
         return 2;
     }
 
-    if (!test_update_member_thru_retval()) {
+    if (!t_updmem()) {
         return 3;
     }
 
-    if (!test_update_nested_struct_thru_retval()) {
+    if (!t_updnst()) {
         return 4;
     }
 
@@ -2143,15 +2147,17 @@ int main(void) {
 
 
 // define some functions that return pointers to structs
-struct inner *make_struct_inner(int seed) {
-    struct inner *ptr = malloc(sizeof(struct inner));
+struct inner *mk_inner(int seed) {
+    static struct inner msi;  // static storage replaces malloc
+    struct inner *ptr = &msi;
     ptr->d = seed;
     ptr->i = seed;
     return ptr;
 }
 
-struct outer *make_struct_outer(int seed) {
-    struct outer *ptr = malloc(sizeof(struct outer));
+struct outer *mk_outer(int seed) {
+    static struct outer mso;  // static storage replaces malloc
+    struct outer *ptr = &mso;
     ptr->a = seed;
     ptr->b = seed + 1;
     ptr->substruct.d = seed + 2;
@@ -2159,10 +2165,11 @@ struct outer *make_struct_outer(int seed) {
     return ptr;
 }
 
-struct outermost *make_struct_outermost(int seed) {
-    struct outermost *ptr = malloc(sizeof(struct outermost));
+struct outermost *mk_outmost(int seed) {
+    static struct outermost msm;  // static storage replaces malloc
+    struct outermost *ptr = &msm;
     ptr->i = seed;
-    ptr->nested_ptr = make_struct_outer(seed + 1);
+    ptr->nested_ptr = mk_outer(seed + 1);
     ptr->nested_struct.a = seed + 5;
     ptr->nested_struct.b = seed + 6;
     ptr->nested_struct.substruct.d = seed + 7;

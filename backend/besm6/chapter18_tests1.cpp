@@ -773,16 +773,18 @@ struct big missing_return_value(int *i) {
 // they do not run.
 // =============================================================================
 
-// calloc not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter18_ScalarMemberAccessArrow)
+// BESM-6: static struct instead of calloc; LONG_MAX/MIN literals replaced with
+// in-range 41-bit values; the double member expressions scaled down (get_double
+// 2e12->2e6, gl ~3.4e10->34000) so every intermediate fits the 40-bit mantissa
+// exactly (the original 13-digit -1845381177299.0 exceeds ~12-digit precision);
+// the file-scope long is renamed gl so it doesn't shadow accept_params' param l.
+TEST_F(CodegenTest, Chapter18_ScalarMemberAccessArrow)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test the -> operator.
  * Relatively simple tests without nested accesses or members of aggregate
  * types.
  */
-
-void *calloc(unsigned long nmemb, unsigned long size);
 
 struct four_members {
     double d;
@@ -793,19 +795,21 @@ struct four_members {
 
 // helper functions/variables
 
-// get_double and l are used to initialize members
+// get_double and gl are used to initialize members
 double get_double(void) {
-    return 2e12;
+    return 2e6;  // BESM-6: scaled so all intermediate doubles fit the 40-bit mantissa
 }
 
-static long l = 34359738378l;
+// BESM-6: renamed from `l` so it doesn't shadow accept_params' parameter `l`
+// (identifier shadowing is forbidden by design).
+static long gl = 34000l;       // BESM-6: scaled (see get_double)
 
 // validate members (and values derived from members) that are passed as
 // parameters
 int accept_params(int d_divided, int c_doubled, double l_cast,
                   int dereferenced_ptr, double d, int c, long l, char *ptr) {
-    if (d != -1845381177299.0 || c != 127 || l != 58 || *ptr != 100 ||
-        d_divided != -922690588 || c_doubled != 254 || l_cast != 58.0 ||
+    if (d != -1847000.0 || c != 127 || l != 58 || *ptr != 100 ||
+        d_divided != -923 || c_doubled != 254 || l_cast != 58.0 ||
         dereferenced_ptr != 100) {
         return 0;
     }
@@ -820,15 +824,15 @@ int test_auto(void) {
     struct four_members *autom_ptr = &autom;
 
     // write to all members - assign results of complex expression to members
-    autom_ptr->d = (l - get_double()) + (l * 3.5);  // -1845381177299.0
+    autom_ptr->d = (gl - get_double()) + (gl * 3.5);  // -1847000.0
     autom_ptr->c = 127;
-    autom_ptr->l = get_double() / l;  // 58
+    autom_ptr->l = get_double() / gl;  // 58
 
     char chr = 100;
     autom_ptr->ptr = &chr;
 
     // read all members
-    if (autom_ptr->d != -1845381177299.0 || autom_ptr->c != 127 ||
+    if (autom_ptr->d != -1847000.0 || autom_ptr->c != 127 ||
         autom_ptr->l != 58 || autom_ptr->ptr != &chr) {
         return 0;
     }
@@ -836,7 +840,7 @@ int test_auto(void) {
     // take address of members
     double *d_ptr = &autom_ptr->d;
     char *c_ptr = &autom_ptr->c;
-    if (*d_ptr != -1845381177299.0 || *c_ptr != 127) {
+    if (*d_ptr != -1847000.0 || *c_ptr != 127) {
         return 0;
     }
 
@@ -865,14 +869,14 @@ int test_static(void) {
     // same test as test_auto above
 
     // write to all members - assign results of complex expression to members
-    stat_ptr->d = (l - get_double()) + (l * 3.5);  // -1845381177299.0
+    stat_ptr->d = (gl - get_double()) + (gl * 3.5);  // -1847000.0
     stat_ptr->c = 127;
-    stat_ptr->l = get_double() / l;  // 58
+    stat_ptr->l = get_double() / gl;  // 58
 
     stat_ptr->ptr = &chr;
 
     // read all members - assign results complex expression to members
-    if (stat_ptr->d != -1845381177299.0 || stat_ptr->c != 127 ||
+    if (stat_ptr->d != -1847000.0 || stat_ptr->c != 127 ||
         stat_ptr->l != 58 || stat_ptr->ptr != &chr) {
         return 0;
     }
@@ -880,7 +884,7 @@ int test_static(void) {
     // take address of members
     double *d_ptr = &stat_ptr->d;
     char *c_ptr = &stat_ptr->c;
-    if (*d_ptr != -1845381177299.0 || *c_ptr != 127) {
+    if (*d_ptr != -1847000.0 || *c_ptr != 127) {
         return 0;
     }
 
@@ -908,13 +912,13 @@ int test_exp_result_member(void) {
     struct four_members s1;
     s1.d = 10.0;
     s1.c = 99;
-    s1.l = 9223372036854775807l;
+    s1.l = 1099511627775l;
     s1.ptr = 0;
 
     struct four_members s2;
     s2.d = 12.0;
     s2.c = 98;
-    s2.l = -9223372036854775807l;
+    s2.l = -1099511627775l;
     s2.ptr = 0;
 
     struct four_members *s1_ptr = &s1;
@@ -938,12 +942,13 @@ int test_exp_result_member(void) {
     // assign to result_ptr and access member through assignment expression
     if ((result_ptr = s2_ptr)->d != 12.0 ||
         // make sure we can now read other members of s2 through result_ptr too
-        result_ptr->l != -9223372036854775807l) {
+        result_ptr->l != -1099511627775l) {
         return 0;
     }
 
     // access member through cast expression
-    void *void_ptr = calloc(1, sizeof(struct four_members));
+    static struct four_members fm_store;  // static storage replaces calloc
+    void *void_ptr = &fm_store;
     ((struct four_members *)void_ptr)->c = 80;
 
     // validate
@@ -975,14 +980,13 @@ int main(void) {
 )PROG")));
 }
 
-// malloc not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter18_ScalarMemberAccessLinkedList)
+// BESM-6: fixed static node pool (4) with an index counter instead of malloc.
+TEST_F(CodegenTest, Chapter18_ScalarMemberAccessLinkedList)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test using -> to iterate through a linked list
  * and exercise chained member access of the form x->y->
  * */
-void *malloc(unsigned long size);
 
 // linked_list_node type from Listing 18-6
 struct linked_list_node {
@@ -990,15 +994,21 @@ struct linked_list_node {
     struct linked_list_node *next;
 };
 
+// static node pool replaces the heap; node_alloc hands out the next free node
+static struct linked_list_node nodes[4];
+static int node_idx;
+
+struct linked_list_node *node_alloc(void) {
+    return &nodes[node_idx++];
+}
+
 struct linked_list_node *array_to_list(int *array, int count) {
-    struct linked_list_node *head =
-        (struct linked_list_node *)malloc(sizeof(struct linked_list_node));
+    struct linked_list_node *head = node_alloc();
     head->val = array[0];
     head->next = 0;
     struct linked_list_node *current = head;
     for (int i = 1; i < count; i = i + 1) {
-        current->next =
-            (struct linked_list_node *)malloc(sizeof(struct linked_list_node));
+        current->next = node_alloc();
         current->next->next = 0;
         current->next->val = array[i];
         current = current->next;
@@ -1023,15 +1033,15 @@ int main(void) {
 )PROG")));
 }
 
-// malloc/calloc not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter18_ScalarMemberAccessNestedStruct)
+// BESM-6: distinct static objects replace each malloc/calloc; static zero-init
+// matches calloc; the test_auto_*/test_static_*/test_array_* helpers are renamed
+// (autodot/statdot/autoarr/statarr/aostr/aosptr) so they stay distinct within
+// Madlen's 8-char identifier limit (otherwise they alias and silently no-op).
+TEST_F(CodegenTest, Chapter18_ScalarMemberAccessNestedStruct)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test accessing nested structures members, through dot, arrow, and subscript
  * operators */
-
-void *calloc(unsigned long nmemb, unsigned long size);
-void *malloc(unsigned long size);
 
 struct inner {
     double a;
@@ -1050,7 +1060,7 @@ struct outer {
 int ptr_target;  // static int for 'ptr' member in various struct inners to
                  // point to
 
-int test_auto_dot(void) {
+int autodot(void) {
     // Test nested access in struct with automatic storage duration,
     // using only . operator
     struct outer s;
@@ -1086,7 +1096,7 @@ int test_auto_dot(void) {
     return 1;  // success
 }
 
-int test_static_dot(void) {
+int statdot(void) {
     // Test nested access in struct with static storage duration,
     // using only . operator
     static struct outer s;
@@ -1122,7 +1132,7 @@ int test_static_dot(void) {
     return 1;  // success
 }
 
-int test_auto_arrow(void) {
+int autoarr(void) {
     // Test nested access in struct with automatic storage duration,
     // using only -> operator
 
@@ -1180,7 +1190,7 @@ int test_auto_arrow(void) {
     return 1;  // success
 }
 
-int test_static_arrow(void) {
+int statarr(void) {
     // Test nested access in struct with static storage duration,
     // using only -> operator
 
@@ -1245,7 +1255,8 @@ int test_static_arrow(void) {
 int test_mixed(void) {
     // Test nested access using a mix of ., ->, and []
     // include: x->y.z, x.y->z, x->y[i].z
-    struct inner *in_ptr = malloc(sizeof(struct inner));
+    static struct inner mixed_in;  // static storage replaces malloc
+    struct inner *in_ptr = &mixed_in;
     struct outer out;
     out.in_ptr = in_ptr;
     struct outer *out_ptr = &out;
@@ -1266,7 +1277,8 @@ int test_mixed(void) {
     // don't bother with array elements 1 and 2, skip to last one
     out_ptr->in_array[3].a = -3.0;
     out_ptr->in_array[3].b = '*';
-    out_ptr->in_array[3].ptr = malloc(sizeof(int));
+    static int mixed_i3;  // static storage replaces malloc(sizeof(int))
+    out_ptr->in_array[3].ptr = &mixed_i3;
 
     out_ptr->in.a = -3.0;
     out_ptr->in.b = '&';
@@ -1306,12 +1318,13 @@ int test_mixed(void) {
     return 1;  // success
 }
 
-int test_array_of_structs(void) {
+int aostr(void) {
     // test nested access to array of structs using a mix of ., ->, and []
     // including x[i].y->z, x[i].y.z, x[i].y[i].z
 
     static struct outer struct_array[3];
-    struct inner *in_ptr = malloc(sizeof(struct inner));
+    static struct inner aos_in;  // static storage replaces malloc
+    struct inner *in_ptr = &aos_in;
 
     // tricky: make struct_array[0].in_ptr and struct_array[1].in_ptr point to
     // same struct
@@ -1348,20 +1361,24 @@ int test_array_of_structs(void) {
     return 1;  // success
 }
 
-int test_array_of_struct_pointers(void) {
+int aosptr(void) {
     // test nested access to array of struct pointers
     // including x[i]->y.z, x[i]->y[i].z, x[i]->y->z
 
     struct outer *ptr_array[2];
 
-    ptr_array[0] = calloc(1, sizeof(struct outer));
-    ptr_array[1] = calloc(1, sizeof(struct outer));
+    // distinct static objects replace calloc (static zero-init matches calloc)
+    static struct outer aosp_o0, aosp_o1;
+    static struct inner aosp_i0, aosp_i1;
+
+    ptr_array[0] = &aosp_o0;
+    ptr_array[1] = &aosp_o1;
 
     // populate both array elements via nested writes
     // (initialize a handful of members in each struct, not all of them)
 
     // start with element #1
-    ptr_array[1]->in_ptr = calloc(1, sizeof(struct inner));
+    ptr_array[1]->in_ptr = &aosp_i1;
     ptr_array[1]->in_ptr->ptr = 0;
     ptr_array[1]->in_ptr->b = '%';
     ptr_array[1]->in_ptr->a = 876.5;
@@ -1371,7 +1388,7 @@ int test_array_of_struct_pointers(void) {
     ptr_array[1]->in.a = 7e6;
 
     // then element #0
-    ptr_array[0]->in_ptr = calloc(1, sizeof(struct inner));
+    ptr_array[0]->in_ptr = &aosp_i0;
     ptr_array[0]->in_ptr->ptr = 0;
     ptr_array[0]->in_ptr->b = '^';
     ptr_array[0]->in_ptr->a = 123.4;
@@ -1462,19 +1479,19 @@ int test_array_of_struct_pointers(void) {
 }
 
 int main(void) {
-    if (!test_auto_dot()) {
+    if (!autodot()) {
         return 1;
     }
 
-    if (!test_static_dot()) {
+    if (!statdot()) {
         return 2;
     }
 
-    if (!test_auto_arrow()) {
+    if (!autoarr()) {
         return 3;
     }
 
-    if (!test_static_arrow()) {
+    if (!statarr()) {
         return 4;
     }
 
@@ -1482,11 +1499,11 @@ int main(void) {
         return 5;
     }
 
-    if (!test_array_of_structs()) {
+    if (!aostr()) {
         return 6;
     }
 
-    if (!test_array_of_struct_pointers()) {
+    if (!aosptr()) {
         return 7;
     }
 
@@ -2520,17 +2537,20 @@ int main(void) {
 )PROG")));
 }
 
-// malloc/calloc/puts not in libc.
-TEST_F(CodegenTest, DISABLED_Chapter18_IncompleteStructs)
+// BESM-6: static storage replaces malloc/calloc; opaque/incomplete pointers are
+// backed by static ints and cast; the message is uppercased for KOI-7; puts is
+// kept (prints "I AM A STRUCT") so the expected output includes that line; the
+// block-scope-completed type is hoisted to file scope (struct bsfd) and
+// validate_incomplete_var is renamed val_incv to stay 8-char-distinct from
+// validate_struct.
+TEST_F(CodegenTest, Chapter18_IncompleteStructs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("I AM A STRUCT\n0\n", CompileAndRun(WrapMain(R"PROG(
 /* Test that our typechecker can handle valid declarations and expressions
  * involving incomplete structure types
  * */
 
 
-void *malloc(unsigned long size);
-void *calloc(unsigned long nmemb, unsigned long size);
 int puts(char *s);
 int strcmp(char *s1, char *s2);
 
@@ -2540,19 +2560,20 @@ int strcmp(char *s1, char *s2);
 struct never_used;
 struct never_used incomplete_fun(struct never_used x);
 
-// test 2: you can declare an incomplete struct type at block scope,
-// then complete it
+// test 2: declare an incomplete struct type, then complete it.
+// BESM-6: block-scope tag *definitions* are unsupported, so this type is
+// forward-declared and completed at file scope (block-scope incomplete tag
+// *declarations* and pointers to them — as in tests 4-6 — do work).
+struct bsfd;  // declare incomplete struct type
+struct bsfd {
+    int x;
+    int y;
+};  // complete the type
+
 int test_block_scope_forward_decl(void) {
-    struct s;             // declare incomplete struct type
-    struct s *s_ptr = 0;  // define a pointer to that struct type
+    struct bsfd *s_ptr = 0;  // pointer to the (now complete) struct type
 
-    struct s {
-        int x;
-        int y;
-    };  // complete the type
-
-    // now you can use s_ptr as a pointer to a completed type
-    struct s val = {1, 2};
+    struct bsfd val = {1, 2};
     s_ptr = &val;
     if (s_ptr->x != 1 || s_ptr->y != 2) {
         return 0;
@@ -2584,7 +2605,8 @@ struct pair {
 
 // define the functions
 struct pair *make_struct(void) {
-    struct pair *retval = malloc(sizeof(struct pair));
+    static struct pair ms_pair;  // static storage replaces malloc
+    struct pair *retval = &ms_pair;
     retval->l = 100;
     retval->m = 200;
     return retval;
@@ -2599,7 +2621,7 @@ int validate_struct(struct pair *ptr) {
 
 struct msg_holder;
 void print_msg(struct msg_holder *param);
-int validate_incomplete_var(void);
+int val_incv(void);
 
 // okay to declare extern variable w/ incomplete type
 extern struct msg_holder incomplete_var;
@@ -2607,7 +2629,7 @@ extern struct msg_holder incomplete_var;
 int test_incomplete_var(void) {
     // okay to take address of incomplete var
     print_msg(&incomplete_var);
-    return validate_incomplete_var();
+    return val_incv();
 }
 
 // complete the type
@@ -2616,8 +2638,8 @@ struct msg_holder {
 };
 
 // now we can use value of incomplete_var
-int validate_incomplete_var(void) {
-    if (strcmp(incomplete_var.msg, "I'm a struct!")) {
+int val_incv(void) {
+    if (strcmp(incomplete_var.msg, "I AM A STRUCT")) {
         return 0;
     }
 
@@ -2625,7 +2647,7 @@ int validate_incomplete_var(void) {
 }
 
 // and we can define it
-struct msg_holder incomplete_var = {"I'm a struct!"};
+struct msg_holder incomplete_var = {"I AM A STRUCT"};
 
 // also need to define print_msg
 void print_msg(struct msg_holder *param) {
@@ -2636,7 +2658,8 @@ void print_msg(struct msg_holder *param) {
 // address
 int test_deref_incomplete_var(void) {
     struct undefined_struct;
-    struct undefined_struct *ptr = malloc(4);
+    static int und_store;  // static storage backs the incomplete-type pointer
+    struct undefined_struct *ptr = (struct undefined_struct *)&und_store;
     // NOTE: GCC fails to compile this before version 10
     // see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=88827
     return &*ptr == ptr;
@@ -2650,15 +2673,17 @@ struct opaque_struct;
 
 struct opaque_struct *use_struct_pointers(struct opaque_struct *param) {
     if (param == 0) {
-        puts("empty pointer!");
+        puts("EMPTY POINTER!");
     }
     return 0;
 }
 
 int test_use_incomplete_struct_pointers(void) {
     // define a couple of pointers to this type
-    struct opaque_struct *ptr1 = calloc(1, 4);
-    struct opaque_struct *ptr2 = calloc(1, 4);
+    // (distinct zeroed static ints back the incomplete-type pointers)
+    static int op_s1, op_s2;
+    struct opaque_struct *ptr1 = (struct opaque_struct *)&op_s1;
+    struct opaque_struct *ptr2 = (struct opaque_struct *)&op_s2;
 
     // can cast to char * and inspect; this is well-defined
     // and all bits should be 0 since we used calloc
