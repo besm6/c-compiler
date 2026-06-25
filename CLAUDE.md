@@ -52,11 +52,17 @@ ctest --test-dir build -R "Typecheck|Pipeline"
 ```
 
 **Runtime library (`libc.bin`).** The higher-level runtime routines live in
-`backend/besm6/libc/*.c` (e.g. `printf`, `getch`, `putch`, `putbyte`,
-`flush`) and are compiled by our own toolchain (`parse → lower → genbesm` → `.madlen`) and
-assembled with the hand-written Madlen helpers (`b_*.madlen`, `b_tout`,
-`exit`) into `libc.bin` — see `backend/besm6/CMakeLists.txt` (`LIBC_C` / `LIBC_MADLEN`). The
-original B sources (`*.b`) are kept for reference only. To reference a `/`-named assembly
+`backend/besm6/libc/*.c` and now cover a substantial hosted libc subset: I/O
+(`printf`/`sprintf`/`snprintf` over the shared `doprnt` pointer-walk engine, `puts`,
+`putchar`, `getch`, `putch`, `putbyte`, `flush`), all of `<string.h>`
+(`strlen`/`strcpy`/`strncpy`/`strcat`/`strncat`/`strcmp`/`strncmp`/`strchr`/`strrchr`/`strstr`/`strtok`/`strerror`
+and the `mem*` family `memcpy`/`memmove`/`memset`/`memcmp`/`memchr`), the dynamic allocator
+(`malloc`/`calloc`/`realloc`/`free`), `atoi`, and the math helpers
+(`fabs`/`fmin`/`fmax`/`fma`/`modf`, plus the frameless `frexp`/`ldexp`). They are compiled by
+our own toolchain (`parse → lower → genbesm` → `.madlen`) and assembled with the hand-written
+Madlen helpers (`b_*.madlen`, `b_tout`, `exit`, `frexp`, `ldexp`) into `libc.bin` — see
+`backend/besm6/CMakeLists.txt` (`LIBC_C` / `LIBC_MADLEN`). The original B sources have been
+removed; the runtime is now C plus Madlen only. To reference a `/`-named assembly
 helper from C, name it with `$` (e.g. `b$tout` → `b/tout`; the scanner accepts `$`, the
 backend sanitizes it to `/`). An `extern T name[]` array emits no TAC top-level; a later
 reference decays the array to its address via `GET_ADDRESS`, which self-declares the
