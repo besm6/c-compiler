@@ -13,16 +13,16 @@ target_link_libraries(translator optimize semantic tac ast libutil)
 # Tests for translate
 #
 add_executable(translate-tests EXCLUDE_FROM_ALL
-    decl_tests.cpp
-    expr_tests.cpp
-    stmt_tests.cpp
-    cast_tests.cpp
-    incdec_tests.cpp
-    switch_tests.cpp
-    ptr_tests.cpp
-    struct_tests.cpp
+    test/decl_tests.cpp
+    test/expr_tests.cpp
+    test/stmt_tests.cpp
+    test/cast_tests.cpp
+    test/incdec_tests.cpp
+    test/switch_tests.cpp
+    test/ptr_tests.cpp
+    test/struct_tests.cpp
 )
-target_link_libraries(translate-tests parser translator GTest::gtest_main)
+target_link_libraries(translate-tests parser translator GTest::gtest_main test_util)
 target_compile_definitions(translate-tests PRIVATE
     BESM6_CPP="${SystemCpp}"
     BESM6_INCLUDE_DIR="${BESM6_INCLUDE_DIR}")

@@ -1,4 +1,4 @@
-#include "book_run.h"
+#include "codegen_test.h"
 
 // BESM-6: rewritten to use a local struct instead of calloc (no heap dependency).
 TEST_F(CodegenTest, Chapter18_MemberComparisons)

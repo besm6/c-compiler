@@ -20,7 +20,7 @@
 //     here).  putch emits a value as its packed bytes — a single small ASCII
 //     code emits exactly one byte.
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 // --- arguments_in_registers -------------------------------------------------
 

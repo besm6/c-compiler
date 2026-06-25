@@ -18,13 +18,13 @@ marked `EXCLUDE_FROM_ALL`, so a plain `make`/`make all` builds only the compiler
 build` over everything.
 
 **The "Writing a C Compiler" chapter tests are compiled into the regular test binaries.**
-The chapter sources (`*/chapter*_tests.cpp`, `backend/besm6/chapter*_tests.cpp`) are listed
+The chapter sources (`*/test/chapter*_tests.cpp`, `backend/besm6/test/chapter*_tests.cpp`) are listed
 in the same `add_executable(<module>-tests …)` as the unit tests, so e.g. `parser-tests`
 and `besm-tests` contain both. There are no separate `*-book-tests` executables and no ctest
 `book` label. `fatal_error()` (the libraries call it, but it is defined in the test
 executable) is defined exactly once per binary in a regular unit-test source
-(`parser/simple_tests.cpp`, `semantic/typecheck_tests.cpp`, `optimize/pipeline_tests.cpp`,
-`backend/besm6/codegen_tests.cpp`); the chapter sources do **not** redefine it. The scanner
+(`parser/test/simple_tests.cpp`, `semantic/test/typecheck_tests.cpp`, `optimize/test/pipeline_tests.cpp`,
+`backend/besm6/test/codegen_tests.cpp`); the chapter sources do **not** redefine it. The scanner
 needs none — it uses its own `lex_error()`/`exit()`.
 
 Run a single test binary directly (semantic and translator tests live in subdirectories):
@@ -109,7 +109,7 @@ Use the C compiler's preprocessor (`cc -E`), not a standalone `cpp`: a tradition
 `cc -E -nostdinc -Ibackend/besm6/include prog.c | parse -`. The `besm-headers` CTest
 (`scripts/check_headers.sh`, run under `make test`) preprocesses and parses every header to
 catch syntax errors. The unit-test fixtures preprocess their C snippets automatically via
-`libutil/test_preprocess.h` (using the CMake `BESM6_CPP`/`BESM6_INCLUDE_DIR` defines), so
+`libutil/test/test_preprocess.h` (using the CMake `BESM6_CPP`/`BESM6_INCLUDE_DIR` defines), so
 tests `#include <stdio.h>` instead of hand-declaring libc routines. `<stdarg.h>` is
 functional (word-pointer `va_list`); its runtime behaviour is covered by `stdarg_tests.cpp`.
 
@@ -204,18 +204,18 @@ Source (.c)
 
 Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 
-- `ast/clone_tests.cpp` → `ast-tests`
-- `scanner/tests.cpp` → `scanner-tests`
-- `parser/simple_tests.cpp`, `statement_tests.cpp`, … (9 files, including `negative_tests.cpp`) → `parser-tests`
-- `tac/yaml_tests.cpp`, `graphviz_tests.cpp`, `binary_tests.cpp` → `tac-tests`
-- `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` → `semantic-tests`
-- `backend/besm6/codegen_tests.cpp`, `arith_tests.cpp`, `copy_tests.cpp`, `flow_tests.cpp`, `run_tests.cpp`, `unary_tests.cpp`, `convert_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp`, `char_tests.cpp`, `peephole_tests.cpp`, `printf_tests.cpp`, `funcptr_tests.cpp`, `stdarg_tests.cpp`, `mem_tests.cpp` → `besm-tests`
-- `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`
-- `optimize/const_fold_tests.cpp`, `jump_unreachable_tests.cpp`, `copy_prop_tests.cpp`, `dead_store_tests.cpp`, `type_conv_tests.cpp`, `pipeline_tests.cpp` → `optimizer-tests`
-- `libutil/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-tests`
+- `ast/test/clone_tests.cpp` → `ast-tests`
+- `scanner/test/tests.cpp` → `scanner-tests`
+- `parser/test/simple_tests.cpp`, `statement_tests.cpp`, … (9 files, including `negative_tests.cpp`) → `parser-tests`
+- `tac/test/yaml_tests.cpp`, `graphviz_tests.cpp`, `binary_tests.cpp` → `tac-tests`
+- `semantic/test/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` → `semantic-tests`
+- `backend/besm6/test/codegen_tests.cpp`, `arith_tests.cpp`, `copy_tests.cpp`, `flow_tests.cpp`, `run_tests.cpp`, `unary_tests.cpp`, `convert_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp`, `char_tests.cpp`, `peephole_tests.cpp`, `printf_tests.cpp`, `funcptr_tests.cpp`, `stdarg_tests.cpp`, `mem_tests.cpp` → `besm-tests`
+- `translator/test/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`
+- `optimize/test/const_fold_tests.cpp`, `jump_unreachable_tests.cpp`, `copy_prop_tests.cpp`, `dead_store_tests.cpp`, `type_conv_tests.cpp`, `pipeline_tests.cpp` → `optimizer-tests`
+- `libutil/test/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-tests`
 
-The `chapter*_tests.cpp` files in `parser/`, `scanner/`, `semantic/`, `optimize/`, and
-`backend/besm6/` are the "Writing a C Compiler" book tests; they are compiled into the same
+The `chapter*_tests.cpp` files in `parser/test/`, `scanner/test/`, `semantic/test/`,
+`optimize/test/`, and `backend/besm6/test/` are the "Writing a C Compiler" book tests; they are compiled into the same
 per-module test executables as the unit tests above (e.g. `parser-tests`, `besm-tests`) and
 run by `make test` (see **Build & Test** above).
 

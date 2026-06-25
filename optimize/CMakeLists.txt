@@ -17,18 +17,18 @@ target_link_libraries(optimize tac libutil semantic)
 # Tests for optimizer (including the textbook chapter tests)
 #
 add_executable(optimizer-tests EXCLUDE_FROM_ALL
-    const_fold_tests.cpp
-    type_conv_tests.cpp
-    jump_unreachable_tests.cpp
-    copy_prop_tests.cpp
-    dead_store_tests.cpp
-    pipeline_tests.cpp
-    chapter19_tests1.cpp
-    chapter19_tests2.cpp
-    chapter19_tests3.cpp
-    chapter19_tests4.cpp
+    test/const_fold_tests.cpp
+    test/type_conv_tests.cpp
+    test/jump_unreachable_tests.cpp
+    test/copy_prop_tests.cpp
+    test/dead_store_tests.cpp
+    test/pipeline_tests.cpp
+    test/chapter19_tests1.cpp
+    test/chapter19_tests2.cpp
+    test/chapter19_tests3.cpp
+    test/chapter19_tests4.cpp
 )
-target_link_libraries(optimizer-tests optimize parser translator tac GTest::gtest_main)
+target_link_libraries(optimizer-tests optimize parser translator tac GTest::gtest_main test_util)
 target_compile_definitions(optimizer-tests PRIVATE
     BESM6_CPP="${SystemCpp}"
     BESM6_INCLUDE_DIR="${BESM6_INCLUDE_DIR}")

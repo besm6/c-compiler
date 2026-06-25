@@ -227,11 +227,11 @@ With that caveat in hand, the mapping is still the backbone of the whole effort:
 
 | Book directory | Compiler phase | Our test file | What the test asserts |
 |---|---|---|---|
-| `invalid_lex` | scanner | `scanner/chapterNN_tests.cpp` | aborts with a lexical-error message |
-| `invalid_parse` | parser | `parser/chapterNN_tests.cpp` | aborts with a parse-error message |
-| `invalid_semantics`, `invalid_types`, `invalid_declarations`, `invalid_labels`, `invalid_struct_tags` | semantic | `semantic/chapterNN_tests.cpp` | aborts with a semantic-error message |
-| `valid` (and `extra_credit`, `libraries`) | BESM-6 backend | `backend/besm6/chapterNN_tests.cpp` | compiles, runs, and prints the expected result |
-| chapter 19 (`constant_folding`, `copy_propagation`, …) | optimizer | `optimize/chapter19_tests.cpp` | the TAC is simplified as expected |
+| `invalid_lex` | scanner | `scanner/test/chapterNN_tests.cpp` | aborts with a lexical-error message |
+| `invalid_parse` | parser | `parser/test/chapterNN_tests.cpp` | aborts with a parse-error message |
+| `invalid_semantics`, `invalid_types`, `invalid_declarations`, `invalid_labels`, `invalid_struct_tags` | semantic | `semantic/test/chapterNN_tests.cpp` | aborts with a semantic-error message |
+| `valid` (and `extra_credit`, `libraries`) | BESM-6 backend | `backend/besm6/test/chapterNN_tests.cpp` | compiles, runs, and prints the expected result |
+| chapter 19 (`constant_folding`, `copy_propagation`, …) | optimizer | `optimize/test/chapter19_tests.cpp` | the TAC is simplified as expected |
 
 This is a beautiful correspondence: **our source tree already has one directory per phase**
 (`scanner/`, `parser/`, `semantic/`, `translator/`, `optimize/`, `backend/besm6/`), and the
@@ -252,7 +252,7 @@ There is one wrinkle. On our BESM-6 runtime, execution starts at a function call
 The book's valid programs, however, are written as `int main(void)` and are judged by the
 value `main` returns. To bridge the two, we wrap each program with a tiny `program` that
 calls `main` and prints its return value. That wrapper lives in
-[backend/besm6/book_run.h](../backend/besm6/book_run.h):
+[backend/besm6/test/codegen_test.h](../backend/besm6/test/codegen_test.h):
 
 ```c
 // Wrap a book program so program() prints `main()`'s return value as "%d\n".
@@ -441,7 +441,7 @@ testing library. You only need to recognize a handful of pieces:
 
 Let us read one real test of each kind, straight from the committed chapter-1 files.
 
-**A scanner negative test** (from [scanner/chapter1_tests.cpp](../scanner/chapter1_tests.cpp)).
+**A scanner negative test** (from [scanner/test/chapter1_tests.cpp](../scanner/test/chapter1_tests.cpp)).
 The helper `LexToEnd` runs the scanner over a string until end-of-input; on a bad token the
 scanner aborts, and `EXPECT_DEATH` catches it:
 
@@ -455,11 +455,11 @@ TEST(ScannerChapter1, AtSign_Neg)
 ```
 
 `LexToEnd` itself is a small shared helper in
-[scanner/scan_fixture.h](../scanner/scan_fixture.h) — it writes the source to a temporary
+[scanner/test/scan_fixture.h](../scanner/test/scan_fixture.h) — it writes the source to a temporary
 file, points the scanner at it, and pulls tokens until the end. We factor such helpers into
 a header so every chapter's scanner tests can reuse them.
 
-**A parser negative test** (from [parser/chapter1_tests.cpp](../parser/chapter1_tests.cpp)).
+**A parser negative test** (from [parser/test/chapter1_tests.cpp](../parser/test/chapter1_tests.cpp)).
 Here the `ParserTest` fixture provides `parse(CreateTempFile(...))`:
 
 ```cpp
@@ -476,7 +476,7 @@ Notice the assertion is the *improved* message we designed while writing the tes
 together — that is the forcing function from §3 in action. (The `\\}` is just the regex
 escape for a literal `}`.)
 
-**A positive run test** (from [backend/besm6/chapter1_tests.cpp](../backend/besm6/chapter1_tests.cpp)).
+**A positive run test** (from [backend/besm6/test/chapter1_tests.cpp](../backend/besm6/test/chapter1_tests.cpp)).
 The `CodegenTest` fixture's `CompileAndRun` compiles the source, runs it on Dubna, and
 returns whatever it printed:
 
@@ -497,8 +497,8 @@ compiler in three lines.
 A few simple conventions keep the growing suite navigable:
 
 - **One file per chapter, per component.** Chapter 5's parser tests go in
-  `parser/chapter5_tests.cpp`; its semantic tests in `semantic/chapter5_tests.cpp`; its
-  runnable programs in `backend/besm6/chapter5_tests.cpp`. The file's directory tells you
+  `parser/test/chapter5_tests.cpp`; its semantic tests in `semantic/test/chapter5_tests.cpp`; its
+  runnable programs in `backend/besm6/test/chapter5_tests.cpp`. The file's directory tells you
   the phase; the filename tells you the chapter.
 - **`_Neg` marks negative tests.** A name ending in `_Neg` is a "this must be rejected"
   test; everything else is a positive test.
@@ -593,7 +593,7 @@ If you remember three things from this article, make them these:
    a doctored green checkmark.
 
 From here, the natural next steps are to browse the committed chapter test files named
-throughout this article (`scanner/chapter1_tests.cpp`, `backend/besm6/chapter13_tests.cpp`,
+throughout this article (`scanner/test/chapter1_tests.cpp`, `backend/besm6/test/chapter13_tests.cpp`,
 and their siblings), and to consult [Besm6_Data_Representation.md](Besm6_Data_Representation.md)
 and the [Technical Reference](Technical_Reference.md) for the full phase-by-phase design and
 the target's data model.

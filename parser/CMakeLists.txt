@@ -15,33 +15,33 @@ target_link_libraries(parser scanner ast libutil)
 # Tests for parser (including the textbook chapter tests)
 #
 add_executable(parser-tests EXCLUDE_FROM_ALL
-    simple_tests.cpp
-    statement_tests.cpp
-    operator_tests.cpp
-    type_tests.cpp
-    struct_tests.cpp
-    declaration_tests.cpp
-    constant_tests.cpp
-    serialize_tests.cpp
-    negative_tests.cpp
-    chapter1_tests.cpp
-    chapter2_tests.cpp
-    chapter3_tests.cpp
-    chapter4_tests.cpp
-    chapter5_tests.cpp
-    chapter6_tests.cpp
-    chapter7_tests.cpp
-    chapter8_tests.cpp
-    chapter9_tests.cpp
-    chapter10_tests.cpp
-    chapter11_tests.cpp
-    chapter12_tests.cpp
-    chapter13_tests.cpp
-    chapter14_tests.cpp
-    chapter15_tests.cpp
-    chapter16_tests.cpp
-    chapter17_tests.cpp
-    chapter18_tests.cpp
+    test/simple_tests.cpp
+    test/statement_tests.cpp
+    test/operator_tests.cpp
+    test/type_tests.cpp
+    test/struct_tests.cpp
+    test/declaration_tests.cpp
+    test/constant_tests.cpp
+    test/serialize_tests.cpp
+    test/negative_tests.cpp
+    test/chapter1_tests.cpp
+    test/chapter2_tests.cpp
+    test/chapter3_tests.cpp
+    test/chapter4_tests.cpp
+    test/chapter5_tests.cpp
+    test/chapter6_tests.cpp
+    test/chapter7_tests.cpp
+    test/chapter8_tests.cpp
+    test/chapter9_tests.cpp
+    test/chapter10_tests.cpp
+    test/chapter11_tests.cpp
+    test/chapter12_tests.cpp
+    test/chapter13_tests.cpp
+    test/chapter14_tests.cpp
+    test/chapter15_tests.cpp
+    test/chapter16_tests.cpp
+    test/chapter17_tests.cpp
+    test/chapter18_tests.cpp
 )
 target_link_libraries(parser-tests parser GTest::gtest_main)
 gtest_discover_tests(parser-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

@@ -12,7 +12,7 @@
 // depend on those are DISABLED_ with a one-line reason.  Host-only "#if/#pragma"
 // lines are stripped (our scanner has no preprocessor).
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 TEST_F(CodegenTest, Chapter19_WP_IntOnly_DeadCondition)
 {

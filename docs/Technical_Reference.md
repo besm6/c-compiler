@@ -82,7 +82,7 @@ Recursive-descent parser guided by the C11 grammar in `grammar/` (not generated 
 | `parser.h`, `parser.c` | Parser API and implementation |
 | `nametab.c` | Identifier name table |
 | `main.c` | `parse` entry: `parse` → `export_ast` / `export_yaml` / `export_dot` |
-| `fixture.h` | Test helpers |
+| `test/fixture.h` | Test helpers |
 
 Parser tests (9 files): `simple_tests.cpp`, `statement_tests.cpp`, `operator_tests.cpp`, `type_tests.cpp`, `struct_tests.cpp`, `declaration_tests.cpp`, `constant_tests.cpp`, `serialize_tests.cpp`, `negative_tests.cpp` → `parser-tests`.
 
@@ -127,7 +127,7 @@ Tests (9 files): `symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`,
 | File | Role |
 |------|------|
 | `translate.h`, `translate.c` | Shared helpers, type conversion, top-level entry points |
-| `translate_test.h` | Test fixture helpers shared across translator test files |
+| `test/translate_test.h` | Test fixture helpers shared across translator test files |
 | `expr.c` | AST `Expr` → TAC instruction lowering |
 | `stmt.c` | AST `Stmt` → TAC instruction lowering; local declaration init |
 | `main.c` | `lower` entry: import → semantic passes → translate → emit |
@@ -164,7 +164,7 @@ Tests: `decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `
 | `emit.c` | Instruction-emit helpers (`emit_xta`, `emit_atx`, `emit_arith_val`, …) |
 | `emit_madlen.c` | Madlen assembly emitter (`emit_madlen_module`, `emit_madlen_func`, etc.) |
 | `utf8_to_koi7.c`, `utf8_to_koi7.h` | UTF-8 → KOI7 string conversion for static string data |
-| `*_tests.cpp` | GoogleTest suite (`besm-tests`) — see the test list below |
+| `test/*_tests.cpp` | GoogleTest suite (`besm-tests`) — see the test list below |
 
 IR hierarchy: `Besm_Module` → `Besm_Func` (calling convention: `BESM6_C` or `INTERNAL`) → `Besm_Block` → `Besm_Instr` (8 instruction categories: mem, arith, log, exp, reg, mod, branch, extra). Data lives in `Besm_DataSection` → `Besm_DataItem` (8 kinds: Int, Real, Oct, Log, Bss, Equ, Ref, String).
 
@@ -420,14 +420,14 @@ their unit-test sources:
 
 | Executable | Sources (under repo root) |
 |------------|---------------------------|
-| `scanner-tests` | `scanner/tests.cpp` |
-| `parser-tests` | `parser/simple_tests.cpp`, …, `serialize_tests.cpp` (9 files) |
-| `ast-tests` | `ast/clone_tests.cpp` |
-| `libutil-tests` | `libutil/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` |
-| `tac-tests` | `tac/yaml_tests.cpp`, `graphviz_tests.cpp`, `binary_tests.cpp` |
-| `semantic-tests` | `semantic/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` |
-| `besm-tests` | `backend/besm6/codegen_tests.cpp`, `arith_tests.cpp`, `convert_tests.cpp`, `copy_tests.cpp`, `flow_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp`, `ptr_tests.cpp`, `run_tests.cpp`, `struct_tests.cpp`, `unary_tests.cpp` |
-| `translate-tests` | `translator/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` |
+| `scanner-tests` | `scanner/test/tests.cpp` |
+| `parser-tests` | `parser/test/simple_tests.cpp`, …, `serialize_tests.cpp` (9 files) |
+| `ast-tests` | `ast/test/clone_tests.cpp` |
+| `libutil-tests` | `libutil/test/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` |
+| `tac-tests` | `tac/test/yaml_tests.cpp`, `graphviz_tests.cpp`, `binary_tests.cpp` |
+| `semantic-tests` | `semantic/test/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` |
+| `besm-tests` | `backend/besm6/test/codegen_tests.cpp`, `arith_tests.cpp`, `convert_tests.cpp`, `copy_tests.cpp`, `flow_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp`, `ptr_tests.cpp`, `run_tests.cpp`, `struct_tests.cpp`, `unary_tests.cpp` |
+| `translate-tests` | `translator/test/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` |
 
 Run a single binary from `build/`:
 
@@ -444,8 +444,8 @@ Run a single binary from `build/`:
 
 ### Chapter (book) tests
 
-The "Writing a C Compiler" chapter tests (`*/chapter*_tests.cpp`,
-`backend/besm6/chapter*_tests.cpp`) are compiled **into the regular per-module test
+The "Writing a C Compiler" chapter tests (`*/test/chapter*_tests.cpp`,
+`backend/besm6/test/chapter*_tests.cpp`) are compiled **into the regular per-module test
 binaries** — the chapter sources are listed in the same `add_executable(<module>-tests …)`
 as the unit tests. So `parser-tests` contains `chapter1..18_tests.cpp` alongside its unit
 tests, `besm-tests` contains `chapter1..20_tests.cpp`, etc. There are no separate
@@ -454,8 +454,8 @@ everything else.
 
 `fatal_error()` (the compiler libraries call it, but its definition lives in the test
 executable, not a library) is defined exactly once per binary in a regular unit-test source —
-`parser/simple_tests.cpp`, `semantic/typecheck_tests.cpp`, `optimize/pipeline_tests.cpp`,
-`backend/besm6/codegen_tests.cpp` — and the chapter sources do not redefine it. The scanner
+`parser/test/simple_tests.cpp`, `semantic/test/typecheck_tests.cpp`, `optimize/test/pipeline_tests.cpp`,
+`backend/besm6/test/codegen_tests.cpp` — and the chapter sources do not redefine it. The scanner
 needs none — it reports lexical errors via its own `lex_error()`/`exit()`.
 
 ## Development notes

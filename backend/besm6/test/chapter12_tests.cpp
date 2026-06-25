@@ -20,7 +20,7 @@
 // wraparound and oversized-value tests now seed values relative to 2^48 and
 // check the 48-bit modular result.
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 // --- valid (run) ------------------------------------------------------------
 

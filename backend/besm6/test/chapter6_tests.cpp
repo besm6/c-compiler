@@ -4,7 +4,7 @@
 // Each program defines int main(void); WrapMain prints its return value, and we
 // compare program output against the value computed by reasoning / host cc.
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 // --- valid ------------------------------------------------------------------
 

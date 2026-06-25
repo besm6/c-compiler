@@ -26,32 +26,32 @@ target_link_libraries(semantic tac ast libutil)
 # Tests for semantic (including the textbook chapter tests)
 #
 add_executable(semantic-tests EXCLUDE_FROM_ALL
-   symtab_tests.cpp
-   structtab_tests.cpp
-   typetab_tests.cpp
-   typecheck_tests.cpp
-   real_tests.cpp
-   pipeline_tests.cpp
-   label_loops_tests.cpp
-   const_convert_tests.cpp
-   coercion_tests.cpp
-   chapter3_tests.cpp
-   chapter5_tests.cpp
-   chapter6_tests.cpp
-   chapter7_tests.cpp
-   chapter8_tests.cpp
-   chapter9_tests.cpp
-   chapter10_tests.cpp
-   chapter11_tests.cpp
-   chapter12_tests.cpp
-   chapter13_tests.cpp
-   chapter14_tests.cpp
-   chapter15_tests.cpp
-   chapter16_tests.cpp
-   chapter17_tests.cpp
-   chapter18_tests.cpp
+   test/symtab_tests.cpp
+   test/structtab_tests.cpp
+   test/typetab_tests.cpp
+   test/typecheck_tests.cpp
+   test/real_tests.cpp
+   test/pipeline_tests.cpp
+   test/label_loops_tests.cpp
+   test/const_convert_tests.cpp
+   test/coercion_tests.cpp
+   test/chapter3_tests.cpp
+   test/chapter5_tests.cpp
+   test/chapter6_tests.cpp
+   test/chapter7_tests.cpp
+   test/chapter8_tests.cpp
+   test/chapter9_tests.cpp
+   test/chapter10_tests.cpp
+   test/chapter11_tests.cpp
+   test/chapter12_tests.cpp
+   test/chapter13_tests.cpp
+   test/chapter14_tests.cpp
+   test/chapter15_tests.cpp
+   test/chapter16_tests.cpp
+   test/chapter17_tests.cpp
+   test/chapter18_tests.cpp
 )
-target_link_libraries(semantic-tests parser semantic GTest::gtest_main)
+target_link_libraries(semantic-tests parser semantic GTest::gtest_main test_util)
 target_compile_definitions(semantic-tests PRIVATE
     BESM6_CPP="${SystemCpp}"
     BESM6_INCLUDE_DIR="${BESM6_INCLUDE_DIR}")

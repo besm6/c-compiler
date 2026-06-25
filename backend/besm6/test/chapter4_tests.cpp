@@ -6,7 +6,7 @@
 // reference and our 41-bit BESM-6 int agree.  Short-circuit cases (e.g. 0 && (1/0))
 // rely on the translator's && / || short-circuit lowering, so the divide is never run.
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 // --- valid: logical and (&&), short-circuit ---------------------------------
 

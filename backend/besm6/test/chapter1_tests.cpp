@@ -8,7 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 
-#include "book_run.h"
+#include "codegen_test.h"
 
 // fatal_error() is defined once for the whole besm-tests binary in
 // codegen_tests.cpp; the compiler libraries call it.

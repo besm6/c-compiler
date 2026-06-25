@@ -57,7 +57,7 @@
 // below is the BESM-6 result (2), not the x86 result (0).  (The constant-fold
 // path matches x86, which is why earlier chapters' constant-shift tests pass.)
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 // --- valid (run) ------------------------------------------------------------
 

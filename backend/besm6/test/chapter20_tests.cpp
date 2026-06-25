@@ -24,7 +24,7 @@
 // BESM-6 type model.  One program — DontCoalesceMovzx, an x86-only "don't coalesce a
 // movzx" check with no BESM-6 analogue — was removed (see the note at its old site).
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 // --- inlined helper_libs/util.c check_* / id helpers (exit on mismatch) ---
 static const std::string EX  = "#include <stdlib.h>\n";

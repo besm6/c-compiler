@@ -27,7 +27,7 @@
 //     reasons: one global array too large for BESM-6 core and one loop that
 //     exceeds the ctest timeout.
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 
 

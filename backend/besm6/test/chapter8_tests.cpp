@@ -9,7 +9,7 @@
 // so they are semantic-negative tests in semantic/chapter8_tests.cpp instead
 // (for_shadow, for_nested_shadow, case_block, switch_decl).
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 // --- valid ------------------------------------------------------------------
 

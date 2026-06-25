@@ -10,12 +10,20 @@ target_include_directories(libutil PUBLIC .)
 target_link_libraries(libutil m)
 
 #
+# Shared test-only header (test_preprocess.h) lives in test/.  Expose it to the
+# test executables of other modules whose fixtures include it, without widening
+# the production libutil target's public include path.
+#
+add_library(test_util INTERFACE)
+target_include_directories(test_util INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/test)
+
+#
 # Tests for string map, wio and xalloc
 #
 add_executable(libutil-tests EXCLUDE_FROM_ALL
-    string_map_tests.cpp
-    wio_tests.cpp
-    xalloc_tests.cpp
+    test/string_map_tests.cpp
+    test/wio_tests.cpp
+    test/xalloc_tests.cpp
 )
 target_link_libraries(libutil-tests libutil GTest::gtest_main)
 gtest_discover_tests(libutil-tests EXTRA_ARGS --gtest_repeat=1 PROPERTIES TIMEOUT 10)

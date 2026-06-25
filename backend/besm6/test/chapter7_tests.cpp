@@ -9,7 +9,7 @@
 // shadow an enclosing name run here; the shadowing ones the book lists as valid
 // are semantic-negative tests in semantic/chapter7_tests.cpp instead.
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 // --- valid ------------------------------------------------------------------
 

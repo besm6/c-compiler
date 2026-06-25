@@ -17,7 +17,7 @@
 // page-boundary faults) are DISABLED_ at the bottom with one-line reasons;
 // strcmp/memcmp are provided inline where a program only needs the routine.
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 
 // =============================================================================

@@ -5,7 +5,7 @@
 // value, which we compare against.  All results fit in 32 bits, so the host cc
 // reference and our 41-bit BESM-6 int agree.
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 // --- valid: arithmetic, grouping, precedence, associativity ----------------
 

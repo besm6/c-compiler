@@ -11,7 +11,7 @@
 // here: they suppress host-compiler warnings and our frontend has no
 // preprocessor.
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 // --- valid ------------------------------------------------------------------
 

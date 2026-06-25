@@ -4,7 +4,7 @@
 // Each program returns a unary expression (negate '-' and complement '~'); the
 // wrapper prints main()'s return value, which we compare against.
 //
-#include "book_run.h"
+#include "codegen_test.h"
 
 // return ~12;
 TEST_F(CodegenTest, Chapter2_Bitwise)
