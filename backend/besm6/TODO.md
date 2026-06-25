@@ -12,19 +12,7 @@ Work plan for the BESM-6 backend, in no partucular order.
 | 8 | LICM (loop-invariant code motion) | Machine-independent TAC pass. Prerequisite: a new dominator-tree and natural-loop analysis (none exists; the loop info from `semantic/label_loops.c` is lost by TAC time). Then hoist loop-invariant computations into a preheader, reusing the liveness framework from `optimize/dead_store.c`. |
 | 9 | Generalized strength reduction | Today only power-of-two mul/div is reduced, and only in the backend (`backend/besm6/instr.c`). Add TAC-level reduction for non-power-of-two constants (`a*3 → (a<<1)+a`, magic-number division) so all targets benefit; extend `constant_fold` pattern matching. Needs a per-target cost model. |
 | 10 | Function inlining | Machine-independent, interprocedural. Build a call graph over `TAC_INSTRUCTION_FUN_CALL` (none exists; TAC is intraprocedural), add a size/recursion heuristic, substitute bodies (rename `%`-locals, map params→args, return→assign+jump), and run before the fixed-point loop so the existing passes clean up the inlined code. |
-
-## DISABLED book-test triage
-
-The "Writing a C Compiler" chapter tests (imported for an x86-64 / IEEE-754 target) carry many
-**`DISABLED_` test cases** across the parser, semantic, optimizer, and BESM-6
-backend modules. The tasks below adapt each test so it is sensible for the BESM-6 target and
-re-enable it, removing only tests with no BESM-6 analogue. One task per adaptation category;
-all are tracked here regardless of module. Locate the named tests with
-`grep -n DISABLED_ <file>`. Principles: (1) drop `static` on a global where it only blocks
-the test; (2) replace literals that make no sense on BESM-6; (3) implement a missing libc
-function; (4) remove NaN/inf parts; (5) shorten names that collide in 8 chars; (6) for
-no-analogue tests, adapt where possible and remove the rest.
-
-### Backend BESM-6 — codegen & libc
-
-All DISABLED book-test triage tasks have been adapted.
+| 58 | Adapt test ScalarMemberAccessStaticStructs | `DISABLED_Chapter18_ScalarMemberAccessStaticStructs` (chapter18_tests1.cpp). Validates by *printing* via puts/putchar, but the import wrongly expects `"0\n"` (WrapMain only appends `printf("%d\n", main())`). Replace the two `malloc` calls (static-local pointer + global pointer cases) with static backing objects (`static struct s backing; ptr = &backing;` — no working heap, see `DISABLED_MallocHeapRoundTrip`); switch every printed lowercase letter to UPPERCASE ASCII so KOI-7 output matches; recompute the expected stdout to the full printed sequence followed by `0\n`. Keep puts/putchar (both in libc). |
+| 59 | Adapt test StructCopyCopyStruct | `DISABLED_Chapter18_StructCopyCopyStruct` (chapter18_tests1.cpp). Return-code-validated (strcmp + member checks). Replace any `malloc`/`calloc` with static storage; UPPERCASE all strcmp literals and the char-array initializers that feed them (`"ab"`,`"abcdef"`,`"xy"`) so static (KOI-7) and automatic (ASCII) paths compare equal; scan external names (`test_auto`/`test_static`/`test_wonky_size`/`test_conditional`/`true_flag`) for 8-char collisions and rename. `long` values are in range. |
+| 60 | Adapt test StructCopyThroughPointer | `DISABLED_Chapter18_StructCopyThroughPointer` (chapter18_tests1.cpp). Exercises `*x=y`/`x=*y`/`*x=*y`/`arr[i]=y`/`x=arr[i]`/`arr[i]=arr[j]`/padded copy. Replace the three `malloc(sizeof(struct s))` allocations with static backing objects; UPPERCASE the strcmp/char-array literals (`"!?"`,`"()"`,`"+-"`,`"ab"`/`"cd"`/`"ef"`); negative `long` values are in range. Highest collision risk: `test_copy_to_pointer` vs `test_copy_to_and_from_pointer` collide on the first 8 chars (`test_cop`) — rename the `test_copy_*` helpers to stay distinct. |
+| 61 | Adapt test AutoStructInitializers | `DISABLED_Chapter18_AutoStructInitializers` (chapter18_tests2.cpp). Largest adaptation: partial init, implicit conversions, compound vs single-expression initializers, string-literal initializers, struct copy. Replace `malloc(5)`/`calloc(1, sizeof(struct s))`/`calloc(1, sizeof(double))` with static backing storage (zeroed statics reproduce calloc's zero-init; point the `malloc(5)` non-null check at a static buffer); UPPERCASE the message/strcmp string literals (`"I'm a struct!"`,`"sup"`,`"Another string literal"`,`"Yet another string"`,`"xy"`); the `double` values (`2e12`,`2999.0`,`150.0`,`123.4`) are in range — verify `2e12` round-trips; the `validate_*` helpers live in the same TU (no libc dep) — check their names + the `test_*` names for 8-char collisions. Keep strcmp (in libc). |

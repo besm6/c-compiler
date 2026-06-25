@@ -989,12 +989,12 @@ int set_nested_element(int (*arr)[2], int i, int j) {
 // Block-scope statics work now; tests still DISABLED_ here have a separate blocker
 // (multi-dimensional array sub-word scaling, pointer representation, etc.).
 
-// declarators/equivalent_declarators: the static-local + pointer-to-2D-array parts now work,
-// but this stays DISABLED for task #19 — the tentative re-declaration `int long arr[4ul];`
-// after `long int(arr)[4] = {1,2,3,4};` re-emits a zero-init that clobbers the initializer
-// (arr reads back 0).  The redundant re-declaration is the whole point of the test, so it
-// can't be dropped; re-enable once task #19 (tentative/extern-after-definition clobber) lands.
-TEST_F(CodegenTest, DISABLED_Chapter15_EquivalentDeclarators)
+// declarators/equivalent_declarators: re-enabled once task #19 landed (commit 016593e) — the
+// redundant tentative re-declaration `int long arr[4ul];` after the initialized
+// `long int(arr)[4] = {1,2,3,4};` no longer re-emits a zero-init that clobbers the
+// initializer.  The `test_array_of_pointers` helper was shortened to `test_aop` so it stays
+// distinct from `test_arr` within the Madlen 8-char label limit (both truncate to `test*arr`).
+TEST_F(CodegenTest, Chapter15_EquivalentDeclarators)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(/* Declare the same global array multiple times w/ equivalent declarators */
 
@@ -1036,7 +1036,7 @@ int test_ptr_to_arr(void) {
     return 0; // success
 }
 
-int test_array_of_pointers(int *ptr) {
+int test_aop(int *ptr) {
 
     extern int *((array_of_pointers)[3]); // make sure we can redeclare this locally
 
@@ -1080,7 +1080,7 @@ int main(void)
 
     // make sure array_of_pointers has the right type
     int x = 0;
-    check = test_array_of_pointers(&x);
+    check = test_aop(&x);
     if (check) {
         return check;
     }
