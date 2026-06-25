@@ -8,8 +8,6 @@
 extern "C" {
 #endif
 
-#include <stdnoreturn.h>
-
 #include "ast.h"
 #include "tac.h"
 
@@ -31,7 +29,12 @@ void label_loops(const ExternalDecl *ast);
 void resolve_labels(const ExternalDecl *ast);
 
 // Error handling.
-_Noreturn void fatal_error(const char *message, ...);
+#ifdef __cplusplus
+[[noreturn]]
+#else
+_Noreturn
+#endif
+void fatal_error(const char *message, ...);
 
 // Decode a C string literal raw token (with surrounding quotes and escape sequences)
 // to a heap-allocated C string with the actual bytes. Caller must xfree() the result.

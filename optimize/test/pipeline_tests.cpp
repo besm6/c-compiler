@@ -4,9 +4,11 @@
 #include <cstdio>
 
 extern "C" {
+//
 // The single definition of fatal_error for the optimizer-tests binary; the
 // shared PipelineTest fixture (and chapter19_tests.cpp) link against it.
-void _Noreturn fatal_error(const char *message, ...)
+//
+[[noreturn]] void fatal_error(const char *message, ...)
 {
     fprintf(stderr, "Fatal error: ");
     va_list ap;

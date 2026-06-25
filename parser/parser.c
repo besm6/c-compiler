@@ -18,7 +18,8 @@ static char lexeme_buffer[1024]; // Buffer for current lexeme
 // Enable debug output
 int parser_debug;
 
-int scope_level;
+// Level of scope for nested compound operators, from semantic.
+extern int scope_level;
 
 //
 // Helpers for fatal_message.

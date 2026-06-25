@@ -8,8 +8,6 @@
 extern "C" {
 #endif
 
-#include <stdnoreturn.h>
-
 #include "ast.h"
 
 typedef struct Declarator Declarator;
@@ -31,7 +29,12 @@ const char *parser_get_lexeme(void);
 //
 // Error reporting, provided by caller
 //
-_Noreturn void fatal_error(const char *message, ...);
+#ifdef __cplusplus
+[[noreturn]]
+#else
+_Noreturn
+#endif
+void fatal_error(const char *message, ...);
 
 //
 // Name table

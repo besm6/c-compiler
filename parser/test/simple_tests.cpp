@@ -3,8 +3,14 @@
 #include "fixture.h"
 #include "internal.h"
 
+//
+// Level of scope for nested compound operators.
+// Usually it comes from semantic level, but let's define it here instead.
+//
+int scope_level;
+
 extern "C" {
-void _Noreturn fatal_error(const char *message, ...)
+[[noreturn]] void fatal_error(const char *message, ...)
 {
     fprintf(stderr, "Parse error: ");
 

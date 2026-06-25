@@ -9,6 +9,12 @@
 #include "xalloc.h"
 
 //
+// Level of scope for nested compound operators.
+// Usually it comes from semantic level, but let's define it here instead.
+//
+int scope_level;
+
+//
 // Enum for output format
 //
 typedef enum {

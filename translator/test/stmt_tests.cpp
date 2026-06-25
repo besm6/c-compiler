@@ -3,7 +3,7 @@
 #include "translate_test.h"
 
 extern "C" {
-void _Noreturn fatal_error(const char *message, ...)
+[[noreturn]] void fatal_error(const char *message, ...)
 {
     fprintf(stderr, "Fatal error: ");
 

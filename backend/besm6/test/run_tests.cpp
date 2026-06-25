@@ -28,7 +28,7 @@ TEST_F(CodegenTest, RunRev)
     int in_fd      = mkstemp(in_path);
     ASSERT_GE(in_fd, 0);
     const char *input = "hello\nworld\nfoo\n";
-    write(in_fd, input, strlen(input));
+    ASSERT_GT(write(in_fd, input, strlen(input)), 0);
     close(in_fd);
 
     char out_path[] = "/tmp/rev_output_XXXXXX";
@@ -44,7 +44,7 @@ TEST_F(CodegenTest, RunRev)
     long len = ftell(f);
     rewind(f);
     std::string got(static_cast<size_t>(len), '\0');
-    fread(&got[0], 1, static_cast<size_t>(len), f);
+    ASSERT_NE(fread(&got[0], 1, static_cast<size_t>(len), f), NULL);
     fclose(f);
 
     EXPECT_EQ(got, "olleh\ndlrow\noof\n");

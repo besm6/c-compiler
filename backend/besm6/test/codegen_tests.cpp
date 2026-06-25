@@ -5,7 +5,7 @@
 #include "codegen_test.h"
 
 // Required by parser and semantic libraries.
-extern "C" _Noreturn void fatal_error(const char *message, ...)
+extern "C" [[noreturn]] void fatal_error(const char *message, ...)
 {
     fprintf(stderr, "Fatal error: ");
     va_list ap;
