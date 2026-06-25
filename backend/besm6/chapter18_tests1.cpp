@@ -1658,11 +1658,16 @@ int main(void) {
 }
 
 // block-scope static + strcmp + local char-array string init.
-TEST_F(CodegenTest, DISABLED_Chapter18_StructCopyCopyStruct)
+TEST_F(CodegenTest, Chapter18_StructCopyCopyStruct)
 {
+    // BESM-6 adaptation: the unused `void *malloc(...)` declaration is dropped
+    // (this test never calls malloc).  Char-array initializers and the matching
+    // strcmp literals are UPPERCASE so the automatic (ASCII) and static/literal
+    // (KOI-7) paths compare equal.  The external names (test_auto/test_static/
+    // test_wonky_size/test_conditional/true_flag) are all distinct in their
+    // first 8 chars, so no rename is needed for Madlen's 8-char label limit.
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 int strcmp(char *s1, char *s2);
-void *malloc(unsigned long size);
 
 struct small {
     int a;
@@ -1688,10 +1693,10 @@ struct with_end_padding {
 
 // test 1: copy one struct with auto storage duration to another
 int test_auto(void) {
-    struct s x = {"ab", {-1, 2}};
-    struct s y = {"x", {1}};
+    struct s x = {"AB", {-1, 2}};
+    struct s y = {"X", {1}};
     y = x;
-    if (strcmp(y.arr, "ab") || y.inner.a != -1 || y.inner.b != 2) {
+    if (strcmp(y.arr, "AB") || y.inner.a != -1 || y.inner.b != 2) {
         return 0;
     }
 
@@ -1706,10 +1711,10 @@ int test_auto(void) {
 
 // test 2: copy one struct with static storage duration to another
 int test_static(void) {
-    static struct s x = {"ab", {1, 2}};
+    static struct s x = {"AB", {1, 2}};
     static struct s y;
     y = x;
-    if (strcmp(y.arr, "ab") || y.inner.a != 1 || y.inner.b != 2) {
+    if (strcmp(y.arr, "AB") || y.inner.a != 1 || y.inner.b != 2) {
         return 0;
     }
 
@@ -1722,10 +1727,10 @@ struct wonky {
 };
 
 int test_wonky_size(void) {
-    struct wonky x = {"abcdef"};
+    struct wonky x = {"ABCDEF"};
     static struct wonky y;
     y = x;
-    if (strcmp(y.arr, "abcdef")) {
+    if (strcmp(y.arr, "ABCDEF")) {
         return 0;
     }
     return 1;  // success
@@ -1737,11 +1742,11 @@ int true_flag(void) {
 }
 
 int test_conditional(void) {
-    static struct s x = {"xy", {1234, 5678}};
+    static struct s x = {"XY", {1234, 5678}};
     struct s y = {"!", {-10}};
     struct s z;
     z = true_flag() ? x : y;
-    if (strcmp(z.arr, "xy") || z.inner.a != 1234 || z.inner.b != 5678) {
+    if (strcmp(z.arr, "XY") || z.inner.a != 1234 || z.inner.b != 5678) {
         return 0;
     }
 
