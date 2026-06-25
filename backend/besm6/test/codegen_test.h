@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <gtest/gtest.h>
+#include <sys/file.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -32,6 +33,35 @@ class CodegenTest : public ::testing::Test {
     FILE *input_file{};
     Program *program{};
     OptFlags opt_flags{};
+
+    // RAII advisory lock used to detect a second concurrent besm-tests run of the same
+    // test (which would clobber the shared <TestName>.dub/.lst).  Non-blocking: if another
+    // process already holds it, locked() is false and the caller fails fast.  The kernel
+    // releases the lock on close()/process exit, so a crashed run never leaves it stuck.
+    class FlockGuard {
+    public:
+        explicit FlockGuard(const std::string &path)
+            : fd_(open(path.c_str(), O_CREAT | O_RDWR | O_CLOEXEC, 0644))
+        {
+            if (fd_ >= 0 && flock(fd_, LOCK_EX | LOCK_NB) == 0)
+                locked_ = true;
+        }
+        ~FlockGuard()
+        {
+            if (fd_ >= 0) {
+                if (locked_)
+                    flock(fd_, LOCK_UN);
+                close(fd_);
+            }
+        }
+        FlockGuard(const FlockGuard &)            = delete;
+        FlockGuard &operator=(const FlockGuard &) = delete;
+        bool locked() const { return locked_; }
+
+    private:
+        int  fd_{ -1 };
+        bool locked_{ false };
+    };
 
 protected:
     void SetUp() override
@@ -161,6 +191,17 @@ protected:
         const char *test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
         std::string dub_path  = std::string(TEST_DIR "/") + test_name + ".dub";
         std::string lst_path  = std::string(TEST_DIR "/") + test_name + ".lst";
+
+        // Held across the .dub write, the dubna run, and the .lst read; released by RAII
+        // on every return below.  A failure to acquire means another besm-tests process
+        // is running this same test concurrently and would clobber these files.
+        FlockGuard dub_lock(dub_path);
+        if (!dub_lock.locked()) {
+            ADD_FAILURE() << "Concurrent besm-tests run detected for this test; do not "
+                             "launch two besm-tests processes at once ("
+                          << dub_path << ")";
+            return "ERROR";
+        }
 
         {
             std::ofstream dub(dub_path);
