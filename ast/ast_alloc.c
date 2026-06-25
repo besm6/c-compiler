@@ -111,6 +111,7 @@ InitItem *new_init_item(Designator *designators, Initializer *init)
     InitItem *ii    = xalloc(sizeof(InitItem), __func__, __FILE__, __LINE__);
     ii->designators = designators;
     ii->init        = init;
+    ii->offset      = 0;
     return ii;
 }
 

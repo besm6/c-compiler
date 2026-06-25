@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "structtab.h"
 #include "translate.h"
 #include "xalloc.h"
 
@@ -126,10 +125,11 @@ void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const
         for (const InitItem *item = init->u.items; item; item = item->next, i++)
             gen_compound_init(ctx, var_name, base_offset + i * elem_size, item->init);
     } else if (t->kind == TYPE_STRUCT) {
-        const StructDef *def = structtab_find(t->u.struct_t.name);
-        const FieldDef *fld  = def->members;
-        for (const InitItem *item = init->u.items; item; item = item->next, fld = fld->next)
-            gen_compound_init(ctx, var_name, base_offset + fld->offset, item->init);
+        // Member byte offsets were resolved and cached on each InitItem by typecheck
+        // (typecheck_init), while the struct tag was still live in structtab.  Consume
+        // them here instead of re-querying structtab, which a block-local tag has left.
+        for (const InitItem *item = init->u.items; item; item = item->next)
+            gen_compound_init(ctx, var_name, base_offset + item->offset, item->init);
     } else if (t->kind == TYPE_UNION) {
         // typecheck_init reduced the union initializer to its single first member,
         // which lives at offset 0 of the union — initialize it there.  No structtab

@@ -374,3 +374,72 @@ TEST_F(CodegenTest, StaticLocalBlockStructType)
     )");
     EXPECT_EQ("0 0\n1 2\n3 4\n", result);
 }
+
+// An *automatic* local struct with a *compound initializer*, where the tag is declared
+// inside the function body (TODO #63).  gen_compound_init used to re-query structtab for the
+// member offsets, but the block-local tag is purged on block exit; the offsets are now cached
+// on each InitItem by typecheck instead.
+TEST_F(CodegenTest, AutoLocalBlockStructCompoundInit)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            struct s {
+                int a;
+                int b;
+            };
+            struct s x = { 1, 2 };
+            printf("%d %d\n", x.a, x.b);
+        }
+    )");
+    EXPECT_EQ("1 2\n", result);
+}
+
+// Same, but with a nested struct member, to exercise gen_compound_init's recursion through
+// cached offsets at more than one level.
+TEST_F(CodegenTest, AutoLocalBlockStructNestedCompoundInit)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            struct inner {
+                int p;
+                int q;
+            };
+            struct outer {
+                int a;
+                struct inner in;
+                int b;
+            };
+            struct outer x = { 1, { 2, 3 }, 4 };
+            printf("%d %d %d %d\n", x.a, x.in.p, x.in.q, x.b);
+        }
+    )");
+    EXPECT_EQ("1 2 3 4\n", result);
+}
+
+// Partial compound init of an automatic block-local nested struct: trailing members and
+// trailing members of a partially-given nested struct must zero-fill.  Exercises the
+// zero-fill arm of typecheck_init / gen_compound_init, whose InitItems also carry cached
+// member offsets.
+TEST_F(CodegenTest, AutoLocalBlockStructPartialCompoundInit)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            struct inner {
+                int p;
+                int q;
+                int r;
+            };
+            struct outer {
+                int a;
+                struct inner in;
+                int b;
+            };
+            struct outer x = { 1, { 2 } };
+            printf("%d %d %d %d %d\n", x.a, x.in.p, x.in.q, x.in.r, x.b);
+        }
+    )");
+    EXPECT_EQ("1 2 0 0 0\n", result);
+}

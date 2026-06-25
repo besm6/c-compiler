@@ -230,6 +230,7 @@ struct InitItem {
     InitItem *next; /* linked list */
     Designator *designators;
     Initializer *init;
+    int offset; /* byte offset of this item within the enclosing struct; set by typecheck (0 otherwise) */
 };
 
 typedef enum { DESIGNATOR_ARRAY, DESIGNATOR_FIELD } DesignatorKind;

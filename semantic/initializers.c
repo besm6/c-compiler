@@ -607,13 +607,18 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
             }
             assert(field);
             InitItem *new_item = new_init_item(NULL, typecheck_init(field->type, item->init));
-            *current           = new_item;
-            current            = &new_item->next;
-            field              = field->next;
+            // Stash the member's byte offset on the AST node while the tag is still
+            // live; a block-local tag is purged on block exit, so the translator's
+            // gen_compound_init can no longer resolve it.  Mirrors field_access.offset.
+            new_item->offset = field->offset;
+            *current         = new_item;
+            current          = &new_item->next;
+            field            = field->next;
         }
 
         for (; field; field = field->next) {
             InitItem *zero_item = new_init_item(NULL, make_zero_init(field->type));
+            zero_item->offset   = field->offset;
             *current            = zero_item;
             current             = &zero_item->next;
         }
