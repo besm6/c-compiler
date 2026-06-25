@@ -1776,11 +1776,18 @@ int main(void) {
 }
 
 // malloc + block-scope static + local char-array string init.
-TEST_F(CodegenTest, DISABLED_Chapter18_StructCopyThroughPointer)
+// BESM-6 adaptation: there is no heap, so the two `malloc(sizeof(struct s))`
+// allocations are replaced with static backing objects (`&backing` stored through);
+// `struct s` is a file-scope tag, so task #62's block-local-static-struct limit does
+// not apply.  The lowercase char-array initializers and their matching strcmp literals
+// "ab"/"cd"/"ef" are UPPERCASED so the automatic (ASCII) and literal (KOI-7) paths
+// compare equal; the punctuation/control literals "!?"/"()"/"+-"/"\n\t" round-trip
+// identically through KOI-7 and are left as-is.  The six test_copy_* helpers collide in
+// Madlen's 8-char label space (test_cop), so they are renamed to distinct tc_* names.
+TEST_F(CodegenTest, Chapter18_StructCopyThroughPointer)
 {
     EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
 int strcmp(char *s1, char *s2);
-void *malloc(unsigned long size);
 
 struct small {
     int a;
@@ -1805,9 +1812,10 @@ struct with_end_padding {
 
 
 // case 1: *x = y
-int test_copy_to_pointer(void) {
+int tc_tptr(void) {
     struct s y = {"!?", {-20, -30}};
-    struct s *x = malloc(sizeof(struct s));
+    static struct s backing1;
+    struct s *x = &backing1;
     *x = y;
 
     // validate
@@ -1819,7 +1827,7 @@ int test_copy_to_pointer(void) {
 }
 
 // case 2: x = *y
-int test_copy_from_pointer(void) {
+int tc_fptr(void) {
     static struct s my_struct = {"()", {77, 78}};
     struct s *y = &my_struct;
     struct s x = {"", {0, 0}};
@@ -1834,10 +1842,11 @@ int test_copy_from_pointer(void) {
 }
 
 // case 3: *x = *y
-int test_copy_to_and_from_pointer(void) {
+int tc_tfptr(void) {
     struct s my_struct = {"+-", {1000, 1001}};
     struct s *y = &my_struct;
-    struct s *x = malloc(sizeof(struct s));
+    static struct s backing3;
+    struct s *x = &backing3;
     *x = *y;
 
     // validate
@@ -1849,7 +1858,7 @@ int test_copy_to_and_from_pointer(void) {
 }
 
 // case 4: arr[i] = y
-int test_copy_to_array_elem(void) {
+int tc_telem(void) {
     struct s y = {"\n\t", {10000, 20000}};
     static struct s arr[3];
 
@@ -1869,14 +1878,14 @@ int test_copy_to_array_elem(void) {
 }
 
 // case 5: x = arr[i]
-int test_copy_from_array_elem(void) {
+int tc_felem(void) {
     struct s arr[3] = {
-        {"ab", {-3000, -4000}}, {"cd", {-5000, -6000}}, {"ef", {-7000, -8000}}};
+        {"AB", {-3000, -4000}}, {"CD", {-5000, -6000}}, {"EF", {-7000, -8000}}};
 
     struct s x = {"", {0, 0}};
     x = arr[1];
     // validate
-    if (strcmp(x.arr, "cd") || x.inner.a != -5000 || x.inner.b != -6000) {
+    if (strcmp(x.arr, "CD") || x.inner.a != -5000 || x.inner.b != -6000) {
         return 0;
     }
 
@@ -1884,27 +1893,27 @@ int test_copy_from_array_elem(void) {
 }
 
 // case 6: arr[i] = arr[j]
-int test_copy_to_and_from_array_elem(void) {
+int tc_tfelem(void) {
     struct s arr[3] = {
-        {"ab", {-3000, -4000}}, {"cd", {-5000, -6000}}, {"ef", {-7000, -8000}}};
+        {"AB", {-3000, -4000}}, {"CD", {-5000, -6000}}, {"EF", {-7000, -8000}}};
 
     arr[0] = arr[2];
     // validate all elements
 
     // element 0
-    if (strcmp(arr[0].arr, "ef") || arr[0].inner.a != -7000 ||
+    if (strcmp(arr[0].arr, "EF") || arr[0].inner.a != -7000 ||
         arr[0].inner.b != -8000) {
         return 0;
     }
 
     // element 1
-    if (strcmp(arr[1].arr, "cd") || arr[1].inner.a != -5000 ||
+    if (strcmp(arr[1].arr, "CD") || arr[1].inner.a != -5000 ||
         arr[1].inner.b != -6000) {
         return 0;
     }
 
     // element 2
-    if (strcmp(arr[2].arr, "ef") || arr[2].inner.a != -7000 ||
+    if (strcmp(arr[2].arr, "EF") || arr[2].inner.a != -7000 ||
         arr[2].inner.b != -8000) {
         return 0;
     }
@@ -1913,7 +1922,7 @@ int test_copy_to_and_from_array_elem(void) {
 }
 
 // case 7: copy struct w/ trailing padding to array element
-int test_copy_array_element_with_padding(void) {
+int tc_pad(void) {
     struct with_end_padding arr[3] = {{0, 1, 2}, {3, 4, 5}, {6, 7, 8}};
     struct with_end_padding elem = {9, 9, 9};
     arr[1] = elem;
@@ -1927,29 +1936,29 @@ int test_copy_array_element_with_padding(void) {
 }
 
 int main(void) {
-    if (!test_copy_to_pointer()) {
+    if (!tc_tptr()) {
         return 1;
     }
 
-    if (!test_copy_from_pointer()) {
+    if (!tc_fptr()) {
         return 2;
     }
 
-    if (!test_copy_to_and_from_pointer()) {
+    if (!tc_tfptr()) {
         return 3;
     }
-    if (!test_copy_to_array_elem()) {
+    if (!tc_telem()) {
         return 4;
     }
-    if (!test_copy_from_array_elem()) {
+    if (!tc_felem()) {
         return 5;
     }
 
-    if (!test_copy_to_and_from_array_elem()) {
+    if (!tc_tfelem()) {
         return 6;
     }
 
-    if (!test_copy_array_element_with_padding()) {
+    if (!tc_pad()) {
         return 7;
     }
     return 0;  // success
