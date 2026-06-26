@@ -89,7 +89,12 @@ add_custom_command(
 # available, independent of the EXCLUDE_FROM_ALL test executables.
 add_custom_target(besm-libc ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libc.bin)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libc.bin DESTINATION lib/besm6)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libc.bin DESTINATION share/besm6/lib)
+
+# Target C11 standard headers, installed alongside the runtime library.
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
+        DESTINATION share/besm6/include
+        FILES_MATCHING PATTERN "*.h")
 
 #
 # Tests for the BESM-6 backend

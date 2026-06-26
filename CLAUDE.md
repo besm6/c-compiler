@@ -13,9 +13,11 @@ make debug        # build with Debug flags
 make clean        # remove ./build/
 ```
 
-**`make install`** builds everything, then installs four artifacts via `cmake --install`
+**`make install`** builds everything, then installs the artifacts via `cmake --install`
 to `~/.local` if that directory exists, otherwise `/usr/local`: `parse` → `bin/b6parse`,
-`lower` → `bin/b6lower`, `genbesm` → `bin/b6codegen`, and `libc.bin` → `lib/besm6/libc.bin`.
+`lower` → `bin/b6lower`, `genbesm` → `bin/b6codegen`, `libc.bin` →
+`share/besm6/lib/libc.bin`, and the target C11 standard headers
+(`backend/besm6/include/*.h`) → `share/besm6/include/`.
 The prefix is chosen in the Makefile at install time and passed as `cmake --install build
 --prefix`; the driver binaries are renamed (`b6` prefix) only at install time via
 `install(PROGRAMS … RENAME)`, so the in-tree build outputs (`build/parse`, `build/lower`,
