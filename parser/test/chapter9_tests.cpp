@@ -92,7 +92,7 @@ int main(void) {
     return 0;
 }
 )")),
-                 "expected ')', got '{'");
+                 "expected ')', got '\\{'");
 }
 
 // A variable initializer is not permitted in a parameter list.
@@ -120,5 +120,5 @@ TEST_F(ParserTest, Chapter9_NestedFunctionDefinition_Neg)
     return foo();
 }
 )")),
-                 "expected ';', got '{'");
+                 "expected ';', got '\\{'");
 }

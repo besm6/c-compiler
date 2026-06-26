@@ -552,6 +552,10 @@ void tac_free_toplevel(Tac_TopLevel *toplevel);
 //
 // Print
 //
+// Platform-independent "%a"-style hex float.  glibc and macOS disagree only on
+// subnormals (glibc: 0x0.0..1p-1022, macOS: 0x1p-1074); this normalizes via frexp so the
+// significand is always in [1,2) — a normal value both libcs format identically.
+void tac_format_hex_double(char *out, size_t outsz, double v);
 void tac_print_const(FILE *fd, const Tac_Const *constant, int depth);
 void tac_print_val(FILE *fd, const Tac_Val *val, int depth);
 void tac_print_type(FILE *fd, const Tac_Type *type, int depth);

@@ -1,9 +1,28 @@
 #include <inttypes.h>
+#include <math.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "tac.h"
 
 #define INDENT_STEP 2
+
+// Platform-independent "%a"-style hex float (see tac.h).
+void tac_format_hex_double(char *out, size_t outsz, double v)
+{
+    if (v == 0.0 || isinf(v) || isnan(v)) { // zero/inf/nan: agree on both libcs
+        snprintf(out, outsz, "%a", v);
+        return;
+    }
+    int e;
+    double m   = frexp(v, &e); // v = m * 2^e, 0.5 <= |m| < 1
+    double sig = m * 2.0;      // 1 <= |sig| < 2  (a normal double)
+    char buf[64];
+    snprintf(buf, sizeof buf, "%a", sig); // "0x1.<frac>p+0" / "-0x1.<frac>p+0"
+    char *p = strrchr(buf, 'p');
+    *p      = '\0';
+    snprintf(out, outsz, "%sp%+d", buf, e - 1);
+}
 
 // Helper function to print indentation to a file
 static void print_indent(FILE *fd, int depth)
@@ -45,9 +64,12 @@ void tac_print_const(FILE *fd, const Tac_Const *constant, int depth)
     case TAC_CONST_FLOAT:
         fprintf(fd, "float %f\n", (double)constant->u.float_val);
         break;
-    case TAC_CONST_DOUBLE:
-        fprintf(fd, "double %a\n", constant->u.double_val);
+    case TAC_CONST_DOUBLE: {
+        char hex[64];
+        tac_format_hex_double(hex, sizeof hex, constant->u.double_val);
+        fprintf(fd, "double %s\n", hex);
         break;
+    }
     case TAC_CONST_LONG_DOUBLE:
         fprintf(fd, "long_double %La\n", constant->u.long_double_val);
         break;
@@ -230,12 +252,18 @@ void tac_print_static_init(FILE *fd, const Tac_StaticInit *init, int depth)
     case TAC_STATIC_INIT_U64:
         fprintf(fd, "u64 %" PRIu64 "\n", init->u.ulong_val);
         break;
-    case TAC_STATIC_INIT_FLOAT:
-        fprintf(fd, "f32 %a\n", (double)init->u.float_val);
+    case TAC_STATIC_INIT_FLOAT: {
+        char hex[64];
+        tac_format_hex_double(hex, sizeof hex, (double)init->u.float_val);
+        fprintf(fd, "f32 %s\n", hex);
         break;
-    case TAC_STATIC_INIT_DOUBLE:
-        fprintf(fd, "f64 %a\n", init->u.double_val);
+    }
+    case TAC_STATIC_INIT_DOUBLE: {
+        char hex[64];
+        tac_format_hex_double(hex, sizeof hex, init->u.double_val);
+        fprintf(fd, "f64 %s\n", hex);
         break;
+    }
     case TAC_STATIC_INIT_LONG_DOUBLE:
         fprintf(fd, "ld128 %La\n", init->u.long_double_val);
         break;

@@ -82,8 +82,11 @@ static Besm_Instr *char_array_log_items(const Tac_StaticInit *init, bool zero_as
     if (total == 0)
         total = 1;
 
-    unsigned char *buf = xalloc(total, __func__, __FILE__, __LINE__);
-    memset(buf, 0, total);
+    // The packing loop below reads whole 6-byte words, so the buffer must be padded up
+    // to a word boundary; otherwise the final word's tail bytes read past the allocation.
+    size_t bufsz       = ((total + 5) / 6) * 6;
+    unsigned char *buf = xalloc(bufsz, __func__, __FILE__, __LINE__);
+    memset(buf, 0, bufsz);
     // `data_end` is the byte offset where the trailing run of explicit ZERO padding
     // begins.  Bytes from string/value items (even zero ones, like a string's null
     // terminator) are emitted as data words; only whole words past `data_end` become

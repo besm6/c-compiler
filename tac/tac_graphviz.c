@@ -139,12 +139,18 @@ static void emit_const(FILE *fd, const Tac_Const *c, int parent_id)
     case TAC_CONST_ULONG_LONG:
         fprintf(fd, "ulong_long %llu", c->u.ulong_long_val);
         break;
-    case TAC_CONST_FLOAT:
-        fprintf(fd, "float %a", (double)c->u.float_val);
+    case TAC_CONST_FLOAT: {
+        char hex[64];
+        tac_format_hex_double(hex, sizeof hex, (double)c->u.float_val);
+        fprintf(fd, "float %s", hex);
         break;
-    case TAC_CONST_DOUBLE:
-        fprintf(fd, "double %a", c->u.double_val);
+    }
+    case TAC_CONST_DOUBLE: {
+        char hex[64];
+        tac_format_hex_double(hex, sizeof hex, c->u.double_val);
+        fprintf(fd, "double %s", hex);
         break;
+    }
     case TAC_CONST_LONG_DOUBLE:
         fprintf(fd, "long_double %La", c->u.long_double_val);
         break;
@@ -288,12 +294,18 @@ static void emit_static_init(FILE *fd, const Tac_StaticInit *init, int parent_id
         case TAC_STATIC_INIT_U64:
             fprintf(fd, "u64 %" PRIu64, init->u.ulong_val);
             break;
-        case TAC_STATIC_INIT_FLOAT:
-            fprintf(fd, "float %a", (double)init->u.float_val);
+        case TAC_STATIC_INIT_FLOAT: {
+            char hex[64];
+            tac_format_hex_double(hex, sizeof hex, (double)init->u.float_val);
+            fprintf(fd, "float %s", hex);
             break;
-        case TAC_STATIC_INIT_DOUBLE:
-            fprintf(fd, "double %a", init->u.double_val);
+        }
+        case TAC_STATIC_INIT_DOUBLE: {
+            char hex[64];
+            tac_format_hex_double(hex, sizeof hex, init->u.double_val);
+            fprintf(fd, "double %s", hex);
             break;
+        }
         case TAC_STATIC_INIT_LONG_DOUBLE:
             fprintf(fd, "long_double %La", init->u.long_double_val);
             break;

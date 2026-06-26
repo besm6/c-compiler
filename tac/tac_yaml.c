@@ -47,16 +47,22 @@ static void export_yaml_const(FILE *fd, const Tac_Const *c, int level)
         print_indent(fd, level);
         fprintf(fd, "value: %llu\n", c->u.ulong_long_val);
         break;
-    case TAC_CONST_FLOAT:
+    case TAC_CONST_FLOAT: {
         fprintf(fd, "float\n");
         print_indent(fd, level);
-        fprintf(fd, "value: %a\n", (double)c->u.float_val);
+        char hex[64];
+        tac_format_hex_double(hex, sizeof hex, (double)c->u.float_val);
+        fprintf(fd, "value: %s\n", hex);
         break;
-    case TAC_CONST_DOUBLE:
+    }
+    case TAC_CONST_DOUBLE: {
         fprintf(fd, "double\n");
         print_indent(fd, level);
-        fprintf(fd, "value: %a\n", c->u.double_val);
+        char hex[64];
+        tac_format_hex_double(hex, sizeof hex, c->u.double_val);
+        fprintf(fd, "value: %s\n", hex);
         break;
+    }
     case TAC_CONST_LONG_DOUBLE:
         fprintf(fd, "long_double\n");
         print_indent(fd, level);
@@ -249,16 +255,22 @@ static void export_yaml_static_init(FILE *fd, const Tac_StaticInit *init, int le
         print_indent(fd, level);
         fprintf(fd, "value: %" PRIu64 "\n", init->u.ulong_val);
         break;
-    case TAC_STATIC_INIT_FLOAT:
+    case TAC_STATIC_INIT_FLOAT: {
         fprintf(fd, "float\n");
         print_indent(fd, level);
-        fprintf(fd, "value: %a\n", (double)init->u.float_val);
+        char hex[64];
+        tac_format_hex_double(hex, sizeof hex, (double)init->u.float_val);
+        fprintf(fd, "value: %s\n", hex);
         break;
-    case TAC_STATIC_INIT_DOUBLE:
+    }
+    case TAC_STATIC_INIT_DOUBLE: {
         fprintf(fd, "double\n");
         print_indent(fd, level);
-        fprintf(fd, "value: %a\n", init->u.double_val);
+        char hex[64];
+        tac_format_hex_double(hex, sizeof hex, init->u.double_val);
+        fprintf(fd, "value: %s\n", hex);
         break;
+    }
     case TAC_STATIC_INIT_LONG_DOUBLE:
         fprintf(fd, "long_double\n");
         print_indent(fd, level);
