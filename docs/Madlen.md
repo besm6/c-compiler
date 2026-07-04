@@ -41,6 +41,12 @@ Madlen is the symbolic assembly language — called *autocode* in Soviet computi
 
 (Note: ALGOL-GDR procedures are not translated through Madlen. However, a reverse-translation utility can produce Madlen-like listings of assembled ALGOL procedures for inspection.)
 
+Madlen is one of three BESM-6 assemblers documented here. The others are
+[Bemsh](Bemsh.md) — the older Cyrillic-mnemonic autocode (Shtarkman, 1967), whose surface form
+differs substantially (see [Bemsh §"How Bemsh differs from Madlen"](Bemsh.md)) — and the
+modern Unix assembler [`b6as`](Besm6_Unix_Assembler.md), which keeps Madlen's mnemonics but
+uses AT&T-style syntax. This BESM-6 backend emits Madlen.
+
 ### Relationship Between Autocode and Machine Instructions
 
 An autocode *statement* is a symbolic notation for a machine instruction or assembler directive. The fundamental rule is:

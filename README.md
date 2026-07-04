@@ -156,7 +156,9 @@ For debug logging, verbose mode, and full `lower` behavior, see [docs/Technical_
 | [docs/Standard_Include_Files.md](docs/Standard_Include_Files.md) | C11 standard headers for the BESM-6: role of each header, declared functions, how they relate, and target specifics |
 | [docs/Frexp_Ldexp.md](docs/Frexp_Ldexp.md) | The `frexp`/`ldexp` C11 math pair and their frameless Madlen implementation via the BESM-6 exponent-field instructions |
 | [docs/KOI7_Encoding.md](docs/KOI7_Encoding.md) | KOI-7 character encoding: the BESM-6 code page, the ASCII→KOI7 conversion the codegen performs, and how the glyph data was collected |
-| [docs/Madlen.md](docs/Madlen.md) | Madlen assembler syntax for the Dubna monitor |
+| [docs/Madlen.md](docs/Madlen.md) | Madlen assembler syntax for the Dubna monitor (the assembler this backend emits) |
+| [docs/Bemsh.md](docs/Bemsh.md) | Bemsh, the BESM-6 autocode (Shtarkman, 1967): the Cyrillic-mnemonic assembly language and how it differs from Madlen |
+| [docs/Besm6_Unix_Assembler.md](docs/Besm6_Unix_Assembler.md) | The BESM-6 Unix assembler (`b6as`): AT&T-style syntax with Madlen mnemonics — directives, operand forms, and expression evaluation |
 | [docs/Type_Coercion.md](docs/Type_Coercion.md) | C11 type coercion and arithmetic conversion rules |
 | [docs/Type_Sizes_Alignment.md](docs/Type_Sizes_Alignment.md) | Type sizes and alignment per target architecture |
 | [docs/TAC_Optimization.md](docs/TAC_Optimization.md) | TAC optimization passes: constant folding, unreachable code elimination, copy propagation, dead store elimination |

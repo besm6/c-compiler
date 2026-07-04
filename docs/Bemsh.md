@@ -1057,4 +1057,5 @@ coefficient `(p)` for every type except `А`. Type `Е` is allowed only in `КО
 Sciences, May 1967. For the machine itself see [Besm6_Instruction_Set.md](Besm6_Instruction_Set.md),
 [Besm6_Data_Representation.md](Besm6_Data_Representation.md), and
 [Besm6_Calling_Conventions.md](Besm6_Calling_Conventions.md); for the Latin-mnemonic autocode see
-[Madlen.md](Madlen.md).*
+[Madlen.md](Madlen.md), and for the modern Unix assembler (Madlen mnemonics, AT&T-style syntax) see
+[Besm6_Unix_Assembler.md](Besm6_Unix_Assembler.md).*
