@@ -34,8 +34,12 @@ file(GLOB BESM6_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
 # C runtime routines compiled by our own pipeline.  Each NAME.c becomes NAME.madlen
 # in the build directory via cpp -> parse -> lower -> genbesm.  besmc only recognizes
 # the .madlen extension, so genbesm writes there.
-set(LIBC_C
-    putbyte putch flush printf getch puts putchar
+# Portable routines shared by every BESM-6 assembler backend, compiled from this
+# directory (libc/besm6).  These have no Dubna dependency — they build on the
+# putbyte/flush/getch seam or are pure computation — so libc/besm6/unix and
+# libc/besm6/bemsh will reuse them once each supplies its own leaves below.
+set(LIBC_C_PORTABLE
+    printf puts putchar putch
     doprnt sprintf snprintf modf malloc
     fabs fmax fmin fma
     memcpy memset memcmp memmove memchr
@@ -43,9 +47,19 @@ set(LIBC_C
     strcmp strncmp strchr strrchr strstr
     strtok strerror
     atoi)
+
+# Dubna monitor glue: the byte-emission/reading leaves, compiled from madlen/.
+# A different assembler target reimplements just these three (plus the .madlen
+# helpers) against its own OS.
+set(LIBC_C_DUBNA
+    putbyte flush getch)
+
+# Compile one NAME.c (from ${srcdir}) through cpp -> parse -> lower -> genbesm into
+# NAME.madlen in the build dir, and record it in LIBC_C_MADLEN.  A macro (not a
+# function) so the list append lands in this directory's scope.
 set(LIBC_C_MADLEN "")
-foreach(name ${LIBC_C})
-    set(c_src  ${LIBC_DIR}/${name}.c)
+macro(besm6_compile_libc_c name srcdir)
+    set(c_src  ${srcdir}/${name}.c)
     set(c_pre  ${CMAKE_CURRENT_BINARY_DIR}/${name}.i)
     set(c_ast  ${CMAKE_CURRENT_BINARY_DIR}/${name}.ast)
     set(c_tac  ${CMAKE_CURRENT_BINARY_DIR}/${name}.tac)
@@ -58,8 +72,15 @@ foreach(name ${LIBC_C})
         COMMAND lower   ${c_ast} ${c_tac}
         COMMAND genbesm ${c_tac} ${c_mad}
         DEPENDS ${c_src} ${BESM6_HEADERS} parse lower genbesm
-        COMMENT "Compiling madlen/${name}.c -> ${name}.madlen")
+        COMMENT "Compiling ${name}.c -> ${name}.madlen")
     list(APPEND LIBC_C_MADLEN ${c_mad})
+endmacro()
+
+foreach(name ${LIBC_C_PORTABLE})
+    besm6_compile_libc_c(${name} ${CMAKE_CURRENT_SOURCE_DIR})
+endforeach()
+foreach(name ${LIBC_C_DUBNA})
+    besm6_compile_libc_c(${name} ${LIBC_DIR})
 endforeach()
 
 add_custom_command(

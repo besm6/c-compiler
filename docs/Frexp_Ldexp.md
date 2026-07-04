@@ -240,7 +240,7 @@ To ship these (left as future work — this page is the spec):
 1. Add `libc/besm6/madlen/ldexp.madlen` and `libc/besm6/madlen/frexp.madlen` (no `b_`
    prefix — these are user-facing libc entry points, not internal `b/…` helpers).
 2. Append `ldexp frexp` to the `LIBC_MADLEN` list in
-   [backend/besm6/CMakeLists.txt](../backend/besm6/CMakeLists.txt).
+   [libc/besm6/CMakeLists.txt](../libc/besm6/CMakeLists.txt).
 3. Move the `frexp` / `ldexp` prototypes in [math.h](../libc/besm6/include/math.h) from
    the "declared for future implementation" block to the "implemented in libc.bin" block.
 4. Add a `besm-tests` `CompileAndRun` case that `printf`s a round trip, run from

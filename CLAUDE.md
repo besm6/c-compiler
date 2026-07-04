@@ -63,18 +63,23 @@ cd build/semantic && ./semantic-tests
 ctest --test-dir build -R "Typecheck|Pipeline"
 ```
 
-**Runtime library (`libc.bin`).** The higher-level runtime routines live in
-`libc/besm6/madlen/*.c` and now cover a substantial hosted libc subset: I/O
-(`printf`/`sprintf`/`snprintf` over the shared `doprnt` pointer-walk engine, `puts`,
-`putchar`, `getch`, `putch`, `putbyte`, `flush`), all of `<string.h>`
+**Runtime library (`libc.bin`).** The runtime routines cover a substantial hosted libc
+subset: I/O (`printf`/`sprintf`/`snprintf` over the shared `doprnt` pointer-walk engine,
+`puts`, `putchar`, `getch`, `putch`, `putbyte`, `flush`), all of `<string.h>`
 (`strlen`/`strcpy`/`strncpy`/`strcat`/`strncat`/`strcmp`/`strncmp`/`strchr`/`strrchr`/`strstr`/`strtok`/`strerror`
 and the `mem*` family `memcpy`/`memmove`/`memset`/`memcmp`/`memchr`), the dynamic allocator
 (`malloc`/`calloc`/`realloc`/`free`), `atoi`, and the math helpers
-(`fabs`/`fmin`/`fmax`/`fma`/`modf`, plus the frameless `frexp`/`ldexp`). They are compiled by
-our own toolchain (`parse → lower → genbesm` → `.madlen`) and assembled with the hand-written
-Madlen helpers (`b_*.madlen`, `b_tout`, `exit`, `frexp`, `ldexp`) into `libc.bin` — see
-`backend/besm6/CMakeLists.txt` (`LIBC_C` / `LIBC_MADLEN`). The original B sources have been
-removed; the runtime is now C plus Madlen only. To reference a `/`-named assembly
+(`fabs`/`fmin`/`fmax`/`fma`/`modf`, plus the frameless `frexp`/`ldexp`). The C sources are
+split by Dubna dependency: the **portable** routines (everything above the I/O leaves — the
+format engine, allocator, string/mem/math) live in `libc/besm6/*.c` and are shared by every
+BESM-6 assembler backend, while only the three Dubna-monitor **leaves** — `putbyte` (owns the
+KOI7 stdout buffer), `flush` (`b/tout`), `getch` (`moncard_`/`monread_`) — stay in
+`libc/besm6/madlen/*.c` alongside the hand-written Madlen helpers; a sibling target
+(`libc/besm6/unix`, `libc/besm6/bemsh`) reimplements just those three plus the helpers. All
+`.c` are compiled by our own toolchain (`parse → lower → genbesm` → `.madlen`) and assembled
+with the Madlen helpers (`b_*.madlen`, `b_tout`, `exit`, `frexp`, `ldexp`) into `libc.bin` —
+see `libc/besm6/CMakeLists.txt` (`LIBC_C_PORTABLE` / `LIBC_C_DUBNA` / `LIBC_MADLEN`). The
+original B sources have been removed; the runtime is now C plus Madlen only. To reference a `/`-named assembly
 helper from C, name it with `$` (e.g. `b$tout` → `b/tout`; the scanner accepts `$`, the
 backend sanitizes it to `/`). An `extern T name[]` array emits no TAC top-level; a later
 reference decays the array to its address via `GET_ADDRESS`, which self-declares the
