@@ -79,9 +79,12 @@ KOI7 stdout buffer), `flush` (`b/tout`), `getch` (`moncard_`/`monread_`) — sta
 `.c` are compiled by our own toolchain (`parse → lower → genbesm` → `.madlen`) and assembled
 with the Madlen helpers (`b_*.madlen`, `b_tout`, `exit`, `frexp`, `ldexp`) into `libc.bin` —
 see `libc/besm6/CMakeLists.txt` (`LIBC_C_PORTABLE` / `LIBC_C_DUBNA` / `LIBC_MADLEN`). The
-original B sources have been removed; the runtime is now C plus Madlen only. To reference a `/`-named assembly
-helper from C, name it with `$` (e.g. `b$tout` → `b/tout`; the scanner accepts `$`, the
-backend sanitizes it to `/`). An `extern T name[]` array emits no TAC top-level; a later
+original B sources have been removed; the runtime is now C plus Madlen only. Runtime-helper
+names use `$` as their special separator (e.g. `b$tout`, `b$ret`, `b$save`) — this is the
+**canonical IR form** carried unchanged from the scanner through TAC into the `Besm_Module`;
+each backend renders it per-dialect: the Madlen emitter lowers `$`→`/` (so `b$tout` → `b/tout`,
+matching the `.madlen` helper symbols), while the Unix (`b6as`) emitter keeps `$` (`b6as`
+accepts `$` in names). An `extern T name[]` array emits no TAC top-level; a later
 reference decays the array to its address via `GET_ADDRESS`, which self-declares the
 external name (SUBP), so cross-module array indexing needs no special array-ness record.
 

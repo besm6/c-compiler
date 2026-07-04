@@ -103,12 +103,14 @@ protected:
         return result;
     }
 
-    // Capture Madlen output from a pre-built TAC toplevel with full program context.
-    static std::string capture(const Tac_TopLevel *prog, const Tac_TopLevel *tl)
+    // Capture emitted assembly from a pre-built TAC toplevel with full program context,
+    // for the requested dialect.
+    static std::string capture(const Tac_TopLevel *prog, const Tac_TopLevel *tl,
+                               Besm_Dialect dialect = BESM_MADLEN)
     {
         FILE *f = tmpfile();
         EXPECT_NE(nullptr, f);
-        codegen_program(prog, tl, f, BESM_MADLEN);
+        codegen_program(prog, tl, f, dialect);
         long len = ftell(f);
         if (len == 0) {
             fclose(f);
@@ -124,9 +126,9 @@ protected:
     // Backward-compatible overload: single pre-built toplevel acts as its own program.
     static std::string capture(const Tac_TopLevel *tl) { return capture(tl, tl); }
 
-    // Parse C source, run full typecheck+translate+codegen pipeline, and
-    // return the concatenated Madlen assembly for every translated toplevel.
-    std::string CompileToMadlen(const char *src)
+    // Parse C source, run full typecheck+translate+codegen pipeline, and return the
+    // concatenated assembly (for the requested dialect) of every translated toplevel.
+    std::string CompileTo(const char *src, Besm_Dialect dialect)
     {
         // Expand any #include/#define directives via the system cpp first so tests
         // can pull in the shipped standard headers; directive-free source is
@@ -165,10 +167,13 @@ protected:
         // Phase 2: codegen each toplevel with the full program chain as context.
         std::string result;
         for (const Tac_TopLevel *t = all_tac; t; t = t->next)
-            result += capture(all_tac, t);
+            result += capture(all_tac, t, dialect);
         tac_free_toplevel(all_tac);
         return result;
     }
+
+    std::string CompileToMadlen(const char *src) { return CompileTo(src, BESM_MADLEN); }
+    std::string CompileToUnix(const char *src) { return CompileTo(src, BESM_UNIX); }
 
     // Compile C source, run it under the Dubna simulator, and return the program output.
     // Returns "ERROR" on compile failure, simulator failure, or malformed listing.

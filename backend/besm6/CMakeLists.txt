@@ -7,6 +7,7 @@ add_library(besm STATIC
     besm_const.c
     besm_mnem.c
     emit_madlen.c
+    emit_unix.c
     frame.c
     codegen.c
     emit.c
@@ -30,6 +31,7 @@ add_executable(besm-tests EXCLUDE_FROM_ALL
     test/label_tests.cpp
     test/frame_tests.cpp
     test/codegen_tests.cpp
+    test/unix_tests.cpp
     test/arith_tests.cpp
     test/copy_tests.cpp
     test/flow_tests.cpp

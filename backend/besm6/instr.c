@@ -171,7 +171,7 @@ static void emit_shift(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_
     } else {
         emit_xts_val(b, t, f, src2);
         Besm_Instr *call = emit(b, t, BESM_BRANCH_CALL);
-        call->name       = xstrdup(left ? "b/lsh" : "b/rsh");
+        call->name       = xstrdup(left ? "b$lsh" : "b$rsh");
     }
     emit_atx(b, t, dr, doff);
 }
@@ -334,7 +334,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
             emit_xta(block, tail, pr, po);                    // A = fat pointer (a)
             emit_xts_val(block, tail, f, instr->u.store.src); // push a; A = value (b)
             Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
-            call->name       = xstrdup("b/stb");
+            call->name       = xstrdup("b$stb");
             break;
         }
         emit_xta_val(block, tail, f, instr->u.store.src); // A = src (this load resets C)
@@ -398,7 +398,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         case TAC_UNARY_NEGATE_UNSIGNED: {
             emit_xta_val(block, tail, f, src);
             Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
-            call->name       = xstrdup("b/uneg");
+            call->name       = xstrdup("b$uneg");
             emit_atx(block, tail, rd, od);
             break;
         }
@@ -406,7 +406,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
             // Logical NOT for any operand type: b/not returns 1 if A == 0, else 0.
             emit_xta_val(block, tail, f, src);
             Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
-            call->name       = xstrdup("b/not");
+            call->name       = xstrdup("b$not");
             emit_atx(block, tail, rd, od);
             break;
         }
@@ -450,50 +450,50 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         const char *cmp_helper = NULL;
         switch (instr->u.binary.op) {
         case TAC_BINARY_EQUAL:
-            cmp_helper = "b/eq";
+            cmp_helper = "b$eq";
             break;
         case TAC_BINARY_NOT_EQUAL:
-            cmp_helper = "b/ne";
+            cmp_helper = "b$ne";
             break;
         case TAC_BINARY_LESS_THAN:
-            cmp_helper = "b/lt";
+            cmp_helper = "b$lt";
             break;
         case TAC_BINARY_LESS_OR_EQUAL:
-            cmp_helper = "b/le";
+            cmp_helper = "b$le";
             break;
         case TAC_BINARY_GREATER_THAN:
-            cmp_helper = "b/gt";
+            cmp_helper = "b$gt";
             break;
         case TAC_BINARY_GREATER_OR_EQUAL:
-            cmp_helper = "b/ge";
+            cmp_helper = "b$ge";
             break;
         case TAC_BINARY_LESS_THAN_UNSIGNED:
-            cmp_helper = "b/ult";
+            cmp_helper = "b$ult";
             break;
         case TAC_BINARY_LESS_OR_EQUAL_UNSIGNED:
-            cmp_helper = "b/ule";
+            cmp_helper = "b$ule";
             break;
         case TAC_BINARY_GREATER_THAN_UNSIGNED:
-            cmp_helper = "b/ugt";
+            cmp_helper = "b$ugt";
             break;
         case TAC_BINARY_GREATER_OR_EQUAL_UNSIGNED:
-            cmp_helper = "b/uge";
+            cmp_helper = "b$uge";
             break;
         // Floating-point orderings.  The FP helpers mirror the integer b/lt..b/ge but
         // bracket the subtract with NTR so the additive sign reflects the FP difference
         // (equal operands normalize to an exact zero).  FP ==/!= are pure bit equality,
         // so they keep using the type-independent b/eq/b/ne above.
         case TAC_BINARY_LESS_THAN_DOUBLE:
-            cmp_helper = "b/flt";
+            cmp_helper = "b$flt";
             break;
         case TAC_BINARY_LESS_OR_EQUAL_DOUBLE:
-            cmp_helper = "b/fle";
+            cmp_helper = "b$fle";
             break;
         case TAC_BINARY_GREATER_THAN_DOUBLE:
-            cmp_helper = "b/fgt";
+            cmp_helper = "b$fgt";
             break;
         case TAC_BINARY_GREATER_OR_EQUAL_DOUBLE:
-            cmp_helper = "b/fge";
+            cmp_helper = "b$fge";
             break;
         default:
             break;
@@ -508,7 +508,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         // helper does true 48-bit modular add via 24-bit half-words with explicit carry.
         // Signed ADD stays inline as A+X below.
         if (instr->u.binary.op == TAC_BINARY_ADD_UNSIGNED) {
-            emit_binop_helper(block, tail, f, src1, src2, "b/uadd", rd, od);
+            emit_binop_helper(block, tail, f, src1, src2, "b$uadd", rd, od);
             break;
         }
 
@@ -516,7 +516,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         // misreads the data in bits 48-42.  The b/usub helper does true 48-bit modular
         // subtract.  Signed SUBTRACT stays inline as A-X below.
         if (instr->u.binary.op == TAC_BINARY_SUBTRACT_UNSIGNED) {
-            emit_binop_helper(block, tail, f, src1, src2, "b/usub", rd, od);
+            emit_binop_helper(block, tail, f, src1, src2, "b$usub", rd, od);
             break;
         }
 
@@ -550,7 +550,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         // Multiply uses the b/mul runtime helper (the inline A*X needs FP normalization and
         // INT-format bridging, which the helper encapsulates).  Correct for signed operands.
         if (instr->u.binary.op == TAC_BINARY_MULTIPLY) {
-            emit_binop_helper(block, tail, f, src1, src2, "b/mul", rd, od);
+            emit_binop_helper(block, tail, f, src1, src2, "b$mul", rd, od);
             break;
         }
 
@@ -558,7 +558,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         // entire unsigned range via operand splitting, without the signed 41-bit truncation
         // b/mul applies.
         if (instr->u.binary.op == TAC_BINARY_MULTIPLY_UNSIGNED) {
-            emit_binop_helper(block, tail, f, src1, src2, "b/umul", rd, od);
+            emit_binop_helper(block, tail, f, src1, src2, "b$umul", rd, od);
             break;
         }
 
@@ -568,11 +568,11 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         // unsigned within the 41-bit range; full 48-bit unsigned divide/remainder use
         // b/udiv / b/umod below.
         if (instr->u.binary.op == TAC_BINARY_DIVIDE) {
-            emit_binop_helper(block, tail, f, src1, src2, "b/div", rd, od);
+            emit_binop_helper(block, tail, f, src1, src2, "b$div", rd, od);
             break;
         }
         if (instr->u.binary.op == TAC_BINARY_REMAINDER) {
-            emit_binop_helper(block, tail, f, src1, src2, "b/mod", rd, od);
+            emit_binop_helper(block, tail, f, src1, src2, "b$mod", rd, od);
             break;
         }
 
@@ -591,7 +591,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
                 emit_atx(block, tail, rd, od);
                 break;
             }
-            emit_binop_helper(block, tail, f, src1, src2, "b/udiv", rd, od);
+            emit_binop_helper(block, tail, f, src1, src2, "b$udiv", rd, od);
             break;
         }
 
@@ -610,7 +610,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
                 emit_atx(block, tail, rd, od);
                 break;
             }
-            emit_binop_helper(block, tail, f, src1, src2, "b/umod", rd, od);
+            emit_binop_helper(block, tail, f, src1, src2, "b$umod", rd, od);
             break;
         }
 
@@ -772,7 +772,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         if (src)
             emit_xta_val(block, tail, f, src);
         Besm_Instr *uj = emit(block, tail, BESM_BRANCH_UJ);
-        uj->name       = xstrdup("b/ret");
+        uj->name       = xstrdup("b$ret");
         break;
     }
     // LABEL  name:
@@ -949,7 +949,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         const Tac_Val *dst = instr->u.uint_to_double.dst;
         int rd, od;
         lookup(f, dst->u.var_name, &rd, &od);
-        emit_unary_helper(block, tail, f, src, "b/utod", rd, od);
+        emit_unary_helper(block, tail, f, src, "b$utod", rd, od);
         break;
     }
     case TAC_INSTRUCTION_DOUBLE_TO_INT:
@@ -959,7 +959,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         const Tac_Val *dst = instr->u.double_to_int.dst;
         int rd, od;
         lookup(f, dst->u.var_name, &rd, &od);
-        emit_unary_helper(block, tail, f, src, "b/dtoi", rd, od);
+        emit_unary_helper(block, tail, f, src, "b$dtoi", rd, od);
         break;
     }
     case TAC_INSTRUCTION_DOUBLE_TO_UINT:
@@ -969,7 +969,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         const Tac_Val *dst = instr->u.double_to_uint.dst;
         int rd, od;
         lookup(f, dst->u.var_name, &rd, &od);
-        emit_unary_helper(block, tail, f, src, "b/dtou", rd, od);
+        emit_unary_helper(block, tail, f, src, "b$dtou", rd, od);
         break;
     }
     // ADD_PTR  dst = ptr + index * scale
@@ -1006,12 +1006,12 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
                 (index->u.constant->u.int_val == 1 || index->u.constant->u.int_val == -1)) {
                 emit_xta_val(block, tail, f, ptr); // A = fat pointer
                 Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
-                call->name = xstrdup(index->u.constant->u.int_val == 1 ? "b/pinc" : "b/pdec");
+                call->name = xstrdup(index->u.constant->u.int_val == 1 ? "b$pinc" : "b$pdec");
             } else {
                 emit_xta_val(block, tail, f, ptr);   // A = base
                 emit_xts_val(block, tail, f, index); // push base; A = signed byte delta
                 Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
-                call->name       = xstrdup("b/padd");
+                call->name       = xstrdup("b$padd");
             }
             emit_atx(block, tail, rd, od);
             break;
@@ -1061,7 +1061,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
                     snprintf(buf, sizeof(buf), "=%o", word_scale);
                     xts->name        = xstrdup(buf);
                     Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
-                    call->name       = xstrdup("b/mul");
+                    call->name       = xstrdup("b$mul");
                 }
             }
         }
@@ -1082,7 +1082,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         int rd, od;
         lookup(f, dst->u.var_name, &rd, &od);
         emit_binop_helper(block, tail, f, instr->u.ptr_diff.ptr_a, instr->u.ptr_diff.ptr_b,
-                          "b/pdiff", rd, od);
+                          "b$pdiff", rd, od);
         break;
     }
     // COPY_FROM_OFFSET  dst = base[offset]
@@ -1167,7 +1167,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
             emit_member_fatptr(block, tail, f, base, instr->u.copy_to_offset.offset);
             emit_xts_val(block, tail, f, src); // push fat pointer; A = byte value
             Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
-            call->name       = xstrdup("b/stb");
+            call->name       = xstrdup("b$stb");
             break;
         }
         int woff = member_word_offset(instr->u.copy_to_offset.offset);

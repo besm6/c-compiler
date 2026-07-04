@@ -508,7 +508,7 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
             // may change R (the arithmetic helpers borrow the FP unit), so R stays
             // unknown there.
             if (cur->kind == BESM_BRANCH_CALL && cur->name != NULL &&
-                (strcmp(cur->name, "b/save") == 0 || strcmp(cur->name, "b/save0") == 0)) {
+                (strcmp(cur->name, "b$save") == 0 || strcmp(cur->name, "b$save0") == 0)) {
                 st.r_known = true;
                 st.r_val   = 7;
             }

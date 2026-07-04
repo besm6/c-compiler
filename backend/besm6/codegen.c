@@ -179,7 +179,7 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
 
         if (!noret_no_params) {
             Besm_Instr *subp_cret = emit(block, &tail, BESM_STMT_SUBP);
-            subp_cret->name       = xstrdup("b/ret");
+            subp_cret->name       = xstrdup("b$ret");
         }
 
         if (strcmp(name, "main") == 0) {
@@ -327,7 +327,7 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
             its13->addr       = REG_RET;
 
             Besm_Instr *call_csave = emit(block, &tail, BESM_BRANCH_CALL);
-            call_csave->name       = xstrdup(num_params == 0 ? "b/save0" : "b/save");
+            call_csave->name       = xstrdup(num_params == 0 ? "b$save0" : "b$save");
         }
 
         if (num_autos > 0) {
@@ -343,7 +343,7 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
         // nothing for b/ret to restore — omit the epilogue jump entirely.
         if (!noret_no_params) {
             Besm_Instr *uj_cret = emit(block, &tail, BESM_BRANCH_UJ);
-            uj_cret->name       = xstrdup("b/ret");
+            uj_cret->name       = xstrdup("b$ret");
         }
         emit(block, &tail, BESM_STMT_END);
     }

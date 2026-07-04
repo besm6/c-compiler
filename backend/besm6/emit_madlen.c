@@ -13,7 +13,8 @@ void besm_emit_module(FILE *out, const Besm_Module *module, Besm_Dialect dialect
         emit_madlen_module(out, module);
         break;
     case BESM_UNIX:
-        fatal_error("Unix (b6as) assembler output is not yet implemented");
+        emit_unix_module(out, module);
+        break;
     case BESM_BEMSH:
         fatal_error("Bemsh assembler output is not yet implemented");
     }

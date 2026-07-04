@@ -244,6 +244,11 @@ void emit_madlen_func(FILE *out, const Besm_Func *func);
 void emit_madlen_data_section(FILE *out, const Besm_DataSection *section);
 void emit_madlen_module(FILE *out, const Besm_Module *module);
 
+//
+// Emit Unix (b6as) assembly
+//
+void emit_unix_module(FILE *out, const Besm_Module *module);
+
 #ifdef __cplusplus
 }
 #endif
