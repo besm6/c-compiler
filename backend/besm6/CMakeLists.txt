@@ -25,7 +25,7 @@ target_link_libraries(besm tac libutil)
 #   * higher-level routines written in C (LIBC_C), compiled by our own toolchain
 #     (parse -> lower -> genbesm) into Madlen and assembled alongside the helpers.
 #
-set(LIBC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/libc)
+set(LIBC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/madlen)
 set(LIBC_MADLEN
     b_div b_eq b_ge b_gt b_le b_lt b_mod b_mul b_ne b_not
     b_ret b_save0 b_save b_tout exit
@@ -71,7 +71,7 @@ foreach(name ${LIBC_C})
         COMMAND lower   ${c_ast} ${c_tac}
         COMMAND genbesm ${c_tac} ${c_mad}
         DEPENDS ${c_src} ${BESM6_HEADERS} parse lower genbesm
-        COMMENT "Compiling libc/${name}.c -> ${name}.madlen")
+        COMMENT "Compiling madlen/${name}.c -> ${name}.madlen")
     list(APPEND LIBC_C_MADLEN ${c_mad})
 endforeach()
 

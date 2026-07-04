@@ -64,7 +64,7 @@ ctest --test-dir build -R "Typecheck|Pipeline"
 ```
 
 **Runtime library (`libc.bin`).** The higher-level runtime routines live in
-`backend/besm6/libc/*.c` and now cover a substantial hosted libc subset: I/O
+`backend/besm6/madlen/*.c` and now cover a substantial hosted libc subset: I/O
 (`printf`/`sprintf`/`snprintf` over the shared `doprnt` pointer-walk engine, `puts`,
 `putchar`, `getch`, `putch`, `putbyte`, `flush`), all of `<string.h>`
 (`strlen`/`strcpy`/`strncpy`/`strcat`/`strncat`/`strcmp`/`strncmp`/`strchr`/`strrchr`/`strstr`/`strtok`/`strerror`

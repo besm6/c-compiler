@@ -36,7 +36,7 @@ A freestanding implementation needs only these — types and macros, no runtime:
 
 `stdarg.h` is fully functional: the BESM-6 ABI puts every argument in one word,
 so `va_list` is a word pointer and `va_arg` steps one word (the same walk
-`libc/doprnt.c` performs).
+`madlen/doprnt.c` performs).
 
 ## Hosted subset
 

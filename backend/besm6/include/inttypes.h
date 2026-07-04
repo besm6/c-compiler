@@ -3,7 +3,7 @@
  *
  * Because every integer type is one word, the length modifiers all collapse:
  * the print/scan format macros use plain "d"/"u"/"o"/"x" with no length prefix
- * (the printf engine ignores 'l'/'h' anyway — see libc/doprnt.c).
+ * (the printf engine ignores 'l'/'h' anyway — see madlen/doprnt.c).
  *
  * TODO: imaxabs/imaxdiv/strtoimax/strtoumax in libc.bin.
  */

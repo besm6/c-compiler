@@ -237,7 +237,7 @@ c        --- fraction := value with the exponent field forced to 64 ---
 
 To ship these (left as future work — this page is the spec):
 
-1. Add `backend/besm6/libc/ldexp.madlen` and `backend/besm6/libc/frexp.madlen` (no `b_`
+1. Add `backend/besm6/madlen/ldexp.madlen` and `backend/besm6/madlen/frexp.madlen` (no `b_`
    prefix — these are user-facing libc entry points, not internal `b/…` helpers).
 2. Append `ldexp frexp` to the `LIBC_MADLEN` list in
    [backend/besm6/CMakeLists.txt](../backend/besm6/CMakeLists.txt).

@@ -6,7 +6,7 @@
  * char* — occupies exactly one 48-bit word, and arguments sit in consecutive
  * words of the caller's parameter block.  A va_list is therefore just a word
  * pointer that steps one word per va_arg, exactly as the printf engine
- * (libc/doprnt.c) already walks its arguments with `*ap++`.
+ * (madlen/doprnt.c) already walks its arguments with `*ap++`.
  *
  * va_arg(ap, T) reads the raw word and reinterprets it as T.  For char* / void*
  * this is correct because the stored word already IS the fat pointer.
