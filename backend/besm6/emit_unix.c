@@ -34,13 +34,13 @@ static void set_segment(FILE *out, SegKind *cur, SegKind want)
     *cur = want;
     switch (want) {
     case SEG_TEXT:
-        fprintf(out, "\t.text\n");
+        fprintf(out, "    .text\n");
         break;
     case SEG_DATA:
-        fprintf(out, "\t.data\n");
+        fprintf(out, "    .data\n");
         break;
     case SEG_BSS:
-        fprintf(out, "\t.bss\n");
+        fprintf(out, "    .bss\n");
         break;
     case SEG_NONE:
         break;
@@ -114,24 +114,27 @@ static void emit_uglobl(FILE *out, const char *name)
 {
     char s[64];
     unix_sanitize(s, sizeof(s), name);
-    fprintf(out, "\t.globl %s\n", s);
+    fprintf(out, "    .globl %s\n", s);
 }
 
-// Emit a tab-indented directive: `.dir operand` (or bare `.dir` when operand is empty).
+// Emit a 4-space-indented directive: `.dir operand` (or bare `.dir` when operand is empty).
 static void emit_udir(FILE *out, const char *dir, const char *operand)
 {
     if (operand && operand[0])
-        fprintf(out, "\t%s %s\n", dir, operand);
+        fprintf(out, "    %s %s\n", dir, operand);
     else
-        fprintf(out, "\t%s\n", dir);
+        fprintf(out, "    %s\n", dir);
 }
 
-// Emit one tab-indented instruction line: `[modreg ]mnem[ operand]`.
+// Emit one instruction line: `[ NN ]mnem[ operand]`.  Without a modreg the line is indented
+// with 4 spaces; with one, a ` NN ` field (space + register right-aligned to width 2 + space)
+// occupies the same 4 columns, so mnemonics line up regardless.
 static void emit_uinstr(FILE *out, int mreg, const char *mnem, const char *operand)
 {
-    fputc('\t', out);
     if (mreg)
-        fprintf(out, "%d ", mreg);
+        fprintf(out, " %2d ", mreg);
+    else
+        fputs("    ", out);
     fputs(mnem, out);
     if (operand && operand[0])
         fprintf(out, " %s", operand);
@@ -237,7 +240,7 @@ static const Besm_Instr *emit_unix_special(FILE *out, const Besm_Instr *instr, S
         if (instr->name)
             emit_ulabel(out, instr->name);
         if (instr->addr)
-            fprintf(out, "\t. = . + %d\n", instr->addr);
+            fprintf(out, "    . = . + %d\n", instr->addr);
         break;
     case BESM_DATA_Z00:
         return emit_unix_z00(out, instr, cur);
