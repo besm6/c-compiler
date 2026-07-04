@@ -15,7 +15,7 @@ markers only, not `#include`/`#define`, and has no `-I` flag).  Run an external
 preprocessor first, then feed the result to `parse`:
 
 ```sh
-cc -E -nostdinc -I backend/besm6/include prog.c prog.i
+cc -E -nostdinc -I libc/besm6/include prog.c prog.i
 ./build/parse prog.i prog.ast
 ./build/lower  prog.ast prog.tac
 ./build/genbesm prog.tac prog.mad

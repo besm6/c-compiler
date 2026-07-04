@@ -57,7 +57,7 @@ endif()
 # invoked with -E); BESM6_INCLUDE_DIR points at the shipped headers.
 #
 set(SystemCpp ${CMAKE_C_COMPILER})
-set(BESM6_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/backend/besm6/include)
+set(BESM6_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/libc/besm6/include)
 
 # Download GoogleTest
 include(FetchContent)
@@ -92,6 +92,11 @@ add_subdirectory(tac)
 add_subdirectory(semantic)
 add_subdirectory(translator)
 add_subdirectory(optimize)
+# libc (the target runtime) is processed before backend so its `besm-libc` target
+# exists when backend/besm6's besm-tests declares add_dependencies(besm-tests besm-libc).
+# libc's compile commands DEPENDS on parse/lower/genbesm resolve at generate time, so
+# referencing backend-defined `genbesm` from here is fine even though backend follows.
+add_subdirectory(libc)
 add_subdirectory(backend)
 
 #

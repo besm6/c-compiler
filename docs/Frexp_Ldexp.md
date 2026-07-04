@@ -11,7 +11,7 @@ On the BESM-6, `float`, `double`, and `long double` are all one 48-bit machine w
 (see [Besm6_Data_Representation.md](Besm6_Data_Representation.md)), so the single `double`
 entry point serves every floating type; no `frexpf` / `ldexpf` variants are needed.
 
-Both functions are currently *declared* in [backend/besm6/include/math.h](../backend/besm6/include/math.h)
+Both functions are currently *declared* in [libc/besm6/include/math.h](../libc/besm6/include/math.h)
 but not yet implemented (`modf` is the only implemented `<math.h>` routine so far). This
 document is the implementation proposal.
 
@@ -231,17 +231,17 @@ c        --- fraction := value with the exponent field forced to 64 ---
 - **The bias bookkeeping** is the only subtlety: the stored field is the true exponent plus
   64, `E+X` subtracts the bias when it adds, and `frexp` subtracts 64 explicitly after
   extracting the field. The exponent range that round-trips is `[−64, 63]`, matching
-  `FLT_MIN_EXP` / `FLT_MAX_EXP` in [float.h](../backend/besm6/include/float.h).
+  `FLT_MIN_EXP` / `FLT_MAX_EXP` in [float.h](../libc/besm6/include/float.h).
 
 ## Integrating into `libc.bin`
 
 To ship these (left as future work — this page is the spec):
 
-1. Add `backend/besm6/madlen/ldexp.madlen` and `backend/besm6/madlen/frexp.madlen` (no `b_`
+1. Add `libc/besm6/madlen/ldexp.madlen` and `libc/besm6/madlen/frexp.madlen` (no `b_`
    prefix — these are user-facing libc entry points, not internal `b/…` helpers).
 2. Append `ldexp frexp` to the `LIBC_MADLEN` list in
    [backend/besm6/CMakeLists.txt](../backend/besm6/CMakeLists.txt).
-3. Move the `frexp` / `ldexp` prototypes in [math.h](../backend/besm6/include/math.h) from
+3. Move the `frexp` / `ldexp` prototypes in [math.h](../libc/besm6/include/math.h) from
    the "declared for future implementation" block to the "implemented in libc.bin" block.
 4. Add a `besm-tests` `CompileAndRun` case that `printf`s a round trip, run from
    `build/backend/besm6` (where `libc.bin` lives). If the exponent math misbehaves, trace it

@@ -17,7 +17,7 @@ make clean        # remove ./build/
 to `~/.local` if that directory exists, otherwise `/usr/local`: `parse` → `bin/b6parse`,
 `lower` → `bin/b6lower`, `genbesm` → `bin/b6codegen`, `libc.bin` →
 `share/besm6/lib/libc.bin`, and the target C11 standard headers
-(`backend/besm6/include/*.h`) → `share/besm6/include/`.
+(`libc/besm6/include/*.h`) → `share/besm6/include/`.
 The prefix is chosen in the Makefile at install time and passed as `cmake --install build
 --prefix`; the driver binaries are renamed (`b6` prefix) only at install time via
 `install(PROGRAMS … RENAME)`, so the in-tree build outputs (`build/parse`, `build/lower`,
@@ -64,7 +64,7 @@ ctest --test-dir build -R "Typecheck|Pipeline"
 ```
 
 **Runtime library (`libc.bin`).** The higher-level runtime routines live in
-`backend/besm6/madlen/*.c` and now cover a substantial hosted libc subset: I/O
+`libc/besm6/madlen/*.c` and now cover a substantial hosted libc subset: I/O
 (`printf`/`sprintf`/`snprintf` over the shared `doprnt` pointer-walk engine, `puts`,
 `putchar`, `getch`, `putch`, `putbyte`, `flush`), all of `<string.h>`
 (`strlen`/`strcpy`/`strncpy`/`strcat`/`strncat`/`strcmp`/`strncmp`/`strchr`/`strrchr`/`strstr`/`strtok`/`strerror`
@@ -123,7 +123,7 @@ hand: assemble a `.mad` with `genbesm`, wrap it with the `*name/*disc/*file:libc
 … *library:40/*execute/*end file` boilerplate (see `codegen_test.h` `CompileAndRun`), and
 run `dubna [-d c] job.dub`.
 
-**Target standard headers (`backend/besm6/include/`).** C11 standard-library headers for
+**Target standard headers (`libc/besm6/include/`).** C11 standard-library headers for
 programs compiled for the BESM-6 (the freestanding subset is complete; the hosted subset
 declares the few implemented libc routines plus future ones — see the dir's `README.md`).
 The compiler has no preprocessor, so these are consumed by an external preprocessor first.
@@ -131,7 +131,7 @@ Use the C compiler's preprocessor (`cc -E`), not a standalone `cpp`: a tradition
 (e.g. Apple's `/usr/bin/cpp`) only recognizes a `#` directive in column 1, so indented
 `#include` lines silently fail to expand. No `-P` is needed — `parse`'s scanner consumes
 `# line` markers and keeping them preserves original line numbers in diagnostics:
-`cc -E -nostdinc -Ibackend/besm6/include prog.c | parse -`. The `besm-headers` CTest
+`cc -E -nostdinc -Ilibc/besm6/include prog.c | parse -`. The `besm-headers` CTest
 (`scripts/check_headers.sh`, run under `make run`) preprocesses and parses every header to
 catch syntax errors. The unit-test fixtures preprocess their C snippets automatically via
 `libutil/test/test_preprocess.h` (using the CMake `BESM6_CPP`/`BESM6_INCLUDE_DIR` defines), so
@@ -258,7 +258,7 @@ run by `make run` (see **Build & Test** above).
 - [docs/Besm6_Instruction_Set.md](docs/Besm6_Instruction_Set.md) — BESM-6 instruction set reference
 - [docs/Besm6_Runtime_Library.md](docs/Besm6_Runtime_Library.md) — BESM-6 runtime helper library specifications (`b/save`, `b/mul`, `b/div`, comparisons, etc.)
 - [docs/Frexp_Ldexp.md](docs/Frexp_Ldexp.md) — the `frexp`/`ldexp` C11 math pair: meaning, usage, and a proposed frameless Madlen implementation via the BESM-6 exponent-field instructions (`E+X`, `ASN`, `STI`)
-- [docs/Standard_Include_Files.md](docs/Standard_Include_Files.md) — C11 standard headers (`backend/besm6/include/`): role of each header, declared functions, inter-header relationships, and BESM-6 specifics (freestanding vs hosted, no complex/atomics/threads)
+- [docs/Standard_Include_Files.md](docs/Standard_Include_Files.md) — C11 standard headers (`libc/besm6/include/`): role of each header, declared functions, inter-header relationships, and BESM-6 specifics (freestanding vs hosted, no complex/atomics/threads)
 - [docs/KOI7_Encoding.md](docs/KOI7_Encoding.md) — KOI-7 character encoding: the BESM-6 code page (code→glyph), the ASCII→KOI7 conversion the codegen performs (`utf8_to_koi7.c`), and how the glyph data was collected on Dubna
 - [docs/Madlen.md](docs/Madlen.md) — Madlen assembler syntax for the Dubna monitor (the assembler this backend emits; one of three BESM-6 assemblers documented here — see also Bemsh and `b6as`)
 - [docs/Bemsh.md](docs/Bemsh.md) — Bemsh, the BESM-6 autocode (Shtarkman, 1967): the Cyrillic-mnemonic assembly language, its statement/column form, and how it differs from Madlen
