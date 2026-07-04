@@ -1,0 +1,52 @@
+#include "besm.h"
+#include "internal.h"
+#include "tac.h"
+
+// Signed integers occupy the low 41 bits of the 48-bit word (raw two's complement,
+// exponent field zero); unsigned integers occupy all 48 bits.  This dialect-independent
+// bit pattern is what each emitter renders into its own literal syntax.
+#define BESM_MASK41 0x1FFFFFFFFFFULL
+#define BESM_MASK48 0xFFFFFFFFFFFFULL
+
+Besm_ConstWord besm_const_word(const Tac_Const *c)
+{
+    Besm_ConstWord w = { 0 };
+    switch (c->kind) {
+    case TAC_CONST_INT:
+        w.word = (unsigned long long)((long long)c->u.int_val & (long long)BESM_MASK41);
+        break;
+    case TAC_CONST_LONG:
+        w.word = (unsigned long long)(c->u.long_val & (long long)BESM_MASK41);
+        break;
+    case TAC_CONST_LONG_LONG:
+        w.word = (unsigned long long)(c->u.long_long_val & (long long)BESM_MASK41);
+        break;
+    case TAC_CONST_SCHAR:
+        w.word = (unsigned long long)((long long)c->u.char_val & (long long)BESM_MASK41);
+        break;
+    case TAC_CONST_UINT:
+        w.word = (unsigned long long)(c->u.uint_val & BESM_MASK48);
+        break;
+    case TAC_CONST_ULONG:
+        w.word = (unsigned long long)(c->u.ulong_val & BESM_MASK48);
+        break;
+    case TAC_CONST_ULONG_LONG:
+        w.word = (unsigned long long)(c->u.ulong_long_val & BESM_MASK48);
+        break;
+    case TAC_CONST_UCHAR:
+        w.word = (unsigned long long)c->u.uchar_val;
+        break;
+    case TAC_CONST_FLOAT:
+    case TAC_CONST_DOUBLE:
+    case TAC_CONST_LONG_DOUBLE:
+        // float ≡ double ≡ long double on BESM-6 (one 48-bit native-FP word).
+        w.is_real  = true;
+        w.real_val = (c->kind == TAC_CONST_FLOAT)         ? (double)c->u.float_val
+                     : (c->kind == TAC_CONST_LONG_DOUBLE) ? (double)c->u.long_double_val
+                                                          : c->u.double_val;
+        break;
+    default:
+        fatal_error("unsupported constant kind %d", (int)c->kind);
+    }
+    return w;
+}

@@ -57,6 +57,15 @@ static void state_reset(PeepState *st)
     st->in_unreachable = false;
 }
 
+// True when `i` carries a symbolic or constant operand (a name — global/label/literal —
+// or a structural constant), as opposed to a plain frame-slot memory operand `(reg,off)`.
+// The state machine must not mistake a constant or global load for a frame slot, so every
+// operand-classification test below uses this rather than a bare `name == NULL` check.
+static bool has_operand_symbol(const Besm_Instr *i)
+{
+    return i->name != NULL || i->konst != NULL;
+}
+
 //
 // Does this instruction end a basic block?  A label can be re-entered from
 // elsewhere and a branch transfers control (a CALL also clobbers A), so tracked
@@ -107,7 +116,7 @@ static void state_step(PeepState *st, const Besm_Instr *i)
     switch (i->kind) {
     case BESM_MEM_XTA:
     case BESM_MEM_ATX:
-        if (i->name == NULL) {
+        if (!has_operand_symbol(i)) {
             st->a_known = true;
             st->a_reg   = i->reg;
             st->a_off   = i->addr;
@@ -131,7 +140,7 @@ static void state_step(PeepState *st, const Besm_Instr *i)
 //
 static bool rule_redundant_reload(const Besm_Instr *cur, const PeepState *st)
 {
-    return cur->kind == BESM_MEM_XTA && cur->name == NULL && st->a_known &&
+    return cur->kind == BESM_MEM_XTA && !has_operand_symbol(cur) && st->a_known &&
            cur->reg == st->a_reg && cur->addr == st->a_off;
 }
 
@@ -185,7 +194,7 @@ static const PeepRule rule_table[] = {
 // ADD_PTR address into that slot is live and must not be dropped as a dead temp.
 static bool instr_reads_auto_slot(const Besm_Instr *i, int off)
 {
-    if (i->name != NULL || (int)i->reg != REG_AUTO || i->addr != off)
+    if (has_operand_symbol(i) || (int)i->reg != REG_AUTO || i->addr != off)
         return false;
     switch (i->kind) {
     case BESM_MOD_WTC:
@@ -219,7 +228,7 @@ static bool instr_reads_auto_slot(const Besm_Instr *i, int off)
 // Does `i` *write* auto slot `off` (r7 + off)?  `atx` stores A; `stx` stores A and pops.
 static bool instr_writes_auto_slot(const Besm_Instr *i, int off)
 {
-    if (i->name != NULL || (int)i->reg != REG_AUTO || i->addr != off)
+    if (has_operand_symbol(i) || (int)i->reg != REG_AUTO || i->addr != off)
         return false;
     return i->kind == BESM_MEM_ATX || i->kind == BESM_MEM_STX;
 }
@@ -232,7 +241,7 @@ static bool instr_writes_auto_slot(const Besm_Instr *i, int off)
 //
 static bool dead_temp_store(const Besm_Instr *cur, const Frame *frame, const bool *multiblock)
 {
-    if (cur->kind != BESM_MEM_ATX || cur->name != NULL || (int)cur->reg != REG_AUTO)
+    if (cur->kind != BESM_MEM_ATX || has_operand_symbol(cur) || (int)cur->reg != REG_AUTO)
         return false;
     if (!frame || !frame_slot_is_temp(frame, REG_AUTO, cur->addr))
         return false;
@@ -385,7 +394,7 @@ static bool try_invert_branch_over_jump(Besm_Block *block, Besm_Instr *cur)
 // each slot reference to the basic block it occurs in (multi-block analysis).
 static bool instr_auto_slot_ref(const Besm_Instr *i, int *off)
 {
-    if (i->name != NULL || (int)i->reg != REG_AUTO)
+    if (has_operand_symbol(i) || (int)i->reg != REG_AUTO)
         return false;
     if (instr_reads_auto_slot(i, i->addr) || instr_writes_auto_slot(i, i->addr)) {
         *off = i->addr;

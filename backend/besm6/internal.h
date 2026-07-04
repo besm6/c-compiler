@@ -1,6 +1,7 @@
 #ifndef BESM6_INTERNAL_H
 #define BESM6_INTERNAL_H
 
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "besm.h"
@@ -12,6 +13,37 @@
 // file stay `static` in that file and are not declared here.
 
 _Noreturn void fatal_error(const char *fmt, ...);
+
+// Dialect-independent value of a scalar constant operand.  Integer constants become a
+// 48-bit bit pattern (signed values masked to the low 41 bits with a zero exponent
+// field; unsigned masked to all 48 bits); floating-point constants become a double.
+// Each per-dialect emitter renders this into its own literal syntax (Madlen =octal/=rX,
+// Unix #const pool, Bemsh =Ю'…'/=Е'…').  Defined in besm_const.c.
+typedef struct {
+    bool is_real;            // true → real_val holds an FP constant; false → word
+    double real_val;         // valid when is_real
+    unsigned long long word; // valid when !is_real: the masked 48-bit integer pattern
+} Besm_ConstWord;
+
+Besm_ConstWord besm_const_word(const Tac_Const *c);
+
+// How an instruction's operand and modifier-register field are formed.  The regular
+// machine-instruction shapes are rendered by a table-driven loop shared in spirit by
+// every emitter; BESM_SHAPE_SPECIAL kinds (directives, data, UTM/CALL/BASE) get explicit
+// per-dialect handling.  Defined in besm_mnem.c.
+typedef enum {
+    BESM_SHAPE_MEM,     // operand via the dialect operand formatter; mreg = instr->reg
+    BESM_SHAPE_IMM0,    // decimal immediate operand; mreg = 0
+    BESM_SHAPE_IMMR,    // decimal immediate operand; mreg = instr->reg
+    BESM_SHAPE_NONE,    // no operand; mreg = 0
+    BESM_SHAPE_SPECIAL, // dialect-specific (directives, data, UTM/CALL/BASE)
+} Besm_OperandShape;
+
+Besm_OperandShape besm_operand_shape(Besm_InstrKind kind);
+
+// Latin machine-instruction mnemonics indexed by Besm_InstrKind (shared by the Madlen
+// and Unix emitters).  NULL for BESM_SHAPE_SPECIAL kinds.  Defined in besm_mnem.c.
+extern const char *const besm_latin_mnem[];
 
 // Append a new instruction to a block, maintaining *tail.
 Besm_Instr *emit(Besm_Block *block, Besm_Instr **tail, Besm_InstrKind kind);
@@ -48,7 +80,8 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
 
 // Emit a module-level static variable (defined in static.c).  `program` is the full
 // toplevel chain, used to fold referenced string constants into this module.
-void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out);
+void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out,
+                             Besm_Dialect dialect);
 
 // Pack a string static-init into a BESM_DATA_LOG chain; the first word is labeled
 // `label` when non-NULL (defined in static.c).

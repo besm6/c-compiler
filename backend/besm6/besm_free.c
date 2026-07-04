@@ -1,6 +1,7 @@
 #include <stdlib.h>
 
 #include "besm.h"
+#include "tac.h"
 #include "xalloc.h"
 
 void besm_free_instr(Besm_Instr *instr)
@@ -9,6 +10,7 @@ void besm_free_instr(Besm_Instr *instr)
         return;
     xfree(instr->name);
     xfree(instr->label);
+    tac_free_const(instr->konst);
     besm_free_instr(instr->next);
     xfree(instr);
 }

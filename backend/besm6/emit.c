@@ -84,64 +84,20 @@ void emit_wtc_ptr(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *nam
     }
 }
 
-// Build a heap-allocated Madlen literal-address string for a TAC constant.
-// Signed int/char/long: masked to 41 bits (raw two's-complement, exponent=0).
-// Unsigned uint/ulong/uchar: masked to 48 bits.
-// Float/double: "=r<value>" in %.13g format.
-static char *const_lit_name(const Tac_Const *c)
+// Attach a TAC constant to an instruction as a structural operand.  The scalar is
+// copied (Tac_Const is a flat POD) so the instruction owns it independently of the
+// TAC being freed; each dialect's emitter later formats it into its own literal syntax
+// (Madlen =octal/=rX, Unix #const pool, Bemsh =Ю'…').  Kept off `->name` so the
+// peephole pass can still use `name == NULL` plus `konst == NULL` to recognise a plain
+// frame-slot operand.
+static Tac_Const *dup_const(const Tac_Const *c)
 {
-    char buf[64];
-    switch (c->kind) {
-    case TAC_CONST_INT:
-        snprintf(buf, sizeof(buf), "=%llo",
-                 (unsigned long long)((long long)c->u.int_val & (long long)0x1FFFFFFFFFF));
-        break;
-    case TAC_CONST_LONG:
-        snprintf(buf, sizeof(buf), "=%llo",
-                 (unsigned long long)(c->u.long_val & (long long)0x1FFFFFFFFFF));
-        break;
-    case TAC_CONST_LONG_LONG:
-        snprintf(buf, sizeof(buf), "=%llo",
-                 (unsigned long long)(c->u.long_long_val & (long long)0x1FFFFFFFFFF));
-        break;
-    case TAC_CONST_SCHAR:
-        snprintf(buf, sizeof(buf), "=%llo",
-                 (unsigned long long)((long long)c->u.char_val & (long long)0x1FFFFFFFFFF));
-        break;
-    case TAC_CONST_UINT:
-        snprintf(buf, sizeof(buf), "=%llo",
-                 (unsigned long long)(c->u.uint_val & 0xFFFFFFFFFFFFULL));
-        break;
-    case TAC_CONST_ULONG:
-        snprintf(buf, sizeof(buf), "=%llo",
-                 (unsigned long long)(c->u.ulong_val & 0xFFFFFFFFFFFFULL));
-        break;
-    case TAC_CONST_ULONG_LONG:
-        snprintf(buf, sizeof(buf), "=%llo",
-                 (unsigned long long)(c->u.ulong_long_val & 0xFFFFFFFFFFFFULL));
-        break;
-    case TAC_CONST_UCHAR:
-        snprintf(buf, sizeof(buf), "=%llo", (unsigned long long)c->u.uchar_val);
-        break;
-    case TAC_CONST_FLOAT:
-    case TAC_CONST_DOUBLE:
-    case TAC_CONST_LONG_DOUBLE: {
-        // float ≡ double ≡ long double on BESM-6 (one 48-bit native-FP word).
-        double val = (c->kind == TAC_CONST_FLOAT)         ? (double)c->u.float_val
-                     : (c->kind == TAC_CONST_LONG_DOUBLE) ? (double)c->u.long_double_val
-                                                          : c->u.double_val;
-        char num[48];
-        mad_format_real(num, sizeof(num), val);
-        snprintf(buf, sizeof(buf), "=r%s", num);
-        break;
-    }
-    default:
-        fatal_error("unsupported constant kind %d", (int)c->kind);
-    }
-    return xstrdup(buf);
+    Tac_Const *d = tac_new_const(c->kind);
+    d->u         = c->u;
+    return d;
 }
 
-// Emit XTA for a TAC value: variable from frame, UTC+XTA for a global, or =N/=rX for a constant.
+// Emit XTA for a TAC value: variable from frame, UTC+XTA for a global, or a constant.
 void emit_xta_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *v)
 {
     if (v->kind == TAC_VAL_VAR) {
@@ -155,7 +111,7 @@ void emit_xta_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *
         }
     } else {
         Besm_Instr *i = emit(b, t, BESM_MEM_XTA);
-        i->name       = const_lit_name(v->u.constant);
+        i->konst      = dup_const(v->u.constant);
     }
 }
 
@@ -177,7 +133,7 @@ void emit_xts_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *
         }
     } else {
         Besm_Instr *i = emit(b, t, BESM_MEM_XTS);
-        i->name       = const_lit_name(v->u.constant);
+        i->konst      = dup_const(v->u.constant);
     }
 }
 
@@ -196,6 +152,6 @@ void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind, const Fr
         }
     } else {
         Besm_Instr *i = emit(b, t, kind);
-        i->name       = const_lit_name(v->u.constant);
+        i->konst      = dup_const(v->u.constant);
     }
 }

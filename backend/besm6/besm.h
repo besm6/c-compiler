@@ -7,6 +7,10 @@
 extern "C" {
 #endif
 
+// A scalar constant operand is carried structurally (see below); the frontend type is
+// forward-declared here so the backend IR need not include tac.h.
+struct Tac_Const;
+
 // Forward declarations for self-referential linked-list nodes
 typedef struct Besm_Instr Besm_Instr;
 typedef struct Besm_Block Besm_Block;
@@ -107,6 +111,9 @@ struct Besm_Instr {
     char *name;                 // symbolic name, optional (heap-owned)
     char *label;                // Madlen label for a data word whose `name` is already an
                                 // operand (currently only BESM_DATA_Z00), optional (heap-owned)
+    struct Tac_Const *konst;    // scalar constant operand (=N / #N / =Ю'…'), optional
+                                // (heap-owned); when set, the operand is this literal, not
+                                // (name, addr).  The per-dialect emitter formats it.
     unsigned long long log_val; // BESM_DATA_LOG: 48-bit logical constant
     double real_val;            // BESM_DATA_REAL
     // TODO: star plus offset
@@ -170,6 +177,18 @@ typedef struct {
 } Besm_Module;
 
 //
+// Target assembler dialect.  The backend builds one dialect-agnostic Besm_Module
+// and a per-dialect emitter renders it: Madlen (,mnem, comma-framed, runs on dubna),
+// the Unix b6as assembler (AT&T-style, .text/.data segments), or Bemsh (Cyrillic
+// autocode, runs on dubna).  Selected on the genbesm command line.
+//
+typedef enum {
+    BESM_MADLEN, // Madlen (Dubna monitor) — the historical default
+    BESM_UNIX,   // Unix b6as (AT&T syntax, b.out objects)
+    BESM_BEMSH,  // Bemsh autocode (Cyrillic mnemonics, Dubna monitor)
+} Besm_Dialect;
+
+//
 // Allocate
 //
 Besm_Instr *besm_new_instr(Besm_InstrKind kind);
@@ -209,6 +228,12 @@ void mad_format_real(char *buf, size_t n, double val);
 // elimination, rule #28); it may be NULL (e.g. for an empty function), in which case
 // that rule is skipped.
 void besm_peephole(Besm_Func *func, const Frame *frame);
+
+//
+// Emit assembly for the selected dialect.  Dispatches to the per-dialect module
+// emitter (emit_madlen_module / emit_unix_module / emit_bemsh_module).
+//
+void besm_emit_module(FILE *out, const Besm_Module *module, Besm_Dialect dialect);
 
 //
 // Emit Madlen assembly

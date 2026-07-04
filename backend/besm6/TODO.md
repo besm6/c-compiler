@@ -10,3 +10,41 @@ Work plan for the BESM-6 backend, in no partucular order.
 | 8 | LICM (loop-invariant code motion) | Machine-independent TAC pass. Prerequisite: a new dominator-tree and natural-loop analysis (none exists; the loop info from `semantic/label_loops.c` is lost by TAC time). Then hoist loop-invariant computations into a preheader, reusing the liveness framework from `optimize/dead_store.c`. |
 | 9 | Generalized strength reduction | Today only power-of-two mul/div is reduced, and only in the backend (`backend/besm6/instr.c`). Add TAC-level reduction for non-power-of-two constants (`a*3 → (a<<1)+a`, magic-number division) so all targets benefit; extend `constant_fold` pattern matching. Needs a per-target cost model. |
 | 10 | Function inlining | Machine-independent, interprocedural. Build a call graph over `TAC_INSTRUCTION_FUN_CALL` (none exists; TAC is intraprocedural), add a size/recursion heuristic, substitute bodies (rename `%`-locals, map params→args, return→assign+jump), and run before the fixed-point loop so the existing passes clean up the inlined code. |
+
+## Multi-assembler support (Unix, then Bemsh)
+
+The backend targets three assembler dialects from one dialect-agnostic `Besm_Module` IR:
+**Madlen** (existing, runs on `dubna`), the **Unix `b6as`** assembler (AT&T syntax, `b.out`
+objects — needed first), and **Bemsh** (Cyrillic autocode, runs on `dubna` — later). See
+[docs/Madlen.md](../../docs/Madlen.md), [docs/Besm6_Unix_Assembler.md](../../docs/Besm6_Unix_Assembler.md),
+and [docs/Bemsh.md](../../docs/Bemsh.md).
+
+**Foundation (done).** `Besm_Dialect { BESM_MADLEN, BESM_UNIX, BESM_BEMSH }` and the
+`besm_emit_module(out, module, dialect)` dispatcher are in place; `genbesm` accepts
+`--madlen` / `--unix` / `--bemsh` (extensions `.mad` / `.s` / `.bem`) and threads the choice
+through `codegen_program` / `codegen_static_variable`. Scalar constant operands are carried
+structurally on `Besm_Instr.konst` (formatted per-dialect via `besm_const_word`, not baked into
+`name`), with the peephole operand tests updated to `has_operand_symbol`. `emit_madlen.c` is
+refactored onto the shared `besm_latin_mnem[]` table + `besm_operand_shape()` classifier
+(`besm_mnem.c`), so the Unix emitter reuses both. `--unix` / `--bemsh` currently fail with a
+"not yet implemented" message. **Madlen stays the effective default** (keeps the libc build and
+run tests green) until task U4 flips it.
+
+The tasks below are ordered — Unix (`U*`) first, Bemsh (`B*`) later. Each lands independently
+with green tests.
+
+| #  | Task | Description |
+|----|------|-------------|
+| U1 | Unix emitter — code + framing | New `emit_unix.c` `emit_unix_module`: segments `.text`/`.data`/`.strng`/`.bss`; AT&T line format `[modreg] mnem addr[, index]` (leading modreg per docs/Besm6_Unix_Assembler.md §3/§8); reuse `besm_latin_mnem` + `besm_operand_shape`. Unix name sanitizer (allow `_ . -`; map `$`→`.`, `%`→`.`; no 8-char truncation). Constant formatter via the `#const` pool (octal `#0NNN`, real `#<val>`). **Translate** the externals/relocation model rather than transliterate: `SUBP`→`.globl`/drop (b6as auto-externs undefined names), `NAME`/`ENTRY`→`.globl name`+label, `Z00` address word→`.word name`, `BASE`→drop. Runtime name map `b/ret`→`b.ret`. Wire into `besm_emit_module`. *Acceptance:* golden-file tests — `CompileToUnix(src)` matches checked-in `.s` for a representative set (scalar, call, global, float const, string, static array). |
+| U2 | Unix `libc.a` + b6as/b6ld/b6ar wiring | Compile the reusable `LIBC_C_PORTABLE` set through `genbesm --unix` → `b6as` → archive with `b6ar` + `b6ranlib` into `libc.a`; add a `libc/besm6/unix/` sibling supplying the three Dubna leaves (`putbyte`/`flush`/`getch`) and the `b_*` helpers reimplemented in `b6as` syntax. Add CMake to locate the sibling `v7besm/cmd/{as,ld,ar,ranlib}` binaries on `PATH` (like `dubna` today). *Acceptance:* `libc.a` builds; `b6as` assembles every libc `.s` cleanly; `b6ld` links a trivial program object against it into a `b.out`. |
+| U3 | Unix assemble+link test harness (no execution) | New `CompileAndAssembleUnix(src)` helper in `test/codegen_test.h`: `genbesm --unix` → `b6as` → `b6ld` against the U2 `libc.a`, asserting each step exits 0 (reuse the `RunExternalProgram` fork/exec pattern). **No end-to-end run — `b6sim` does not exist yet;** validation = "assembles and links cleanly" + golden `.s` diff. *Acceptance:* a suite of chapter programs assemble+link without error. |
+| U4 | Flip default dialect to Unix | `backend/main.c` default → `BESM_UNIX`. Keep Madlen reachable via `--madlen`; the behavioral run tests (`CompileAndRun` on `dubna`) explicitly request Madlen and stay green. Update the libc `genbesm` invocation if it relied on the default. *Acceptance:* bare `genbesm f.tac` emits `f.s`; `make` / `make run` green. |
+| B1 | Bemsh emitter — code + framing | New `emit_bemsh.c`: Cyrillic `besm_cyr_mnem[]` (docs/Bemsh.md §13), directives `СТАРТ`/`ФИНИШ`/`ЭКВ`/`ПАМ`/`КОНД`/`КОНК`/`ТЕКСТ`/`ВХОДН`/`ВНЕШН`, octal in `'…'`, constants via literal operands `=Е'…'`/`=Ю'…'`. Reuse `besm_operand_shape`; route Cyrillic identifiers through `utf8_to_koi7`. *Acceptance:* golden-file `CompileToBemsh` tests for the representative set. |
+| B2 | Bemsh naming / symbol mangling | Bemsh sanitizer: ≤6 chars, must begin with a letter, deterministic collision-safe mangling. Runtime-helper names must match a Bemsh `libc`'s symbols (`b/ret`→`_ret`/`._ret`, `b/save`→`_save` per `tmp/bemsh.dub`). Under-specified until the Bemsh libc symbol set exists — deliver a documented provisional map. *Acceptance:* deterministic map, no collisions over a corpus, helper names match the `bemsh.dub` externs. |
+| B3 | Bemsh run-integration on dubna | `CompileAndRunBemsh` variant of `CompileAndRun` wrapping output in a `*bemsh` control-card job (model on `tmp/bemsh.dub`), **reusing the existing `libc.bin`**, running `dubna`, parsing `.lst`. This is the only new-dialect path runnable end-to-end today. *Acceptance:* a subset of run tests pass under `*bemsh` with output identical to the Madlen path. |
+
+**Not runnable end-to-end yet:** the Unix path has no simulator (`b6sim` is unwritten). Unix
+tasks validate by two proxies — golden-file the `.s`, and assemble+link cleanly via
+`b6as`+`b6ld`+`libc.a`. Observed program behavior stays covered by Madlen-on-`dubna` (why U4
+keeps `--madlen` alive) and later Bemsh-on-`dubna`. When `b6sim` lands, add a `CompileAndRunUnix`
+mirroring `CompileAndRun` and promote the golden/link tests to real execution.

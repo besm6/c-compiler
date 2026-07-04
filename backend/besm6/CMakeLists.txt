@@ -4,6 +4,8 @@
 add_library(besm STATIC
     besm_alloc.c
     besm_free.c
+    besm_const.c
+    besm_mnem.c
     emit_madlen.c
     frame.c
     codegen.c

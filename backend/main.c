@@ -21,12 +21,35 @@ static FILE *output_file;
 // Structure to hold parsed arguments
 //
 typedef struct {
-    int verbose;       // -v or --verbose
-    int help;          // -h or --help
-    int debug;         // -D or --debug
-    char *input_file;  // Input filename
-    char *output_file; // Output filename (optional)
+    int verbose;          // -v or --verbose
+    int help;             // -h or --help
+    int debug;            // -D or --debug
+    Besm_Dialect dialect; // --madlen / --unix / --bemsh
+    char *input_file;     // Input filename
+    char *output_file;    // Output filename (optional)
 } Args;
+
+// Long-option values for the dialect flags (outside the ASCII range so they do not
+// collide with the short options).
+enum {
+    OPT_MADLEN = 1000,
+    OPT_UNIX,
+    OPT_BEMSH,
+};
+
+// Default output-file extension for each dialect.
+static const char *dialect_ext(Besm_Dialect d)
+{
+    switch (d) {
+    case BESM_UNIX:
+        return ".s";
+    case BESM_BEMSH:
+        return ".bem";
+    case BESM_MADLEN:
+    default:
+        return ".mad";
+    }
+}
 
 //
 // Function to print usage information
@@ -40,6 +63,9 @@ static void print_usage(const char *prog_name)
     fprintf(stderr, "Usage:\n");
     fprintf(stderr, "    %s [options] input-filename [output-filename]\n", prog_name);
     fprintf(stderr, "Options:\n");
+    fprintf(stderr, "        --madlen        Emit Madlen assembly for Dubna (default)\n");
+    fprintf(stderr, "        --unix          Emit Unix (b6as) assembly\n");
+    fprintf(stderr, "        --bemsh         Emit Bemsh autocode for Dubna\n");
     fprintf(stderr, "    -v, --verbose       Enable verbose mode\n");
     fprintf(stderr, "    -D, --debug         Print debug information\n");
     fprintf(stderr, "    -h, --help          Show this help message\n");
@@ -53,6 +79,10 @@ static void init_args(Args *args)
     args->verbose     = 0;
     args->help        = 0;
     args->debug       = 0;
+    // Madlen is kept as the effective default so the existing libc build and run
+    // tests stay green; the intended eventual default is --unix, to be flipped once
+    // the Unix emitter and libc.a land (see backend/besm6/TODO.md task U4).
+    args->dialect     = BESM_MADLEN;
     args->input_file  = NULL;
     args->output_file = NULL;
 }
@@ -60,12 +90,12 @@ static void init_args(Args *args)
 //
 // Generate output filename from input filename
 //
-static char *generate_output_filename(const char *input_file)
+static char *generate_output_filename(const char *input_file, Besm_Dialect dialect)
 {
     // Find the last '.' in input_file to replace extension
     const char *ext     = strrchr(input_file, '.');
     size_t base_len     = ext ? (size_t)(ext - input_file) : strlen(input_file);
-    const char *new_ext = ".mad";
+    const char *new_ext = dialect_ext(dialect);
     size_t new_ext_len  = strlen(new_ext);
 
     // Allocate memory for new filename
@@ -87,10 +117,13 @@ static char *generate_output_filename(const char *input_file)
 static int parse_args(int argc, char *argv[], Args *args)
 {
     static struct option long_options[] = {
-        { "verbose", no_argument, 0, 'v' }, //
-        { "help", no_argument, 0, 'h' },    //
-        { "debug", no_argument, 0, 'D' },   //
-        {},                                 //
+        { "verbose", no_argument, 0, 'v' },        //
+        { "help", no_argument, 0, 'h' },           //
+        { "debug", no_argument, 0, 'D' },          //
+        { "madlen", no_argument, 0, OPT_MADLEN },  //
+        { "unix", no_argument, 0, OPT_UNIX },      //
+        { "bemsh", no_argument, 0, OPT_BEMSH },    //
+        {},                                        //
     };
 
     int opt;
@@ -112,6 +145,15 @@ static int parse_args(int argc, char *argv[], Args *args)
         case 'D':
             args->debug = 1;
             break;
+        case OPT_MADLEN:
+            args->dialect = BESM_MADLEN;
+            break;
+        case OPT_UNIX:
+            args->dialect = BESM_UNIX;
+            break;
+        case OPT_BEMSH:
+            args->dialect = BESM_BEMSH;
+            break;
         case '?': // Unknown option
             return -1;
         }
@@ -130,7 +172,7 @@ static int parse_args(int argc, char *argv[], Args *args)
         args->output_file = argv[optind];
     } else {
         // Generate output filename based on input
-        args->output_file = generate_output_filename(args->input_file);
+        args->output_file = generate_output_filename(args->input_file, args->dialect);
         if (!args->output_file) {
             return -1;
         }
@@ -190,7 +232,7 @@ void process_file(const Args *args)
     for (const Tac_TopLevel *tl = head; tl; tl = tl->next) {
         if (args->debug)
             tac_print_toplevel(stdout, tl, 0);
-        codegen_program(head, tl, output_file);
+        codegen_program(head, tl, output_file, args->dialect);
     }
     tac_free_toplevel(head);
     close_output(args);

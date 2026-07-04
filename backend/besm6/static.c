@@ -421,7 +421,8 @@ static Besm_Instr *static_data_items(const Tac_Type *type, const Tac_StaticInit 
     return head;
 }
 
-void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out)
+void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out,
+                             Besm_Dialect dialect)
 {
     const char *name           = tl->u.static_variable.name;
     const Tac_StaticInit *init = tl->u.static_variable.init_list;
@@ -433,7 +434,7 @@ void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl
     module->sections          = section;
 
     besm_fold_string_constants(module, program);
-    emit_madlen_module(out, module);
+    besm_emit_module(out, module, dialect);
     besm_free_module(module);
 }
 

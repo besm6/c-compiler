@@ -108,7 +108,7 @@ protected:
     {
         FILE *f = tmpfile();
         EXPECT_NE(nullptr, f);
-        codegen_program(prog, tl, f);
+        codegen_program(prog, tl, f, BESM_MADLEN);
         long len = ftell(f);
         if (len == 0) {
             fclose(f);

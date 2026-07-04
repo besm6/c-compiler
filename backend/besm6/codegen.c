@@ -14,16 +14,18 @@
 #include "xalloc.h"
 
 // Forward declaration.
-static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out);
+static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out,
+                             Besm_Dialect dialect);
 
-void codegen_program(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out)
+void codegen_program(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out,
+                     Besm_Dialect dialect)
 {
     switch (tl->kind) {
     case TAC_TOPLEVEL_FUNCTION:
-        codegen_function(program, tl, out);
+        codegen_function(program, tl, out, dialect);
         break;
     case TAC_TOPLEVEL_STATIC_VARIABLE:
-        codegen_static_variable(program, tl, out);
+        codegen_static_variable(program, tl, out, dialect);
         break;
     case TAC_TOPLEVEL_STATIC_CONSTANT:
         // String constants are no longer emitted as standalone global modules;
@@ -85,8 +87,8 @@ static int used_auto_words(const Besm_Func *func, const Frame *f)
     for (const Besm_Func *fn = func; fn; fn = fn->next)
         for (const Besm_Block *block = fn->blocks; block; block = block->next)
             for (const Besm_Instr *i = block->body; i; i = i->next)
-                if (i->name == NULL && (int)i->reg == REG_AUTO && i->addr >= 0 &&
-                    i->addr < orig)
+                if (i->name == NULL && i->konst == NULL && (int)i->reg == REG_AUTO &&
+                    i->addr >= 0 && i->addr < orig)
                     referenced[i->addr] = true;
 
     int used = 0;
@@ -116,7 +118,8 @@ static void remove_instr(Besm_Block *block, const Besm_Instr *target)
     }
 }
 
-static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out)
+static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out,
+                             Besm_Dialect dialect)
 {
     const char *name = tl->u.function.name;
 
@@ -375,6 +378,6 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
     // labels, removing their external SUBP declarations.
     besm_fold_string_constants(module, program);
 
-    emit_madlen_module(out, module);
+    besm_emit_module(out, module, dialect);
     besm_free_module(module);
 }
