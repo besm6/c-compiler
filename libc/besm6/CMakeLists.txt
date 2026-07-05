@@ -106,6 +106,10 @@ add_custom_target(besm-libc ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libc.bin)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libc.bin DESTINATION share/besm6/lib)
 
+# The Unix (b6as) runtime library (libc.a).  A child scope so it inherits LIBC_C_PORTABLE
+# and LIBC_MADLEN (the reuse surface) set above.
+add_subdirectory(unix)
+
 # Target C11 standard headers, installed alongside the runtime library.
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
         DESTINATION share/besm6/include

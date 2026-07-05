@@ -67,7 +67,8 @@ f:
               out);
 }
 
-// A floating constant flows through the `#`-pool as `#<real>` (mandatory decimal point).
+// A floating constant flows through the `#`-pool.  b6as has no float literal syntax, so
+// the real is rendered as its native BESM-6 48-bit FP bit pattern in octal (3.14).
 TEST_F(CodegenTest, UnixFloatConst)
 {
     std::string out = CompileToUnix("double f(void) { return 3.14; }");
@@ -76,7 +77,7 @@ TEST_F(CodegenTest, UnixFloatConst)
 f:
     its 13
  13 vjm b$save0
-    xta #3.14
+    xta #04114436560507534
     uj b$ret
 )",
               out);
@@ -128,14 +129,56 @@ p:
               out);
 }
 
-// A double global: its native-FP value renders as a `.word <real>` data word.
+// A double global: its native-FP value renders as a `.word` holding the BESM-6 48-bit FP
+// bit pattern in octal (2.5).
 TEST_F(CodegenTest, UnixDoubleGlobal)
 {
     std::string out = CompileToUnix("double d = 2.5;");
     EXPECT_EQ(R"(    .data
     .globl d
 d:
-    .word 2.5
+    .word 04112000000000000
+)",
+              out);
+}
+
+// A Madlen literal-address expression (`=:64`, the INT-format exponent word) becomes a
+// b6as `#`-pool constant; b6as has no `=` literal syntax.
+TEST_F(CodegenTest, UnixIntFormatLiteral)
+{
+    std::string out = CompileToUnix("double g(int n) { return n; }");
+    EXPECT_EQ(R"(    .text
+    .globl g
+g:
+    its 13
+ 13 vjm b$save
+  6 xta
+    aox #06400000000000000
+    ntr 0
+    a+x
+    ntr 7
+    uj b$ret
+)",
+              out);
+}
+
+// A numeric compiler label (`%0`) sanitizes to `..0`, not `.0` — a bare `.N` is a b6as
+// bit-mask literal, so a digit-leading body gets a second leading dot to stay a name.
+TEST_F(CodegenTest, UnixNumericLabel)
+{
+    std::string out = CompileToUnix("int f(int x) { if (x) return 1; return 0; }");
+    EXPECT_EQ(R"(    .text
+    .globl f
+f:
+    its 13
+ 13 vjm b$save
+  6 xta
+    uza ..0
+    xta #01
+    uj b$ret
+..0:
+    xta #00
+    uj b$ret
 )",
               out);
 }

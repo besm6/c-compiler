@@ -1,9 +1,37 @@
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "abi.h"
 #include "besm.h"
 #include "internal.h"
+
+// Encode a C double as a native BESM-6 48-bit floating-point word (see
+// docs/Besm6_Data_Representation.md §6): bits 48-42 = 7-bit exponent biased by 64, bit 41 =
+// sign, bits 40-1 = 40-bit two's-complement mantissa.  b6as has no floating-point literal
+// syntax, so the Unix emitter renders every real as its octal bit pattern.
+static unsigned long long unix_real_word(double v)
+{
+    if (v == 0.0)
+        return 0; // machine zero is the all-zero word
+
+    int e2;
+    double f = frexp(v, &e2); // v = f * 2^e2, with 0.5 <= |f| < 1
+    // A 41-bit two's-complement value T (bit 41 = sign, bits 40-1 = mantissa) with
+    // T / 2^40 = f gives value = (T / 2^40) * 2^e2, i.e. biased exponent E = e2 + 64.
+    long long T = llround(ldexp(f, 40));
+    int       E = e2 + 64;
+    if (T >= (1LL << 40)) {
+        // f rounded up to 1.0 (fraction not representable): renormalize.
+        T >>= 1;
+        E++;
+    }
+    if (E < 1 || E > 127)
+        fatal_error("floating constant %g out of BESM-6 exponent range", v);
+
+    unsigned long long mant = (unsigned long long)T & ((1ULL << 41) - 1); // bits 41-1
+    return ((unsigned long long)E << 41) | mant;
+}
 
 //
 // Unix (b6as) assembler emitter.  Renders the dialect-agnostic Besm_Module in the
@@ -53,13 +81,21 @@ static void set_segment(FILE *out, SegKind *cur, SegKind want)
 static void unix_sanitize(char *dst, size_t n, const char *src)
 {
     size_t i = 0;
-    for (; *src && i + 1 < n; src++, i++) {
+    for (; *src && i + 1 < n; src++) {
         char c = *src;
-        if (c == '%')
-            c = '.';
-        else if (c == '/')
+        if (c == '%') {
+            // Compiler-internal name (temp/local/label) -> '.'-led, which b6as -X strips.
+            // A '.' immediately followed by a digit is a bit-mask literal (.N), not a name,
+            // so a digit-leading body gets a second '.' ("..N") to stay a name — that also
+            // keeps it distinct from a letter-leading body ('.'+letter, e.g. %L2 -> .L2).
+            dst[i++] = '.';
+            if (i + 1 < n && src[1] >= '0' && src[1] <= '9')
+                dst[i++] = '.';
+            continue;
+        }
+        if (c == '/')
             c = '$';
-        dst[i] = c;
+        dst[i++] = c;
     }
     dst[i] = '\0';
 }
@@ -88,13 +124,28 @@ static void unix_addr(char *buf, size_t n, const char *name, int addr)
 static void unix_operand(char *buf, size_t n, const Besm_Instr *i)
 {
     if (i->konst) {
-        Besm_ConstWord w = besm_const_word(i->konst);
-        if (w.is_real) {
-            char num[48];
-            mad_format_real(num, sizeof(num), w.real_val);
-            snprintf(buf, n, "#%s", num);
+        Besm_ConstWord     w    = besm_const_word(i->konst);
+        unsigned long long word = w.is_real ? unix_real_word(w.real_val) : w.word;
+        snprintf(buf, n, "#0%llo", word);
+        return;
+    }
+    // Madlen literal-address expressions (i->name begins with '='): b6as has no '='
+    // syntax, so translate to a '#'-pool constant, which pools+dedups the word in the
+    // const segment exactly as Madlen '=' does.  instr.c bakes these as octal integer
+    // literals (=<octal>) plus the one INT-format word =:64 (exponent BESM_INT_EXP).
+    if (i->name && i->name[0] == '=') {
+        if (i->name[1] == ':') {
+            // =:64 — INT-format 0.0: exponent BESM_INT_EXP in bits 48-42, rest zero.
+            snprintf(buf, n, "#0%llo", (unsigned long long)BESM_INT_EXP << 41);
         } else {
-            snprintf(buf, n, "#0%llo", w.word);
+            // =<octal digits> (Madlen allows spaces for grouping) -> #0<digits>.
+            char digits[48];
+            size_t j = 0;
+            for (const char *p = i->name + 1; *p && j + 1 < sizeof(digits); p++)
+                if (*p != ' ')
+                    digits[j++] = *p;
+            digits[j] = '\0';
+            snprintf(buf, n, "#0%s", digits);
         }
         return;
     }
@@ -225,7 +276,7 @@ static const Besm_Instr *emit_unix_special(FILE *out, const Besm_Instr *instr, S
         set_segment(out, cur, SEG_DATA);
         if (instr->name)
             emit_ulabel(out, instr->name);
-        mad_format_real(a, sizeof(a), instr->real_val);
+        snprintf(a, sizeof(a), "0%llo", unix_real_word(instr->real_val));
         emit_udir(out, ".word", a);
         break;
     case BESM_DATA_INT:
