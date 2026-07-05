@@ -8,11 +8,8 @@
 # with b6as.  The hand-written Madlen helpers (LIBC_MADLEN) are replaced here by
 # hand-written b6as .s files with the same stems; the three Dubna leaves
 # (putbyte/flush/getch) are stubbed C in this directory.  The tools are invoked by bare
-# name on PATH, exactly like dubna/besmc in the Madlen path.
-#
-# NB: b6ranlib is intentionally NOT run.  It corrupts any archive of >= 6 members (b6ld
-# then rejects it with "bad magic") — see backend/besm6/TODO.md, task "Fix b6ranlib".
-# b6ld reads each member's own symbol table, so an un-indexed archive still links.
+# name on PATH, exactly like dubna/besmc in the Madlen path.  b6ranlib then indexes the
+# archive so back-references resolve regardless of member order.
 #
 
 set(UNIX_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -73,6 +70,8 @@ add_custom_command(
     # Rebuild from scratch so a replaced member never leaves a stale copy behind.
     COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_CURRENT_BINARY_DIR}/libc.a
     COMMAND b6ar rc ${CMAKE_CURRENT_BINARY_DIR}/libc.a ${UNIX_OBJS}
+    # Index the archive so b6ld resolves back-references regardless of member order.
+    COMMAND b6ranlib ${CMAKE_CURRENT_BINARY_DIR}/libc.a
     # Stage a copy next to besm-tests (mirrors the Madlen libc.bin copy) for U3.
     COMMAND ${CMAKE_COMMAND} -E copy
             ${CMAKE_CURRENT_BINARY_DIR}/libc.a
