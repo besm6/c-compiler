@@ -63,8 +63,8 @@ static void print_usage(const char *prog_name)
     fprintf(stderr, "Usage:\n");
     fprintf(stderr, "    %s [options] input-filename [output-filename]\n", prog_name);
     fprintf(stderr, "Options:\n");
-    fprintf(stderr, "        --madlen        Emit Madlen assembly for Dubna (default)\n");
-    fprintf(stderr, "        --unix          Emit Unix (b6as) assembly\n");
+    fprintf(stderr, "        --madlen        Emit Madlen assembly for Dubna\n");
+    fprintf(stderr, "        --unix          Emit Unix (b6as) assembly (default)\n");
     fprintf(stderr, "        --bemsh         Emit Bemsh autocode for Dubna\n");
     fprintf(stderr, "    -v, --verbose       Enable verbose mode\n");
     fprintf(stderr, "    -D, --debug         Print debug information\n");
@@ -79,10 +79,10 @@ static void init_args(Args *args)
     args->verbose     = 0;
     args->help        = 0;
     args->debug       = 0;
-    // Madlen is kept as the effective default so the existing libc build and run
-    // tests stay green; the intended eventual default is --unix, to be flipped once
-    // the Unix emitter and libc.a land (see backend/besm6/TODO.md task U4).
-    args->dialect     = BESM_MADLEN;
+    // Unix (b6as) is the default dialect; Madlen stays reachable via --madlen (the
+    // libc.bin build and the behavioral run tests request it explicitly). See
+    // backend/besm6/TODO.md task U4.
+    args->dialect     = BESM_UNIX;
     args->input_file  = NULL;
     args->output_file = NULL;
 }

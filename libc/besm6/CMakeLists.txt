@@ -32,8 +32,9 @@ list(TRANSFORM LIBC_SOURCES APPEND .madlen)
 file(GLOB BESM6_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
 
 # C runtime routines compiled by our own pipeline.  Each NAME.c becomes NAME.madlen
-# in the build directory via cpp -> parse -> lower -> genbesm.  besmc only recognizes
-# the .madlen extension, so genbesm writes there.
+# in the build directory via cpp -> parse -> lower -> genbesm --madlen.  genbesm now
+# defaults to Unix (b6as) output, so the Madlen dialect is requested explicitly;
+# besmc only recognizes the .madlen extension, so genbesm writes there.
 # Portable routines shared by every BESM-6 assembler backend, compiled from this
 # directory (libc/besm6).  These have no Dubna dependency — they build on the
 # putbyte/flush/getch seam or are pure computation — so libc/besm6/unix and
@@ -70,7 +71,7 @@ macro(besm6_compile_libc_c name srcdir)
                 ${c_src} -o ${c_pre}
         COMMAND parse   ${c_pre} ${c_ast}
         COMMAND lower   ${c_ast} ${c_tac}
-        COMMAND genbesm ${c_tac} ${c_mad}
+        COMMAND genbesm --madlen ${c_tac} ${c_mad}
         DEPENDS ${c_src} ${BESM6_HEADERS} parse lower genbesm
         COMMENT "Compiling ${name}.c -> ${name}.madlen")
     list(APPEND LIBC_C_MADLEN ${c_mad})
