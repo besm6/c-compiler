@@ -36,7 +36,6 @@ with green tests.
 
 | #  | Task | Description |
 |----|------|-------------|
-| U3 | Unix assemble+link test harness (no execution) | New `CompileAndAssembleUnix(src)` helper in `test/codegen_test.h`: `genbesm --unix` → `b6as` → `b6ld` against the U2 `libc.a`, asserting each step exits 0 (reuse the `RunExternalProgram` fork/exec pattern). Validation here is "assembles and links cleanly" + golden `.s` diff; **end-to-end execution under `b6sim` is split into U5/U6 below**, so U3 lands without depending on the libc syscall leaves. *Acceptance:* a suite of chapter programs assemble+link without error. |
 | U4 | Flip default dialect to Unix | `backend/main.c` default → `BESM_UNIX`. Keep Madlen reachable via `--madlen`; the behavioral run tests (`CompileAndRun` on `dubna`) explicitly request Madlen and stay green until the Unix run path (U5/U6) is proven, at which point this flip is safe. Update the libc `genbesm` invocation if it relied on the default. *Acceptance:* bare `genbesm f.tac` emits `f.s`; `make` / `make run` green. |
 | U5 | Unix libc syscall leaves + crt0 startup (b6sim `$77`) | Wire the Unix runtime to b6sim's Unix v7 syscall trap (extracode `$77 N`). **Syscall leaves:** replace the stub leaves and `exit` in `libc/besm6/unix/` — `exit.s` `$74` → `$77 1` (`SYS_exit`, status already in ACC; `$74` is an *illegal* extracode under b6sim); `putbyte`/`flush` (currently empty stubs) buffer bytes and emit via `$77 4` (`SYS_write`, fd 1) — b6sim decodes the `char*` buffer as a fat pointer, matching the compiler's `char*`; `getch` via `$77 3` (`SYS_read`, fd 0). Hand-written `.s` leaves (no inline asm); the syscall ABI (stack args at `M[017]-(count-k)`, last in ACC) already matches the compiler's convention. **crt0:** there is no startup object for the Unix path yet — add a minimal hand-written `crt0.s` (entry that calls `main`/`program()` then `_exit(status)`) archived into / linked ahead of `libc.a`; b6sim sets `r15` (stack) and the heap break on load, so crt0 stays small. *Acceptance:* a linked "hello"-class program prints to b6sim stdout and exits cleanly (no "Illegal extracode", correct `$?`). |
 | U6 | `CompileAndRunUnix` run harness (b6as → b6ld → b6sim) | Mirror `CompileAndRun` for the Unix path: `genbesm --unix` → `b6as` → `b6ld` against the U2 `libc.a` → run `b6sim <exe>` via the existing `RunExternalProgram` fork/exec helper (it already redirects the child's stdout to a file). b6sim writes program output straight to stdout, so the harness just returns the captured stdout — none of the dubna `.lst` `≠`/`----` scraping is needed. Depends on U5 (leaves + crt0). Integration notes: `b6as`/`b6ld`/`b6sim` live in the separate `v7besm` tree and are invoked by bare name on `PATH` (same assumption as the U2 `libc.a` build), or via `-D<TOOL>_PATH` compile-defs / `B6AS`/`B6LD` env overrides; the Unix `libc.a` is already staged next to `besm-tests` (`build/backend/besm6/libc.a`, "for U3"), so it can be passed to `b6ld` as a relative archive path. *Acceptance:* a subset of the `CompileAndRun` programs pass under `CompileAndRunUnix` with output identical to the Madlen path. |
@@ -46,9 +45,10 @@ with green tests.
 `$77 N`) onto the host, so a program's `write(1,…)` lands directly on b6sim's stdout — no
 listing to scrape. The Unix path *becomes* end-to-end runnable once U5 wires the libc syscall
 leaves + crt0 and U6 adds the `CompileAndRunUnix` harness. Until then, U1–U3 validate by two
-proxies — golden-file the `.s`, and assemble+link cleanly via `b6as`+`b6ld`+`libc.a` — and
-observed program behavior stays covered by Madlen-on-`dubna` (why U4 keeps `--madlen` alive)
-and later Bemsh-on-`dubna`.
+proxies (both now in place) — golden-file the `.s` (`test/unix_tests.cpp`), and assemble+link
+cleanly via `b6as`+`b6ld`+`libc.a` (`CompileAndAssembleUnix` in `test/codegen_test.h`,
+exercised by `test/unix_link_tests.cpp`) — and observed program behavior stays covered by
+Madlen-on-`dubna` (why U4 keeps `--madlen` alive) and later Bemsh-on-`dubna`.
 
 | #  | Task | Description |
 |----|------|-------------|

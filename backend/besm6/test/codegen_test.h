@@ -265,6 +265,58 @@ protected:
         return content;
     }
 
+    // Compile C source through the Unix (b6as) path, assemble it with b6as, and link it
+    // with b6ld against the U2 libc.a.  Asserts each external step exits 0 (non-fatal
+    // EXPECT, with the tool's captured diagnostics on failure).  Returns the emitted .s
+    // text so a caller may additionally golden-diff it.  Execution under b6sim is out of
+    // scope (tasks U5/U6) — this only proves the assembly assembles and links cleanly.
+    std::string CompileAndAssembleUnix(const std::string &src)
+    {
+        std::string asm_text = CompileToUnix(src.c_str());
+
+        const char *test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        std::string base      = std::string(TEST_DIR "/") + test_name;
+        std::string s_path    = base + ".s";
+        std::string o_path    = base + ".o";
+        std::string exe_path  = base + ".b6";
+        std::string as_log    = base + ".aslog";
+        std::string ld_log    = base + ".ldlog";
+
+        // Held across the .s write, the assemble, and the link; released by RAII on every
+        // return below.  A failure to acquire means another besm-tests process is running
+        // this same test concurrently and would clobber these shared scratch files.
+        FlockGuard lock(s_path);
+        if (!lock.locked()) {
+            ADD_FAILURE() << "Concurrent besm-tests run detected for this test; do not "
+                             "launch two besm-tests processes at once ("
+                          << s_path << ")";
+            return asm_text;
+        }
+
+        {
+            std::ofstream s(s_path);
+            if (!s) {
+                ADD_FAILURE() << "Cannot write " << s_path;
+                return asm_text;
+            }
+            s << asm_text;
+        }
+
+        // genbesm --unix already ran in-process via CompileToUnix; now assemble, then link.
+        int as_rc = RunTool({ "b6as", "-o", o_path, s_path }, as_log);
+        EXPECT_EQ(0, as_rc) << "b6as failed on " << s_path << ":\n" << ReadFile(as_log);
+        if (as_rc != 0)
+            return asm_text;
+
+        // Objects first, libc.a last so back-references resolve via the b6ranlib index.
+        // libc.a is staged in the test's working directory (build/backend/besm6), which
+        // besm-tests chdir()s into at startup, so a plain relative path suffices.
+        int ld_rc = RunTool({ "b6ld", "-o", exe_path, o_path, "libc.a" }, ld_log);
+        EXPECT_EQ(0, ld_rc) << "b6ld failed linking " << o_path << ":\n" << ReadFile(ld_log);
+
+        return asm_text;
+    }
+
     // Fork a child, exec prog_path with input_filenames as arguments,
     // and redirect its stdout to output_filename.
     // Throws std::runtime_error on any failure.
@@ -320,6 +372,71 @@ protected:
         }
     }
 
+    // Run a tool with an explicit argv (argv[0] resolved on PATH via execvp), capturing its
+    // combined stdout+stderr into log_path.  Returns the child's exit code (0 on success),
+    // or -1 if fork/waitpid failed.  Unlike RunExternalProgram this puts the real output on
+    // the tool's own -o argument, so it fits b6as/b6ld's "-o outfile first" command form and
+    // preserves their diagnostics for the failure message.
+    static int RunTool(const std::vector<std::string> &argv, const std::string &log_path)
+    {
+        pid_t pid = fork();
+        if (pid < 0)
+            return -1;
+
+        if (pid == 0) {
+            int log_fd = open(log_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (log_fd < 0)
+                _exit(127);
+            dup2(log_fd, STDOUT_FILENO);
+            dup2(log_fd, STDERR_FILENO);
+            close(log_fd);
+
+            std::vector<const char *> cargv;
+            cargv.reserve(argv.size() + 1);
+            std::transform(argv.begin(), argv.end(), std::back_inserter(cargv),
+                           [](const std::string &s) { return s.c_str(); });
+            cargv.push_back(nullptr);
+            execvp(cargv[0], const_cast<char *const *>(cargv.data()));
+            _exit(127);
+        }
+
+        int status;
+        if (waitpid(pid, &status, 0) < 0)
+            return -1;
+        return WEXITSTATUS(status);
+    }
+
+    // Read an entire file into a string (empty string if it cannot be opened).
+    static std::string ReadFile(const std::string &path)
+    {
+        std::ifstream f(path);
+        if (!f)
+            return {};
+        return std::string((std::istreambuf_iterator<char>(f)), {});
+    }
+
+    // True if an executable named `name` is found on PATH.  Used to skip the Unix
+    // assemble+link tests when the sibling v7besm toolchain is not installed.
+    static bool tool_available(const std::string &name)
+    {
+        const char *path = getenv("PATH");
+        if (!path)
+            return false;
+        std::string p(path);
+        size_t start = 0;
+        while (start <= p.size()) {
+            size_t colon    = p.find(':', start);
+            size_t len      = (colon == std::string::npos) ? std::string::npos : colon - start;
+            std::string dir = p.substr(start, len);
+            if (!dir.empty() && access((dir + "/" + name).c_str(), X_OK) == 0)
+                return true;
+            if (colon == std::string::npos)
+                break;
+            start = colon + 1;
+        }
+        return false;
+    }
+
 private:
     // Build a null-terminated argv vector: [prog_path, file0, file1, ..., nullptr].
     static std::vector<const char *> build_argv(const std::string &prog,
@@ -334,6 +451,15 @@ private:
         return argv;
     }
 };
+
+// Skip a Unix assemble+link test when the sibling v7besm b6as/b6ld tools are not installed
+// on PATH, so `make run` stays green on machines without that toolchain.  Must be used at
+// test-body scope: GTEST_SKIP()'s early return exits the whole test, not just a helper.
+#define SKIP_IF_NO_UNIX_TOOLS()                                                          \
+    do {                                                                                 \
+        if (!tool_available("b6as") || !tool_available("b6ld"))                          \
+            GTEST_SKIP() << "b6as/b6ld not on PATH; skipping Unix assemble+link test";   \
+    } while (0)
 
 //
 // Shared helper for the imported "Writing a C Compiler" run tests
