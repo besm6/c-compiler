@@ -35,21 +35,22 @@ explicitly so they stay green.
 The tasks below are ordered — Unix (`U*`) first, Bemsh (`B*`) later. Each lands independently
 with green tests.
 
-| #  | Task | Description |
-|----|------|-------------|
-| U6 | `CompileAndRunUnix` run harness (b6as → b6ld → b6sim) | Mirror `CompileAndRun` for the Unix path: `genbesm --unix` → `b6as` → `b6ld` against the U2 `libc.a` (link `crt0.o` **first**) → run `b6sim <exe>` via the existing `RunExternalProgram` fork/exec helper (it already redirects the child's stdout to a file). b6sim writes program output straight to stdout, so the harness just returns the captured stdout — none of the dubna `.lst` `≠`/`----` scraping is needed. Depends on U5 (leaves + crt0). Integration notes: `b6as`/`b6ld`/`b6sim` live in the separate `v7besm` tree and are invoked by bare name on `PATH` (same assumption as the U2 `libc.a` build), or via `-D<TOOL>_PATH` compile-defs / `B6AS`/`B6LD` env overrides; the Unix `libc.a` and `crt0.o` are already staged next to `besm-tests` (`build/backend/besm6/`, "for U3"/U5), so they pass to `b6ld` as relative paths. The whole hosted-I/O surface already runs under b6sim — `puts`/`putchar`/`getch` and the full `printf`/`sprintf` family including every conversion specifier (`%d`/`%u`/`%x`/`%o`/`%s`/`%c` and width padding) — so the `CompileAndRunUnix` subset can freely include a conversion-bearing `printf`/`sprintf` program as a regression case. *Acceptance:* a subset of the `CompileAndRun` programs pass under `CompileAndRunUnix` with output identical to the Madlen path. |
-
 **The Unix simulator now exists.** `b6sim` (`~/.local/bin/b6sim`, built from
 `v7besm/cmd/sim`) runs a linked `b.out` executable and traps the Unix v7 syscalls (extracode
 `$77 N`) onto the host, so a program's `write(1,…)` lands directly on b6sim's stdout — no
 listing to scrape. The Unix path is now end-to-end runnable — `puts`/`getch`-class programs
 and the full `printf`/`sprintf` family (all conversion specifiers included) already produce
-correct output under b6sim (U5 wired the libc syscall leaves + crt0). U6 remains to add the
-`CompileAndRunUnix` harness that captures that stdout for the test suite. U1–U3 still validate by two
-proxies (both in place) — golden-file the `.s` (`test/unix_tests.cpp`), and assemble+link
-cleanly via `b6as`+`b6ld`+`libc.a` (`CompileAndAssembleUnix` in `test/codegen_test.h`,
-exercised by `test/unix_link_tests.cpp`) — and observed program behavior stays covered by
-Madlen-on-`dubna` (why `--madlen` stays alive) and later Bemsh-on-`dubna`.
+correct output under b6sim (U5 wired the libc syscall leaves + crt0). The Unix path is now
+verified end-to-end (task U6 done): `CompileAndRunUnix` in `test/codegen_test.h` mirrors
+`CompileAndRun` for the Unix dialect — `genbesm --unix` (in process) → `b6as` → `b6ld` linking
+`crt0.o` first, then the program object and `libc.a` → `b6sim`, capturing the simulator's
+stdout directly (no `.lst` scraping) — and `test/unix_run_tests.cpp` re-runs a subset of the
+Madlen behavioral tests (`puts`/`putchar` and the `printf` conversion specifiers) under b6sim,
+asserting output identical to the Madlen path. U1–U3 still validate by two proxies (both in
+place) — golden-file the `.s` (`test/unix_tests.cpp`), and assemble+link cleanly via
+`b6as`+`b6ld`+`libc.a` (`CompileAndAssembleUnix` in `test/codegen_test.h`, exercised by
+`test/unix_link_tests.cpp`) — and observed program behavior stays covered by Madlen-on-`dubna`
+(why `--madlen` stays alive) and later Bemsh-on-`dubna`. Only the Bemsh `B*` tasks remain.
 
 | #  | Task | Description |
 |----|------|-------------|

@@ -33,6 +33,7 @@ add_executable(besm-tests EXCLUDE_FROM_ALL
     test/codegen_tests.cpp
     test/unix_tests.cpp
     test/unix_link_tests.cpp
+    test/unix_run_tests.cpp
     test/arith_tests.cpp
     test/copy_tests.cpp
     test/flow_tests.cpp

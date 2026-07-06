@@ -318,6 +318,67 @@ protected:
         return asm_text;
     }
 
+    // Compile C source through the Unix (b6as) path, assemble with b6as, link with b6ld
+    // against libc.a, then run the executable under the b6sim simulator and return its
+    // captured stdout.  The Unix-path counterpart of CompileAndRun (which uses the Madlen
+    // .mad → dubna .lst path): b6sim writes the program's write(1,…) output straight to
+    // stdout, so there is no listing to scrape.  Returns "ERROR" on any tool failure.
+    std::string CompileAndRunUnix(const std::string &src)
+    {
+        std::string asm_text = CompileToUnix(src.c_str());
+
+        const char *test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        std::string base      = std::string(TEST_DIR "/") + test_name;
+        std::string s_path    = base + ".s";
+        std::string o_path    = base + ".o";
+        std::string exe_path  = base + ".b6";
+        std::string out_path  = base + ".out";
+        std::string as_log    = base + ".aslog";
+        std::string ld_log    = base + ".ldlog";
+
+        // Held across the .s write, assemble, link, and run; released by RAII on every
+        // return below.  A failure to acquire means another besm-tests process is running
+        // this same test concurrently and would clobber these shared scratch files.
+        FlockGuard lock(s_path);
+        if (!lock.locked()) {
+            ADD_FAILURE() << "Concurrent besm-tests run detected for this test; do not "
+                             "launch two besm-tests processes at once ("
+                          << s_path << ")";
+            return "ERROR";
+        }
+
+        {
+            std::ofstream s(s_path);
+            if (!s) {
+                ADD_FAILURE() << "Cannot write " << s_path;
+                return "ERROR";
+            }
+            s << asm_text;
+        }
+
+        int as_rc = RunTool({ "b6as", "-o", o_path, s_path }, as_log);
+        EXPECT_EQ(0, as_rc) << "b6as failed on " << s_path << ":\n" << ReadFile(as_log);
+        if (as_rc != 0)
+            return "ERROR";
+
+        // crt0.o first: b6ld takes the entry point from the first object's first text word,
+        // so the C startup object must lead, ahead of the program object and libc.a.  All
+        // three are staged in the working directory (build/backend/besm6), which besm-tests
+        // chdir()s into at startup, so plain relative names suffice.
+        int ld_rc = RunTool({ "b6ld", "-o", exe_path, "crt0.o", o_path, "libc.a" }, ld_log);
+        EXPECT_EQ(0, ld_rc) << "b6ld failed linking " << o_path << ":\n" << ReadFile(ld_log);
+        if (ld_rc != 0)
+            return "ERROR";
+
+        // Run under the simulator, capturing the program's stdout to out_path.
+        try {
+            RunExternalProgram("b6sim", { exe_path }, out_path);
+        } catch (...) {
+            return "ERROR";
+        }
+        return ReadFile(out_path);
+    }
+
     // Fork a child, exec prog_path with input_filenames as arguments,
     // and redirect its stdout to output_filename.
     // Throws std::runtime_error on any failure.
@@ -460,6 +521,15 @@ private:
     do {                                                                                 \
         if (!tool_available("b6as") || !tool_available("b6ld"))                          \
             GTEST_SKIP() << "b6as/b6ld not on PATH; skipping Unix assemble+link test";   \
+    } while (0)
+
+// Like SKIP_IF_NO_UNIX_TOOLS() but also requires the b6sim simulator, for the Unix run
+// harness (CompileAndRunUnix) which additionally executes the linked b.out.
+#define SKIP_IF_NO_UNIX_RUN_TOOLS()                                                      \
+    do {                                                                                 \
+        if (!tool_available("b6as") || !tool_available("b6ld") ||                        \
+            !tool_available("b6sim"))                                                    \
+            GTEST_SKIP() << "b6as/b6ld/b6sim not on PATH; skipping Unix run test";       \
     } while (0)
 
 //
