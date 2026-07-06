@@ -550,18 +550,20 @@ bool try_eval_const_int(const Expr *e, long *out)
     }
 }
 
-// Type-check a global declaration and label its loops.
-void typecheck_decl(ExternalDecl *d)
+// Type-check a global declaration and label its loops.  Loop labels draw from the
+// caller-owned unit-wide counter *seq (shared with the translator's temporaries).
+void typecheck_decl(ExternalDecl *d, int *seq)
 {
     typecheck_global_decl(d);
-    label_loops(d);
+    label_loops(d, seq);
     resolve_labels(d);
 }
 
 // Type-check an entire program.
 void typecheck_program(const Program *p)
 {
+    int seq = 0;
     for (ExternalDecl *d = p->decls; d; d = d->next) {
-        typecheck_decl(d);
+        typecheck_decl(d, &seq);
     }
 }

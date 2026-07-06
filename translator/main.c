@@ -325,8 +325,9 @@ void process_file(const Args *args)
         }
 
         // Typecheck definitions and uses of functions and variables.
-        // Annotate loops and break/continue statements.
-        typecheck_decl(ast);
+        // Annotate loops and break/continue statements — loop labels share the
+        // unit-wide counter with the translator's temporaries.
+        typecheck_decl(ast, &label_seq);
 
         // Convert the AST to TAC and optimize. Each function carries its own
         // params + locals, so the optimizer needs no whole-program context.

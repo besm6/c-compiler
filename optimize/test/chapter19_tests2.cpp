@@ -1822,26 +1822,6 @@ int target(int x) {
       value: 1
   dst:
     kind: var
-    name: %5
-- instruction:
-  kind: jump_if_not_zero
-  condition:
-    kind: var
-    name: %5
-  target: %0
-- instruction:
-  kind: binary
-  op: equal
-  src1:
-    kind: var
-    name: %x
-  src2:
-    kind: constant
-    const:
-      kind: int
-      value: 2
-  dst:
-    kind: var
     name: %6
 - instruction:
   kind: jump_if_not_zero
@@ -1859,7 +1839,7 @@ int target(int x) {
     kind: constant
     const:
       kind: int
-      value: 3
+      value: 2
   dst:
     kind: var
     name: %7
@@ -1870,11 +1850,31 @@ int target(int x) {
     name: %7
   target: %2
 - instruction:
-  kind: jump
+  kind: binary
+  op: equal
+  src1:
+    kind: var
+    name: %x
+  src2:
+    kind: constant
+    const:
+      kind: int
+      value: 3
+  dst:
+    kind: var
+    name: %8
+- instruction:
+  kind: jump_if_not_zero
+  condition:
+    kind: var
+    name: %8
   target: %3
 - instruction:
+  kind: jump
+  target: %4
+- instruction:
   kind: label
-  name: %0
+  name: %1
 - instruction:
   kind: copy
   src:
@@ -1887,7 +1887,7 @@ int target(int x) {
     name: globvar
 - instruction:
   kind: label
-  name: %1
+  name: %2
 - instruction:
   kind: binary
   op: add
@@ -1899,31 +1899,6 @@ int target(int x) {
     const:
       kind: int
       value: 3
-  dst:
-    kind: var
-    name: %8
-- instruction:
-  kind: copy
-  src:
-    kind: var
-    name: %8
-  dst:
-    kind: var
-    name: globvar
-- instruction:
-  kind: label
-  name: %2
-- instruction:
-  kind: binary
-  op: multiply
-  src1:
-    kind: var
-    name: globvar
-  src2:
-    kind: constant
-    const:
-      kind: int
-      value: 2
   dst:
     kind: var
     name: %9
@@ -1938,6 +1913,31 @@ int target(int x) {
 - instruction:
   kind: label
   name: %3
+- instruction:
+  kind: binary
+  op: multiply
+  src1:
+    kind: var
+    name: globvar
+  src2:
+    kind: constant
+    const:
+      kind: int
+      value: 2
+  dst:
+    kind: var
+    name: %10
+- instruction:
+  kind: copy
+  src:
+    kind: var
+    name: %10
+  dst:
+    kind: var
+    name: globvar
+- instruction:
+  kind: label
+  name: %4
 - instruction:
   kind: return
   src:
@@ -2003,13 +2003,13 @@ int target(int flag) {
       value: 1
   dst:
     kind: var
-    name: %4
+    name: %5
 - instruction:
   kind: jump_if_not_zero
   condition:
     kind: var
-    name: %4
-  target: %0
+    name: %5
+  target: %1
 - instruction:
   kind: binary
   op: equal
@@ -2023,25 +2023,25 @@ int target(int flag) {
       value: 2
   dst:
     kind: var
-    name: %5
+    name: %6
 - instruction:
   kind: jump_if_not_zero
   condition:
     kind: var
-    name: %5
-  target: %1
-- instruction:
-  kind: jump
+    name: %6
   target: %2
 - instruction:
+  kind: jump
+  target: %3
+- instruction:
   kind: label
-  name: %0
+  name: %1
 - instruction:
   kind: jump
   target: %L0
 - instruction:
   kind: label
-  name: %1
+  name: %2
 - instruction:
   kind: fun_call
   fun_name: callee
@@ -2053,13 +2053,13 @@ int target(int flag) {
         value: 10
   dst:
     kind: var
-    name: %6
+    name: %7
 - instruction:
   kind: jump
   target: %L0
 - instruction:
   kind: label
-  name: %2
+  name: %3
 - instruction:
   kind: copy
   src:
@@ -2175,13 +2175,13 @@ int target(int flag) {
       value: 1
   dst:
     kind: var
-    name: %4
+    name: %5
 - instruction:
   kind: jump_if_not_zero
   condition:
     kind: var
-    name: %4
-  target: %0
+    name: %5
+  target: %1
 - instruction:
   kind: binary
   op: equal
@@ -2195,19 +2195,19 @@ int target(int flag) {
       value: 2
   dst:
     kind: var
-    name: %5
+    name: %6
 - instruction:
   kind: jump_if_not_zero
   condition:
     kind: var
-    name: %5
-  target: %1
-- instruction:
-  kind: jump
+    name: %6
   target: %2
 - instruction:
+  kind: jump
+  target: %3
+- instruction:
   kind: label
-  name: %0
+  name: %1
 - instruction:
   kind: copy
   src:
@@ -2220,7 +2220,7 @@ int target(int flag) {
     name: %retval
 - instruction:
   kind: label
-  name: %1
+  name: %2
 - instruction:
   kind: return
   src:
@@ -2228,7 +2228,7 @@ int target(int flag) {
     name: %retval
 - instruction:
   kind: label
-  name: %2
+  name: %3
 - instruction:
   kind: return
   src:

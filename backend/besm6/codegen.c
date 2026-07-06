@@ -145,7 +145,10 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
 
     if (is_empty) {
         // Optimized prologue for empty functions: no b/save or b/ret.
-        if (strcmp(name, "main") == 0) {
+        // The `program` entry is a Dubna-monitor convention (Madlen/Bemsh); the Unix
+        // b6as path gets its entry point from crt0/the linker and must not emit it —
+        // it would also collide with a user function named `program`.
+        if (strcmp(name, "main") == 0 && dialect != BESM_UNIX) {
             Besm_Instr *entry_prog = emit(block, &tail, BESM_STMT_ENTRY);
             entry_prog->name       = xstrdup("program");
         }
@@ -182,7 +185,10 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
             subp_cret->name       = xstrdup("b$ret");
         }
 
-        if (strcmp(name, "main") == 0) {
+        // The `program` entry is a Dubna-monitor convention (Madlen/Bemsh); the Unix
+        // b6as path gets its entry point from crt0/the linker and must not emit it —
+        // it would also collide with a user function named `program`.
+        if (strcmp(name, "main") == 0 && dialect != BESM_UNIX) {
             Besm_Instr *entry_prog = emit(block, &tail, BESM_STMT_ENTRY);
             entry_prog->name       = xstrdup("program");
         }

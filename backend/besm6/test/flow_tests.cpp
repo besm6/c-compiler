@@ -57,10 +57,10 @@ TEST_F(CodegenTest, DoWhileJumpIfNotZero)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save
-       *0:   ,bss,
+       *2:   ,bss,
              ,call, bar
            6 ,xta,
-             ,u1a, *0
+             ,u1a, *2
              ,uj, b/ret
              ,end,
 )",
@@ -249,8 +249,8 @@ TEST_F(CodegenTest, NoreturnNoParamsSkipsSave)
     EXPECT_EQ(R"(c
      halt:   ,name,
              ,ntr, 7
-       *0:   ,bss,
-             ,uj, *0
+       *2:   ,bss,
+             ,uj, *2
              ,end,
 )",
               output);
@@ -269,11 +269,11 @@ TEST_F(CodegenTest, NoreturnNoParamsWithAutoSetsFramePointer)
           15 ,utm, 1
              ,xta, =0
            7 ,atx,
-       *0:   ,bss,
+       *2:   ,bss,
            7 ,xta,
              ,a+x, =1
            7 ,atx,
-             ,uj, *0
+             ,uj, *2
              ,end,
 )",
               output);

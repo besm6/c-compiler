@@ -30,38 +30,18 @@ TEST_F(TranslateTest, SwitchWithDefaultAndCases)
         name: %x
       dst:
         kind: var
-        name: %3
+        name: %4
     - instruction:
       kind: binary
       op: equal
       src1:
         kind: var
-        name: %3
+        name: %4
       src2:
         kind: constant
         const:
           kind: int
           value: 1
-      dst:
-        kind: var
-        name: %4
-    - instruction:
-      kind: jump_if_not_zero
-      condition:
-        kind: var
-        name: %4
-      target: %0
-    - instruction:
-      kind: binary
-      op: equal
-      src1:
-        kind: var
-        name: %3
-      src2:
-        kind: constant
-        const:
-          kind: int
-          value: 2
       dst:
         kind: var
         name: %5
@@ -72,18 +52,28 @@ TEST_F(TranslateTest, SwitchWithDefaultAndCases)
         name: %5
       target: %1
     - instruction:
-      kind: jump
-      target: %2
-    - instruction:
-      kind: label
-      name: %0
-    - instruction:
-      kind: return
-      src:
+      kind: binary
+      op: equal
+      src1:
+        kind: var
+        name: %4
+      src2:
         kind: constant
         const:
           kind: int
-          value: 1
+          value: 2
+      dst:
+        kind: var
+        name: %6
+    - instruction:
+      kind: jump_if_not_zero
+      condition:
+        kind: var
+        name: %6
+      target: %2
+    - instruction:
+      kind: jump
+      target: %3
     - instruction:
       kind: label
       name: %1
@@ -93,10 +83,20 @@ TEST_F(TranslateTest, SwitchWithDefaultAndCases)
         kind: constant
         const:
           kind: int
-          value: 2
+          value: 1
     - instruction:
       kind: label
       name: %2
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 2
+    - instruction:
+      kind: label
+      name: %3
     - instruction:
       kind: return
       src:
@@ -132,13 +132,13 @@ TEST_F(TranslateTest, SwitchNoDefault)
         name: %x
       dst:
         kind: var
-        name: %1
+        name: %2
     - instruction:
       kind: binary
       op: equal
       src1:
         kind: var
-        name: %1
+        name: %2
       src2:
         kind: constant
         const:
@@ -146,19 +146,19 @@ TEST_F(TranslateTest, SwitchNoDefault)
           value: 1
       dst:
         kind: var
-        name: %2
+        name: %3
     - instruction:
       kind: jump_if_not_zero
       condition:
         kind: var
-        name: %2
-      target: %0
+        name: %3
+      target: %1
     - instruction:
       kind: jump
       target: %L0
     - instruction:
       kind: label
-      name: %0
+      name: %1
     - instruction:
       kind: return
       src:
@@ -213,38 +213,18 @@ TEST_F(TranslateTest, SwitchFallthrough)
         name: %x
       dst:
         kind: var
-        name: %2
+        name: %3
     - instruction:
       kind: binary
       op: equal
       src1:
         kind: var
-        name: %2
+        name: %3
       src2:
         kind: constant
         const:
           kind: int
           value: 1
-      dst:
-        kind: var
-        name: %3
-    - instruction:
-      kind: jump_if_not_zero
-      condition:
-        kind: var
-        name: %3
-      target: %0
-    - instruction:
-      kind: binary
-      op: equal
-      src1:
-        kind: var
-        name: %2
-      src2:
-        kind: constant
-        const:
-          kind: int
-          value: 2
       dst:
         kind: var
         name: %4
@@ -255,14 +235,34 @@ TEST_F(TranslateTest, SwitchFallthrough)
         name: %4
       target: %1
     - instruction:
+      kind: binary
+      op: equal
+      src1:
+        kind: var
+        name: %3
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 2
+      dst:
+        kind: var
+        name: %5
+    - instruction:
+      kind: jump_if_not_zero
+      condition:
+        kind: var
+        name: %5
+      target: %2
+    - instruction:
       kind: jump
       target: %L0
     - instruction:
       kind: label
-      name: %0
+      name: %1
     - instruction:
       kind: label
-      name: %1
+      name: %2
     - instruction:
       kind: copy
       src:
@@ -321,38 +321,18 @@ TEST_F(TranslateTest, SwitchBreakExitsEarly)
         name: %x
       dst:
         kind: var
-        name: %2
+        name: %3
     - instruction:
       kind: binary
       op: equal
       src1:
         kind: var
-        name: %2
+        name: %3
       src2:
         kind: constant
         const:
           kind: int
           value: 1
-      dst:
-        kind: var
-        name: %3
-    - instruction:
-      kind: jump_if_not_zero
-      condition:
-        kind: var
-        name: %3
-      target: %0
-    - instruction:
-      kind: binary
-      op: equal
-      src1:
-        kind: var
-        name: %2
-      src2:
-        kind: constant
-        const:
-          kind: int
-          value: 2
       dst:
         kind: var
         name: %4
@@ -363,11 +343,31 @@ TEST_F(TranslateTest, SwitchBreakExitsEarly)
         name: %4
       target: %1
     - instruction:
+      kind: binary
+      op: equal
+      src1:
+        kind: var
+        name: %3
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 2
+      dst:
+        kind: var
+        name: %5
+    - instruction:
+      kind: jump_if_not_zero
+      condition:
+        kind: var
+        name: %5
+      target: %2
+    - instruction:
       kind: jump
       target: %L0
     - instruction:
       kind: label
-      name: %0
+      name: %1
     - instruction:
       kind: copy
       src:
@@ -383,7 +383,7 @@ TEST_F(TranslateTest, SwitchBreakExitsEarly)
       target: %L0
     - instruction:
       kind: label
-      name: %1
+      name: %2
     - instruction:
       kind: copy
       src:
@@ -426,7 +426,7 @@ TEST_F(TranslateTest, SwitchEmptyBody)
         name: %x
       dst:
         kind: var
-        name: %0
+        name: %1
     - instruction:
       kind: jump
       target: %L0

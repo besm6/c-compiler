@@ -67,12 +67,13 @@ protected:
         while (decls) {
             ExternalDecl *next = decls->next;
             decls->next        = nullptr;
-            typecheck_decl(decls);
             // Per-function label numbering: this fixture dumps TAC per function and
             // produces no single assembly file, so it resets the counter each
             // function (the TU-wide scope the single-file backends need lives in the
-            // compiler driver and the codegen fixture — see translate.h).
+            // compiler driver and the codegen fixture — see translate.h).  The one
+            // counter feeds both label_loops and translate.
             int label_seq = 0;
+            typecheck_decl(decls, &label_seq);
             Tac_TopLevel *tac = translate(decls, OptFlags{}, &label_seq);
             free_external_decl(decls);
             if (tac) {

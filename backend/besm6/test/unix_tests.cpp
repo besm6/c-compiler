@@ -162,8 +162,8 @@ g:
               out);
 }
 
-// A numeric compiler label (`%0`) sanitizes to `..0`, not `.0` — a bare `.N` is a b6as
-// bit-mask literal, so a digit-leading body gets a second leading dot to stay a name.
+// A numeric compiler temporary (`%0`) sanitizes to `.T0`, not `.0` — a bare `.N` is a
+// b6as bit-mask literal, so a digit-leading body gets a `T` inserted to stay a name.
 TEST_F(CodegenTest, UnixNumericLabel)
 {
     std::string out = CompileToUnix("int f(int x) { if (x) return 1; return 0; }");
@@ -173,20 +173,20 @@ f:
     its 13
  13 vjm b$save
   6 xta
-    uza ..0
+    uza .T0
     xta #01
     uj b$ret
-..0:
+.T0:
     xta #00
     uj b$ret
 )",
               out);
 }
 
-// Regression (task U7): compiler-internal branch labels (`..N`) must stay unique
+// Regression (task U7): compiler-internal branch labels (`.TN`) must stay unique
 // across every function in one Unix assembly file.  Temps/labels are numbered per
-// translation unit (translate.h), so `f`'s `if` label is `..0` and `g`'s is `..2`
-// — never both `..0`.  Before the fix each function restarted numbering at `..0`;
+// translation unit (translate.h), so `f`'s `if` label is `.T0` and `g`'s is `.T2`
+// — never both `.T0`.  Before the fix each function restarted numbering at `.T0`;
 // b6as silently accepts the duplicate and binds a branch to the wrong function's
 // label, which sent `doprnt`'s format walk into an infinite loop under b6sim.
 TEST_F(CodegenTest, UnixLocalLabelsUniqueAcrossFunctions)
@@ -199,10 +199,10 @@ f:
     its 13
  13 vjm b$save
   6 xta
-    uza ..0
+    uza .T0
     xta #01
     uj b$ret
-..0:
+.T0:
     xta #02
     uj b$ret
     .text
@@ -211,10 +211,10 @@ g:
     its 13
  13 vjm b$save
   6 xta
-    uza ..2
+    uza .T2
     xta #03
     uj b$ret
-..2:
+.T2:
     xta #04
     uj b$ret
 )",

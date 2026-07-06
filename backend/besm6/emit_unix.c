@@ -86,11 +86,12 @@ static void unix_sanitize(char *dst, size_t n, const char *src)
         if (c == '%') {
             // Compiler-internal name (temp/local/label) -> '.'-led, which b6as -X strips.
             // A '.' immediately followed by a digit is a bit-mask literal (.N), not a name,
-            // so a digit-leading body gets a second '.' ("..N") to stay a name — that also
-            // keeps it distinct from a letter-leading body ('.'+letter, e.g. %L2 -> .L2).
+            // so a digit-leading body (a %N temporary) gets a 'T' inserted (".TN") to stay
+            // a name — that also keeps it distinct from a letter-leading body ('.'+letter,
+            // e.g. %L2 -> .L2 for a loop label).
             dst[i++] = '.';
             if (i + 1 < n && src[1] >= '0' && src[1] <= '9')
-                dst[i++] = '.';
+                dst[i++] = 'T';
             continue;
         }
         if (c == '/')

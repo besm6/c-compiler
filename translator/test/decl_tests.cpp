@@ -344,7 +344,7 @@ TEST_F(TranslateTest, ForLoopInitDecl)
         name: %i
     - instruction:
       kind: label
-      name: %0
+      name: %2
     - instruction:
       kind: return
       src:
@@ -355,7 +355,7 @@ TEST_F(TranslateTest, ForLoopInitDecl)
       name: %L1
     - instruction:
       kind: jump
-      target: %0
+      target: %2
     - instruction:
       kind: label
       name: %L0

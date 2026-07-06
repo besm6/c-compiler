@@ -2449,7 +2449,7 @@ int target(void) {
     name: %i
 - instruction:
   kind: label
-  name: %0
+  name: %2
 - instruction:
   kind: binary
   op: less_than
@@ -2463,12 +2463,12 @@ int target(void) {
       value: 100
   dst:
     kind: var
-    name: %1
+    name: %3
 - instruction:
   kind: jump_if_zero
   condition:
     kind: var
-    name: %1
+    name: %3
   target: %L0
 - instruction:
   kind: binary
@@ -2481,12 +2481,12 @@ int target(void) {
     name: %i
   dst:
     kind: var
-    name: %5
+    name: %7
 - instruction:
   kind: copy
   src:
     kind: var
-    name: %5
+    name: %7
   dst:
     kind: var
     name: %result
@@ -2503,18 +2503,18 @@ int target(void) {
       value: 1
   dst:
     kind: var
-    name: %6
+    name: %8
 - instruction:
   kind: copy
   src:
     kind: var
-    name: %6
+    name: %8
   dst:
     kind: var
     name: %i
 - instruction:
   kind: jump
-  target: %0
+  target: %2
 - instruction:
   kind: label
   name: %L0
@@ -2685,7 +2685,7 @@ int main(void) {
     name: %i
 - instruction:
   kind: label
-  name: %0
+  name: %2
 - instruction:
   kind: binary
   op: add
@@ -2699,12 +2699,12 @@ int main(void) {
       value: 1
   dst:
     kind: var
-    name: %1
+    name: %3
 - instruction:
   kind: copy
   src:
     kind: var
-    name: %1
+    name: %3
   dst:
     kind: var
     name: %i
@@ -2713,7 +2713,7 @@ int main(void) {
   op: greater_than
   src1:
     kind: var
-    name: %1
+    name: %3
   src2:
     kind: constant
     const:
@@ -2721,35 +2721,35 @@ int main(void) {
       value: 10
   dst:
     kind: var
-    name: %2
+    name: %4
 - instruction:
   kind: jump_if_zero
   condition:
     kind: var
-    name: %2
-  target: %3
+    name: %4
+  target: %5
 - instruction:
   kind: fun_call
   fun_name: exit_wrapper
   args:
     - val:
       kind: var
-      name: %1
+      name: %3
   dst:
     kind: var
-    name: %5
+    name: %7
 - instruction:
   kind: jump
-  target: %4
+  target: %6
 - instruction:
   kind: label
-  name: %3
+  name: %5
 - instruction:
   kind: label
-  name: %4
+  name: %6
 - instruction:
   kind: jump
-  target: %0
+  target: %2
 )OPT");
 }
 
@@ -2777,7 +2777,7 @@ int main(void) {
 )SRC"),
               R"OPT(- instruction:
   kind: label
-  name: %0
+  name: %2
 - instruction:
   kind: binary
   op: subtract
@@ -2791,12 +2791,12 @@ int main(void) {
       value: 1
   dst:
     kind: var
-    name: %1
+    name: %3
 - instruction:
   kind: copy
   src:
     kind: var
-    name: %1
+    name: %3
   dst:
     kind: var
     name: %a
@@ -2804,8 +2804,8 @@ int main(void) {
   kind: jump_if_zero
   condition:
     kind: var
-    name: %1
-  target: %2
+    name: %3
+  target: %4
 - instruction:
   kind: return
   src:
@@ -2815,10 +2815,10 @@ int main(void) {
       value: 17
 - instruction:
   kind: label
-  name: %2
+  name: %4
 - instruction:
   kind: jump
-  target: %0
+  target: %2
 - instruction:
   kind: fun_call
   fun_name: f
@@ -3021,7 +3021,7 @@ int main(void) {
     name: %i
 - instruction:
   kind: label
-  name: %0
+  name: %2
 - instruction:
   kind: binary
   op: less_than
@@ -3035,19 +3035,19 @@ int main(void) {
       value: 10
   dst:
     kind: var
-    name: %1
+    name: %3
 - instruction:
   kind: jump_if_zero
   condition:
     kind: var
-    name: %1
+    name: %3
   target: %L0
 - instruction:
   kind: fun_call
   fun_name: callee
   dst:
     kind: var
-    name: %4
+    name: %6
 - instruction:
   kind: binary
   op: add
@@ -3061,18 +3061,18 @@ int main(void) {
       value: 1
   dst:
     kind: var
-    name: %5
+    name: %7
 - instruction:
   kind: copy
   src:
     kind: var
-    name: %5
+    name: %7
   dst:
     kind: var
     name: %i
 - instruction:
   kind: jump
-  target: %0
+  target: %2
 - instruction:
   kind: label
   name: %L0
@@ -3112,7 +3112,7 @@ int target(void) {
 )SRC"),
               R"OPT(- instruction:
   kind: label
-  name: %0
+  name: %2
 - instruction:
   kind: return
   src:
@@ -3163,19 +3163,19 @@ int target(int x) {
       value: 1
   dst:
     kind: var
-    name: %3
+    name: %4
 - instruction:
   kind: jump_if_not_zero
   condition:
     kind: var
-    name: %3
-  target: %0
-- instruction:
-  kind: jump
+    name: %4
   target: %1
 - instruction:
+  kind: jump
+  target: %2
+- instruction:
   kind: label
-  name: %0
+  name: %1
 - instruction:
   kind: return
   src:
@@ -3185,7 +3185,7 @@ int target(int x) {
       value: 1
 - instruction:
   kind: label
-  name: %1
+  name: %2
 - instruction:
   kind: return
   src:
@@ -3242,26 +3242,6 @@ int target(int x) {
       value: 1
   dst:
     kind: var
-    name: %5
-- instruction:
-  kind: jump_if_not_zero
-  condition:
-    kind: var
-    name: %5
-  target: %0
-- instruction:
-  kind: binary
-  op: equal
-  src1:
-    kind: var
-    name: %x
-  src2:
-    kind: constant
-    const:
-      kind: int
-      value: 2
-  dst:
-    kind: var
     name: %6
 - instruction:
   kind: jump_if_not_zero
@@ -3279,7 +3259,7 @@ int target(int x) {
     kind: constant
     const:
       kind: int
-      value: 3
+      value: 2
   dst:
     kind: var
     name: %7
@@ -3290,11 +3270,31 @@ int target(int x) {
     name: %7
   target: %2
 - instruction:
-  kind: jump
+  kind: binary
+  op: equal
+  src1:
+    kind: var
+    name: %x
+  src2:
+    kind: constant
+    const:
+      kind: int
+      value: 3
+  dst:
+    kind: var
+    name: %8
+- instruction:
+  kind: jump_if_not_zero
+  condition:
+    kind: var
+    name: %8
   target: %3
 - instruction:
+  kind: jump
+  target: %4
+- instruction:
   kind: label
-  name: %0
+  name: %1
 - instruction:
   kind: copy
   src:
@@ -3310,7 +3310,7 @@ int target(int x) {
   target: %L0
 - instruction:
   kind: label
-  name: %1
+  name: %2
 - instruction:
   kind: copy
   src:
@@ -3326,7 +3326,7 @@ int target(int x) {
   target: %L0
 - instruction:
   kind: label
-  name: %2
+  name: %3
 - instruction:
   kind: copy
   src:
@@ -3342,7 +3342,7 @@ int target(int x) {
   target: %L0
 - instruction:
   kind: label
-  name: %3
+  name: %4
 - instruction:
   kind: return
   src:

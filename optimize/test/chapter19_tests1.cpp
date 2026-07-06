@@ -2580,13 +2580,13 @@ int target(void) {
     name: %y
 - instruction:
   kind: label
-  name: %0
+  name: %2
 - instruction:
   kind: fun_call
   fun_name: increment_counter
   dst:
     kind: var
-    name: %1
+    name: %3
 - instruction:
   kind: binary
   op: less_than
@@ -2600,13 +2600,13 @@ int target(void) {
       value: 5
   dst:
     kind: var
-    name: %2
+    name: %4
 - instruction:
   kind: jump_if_not_zero
   condition:
     kind: var
-    name: %2
-  target: %0
+    name: %4
+  target: %2
 - instruction:
   kind: return
   src:

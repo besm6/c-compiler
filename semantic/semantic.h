@@ -18,12 +18,14 @@ extern int scope_level;
 extern int semantic_debug;
 extern int xalloc_debug;
 
-// Semantic analysis entry points: type-check and label loops.
-void typecheck_decl(ExternalDecl *d);
+// Semantic analysis entry points: type-check and label loops.  `seq` is the
+// caller-owned, unit-wide label/temp counter (see translate.h): typecheck_decl
+// forwards it to label_loops, which shares it with the translator's temporaries.
+void typecheck_decl(ExternalDecl *d, int *seq);
 void typecheck_program(const Program *p);
 
-// Annotate loops and break/continue statements.
-void label_loops(const ExternalDecl *ast);
+// Annotate loops and break/continue statements, drawing label numbers from *seq.
+void label_loops(const ExternalDecl *ast, int *seq);
 
 // Validate labeled statements and goto targets within a function.
 void resolve_labels(const ExternalDecl *ast);

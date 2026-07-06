@@ -152,7 +152,7 @@ protected:
         while (decls) {
             ExternalDecl *next = decls->next;
             decls->next        = nullptr;
-            typecheck_decl(decls);
+            typecheck_decl(decls, &label_seq);
             Tac_TopLevel *tac = translate(decls, opt_flags, &label_seq);
             free_external_decl(decls);
             if (tac) {
