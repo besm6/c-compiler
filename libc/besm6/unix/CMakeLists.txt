@@ -113,5 +113,5 @@ add_custom_target(besm-libc-unix ALL
             ${CMAKE_BINARY_DIR}/backend/besm6/crt0.o)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libc.a
-              ${CMAKE_CURRENT_BINARY_DIR}/crt0.o
+              ${CMAKE_BINARY_DIR}/backend/besm6/crt0.o
         DESTINATION share/besm6/lib)
