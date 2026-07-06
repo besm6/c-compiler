@@ -148,11 +148,12 @@ protected:
         Tac_TopLevel *all_tac = nullptr, **tac_tail = &all_tac;
         ExternalDecl *decls = program->decls;
         program->decls      = nullptr;
+        int label_seq = 0; // unit-wide temp/label counter (see translate.h)
         while (decls) {
             ExternalDecl *next = decls->next;
             decls->next        = nullptr;
             typecheck_decl(decls);
-            Tac_TopLevel *tac = translate(decls, opt_flags);
+            Tac_TopLevel *tac = translate(decls, opt_flags, &label_seq);
             free_external_decl(decls);
             if (tac) {
                 Tac_TopLevel *t = tac;

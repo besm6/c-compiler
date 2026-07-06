@@ -311,6 +311,10 @@ void process_file(const Args *args)
 
     symtab_init();
     structtab_init();
+    // Unit-wide temp/label counter, shared across every function so `%N` names stay
+    // unique within the translation unit (required by the single-file backends —
+    // see translate.h).  Reset to 0 once, here, at the start of the unit.
+    int label_seq = 0;
     for (;;) {
         ExternalDecl *ast = import_external_decl(&input);
         if (!ast)
@@ -326,7 +330,7 @@ void process_file(const Args *args)
 
         // Convert the AST to TAC and optimize. Each function carries its own
         // params + locals, so the optimizer needs no whole-program context.
-        Tac_TopLevel *tac = translate(ast, flags);
+        Tac_TopLevel *tac = translate(ast, flags, &label_seq);
         free_external_decl(ast);
         if (tac) {
             for (const Tac_TopLevel *t = tac; t; t = t->next) {

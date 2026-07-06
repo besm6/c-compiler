@@ -182,3 +182,41 @@ f:
 )",
               out);
 }
+
+// Regression (task U7): compiler-internal branch labels (`..N`) must stay unique
+// across every function in one Unix assembly file.  Temps/labels are numbered per
+// translation unit (translate.h), so `f`'s `if` label is `..0` and `g`'s is `..2`
+// — never both `..0`.  Before the fix each function restarted numbering at `..0`;
+// b6as silently accepts the duplicate and binds a branch to the wrong function's
+// label, which sent `doprnt`'s format walk into an infinite loop under b6sim.
+TEST_F(CodegenTest, UnixLocalLabelsUniqueAcrossFunctions)
+{
+    std::string out = CompileToUnix("int f(int x) { if (x) return 1; return 2; }\n"
+                                    "int g(int y) { if (y) return 3; return 4; }");
+    EXPECT_EQ(R"(    .text
+    .globl f
+f:
+    its 13
+ 13 vjm b$save
+  6 xta
+    uza ..0
+    xta #01
+    uj b$ret
+..0:
+    xta #02
+    uj b$ret
+    .text
+    .globl g
+g:
+    its 13
+ 13 vjm b$save
+  6 xta
+    uza ..2
+    xta #03
+    uj b$ret
+..2:
+    xta #04
+    uj b$ret
+)",
+              out);
+}

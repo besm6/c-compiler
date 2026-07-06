@@ -630,7 +630,7 @@ static void emit_referenced_string_constants(const Tac_StaticInit *inits, Tac_To
     }
 }
 
-static Tac_TopLevel *translate_fn(const ExternalDecl *ast)
+static Tac_TopLevel *translate_fn(const ExternalDecl *ast, int *label_seq)
 {
     const char *name  = ast->u.function.name;
     const Symbol *sym = symtab_get(name);
@@ -658,9 +658,13 @@ static Tac_TopLevel *translate_fn(const ExternalDecl *ast)
     }
 
     if (ast->u.function.body) {
-        TacCtx ctx = { NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL };
+        // Seed this function's temp/label counter from the unit-wide sequence so
+        // its `%N` names never collide with another function's in a single-file
+        // backend (see translate.h); write the advanced value back afterwards.
+        TacCtx ctx = { NULL, NULL, *label_seq, NULL, NULL, NULL, NULL, NULL };
         ctx.sret_name = sret_name;
         gen_stmt(&ctx, ast->u.function.body);
+        *label_seq            = ctx.temp_id;
         tl->u.function.body   = ctx.head;
         tl->u.function.locals = ctx.locals;
         tac_free_param(ctx.array_locals);
@@ -755,13 +759,13 @@ static Tac_TopLevel *translate_decl(const Declaration *decl)
     return head;
 }
 
-static Tac_TopLevel *translate_external_decl(const ExternalDecl *ast)
+static Tac_TopLevel *translate_external_decl(const ExternalDecl *ast, int *label_seq)
 {
     if (!ast)
         return NULL;
     switch (ast->kind) {
     case EXTERNAL_DECL_FUNCTION:
-        return translate_fn(ast);
+        return translate_fn(ast, label_seq);
     case EXTERNAL_DECL_DECLARATION:
         return translate_decl(ast->u.declaration);
     }
@@ -1017,9 +1021,9 @@ static void percent_locals_in_function(const Tac_TopLevel *fn)
 //
 // Convert the AST to TAC.
 //
-Tac_TopLevel *translate(const ExternalDecl *ast, OptFlags flags)
+Tac_TopLevel *translate(const ExternalDecl *ast, OptFlags flags, int *label_seq)
 {
-    Tac_TopLevel *tac = translate_external_decl(ast);
+    Tac_TopLevel *tac = translate_external_decl(ast, label_seq);
     for (Tac_TopLevel *t = tac; t; t = t->next) {
         // Each function is optimized against its own toplevel, which carries the
         // params + automatic locals needed to tell private locals from globals.

@@ -112,7 +112,16 @@ void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const
 // Each function self-describes its params and automatic locals, so the optimizer
 // classifies locals vs. globals per function — no whole-program context needed.
 //
-Tac_TopLevel *translate(const ExternalDecl *ast, OptFlags flags);
+// Lower one external declaration to TAC.  `label_seq` is a caller-owned counter
+// that must persist across every call within one translation unit and be reset to
+// 0 at its start: compiler temporaries and branch labels (`%N`, from new_temp) are
+// numbered from it, so a per-function reset would make different functions reuse
+// `%0`, `%1`, …  That is harmless on the Madlen backend (each function is its own
+// `,name,`/`,end,` module, so labels are module-scoped) but corrupts the Unix
+// (b6as) and Bemsh backends, which place the whole unit in one file with
+// file-scoped labels — a duplicate label silently binds a branch to the wrong
+// function.  Threading one counter across the unit keeps every `%N` unique.
+Tac_TopLevel *translate(const ExternalDecl *ast, OptFlags flags, int *label_seq);
 
 #ifdef __cplusplus
 }
