@@ -2,9 +2,9 @@
 // Chapter 14 — Pointers: valid programs compiled and run on BESM-6.
 // Imported from "Writing a C Compiler" (tests/chapter_14/valid + casts +
 // comparisons + declarators + dereference + function_calls + extra_credit +
-// libraries).  Each program defines int main(void); WrapMain prints its return
-// value, and we compare program output against the value computed by host cc.
-// The book's host-only "#ifdef SUPPRESS_WARNINGS / #pragma" blocks are dropped
+// libraries).  Each program defines int main(void); b6sim --status prints its
+// return value, and we compare program output against the value computed by host
+// cc.  The book's host-only "#ifdef SUPPRESS_WARNINGS / #pragma" blocks are dropped
 // (our scanner has no preprocessor); two-file "libraries" cases are merged into
 // one source, client first.
 //
@@ -40,17 +40,17 @@
 // dereference/simple: read an int through a pointer.
 TEST_F(CodegenTest, Chapter14_Simple)
 {
-    EXPECT_EQ("3\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("3\n", CompileAndRunBook(R"(int main(void) {
     int x = 3;
     int *ptr = &x;
     return *ptr;
-})")));
+})"));
 }
 
 // dereference/address_of_dereference: &*e just evaluates e (so &*null is valid).
 TEST_F(CodegenTest, Chapter14_AddressOfDereference)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     int *null_ptr = 0;
     if (&*null_ptr != 0)
         return 1;
@@ -61,13 +61,13 @@ TEST_F(CodegenTest, Chapter14_AddressOfDereference)
         return 2;
 
     return 0;
-})")));
+})"));
 }
 
 // dereference/multilevel_indirection: pointers to pointers (double***).
 TEST_F(CodegenTest, Chapter14_MultilevelIndirection)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
 
     double d = 10.0;
     double *d_ptr = &d;
@@ -154,7 +154,7 @@ TEST_F(CodegenTest, Chapter14_MultilevelIndirection)
     }
 
     return 0;
-})")));
+})"));
 }
 
 // --- comparisons ------------------------------------------------------------
@@ -162,7 +162,7 @@ TEST_F(CodegenTest, Chapter14_MultilevelIndirection)
 // comparisons/compare_pointers: == and != on pointers.
 TEST_F(CodegenTest, Chapter14_ComparePointers)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     int a = 0;
     int b;
 
@@ -196,13 +196,13 @@ TEST_F(CodegenTest, Chapter14_ComparePointers)
     }
 
     return 0;
-})")));
+})"));
 }
 
 // comparisons/compare_to_null: comparisons to several null pointer constants.
 TEST_F(CodegenTest, Chapter14_CompareToNull)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(double *get_null_pointer(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(double *get_null_pointer(void) {
     return 0;
 }
 
@@ -229,13 +229,13 @@ int main(void)
     }
 
     return 0;
-})")));
+})"));
 }
 
 // comparisons/pointers_as_conditions: pointers in boolean/ternary/loop contexts.
 TEST_F(CodegenTest, Chapter14_PointersAsConditions)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(long *get_null_pointer(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(long *get_null_pointer(void) {
     return 0;
 }
 
@@ -286,7 +286,7 @@ int main(void)
     }
 
     return 0;
-})")));
+})"));
 }
 
 // --- declarators ------------------------------------------------------------
@@ -294,7 +294,7 @@ int main(void)
 // declarators/abstract_declarators: a range of abstract declarators casting 0.
 TEST_F(CodegenTest, Chapter14_AbstractDeclarators)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
 
     long int unsigned *x = 0;
 
@@ -316,20 +316,20 @@ TEST_F(CodegenTest, Chapter14_AbstractDeclarators)
         return 5;
 
     return 0;
-})")));
+})"));
 }
 
 // declarators/declare_pointer_in_for_loop: pointer declarator in for-init.
 TEST_F(CodegenTest, Chapter14_DeclarePointerInForLoop)
 {
-    EXPECT_EQ("5\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("5\n", CompileAndRunBook(R"(int main(void) {
     int x = 10;
     for (int *i = &x; i != 0; ) {
         *i = 5;
         i = 0;
     }
     return x;
-})")));
+})"));
 }
 
 // --- casts ------------------------------------------------------------------
@@ -337,7 +337,7 @@ TEST_F(CodegenTest, Chapter14_DeclarePointerInForLoop)
 // casts/null_pointer_conversion: implicit null-pointer-constant conversions.
 TEST_F(CodegenTest, Chapter14_NullPointerConversion)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(double *d = 0l;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(double *d = 0l;
 int *i = 0ul;
 int *i2 = 0u;
 
@@ -392,7 +392,7 @@ int main(void)
     }
 
     return 0;
-})")));
+})"));
 }
 
 // --- function_calls ---------------------------------------------------------
@@ -400,7 +400,7 @@ int main(void)
 // function_calls/address_of_argument: take the address of a parameter.
 TEST_F(CodegenTest, Chapter14_AddressOfArgument)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int addr_of_arg(int a) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int addr_of_arg(int a) {
     int *ptr = &a;
     *ptr = 10;
     return a;
@@ -421,13 +421,13 @@ int main(void) {
         return 3;
     }
     return 0;
-})")));
+})"));
 }
 
 // function_calls/return_pointer: return a pointer from a function.
 TEST_F(CodegenTest, Chapter14_ReturnPointer)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int *return_pointer(int *in) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int *return_pointer(int *in) {
     return in;
 }
 
@@ -446,13 +446,13 @@ int main(void) {
         return 3;
 
     return 0;
-})")));
+})"));
 }
 
 // function_calls/update_value_through_pointer_parameter: callee writes via ptr.
 TEST_F(CodegenTest, Chapter14_UpdateValueThroughPointerParameter)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int update_value(int *ptr) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int update_value(int *ptr) {
     int old_val = *ptr;
     *ptr = 10;
     return old_val;
@@ -468,7 +468,7 @@ int main(void) {
         return 2;
     }
     return 0;
-})")));
+})"));
 }
 
 // --- libraries (two files merged, client first) -----------------------------
@@ -477,7 +477,7 @@ int main(void) {
 // through a global pointer.
 TEST_F(CodegenTest, Chapter14_LibrariesGlobalPointer)
 {
-    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(extern double *d_ptr;
+    EXPECT_EQ("1\n", CompileAndRunBook(R"(extern double *d_ptr;
 int update_thru_ptr(double new_val);
 
 int main(void) {
@@ -493,14 +493,14 @@ double *d_ptr;
 int update_thru_ptr(double new_val) {
     *d_ptr = new_val;
     return 0;
-})")));
+})"));
 }
 
 // libraries/static_pointer_client.c + static_pointer.c : read/write a static
 // pointer only through functions.
 TEST_F(CodegenTest, Chapter14_LibrariesStaticPointer)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(long *get_pointer(void);
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(long *get_pointer(void);
 int set_pointer(long *new_ptr);
 
 static long private_long = 100l;
@@ -548,7 +548,7 @@ long *get_pointer(void) {
 int set_pointer(long *new_ptr) {
     long_ptr = new_ptr;
     return 0;
-})")));
+})"));
 }
 
 // --- extra_credit -----------------------------------------------------------
@@ -557,7 +557,7 @@ int set_pointer(long *new_ptr) {
 // through a dereferenced pointer.
 TEST_F(CodegenTest, Chapter14_CompoundAssignThroughPointer)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     int x = 10;
     int *ptr = &x;
 
@@ -590,7 +590,7 @@ TEST_F(CodegenTest, Chapter14_CompoundAssignThroughPointer)
     }
 
     return 0;
-})")));
+})"));
 }
 
 // extra_credit/eval_compound_lhs_once: the lhs of a compound assignment is
@@ -598,7 +598,7 @@ TEST_F(CodegenTest, Chapter14_CompoundAssignThroughPointer)
 // helper calls print 'A' and 'B' once each, then main returns 0 -> "AB0\n".
 TEST_F(CodegenTest, Chapter14_EvalCompoundLhsOnce)
 {
-    EXPECT_EQ("AB0\n", CompileAndRun(WrapMain(R"(int i = 0;
+    EXPECT_EQ("AB0\n", CompileAndRunBook(R"(int i = 0;
 
 void putch(int c);
 int *print_A(void) {
@@ -624,7 +624,7 @@ int main(void) {
     }
 
     return 0;
-})")));
+})"));
 }
 
 // ===========================================================================
@@ -638,7 +638,7 @@ int main(void) {
 // casts/cast_between_pointer_types: uses `static long *long_ptr` inside a fn.
 TEST_F(CodegenTest, Chapter14_CastBetweenPointerTypes)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int check_null_ptr_cast(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int check_null_ptr_cast(void) {
     static long *long_ptr = 0;
     double *dbl_ptr = (double *)long_ptr;
     unsigned int *int_ptr = (unsigned int *)long_ptr;
@@ -680,14 +680,14 @@ int main(void)
 
     result = check_round_trip();
     return result;
-})")));
+})"));
 }
 
 // declarators/declarators: redundant-parenthesized declarator forms (e.g.
 // `int((return_3))(void)`, `long(*two_pointers(double val, double(*d)));`).
 TEST_F(CodegenTest, Chapter14_Declarators)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int return_3(void);
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int return_3(void);
 int(return_3(void));
 int(return_3)(void);
 int((return_3))(void)
@@ -766,13 +766,13 @@ int main(void)
     }
 
     return 0;
-})")));
+})"));
 }
 
 // dereference/dereference_expression_result: uses `static int var = 10`.
 TEST_F(CodegenTest, Chapter14_DereferenceExpressionResult)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int *return_pointer(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int *return_pointer(void) {
     static int var = 10;
     return &var;
 }
@@ -814,13 +814,13 @@ int main(void) {
     }
 
     return 0;
-})")));
+})"));
 }
 
 // dereference/static_var_indirection: uses `static long *p` inside modify_ptr.
 TEST_F(CodegenTest, Chapter14_StaticVarIndirection)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(unsigned int w = 4294967295U;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(unsigned int w = 4294967295U;
 int x = 10;
 unsigned int y = 4294967295U;
 double *dbl_ptr;
@@ -883,7 +883,7 @@ int main(void) {
     }
 
     return 0;
-})")));
+})"));
 }
 
 // --- Out-of-range values replaced with in-range ones ------------------------
@@ -892,7 +892,7 @@ int main(void) {
 // beyond the 48-bit unsigned range; use values near it instead.
 TEST_F(CodegenTest, Chapter14_ReadThroughPointers)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
 
     int i = -100;
     unsigned long ul = 281474976710000ul;
@@ -947,7 +947,7 @@ TEST_F(CodegenTest, Chapter14_ReadThroughPointers)
 
     return 0;
 
-})")));
+})"));
 }
 
 // dereference/update_through_pointers: original used 1.44e17 (> 41-bit) and
@@ -955,7 +955,7 @@ TEST_F(CodegenTest, Chapter14_ReadThroughPointers)
 // in-range placeholders work.
 TEST_F(CodegenTest, Chapter14_UpdateThroughPointers)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     unsigned int i = 2185232384u;
     signed long l = 1099511627000l;
     double d = 1.0;
@@ -978,7 +978,7 @@ TEST_F(CodegenTest, Chapter14_UpdateThroughPointers)
         return 3;
     }
     return 0;
-})")));
+})"));
 }
 
 // extra_credit/bitwise_ops_with_dereferenced_ptrs: original used -1u (all 64
@@ -987,7 +987,7 @@ TEST_F(CodegenTest, Chapter14_UpdateThroughPointers)
 // 2^41-1, matching the 41-bit pattern of (int)-1.
 TEST_F(CodegenTest, Chapter14_BitwiseOpsWithDereferencedPtrs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     unsigned int ui = 1048575u;          // 0xFFFFF, bits 0-19
     unsigned long ul = 2199022206976ul;  // bits 20-40
     unsigned int *ui_ptr = &ui;
@@ -1012,14 +1012,14 @@ TEST_F(CodegenTest, Chapter14_BitwiseOpsWithDereferencedPtrs)
     }
 
     return 0;
-})")));
+})"));
 }
 
 // extra_credit/compound_assign_conversion: ul reduced into the 48-bit range;
 // the unsigned remainder is recomputed against BESM-6's 41/48-bit widths.
 TEST_F(CodegenTest, Chapter14_CompoundAssignConversion)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     double d = 5.0;
     double *d_ptr = &d;
     *d_ptr *= 1000u;
@@ -1054,7 +1054,7 @@ TEST_F(CodegenTest, Chapter14_CompoundAssignConversion)
     }
 
     return 0;
-})")));
+})"));
 }
 
 // extra_credit/compound_bitwise_dereferenced_ptrs: ul reduced into 48-bit
@@ -1063,7 +1063,7 @@ TEST_F(CodegenTest, Chapter14_CompoundAssignConversion)
 // unsigned image of the negative long l (2^41 - 252645136).
 TEST_F(CodegenTest, Chapter14_CompoundBitwiseDereferencedPtrs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(unsigned long ul = 200000000000000ul;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(unsigned long ul = 200000000000000ul;
 
 int main(void) {
 
@@ -1097,7 +1097,7 @@ int main(void) {
     }
 
     return 0;
-})")));
+})"));
 }
 
 // --- Relies on x86 32/64-bit unsigned wraparound/truncation -----------------
@@ -1106,7 +1106,7 @@ int main(void) {
 // 4294967295 << 2 does not wrap (== 17179869180).
 TEST_F(CodegenTest, Chapter14_BitshiftDereferencedPtrs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(unsigned int ui = 4294967295;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(unsigned int ui = 4294967295;
 
 unsigned int *get_ui_ptr(void){
     return &ui;
@@ -1133,14 +1133,14 @@ int main(void) {
     }
 
     return 0;
-})")));
+})"));
 }
 
 // extra_credit/incr_and_decr_through_pointer: an unsigned subtract underflow is true
 // 48-bit modular arithmetic (b/usub), so 0ul-- lands at 2^48-1 on BESM-6.
 TEST_F(CodegenTest, Chapter14_IncrAndDecrThroughPointer)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     int x = 10;
     int *y = &x;
 
@@ -1194,7 +1194,7 @@ TEST_F(CodegenTest, Chapter14_IncrAndDecrThroughPointer)
     }
 
     return 0;
-})")));
+})"));
 }
 
 // extra_credit/switch_dereferenced_pointer: a case label (18446744073709551600UL,
@@ -1204,7 +1204,7 @@ TEST_F(CodegenTest, Chapter14_IncrAndDecrThroughPointer)
 // replaced with an in-range long distinct from the matched case.
 TEST_F(CodegenTest, Chapter14_SwitchDereferencedPointer)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(long l = 4294967300l;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(long l = 4294967300l;
 
 long *get_ptr(void) {
     return &l;
@@ -1222,5 +1222,5 @@ int main(void) {
         default:
             return 4;
     }
-})")));
+})"));
 }

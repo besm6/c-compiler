@@ -3,7 +3,7 @@
 // BESM-6: rewritten to use a local struct instead of calloc (no heap dependency).
 TEST_F(CodegenTest, Chapter18_MemberComparisons)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test comparisons between pointers to structures and structure members:
  * 1. Pointers to a structure and its first member compare equal
  * 2. Pointers to later structure members compare greater than pointers
@@ -45,13 +45,13 @@ int main(void) {
 
     return 0; // success
 }
-)PROG")));
+)PROG"));
 }
 
 // malloc + pointer-to-integer byte-address arithmetic.
 TEST_F(CodegenTest, Chapter18_MemberOffsets)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 // struct declarations for size/layout tests
 //
 // On BESM-6 a word is 6 bytes, every aggregate member is word-aligned, and a
@@ -467,7 +467,7 @@ int main(void) {
 
     return 0;  // success
 }
-)PROG")));
+)PROG"));
 }
 
 // Passes structs by value as parameters and verifies the stack is not clobbered.  strcmp
@@ -475,7 +475,7 @@ int main(void) {
 // within the Madlen 8-char identifier limit.
 TEST_F(CodegenTest, Chapter18_ParametersStackClobber)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test that passing structures as parameters doesn't clobber the stack.
  * To test this, we store some bytes to the stack, pass the struct, then
  * validate that those bytes haven't changed.
@@ -694,7 +694,7 @@ int main(void) {
     pass27();
     return 0;
 }
-)PROG")));
+)PROG"));
 }
 
 // Passes and returns multi-word structs by value and verifies the stack is not clobbered.
@@ -702,7 +702,7 @@ int main(void) {
 // limit, so they were renamed to short distinct names; the stack-bytes string was uppercased.
 TEST_F(CodegenTest, Chapter18_ParamsAndReturnsStackClobber)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test that returning a struct doesn't clobber the stack.
  * This is most likely when we're returning structs in memory, but test other
  * types of structs too.
@@ -1004,7 +1004,7 @@ int main(void) {
     tc7();
     return 0;
 }
-)PROG")));
+)PROG"));
 }
 
 // BESM-6 adaptation: there is no heap, so the `malloc(5)`,
@@ -1019,7 +1019,7 @@ int main(void) {
 // the compiler's own representation of the same constant, so equality is exact.
 TEST_F(CodegenTest, Chapter18_AutoStructInitializers)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test initialization of non-nested structs with automatic storage duration,
  * including:
  * - partial initialization
@@ -1203,7 +1203,7 @@ int vtwo(struct s *ptr1, struct s *ptr2) {
     }
     return 1;  // success
 }
-)PROG")));
+)PROG"));
 }
 
 // Residual blocker (not libc; strcmp available, validation is by-pointer):
@@ -1211,7 +1211,7 @@ int vtwo(struct s *ptr1, struct s *ptr2) {
 // members validates wrong (struct-init representation codegen), returns 1.
 TEST_F(CodegenTest, Chapter18_NestedAutoStructInitializers)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test initialization of nested structs with automatic storage duration,
  * including:
  * - partial initialization
@@ -1457,12 +1457,12 @@ int check_array(struct outer *struct_array) {
 
     return 1;  // success
 }
-)PROG")));
+)PROG"));
 }
 
 TEST_F(CodegenTest, Chapter18_NestedStaticStructInitializers)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test initialization of nested static structs, including:
  * - partial initialization
  * - arrays of structs, structs containing arrays
@@ -1742,12 +1742,12 @@ int test_array_of_structs(void) {
 
     return 1;  // success
 }
-)PROG")));
+)PROG"));
 }
 
 TEST_F(CodegenTest, Chapter18_StaticStructInitializers)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test initialization of non-nested static structs, including:
  * - partial initialization
  * - implicit conversion of scalar elements
@@ -1903,14 +1903,14 @@ int test_implicit_conversion(void) {
 
     return 1;  // success
 }
-)PROG")));
+)PROG"));
 }
 
 // BESM-6: static struct instead of malloc; strcmp/puts strings uppercased for
 // KOI-7; puts is kept (prints each struct's message) so expected includes them.
 TEST_F(CodegenTest, Chapter18_OpaqueStruct)
 {
-    EXPECT_EQ("NEW STRUCT\nSTATIC STRUCT\nGLOBAL STRUCT\n0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("NEW STRUCT\nSTATIC STRUCT\nGLOBAL STRUCT\n0\n", CompileAndRunBook(R"PROG(
 /* Test working with a structure whose type is completed in the library but not
  * the client; this is a common idiom for hiding a library's implementation
  * details */
@@ -2016,7 +2016,7 @@ struct s *get_internal_struct(void) {
 // define struct that is visible in other translation unit
 // (although its members aren't accessible)
 struct s incomplete_var = {3, 4.0, "GLOBAL STRUCT"};
-)PROG")));
+)PROG"));
 }
 
 // BESM-6: one static object per maker function instead of malloc; each result is
@@ -2027,7 +2027,7 @@ struct s incomplete_var = {3, 4.0, "GLOBAL STRUCT"};
 // otherwise alias into mutual recursion at runtime.
 TEST_F(CodegenTest, Chapter18_ReturnStructPointer)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test returning struct pointers from functions
  * and using struct pointers returned from functions
  * */
@@ -2183,5 +2183,5 @@ struct outermost *mk_outmost(int seed) {
     ptr->nested_struct.substruct.i = seed + 8;
     return ptr;
 }
-)PROG")));
+)PROG"));
 }

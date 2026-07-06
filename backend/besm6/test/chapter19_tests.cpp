@@ -2,9 +2,9 @@
 // Chapter 19 — whole_pipeline: imported from "Writing a C Compiler"
 // (tests/chapter_19/whole_pipeline).  These self-checking programs return 0 on
 // success and exercise the full optimizer (constant folding + copy propagation +
-// dead store + unreachable elimination, run by CompileAndRun's opt_flags_default)
-// end-to-end on the BESM-6 via the Dubna simulator.  WrapMain prints main()'s
-// return value; success prints "0\n".
+// dead store + unreachable elimination, run by the lower pass's opt_flags_default)
+// end-to-end on the BESM-6 via the b6sim simulator.  b6sim --status prints
+// main()'s return value; success prints "0\n".
 //
 // The book hardcodes the x86 64-bit layout (8-byte long, IEEE-754 double edge
 // cases: subnormals/NaN/infinity/-0.0).  The BESM-6 has 41-bit integers and a
@@ -16,7 +16,7 @@
 
 TEST_F(CodegenTest, Chapter19_WP_IntOnly_DeadCondition)
 {
-    EXPECT_EQ("10\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("10\n", CompileAndRunBook(R"WP(
 /* If a variable is only used as the controlling condition for an empty branch
  * we can eliminate the branch, then eliminate any updates to that variable,
  * because they'll all be dead stores
@@ -45,12 +45,12 @@ int target(void) {
 int main(void) {
     return target();
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_IntOnly_ElimAndCopyProp)
 {
-    EXPECT_EQ("10\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("10\n", CompileAndRunBook(R"WP(
 /* If we can replace every use of a variabe with its value,
  * we can delete the copy to that variable
  * */
@@ -62,12 +62,12 @@ int target(void) {
 int main(void) {
     return target();
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_IntOnly_IntMin)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Test constant-folding with INT_MIN */
 int target(void) {
     return -2147483647 - 1;
@@ -79,12 +79,12 @@ int main(void) {
     }
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_IntOnly_Listing195)
 {
-    EXPECT_EQ("9\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("9\n", CompileAndRunBook(R"WP(
 /* Test case that produces TACKY similar to Listing 19-5;
  * this should be optimized to a single "Return 9" instruction */
 
@@ -109,12 +109,12 @@ int target(void) {
 int main(void) {
     return target();
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_IntOnly_RemainderTest)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Make sure we evaluate the % operator correctly for negative numbers.
  * In C, the remainder n % d always takes the same sign as n.
  * In some languages (e.g. Python), % is the modulo operation, where
@@ -145,12 +145,12 @@ int main(void) {
     }
     return 0; // success
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_IntOnly_CompoundAssignExceptions)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Make sure we don't throw an error when constant folding /= or %=
  * that involves division by zero, or when performing +=, *= or -=
  * that would overflow. Tn this program, these operations
@@ -190,12 +190,12 @@ int main(void) {
 
     return 0; // success
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_IntOnly_EvaluateSwitch)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* If we can determine the value of a switch's controlling expression at
  * compile time, we can eliminate the whole switch statement except the path
  * that will actually be taken. In this case, this lets us reduce the whole
@@ -229,12 +229,12 @@ int target(void) {
 int main(void) {
     return target();
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_IntOnly_FoldBitwiseCompoundAssignment)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Test that we can evaluate bitwise compound assignment expressions at compile time */
 
 int target(void) {
@@ -261,12 +261,12 @@ int target(void) {
 int main(void) {
     return target();
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_IntOnly_FoldCompoundAssignment)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Test that we can evaluate compound assignment expressions at compile time */
 
 int target(void) {
@@ -293,12 +293,12 @@ int target(void) {
 int main(void) {
     return target();
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_IntOnly_FoldIncrAndDecr)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 // Make sure we can track the results and side effects of ++ and -- through copy propagation
 
 int target(void) {
@@ -322,12 +322,12 @@ int target(void) {
 int main(void) {
     return target();
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_IntOnly_FoldNegativeBitshift)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Test constant folding >> with a negative source value.  On BESM-6 a signed right
  * shift is logical (the shift unit does no sign extension), so the fold matches the
  * backend: the 41-bit pattern of -20000 (2^41 - 20000) >> 3 = 274877904444.
@@ -344,12 +344,12 @@ int main(void) {
 
     return 0; // success
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_AliasAnalysisChange)
 {
-    EXPECT_EQ("A0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("A0\n", CompileAndRunBook(R"WP(
 /* Test that we rerun alias analysis with each pipeline iteration */
 
 int putch(int c);
@@ -380,13 +380,13 @@ int target(void) {
 int main(void) {
     return target();
 }
-)WP")));
+)WP"));
 }
 
 // double->int casts; the 64-bit-long sub-check replaced with an in-range value.
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldCastFromDouble)
 {
-    CompileAndRun(WrapMain(R"WP(
+    CompileAndRunBook(R"WP(
 /* Constant-folding tests for conversions from negative doubles to integer
  * types; couldn't test these before because we need copy prop to fully evaluate
  * them.
@@ -418,14 +418,14 @@ int main(void) {
     }
     return 0;
 }
-)WP"));
+)WP");
 }
 
 // Conversions to double; the 64-bit-long sub-check replaced with an in-range
 // value and the libc-copysign sub-check dropped (not in BESM-6 libc; -0 == 0).
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldCastToDouble)
 {
-    CompileAndRun(WrapMain(R"WP(
+    CompileAndRunBook(R"WP(
 /* Constant-folding tests for conversions to double from chars and negative
  * ints; couldn't test these before because we need copy prop to fully evaluate
  * them.
@@ -507,13 +507,13 @@ int main(void) {
     }
     return 0;  // success
 }
-)WP"));
+)WP");
 }
 
 // DISABLED: char constant truncation (char x=256 -> 0) not folded on BESM-6
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldCharCondition)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Test constant folding of Not, JumpIfZero, and JumpIfNotZero with char
  * operands. (We don't test constant-folding of other operations on char because
  * they get promoted to int first.)
@@ -593,12 +593,12 @@ int main(void) {
     }
     return 0;  // success
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldExtensionAndTruncation)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Test constant folding of sign extension, zero extension, and truncation.
  * On BESM-6 int/long/long long are all 41-bit, so the book's 64<->32-bit width
  * cases are no-ops with no analogue and are dropped; the meaningful narrowing
@@ -701,12 +701,12 @@ int main(void) {
     }
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldNegativeValues)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Test constant folding with negative numbers (including double and long);
  * we couldn't test this in the constant-folding stage because it requires
  * copy propagation.  Adapted for BESM-6: long is 41-bit (so the long values
@@ -777,12 +777,12 @@ int main(void) {
     }
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_IntegerPromotions)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Make sure we promote characters to integers before constant folding */
 
 int target(void) {
@@ -810,12 +810,12 @@ int target(void) {
 int main(void) {
     return target();
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_Listing195MoreTypes)
 {
-    EXPECT_EQ("9\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("9\n", CompileAndRunBook(R"WP(
 /* A variation on listing_19_5.c with types other than int */
 
 // make flag a global variable rather than a parameter
@@ -860,12 +860,12 @@ long target(void) {
 int main(void) {
     return target();
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_PropagateIntoCopyfromoffset)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Make sure we can propagate copies into CopyFromOffset instruction.
  * In assembly for target, we'll see a copy to glob but no reads from it
  */
@@ -899,12 +899,12 @@ int main(void) {
     }
     return 0;  // success
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_PropagateIntoCopytooffset)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Make sure we can propagate copies into CopyToOffset instruction */
 
 struct s {
@@ -936,12 +936,12 @@ int main(void) {
     }
     return 0;  // success
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_PropagateIntoLoad)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Make sure we can propagate copies into Load instruction.
  * in assembly for target, we'll see a copy to glob but no reads from it
  */
@@ -964,12 +964,12 @@ int main(void) {
 
     return 0;  // success
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_PropagateIntoStore)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Make sure we can propagate copies into Store instruction */
 
 struct s {
@@ -999,12 +999,12 @@ int main(void) {
     }
     return 0;  // success
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_SignedUnsignedConversion)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Test constant-folding of conversions between signed and unsigned integers,
  * allowing for further copy propagation.
  *
@@ -1058,12 +1058,12 @@ int main(void) {
 
     return 0;  // success
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldCompoundAssignAllTypes)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Test copy prop/constant folding of compound assignment with non-integer
  * types and type conversions.  Adapted for BESM-6: plain char is unsigned, so
  * cases that rely on a signed wrap use `signed char`; the out-of-range
@@ -1212,12 +1212,12 @@ int main(void) {
     }
     return 0; // success
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldCompoundBitwiseAssignAllTypes)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Test copy prop/constant folding of compound bitwise assignment with non-int
  * types and type conversions.  Adapted for BESM-6: int/long are 41-bit and
  * unsigned is 48-bit, so the book's 64-bit bit patterns are replaced with
@@ -1378,12 +1378,12 @@ int main(void) {
     }
     return 0; // success
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldIncrDecrChars)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Evaluate ++/-- with character types; make sure we handle integer promotions correctly */
 int target(void) {
     signed char s = -127;
@@ -1409,12 +1409,12 @@ int main(void) {
     return target();
 
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldIncrDecrDoubles)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Make sure we can constant fold ++/-- operations on doubles.
  * The book's mantissa-edge case (2^53) has no BESM-6 analogue: constant folding
  * is done in host double precision, so the precision loss the book checks for
@@ -1438,12 +1438,12 @@ int target(void) {
 int main(void) {
     return target();
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldIncrDecrUnsigned)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Propagate ++/-- with unsigned integers (make sure they wrap around correctly).
  * On BESM-6 `unsigned` is 48-bit, so UINT_MAX is 2^48-1 = 281474976710655. */
 
@@ -1471,12 +1471,12 @@ int main(void) {
     return target();
 
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter19_WP_AllTypes_FoldNegativeLongBitshift)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Test constant folding >> with a negative long source value.  On BESM-6 a signed right
  * shift is logical (the shift unit does no sign extension), so the fold matches the
  * backend: the 41-bit pattern of -2^40 (which is 2^40) >> 22 == +262144.
@@ -1493,5 +1493,5 @@ int main(void) {
 
     return 0; // success
 }
-)WP")));
+)WP"));
 }

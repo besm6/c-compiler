@@ -6,7 +6,7 @@
 // chapter 17-19 imports — these programs do not exercise a BESM-6 feature; the
 // value is regression coverage that these arithmetic-heavy, many-variable,
 // many-argument programs still compile and run correctly end-to-end through the
-// BESM-6 pipeline (optimizer on) on the Dubna simulator.
+// BESM-6 pipeline (optimizer on) on the b6sim simulator.
 //
 // The book validates each program by inspecting generated assembly plus an x86
 // wrapper (helper_libs/wrapper_*.s) that clobbers callee-saved/argument
@@ -16,7 +16,7 @@
 // on success and exit(-1) on mismatch).  Programs with no `main` of their own
 // rely on the wrapper for arguments; we add a main() that calls the entry point
 // with the wrapper's fixed values — ints 1,2,3,4,5,6 and doubles 1.0..8.0.
-// WrapMain prints main()'s return value; success prints "0\n".
+// b6sim --status prints main()'s return value; success prints "0\n".
 //
 // All chapter-20 programs are enabled (task #27 triage): struct-by-value args and
 // returns now have a working ABI, and the few x86-specific assertions (byte-address
@@ -94,7 +94,7 @@ static const std::string C12V = R"H(int check_12_vals(int a, int b, int c, int d
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_BinUsesOperands)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + C1I + R"WP(
 int src_test(int arg) {
     int x = 5 + arg;
     check_one_int(x, 6);
@@ -118,13 +118,13 @@ int main(void) {
     dst_test();
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_CalleeSavedStackAlignment)
 {
     // check_alignment is x86 asm (RSP alignment); stubbed to 0 on BESM-6.
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + C1I + C5I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + C1I + C5I + R"WP(
 int check_alignment(int exit_code) { return 0; }
 int test1(void) {
     int a = id(1);
@@ -161,13 +161,13 @@ int test3(void) {
     return 0;
 }
 int main(void) { test1(); test2(); test3(); return 0; }
-)WP")));
+)WP"));
 }
 
 // DISABLED: block-scope `static int i` has no BESM-6 storage.
 TEST_F(CodegenTest, Chapter20_IntNoCoal_CdqInterference)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 int target(int a, int b, int c) {
     static int i = 100;
     if (a || b) {
@@ -181,12 +181,12 @@ int main(void) {
     }
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_CmpGeneratesOperands)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + R"WP(
 int glob = 10;
 int glob2 = 20;
 int main(void) {
@@ -201,12 +201,12 @@ int main(void) {
     check_one_int(glob2, 35);
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_CmpNoUpdates)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 int glob0 = 0;
 int glob1 = 1;
 int glob2 = 2;
@@ -252,12 +252,12 @@ int validate(int hundred, int one, int two, int three, int four) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_CopyNoInterference)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + R"WP(
 int glob0 = 0;
 int glob1 = 1;
 int glob2 = 2;
@@ -303,12 +303,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_DivisionUsesAx)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + C1I + R"WP(
 int main(void) {
     int coalesce_into_eax = id(10);
     int sum = coalesce_into_eax + 4;
@@ -319,12 +319,12 @@ int main(void) {
     check_one_int(rem, 0);
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_EaxLiveAtExit)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + R"WP(
 int glob = 10;
 int glob2 = 0;
 int target(void) {
@@ -338,12 +338,12 @@ int main(void) {
     check_one_int(glob2, 21);
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_ForceSpill)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C12I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C12I + R"WP(
 int glob_three = 3;
 int target(void) {
     int should_spill = glob_three + 3;
@@ -382,12 +382,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_FuncallGeneratesArgs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + R"WP(
 int f(int a, int b) {
     if (a != 11) exit(-1);
     if (b != 12) exit(-1);
@@ -407,12 +407,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_IdivInterference)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + R"WP(
 int glob = 3;
 int target(void) {
     int dividend = glob * 16;
@@ -426,12 +426,12 @@ int main(void) {
     check_one_int(glob, 48);
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_Loop)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + R"WP(
 int counter = 5;
 int expected_a = 2;
 int update_expected_a(void);
@@ -467,12 +467,12 @@ int times_two(int x) {
     return x * 2;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_ManyPseudosFewerConflicts)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + C5I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + C5I + R"WP(
 int return_five(void) {
     return 5;
 }
@@ -513,12 +513,12 @@ int target(int one, int two, int three) {
     return 0;
 }
 int main(void) { return target(1, 2, 3); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_OptimisticColoring)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C5I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C5I + R"WP(
 int flag = 0;
 int result = 0;
 int glob0;
@@ -564,12 +564,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_PreserveAcrossFunCall)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + C5I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + C5I + R"WP(
 int glob1 = 1;
 int glob2 = 2;
 int glob3 = 3;
@@ -615,12 +615,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_RewriteRegressionTest)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C12I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C12I + R"WP(
 int glob_three = 3;
 int glob_four = 4;
 int target(void) {
@@ -662,12 +662,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_SameInstrInterference)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + C1I + R"WP(
 int main(void) {
     int a = id(1);
     int b = a + a;
@@ -686,12 +686,12 @@ int main(void) {
     check_one_int(y, 16);
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_SameInstrNoInterference)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + C1I + C5I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + C1I + C5I + R"WP(
 int target(void) {
     int a = id(2);
     int b = id(3);
@@ -713,12 +713,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_TestSpillMetric2)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + C1I + C5I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + C1I + C5I + R"WP(
 int target(void) {
     int to_spill = id(1);
     int a = id(2);
@@ -741,12 +741,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_TestSpillMetric)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + C1I + C5I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + C1I + C5I + R"WP(
 int target(void) {
     int a = id(1);
     int b = id(2);
@@ -765,12 +765,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_TrackArgRegisters)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C12I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C12I + R"WP(
 int glob1;
 int glob2;
 int glob3;
@@ -811,12 +811,12 @@ int target(int one, int two, int three) {
     return 0;
 }
 int main(void) { return target(1, 2, 3); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_TriviallyColorable)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C5I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C5I + R"WP(
 int target(int one, int two) {
     int three = one + two;
     int four = two * two;
@@ -824,12 +824,12 @@ int target(int one, int two) {
     return check_5_ints(one, two, three, four, five, 1);
 }
 int main(void) { return target(1, 2); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_UnaryInterference)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + C1I + R"WP(
 int main(void) {
     int a = id(100);
     int b = -a;
@@ -843,12 +843,12 @@ int main(void) {
     check_one_int(d, -201);
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_UnaryUsesOperand)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + C1I + R"WP(
 int glob = 1;
 int target(void) {
     int a = 0;
@@ -864,12 +864,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntNoCoal_UseAllHardregs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C12I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C12I + R"WP(
 int global_one = 1;
 int target(void) {
     int one = 2 - global_one;
@@ -889,7 +889,7 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 // ===========================================================================
@@ -898,7 +898,7 @@ int main(void) { return target(); }
 
 TEST_F(CodegenTest, Chapter20_IntCoal_BriggsCoalesceHardreg)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + C5I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + C5I + R"WP(
 int flag = 1;
 int target(void) {
     int coalesce_into_eax = 0;
@@ -925,12 +925,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntCoal_BriggsCoalesce)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + C12I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + C12I + R"WP(
 int glob = 5;
 int glob7;
 int glob8;
@@ -961,12 +961,12 @@ int target(int one, int two, int three, int four, int five, int six) {
     return 0;
 }
 int main(void) { return target(1, 2, 3, 4, 5, 6); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntCoal_BriggsDontCoalesce)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + R"WP(
 int glob = 5;
 int update_glob(void) {
     glob = glob + 1;
@@ -994,12 +994,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntCoal_CoalescePreventsSpill)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + R"WP(
 int glob = 5;
 int flag = 0;
 int validate(int a, int b, int c, int d, int e, int f, int g, int h, int i,
@@ -1022,12 +1022,12 @@ int target(int arg) {
     return validate(a, b, c, d, e, f, g, h, i, j, k, l, m);
 }
 int main(void) { return target(1); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntCoal_GeorgeCoalesce)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + C5I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + C5I + R"WP(
 int glob = 1;
 int increment_glob(void) {
     glob = glob + 1;
@@ -1076,12 +1076,12 @@ int target(int a, int b, int c, int d, int e, int f) {
     return check_one_int(glob, 4);
 }
 int main(void) { return target(1, 2, 3, 4, 5, 6); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntCoal_GeorgeDontCoalesce2)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + C5I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + C5I + R"WP(
 int glob = 1;
 int update_glob(void) {
     glob = 0;
@@ -1111,12 +1111,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntCoal_GeorgeDontCoalesce)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C12I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C12I + R"WP(
 int glob = 1;
 int target(int a, int b, int c, int d, int e, int f) {
     int g = a + f;
@@ -1134,12 +1134,12 @@ int target(int a, int b, int c, int d, int e, int f) {
     return 0;
 }
 int main(void) { return target(1, 2, 3, 4, 5, 6); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntCoal_GeorgeOffByOne)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + C12I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + C12I + R"WP(
 int glob = 0;
 int target(int a) {
     int one = 2 - a;
@@ -1161,12 +1161,12 @@ int target(int a) {
     return 0;
 }
 int main(void) { return target(1); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_IntCoal_NoGeorgeTestForPseudos)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + C1I + C5I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + C1I + C5I + R"WP(
 int target(void) {
     int a = id(1);
     int b = id(2);
@@ -1200,7 +1200,7 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 // ===========================================================================
@@ -1209,18 +1209,18 @@ int main(void) { return target(); }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_AliasingOptimizedAway)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 int target(int arg) {
     int *optimized_away = &arg;
     return arg + 10;
 }
 int main(void) { return target(1) == 11 ? 0 : 1; }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_DblBinUsesOperands)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + DBLID + C1D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + DBLID + C1D + R"WP(
 double src_test(double arg) {
     double x = 5 + arg;
     check_one_double(x, 6.0);
@@ -1244,13 +1244,13 @@ int main(void) {
     dst_test();
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_DblFunCall)
 {
     // callee() is x86 asm (clobber_xmm_regs); stubbed to return 10.0.
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 double glob = 3.0;
 double callee(void) { return 10.0; }
 int main(void) {
@@ -1258,12 +1258,12 @@ int main(void) {
     double x = callee();
     return (d + x == 13.0) ? 0 : 1;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_DblFuncallGeneratesArgs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1D + R"WP(
 int use_dbls(double a, double b) {
     if (a != 11.0) exit(-1);
     if (b != 12.0) exit(-1);
@@ -1283,22 +1283,22 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_DblTriviallyColorable)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 int target(double x, double y) {
     return 10 - (3.0 * y + x);
 }
 int main(void) { return target(1.0, 2.0) == 3 ? 0 : 1; }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_DivInterference)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + R"WP(
 unsigned int glob = 3;
 int target(void) {
     unsigned int dividend = glob * 16;
@@ -1312,12 +1312,12 @@ int main(void) {
     check_one_int(glob, 48);
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_DivUsesAx)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + UID + C1U + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + UID + C1U + R"WP(
 int main(void) {
     unsigned int coalesce_into_eax = unsigned_id(10);
     unsigned int sum = coalesce_into_eax + 4;
@@ -1328,12 +1328,12 @@ int main(void) {
     check_one_uint(rem, 0);
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_ForceSpillDoubles)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C14D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C14D + R"WP(
 int glob = 3;
 double glob2 = 4.0;
 int target(void) {
@@ -1377,12 +1377,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_ForceSpillMixedInts)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C12V + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C12V + R"WP(
 unsigned int glob_three = 3;
 long glob_11 = 11l;
 double glob_12 = 12.0;
@@ -1425,12 +1425,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_FourteenPseudosInterfere)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 double glob = 20.0;
 double glob2 = 30.0;
 int glob3 = 40.0;
@@ -1458,12 +1458,12 @@ int target(void) {
     }
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_GpXmmMixed)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C5I + C14D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C5I + C14D + R"WP(
 int target(int one, int two, double one_d, double two_d, int three,
            double three_d) {
     long four = two * two;
@@ -1493,12 +1493,12 @@ int target(int one, int two, double one_d, double two_d, int three,
     return 0;
 }
 int main(void) { return target(1, 2, 1.0, 2.0, 3, 3.0); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_IndexedOperandReadsRegs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + C1L + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + C1L + R"WP(
 int arr[2] = {1, 2};
 long arr2[2] = {3, 4};
 int three = 3;
@@ -1513,13 +1513,13 @@ int main(void) {
     check_one_long(*other_ptr2, 3);
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 // Passes mixed-member structs by value — now covered by the by-value ABI.
 TEST_F(CodegenTest, Chapter20_AllNoCoal_MixedTypeArgRegisters)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C14D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C14D + R"WP(
 struct s1 { double d; char c; int i; };
 struct s2 { unsigned long ul; double d; };
 struct s3 { double d1; double d2; signed char s; };
@@ -1589,13 +1589,13 @@ int target(int one, int two, int three, double one_d, double two_d) {
     return 0;
 }
 int main(void) { return target(1, 2, 3, 1.0, 2.0); }
-)WP")));
+)WP"));
 }
 
 // Passes a struct by value — now covered by the by-value ABI.
 TEST_F(CodegenTest, Chapter20_AllNoCoal_MixedTypeFuncallGeneratesArgs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1L + C1D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1L + C1D + R"WP(
 struct s { long l; double d; };
 long glob = 100;
 double glob_d = 200.0;
@@ -1619,13 +1619,13 @@ int main(void) {
     check_one_double(y, 40400.0);
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 // DISABLED: block-scope static + char-array string init + x86 alignment asm.
 TEST_F(CodegenTest, Chapter20_AllNoCoal_MixedTypeStackAlignment)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + C1I + R"WP(
 int check_alignment(int exit_code) { return 0; }
 int test1(void) {
     long a = id(1);
@@ -1672,12 +1672,12 @@ int test3(void) {
     return 0;
 }
 int main(void) { test1(); test2(); test3(); return 0; }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_OneAliasedVar)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + C1L + C1D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + C1L + C1D + R"WP(
 void increment(int *ptr) {
     *ptr = *ptr + 1;
     return;
@@ -1696,14 +1696,14 @@ int target(int one, int two, int three, double one_d) {
     return 0;
 }
 int main(void) { return target(1, 2, 3, 1.0); }
-)WP")));
+)WP"));
 }
 
 // Adapted: dropped the x86 `(long)ptr % 8` 8-byte-alignment check (BESM-6
 // pointers are word addresses); the nonzero check still keeps the pointer live.
 TEST_F(CodegenTest, Chapter20_AllNoCoal_PtrRaxLiveAtExit)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + R"WP(
 void *malloc(unsigned long size);
 long arr[3] = {100, 200, 300};
 long glob2;
@@ -1722,13 +1722,13 @@ int main(void) {
     }
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 // Returns a struct by value — now covered by the hidden-pointer sret ABI.
 TEST_F(CodegenTest, Chapter20_AllNoCoal_ReturnAllIntStruct)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + R"WP(
 struct s { int a; int b; long l; };
 double glob = 20.0;
 double glob2 = 30.0;
@@ -1766,13 +1766,13 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 // Returns a struct by value — now covered by the hidden-pointer sret ABI.
 TEST_F(CodegenTest, Chapter20_AllNoCoal_ReturnDoubleStruct)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + R"WP(
 struct s { double d1; double d2; };
 int global_one = 1;
 struct s return_struct(void) {
@@ -1805,12 +1805,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_ReturnDouble)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 int global_one = 1;
 double return_double(void) {
     int one = 2 - global_one;
@@ -1837,12 +1837,12 @@ int target(void) {
     return (int) return_double();
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_StorePointerInRegister)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C5I + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C5I + R"WP(
 int glob1 = 1;
 int glob2 = 2;
 int glob3 = 3;
@@ -1896,12 +1896,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_TrackDblArgRegisters)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C14D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C14D + R"WP(
 int callee(double a, double b, double c) {
     if (a != 12) exit(-1);
     if (b != 13) exit(-1);
@@ -1932,14 +1932,14 @@ int target(double one, double two, double three) {
     return 0;
 }
 int main(void) { return target(1.0, 2.0, 3.0); }
-)WP")));
+)WP"));
 }
 
 // Adapted: 2^64-1 expected → 2^48-1 (BESM-6 UINT_MAX); plain `char` is unsigned
 // on BESM-6, so neg_char/not_char use `signed char` to keep the signed-extension.
 TEST_F(CodegenTest, Chapter20_AllNoCoal_TypeConversionInterference)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + ID + DBLID + UID + UCID + C1I +
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + DBLID + UID + UCID + C1I +
                                             C1U + C1UC + C1L + C1UL + C1D + C14D + R"WP(
 int glob;
 int test_movsx_src(int i) {
@@ -2078,12 +2078,12 @@ int main(void) {
     test_cvttsd2si_dst();
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllNoCoal_Xmm0LiveAtExit)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1D + R"WP(
 double glob = 10.0;
 double glob2 = 0.0;
 double target(void) {
@@ -2097,7 +2097,7 @@ int main(void) {
     check_one_double(glob2, 21.0);
     return 0;
 }
-)WP")));
+)WP"));
 }
 
 // ===========================================================================
@@ -2106,7 +2106,7 @@ int main(void) {
 
 TEST_F(CodegenTest, Chapter20_AllCoal_BriggsCoalesceLong)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1L + C12L + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1L + C12L + R"WP(
 long glob = 5l;
 long glob7;
 long glob8;
@@ -2138,12 +2138,12 @@ int target(long one, long two, long three, long four, long five, long six) {
     return 0;
 }
 int main(void) { return target(1, 2, 3, 4, 5, 6); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllCoal_BriggsCoalesceXmm)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1D + C14D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1D + C14D + R"WP(
 double glob = 5.0;
 double glob9;
 double glob10;
@@ -2176,14 +2176,14 @@ int target(double one, double two, double three, double four, double five,
     return 0;
 }
 int main(void) { return target(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllCoal_BriggsXmmKValue)
 {
     // Result globals shortened to gr0..gr14: the book's glob_four / glob_fourteen
     // collide under the BESM-6 8-character identifier truncation ("glob_fou").
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1D + R"WP(
 double glob0 = 0;
 double glob1 = 1.;
 double glob2 = 2.;
@@ -2257,12 +2257,12 @@ int target(void) {
     return 0;
 }
 int main(void) { return target(); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllCoal_CoalesceChar)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1I + C6C + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + C6C + R"WP(
 char glob_a;
 char glob_b;
 char glob_c;
@@ -2286,7 +2286,7 @@ int target(char a, char b, char c, char d, char e, char f) {
     return 0;
 }
 int main(void) { return target(1, 2, 3, 4, 5, 6); }
-)WP")));
+)WP"));
 }
 
 // Removed (task #27): DontCoalesceMovzx tested x86 "don't coalesce a movzx" via
@@ -2299,7 +2299,7 @@ int main(void) { return target(1, 2, 3, 4, 5, 6); }
 
 TEST_F(CodegenTest, Chapter20_AllCoal_GeorgeCoalesceXmm)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1D + C14D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1D + C14D + R"WP(
 double glob = 4.0;
 double dbl_target(double a, double b, double c, double d, double e, double f,
                   double g, double h) {
@@ -2329,12 +2329,12 @@ double dbl_target(double a, double b, double c, double d, double e, double f,
 int main(void) {
     return (int) dbl_target(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0);
 }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllCoal_GeorgeOffByOneXmm)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C1D + C14D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C1D + C14D + R"WP(
 double glob = 0.0;
 int target(double a) {
     double one = 2.0 - a;
@@ -2358,12 +2358,12 @@ int target(double a) {
     return 0;
 }
 int main(void) { return target(1.0); }
-)WP")));
+)WP"));
 }
 
 TEST_F(CodegenTest, Chapter20_AllCoal_GeorgeXmmKValue)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(EX + C14D + R"WP(
+    EXPECT_EQ("0\n", CompileAndRunBook(EX + C14D + R"WP(
 double glob1 = 1.;
 double glob2 = 2.;
 double glob10 = 10.;
@@ -2380,5 +2380,5 @@ int target(double one, double two, double three, double four, double five,
     return 0;
 }
 int main(void) { return target(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0); }
-)WP")));
+)WP"));
 }

@@ -1,7 +1,7 @@
 //
 // Chapter 18 — structures & unions: valid programs compiled and run on BESM-6.
 // Imported from "Writing a C Compiler" (tests/chapter_18/valid).  Each program
-// defines int main(void); WrapMain prints its return value, and we compare
+// defines int main(void); b6sim --status prints its return value, and we compare
 // program output against the expected value.
 //
 // The book hardcodes the x86 data layout (4-byte int, sub-word packing, 8-/16-
@@ -27,7 +27,7 @@
 // smoke_tests/simple: struct decl, compound init, . and -> access.
 TEST_F(CodegenTest, Chapter18_Simple)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct pair { int a; int b; };
 int main(void) {
     struct pair x = {1, 2};
@@ -35,14 +35,14 @@ int main(void) {
     struct pair *x_ptr = &x;
     if (x_ptr->a != 1 || x_ptr->b != 2) return 2;
     return 0;
-})")));
+})"));
 }
 
 // smoke_tests/static_vs_auto: auto structs reinitialized each scope entry,
 // static structs initialized once.  Re-enabled once block-scope statics landed.
 TEST_F(CodegenTest, Chapter18_StaticVsAuto)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct s { int a; int b; };
 int main(void) {
     for (int i = 0; i < 10; i = i + 1) {
@@ -58,13 +58,13 @@ int main(void) {
         }
     }
     return 0;
-})")));
+})"));
 }
 
 // parse_and_lex/postfix_precedence: postfix ops bind tighter than prefix.
 TEST_F(CodegenTest, Chapter18_PostfixPrecedence)
 {
-    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("1\n", CompileAndRunBook(R"(
 struct inner { int inner_arr[3]; };
 struct outer { int a; struct inner b; };
 int main(void) {
@@ -74,44 +74,44 @@ int main(void) {
                              {13, {{14, 15, 16}}}};
     int i = -array[2].b.inner_arr[1];
     return i == -11;
-})")));
+})"));
 }
 
 // parse_and_lex/trailing_comma: trailing comma in compound init.
 TEST_F(CodegenTest, Chapter18_TrailingComma)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct s { int a; int b; };
 int main(void) {
     struct s x = { 1, 2, };
     if (x.a != 1 || x.b != 2) return 1;
     return 0;
-})")));
+})"));
 }
 
 // parse_and_lex/space_around_struct_member: whitespace around '.'.
 TEST_F(CodegenTest, Chapter18_SpaceAroundStructMember)
 {
-    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("1\n", CompileAndRunBook(R"(
 struct s { int a; };
 int main(void) {
     struct s foo;
     foo .a = 10;
     int b = foo .a;
     return foo . a == b;
-})")));
+})"));
 }
 
 // parse_and_lex/struct_member_looks_like_const: member named E10 (1.E10 is a
 // float constant, but x1.E10 must lex as member access).
 TEST_F(CodegenTest, Chapter18_StructMemberLooksLikeConst)
 {
-    EXPECT_EQ("3\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("3\n", CompileAndRunBook(R"(
 struct s { int E10; };
 int main(void) {
     struct s x1 = {3};
     return x1.E10;
-})")));
+})"));
 }
 
 
@@ -122,13 +122,13 @@ int main(void) {
 // semantic_analysis/cast_struct_to_void.
 TEST_F(CodegenTest, Chapter18_CastStructToVoid)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct s { int a; int b; };
 int main(void) {
     struct s x = {1, 2};
     (void)x;
     return 0;
-})")));
+})"));
 }
 
 
@@ -139,7 +139,7 @@ int main(void) {
 // parameters/simple: pass a struct {int; double} by value.
 TEST_F(CodegenTest, Chapter18_ParamSimple)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct pair { int x; double y; };
 double test_struct_param(struct pair p) {
     if (p.x != 1 || p.y != 2.0) return 0;
@@ -149,14 +149,14 @@ int main(void) {
     struct pair x = {1, 2.0};
     if (!test_struct_param(x)) return 1;
     return 0;
-})")));
+})"));
 }
 
 // parameters/incomplete_param_type: declare fn with incomplete struct param,
 // complete the type, then call/define.
 TEST_F(CodegenTest, Chapter18_IncompleteParamType)
 {
-    EXPECT_EQ("3\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("3\n", CompileAndRunBook(R"(
 struct s;
 int foo(struct s blah);
 struct s { int a; int b; };
@@ -165,13 +165,13 @@ int main(void) {
     return foo(arg);
 }
 int foo(struct s blah) { return blah.a + blah.b; }
-)")));
+)"));
 }
 
 // parameters/libraries/pass_struct: pass struct across two TUs (merged).
 TEST_F(CodegenTest, Chapter18_PassStruct)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct pair { int x; int y; };
 int validate_struct_param(struct pair p);
 int main(void) {
@@ -183,14 +183,14 @@ int validate_struct_param(struct pair p) {
     if (p.x != 1 || p.y != 2) return 0;
     return 1;
 }
-)")));
+)"));
 }
 
 // parameters/libraries/modify_param: modifying a struct param doesn't affect
 // the caller; nested struct with a pointer member is shared.
 TEST_F(CodegenTest, Chapter18_ModifyParam)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct inner { double d; int i; };
 struct outer { struct inner s; struct inner *ptr; long l; };
 int modify_simple_struct(struct inner s);
@@ -225,7 +225,7 @@ int modify_nested_struct(struct outer s) {
         copy.ptr->d != 10.0 || copy.ptr->i != 11) return 0;
     return 1;
 }
-)")));
+)"));
 }
 
 
@@ -236,7 +236,7 @@ int modify_nested_struct(struct outer s) {
 // params_and_returns/simple: struct param + struct return.
 TEST_F(CodegenTest, Chapter18_ParamsAndReturnsSimple)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct pair { int x; char y; };
 struct pair2 { double d; long l; };
 struct pair2 double_members(struct pair p) {
@@ -248,13 +248,13 @@ int main(void) {
     struct pair2 result = double_members(arg);
     if (result.d != 2.0 || result.l != 8) return 1;
     return 0;
-})")));
+})"));
 }
 
 // params_and_returns/return_incomplete_type.
 TEST_F(CodegenTest, Chapter18_ReturnIncompleteType)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct s;
 struct s increment_struct(struct s param);
 struct s { int a; int b; };
@@ -268,7 +268,7 @@ struct s increment_struct(struct s param) {
     param.a = param.a + 1;
     param.b = param.b + 1;
     return param;
-})")));
+})"));
 }
 
 // params_and_returns/ignore_retval: return a struct and discard it.  The sret /
@@ -279,7 +279,7 @@ struct s increment_struct(struct s param) {
 // "return_i" and alias.  Renamed to ret_reg/ret_mem.
 TEST_F(CodegenTest, Chapter18_IgnoreRetval)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct small { int x; };
 struct big { double d; int x; long l; };
 struct small globl = {0};
@@ -299,7 +299,7 @@ int main(void) {
     (void)ret_mem();
     if (globl2.d != 5.0 || globl2.x != 18 || globl2.l != 4800) return 2;
     return 0;
-})")));
+})"));
 }
 
 // params_and_returns/temporary_lifetime: address of array member of a non-lvalue
@@ -307,7 +307,7 @@ int main(void) {
 // EXPR_CALL case.
 TEST_F(CodegenTest, Chapter18_TemporaryLifetime)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct s { int arr[3]; };
 struct s f(void) {
     struct s retval = {{1, 2, 3}};
@@ -321,7 +321,7 @@ int main(void) {
     if (j != 2) return 2;
     if (k != 3) return 3;
     return 0;
-})")));
+})"));
 }
 
 
@@ -337,7 +337,7 @@ int main(void) {
 // shortened so they stay distinct within Madlen's 8-character identifier limit.
 TEST_F(CodegenTest, Chapter18_Namespaces)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct pair1 { int x; int y; };
 struct pair2 { double x; char y; };
 struct pair3 { int x; int *y; };
@@ -375,7 +375,7 @@ int main(void) {
     if (!varname()) return 3;
     if (!funname()) return 4;
     return 0;
-})")));
+})"));
 }
 
 
@@ -386,13 +386,13 @@ int main(void) {
 // other_features/decr_arrow_lexing: postfix -- followed by > lexes correctly.
 TEST_F(CodegenTest, Chapter18_DecrArrowLexing)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 int main(void) {
     int arr[3] = {0, 1, 2};
     int *ptr = arr + 2;
     if (ptr-->arr) return 0;
     return 1;
-})")));
+})"));
 }
 
 // other_features/label_tag_member_namespace: a label, struct tag, and member
@@ -400,7 +400,7 @@ int main(void) {
 // BESM-6: the tag is hoisted to file scope (block-scope tag definitions are unsupported).
 TEST_F(CodegenTest, Chapter18_LabelTagMemberNamespace)
 {
-    EXPECT_EQ("10\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("10\n", CompileAndRunBook(R"(
 struct x { int x; };
 int main(void) {
     struct x x = {10};
@@ -408,7 +408,7 @@ int main(void) {
     return 0;
 x:
     return x.x;
-})")));
+})"));
 }
 
 
@@ -422,7 +422,7 @@ x:
 // 0b00000001 = 1 (bits 48-42 are the zero exponent field, bit 41 is the sign).
 TEST_F(CodegenTest, Chapter18_UnionInitAndMemberAccess)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 union u { double d; long l; unsigned long ul; char c; };
 int main(void) {
     union u x = {20};
@@ -433,63 +433,63 @@ int main(void) {
     if (ptr->ul != 2199023255551UL) return 3;
     if (x.c != 1) return 4;
     return 0;
-})")));
+})"));
 }
 
 // semantic_analysis/union_members_same_type: two int members of a union alias.
 TEST_F(CodegenTest, Chapter18_UnionMembersSameType)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 union u { int a; int b; };
 int main(void) {
     union u my_union = {0};
     my_union.a = -1;
     if (my_union.b != -1) return 1;
     return 0;
-})")));
+})"));
 }
 
 // semantic_analysis/redeclare_union: a content-less re-declaration is a no-op.
 // BESM-6: the tag is hoisted to file scope (block-scope tag definitions are unsupported).
 TEST_F(CodegenTest, Chapter18_RedeclareUnion)
 {
-    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("1\n", CompileAndRunBook(R"(
 union u { int a; };
 union u;
 int main(void) {
     union u my_union = {1};
     return my_union.a;
-})")));
+})"));
 }
 
 // semantic_analysis/cast_union_to_void.
 TEST_F(CodegenTest, Chapter18_CastUnionToVoid)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 union u { long l; double d; };
 int main(void) {
     union u x = {1000};
     (void)x;
     return 0;
-})")));
+})"));
 }
 
 // semantic_analysis/union_self_pointer: a union may hold a pointer to itself.
 TEST_F(CodegenTest, Chapter18_UnionSelfPointer)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 union self_ptr { union self_ptr *ptr; long l; };
 int main(void) {
     union self_ptr u = {&u};
     if (&u != u.ptr) return 1;
     return 0;
-})")));
+})"));
 }
 
 // union_copy/assign_to_union: whole-union copy (struct member, then double array).
 TEST_F(CodegenTest, Chapter18_AssignToUnion)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct s { int a; int b; };
 union u { struct s str; long l; double arr[3]; };
 int main(void) {
@@ -506,7 +506,7 @@ int main(void) {
     if (y.arr[1] != -30.) return 4;
     if (y.arr[2] != -40.) return 5;
     return 0;
-})")));
+})"));
 }
 
 // union_copy/unions_in_conditionals: a union value in a ?: expression.  BESM-6: the
@@ -514,7 +514,7 @@ int main(void) {
 // 100 = 0 (100 occupies only bits 7-1, so the MSB byte is zero).
 TEST_F(CodegenTest, Chapter18_UnionsInConditionals)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 union u { long l; int i; char c; };
 int choose_union(int flag) {
     union u one;
@@ -527,7 +527,7 @@ int main(void) {
     if (choose_union(1) != 1) return 1;
     if (choose_union(0) != 0) return 2;
     return 0;
-})")));
+})"));
 }
 
 
@@ -539,7 +539,7 @@ int main(void) {
 // size_and_offset_calculations/sizeof_type: sizeof of struct/array types.
 TEST_F(CodegenTest, Chapter18_SizeofType)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct eight_bytes { int i; char c; };
 struct two_bytes { char arr[2]; };
 struct three_bytes { char arr[3]; };
@@ -564,7 +564,7 @@ int main(void) {
     if (sizeof(struct internal_padding[4]) != 48) return 11;
     if (sizeof(struct wonky[2]) != 48) return 12;
     return 0;
-})")));
+})"));
 }
 
 // size_and_offset_calculations/sizeof_exps: sizeof of expressions of struct type
@@ -572,7 +572,7 @@ int main(void) {
 // its operand, so the null get_twentybyte_ptr() is never dereferenced).
 TEST_F(CodegenTest, Chapter18_SizeofExps)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct eight_bytes { int i; char c; };
 struct two_bytes { char arr[2]; };
 struct three_bytes { char arr[3]; };
@@ -601,13 +601,13 @@ int main(void) {
     if (sizeof struct_array != 48) return 11;
     if (sizeof arr_struct.struct_array != 36) return 12;
     return 0;
-})")));
+})"));
 }
 
 // extra_credit/size_and_offset/union_sizes: sizeof of union types, BESM-6 layout.
 TEST_F(CodegenTest, Chapter18_UnionSizes)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct eight_bytes { int i; char c; };
 struct wonky { char arr[19]; };
 union no_padding { char c; unsigned char uc; signed char arr[11]; };
@@ -630,7 +630,7 @@ int main(void) {
     return 0;
 }
 union contains_structs *get_union_ptr(void) { return 0; }
-)")));
+)"));
 }
 
 
@@ -644,7 +644,7 @@ union contains_structs *get_union_ptr(void) { return 0; }
 // BESM-6, so the arr members use positive values that round-trip.)
 TEST_F(CodegenTest, Chapter18_GlobalStruct)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct s { int i; char arr[2]; double d; };
 struct outer { char c; struct s inner; };
 extern struct s global;
@@ -671,14 +671,14 @@ void update_outer_struct(void) {
     struct s inner = {0, {11, 12}, 0};
     global_outer.inner = inner;
 }
-)")));
+)"));
 }
 
 // libraries/array_of_structs: pass a pointer to an array of structs (static and
 // automatic).  Validates member values, not x86 sizes.
 TEST_F(CodegenTest, Chapter18_ArrayOfStructs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct inner { long l; char arr[2]; };
 struct outer { char a; struct inner b; };
 int validate_struct_array(struct outer *struct_array);
@@ -700,14 +700,14 @@ int validate_struct_array(struct outer *struct_array) {
     }
     return 1;
 }
-)")));
+)"));
 }
 
 // libraries/param_struct_pointer: pass struct pointers as parameters; the
 // declared (unused) malloc prototype is dropped.
 TEST_F(CodegenTest, Chapter18_ParamStructPointer)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct inner { double d; int i; };
 struct outer { char a; char b; struct inner substruct; };
 int access_members_through_pointer(struct outer *ptr, int expected_a,
@@ -735,7 +735,7 @@ void update_members_through_pointer(struct outer *ptr, int a, int b, struct inne
     ptr->substruct = *inner_ptr;
     return;
 }
-)")));
+)"));
 }
 
 // params_and_returns/libraries/missing_retval: the book's callee omits its
@@ -745,7 +745,7 @@ void update_members_through_pointer(struct outer *ptr, int a, int b, struct inne
 // the pointer parameter while the caller discards the result.
 TEST_F(CodegenTest, Chapter18_MissingRetval)
 {
-    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(
+    EXPECT_EQ("1\n", CompileAndRunBook(R"(
 struct big { char arr[25]; };
 struct big missing_return_value(int *i);
 int main(void) {
@@ -758,7 +758,7 @@ struct big missing_return_value(int *i) {
     struct big result;
     return result;
 }
-)")));
+)"));
 }
 
 
@@ -780,7 +780,7 @@ struct big missing_return_value(int *i) {
 // the file-scope long is renamed gl so it doesn't shadow accept_params' param l.
 TEST_F(CodegenTest, Chapter18_ScalarMemberAccessArrow)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test the -> operator.
  * Relatively simple tests without nested accesses or members of aggregate
  * types.
@@ -977,13 +977,13 @@ int main(void) {
 
     return 0;
 }
-)PROG")));
+)PROG"));
 }
 
 // BESM-6: fixed static node pool (4) with an index counter instead of malloc.
 TEST_F(CodegenTest, Chapter18_ScalarMemberAccessLinkedList)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test using -> to iterate through a linked list
  * and exercise chained member access of the form x->y->
  * */
@@ -1030,7 +1030,7 @@ int main(void) {
     }
     return 0;  // success
 }
-)PROG")));
+)PROG"));
 }
 
 // BESM-6: distinct static objects replace each malloc/calloc; static zero-init
@@ -1039,7 +1039,7 @@ int main(void) {
 // Madlen's 8-char identifier limit (otherwise they alias and silently no-op).
 TEST_F(CodegenTest, Chapter18_ScalarMemberAccessNestedStruct)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test accessing nested structures members, through dot, arrow, and subscript
  * operators */
 
@@ -1509,7 +1509,7 @@ int main(void) {
 
     return 0;
 }
-)PROG")));
+)PROG"));
 }
 
 // malloc + block-scope static + puts/putchar.
@@ -1520,9 +1520,9 @@ TEST_F(CodegenTest, Chapter18_ScalarMemberAccessStaticStructs)
     // call).  Printed letters are UPPERCASE so KOI-7 output matches ASCII.
     // Helpers renamed to test_sl/test_slp/test_gs/test_gsp because the original
     // names collide in their first 8 chars (Madlen truncates labels).  Expected
-    // stdout is the full printed sequence followed by WrapMain's "0\n".
+    // stdout is the full printed sequence followed by --status's "0\n".
     EXPECT_EQ("ZERO\nMN\nOP\nWX\nYZ\nBCD\nCDE\nDEF\nEFG\nBCD\nCDE\n0\n",
-              CompileAndRun(WrapMain(R"PROG(
+              CompileAndRunBook(R"PROG(
 // Make sure members in static structures retain their values
 // across multiple function invocations
 
@@ -1654,7 +1654,7 @@ int main(void) {
     test_gsp();
     return 0;
 }
-)PROG")));
+)PROG"));
 }
 
 // block-scope static + strcmp + local char-array string init.
@@ -1666,7 +1666,7 @@ TEST_F(CodegenTest, Chapter18_StructCopyCopyStruct)
     // (KOI-7) paths compare equal.  The external names (test_auto/test_static/
     // test_wonky_size/test_conditional/true_flag) are all distinct in their
     // first 8 chars, so no rename is needed for Madlen's 8-char label limit.
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 int strcmp(char *s1, char *s2);
 
 struct small {
@@ -1772,7 +1772,7 @@ int main(void) {
 
     return 0;
 }
-)PROG")));
+)PROG"));
 }
 
 // malloc + block-scope static + local char-array string init.
@@ -1786,7 +1786,7 @@ int main(void) {
 // Madlen's 8-char label space (test_cop), so they are renamed to distinct tc_* names.
 TEST_F(CodegenTest, Chapter18_StructCopyThroughPointer)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 int strcmp(char *s1, char *s2);
 
 struct small {
@@ -1963,14 +1963,14 @@ int main(void) {
     }
     return 0;  // success
 }
-)PROG")));
+)PROG"));
 }
 
 // Re-enabled once block-scope statics landed.  The six test_copy_* helpers all collided
 // in the first 8 chars (Madlen label `test*cop`), so they were shortened to tc_* names.
 TEST_F(CodegenTest, Chapter18_StructCopyWithDotOperator)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 // Test using . to copy entire structures
 
 struct inner {
@@ -2166,7 +2166,7 @@ int main(void) {
 
     return 0;  // success
 }
-)PROG")));
+)PROG"));
 }
 
 // Re-enabled by backing each pointer with a stack struct instead of malloc/calloc (libc
@@ -2174,7 +2174,7 @@ int main(void) {
 // ta_* names to stay distinct within the Madlen 8-char label limit.
 TEST_F(CodegenTest, Chapter18_StructCopyWithArrowOperator)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 // Test using -> to copy entire structures,
 // including large structures w/ members of different sizes
 
@@ -2376,7 +2376,7 @@ int main(void) {
 
     return 0;
 }
-)PROG")));
+)PROG"));
 }
 
 // Copies aggregates via Copy/Load/Store/CopyFromOffset/CopyToOffset and verifies the stack is
@@ -2384,7 +2384,7 @@ int main(void) {
 // and the validate_/test_copy_ helper families renamed to stay distinct within 8 chars.
 TEST_F(CodegenTest, Chapter18_StructCopyStackClobber)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test that copying an aggregate value with Copy, Load, Store,
  * CopyFromOffset or CopyToOffset doesn't clobber the stack.
  * To do this, we store some bytes on the stack, copy the struct,
@@ -2556,7 +2556,7 @@ int main(void) {
     tcto();
     return 0;
 }
-)PROG")));
+)PROG"));
 }
 
 // BESM-6: static storage replaces malloc/calloc; opaque/incomplete pointers are
@@ -2567,7 +2567,7 @@ int main(void) {
 // validate_struct.
 TEST_F(CodegenTest, Chapter18_IncompleteStructs)
 {
-    EXPECT_EQ("I AM A STRUCT\n0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("I AM A STRUCT\n0\n", CompileAndRunBook(R"PROG(
 /* Test that our typechecker can handle valid declarations and expressions
  * involving incomplete structure types
  * */
@@ -2757,5 +2757,5 @@ int main(void) {
 
     return 0;  // success
 }
-)PROG")));
+)PROG"));
 }

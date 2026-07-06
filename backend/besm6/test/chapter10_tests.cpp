@@ -2,7 +2,7 @@
 // Chapter 10 — File-scope variables and storage-class specifiers: valid
 // programs compiled and run on BESM-6.  Imported from "Writing a C Compiler"
 // (tests/chapter_10/valid + extra_credit + libraries).  Each program defines
-// int main(void); WrapMain prints its return value, and we compare program
+// int main(void); b6sim --status prints its return value, and we compare program
 // output against the value computed by host cc.
 //
 // Chapter 10 is mostly about static/extern storage; several of its features are
@@ -65,7 +65,7 @@
 // times, but defined only once; the definition (4) comes last and wins.
 TEST_F(CodegenTest, Chapter10_MultipleStaticFileScopeVars)
 {
-    EXPECT_EQ("4\n", CompileAndRun(WrapMain(R"(static int foo;
+    EXPECT_EQ("4\n", CompileAndRunBook(R"(static int foo;
 
 int main(void) {
     return foo;
@@ -73,13 +73,13 @@ int main(void) {
 
 extern int foo;
 
-static int foo = 4;)")));
+static int foo = 4;)"));
 }
 
 // A tentatively-defined file-scope variable is zero-initialized.
 TEST_F(CodegenTest, Chapter10_TentativeDefinition)
 {
-    EXPECT_EQ("5\n", CompileAndRun(WrapMain(R"(extern int foo;
+    EXPECT_EQ("5\n", CompileAndRunBook(R"(extern int foo;
 
 int foo;
 
@@ -91,13 +91,13 @@ int main(void) {
     return foo;
 }
 
-int foo;)")));
+int foo;)"));
 }
 
 // The type specifier may precede the storage-class specifier ("int static").
 TEST_F(CodegenTest, Chapter10_TypeBeforeStorageClass)
 {
-    EXPECT_EQ("7\n", CompileAndRun(WrapMain(R"(int static foo(void) {
+    EXPECT_EQ("7\n", CompileAndRunBook(R"(int static foo(void) {
     return 3;
 }
 
@@ -107,13 +107,13 @@ int main(void) {
     int extern foo(void);
     int extern bar;
     return foo() + bar;
-})")));
+})"));
 }
 
 // ++ and -- on file-scope variables.
 TEST_F(CodegenTest, Chapter10_IncrementGlobalVars)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int i = 0;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int i = 0;
 int j = 0;
 
 int incr_i(void){
@@ -141,13 +141,13 @@ int main(void) {
         return 2;
     }
     return 0;
-})")));
+})"));
 }
 
 // An external variable can be used in a switch controlling expression.
 TEST_F(CodegenTest, Chapter10_SwitchOnExtern)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int update_x(void);
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int update_x(void);
 
 int main(void) {
     update_x();
@@ -165,13 +165,13 @@ int x;
 int update_x(void) {
     x = 4;
     return 0;
-})")));
+})"));
 }
 
 // An external variable is in scope in a switch even if its decl is jumped over.
 TEST_F(CodegenTest, Chapter10_SwitchSkipExternDecl)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     int a = 10;
     switch(a) {
         case 1: return 1;
@@ -186,14 +186,14 @@ TEST_F(CodegenTest, Chapter10_SwitchSkipExternDecl)
     return 6;
 }
 
-int x = 15;)")));
+int x = 15;)"));
 }
 
 // A variable with external linkage, tentatively defined in one "file" and
 // brought into scope with extern in another.
 TEST_F(CodegenTest, Chapter10_LibExternalTentativeVar)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int x;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int x;
 
 int read_x(void) {
     return x;
@@ -209,7 +209,7 @@ int main(void) {
     if (read_x() != 3)
         return 1;
     return 0;
-})")));
+})"));
 }
 
 // Bitwise operations on file-scope variables.  The "y = ((y & -5) ^ 12) >> 2"
@@ -218,7 +218,7 @@ int main(void) {
 // fires, and the program returns 2 (the x86 result would be 0).
 TEST_F(CodegenTest, Chapter10_BitwiseOpsFileScopeVars)
 {
-    EXPECT_EQ("2\n", CompileAndRun(WrapMain(R"(int x = 1;
+    EXPECT_EQ("2\n", CompileAndRunBook(R"(int x = 1;
 int y = 0;
 
 int main(void) {
@@ -232,7 +232,7 @@ int main(void) {
         return 2;
     }
     return 0;
-})")));
+})"));
 }
 
 // --- Block-scope static locals (now supported; see header) ------------------
@@ -240,7 +240,7 @@ int main(void) {
 // Uninitialized static local, zero-initialized and persisting across calls.
 TEST_F(CodegenTest, Chapter10_StaticLocalUninitialized)
 {
-    EXPECT_EQ("4\n", CompileAndRun(WrapMain(R"(int foo(void) {
+    EXPECT_EQ("4\n", CompileAndRunBook(R"(int foo(void) {
     static int x;
     x = x + 1;
     return x;
@@ -251,13 +251,13 @@ int main(void) {
     for (int i = 0; i < 4; i = i + 1)
         ret = foo();
     return ret;
-})")));
+})"));
 }
 
 // Static locals used as memory operands in a relational expression.
 TEST_F(CodegenTest, Chapter10_StaticVariablesInExpressions)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     static int i = 2;
     static int j = 3;
     int cmp = i < j;
@@ -265,13 +265,13 @@ TEST_F(CodegenTest, Chapter10_StaticVariablesInExpressions)
     if (!cmp)
         return 1;
     return 0;
-})")));
+})"));
 }
 
 // Compound assignment on several static locals, persisting across calls.
 TEST_F(CodegenTest, Chapter10_CompoundAssignmentStaticVar)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int f(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int f(void) {
     static int i = 0;
     static int j = 0;
     static int k = 1;
@@ -299,25 +299,25 @@ int main(void) {
     f();
     f();
     return f();
-})")));
+})"));
 }
 
 // A static initializer runs at program startup even if a goto jumps over it.
 TEST_F(CodegenTest, Chapter10_GotoSkipStaticInitializer)
 {
-    EXPECT_EQ("10\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("10\n", CompileAndRunBook(R"(int main(void) {
     goto end;
     static int x = 10;
     end:
         return x;
-})")));
+})"));
 }
 
 // A static initializer in a switch runs at startup; the later assignment, being
 // a statement, is jumped over.
 TEST_F(CodegenTest, Chapter10_SwitchSkipStaticInitializer)
 {
-    EXPECT_EQ("10\n", CompileAndRun(WrapMain(R"(int a = 3;
+    EXPECT_EQ("10\n", CompileAndRunBook(R"(int a = 3;
 int main(void) {
     switch (a) {
         case 1:;
@@ -327,26 +327,26 @@ int main(void) {
             return x;
     }
     return 0;
-})")));
+})"));
 }
 
 // A static variable and a label in the same function may share a name.
 TEST_F(CodegenTest, Chapter10_LabelStaticVarSameName)
 {
-    EXPECT_EQ("5\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("5\n", CompileAndRunBook(R"(int main(void) {
     static int x = 5;
     goto x;
     x = 0;
 x:
     return x;
-})")));
+})"));
 }
 
 // Same-named static locals in different functions must be distinct (no
 // linkage); our single file-scope namespace also collides them.  Host value 29.
 TEST_F(CodegenTest, Chapter10_MultipleStaticLocal)
 {
-    EXPECT_EQ("29\n", CompileAndRun(WrapMain(R"(int foo(void) {
+    EXPECT_EQ("29\n", CompileAndRunBook(R"(int foo(void) {
     static int a = 3;
     a = a * 2;
     return a;
@@ -360,7 +360,7 @@ int bar(void) {
 
 int main(void) {
     return foo() + bar() + foo() + bar();
-})")));
+})"));
 }
 
 // --- (b): tentative/extern after an initialized definition (task #19) --------
@@ -369,20 +369,20 @@ int main(void) {
 // initializer was already emitted, and a second module would clobber it to 0.
 TEST_F(CodegenTest, Chapter10_StaticThenExtern)
 {
-    EXPECT_EQ("3\n", CompileAndRun(WrapMain(R"(static int foo = 3;
+    EXPECT_EQ("3\n", CompileAndRunBook(R"(static int foo = 3;
 
 int main(void) {
     return foo;
 }
 
-extern int foo;)")));
+extern int foo;)"));
 }
 
 // Concatenated external_variable + client: "extern int x;" trailing the client
 // follows "int x = 3;"; with task #19 fixed it no longer clobbers x to 0.
 TEST_F(CodegenTest, Chapter10_LibExternalVariable)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int x;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int x;
 
 extern int x;
 int x;
@@ -418,7 +418,7 @@ int main(void) {
     if (read_x() != 5)
         return 1;
     return 0;
-})")));
+})"));
 }
 
 // --- internal-linkage library tests adapted to whole-program concatenation ---
@@ -430,7 +430,7 @@ int main(void) {
 // internal `client_x`; renamed apart so both coexist in one module.
 TEST_F(CodegenTest, Chapter10_LibInternalLinkageVar)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(static int x;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(static int x;
 
 int read_x(void) {
     return x;
@@ -467,14 +467,14 @@ int main(void) {
     return 0;
 }
 
-static int client_x;)")));
+static int client_x;)"));
 }
 
 // Library's internal `my_fun` (a counter) vs. the client's external `my_fun`
 // (returns 100); the static one is renamed `lib_my_fun` so both coexist.
 TEST_F(CodegenTest, Chapter10_LibInternalLinkageFunction)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(static int lib_my_fun(void);
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(static int lib_my_fun(void);
 
 int call_static_my_fun(void) {
     return lib_my_fun();
@@ -508,14 +508,14 @@ int main(void) {
 
 int my_fun(void) {
     return 100;
-})")));
+})"));
 }
 
 // Library's external `x` (read via read_x) coexisting with the client's own
 // internal `x`; the static one is renamed `internal_x` so both coexist.
 TEST_F(CodegenTest, Chapter10_LibInternalHidesExternalLinkage)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int x = 10;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int x = 10;
 
 int read_x(void){
     return x;
@@ -539,14 +539,14 @@ int main(void) {
 
 int read_internal_x(void) {
     return internal_x;
-})")));
+})"));
 }
 
 // Library's static `lib_f` and the client's external `f` each reuse the label
 // `x`; the static one is renamed so both coexist (labels are function-scoped).
 TEST_F(CodegenTest, Chapter10_LibSameLabelSameFun)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(static int lib_f(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(static int lib_f(void) {
     goto x;
     return 0;
     x:
@@ -574,7 +574,7 @@ int main(void) {
         return 2;
     }
     return 0;
-})")));
+})"));
 }
 
 // --- DISABLED_ (misc) -------------------------------------------------------
@@ -583,7 +583,7 @@ int main(void) {
 // §5.1.2.2.3) — the wrapper prints 0 after the alphabet; also needs putchar.
 TEST_F(CodegenTest, Chapter10_StaticRecursiveCall)
 {
-    EXPECT_EQ("ABCDEFGHIJKLMNOPQRSTUVWXYZ0\n", CompileAndRun(WrapMain(R"(void putch(int ch);
+    EXPECT_EQ("ABCDEFGHIJKLMNOPQRSTUVWXYZ0\n", CompileAndRunBook(R"(void putch(int ch);
 
 int print_alphabet(void) {
     static int count = 0;
@@ -597,5 +597,5 @@ int print_alphabet(void) {
 
 int main(void) {
     print_alphabet();
-})")));
+})"));
 }

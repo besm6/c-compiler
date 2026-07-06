@@ -16,41 +16,41 @@
 // return 100; — multi-digit constant.
 TEST_F(CodegenTest, Chapter1_MultiDigit)
 {
-    EXPECT_EQ("100\n", CompileAndRun(WrapMain("int main(void) { return 100; }")));
+    EXPECT_EQ("100\n", CompileAndRunBook("int main(void) { return 100; }"));
 }
 
 // Tokens split across many newlines.
 TEST_F(CodegenTest, Chapter1_Newlines)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain("int\nmain\n(\nvoid\n)\n{\nreturn\n0\n;\n}")));
+    EXPECT_EQ("0\n", CompileAndRunBook("int\nmain\n(\nvoid\n)\n{\nreturn\n0\n;\n}"));
 }
 
 // No whitespace at all between tokens.
 TEST_F(CodegenTest, Chapter1_NoNewlines)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain("int main(void){return 0;}")));
+    EXPECT_EQ("0\n", CompileAndRunBook("int main(void){return 0;}"));
 }
 
 // return 0;
 TEST_F(CodegenTest, Chapter1_Return0)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain("int main(void) { return 0; }")));
+    EXPECT_EQ("0\n", CompileAndRunBook("int main(void) { return 0; }"));
 }
 
 // return 2;
 TEST_F(CodegenTest, Chapter1_Return2)
 {
-    EXPECT_EQ("2\n", CompileAndRun(WrapMain("int main(void) { return 2; }")));
+    EXPECT_EQ("2\n", CompileAndRunBook("int main(void) { return 2; }"));
 }
 
 // Extra spaces between tokens.
 TEST_F(CodegenTest, Chapter1_Spaces)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain("   int   main    (  void)  {   return  0 ; }")));
+    EXPECT_EQ("0\n", CompileAndRunBook("   int   main    (  void)  {   return  0 ; }"));
 }
 
 // Tabs between tokens.
 TEST_F(CodegenTest, Chapter1_Tabs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain("int\tmain\t(\tvoid)\t{\treturn\t0\t;\t}")));
+    EXPECT_EQ("0\n", CompileAndRunBook("int\tmain\t(\tvoid)\t{\treturn\t0\t;\t}"));
 }

@@ -2,7 +2,7 @@
 // Chapter 11 — Long integers: valid programs compiled and run on BESM-6.
 // Imported from "Writing a C Compiler" (tests/chapter_11/valid + explicit_casts
 // + implicit_casts + extra_credit + libraries).  Each program defines
-// int main(void); WrapMain prints its return value, and we compare program
+// int main(void); b6sim --status prints its return value, and we compare program
 // output against the value computed by host cc.
 //
 // Key architectural fact.  On BESM-6 a machine word is 48 bits and
@@ -34,7 +34,7 @@
 // main returns the equality result (1).
 TEST_F(CodegenTest, Chapter11_Assign)
 {
-    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("1\n", CompileAndRunBook(R"(int main(void) {
     /* initializing a tests the rewrite rule for
      * movq $large_const, memory_address
      */
@@ -46,13 +46,13 @@ TEST_F(CodegenTest, Chapter11_Assign)
      */
     b = a;
     return (b == 4294967290l);
-})")));
+})"));
 }
 
 // Add/subtract/multiply by constants outside int range but within 2^40.
 TEST_F(CodegenTest, Chapter11_LargeConstants)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(long x = 5l;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(long x = 5l;
 
 int add_large(void) {
     x = x + 4294967290l; // this constant is 2^32 - 6
@@ -80,13 +80,13 @@ int main(void) {
         return 3;
     }
     return 0;
-})")));
+})"));
 }
 
 // A mix of long and int locals; updating one must not clobber another.
 TEST_F(CodegenTest, Chapter11_LongAndIntLocals)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     long a = 8589934592l; // this number is outside the range of int
     int b = -1;
     long c = -8589934592l; // also outside the range of int
@@ -123,13 +123,13 @@ TEST_F(CodegenTest, Chapter11_LongAndIntLocals)
         return 8;
     }
     return 0;
-})")));
+})"));
 }
 
 // Pass longs (within 2^40) as arguments, including on-stack arguments.
 TEST_F(CodegenTest, Chapter11_LongArgs)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int test_sum(long a, long b, int c, int d, int e, int f, int g, int h, long i) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int test_sum(long a, long b, int c, int d, int e, int f, int g, int h, long i) {
     if (a + b < 100l) {
         return 1;
     }
@@ -140,13 +140,13 @@ TEST_F(CodegenTest, Chapter11_LongArgs)
 
 int main(void) {
     return test_sum(34359738368l, 34359738368l, 0, 0, 0, 0, 0, 0, 34359738368l);
-})")));
+})"));
 }
 
 // A multi-operation expression with an intermediate result outside int range.
 TEST_F(CodegenTest, Chapter11_MultiOp)
 {
-    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(int target(long a) {
+    EXPECT_EQ("1\n", CompileAndRunBook(R"(int target(long a) {
     long b = a * 5l - 10l;
     if (b == 21474836440l) {
         return 1;
@@ -156,13 +156,13 @@ TEST_F(CodegenTest, Chapter11_MultiOp)
 
 int main(void) {
     return target(4294967290l);
-})")));
+})"));
 }
 
 // Return a long from a function call; main returns the equality result (1).
 TEST_F(CodegenTest, Chapter11_ReturnLong)
 {
-    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(long add(int a, int b) {
+    EXPECT_EQ("1\n", CompileAndRunBook(R"(long add(int a, int b) {
     return (long) a + (long) b;
 }
 
@@ -172,13 +172,13 @@ int main(void) {
         return 1;
     }
     return 0;
-})")));
+})"));
 }
 
 // Multiply by a large (in-range) immediate amid many int locals.
 TEST_F(CodegenTest, Chapter11_RewriteLargeMultiplyRegression)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int check_12_ints(int start, int a, int b, int c, int d, int e, int f, int g,
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int check_12_ints(int start, int a, int b, int c, int d, int e, int f, int g,
                   int h, int i, int j, int k, int l);
 
 long glob = 5l;
@@ -275,13 +275,13 @@ int check_12_ints(int a, int b, int c, int d, int e, int f, int g, int h, int i,
         return expected;
     }
     return 0;
-})")));
+})"));
 }
 
 // Common type in binary expressions: int promoted to long, not long to int.
 TEST_F(CodegenTest, Chapter11_CommonType)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(long l;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(long l;
 int i;
 
 int addition(void) {
@@ -324,13 +324,13 @@ int main(void) {
         return 4;
     }
     return 0;
-})")));
+})"));
 }
 
 // An l-suffixed constant always has long type; a too-large constant promotes.
 TEST_F(CodegenTest, Chapter11_LongConstants)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     if (2147483647l + 2147483647l < 0l) {
         return 1;
     }
@@ -338,13 +338,13 @@ TEST_F(CodegenTest, Chapter11_LongConstants)
         return 2;
     }
     return 0;
-})")));
+})"));
 }
 
 // Sign-extend int to long: positive, negative, and a constant cast.
 TEST_F(CodegenTest, Chapter11_SignExtend)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(long sign_extend(int i, long expected) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(long sign_extend(int i, long expected) {
     long extended = (long) i;
     return (extended == expected);
 }
@@ -361,13 +361,13 @@ int main(void) {
         return 3;
     }
     return 0;
-})")));
+})"));
 }
 
 // Compound assignment converting an int rval to the long common type.
 TEST_F(CodegenTest, Chapter11_CompoundAssignToLong)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     long l = -34359738368l; // -2^35
     int i = -10;
     l -= i;
@@ -375,13 +375,13 @@ TEST_F(CodegenTest, Chapter11_CompoundAssignToLong)
         return 1;
     }
     return 0;
-})")));
+})"));
 }
 
 // switch on a long: case constants converted to long; 2^33 case is in range.
 TEST_F(CodegenTest, Chapter11_SwitchLong)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int switch_on_long(long l) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int switch_on_long(long l) {
     switch (l) {
         case 0: return 0;
         case 100: return 1;
@@ -398,14 +398,14 @@ int main(void) {
     if (switch_on_long(100) != 1)
         return 2;
     return 0;
-})")));
+})"));
 }
 
 // libraries: read/write long arguments across "translation units"
 // (concatenated client + lib, client first so its prototype precedes main).
 TEST_F(CodegenTest, Chapter11_LongArgsLibrary)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int test_sum(int a, int b, int c, long d, int e, long f, int g, int h, long i);
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int test_sum(int a, int b, int c, long d, int e, long f, int g, int h, long i);
 
 int main(void) {
     return test_sum(0, 0, 0, 34359738368l, 0, 34359738368l, 0, 0, 34359738368l);
@@ -418,13 +418,13 @@ int test_sum(int a, int b, int c, long d, int e, long f, int g, int h, long i) {
     if (i < 100l)
         return 2;
     return 0;
-})")));
+})"));
 }
 
 // libraries: a function taking longs and an int, called across files.
 TEST_F(CodegenTest, Chapter11_MaintainStackAlignment)
 {
-    EXPECT_EQ("12\n", CompileAndRun(WrapMain(R"(long add_variables(long x, long y, int z);
+    EXPECT_EQ("12\n", CompileAndRunBook(R"(long add_variables(long x, long y, int z);
 
 int main(void) {
     long x = 3;
@@ -435,13 +435,13 @@ int main(void) {
 
 long add_variables(long x, long y, int z){
     return x + y + z;
-})")));
+})"));
 }
 
 // libraries: return a long from a function defined in another file.
 TEST_F(CodegenTest, Chapter11_ReturnLongLibrary)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(long add(int a, int b);
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(long add(int a, int b);
 
 int main(void) {
     long a = add(2147483645, 2147483645);
@@ -453,13 +453,13 @@ int main(void) {
 
 long add(int a, int b) {
     return (long) a + (long) b;
-})")));
+})"));
 }
 
 // complement() uses 2^40-2, the largest even value in the 41-bit long range.
 TEST_F(CodegenTest, Chapter11_ArithmeticOps)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(long a;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(long a;
 long b;
 
 int addition(void) {
@@ -516,13 +516,13 @@ int main(void) {
         return 6;
     }
     return 0;
-})")));
+})"));
 }
 
 // Uses 2^39 as the large threshold; in range on BESM-6.
 TEST_F(CodegenTest, Chapter11_Comparisons)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(long l;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(long l;
 long l2;
 
 int compare_constants(void) {
@@ -571,13 +571,13 @@ int main(void) {
         return 7;
     }
     return 0;
-})")));
+})"));
 }
 
 // Uses 2^39 as a large nonzero long; in range on BESM-6.
 TEST_F(CodegenTest, Chapter11_Logical)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int not(long l) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int not(long l) {
     return !l;
 }
 
@@ -618,22 +618,22 @@ int main(void) {
         return 6;
     }
     return 0;
-})")));
+})"));
 }
 
 // Uses 2^40-1 (INT_MAX), the largest value in the 41-bit long range.
 TEST_F(CodegenTest, Chapter11_Simple)
 {
-    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("1\n", CompileAndRunBook(R"(int main(void) {
     long l = 1099511627775l;
     return (l - 2l == 1099511627773l);
-})")));
+})"));
 }
 
 // Assigns a large in-range long (~1.1e12, just under 2^40).
 TEST_F(CodegenTest, Chapter11_StaticLong)
 {
-    EXPECT_EQ("1\n", CompileAndRun(WrapMain(R"(static long foo = 4294967290l;
+    EXPECT_EQ("1\n", CompileAndRunBook(R"(static long foo = 4294967290l;
 
 int main(void)
 {
@@ -644,13 +644,13 @@ int main(void)
             return 1;
     }
     return 0;
-})")));
+})"));
 }
 
 // for-loop init 2^39 (in range); halving down to 1 runs 40 iterations.
 TEST_F(CodegenTest, Chapter11_TypeSpecifiers)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(static int long a;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(static int long a;
 int static long a;
 long static a;
 
@@ -685,13 +685,13 @@ int main(void) {
         return 5;
     }
     return 0;
-})")));
+})"));
 }
 
 // (40 << 30) == 4.3e10, in the 41-bit long range.
 TEST_F(CodegenTest, Chapter11_Bitshift)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     long l = 137438953472l; // 2^37
     int shiftcount = 2;
 
@@ -727,13 +727,13 @@ TEST_F(CodegenTest, Chapter11_Bitshift)
         return 8;
     }
     return 0;
-})")));
+})"));
 }
 
 // Operands reduced to 40-bit masks so they stay in the 41-bit long range.
 TEST_F(CodegenTest, Chapter11_BitwiseLongOp)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     long l1 = 1095233372415l;  // 0xff_00ff_00ff
     long l2 = -4294967296;  // -2^32
 
@@ -771,13 +771,13 @@ TEST_F(CodegenTest, Chapter11_BitwiseLongOp)
         return 10;
     }
     return 0;
-})")));
+})"));
 }
 
 // l <<= 23 == 1.04e11, in the 41-bit long range.
 TEST_F(CodegenTest, Chapter11_CompoundBitshift)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     int x = 100;
     x <<= 22l;
     if (x != 419430400) {
@@ -798,13 +798,13 @@ TEST_F(CodegenTest, Chapter11_CompoundBitshift)
         return 5;
     }
     return 0;
-})")));
+})"));
 }
 
 // Operands reduced to 40-bit masks so they stay in the 41-bit long range.
 TEST_F(CodegenTest, Chapter11_CompoundBitwise)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     long l1 = 1095233372415l;  // 0xff_00ff_00ff
     long l2 = -4294967296;  // -2^32
 
@@ -834,13 +834,13 @@ TEST_F(CodegenTest, Chapter11_CompoundBitwise)
         return 6;
     }
     return 0;
-})")));
+})"));
 }
 
 // Uses -(2^40-2), a large negative value in the 41-bit long range.
 TEST_F(CodegenTest, Chapter11_IncrementLong)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int main(void) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int main(void) {
     long x = -1099511627774l;
     if (x++ != -1099511627774l) {
         return 1;
@@ -855,7 +855,7 @@ TEST_F(CodegenTest, Chapter11_IncrementLong)
         return 4;
     }
     return 0;
-})")));
+})"));
 }
 
 // --- Adapted: int and long are both 41-bit on BESM-6, so int<->long --------
@@ -865,7 +865,7 @@ TEST_F(CodegenTest, Chapter11_IncrementLong)
 // On x86 (int)(2^32+2) == 2; on BESM-6 it is unchanged (no truncation).
 TEST_F(CodegenTest, Chapter11_ConvertByAssignment)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int return_truncated_long(long l) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int return_truncated_long(long l) {
     return l;
 }
 
@@ -895,14 +895,14 @@ int main(void) {
         return 4;
     }
     return 0;
-})")));
+})"));
 }
 
 // On x86 the long arguments truncate to int at 32 bits; on BESM-6 int and
 // long are both 41-bit, so they pass through unchanged.
 TEST_F(CodegenTest, Chapter11_ConvertFunctionArguments)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int foo(long a, int b, int c, int d, long e, int f, long g, int h) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int foo(long a, int b, int c, int d, long e, int f, long g, int h) {
     if (a != -1l)
         return 1;
     if (b != 4294967298l)
@@ -932,14 +932,14 @@ int main(void) {
     int g = -10;
     long h = 549755813888;
     return foo(a, b, c, d, e, f, g, h);
-})")));
+})"));
 }
 
 // On x86 the static int initializer 2^33 truncates to 0; on BESM-6 it fits a
 // 41-bit int unchanged.
 TEST_F(CodegenTest, Chapter11_ConvertStaticInitializer)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int i = 8589934592l; // 2^33, fits 41-bit int
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int i = 8589934592l; // 2^33, fits 41-bit int
 long j = 123456;
 
 int main(void) {
@@ -950,13 +950,13 @@ int main(void) {
         return 2;
     }
     return 0;
-})")));
+})"));
 }
 
 // On x86 (int)(2^34+5) == 5; on BESM-6 a 41-bit int holds 2^34+5 unchanged.
 TEST_F(CodegenTest, Chapter11_Truncate)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int truncate(long l, int expected) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int truncate(long l, int expected) {
     int result = (int) l;
     return (result == expected);
 }
@@ -981,7 +981,7 @@ int main(void)
     if (i != 17179869189l)
         return 5;
     return 0;
-})")));
+})"));
 }
 
 // Compound assignment to int values, including c *= 10000 with c = -5000000
@@ -992,7 +992,7 @@ int main(void)
 // unit test optimize/const_fold_tests.cpp.)
 TEST_F(CodegenTest, Chapter11_CompoundAssignToInt)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int test(int i, int b, int c) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int test(int i, int b, int c) {
     i += 2147483648l;
     if (i != 2147483628) {
         return 1;
@@ -1019,14 +1019,14 @@ TEST_F(CodegenTest, Chapter11_CompoundAssignToInt)
 
 int main(void) {
     return test(-20, 2147483647, -5000000);
-})")));
+})"));
 }
 
 // On x86 the case labels 2^33 / ~3.4e10 truncate to 0 / -1; on BESM-6 they are
 // distinct in-range 41-bit ints, so each case is reached by its own value.
 TEST_F(CodegenTest, Chapter11_SwitchInt)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(int switch_on_int(int i) {
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(int switch_on_int(int i) {
     switch(i) {
         case 5:
             return 0;
@@ -1049,14 +1049,14 @@ int main(void) {
     if (switch_on_int(17179869184) != 3)
         return 4;
     return 0;
-})")));
+})"));
 }
 
 // On x86 (int) of 2^33 is 0 by truncation; on BESM-6 a 41-bit int holds it
 // unchanged, so return_l_as_int returns the full value.
 TEST_F(CodegenTest, Chapter11_LongGlobalVar)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"(extern long int l;
+    EXPECT_EQ("0\n", CompileAndRunBook(R"(extern long int l;
 long return_l(void);
 int return_l_as_int(void);
 
@@ -1081,5 +1081,5 @@ long return_l(void) {
 
 int return_l_as_int(void) {
     return l;
-})")));
+})"));
 }

@@ -379,12 +379,84 @@ protected:
         return ReadFile(out_path);
     }
 
+    // Run a "Writing a C Compiler" book program through the Unix path.  Like
+    // CompileAndRunUnix, but runs b6sim with --status so the simulator prints
+    // main()'s return value (a 41-bit signed integer, "%d\n") after the program's
+    // own stdout — reproducing what the book's return-value tests expect without a
+    // source wrapper.  The program's entry stays named `main`, so the compiler's
+    // C11 §5.1.2.2.3 implicit `return 0` for a fall-through main still applies.
+    // Returns "ERROR" on any tool failure.
+    std::string CompileAndRunBook(const std::string &src)
+    {
+        std::string asm_text = CompileToUnix(src.c_str());
+
+        const char *test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        std::string base      = std::string(TEST_DIR "/") + test_name;
+        std::string s_path    = base + ".s";
+        std::string o_path    = base + ".o";
+        std::string exe_path  = base + ".b6";
+        std::string out_path  = base + ".out";
+        std::string as_log    = base + ".aslog";
+        std::string ld_log    = base + ".ldlog";
+
+        // Held across the .s write, assemble, link, and run; released by RAII on every
+        // return below.  A failure to acquire means another besm-tests process is running
+        // this same test concurrently and would clobber these shared scratch files.
+        FlockGuard lock(s_path);
+        if (!lock.locked()) {
+            ADD_FAILURE() << "Concurrent besm-tests run detected for this test; do not "
+                             "launch two besm-tests processes at once ("
+                          << s_path << ")";
+            return "ERROR";
+        }
+
+        {
+            std::ofstream s(s_path);
+            if (!s) {
+                ADD_FAILURE() << "Cannot write " << s_path;
+                return "ERROR";
+            }
+            s << asm_text;
+        }
+
+        int as_rc = RunTool({ "b6as", "-o", o_path, s_path }, as_log);
+        EXPECT_EQ(0, as_rc) << "b6as failed on " << s_path << ":\n" << ReadFile(as_log);
+        if (as_rc != 0)
+            return "ERROR";
+
+        // crt0.o first: b6ld takes the entry point from the first object's first text
+        // word, so the C startup object must lead, ahead of the program object and
+        // libc.a.  All are staged in the working directory (build/backend/besm6), which
+        // besm-tests chdir()s into at startup, so plain relative names suffice.
+        int ld_rc = RunTool({ "b6ld", "-o", exe_path, "crt0.o", o_path, "libc.a" }, ld_log);
+        EXPECT_EQ(0, ld_rc) << "b6ld failed linking " << o_path << ":\n" << ReadFile(ld_log);
+        if (ld_rc != 0)
+            return "ERROR";
+
+        // Run under the simulator with --status so it appends main()'s return value
+        // ("%d\n") to the program's own stdout, captured to out_path.  The executable
+        // is passed first (RunExternalProgram probes input_filenames[0] for
+        // readability); b6sim accepts the flag after the program file.  b6sim exits
+        // with the guest's return value, so ignore_exit_status must be set.
+        try {
+            RunExternalProgram("b6sim", { exe_path, "--status" }, out_path,
+                               /*ignore_exit_status=*/true);
+        } catch (...) {
+            return "ERROR";
+        }
+        return ReadFile(out_path);
+    }
+
     // Fork a child, exec prog_path with input_filenames as arguments,
     // and redirect its stdout to output_filename.
-    // Throws std::runtime_error on any failure.
+    // Throws std::runtime_error on any failure.  When ignore_exit_status is true,
+    // a non-zero child exit is NOT treated as failure — needed for b6sim, which
+    // exits with the guest program's return value (0-255), so any book program
+    // that returns non-zero would otherwise look like a tool error.
     static void RunExternalProgram(const std::string &prog_path,
                                    const std::vector<std::string> &input_filenames,
-                                   const std::string &output_filename)
+                                   const std::string &output_filename,
+                                   bool ignore_exit_status = false)
     {
         enum {
             STATUS_OK              = EXIT_SUCCESS,
@@ -418,6 +490,11 @@ protected:
         int wait_status;
         if (waitpid(pid, &wait_status, 0) < 0)
             throw std::runtime_error("Lost child process #" + std::to_string(pid));
+
+        // b6sim's exit status carries the guest's return value, not a tool result;
+        // the caller only wants the captured stdout in that case.
+        if (ignore_exit_status)
+            return;
 
         int exit_code = WEXITSTATUS(wait_status);
         switch (exit_code) {
@@ -548,3 +625,4 @@ inline std::string WrapMain(const std::string &program)
     return "int printf(const char *format, ...);\n" + program +
            "\nvoid program(void) { printf(\"%d\\n\", main()); }\n";
 }
+

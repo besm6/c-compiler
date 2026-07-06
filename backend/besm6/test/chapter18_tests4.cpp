@@ -4,7 +4,7 @@
 // member reads here are same-type, so no punning-value changes are needed.
 TEST_F(CodegenTest, Chapter18_CopyNonScalarMembers)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 union simple {
     int i;
     long l;
@@ -119,7 +119,7 @@ int main(void) {
 
     return 0; // success
 }
-)PROG")));
+)PROG"));
 }
 
 // BESM-6: helper names shortened to stay distinct within 8 chars; the pointed-to union
@@ -128,7 +128,7 @@ int main(void) {
 // automatic (ASCII) char data matches the KOI-7-repacked string constants.
 TEST_F(CodegenTest, Chapter18_CopyThruPointer)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 union simple {
     int i;
     long l;
@@ -261,7 +261,7 @@ int main(void) {
 
     return 0; // success
 }
-)PROG")));
+)PROG"));
 }
 
 // BESM-6: the x86 SysV register-classification distinction (XMM vs general-purpose vs memory)
@@ -274,7 +274,7 @@ int main(void) {
 // constants. No heap: every value is an initializer or stack object.
 TEST_F(CodegenTest, Chapter18_ClassifyUnions)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 int strcmp(char* s1, char* s2);
 
 // union of doubles: an array member overlays a scalar member
@@ -432,7 +432,7 @@ int t_sarr(union has_sa u) {
 int t_carr(union char_arr u) {
     return strcmp(u.arr, "CHARS") == 0;
 }
-)PROG")));
+)PROG"));
 }
 
 // BESM-6: the x86 SysV register-class argument-passing rules (one/two XMM regs, one/two
@@ -447,7 +447,7 @@ int t_carr(union char_arr u) {
 // is an initializer or stack object.
 TEST_F(CodegenTest, Chapter18_ParamPassing)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 int strcmp(char* s1, char* s2);
 
 // two-word union: an array member overlays a scalar member
@@ -577,7 +577,7 @@ int p_strct(int i1, int i2, int i3, int i4, int i5, union char_arr ca) {
     }
     return 1; // success
 }
-)PROG")));
+)PROG"));
 }
 
 // BESM-6: validate helpers renamed to stay distinct within 8 chars; char members read
@@ -585,7 +585,7 @@ int p_strct(int i1, int i2, int i3, int i4, int i5, union char_arr ca) {
 // strings and the struct char member use UPPERCASE so source/KOI-7 encodings agree.
 TEST_F(CodegenTest, Chapter18_StaticUnionInits)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 int strcmp(char* s1, char* s2);
 
 // Test case 1 - simple union w/ scalar elements (and padding)
@@ -757,7 +757,7 @@ int vpadarr(void) {
 
     return 1;
 }
-)PROG")));
+)PROG"));
 }
 
 // BESM-6: helper names shortened to stay distinct within 8 chars; the converted-init value
@@ -765,7 +765,7 @@ int vpadarr(void) {
 // 64-bit long is reduced to the 41-bit range, and the strcmp string is UPPERCASE.
 TEST_F(CodegenTest, Chapter18_UnionInits)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 // library functions
 int strcmp(char *s1, char *s2);
 
@@ -880,7 +880,7 @@ int vnestp(union nested* ptr) {
 
     return 1; // success
 }
-)PROG")));
+)PROG"));
 }
 
 // BESM-6: the x86 SysV ABI eightbyte-classification rules that decide which register(s) a
@@ -897,7 +897,7 @@ int vnestp(union nested* ptr) {
 // shortened to stay distinct within Madlen's 8-char limit, and there is no heap.
 TEST_F(CodegenTest, Chapter18_UnionRetvals)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 int strcmp(char* s1, char* s2);
 void exit(int status);
 
@@ -1131,13 +1131,13 @@ struct has_uneven_union r_swu(void) {
     };
     return result;
 }
-)PROG")));
+)PROG"));
 }
 // BESM-6: the accept_params parameter `l` was renamed to `lval` (no identifier
 // shadowing of the file-scope static `l`); block-scope static storage is supported.
 TEST_F(CodegenTest, Chapter18_ScalarMemberAccessDot)
 {
-    EXPECT_EQ("0\n", CompileAndRun(WrapMain(R"PROG(
+    EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test the . operator.
  * Relatively simple tests without nested accesses or members of aggregate
  * types.
@@ -1267,5 +1267,5 @@ int main(void) {
 
     return 0;
 }
-)PROG")));
+)PROG"));
 }
