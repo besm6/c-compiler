@@ -74,11 +74,14 @@ split by Dubna dependency: the **portable** routines (everything above the I/O l
 format engine, allocator, string/mem/math) live in `libc/besm6/*.c` and are shared by every
 BESM-6 assembler backend, while only the three Dubna-monitor **leaves** — `putbyte` (owns the
 KOI7 stdout buffer), `flush` (`b/tout`), `getch` (`moncard_`/`monread_`) — stay in
-`libc/besm6/madlen/*.c` alongside the hand-written Madlen helpers; a sibling target
-(`libc/besm6/unix`, `libc/besm6/bemsh`) reimplements just those three plus the helpers. All
-`.c` are compiled by our own toolchain (`parse → lower → genbesm` → `.madlen`) and assembled
-with the Madlen helpers (`b_*.madlen`, `b_tout`, `exit`, `frexp`, `ldexp`) into `libc.bin` —
-see `libc/besm6/CMakeLists.txt` (`LIBC_C_PORTABLE` / `LIBC_C_DUBNA` / `LIBC_MADLEN`). The
+`libc/besm6/madlen/*.c` alongside the hand-written Madlen helpers; the sibling
+`libc/besm6/unix` target reimplements those three over Unix v7 syscalls (`write.s`/`read.s`
+extracode leaves, plus a `crt0.s` startup that calls `int main`) and archives everything with
+`b6ar`/`b6ranlib` into a `b6as` `libc.a` (+ standalone `crt0.o`) for the `b6as`/`b6ld`/`b6sim`
+path. All `.c` are compiled by our own toolchain (`parse → lower → genbesm` → `.madlen`) and
+assembled with the Madlen helpers (`b_*.madlen`, `b_tout`, `exit`, `frexp`, `ldexp`) into
+`libc.bin` — see `libc/besm6/CMakeLists.txt` (`LIBC_C_PORTABLE` / `LIBC_C_DUBNA` /
+`LIBC_MADLEN`) and `libc/besm6/unix/CMakeLists.txt` for the Unix `libc.a`/`crt0.o`. The
 original B sources have been removed; the runtime is now C plus Madlen only. Runtime-helper
 names use `$` as their special separator (e.g. `b$tout`, `b$ret`, `b$save`) — this is the
 **canonical IR form** carried unchanged from the scanner through TAC into the `Besm_Module`;
@@ -130,6 +133,21 @@ mode-bit, exponent, or addressing error in hand-written Madlen. To build a focus
 hand: assemble a `.mad` with `genbesm`, wrap it with the `*name/*disc/*file:libc,40/*assem
 … *library:40/*execute/*end file` boilerplate (see `codegen_test.h` `CompileAndRun`), and
 run `dubna [-d c] job.dub`.
+
+**Running a program on the Unix (`b6as`) path.** Alongside the Madlen/`dubna` `CompileAndRun`,
+`codegen_test.h` provides `CompileAndRunUnix` — the Unix-dialect run harness (`besm-tests`
+`CodegenTest.UnixRun*`, `test/unix_run_tests.cpp`). It compiles in-process via `CompileToUnix`
+(`genbesm --unix`), assembles with `b6as`, links with `b6ld` — **`crt0.o` first**, then the
+program object, then `libc.a` (`b6ld` takes the entry point from the first object's first text
+word) — and runs the linked `b.out` under the `b6sim` simulator via `RunExternalProgram`,
+returning the captured stdout. `b6sim` traps the Unix v7 syscalls onto the host, so a program's
+`write(1,…)` lands straight on stdout — no `.lst`/`≠` scraping (unlike the `dubna` path). The
+Unix `crt0` calls `int main(void)` (not the Madlen libc's `void program()`), so these test
+programs define `main()`. All external tools (`b6as`/`b6ld`/`b6sim`, in the sibling `v7besm`
+tree) resolve by bare name on `PATH`; `crt0.o` and `libc.a` are staged next to `besm-tests` in
+`build/backend/besm6/`. Tests using it guard with `SKIP_IF_NO_UNIX_RUN_TOOLS()` so `make run`
+stays green where the toolchain is absent. To reproduce by hand:
+`b6sim build/backend/besm6/<TestName>.b6` (add `-d irm` / `--trace=FILE` for tracing).
 
 **Target standard headers (`libc/besm6/include/`).** C11 standard-library headers for
 programs compiled for the BESM-6 (the freestanding subset is complete; the hosted subset
@@ -242,7 +260,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `parser/test/simple_tests.cpp`, `statement_tests.cpp`, … (9 files, including `negative_tests.cpp`) → `parser-tests`
 - `tac/test/yaml_tests.cpp`, `graphviz_tests.cpp`, `binary_tests.cpp` → `tac-tests`
 - `semantic/test/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` → `semantic-tests`
-- `backend/besm6/test/codegen_tests.cpp`, `arith_tests.cpp`, `copy_tests.cpp`, `flow_tests.cpp`, `run_tests.cpp`, `unary_tests.cpp`, `convert_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp`, `char_tests.cpp`, `peephole_tests.cpp`, `printf_tests.cpp`, `funcptr_tests.cpp`, `stdarg_tests.cpp`, `mem_tests.cpp` → `besm-tests`
+- `backend/besm6/test/codegen_tests.cpp`, `arith_tests.cpp`, `copy_tests.cpp`, `flow_tests.cpp`, `run_tests.cpp`, `unary_tests.cpp`, `convert_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp`, `char_tests.cpp`, `peephole_tests.cpp`, `printf_tests.cpp`, `funcptr_tests.cpp`, `stdarg_tests.cpp`, `mem_tests.cpp`, and the Unix (`b6as`) dialect tests `unix_tests.cpp` (golden `.s`), `unix_link_tests.cpp` (`CompileAndAssembleUnix`: `b6as`+`b6ld`), `unix_run_tests.cpp` (`CompileAndRunUnix`: `b6as`+`b6ld`+`b6sim`) → `besm-tests`
 - `translator/test/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`
 - `optimize/test/const_fold_tests.cpp`, `jump_unreachable_tests.cpp`, `copy_prop_tests.cpp`, `dead_store_tests.cpp`, `type_conv_tests.cpp`, `pipeline_tests.cpp` → `optimizer-tests`
 - `libutil/test/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-tests`

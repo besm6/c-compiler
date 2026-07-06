@@ -18,7 +18,7 @@ A C11 compiler with a shared frontend and pluggable machine backends. Current ba
 | **`parse`** — C source → AST | Complete (binary `.ast`, or `--yaml` / `--dot` for inspection) |
 | **`lower`** — AST → semantic analysis + TAC | Complete (typecheck, full C11 TAC lowering, four-pass optimizer) |
 | **TAC** (`tac/`) | Complete (binary export/import, YAML listing, Graphviz DOT) |
-| **BESM-6 backend** (`genbesm`) | Complete (Madlen / Dubna codegen with peephole optimization) |
+| **BESM-6 backend** (`genbesm`) | Complete (peephole-optimized codegen for two assembler dialects — Unix `b6as` (default) and Madlen / Dubna; Bemsh planned) |
 | **x86_64 backend** (`genx86`) | Planned — [backend/x86/TODO.md](backend/x86/TODO.md) |
 | **AArch64 / RISC-V / ARM32 backends** | Planned |
 | **Preprocessor, assembler, linker** | Not in this repo |
@@ -38,7 +38,7 @@ A compiler is usually described as a pipeline. You can think of it like an assem
 2. **Parser** builds a *syntax tree* (AST) that matches the grammar of the language.
 3. **Semantic analysis** checks meaning: types, scopes, and whether names refer to the right declarations.
 4. **Intermediate code** (here, *three-address code*, TAC) is a machine-neutral form that is easier to optimize and translate than raw C syntax.
-5. **Backend** translates TAC into target-specific assembly. Current target: **BESM-6** (`genbesm`, Madlen / Dubna). Planned: x86_64 (`genx86`, System V AMD64 ABI), AArch64, RISC-V, ARM32.
+5. **Backend** translates TAC into target-specific assembly. Current target: **BESM-6** (`genbesm`), emitting either Unix `b6as` assembly (default, run under the `b6sim` simulator) or Madlen for the Dubna monitor. Planned: x86_64 (`genx86`, System V AMD64 ABI), AArch64, RISC-V, ARM32.
 
 Stages 1–3 are fully in place. Stage 4 is **complete**: the entire C11 is lowered to TAC, then the TAC optimizer runs four passes (constant folding, unreachable code elimination, copy propagation, dead store elimination). TAC can be emitted as **binary** or re-imported, listed as **YAML** (`--yaml`), or rendered as **DOT** (`--dot`). Stage 5 is **complete** for BESM-6 and **planned** for x86_64.
 

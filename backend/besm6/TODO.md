@@ -15,42 +15,9 @@ Work plan for the BESM-6 backend, in no partucular order.
 
 The backend targets three assembler dialects from one dialect-agnostic `Besm_Module` IR:
 **Madlen** (existing, runs on `dubna`), the **Unix `b6as`** assembler (AT&T syntax, `b.out`
-objects — needed first), and **Bemsh** (Cyrillic autocode, runs on `dubna` — later). See
+objects), and **Bemsh** (Cyrillic autocode, runs on `dubna`). See
 [docs/Madlen.md](../../docs/Madlen.md), [docs/Besm6_Unix_Assembler.md](../../docs/Besm6_Unix_Assembler.md),
 and [docs/Bemsh.md](../../docs/Bemsh.md).
-
-**Foundation (done).** `Besm_Dialect { BESM_MADLEN, BESM_UNIX, BESM_BEMSH }` and the
-`besm_emit_module(out, module, dialect)` dispatcher are in place; `genbesm` accepts
-`--madlen` / `--unix` / `--bemsh` (extensions `.mad` / `.s` / `.bem`) and threads the choice
-through `codegen_program` / `codegen_static_variable`. Scalar constant operands are carried
-structurally on `Besm_Instr.konst` (formatted per-dialect via `besm_const_word`, not baked into
-`name`), with the peephole operand tests updated to `has_operand_symbol`. `emit_madlen.c` is
-refactored onto the shared `besm_latin_mnem[]` table + `besm_operand_shape()` classifier
-(`besm_mnem.c`), so the Unix emitter reuses both. The Unix emitter (`emit_unix.c`, task U1) is
-now implemented, so `--unix` produces `b6as` assembly; `--bemsh` still fails with a "not yet
-implemented" message. **Unix is now the default dialect** (task U4); Madlen stays reachable
-via `--madlen`, which the libc `libc.bin` build and the behavioral run tests request
-explicitly so they stay green.
-
-The tasks below are ordered — Unix (`U*`) first, Bemsh (`B*`) later. Each lands independently
-with green tests.
-
-**The Unix simulator now exists.** `b6sim` (`~/.local/bin/b6sim`, built from
-`v7besm/cmd/sim`) runs a linked `b.out` executable and traps the Unix v7 syscalls (extracode
-`$77 N`) onto the host, so a program's `write(1,…)` lands directly on b6sim's stdout — no
-listing to scrape. The Unix path is now end-to-end runnable — `puts`/`getch`-class programs
-and the full `printf`/`sprintf` family (all conversion specifiers included) already produce
-correct output under b6sim (U5 wired the libc syscall leaves + crt0). The Unix path is now
-verified end-to-end (task U6 done): `CompileAndRunUnix` in `test/codegen_test.h` mirrors
-`CompileAndRun` for the Unix dialect — `genbesm --unix` (in process) → `b6as` → `b6ld` linking
-`crt0.o` first, then the program object and `libc.a` → `b6sim`, capturing the simulator's
-stdout directly (no `.lst` scraping) — and `test/unix_run_tests.cpp` re-runs a subset of the
-Madlen behavioral tests (`puts`/`putchar` and the `printf` conversion specifiers) under b6sim,
-asserting output identical to the Madlen path. U1–U3 still validate by two proxies (both in
-place) — golden-file the `.s` (`test/unix_tests.cpp`), and assemble+link cleanly via
-`b6as`+`b6ld`+`libc.a` (`CompileAndAssembleUnix` in `test/codegen_test.h`, exercised by
-`test/unix_link_tests.cpp`) — and observed program behavior stays covered by Madlen-on-`dubna`
-(why `--madlen` stays alive) and later Bemsh-on-`dubna`. Only the Bemsh `B*` tasks remain.
 
 | #  | Task | Description |
 |----|------|-------------|
