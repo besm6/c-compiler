@@ -15,8 +15,18 @@
 set(UNIX_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(PORTABLE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
-# The three Dubna monitor leaves, reimplemented for the Unix target (stubs for now).
+# The three Dubna monitor leaves, reimplemented for the Unix target: portable
+# buffer management in C, backed by the SYS_read/SYS_write leaves below.
 set(UNIX_LEAVES putbyte flush getch)
+
+# Hand-written Unix v7 syscall leaves ($77 trap): the read/write primitives the
+# C leaves call.  exit ($77 1) rides in on LIBC_MADLEN below (unix/exit.s).
+set(UNIX_ASM_LEAVES write read)
+
+# The inherited LIBC_MADLEN helpers, minus the Dubna-only b/tout ($71 print-line
+# extracode): the Unix path emits stdout through SYS_write, so b_tout is unused.
+set(UNIX_MADLEN_HELPERS ${LIBC_MADLEN})
+list(REMOVE_ITEM UNIX_MADLEN_HELPERS b_tout)
 
 # Shipped standard headers the portable C sources #include; an edit to any of them rebuilds.
 file(GLOB BESM6_HEADERS ${PORTABLE_DIR}/include/*.h)
@@ -61,7 +71,10 @@ endforeach()
 foreach(name ${UNIX_LEAVES})
     besm6_unix_compile_c(${name} ${UNIX_DIR})
 endforeach()
-foreach(name ${LIBC_MADLEN})
+foreach(name ${UNIX_ASM_LEAVES})
+    besm6_unix_assemble(${name})
+endforeach()
+foreach(name ${UNIX_MADLEN_HELPERS})
     besm6_unix_assemble(${name})
 endforeach()
 
@@ -80,7 +93,25 @@ add_custom_command(
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
     COMMENT "Archiving BESM-6 Unix C runtime library (libc.a)")
 
-# Built by the default `make`/`make all` (ALL) alongside the Madlen libc.bin.
-add_custom_target(besm-libc-unix ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libc.a)
+# crt0.o — the C startup object.  Kept OUT of libc.a: b6ld takes the entry point
+# from the first linked object's first text word, so crt0.o must be linked ahead
+# of libc.a as a standalone object (the U6 run harness does this).  Staged next
+# to besm-tests (mirroring libc.a) so that harness — which chdir()s into
+# build/backend/besm6 — can pick it up by relative path.
+add_custom_command(
+    OUTPUT  ${CMAKE_BINARY_DIR}/backend/besm6/crt0.o
+    COMMAND b6as -o ${CMAKE_CURRENT_BINARY_DIR}/crt0.o ${UNIX_DIR}/crt0.s
+    COMMAND ${CMAKE_COMMAND} -E copy
+            ${CMAKE_CURRENT_BINARY_DIR}/crt0.o
+            ${CMAKE_BINARY_DIR}/backend/besm6/crt0.o
+    DEPENDS ${UNIX_DIR}/crt0.s
+    COMMENT "Assembling crt0.s -> crt0.o (Unix)")
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libc.a DESTINATION share/besm6/lib)
+# Built by the default `make`/`make all` (ALL) alongside the Madlen libc.bin.
+add_custom_target(besm-libc-unix ALL
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libc.a
+            ${CMAKE_BINARY_DIR}/backend/besm6/crt0.o)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libc.a
+              ${CMAKE_CURRENT_BINARY_DIR}/crt0.o
+        DESTINATION share/besm6/lib)
