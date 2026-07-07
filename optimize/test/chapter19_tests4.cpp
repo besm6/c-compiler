@@ -3415,7 +3415,7 @@ int target(void) {
 )SRC"),
               R"OPT(- instruction:
   kind: label
-  name: lbl
+  name: %L0
 - instruction:
   kind: return
   src:

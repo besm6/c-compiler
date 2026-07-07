@@ -11,6 +11,7 @@ extern "C" {
 #include "ast.h"
 #include "optimize.h"
 #include "semantic.h"
+#include "string_map.h"
 #include "symtab.h"
 #include "tac.h"
 
@@ -28,6 +29,7 @@ typedef struct {
                                     // purged before lowering, so value decay needs this)
     const char *sret_name;          // hidden return-pointer param name when the current
                                     // function returns a multi-word struct by value; else NULL
+    StringMap user_labels;          // source label name -> unique %L<n> TAC name, per function
 } TacCtx;
 
 //
@@ -74,6 +76,7 @@ Tac_Val *new_var_val(TacCtx *ctx);
 Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to);
 void emit_jump(TacCtx *ctx, const char *target);
 void emit_label(TacCtx *ctx, const char *name);
+const char *user_label_name(TacCtx *ctx, const char *src);
 
 //
 // Struct-by-value support (translate.c)

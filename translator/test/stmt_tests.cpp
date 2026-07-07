@@ -31,10 +31,10 @@ TEST_F(TranslateTest, GotoEmitsJump)
   body:
     - instruction:
       kind: jump
-      target: end
+      target: %L0
     - instruction:
       kind: label
-      name: end
+      name: %L0
     - instruction:
       kind: return
       src:
@@ -69,7 +69,7 @@ TEST_F(TranslateTest, LabeledStatementEmitsLabel)
         name: %x
     - instruction:
       kind: label
-      name: loop
+      name: %L0
     - instruction:
       kind: copy
       src:

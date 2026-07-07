@@ -445,6 +445,26 @@ void emit_label(TacCtx *ctx, const char *name)
     tac_append(ctx, l);
 }
 
+static void free_label_name(intptr_t v)
+{
+    xfree((void *)v);
+}
+
+// Map a user C label to a unique per-function TAC name (%L<n>) so identically
+// named labels in different functions never collide once the Unix backend drops
+// Madlen's per-function module framing (b6as emits into one flat namespace).
+// Reuses the unit-wide counter that %L loop labels use, so the name is unique
+// across the whole translation unit; the Unix sanitizer renders it as .L<n>.
+const char *user_label_name(TacCtx *ctx, const char *src)
+{
+    intptr_t v;
+    if (map_get(&ctx->user_labels, src, &v))
+        return (const char *)v;
+    char *uniq = xstruniq("%L", &ctx->temp_id);
+    map_insert(&ctx->user_labels, src, (intptr_t)uniq, 0);
+    return uniq;
+}
+
 //
 // Struct-by-value support
 //
@@ -663,11 +683,13 @@ static Tac_TopLevel *translate_fn(const ExternalDecl *ast, int *label_seq)
         // backend (see translate.h); write the advanced value back afterwards.
         TacCtx ctx = { NULL, NULL, *label_seq, NULL, NULL, NULL, NULL, NULL };
         ctx.sret_name = sret_name;
+        map_init(&ctx.user_labels);
         gen_stmt(&ctx, ast->u.function.body);
         *label_seq            = ctx.temp_id;
         tl->u.function.body   = ctx.head;
         tl->u.function.locals = ctx.locals;
         tac_free_param(ctx.array_locals);
+        map_destroy_free(&ctx.user_labels, free_label_name);
 
         // Attach this function's block-scope statics, captured during typecheck.  The
         // capture list is newest-first; prepend each as we walk it so the result is in

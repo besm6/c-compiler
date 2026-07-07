@@ -271,9 +271,10 @@ TEST_F(CodegenTest, DuplicateEpilogueJumpRemoved)
 }
 
 // Rule #31(c) — invert a conditional that only skips an unconditional jump, with a named
-// target.  `if (a) goto done;` lowers to `uza *0 / uj done / *0:` (skip the goto when the
-// guard is false).  The rule folds it to a single `,u1a, done` — take the jump when the
-// guard is nonzero — and leaves the now-unreferenced skip label `*0:` in place.
+// target.  `if (a) goto done;` lowers to `uza *0 / uj *L2 / *0:` (skip the goto when the
+// guard is false; the user label `done` is renamed to the unit-unique `%L2`, emitted `*L2`
+// in Madlen).  The rule folds it to a single `,u1a, *L2` — take the jump when the guard is
+// nonzero — and leaves the now-unreferenced skip label `*0:` in place.
 TEST_F(CodegenTest, ConditionalOverJumpInverted)
 {
     std::string output =
@@ -284,11 +285,11 @@ TEST_F(CodegenTest, ConditionalOverJumpInverted)
              ,its, 13
              ,call, b/save
            6 ,xta,
-             ,u1a, done
+             ,u1a, *L2
        *0:   ,bss,
              ,xta, =5
            6 ,atx,
-     done:   ,bss,
+      *L2:   ,bss,
            6 ,xta,
              ,uj, b/ret
              ,end,

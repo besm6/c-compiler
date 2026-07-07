@@ -429,10 +429,10 @@ void gen_stmt(TacCtx *ctx, Stmt *stmt)
         break;
     }
     case STMT_GOTO:
-        emit_jump(ctx, stmt->u.goto_label);
+        emit_jump(ctx, user_label_name(ctx, stmt->u.goto_label));
         break;
     case STMT_LABELED:
-        emit_label(ctx, stmt->u.labeled.label);
+        emit_label(ctx, user_label_name(ctx, stmt->u.labeled.label));
         gen_stmt(ctx, stmt->u.labeled.stmt);
         break;
     case STMT_CASE:
