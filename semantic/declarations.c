@@ -404,6 +404,15 @@ static void typecheck_local_var_decl(const Declaration *d)
             Symbol *sym = symtab_get(decl->name);
             xfree(sym->name);
             sym->name = xstrdup(backend);
+            // Carry the backend (possibly $N-suffixed) name on the declarator itself so the
+            // translator's array-decay record (stmt.c) matches the backend name that
+            // references already use; otherwise a suffixed static-local array never decays
+            // to its address.  Done after the symtab_add/symtab_get calls above, which key
+            // on the source name.
+            if (strcmp(decl->name, backend) != 0) {
+                xfree(decl->name);
+                decl->name = xstrdup(backend);
+            }
             // Drop initializer
             free_initializer(decl->init);
             decl->init = NULL;
