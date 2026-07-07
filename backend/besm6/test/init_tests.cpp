@@ -39,15 +39,17 @@ TEST_F(CodegenTest, StaticLocalInitializedValue)
     EXPECT_NE(std::string::npos, m.find("x:   ,log, 4"));
 }
 
-// Same-named statics in two functions stay distinct: each function is its own module,
-// so each carries its own module-local `x:` label (no collision, no renaming needed).
+// Same-named statics in two functions stay distinct: the first keeps the plain `x:` label,
+// a later same-named static gets a `$N` suffix (`x$1` -> Madlen `x/1`).  This uniqueness is
+// what lets the flat Unix (b6as) object — which, unlike Madlen, has no per-function module
+// scoping — avoid a duplicate-symbol collision.
 TEST_F(CodegenTest, StaticLocalSameNameDistinctFunctions)
 {
     std::string m = CompileToMadlen(
         "int foo(void) { static int x = 1; return x; }\n"
         "int bar(void) { static int x = 2; return x; }");
     EXPECT_NE(std::string::npos, m.find("x:   ,log, 1"));
-    EXPECT_NE(std::string::npos, m.find("x:   ,log, 2"));
+    EXPECT_NE(std::string::npos, m.find("x/1:   ,log, 2"));
 }
 
 TEST_F(CodegenTest, VarIntTentative)

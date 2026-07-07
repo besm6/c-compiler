@@ -342,9 +342,9 @@ x:
 })"));
 }
 
-// Same-named static locals in different functions must be distinct (no
-// linkage); our single file-scope namespace also collides them.  Host value 29.
-TEST_F(CodegenTest, DISABLED_Chapter10_MultipleStaticLocal)
+// Same-named static locals in different functions must be distinct (no linkage).  A `$N`
+// suffix on later occurrences keeps them apart in the flat Unix object.  Host value 29.
+TEST_F(CodegenTest, Chapter10_MultipleStaticLocal)
 {
     EXPECT_EQ("29\n", CompileAndRunBook(R"(int foo(void) {
     static int a = 3;

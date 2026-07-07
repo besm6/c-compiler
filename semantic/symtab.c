@@ -147,19 +147,24 @@ void static_locals_set_function(const char *fn)
 
 const char *static_locals_add(const char *source, const Type *type, Tac_StaticInit *init)
 {
-    // Count earlier statics with the same source name in the current function so a
-    // sibling-block repeat (the only intra-module collision possible) gets a unique
-    // `source.N` suffix; the first occurrence keeps the plain name.
+    // Count earlier statics with the same source name anywhere in this translation unit so a
+    // repeat gets a unique backend name.  Both sibling-block repeats (same function) and
+    // same-named statics in *different* functions must stay distinct: the Madlen dialect keeps
+    // them apart by wrapping each function in its own module, but the Unix (b6as) dialect emits
+    // one flat object where all labels share a namespace, so a plain source name would collide.
+    // The first occurrence keeps the plain name; later ones get a `source$N` suffix.  `$` is
+    // the canonical separator both emitters handle (Madlen `$`->`/`, Unix keeps `$`) and cannot
+    // clash with a C-level global (C identifiers have no `$`).
     int count = 0;
     for (const StaticLocalRec *r = static_locals_list; r; r = r->next)
-        if (strcmp(r->func, static_locals_current_func) == 0 && strcmp(r->source, source) == 0)
+        if (strcmp(r->source, source) == 0)
             count++;
 
     char backend[256];
     if (count == 0)
         snprintf(backend, sizeof(backend), "%s", source);
     else
-        snprintf(backend, sizeof(backend), "%s.%d", source, count);
+        snprintf(backend, sizeof(backend), "%s$%d", source, count);
 
     StaticLocalRec *rec = xalloc(sizeof(StaticLocalRec), __func__, __FILE__, __LINE__);
     rec->func           = xstrdup(static_locals_current_func);
