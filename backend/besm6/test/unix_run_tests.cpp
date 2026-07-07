@@ -1,8 +1,9 @@
 //
-// Unix-path run tests: compile → b6as → b6ld (crt0.o first) → b6sim, comparing the
-// captured stdout against the SAME expected strings the Madlen behavioral tests use
-// (run_tests.cpp), so the Unix dialect is verified to produce output identical to the
-// Madlen-on-dubna path.  Task U6.
+// Unix-path run tests: compile → b6as → b6ld (crt0.o first) → b6sim, capturing the
+// program's stdout.  Unlike the Madlen-on-dubna path — whose KOI7 output device folds
+// text to upper case — the Unix (b6as) path is transparent: no KOI7 conversion, so
+// bytes reach the host stdout verbatim and lower-case source text stays lower case.
+// The expected strings therefore mirror the source text as written.  Task U6.
 //
 // Unlike the Madlen libc (whose startup calls `void program()`), the Unix crt0 calls
 // `int main(void)` (see libc/besm6/unix/crt0.s), so these programs define main() and do
@@ -72,7 +73,7 @@ TEST_F(CodegenTest, UnixRunPrintFormatDecimal)
             return 0;
         }
     )");
-    EXPECT_EQ("FOO = 123, BAR = -456\n", result);
+    EXPECT_EQ("foo = 123, bar = -456\n", result);
 }
 
 TEST_F(CodegenTest, UnixRunPrintFormatString)
@@ -85,7 +86,7 @@ TEST_F(CodegenTest, UnixRunPrintFormatString)
             return 0;
         }
     )");
-    EXPECT_EQ("HELLO WORLD\n", result);
+    EXPECT_EQ("hello world\n", result);
 }
 
 TEST_F(CodegenTest, UnixRunPrintFormatChar)
@@ -98,7 +99,7 @@ TEST_F(CodegenTest, UnixRunPrintFormatChar)
             return 0;
         }
     )");
-    EXPECT_EQ("HELLO (-_-)\n", result);
+    EXPECT_EQ("hello (-_-)\n", result);
 }
 
 // Exercise the multiply/divide/remainder runtime helpers end-to-end, printing the

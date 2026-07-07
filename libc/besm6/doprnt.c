@@ -135,6 +135,17 @@ int __doprnt(const char *fmt, va_list ap, char *buf, int size, int to_buf)
     reswitch:
         c = fmt[i];
         ++i;
+        /*
+         * Historically the KOI7 output device folded output (and hence the format
+         * string) to upper case, so only '%D'-style upper-case conversion letters
+         * ever reached the engine.  The Unix (b6as) path preserves the source case,
+         * so '%d' now arrives lower case.  Fold the spec letter to upper case here
+         * so both spellings — the conversion letters and the 'l'/'h' length
+         * modifiers — behave identically.  Flags, width digits and '%' are not
+         * letters and pass through unchanged.
+         */
+        if (c >= 'a' && c <= 'z')
+            c -= 'a' - 'A';
         if (c == '.') {
             dot     = 1;
             padding = ' ';
