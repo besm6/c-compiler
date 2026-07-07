@@ -84,15 +84,18 @@ void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl
                              Besm_Dialect dialect);
 
 // Pack a string static-init into a BESM_DATA_LOG chain; the first word is labeled
-// `label` when non-NULL (defined in static.c).
-Besm_Instr *besm_string_log_items(const Tac_StaticInit *init, const char *label);
+// `label` when non-NULL (defined in static.c).  `dialect` selects text encoding:
+// KOI-7 for Madlen/Bemsh, raw source bytes for Unix (b6as).
+Besm_Instr *besm_string_log_items(const Tac_StaticInit *init, const char *label,
+                                  Besm_Dialect dialect);
 
 // Fold every string constant `module` references into the module as a local label,
 // dropping the constant's external SUBP (defined in static.c).
-void besm_fold_string_constants(Besm_Module *module, const Tac_TopLevel *program);
+void besm_fold_string_constants(Besm_Module *module, const Tac_TopLevel *program,
+                                Besm_Dialect dialect);
 
 // Emit each block-scope static local of function `fn` as a module-local labeled datum,
 // spliced into the function's module just before its `,end,` (defined in static.c).
-void besm_emit_static_locals(Besm_Module *module, const Tac_TopLevel *fn);
+void besm_emit_static_locals(Besm_Module *module, const Tac_TopLevel *fn, Besm_Dialect dialect);
 
 #endif // BESM6_INTERNAL_H

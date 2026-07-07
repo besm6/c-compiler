@@ -12,6 +12,20 @@
 
 static void insert_before_end(Besm_Block *block, Besm_Instr *chain);
 
+// Encode a source string into static data bytes.  Madlen/Bemsh target the Dubna monitor,
+// which stores text in KOI-7; the Unix (b6as) dialect keeps the raw source bytes so a
+// program's write(1,…) reaches the host stdout unchanged.  KOI-7 conversion never expands
+// the byte count, so strlen(src)+1 sizes both cases.  Caller frees the result with xfree.
+static char *encode_static_string(const char *src, Besm_Dialect dialect)
+{
+    char *dst = xalloc(strlen(src) + 1, __func__, __FILE__, __LINE__);
+    if (dialect == BESM_UNIX)
+        strcpy(dst, src);
+    else
+        utf8_to_koi7(src, dst);
+    return dst;
+}
+
 // True for an array whose innermost element is a character type — its bytes are
 // packed 6-per-word (see codegen_sizeof), so its static init list must be packed
 // the same way rather than emitted one word per element.
@@ -28,7 +42,7 @@ static bool is_char_array(const Tac_Type *t)
 // Byte count an init item contributes to a packed character array.  A string's
 // KOI-7 length can be shorter than its nominal (UTF-8) source length, so the byte
 // count is taken from the converted data rather than from the array's type size.
-static size_t char_init_item_bytes(const Tac_StaticInit *init)
+static size_t char_init_item_bytes(const Tac_StaticInit *init, Besm_Dialect dialect)
 {
     switch (init->kind) {
     case TAC_STATIC_INIT_I8:
@@ -40,10 +54,9 @@ static size_t char_init_item_bytes(const Tac_StaticInit *init)
         // An empty string literal serialises to a zero-length wio string and re-imports
         // with a NULL `val`; treat it as the empty string.
         const char *src = init->u.string.val ? init->u.string.val : "";
-        char *koi7      = xalloc(strlen(src) + 1, __func__, __FILE__, __LINE__);
-        utf8_to_koi7(src, koi7);
-        size_t nb = strlen(koi7) + (init->u.string.null_terminated ? 1 : 0);
-        xfree(koi7);
+        char *enc       = encode_static_string(src, dialect);
+        size_t nb       = strlen(enc) + (init->u.string.null_terminated ? 1 : 0);
+        xfree(enc);
         return nb;
     }
     default:
@@ -74,11 +87,12 @@ static Besm_Instr *zero_log_words(int n)
 // words are emitted as BESM_DATA_LOG; complete all-zero words at the tail are
 // coalesced into a single BESM_DATA_BSS (matching the convention for zero padding) —
 // unless `zero_as_words` (static local), where they become explicit `,log, 0` words.
-static Besm_Instr *char_array_log_items(const Tac_StaticInit *init, bool zero_as_words)
+static Besm_Instr *char_array_log_items(const Tac_StaticInit *init, bool zero_as_words,
+                                        Besm_Dialect dialect)
 {
     size_t total = 0;
     for (const Tac_StaticInit *it = init; it; it = it->next)
-        total += char_init_item_bytes(it);
+        total += char_init_item_bytes(it, dialect);
     if (total == 0)
         total = 1;
 
@@ -95,14 +109,13 @@ static Besm_Instr *char_array_log_items(const Tac_StaticInit *init, bool zero_as
     for (const Tac_StaticInit *it = init; it; it = it->next) {
         if (it->kind == TAC_STATIC_INIT_STRING) {
             const char *src = it->u.string.val ? it->u.string.val : "";
-            char *koi7      = xalloc(strlen(src) + 1, __func__, __FILE__, __LINE__);
-            utf8_to_koi7(src, koi7);
-            size_t nb = strlen(koi7) + (it->u.string.null_terminated ? 1 : 0);
+            char *enc       = encode_static_string(src, dialect);
+            size_t nb       = strlen(enc) + (it->u.string.null_terminated ? 1 : 0);
             for (size_t i = 0; i < nb && pos + i < total; i++)
-                buf[pos + i] = (unsigned char)koi7[i];
+                buf[pos + i] = (unsigned char)enc[i];
             pos += nb;
             data_end = pos;
-            xfree(koi7);
+            xfree(enc);
         } else if (it->kind == TAC_STATIC_INIT_I8) {
             if (pos < total)
                 buf[pos] = (uint8_t)it->u.char_val;
@@ -282,14 +295,15 @@ static void flush_packed_words(const unsigned char *buf, int lo, int hi, Besm_In
 // layout always places on a word boundary — first flushes the pending byte word(s) as LOG
 // data, then emits its own directive.  A trailing all-zero word run is coalesced into a
 // single `,bss,` (file scope) or explicit zero words (static local), like the other paths.
-static Besm_Instr *struct_log_items(const Tac_StaticInit *init, bool zero_as_words)
+static Besm_Instr *struct_log_items(const Tac_StaticInit *init, bool zero_as_words,
+                                    Besm_Dialect dialect)
 {
     int total = 0;
     for (const Tac_StaticInit *it = init; it; it = it->next) {
         if (it->kind == TAC_STATIC_INIT_ZERO)
             total += it->u.zero_bytes;
         else if (is_byte_init(it))
-            total += (int)char_init_item_bytes(it);
+            total += (int)char_init_item_bytes(it, dialect);
         else
             total += 6; // a word-sized, word-aligned member
     }
@@ -311,14 +325,13 @@ static Besm_Instr *struct_log_items(const Tac_StaticInit *init, bool zero_as_wor
             data_end   = pos;
         } else if (it->kind == TAC_STATIC_INIT_STRING) {
             const char *src = it->u.string.val ? it->u.string.val : "";
-            char *koi7      = xalloc(strlen(src) + 1, __func__, __FILE__, __LINE__);
-            utf8_to_koi7(src, koi7);
-            int nb = (int)strlen(koi7) + (it->u.string.null_terminated ? 1 : 0);
+            char *enc       = encode_static_string(src, dialect);
+            int nb          = (int)strlen(enc) + (it->u.string.null_terminated ? 1 : 0);
             for (int i = 0; i < nb; i++)
-                buf[pos + i] = (unsigned char)koi7[i];
+                buf[pos + i] = (unsigned char)enc[i];
             pos += nb;
             data_end = pos;
-            xfree(koi7);
+            xfree(enc);
         } else if (it->kind == TAC_STATIC_INIT_ZERO) {
             pos += it->u.zero_bytes; // buffer already zeroed
         } else {
@@ -359,7 +372,7 @@ static Besm_Instr *struct_log_items(const Tac_StaticInit *init, bool zero_as_wor
 // *local* (true) must instead emit explicit `,log, 0` words: its data is spliced into the
 // function's code module, where `,bss,` space is left uninitialized (see `zero_log_words`).
 static Besm_Instr *static_data_items(const Tac_Type *type, const Tac_StaticInit *init,
-                                     bool zero_as_words)
+                                     bool zero_as_words, Besm_Dialect dialect)
 {
     if (init == NULL) {
         if (zero_as_words)
@@ -373,12 +386,12 @@ static Besm_Instr *static_data_items(const Tac_Type *type, const Tac_StaticInit 
     // zero runs, embedded strings) is flattened into a packed byte stream rather than
     // emitted one word per element.
     if (is_char_array(type))
-        return char_array_log_items(init, zero_as_words);
+        return char_array_log_items(init, zero_as_words, dialect);
 
     // A struct/union (or array thereof) may place a char member at a non-word byte offset,
     // so its mixed init list is byte-packed the same way (char members share a word).
     if (needs_byte_packing(type))
-        return struct_log_items(init, zero_as_words);
+        return struct_log_items(init, zero_as_words, dialect);
 
     // Scalars and word-element arrays: one directive per item.  A standalone char scalar
     // (I8/U8) is one full word with its value in the low byte (byte #5) — the standalone-char
@@ -409,7 +422,7 @@ static Besm_Instr *static_data_items(const Tac_Type *type, const Tac_StaticInit 
         case TAC_STATIC_INIT_STRING:
             // Char-array init (e.g. `char arr[] = "ABC"`); the section NAME
             // already labels the first word, so no per-item label here.
-            *tail = besm_string_log_items(init, NULL);
+            *tail = besm_string_log_items(init, NULL, dialect);
             while (*tail)
                 tail = &(*tail)->next;
             break;
@@ -430,10 +443,10 @@ void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl
     Besm_Module *module      = besm_new_module(name);
     Besm_DataSection *section = besm_new_data_section(init == NULL ? BESM_SK_BSS : BESM_SK_DATA);
     section->name             = xstrdup(name);
-    section->items            = static_data_items(tl->u.static_variable.type, init, false);
+    section->items = static_data_items(tl->u.static_variable.type, init, false, dialect);
     module->sections          = section;
 
-    besm_fold_string_constants(module, program);
+    besm_fold_string_constants(module, program, dialect);
     besm_emit_module(out, module, dialect);
     besm_free_module(module);
 }
@@ -471,7 +484,7 @@ static Besm_Instr *static_local_label_site(Besm_Instr *items)
 // Emit each block-scope static local of `fn` as a module-local labeled datum, spliced into
 // the function module just before its `,end,` (after the code).  String constants referenced
 // by a static-local initializer are folded in by the caller's besm_fold_string_constants.
-void besm_emit_static_locals(Besm_Module *module, const Tac_TopLevel *fn)
+void besm_emit_static_locals(Besm_Module *module, const Tac_TopLevel *fn, Besm_Dialect dialect)
 {
     if (!module->funcs)
         return;
@@ -480,7 +493,7 @@ void besm_emit_static_locals(Besm_Module *module, const Tac_TopLevel *fn)
         last = last->next;
 
     for (const Tac_StaticLocal *sl = fn->u.function.static_locals; sl; sl = sl->next) {
-        Besm_Instr *items = static_data_items(sl->type, sl->init_list, true);
+        Besm_Instr *items = static_data_items(sl->type, sl->init_list, true, dialect);
         Besm_Instr *site  = static_local_label_site(items);
         // A plain data word labels through `name`; a Z00 address word (pointer init) labels
         // through `label`, since its `name` already holds the referenced symbol.
@@ -499,16 +512,16 @@ void besm_emit_static_locals(Besm_Module *module, const Tac_TopLevel *fn)
 // word, big-endian).  When `label` is non-NULL it is set as the Madlen label of the
 // first word.  Used both for char-array data and for string constants folded into a
 // referencing module.
-Besm_Instr *besm_string_log_items(const Tac_StaticInit *init, const char *label)
+Besm_Instr *besm_string_log_items(const Tac_StaticInit *init, const char *label,
+                                  Besm_Dialect dialect)
 {
     if (init->kind != TAC_STATIC_INIT_STRING)
         fatal_error("string constant init is not a string");
 
     const char *raw = init->u.string.val ? init->u.string.val : "";
-    char *koi7      = xalloc(strlen(raw) + 1, __func__, __FILE__, __LINE__);
-    utf8_to_koi7(raw, koi7);
-    const char *s = koi7;
-    size_t len    = strlen(s);
+    char *enc       = encode_static_string(raw, dialect);
+    const char *s   = enc;
+    size_t len      = strlen(s);
     size_t nbytes = len + (init->u.string.null_terminated ? 1 : 0);
     if (nbytes == 0)
         nbytes = 1;
@@ -528,7 +541,7 @@ Besm_Instr *besm_string_log_items(const Tac_StaticInit *init, const char *label)
         *tail = si;
         tail  = &si->next;
     }
-    xfree(koi7);
+    xfree(enc);
     return head;
 }
 
@@ -620,7 +633,8 @@ static void insert_before_end(Besm_Block *block, Besm_Instr *chain)
 // append its packed data words (labeled with the constant name) — before the function
 // `,end,` for a code module, or at the tail of the data section for a data module.
 //
-void besm_fold_string_constants(Besm_Module *module, const Tac_TopLevel *program)
+void besm_fold_string_constants(Besm_Module *module, const Tac_TopLevel *program,
+                                Besm_Dialect dialect)
 {
     for (const Tac_TopLevel *tl = program; tl; tl = tl->next) {
         if (tl->kind != TAC_TOPLEVEL_STATIC_CONSTANT || !tl->u.static_constant.name)
@@ -636,7 +650,7 @@ void besm_fold_string_constants(Besm_Module *module, const Tac_TopLevel *program
             remove_subp(&s->items, name);
 
         const Tac_StaticInit *init = find_string_constant(program, name);
-        Besm_Instr *chain          = besm_string_log_items(init, name);
+        Besm_Instr *chain          = besm_string_log_items(init, name, dialect);
 
         if (module->funcs) {
             Besm_Block *last = module->funcs->blocks;

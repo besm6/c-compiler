@@ -378,11 +378,11 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
     // Emit this function's block-scope static locals as module-local labeled data, spliced
     // in after the code (before `,end,`).  Done before folding string constants so that a
     // static-local initializer referencing a string literal gets that string folded in too.
-    besm_emit_static_locals(module, tl);
+    besm_emit_static_locals(module, tl, dialect);
 
     // Fold any string literals this function references into its module as local
     // labels, removing their external SUBP declarations.
-    besm_fold_string_constants(module, program);
+    besm_fold_string_constants(module, program, dialect);
 
     besm_emit_module(out, module, dialect);
     besm_free_module(module);
