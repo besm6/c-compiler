@@ -277,7 +277,7 @@ struct s increment_struct(struct s param) {
 // the test only needed function names that stay distinct within Madlen's 8-char
 // identifier limit — the book's return_in_reg/return_in_mem both collapse to
 // "return_i" and alias.  Renamed to ret_reg/ret_mem.
-TEST_F(CodegenTest, DISABLED_Chapter18_IgnoreRetval)
+TEST_F(CodegenTest, Chapter18_IgnoreRetval)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"(
 struct small { int x; };
@@ -1037,7 +1037,7 @@ int main(void) {
 // matches calloc; the test_auto_*/test_static_*/test_array_* helpers are renamed
 // (autodot/statdot/autoarr/statarr/aostr/aosptr) so they stay distinct within
 // Madlen's 8-char identifier limit (otherwise they alias and silently no-op).
-TEST_F(CodegenTest, DISABLED_Chapter18_ScalarMemberAccessNestedStruct)
+TEST_F(CodegenTest, Chapter18_ScalarMemberAccessNestedStruct)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test accessing nested structures members, through dot, arrow, and subscript
@@ -1658,7 +1658,7 @@ int main(void) {
 }
 
 // block-scope static + strcmp + local char-array string init.
-TEST_F(CodegenTest, DISABLED_Chapter18_StructCopyCopyStruct)
+TEST_F(CodegenTest, Chapter18_StructCopyCopyStruct)
 {
     // BESM-6 adaptation: the unused `void *malloc(...)` declaration is dropped
     // (this test never calls malloc).  Char-array initializers and the matching
@@ -1968,7 +1968,7 @@ int main(void) {
 
 // Re-enabled once block-scope statics landed.  The six test_copy_* helpers all collided
 // in the first 8 chars (Madlen label `test*cop`), so they were shortened to tc_* names.
-TEST_F(CodegenTest, DISABLED_Chapter18_StructCopyWithDotOperator)
+TEST_F(CodegenTest, Chapter18_StructCopyWithDotOperator)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 // Test using . to copy entire structures
@@ -2382,7 +2382,7 @@ int main(void) {
 // Copies aggregates via Copy/Load/Store/CopyFromOffset/CopyToOffset and verifies the stack is
 // not clobbered.  The shadowing local `ptr` in test_store was renamed `p` (no-shadowing design)
 // and the validate_/test_copy_ helper families renamed to stay distinct within 8 chars.
-TEST_F(CodegenTest, DISABLED_Chapter18_StructCopyStackClobber)
+TEST_F(CodegenTest, Chapter18_StructCopyStackClobber)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test that copying an aggregate value with Copy, Load, Store,

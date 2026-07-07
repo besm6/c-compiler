@@ -26,6 +26,15 @@ static unsigned long long unix_real_word(double v)
         T >>= 1;
         E++;
     }
+    // BESM-6 normalization requires the sign bit (41) to differ from bit 40.  frexp's
+    // magnitude is [0.5, 1); a negative exact half (f == -0.5, T == -2^39) has bit 41 ==
+    // bit 40 — un-normalized.  Renormalize to mantissa -1.0 (T == -2^40, one lower
+    // exponent) so the bit pattern matches the hardware / Madlen assembler
+    // (e.g. -1.0 = 0x810000000000, not 0x838000000000).
+    if (T == -(1LL << 39)) {
+        T = -(1LL << 40); // T * 2, one lower exponent
+        E--;
+    }
     if (E < 1 || E > 127)
         fatal_error("floating constant %g out of BESM-6 exponent range", v);
 

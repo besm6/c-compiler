@@ -967,7 +967,7 @@ int main(void) {
 )WP"));
 }
 
-TEST_F(CodegenTest, DISABLED_Chapter19_WP_AllTypes_PropagateIntoStore)
+TEST_F(CodegenTest, Chapter19_WP_AllTypes_PropagateIntoStore)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 /* Make sure we can propagate copies into Store instruction */
