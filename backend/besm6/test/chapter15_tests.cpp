@@ -277,7 +277,7 @@ int main(void) {
 
 
 // extra_credit/compound_nested_pointer_assignment: compound assign through pointers into a file-scope nested array.
-TEST_F(CodegenTest, DISABLED_Chapter15_CompoundNestedPointerAssignment)
+TEST_F(CodegenTest, Chapter15_CompoundNestedPointerAssignment)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"(// Nested pointer assignment with +=/-=
 

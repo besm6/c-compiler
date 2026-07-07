@@ -409,10 +409,14 @@ static bool static_var_superseded(const Tac_TopLevel *program, const Tac_TopLeve
 // attach one as needed (a data section's `,name,`, or the first item for a static local
 // emitted inside a function module).
 //
-// `zero_as_words` controls how zero storage is emitted.  A file-scope static (false) uses
-// a `,bss,` reservation, which the loader zeroes for its separate BSS section.  A static
-// *local* (true) must instead emit explicit `,log, 0` words: its data is spliced into the
-// function's code module, where `,bss,` space is left uninitialized (see `zero_log_words`).
+// `zero_as_words` controls how zero storage is emitted.  A `,bss,` reservation (false) is
+// the loader-zeroed default.  Explicit `,log, 0` words (true) are required whenever a
+// `,bss,` gap would not stay contiguous with the object's data words: a static *local*
+// (spliced into the function's code module, where `,bss,` space is left uninitialized —
+// see `zero_log_words`), and — in the Unix dialect — a *partially-initialized* file-scope
+// object, whose data words go to `.data` while a `,bss,` gap would land in the separate
+// `.bss` section and split the object's storage (a whole-object `.bss` or a single Madlen
+// `,name,` module both stay contiguous, so those keep the compact `,bss,` reservation).
 static Besm_Instr *static_data_items(const Tac_Type *type, const Tac_StaticInit *init,
                                      bool zero_as_words, Besm_Dialect dialect)
 {
@@ -502,7 +506,12 @@ void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl
     section->name             = xstrdup(name);
     section->global           = tl->u.static_variable.global;
     section->tentative        = tentative;
-    section->items = static_data_items(tl->u.static_variable.type, init, false, dialect);
+    // A partially-initialized file-scope object emits data words to `.data`; in the Unix
+    // dialect its zero fill must also be `.data` words, since a `.bss` gap would land in a
+    // separate section and split the object (see static_data_items).  A whole-object BSS
+    // (zero_bss) or a single contiguous Madlen module keeps the compact `,bss,` reservation.
+    bool zero_words = !zero_bss && dialect == BESM_UNIX;
+    section->items = static_data_items(tl->u.static_variable.type, init, zero_words, dialect);
     module->sections          = section;
 
     besm_fold_string_constants(module, program, dialect);
