@@ -380,7 +380,7 @@ extern int foo;)"));
 
 // Concatenated external_variable + client: "extern int x;" trailing the client
 // follows "int x = 3;"; with task #19 fixed it no longer clobbers x to 0.
-TEST_F(CodegenTest, DISABLED_Chapter10_LibExternalVariable)
+TEST_F(CodegenTest, Chapter10_LibExternalVariable)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"(int x;
 
@@ -428,7 +428,7 @@ int main(void) {
 
 // Library `x` (internal, read/written via accessors) vs. the client's own
 // internal `client_x`; renamed apart so both coexist in one module.
-TEST_F(CodegenTest, DISABLED_Chapter10_LibInternalLinkageVar)
+TEST_F(CodegenTest, Chapter10_LibInternalLinkageVar)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"(static int x;
 

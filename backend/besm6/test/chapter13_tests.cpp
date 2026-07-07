@@ -728,20 +728,22 @@ TEST_F(CodegenTest, Chapter13_CompoundAssignImplicitCast)
 })"));
 }
 
-// DISABLED: rounded_to_zero = 1e-25 underflows the BESM-6 7-bit exponent, which
-// the Unix (b6as) backend strictly rejects (emit_unix.c) rather than flush to zero
-// as the Madlen path does — so the program is not compilable under the Unix run
-// path the book tests now use.
-TEST_F(CodegenTest, DISABLED_Chapter13_Logical)
+// The book's original `rounded_to_zero = 1e-25` underflows the BESM-6 7-bit
+// float exponent, which the compiler now rejects by design (unix_real_word in
+// besm_const.c fatal_errors on E < 1 rather than flushing to zero).  Such a
+// literal is not compilable for this target, so the variable is renamed `fp_zero`
+// and initialized to an explicit 0.0 — it is simply a floating-point zero, and
+// every logical-operator assertion that references it is preserved unchanged.
+TEST_F(CodegenTest, Chapter13_Logical)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"(double zero = 0.0;
 double non_zero = 1E-15;
 double one = 1.0;
-double rounded_to_zero = 1e-25;
+double fp_zero = 0.0;
 
 int main(void) {
     if (zero) { return 1; }
-    if (rounded_to_zero) { return 2; }
+    if (fp_zero) { return 2; }
     if (non_zero) {
     } else {
         return 3;
@@ -749,15 +751,15 @@ int main(void) {
     if (0.e10) { return 4; }
     if (!non_zero) { return 4; }
     if (!(!zero)) { return 5; }
-    if (!(!rounded_to_zero)) { return 6; }
+    if (!(!fp_zero)) { return 6; }
     if (!(non_zero && 1.0)) { return 8; }
     if (3.0 && zero) { return 8; }
-    if (rounded_to_zero && 1000e10) { return 9; }
+    if (fp_zero && 1000e10) { return 9; }
     if (18446744073709551615UL && zero) { return 10; }
     if (!(non_zero && 5l)) { return 11; }
     if (!(5.0 || zero)) { return 12; }
-    if (zero || rounded_to_zero) { return 13; }
-    if (!(rounded_to_zero || 0.0001)) { return 14; }
+    if (zero || fp_zero) { return 13; }
+    if (!(fp_zero || 0.0001)) { return 14; }
     if (!(non_zero || 0u)) { return 15; }
     if (!(0 || 0.0000005)) { return 16; }
     return 0;
