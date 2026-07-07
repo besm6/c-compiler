@@ -63,7 +63,7 @@
 
 // A static file-scope variable may be tentatively defined and declared several
 // times, but defined only once; the definition (4) comes last and wins.
-TEST_F(CodegenTest, DISABLED_Chapter10_MultipleStaticFileScopeVars)
+TEST_F(CodegenTest, Chapter10_MultipleStaticFileScopeVars)
 {
     EXPECT_EQ("4\n", CompileAndRunBook(R"(static int foo;
 
