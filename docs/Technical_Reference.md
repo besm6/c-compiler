@@ -392,7 +392,7 @@ identically on BESM-6 (one 48-bit word, masked to 41/48 bits).
 - **Compiler flags:** `-Wall -Werror -Wshadow` for C++ (see root `CMakeLists.txt`).
 - **GoogleTest:** FetchContent, tag `v1.15.2`, `BUILD_GMOCK=OFF`.
 - **cppcheck:** If `cppcheck` is found, it is attached to C and C++ targets with project-specific suppressions and `scripts/googletest.xml` for tests.
-- **Makefile:** Creates `build/`, runs `cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo`, delegates `all` to `$(MAKE) -C build`. Targets: `make` (compiler & runtime only — all test executables are `EXCLUDE_FROM_ALL`), `make test` (builds the `build_tests` aggregate, then runs every test via `ctest --test-dir build` — including the textbook chapter tests), `make clean`, `make debug` (cmake Debug build into `build`).
+- **Makefile:** Creates `build/`, runs `cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo`, delegates `all` to `$(MAKE) -C build`. Targets: `make` (compiler, runtime, and all test executables), `make test` (builds `all`, but does not run the tests), `make run` (builds `all`, then runs every test via `ctest --test-dir build` — including the textbook chapter tests), `make clean`, `make debug` (cmake Debug build into `build`).
 
 Common build types: `Debug`, `RelWithDebInfo`, `Release`.
 
@@ -407,17 +407,16 @@ Backend ISA descriptions (`backend/besm6/besm6.asdl`, `backend/x86/x86_64.asdl`,
 Build and run all tests:
 
 ```bash
-make test
+make run
 # or
-cmake --build build --target build_tests
+cmake --build build
 ctest --test-dir build
 ```
 
-Every test executable is `EXCLUDE_FROM_ALL`, so a plain `make` builds only the compiler and
-runtime; `make test` builds the `build_tests` aggregate first and then runs ctest. The
-"Writing a C Compiler" chapter tests are compiled into these same per-module test binaries
-(see **Chapter (book) tests** below), so `make test` runs them too. Test executables and
-their unit-test sources:
+The test executables are built by the default `make`/`make all` alongside the compiler and
+runtime; `make run` builds everything and then runs ctest. The "Writing a C Compiler" chapter
+tests are compiled into these same per-module test binaries (see **Chapter (book) tests**
+below), so `make run` runs them too. Test executables and their unit-test sources:
 
 | Executable | Sources (under repo root) |
 |------------|---------------------------|

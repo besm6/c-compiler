@@ -14,15 +14,15 @@ void putch(unsigned ch)
     while (shift > 0) {
         b = (ch >> shift) & 0377;
         if (b)
-            goto putchar;
+            goto putchr;
         shift = shift - 8;
     }
     b = ch;
-putchar:
+putchr:
     putbyte(b);
     if (shift > 0) {
         shift = shift - 8;
         b = ch >> shift;
-        goto putchar;
+        goto putchr;
     }
 }

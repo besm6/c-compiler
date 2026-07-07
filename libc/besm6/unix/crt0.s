@@ -16,6 +16,9 @@ _start:
     xts argvp       // push argc; ACC = argv (word address of the dummy argv[])
  14 vtm -2          // r14 = -argc_count (two args)
  13 vjm main        // call main(argc, argv); int result left in ACC
+ 15 atx             // push status
+ 13 vjm flush       // call flush();
+ 15 xta             // pop status
     $77 1           // _exit(status): SYS_exit, status already in ACC
 //
     .data

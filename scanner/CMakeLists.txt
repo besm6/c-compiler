@@ -9,7 +9,7 @@ target_include_directories(scanner PUBLIC .)
 #
 # Tests for scanner (including the textbook chapter tests)
 #
-add_executable(scanner-tests EXCLUDE_FROM_ALL
+add_executable(scanner-tests
     test/tests.cpp
     test/chapter1_tests.cpp
     test/chapter6_tests.cpp

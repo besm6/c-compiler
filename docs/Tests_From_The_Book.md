@@ -544,14 +544,15 @@ so on. All of the test executables are `EXCLUDE_FROM_ALL`, so a plain `make` bui
 compiler and runtime; one target builds and runs everything:
 
 ```sh
-make test                 # builds every test binary, then runs all tests (unit + chapter)
+make run                  # builds every test binary, then runs all tests (unit + chapter)
 ```
 
-`make test` builds the `build_tests` aggregate and runs `ctest --test-dir build` over the
-whole suite. There is no separate book target or ctest label any more.
+`make run` builds `all` (compiler, runtime, and every test binary) and runs
+`ctest --test-dir build` over the whole suite. There is no separate book target or ctest
+label any more.
 
 To run a single component or a single test while developing, first make sure the test
-binaries are built (`make test`, or `cmake --build build --target build_tests`), then
+binaries are built (`make` or `cmake --build build`), then
 **run from inside the `build/` directory**, not from the repository root:
 
 ```sh

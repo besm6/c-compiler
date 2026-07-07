@@ -20,7 +20,7 @@ target_include_directories(test_util INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/test)
 #
 # Tests for string map, wio and xalloc
 #
-add_executable(libutil-tests EXCLUDE_FROM_ALL
+add_executable(libutil-tests
     test/string_map_tests.cpp
     test/wio_tests.cpp
     test/xalloc_tests.cpp

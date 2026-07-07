@@ -92,30 +92,12 @@ add_subdirectory(tac)
 add_subdirectory(semantic)
 add_subdirectory(translator)
 add_subdirectory(optimize)
-# libc (the target runtime) is processed before backend so its `besm-libc` target
-# exists when backend/besm6's besm-tests declares add_dependencies(besm-tests besm-libc).
+# libc (the target runtime) is processed before backend so its `besm-libc-dubna` target
+# exists when backend/besm6's besm-tests declares add_dependencies(besm-tests besm-libc-dubna).
 # libc's compile commands DEPENDS on parse/lower/genbesm resolve at generate time, so
 # referencing backend-defined `genbesm` from here is fine even though backend follows.
 add_subdirectory(libc)
 add_subdirectory(backend)
-
-#
-# All unit tests, including the textbook chapter tests, are EXCLUDE_FROM_ALL so a
-# plain `make`/`make all` builds only the compiler and runtime.  `make test` builds
-# this aggregate first, then runs ctest over everything.
-#
-add_custom_target(build_tests
-    DEPENDS
-        libutil-tests
-        ast-tests
-        scanner-tests
-        parser-tests
-        tac-tests
-        semantic-tests
-        translate-tests
-        besm-tests
-        optimizer-tests
-)
 
 #
 # 'parse' executable

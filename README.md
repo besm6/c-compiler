@@ -109,8 +109,7 @@ Or with CMake directly:
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build build                       # compiler and runtime only
-cmake --build build --target build_tests  # build all test executables
+cmake --build build                       # compiler, runtime, and all test executables
 ctest --test-dir build                    # run every test
 ```
 

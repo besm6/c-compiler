@@ -102,8 +102,8 @@ add_custom_command(
     COMMENT "Assembling BESM-6 C runtime library (libc.bin)")
 
 # Built by the default `make`/`make all` (ALL) so the runtime library is always
-# available, independent of the EXCLUDE_FROM_ALL test executables.
-add_custom_target(besm-libc ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libc.bin)
+# available alongside the compiler and test executables.
+add_custom_target(besm-libc-dubna ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libc.bin)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libc.bin DESTINATION share/besm6/lib)
 

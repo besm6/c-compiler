@@ -14,7 +14,7 @@ target_link_libraries(parser scanner ast libutil)
 #
 # Tests for parser (including the textbook chapter tests)
 #
-add_executable(parser-tests EXCLUDE_FROM_ALL
+add_executable(parser-tests
     test/simple_tests.cpp
     test/statement_tests.cpp
     test/operator_tests.cpp

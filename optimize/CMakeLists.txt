@@ -16,7 +16,7 @@ target_link_libraries(optimize tac libutil semantic)
 #
 # Tests for optimizer (including the textbook chapter tests)
 #
-add_executable(optimizer-tests EXCLUDE_FROM_ALL
+add_executable(optimizer-tests
     test/const_fold_tests.cpp
     test/type_conv_tests.cpp
     test/jump_unreachable_tests.cpp

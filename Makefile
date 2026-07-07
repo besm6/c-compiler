@@ -18,7 +18,7 @@ all:    build
 	$(MAKE) -Cbuild $@
 
 test:   build
-	$(MAKE) -Cbuild build_tests
+	$(MAKE) -Cbuild all
 
 run:    test
 	ctest --test-dir build

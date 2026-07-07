@@ -23,11 +23,11 @@ The prefix is chosen in the Makefile at install time and passed as `cmake --inst
 `install(PROGRAMS … RENAME)`, so the in-tree build outputs (`build/parse`, `build/lower`,
 `build/backend/genbesm`) keep their original names.
 
-**All tests are excluded from the default build.** Every per-module test executable is
-marked `EXCLUDE_FROM_ALL`, so a plain `make`/`make all` builds only the compiler and runtime
-(`parse`, `lower`, `genbesm`, and `libc.bin`), not the tests. `make test` builds the
-`build_tests` CMake aggregate (all nine test executables) but does not run them; `make run`
-depends on `make test` and then runs `ctest --test-dir build` over everything.
+**Tests are built by the default build.** A plain `make`/`make all` builds the compiler and
+runtime (`parse`, `lower`, `genbesm`, and `libc.bin`) *and* every per-module test executable.
+`make test` also builds `all` (so the compiler, runtime, and all nine test executables) but
+does not run them; `make run` depends on `make test` and then runs `ctest --test-dir build`
+over everything.
 
 **The "Writing a C Compiler" chapter tests are compiled into the regular test binaries.**
 The chapter sources (`*/test/chapter*_tests.cpp`, `backend/besm6/test/chapter*_tests.cpp`) are listed
