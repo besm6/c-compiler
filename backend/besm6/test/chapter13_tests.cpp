@@ -789,19 +789,20 @@ int main(void) {
 })"));
 }
 
-// implicit_casts/static_initializers: static local int, and 2^62..2^64 consts.
-// DISABLED: several initializers (9223372036854775808. == 2^63, 2.944E76, …)
-// overflow the BESM-6 7-bit float exponent, which the Unix (b6as) backend strictly
-// rejects (emit_unix.c) — not compilable under the Unix run path the book tests use.
-TEST_F(CodegenTest, DISABLED_Chapter13_StaticInitializers)
+// implicit_casts/static_initializers: static local int, and 2^31..2^62 consts.
+// The book's 2^63 double initializers (9223372036854775808. == 2^63, and the
+// ~2^63 values 9223372036854775810ul / 9223372036854776832ul) are dropped: a double
+// magnitude >= 2^63 exceeds the BESM-6 7-bit float exponent, which the compiler now
+// rejects by design (unix_real_word in emit_unix.c calls fatal_error).  The integer
+// initializers (i, u, l, ul) fold to integer words, so ul's ~2^64 literal is fine.
+// The remaining in-range initializers still exercise the static-init conversions.
+TEST_F(CodegenTest, Chapter13_StaticInitializers)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"(double d1 = 2147483647;
 double d2 = 4294967295u;
 double d3 = 4611686018427389440l;
 double d4 = 4611686018427389955l;
-double d5 = 9223372036854775810ul;
 double d6 = 4611686018427389955ul;
-double d7 = 9223372036854776832ul;
 double uninitialized;
 static int i = 4.9;
 int unsigned u = 42949.672923E5;
@@ -813,14 +814,12 @@ int main(void) {
     if (d2 != 4294967295.) { return 2; }
     if (d3 != 4611686018427389952.) { return 3; }
     if (d4 != d3) { return 4; }
-    if (d5 != 9223372036854775808.) { return 5; }
-    if (d6 != d3) { return 6; }
-    if (d7 != d5) { return 7; }
-    if (uninitialized) { return 8; }
-    if (i != 4) { return 9; }
-    if (u != 4294967292u) { return 10; }
-    if (l != 4611686018427389952l) { return 11; }
-    if (ul != 18446744073709549568ul) { return 12; }
+    if (d6 != d3) { return 5; }
+    if (uninitialized) { return 6; }
+    if (i != 4) { return 7; }
+    if (u != 4294967292u) { return 8; }
+    if (l != 4611686018427389952l) { return 9; }
+    if (ul != 18446744073709549568ul) { return 10; }
     return 0;
 })"));
 }
