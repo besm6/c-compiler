@@ -46,15 +46,13 @@ f:
               out);
 }
 
-// A module-level global: an all-zero tentative definition lands in .bss; the accessor
-// reaches it via `utc counter` + bare `xta`.
+// A module-level global: an all-zero tentative definition becomes a `.comm` common symbol
+// (so repeated tentative defs merge at link time); the accessor reaches it via `utc counter`
+// + bare `xta`.
 TEST_F(CodegenTest, UnixGlobalAccess)
 {
     std::string out = CompileToUnix("int counter; int f(void) { return counter; }");
-    EXPECT_EQ(R"(    .bss
-    .globl counter
-counter:
-    . = . + 1
+    EXPECT_EQ(R"(    .comm counter, 1
     .text
     .globl f
 f:
@@ -117,10 +115,7 @@ _str0:
 TEST_F(CodegenTest, UnixPointerToGlobal)
 {
     std::string out = CompileToUnix("int g; int *p = &g;");
-    EXPECT_EQ(R"(    .bss
-    .globl g
-g:
-    . = . + 1
+    EXPECT_EQ(R"(    .comm g, 1
     .data
     .globl p
 p:

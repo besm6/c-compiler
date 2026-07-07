@@ -1,6 +1,7 @@
 #ifndef BESM_H
 #define BESM_H
 
+#include <stdbool.h>
 #include <stdio.h>
 
 #ifdef __cplusplus
@@ -162,7 +163,11 @@ typedef enum {
 struct Besm_DataSection {
     struct Besm_DataSection *next;
     Besm_SectionKind kind;
-    char *name; // nullable (heap-owned)
+    char *name;     // nullable (heap-owned)
+    bool global;    // external linkage
+    bool tentative; // a C tentative definition (init==NULL) — a global BSS section is a
+                    // `.comm` common; a zero-*initialized* def (init all-zero) is a strong
+                    // .bss symbol instead
     Besm_Instr *items;
 };
 

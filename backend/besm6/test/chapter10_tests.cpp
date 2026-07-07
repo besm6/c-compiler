@@ -77,7 +77,7 @@ static int foo = 4;)"));
 }
 
 // A tentatively-defined file-scope variable is zero-initialized.
-TEST_F(CodegenTest, DISABLED_Chapter10_TentativeDefinition)
+TEST_F(CodegenTest, Chapter10_TentativeDefinition)
 {
     EXPECT_EQ("5\n", CompileAndRunBook(R"(extern int foo;
 
@@ -111,7 +111,7 @@ int main(void) {
 }
 
 // ++ and -- on file-scope variables.
-TEST_F(CodegenTest, DISABLED_Chapter10_IncrementGlobalVars)
+TEST_F(CodegenTest, Chapter10_IncrementGlobalVars)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"(int i = 0;
 int j = 0;

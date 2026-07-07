@@ -362,6 +362,17 @@ static Besm_Instr *struct_log_items(const Tac_StaticInit *init, bool zero_as_wor
     return head;
 }
 
+// True when an initializer list is entirely zero fill (a single or repeated ZERO run, as the
+// frontend lowers `int x = 0;` / `T a[N] = {0};`).  Such a definition carries no data words
+// and belongs in .bss rather than .data.
+static bool static_init_all_zero(const Tac_StaticInit *init)
+{
+    for (; init; init = init->next)
+        if (init->kind != TAC_STATIC_INIT_ZERO)
+            return false;
+    return true;
+}
+
 // Build the chain of data directives for a static object of the given type and init list.
 // `init == NULL` reserves zeroed storage.  The returned items carry no label; callers
 // attach one as needed (a data section's `,name,`, or the first item for a static local
@@ -440,9 +451,19 @@ void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl
     const char *name           = tl->u.static_variable.name;
     const Tac_StaticInit *init = tl->u.static_variable.init_list;
 
+    // A tentative definition (no initializer) or one whose initializer is entirely zero fill
+    // belongs in .bss: the storage is loader-zeroed, so no explicit .data words are emitted.
+    // Both cases produce a BSS section so the symbol's label binds in .bss (not .data) — a
+    // .data label with .bss storage would count as zero data bytes and, in the Unix dialect,
+    // alias the first `.comm` common (placed at data_origin + data_size).  Only a truly
+    // tentative def becomes a `.comm` common; a zero-initialized def is a strong .bss symbol.
+    bool tentative           = (init == NULL);
+    bool zero_bss            = tentative || static_init_all_zero(init);
     Besm_Module *module      = besm_new_module(name);
-    Besm_DataSection *section = besm_new_data_section(init == NULL ? BESM_SK_BSS : BESM_SK_DATA);
+    Besm_DataSection *section = besm_new_data_section(zero_bss ? BESM_SK_BSS : BESM_SK_DATA);
     section->name             = xstrdup(name);
+    section->global           = tl->u.static_variable.global;
+    section->tentative        = tentative;
     section->items = static_data_items(tl->u.static_variable.type, init, false, dialect);
     module->sections          = section;
 

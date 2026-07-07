@@ -346,12 +346,30 @@ static void emit_unix_func(FILE *out, const Besm_Func *func, SegKind *cur)
 static void emit_unix_data_section(FILE *out, const Besm_DataSection *section, SegKind *cur)
 {
     for (; section; section = section->next) {
+        // A named, external tentative definition (`int x;`, no initializer) becomes a `.comm`
+        // common symbol so repeated tentative defs of the same name (and a real definition
+        // elsewhere) merge at link time instead of colliding.  A zero-*initialized* def is a
+        // strong .bss symbol, not a common, so it falls through to the generic path below.
+        // `.comm` is segment-independent, so don't switch segments here — leave `cur` untouched.
+        if (section->name && section->tentative && section->global) {
+            int words = 0;
+            for (const Besm_Instr *it = section->items; it; it = it->next)
+                words += it->addr;
+            char s[64];
+            unix_sanitize(s, sizeof(s), section->name);
+            fprintf(out, "    .comm %s, %d\n", s, words < 1 ? 1 : words);
+            continue;
+        }
+
         SegKind seg = section->kind == BESM_SK_BSS    ? SEG_BSS
                       : section->kind == BESM_SK_CODE ? SEG_TEXT
                                                       : SEG_DATA;
         set_segment(out, cur, seg);
         if (section->name) {
-            emit_uglobl(out, section->name);
+            // An internal-linkage (`static`) definition stays unexported: emit its label but
+            // no `.globl`.  External definitions are declared global as before.
+            if (section->global)
+                emit_uglobl(out, section->name);
             emit_ulabel(out, section->name);
         }
         emit_unix_instr(out, section->items, cur);
