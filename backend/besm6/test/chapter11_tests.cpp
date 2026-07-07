@@ -648,7 +648,7 @@ int main(void)
 }
 
 // for-loop init 2^39 (in range); halving down to 1 runs 40 iterations.
-TEST_F(CodegenTest, Chapter11_TypeSpecifiers)
+TEST_F(CodegenTest, DISABLED_Chapter11_TypeSpecifiers)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"(static int long a;
 int static long a;

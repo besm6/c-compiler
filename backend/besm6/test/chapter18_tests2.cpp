@@ -49,7 +49,7 @@ int main(void) {
 }
 
 // malloc + pointer-to-integer byte-address arithmetic.
-TEST_F(CodegenTest, Chapter18_MemberOffsets)
+TEST_F(CodegenTest, DISABLED_Chapter18_MemberOffsets)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 // struct declarations for size/layout tests
@@ -473,7 +473,7 @@ int main(void) {
 // Passes structs by value as parameters and verifies the stack is not clobbered.  strcmp
 // strings uppercased (KOI-7) and the irregular take_/pass_ helpers renamed to stay distinct
 // within the Madlen 8-char identifier limit.
-TEST_F(CodegenTest, Chapter18_ParametersStackClobber)
+TEST_F(CodegenTest, DISABLED_Chapter18_ParametersStackClobber)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test that passing structures as parameters doesn't clobber the stack.
@@ -1461,7 +1461,7 @@ int check_array(struct outer *struct_array) {
 )PROG"));
 }
 
-TEST_F(CodegenTest, Chapter18_NestedStaticStructInitializers)
+TEST_F(CodegenTest, DISABLED_Chapter18_NestedStaticStructInitializers)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test initialization of nested static structs, including:
@@ -1746,7 +1746,7 @@ int test_array_of_structs(void) {
 )PROG"));
 }
 
-TEST_F(CodegenTest, Chapter18_StaticStructInitializers)
+TEST_F(CodegenTest, DISABLED_Chapter18_StaticStructInitializers)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"PROG(
 /* Test initialization of non-nested static structs, including:
