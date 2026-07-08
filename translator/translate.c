@@ -307,6 +307,15 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
             in->u.truncate.dst_kind = const_kind_of_int_type(to);
             tac_append(ctx, in);
         } else if (to_size == from_size) {
+            // Same C size (e.g. int↔unsigned, long↔unsigned long): a bare COPY.
+            // NB: on BESM-6 this makes a signed→unsigned conversion deviate from
+            // C11 §6.3.1.3p2.  Signed int/long is a 41-bit type (bits 42-48 forced
+            // to zero) while unsigned uses all 48 bits, yet the COPY reuses the
+            // 41-bit pattern verbatim with no sign extension — so a negative source
+            // is not adjusted to `value + 2^48`.  E.g. `(unsigned long)-1` is
+            // 2^41-1, not ULONG_MAX (2^48-1).  This is an intentional deviation
+            // (matching how the target keeps signed integers in 41 bits); see
+            // docs/Besm6_Data_Representation.md.
             Tac_Instruction *in = tac_new_instruction(TAC_INSTRUCTION_COPY);
             in->u.copy.src      = src;
             in->u.copy.dst      = dst;

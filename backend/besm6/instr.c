@@ -819,6 +819,12 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
     // — short/int/long/long long/float/double/long double/pointer — is one word, so there
     // are no other size mismatches.)
     //
+    // Because a same-size signed→unsigned conversion is a bare COPY, BESM-6 deviates
+    // from C11 §6.3.1.3p2: signed int/long is a 41-bit type (bits 42-48 zero) while
+    // unsigned uses all 48 bits, and no sign extension fills bits 42-48.  A negative
+    // signed value therefore keeps its 41-bit pattern instead of becoming the
+    // C-conforming `value + 2^48` — e.g. `(unsigned long)-1` is 2^41-1, not 2^48-1.
+    //
     // TRUNCATE  dst = (narrow)src   — keep the low 8 bits.
     // ZERO_EXTEND dst = (wider unsigned)src — same: clear all but the low 8 bits.
     case TAC_INSTRUCTION_TRUNCATE:

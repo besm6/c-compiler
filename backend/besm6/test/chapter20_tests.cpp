@@ -204,7 +204,7 @@ int main(void) {
 )WP"));
 }
 
-TEST_F(CodegenTest, DISABLED_Chapter20_IntNoCoal_CmpNoUpdates)
+TEST_F(CodegenTest, Chapter20_IntNoCoal_CmpNoUpdates)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 int glob0 = 0;
@@ -255,7 +255,7 @@ int main(void) { return target(); }
 )WP"));
 }
 
-TEST_F(CodegenTest, DISABLED_Chapter20_IntNoCoal_CopyNoInterference)
+TEST_F(CodegenTest, Chapter20_IntNoCoal_CopyNoInterference)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + R"WP(
 int glob0 = 0;
@@ -385,7 +385,7 @@ int main(void) { return target(); }
 )WP"));
 }
 
-TEST_F(CodegenTest, DISABLED_Chapter20_IntNoCoal_FuncallGeneratesArgs)
+TEST_F(CodegenTest, Chapter20_IntNoCoal_FuncallGeneratesArgs)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + R"WP(
 int f(int a, int b) {
@@ -1428,7 +1428,7 @@ int main(void) { return target(); }
 )WP"));
 }
 
-TEST_F(CodegenTest, DISABLED_Chapter20_AllNoCoal_FourteenPseudosInterfere)
+TEST_F(CodegenTest, Chapter20_AllNoCoal_FourteenPseudosInterfere)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(R"WP(
 double glob = 20.0;
@@ -1593,7 +1593,7 @@ int main(void) { return target(1, 2, 3, 1.0, 2.0); }
 }
 
 // Passes a struct by value — now covered by the by-value ABI.
-TEST_F(CodegenTest, DISABLED_Chapter20_AllNoCoal_MixedTypeFuncallGeneratesArgs)
+TEST_F(CodegenTest, Chapter20_AllNoCoal_MixedTypeFuncallGeneratesArgs)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(EX + C1L + C1D + R"WP(
 struct s { long l; double d; };
@@ -1726,7 +1726,7 @@ int main(void) {
 }
 
 // Returns a struct by value — now covered by the hidden-pointer sret ABI.
-TEST_F(CodegenTest, DISABLED_Chapter20_AllNoCoal_ReturnAllIntStruct)
+TEST_F(CodegenTest, Chapter20_AllNoCoal_ReturnAllIntStruct)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(EX + R"WP(
 struct s { int a; int b; long l; };
@@ -1935,9 +1935,12 @@ int main(void) { return target(1.0, 2.0, 3.0); }
 )WP"));
 }
 
-// Adapted: 2^64-1 expected → 2^48-1 (BESM-6 UINT_MAX); plain `char` is unsigned
-// on BESM-6, so neg_char/not_char use `signed char` to keep the signed-extension.
-TEST_F(CodegenTest, DISABLED_Chapter20_AllNoCoal_TypeConversionInterference)
+// Adapted for BESM-6.  Plain `char` is unsigned here, so neg_char/not_char use
+// `signed char` to keep the sign-extension.  The `a` check expects 2^41-1, not the
+// C-conforming ULONG_MAX (2^48-1): BESM-6 deviates from C11 §6.3.1.3p2 — a
+// signed→unsigned conversion is a pure reinterpretation with no sign extension, so
+// `(unsigned long)id(-1)` keeps the 41-bit signed pattern 0o37777777777777.
+TEST_F(CodegenTest, Chapter20_AllNoCoal_TypeConversionInterference)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(EX + ID + DBLID + UID + UCID + C1I +
                                             C1U + C1UC + C1L + C1UL + C1D + C14D + R"WP(
@@ -1959,7 +1962,7 @@ int test_movsx_dst(void) {
     long d = id(4);
     unsigned int e = (unsigned int)neg_char;
     long f = (long) not_char;
-    check_one_ulong(a, 281474976710655ul);
+    check_one_ulong(a, 2199023255551ul); // 2^41 - 1 for besm6
     check_one_ulong(b, 2ul);
     check_one_int(c, 10);
     check_one_long(d, 4l);
@@ -2179,7 +2182,7 @@ int main(void) { return target(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0); }
 )WP"));
 }
 
-TEST_F(CodegenTest, DISABLED_Chapter20_AllCoal_BriggsXmmKValue)
+TEST_F(CodegenTest, Chapter20_AllCoal_BriggsXmmKValue)
 {
     // Result globals shortened to gr0..gr14: the book's glob_four / glob_fourteen
     // collide under the BESM-6 8-character identifier truncation ("glob_fou").
@@ -2260,7 +2263,7 @@ int main(void) { return target(); }
 )WP"));
 }
 
-TEST_F(CodegenTest, DISABLED_Chapter20_AllCoal_CoalesceChar)
+TEST_F(CodegenTest, Chapter20_AllCoal_CoalesceChar)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + C6C + R"WP(
 char glob_a;
