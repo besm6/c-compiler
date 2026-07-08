@@ -108,12 +108,11 @@ static void heap_setup(void)
     if ((size_t)h >= HEAP_LIMIT) {
         return; // program fills memory up to the stack: no room for a heap
     }
-    size_t nwords = HEAP_LIMIT - (size_t)h;
 
-    h->size = nwords;
-    NEXT(h) = NULL;
     free_list = h;
-    free_words = nwords;
+    free_words = HEAP_LIMIT - (size_t)h;
+    h->size = free_words;
+    NEXT(h) = NULL;
 }
 
 //

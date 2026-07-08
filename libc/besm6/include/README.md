@@ -45,14 +45,19 @@ All other headers, **except** `complex.h`, `stdatomic.h`, `threads.h` (and
 
 ## What is implemented vs. planned
 
-A `✓` in the table below means a real routine exists in `libc.bin`; everything
-else is a declaration awaiting an implementation (marked `TODO` in the header).
+A routine listed below has a real implementation in the runtime library; everything
+else is a declaration awaiting an implementation (marked `TODO` in the header). The
+runtime builds in two forms — the Madlen `libc.bin` (Dubna monitor) and the Unix
+`libc.a` (`b6as`/`b6ld`/`b6sim`). Both carry the same set **except** the dynamic
+allocator, which is in the Unix `libc.a` only (it depends on the b6ld/b6sim memory map).
 
-| Header | Implemented in libc.bin |
+| Header | Implemented routines |
 |---|---|
-| `stdio.h` | `printf`, `sprintf`, `snprintf`, plus the BESM-6 console primitives `putbyte`, `putch`, `getch`, `flush` |
-| `stdlib.h` | `exit` |
-| `math.h` | `modf` |
+| `stdio.h` | `printf`, `sprintf`, `snprintf`, `puts`, `putchar`, plus the BESM-6 console primitives `putbyte`, `putch`, `getch`, `flush` |
+| `stdlib.h` | `exit`, `atoi`; **Unix `libc.a` only:** `malloc`, `calloc`, `realloc`, `free` |
+| `string.h` | `strlen`, `strcpy`, `strncpy`, `strcat`, `strncat`, `strcmp`, `strncmp`, `strchr`, `strrchr`, `strstr`, `strtok`, `strerror`, `memcpy`, `memmove`, `memset`, `memcmp`, `memchr` |
+| `math.h` | `modf`, `fabs`, `fmin`, `fmax`, `fma`, `frexp`, `ldexp` |
+| `stdarg.h` | `va_start`, `va_arg`, `va_end`, `va_copy` (word-pointer `va_list`) |
 | all others | — (declarations only, for now) |
 
 The `printf`/`sprintf`/`snprintf` prototypes use the ordinary ISO variadic form.

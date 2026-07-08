@@ -235,17 +235,18 @@ c        --- fraction := value with the exponent field forced to 64 ---
 
 ## Integrating into `libc.bin`
 
-To ship these (left as future work — this page is the spec):
+`frexp` and `ldexp` are now shipped in the runtime. For the record, integration was:
 
-1. Add `libc/besm6/madlen/ldexp.madlen` and `libc/besm6/madlen/frexp.madlen` (no `b_`
+1. Added `libc/besm6/madlen/ldexp.madlen` and `libc/besm6/madlen/frexp.madlen` (no `b_`
    prefix — these are user-facing libc entry points, not internal `b/…` helpers).
-2. Append `ldexp frexp` to the `LIBC_MADLEN` list in
-   [libc/besm6/CMakeLists.txt](../libc/besm6/CMakeLists.txt).
-3. Move the `frexp` / `ldexp` prototypes in [math.h](../libc/besm6/include/math.h) from
-   the "declared for future implementation" block to the "implemented in libc.bin" block.
-4. Add a `besm-tests` `CompileAndRun` case that `printf`s a round trip, run from
-   `build/backend/besm6` (where `libc.bin` lives). If the exponent math misbehaves, trace it
-   with `dubna -d c <Test>.dub` and follow the `ldexp` / `frexp` labels to inspect the
+2. Appended `ldexp frexp` to the `LIBC_MADLEN` list in
+   [libc/besm6/CMakeLists.txt](../libc/besm6/CMakeLists.txt) (so they build into both the
+   Madlen `libc.bin` and, via the shared helper list, the Unix `libc.a`).
+3. Listed the `frexp` / `ldexp` prototypes in [math.h](../libc/besm6/include/math.h) among
+   the implemented routines.
+4. Added a `besm-tests` `CompileAndRun` round-trip case, run from `build/backend/besm6`
+   (where `libc.bin` lives). If the exponent math misbehaves, trace it with
+   `dubna -d c <Test>.dub` and follow the `ldexp` / `frexp` labels to inspect the
    accumulator's exponent at each step (see the debugging notes in the project `CLAUDE.md`).
 
 ## See also

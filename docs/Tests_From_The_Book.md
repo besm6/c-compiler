@@ -299,7 +299,7 @@ The disagreements all trace back to a handful of architectural facts. For the fu
 | identifiers | Madlen assembler truncates to **8 characters** | effectively unlimited |
 | output charset | lowercase Latin folds to **Cyrillic** (GOST) | ASCII |
 | `>>` of a negative | **logical** (no sign extension) | arithmetic (implementation-defined) |
-| runtime | no `malloc`/`free`, no `<math.h>` | full libc + libm |
+| runtime | hosted libc subset (stdio/string/math helpers); allocator on the Unix path only, no libm transcendentals | full libc + libm |
 
 Now the worked examples — each one a real program from the corpus.
 
@@ -383,7 +383,7 @@ program is disabled:
 |---|---|---|
 | B | Value exceeds BESM-6 range (41-bit signed / 48-bit unsigned / FP exponent) | ch11 `simple` (±(2⁶³−1)), ch13 `return_double` |
 | C | Relies on x86 32/64-bit truncation or wraparound | ch11 `truncate`, ch12 `switch_uint` |
-| D | Needs absent runtime: `malloc`/`free`/`memset`, or libm | ch17 `void_pointer/*`, ch13 `standard_library_call` |
+| D | Needs runtime absent from the Madlen `libc.bin`: libm transcendentals, or the Unix-only allocator (`malloc`/`free`) | ch17 `void_pointer/*`, ch13 `standard_library_call` |
 | E | Forbidden by the no-shadowing design rule | ch7/8/9/10/18/20 shadowing programs |
 | F | 8-character Madlen identifier collision | ch12 `comparisons`, ch20 `briggs_xmm_k_value` |
 | G | Output charset folds lowercase Latin to Cyrillic | ch16 `write_to_array` |
