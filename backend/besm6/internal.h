@@ -67,6 +67,10 @@ void emit_xts_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *
 // following bare XTA/ATX dereferences it.
 void emit_wtc_ptr(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *name);
 
+// Emit ASX addressing a pointer variable's word (frame slot or global via UTC) — the
+// operand's exponent field is the fat-pointer byte offset used as the shift count.
+void emit_asx_ptr(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *name);
+
 // Store A into a variable, whether a frame slot or a module-level global.
 void emit_store_a(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *name);
 

@@ -120,6 +120,12 @@ malformed) is treated as an ordinary whole-line comment and emits nothing.
 name may not begin with a digit (a leading digit starts a number) nor with `$` (a leading
 `$` starts a raw `$NN` opcode, see [§9.3](#93-raw-opcodes)). Names are case-sensitive.
 
+**Mnemonics are not reserved.** A name may be spelled like a machine instruction (`sti`,
+`mod`, `ext`, …): a word is read as a mnemonic only where an instruction is expected — the
+start of a statement — and even there a following `:` or `=` marks it as a label or equate
+instead. In operand position a mnemonic spelling is always an ordinary symbol, so
+`uj sti` jumps to a label named `sti`.
+
 **Defining a label.** A name followed by a colon defines a symbol whose value is the current
 location (in words) within the current segment:
 
@@ -134,7 +140,7 @@ Defining a label first aligns the current segment to a word boundary.
 
 ```
 buf_size = 0200          // infix '=' form
-buf_size .equ 0200        // .equ directive form
+.equ buf_size, 0200      // .equ directive form
 ```
 
 The symbol takes the segment/relocation class of the expression. Equating to an external
@@ -411,11 +417,8 @@ keeps its relocation on the low (second) half-word.
 | Directive | Operands | Effect |
 |-----------|----------|--------|
 | `.globl` | `name [, name …]` | Mark each name as external/global. |
-| `.equ` | `name .equ expr` | Equate `name` to `expr` (also available as `name = expr`). |
-| `.comm` | `name [, len]` or `name .comm len` | Declare a **common** block of `len` words (default 1); becomes bss at link time. |
-
-`.comm` accepts both the prefix form (`.comm name, len`) and the infix form
-(`name .comm len`).
+| `.equ` | `name, expr` | Equate `name` to `expr` (also available as `name = expr`). |
+| `.comm` | `name [, len]` | Declare a **common** block of `len` words (default 1); becomes bss at link time. |
 
 ---
 

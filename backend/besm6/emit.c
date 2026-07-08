@@ -84,6 +84,26 @@ void emit_wtc_ptr(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *nam
     }
 }
 
+// Emit ASX addressing a pointer variable's word.  A byte load through a fat pointer shifts
+// the accumulator right by the pointer's byte offset, which lives in the exponent field of
+// the pointer word itself — so the ASX operand is the pointer word.  For a frame-resident
+// pointer this is a single ASX reg=slot.  For a module-level (global) pointer the pointer
+// word is not in the frame: UTC sets C to the global's address, then a bare ASX (EA = C)
+// uses mem[C] as its operand.  UTC does not touch A, so the shifted value is preserved.
+void emit_asx_ptr(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *name)
+{
+    int reg, off;
+    if (frame_lookup(f, name, &reg, &off)) {
+        Besm_Instr *asx = emit(b, t, BESM_EXP_SHIFTX);
+        asx->reg        = reg;
+        asx->addr       = off;
+    } else {
+        Besm_Instr *utc = emit(b, t, BESM_MOD_UTC);
+        utc->name       = xstrdup(name); // C = &global
+        emit(b, t, BESM_EXP_SHIFTX);     // reg=0, addr=0 → operand mem[C] = pointer word
+    }
+}
+
 // Attach a TAC constant to an instruction as a structural operand.  The scalar is
 // copied (Tac_Const is a flat POD) so the instruction owns it independently of the
 // TAC being freed; each dialect's emitter later formats it into its own literal syntax

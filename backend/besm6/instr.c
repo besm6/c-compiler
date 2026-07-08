@@ -279,22 +279,20 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
     // C resets after the very next instruction, so the XTA must immediately follow WTC.
     case TAC_INSTRUCTION_LOAD:
     case TAC_INSTRUCTION_LOAD_BYTE: {
-        int pr, po, dr, doff;
+        int dr, doff;
         lookup(f, instr->u.load.dst->u.var_name, &dr, &doff);
         if (instr->kind == TAC_INSTRUCTION_LOAD_BYTE) {
-            lookup(f, instr->u.load.src_ptr->u.var_name, &pr, &po);
+            const char *pname = instr->u.load.src_ptr->u.var_name;
             // Byte load through a char*/void* fat pointer.  The pointer word holds the
             // word address in bits 15-1 and the byte offset in its exponent field
             // (= 64 + offset*8).  WTC loads the word address into C; the bare XTA then
             // reads the containing word (C supplies the base); ASX shifts the target
             // byte down by offset*8 using the pointer's own exponent; AAX masks to 8 bits.
-            Besm_Instr *wtc = emit(block, tail, BESM_MOD_WTC);
-            wtc->reg        = pr;
-            wtc->addr       = po;
-            emit_xta(block, tail, 0, 0); // A = mem[C]: the containing word
-            Besm_Instr *asx = emit(block, tail, BESM_EXP_SHIFTX);
-            asx->reg        = pr;
-            asx->addr       = po;
+            // The pointer may be frame-local or a module-level global, so both the WTC
+            // and the ASX go through the global-safe emit helpers.
+            emit_wtc_ptr(block, tail, f, pname); // C = word address
+            emit_xta(block, tail, 0, 0);         // A = mem[C]: the containing word
+            emit_asx_ptr(block, tail, f, pname); // A >>= pointer's byte offset
             Besm_Instr *aax = emit(block, tail, BESM_LOG_AAX);
             aax->name       = xstrdup("=377"); // mask low 8 bits
             emit_atx(block, tail, dr, doff);
@@ -324,15 +322,16 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
     case TAC_INSTRUCTION_STORE:
     case TAC_INSTRUCTION_STORE_BYTE: {
         if (instr->kind == TAC_INSTRUCTION_STORE_BYTE) {
-            int pr, po;
-            lookup(f, instr->u.store.dst_ptr->u.var_name, &pr, &po);
             // Byte store through a char*/void* fat pointer.  Read-modify-write is too
             // long to inline, so call the b/stb runtime helper with the lightweight
             // convention: the fat pointer `a` on the stack top, the byte value `b` in A.
             // The helper masks the byte, clears the target byte of the containing word,
             // ORs the new byte into place, and writes the word back; r15 is unchanged.
-            emit_xta(block, tail, pr, po);                    // A = fat pointer (a)
-            emit_xts_val(block, tail, f, instr->u.store.src); // push a; A = value (b)
+            // The pointer may be frame-local or a module-level global, so load it with
+            // emit_xta_val (global-safe: UTC name + XTA for a global, a plain frame XTA
+            // otherwise).
+            emit_xta_val(block, tail, f, instr->u.store.dst_ptr); // A = fat pointer (a)
+            emit_xts_val(block, tail, f, instr->u.store.src);     // push a; A = value (b)
             Besm_Instr *call = emit(block, tail, BESM_BRANCH_CALL);
             call->name       = xstrdup("b$stb");
             break;

@@ -106,6 +106,27 @@ TEST_F(CodegenTest, CharPostIncrement)
     EXPECT_EQ("AB\n", result);
 }
 
+// Runtime: byte store and load through a *module-level global* char* pointer (not a frame
+// slot).  Mirrors the msgbuf/msgbufp idiom that regressed with "variable not in frame":
+// the byte paths must route the fat pointer through the global-safe emit helpers.
+TEST_F(CodegenTest, GlobalCharPtrStoreLoad)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        char buf[4];
+        char *p = buf;
+        void program() {
+            *p = 'A';          /* byte store through a global fat pointer */
+            ++p;               /* pointer increment on a global */
+            *p = 'B';
+            putbyte(buf[0]);   /* read back the stored bytes */
+            putbyte(*p);       /* byte load through the global fat pointer */
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("AB\n", result);
+}
+
 // Runtime: int*->char* cast yields a fat pointer at offset 5 (the int's MSB byte).
 // Storing and loading through it exercises the byte shift by 40 bits (offset 5).
 TEST_F(CodegenTest, CharCastOffset5Roundtrip)
