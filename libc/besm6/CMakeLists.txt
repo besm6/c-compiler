@@ -36,9 +36,12 @@ file(GLOB BESM6_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
 # defaults to Unix (b6as) output, so the Madlen dialect is requested explicitly;
 # besmc only recognizes the .madlen extension, so genbesm writes there.
 # Portable routines shared by every BESM-6 assembler backend, compiled from this
-# directory (libc/besm6).  These have no Dubna dependency — they build on the
+# directory (libc/besm6).  Most have no Dubna dependency — they build on the
 # putbyte/flush/getch seam or are pure computation — so libc/besm6/unix and
-# libc/besm6/bemsh will reuse them once each supplies its own leaves below.
+# libc/besm6/bemsh will reuse them once each supplies its own leaves below.  The
+# lone exception is malloc: its heap is provisioned between the linker _end symbol
+# and the b6sim stack base, which only the Unix path supplies, so it is dropped
+# from the Madlen libc.bin below (but kept in the Unix libc.a).
 set(LIBC_C_PORTABLE
     printf puts putchar putch
     doprnt sprintf snprintf modf malloc
@@ -77,7 +80,13 @@ macro(besm6_compile_libc_c name srcdir)
     list(APPEND LIBC_C_MADLEN ${c_mad})
 endmacro()
 
-foreach(name ${LIBC_C_PORTABLE})
+# malloc/calloc/realloc/free rely on the Unix (b6ld/b6sim) memory map — the _end
+# boundary symbol and the 070000 stack base — which the dubna monitor does not
+# provide, so the allocator is excluded from the Madlen libc.bin.  It stays in
+# LIBC_C_PORTABLE for the Unix libc.a build (see unix/CMakeLists.txt).
+set(LIBC_C_MADLEN_SOURCES ${LIBC_C_PORTABLE})
+list(REMOVE_ITEM LIBC_C_MADLEN_SOURCES malloc)
+foreach(name ${LIBC_C_MADLEN_SOURCES})
     besm6_compile_libc_c(${name} ${CMAKE_CURRENT_SOURCE_DIR})
 endforeach()
 foreach(name ${LIBC_C_DUBNA})

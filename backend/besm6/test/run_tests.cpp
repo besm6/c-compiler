@@ -273,7 +273,7 @@ TEST_F(CodegenTest, DISABLED_MallocHeapRoundTrip)
 
         void program() {
             heap_setup(arena, 200);
-            long avail0 = heap_available();
+            long avail0 = malloc_free_bytes();
 
             int *a = malloc(10 * sizeof(int));
             int *b = malloc(5 * sizeof(int));
@@ -288,7 +288,7 @@ TEST_F(CodegenTest, DISABLED_MallocHeapRoundTrip)
 
             free(b);
             free(c);
-            printf("FULL %d\n", heap_available() == avail0);
+            printf("FULL %d\n", malloc_free_bytes() == avail0);
 
             int *d = calloc(4, sizeof(int));
             printf("ZERO %d\n", d[0] + d[1] + d[2] + d[3]);

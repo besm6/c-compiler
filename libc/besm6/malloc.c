@@ -1,53 +1,74 @@
-/*
- * Dynamic memory allocation (malloc/calloc/realloc/free) for the BESM-6.
- *
- * Free memory is kept as a singly linked list sorted by address in ascending
- * order; the first segment large enough to satisfy a request is used (first
- * fit).  Adjacent free blocks are merged on free(), which keeps fragmentation
- * low at the cost of a linear scan.
- *
- * BESM-6 is word-addressed: every scalar and pointer is one 48-bit word (six
- * bytes) and `ptr + n` advances n words.  The allocator therefore counts
- * everything in WORDS and does all address arithmetic with typed pointers — a
- * heap_header_t is exactly one word, so pointer steps and word steps coincide
- * and no integer<->pointer casts are needed.
- *
- * Memory is supplied by the program through heap_setup() (see <malloc.h>);
- * there is no sbrk on this machine.
- */
+//
+// Dynamic memory allocation (malloc/calloc/realloc/free) for the BESM-6.
+//
+// Free memory is kept as a singly linked list sorted by address in ascending
+// order; the first segment large enough to satisfy a request is used (first
+// fit).  Adjacent free blocks are merged on free(), which keeps fragmentation
+// low at the cost of a linear scan.
+//
+// BESM-6 is word-addressed: every scalar and pointer is one 48-bit word (six
+// bytes) and `ptr + n` advances n words.  The allocator therefore counts
+// everything in WORDS and does all address arithmetic with typed pointers — a
+// heap_header_t is exactly one word, so pointer steps and word steps coincide
+// and no integer<->pointer casts are needed.
+//
+// There is no sbrk on this machine.  Instead the heap occupies the fixed span
+// from the linker end-of-program symbol `_end` up to the BESM-6 stack base
+// (HEAP_LIMIT); it is claimed lazily on the first allocation.  This layout is
+// supplied by the Unix (b6ld/b6sim) toolchain — b6ld defines `_end` and b6sim
+// seeds the stack at HEAP_LIMIT — so the allocator is a Unix-only routine and is
+// not assembled into the Madlen libc.bin (see libc/besm6/CMakeLists.txt).
+//
 #include <stdlib.h>
 #include <malloc.h>
 
-/* Bytes per machine word. */
+//
+// Bytes per machine word.
+//
 #define WORD_BYTES 6
 
-/*
- * Every block is prefixed by a one-word header holding the block size (in
- * words, header included).  In a free block the first payload word is reused
- * to chain to the next free block.
- */
+//
+// End of heap, start of BESM-6 stack.
+//
+#define HEAP_LIMIT 070000
+
+//
+// Smallest block we keep on the free list: header + one word for its link.
+//
+#define MIN_BLOCK_WORDS 2
+
+//
+// Every block is prefixed by a one-word header holding the block size (in
+// words, header included).  In a free block the first payload word is reused
+// to chain to the next free block.
+//
 typedef struct {
     size_t size;
 } heap_header_t;
 
-/* Address of, and value of, the next-free-block link stored after a header. */
+//
+// Address of, and value of, the next-free-block link stored after a header.
+//
 #define NEXTP(h) ((heap_header_t **)((h) + 1))
 #define NEXT(h)  (*NEXTP(h))
 
-/* Smallest block we keep on the free list: header + one word for its link. */
-#define MIN_BLOCK_WORDS 2
-
-/* Free list, sorted by ascending address, and the running free-word total. */
+//
+// Free list, sorted by ascending address, and the running free-word total.
+//
 static heap_header_t *free_list;
 static size_t free_words;
 
-/* Round a byte count up to whole words. */
+//
+// Round a byte count up to whole words.
+//
 static size_t to_words(size_t nbytes)
 {
     return (nbytes + WORD_BYTES - 1) / WORD_BYTES;
 }
 
-/* Fill n words at p with zero (memset is not in libc.bin yet). */
+//
+// Fill n words at p with zero (memset is not in libc.bin yet).
+//
 static void zero_words(size_t *p, size_t n)
 {
     while (n > 0) {
@@ -57,7 +78,9 @@ static void zero_words(size_t *p, size_t n)
     }
 }
 
-/* Copy n words from s to d (memcpy is not in libc.bin yet). */
+//
+// Copy n words from s to d (memcpy is not in libc.bin yet).
+//
 static void copy_words(size_t *d, const size_t *s, size_t n)
 {
     while (n > 0) {
@@ -69,19 +92,28 @@ static void copy_words(size_t *d, const size_t *s, size_t n)
 }
 
 //
-// Donate a region of NWORDS words at START to the heap.
+// Claim the whole heap span [_end, HEAP_LIMIT) as one free block, once.
+// Called lazily on the first allocation or free-memory query.
 //
-void heap_setup(void *start, size_t nwords)
+static void heap_setup(void)
 {
-    if (nwords < MIN_BLOCK_WORDS) {
+    // Initialize once.
+    static int initialized;
+    if (initialized)
         return;
-    }
+    initialized = 1;
 
-    heap_header_t *h = (heap_header_t *)start;
+    extern heap_header_t _end;
+    heap_header_t *h = &_end;
+    if ((size_t)h >= HEAP_LIMIT) {
+        return; // program fills memory up to the stack: no room for a heap
+    }
+    size_t nwords = HEAP_LIMIT - (size_t)h;
+
     h->size = nwords;
-    NEXT(h) = free_list;
+    NEXT(h) = NULL;
     free_list = h;
-    free_words += nwords;
+    free_words = nwords;
 }
 
 //
@@ -90,6 +122,8 @@ void heap_setup(void *start, size_t nwords)
 //
 static heap_header_t *alloc_words(size_t nwords)
 {
+    heap_setup();
+
     heap_header_t *h = free_list;
     heap_header_t **hprev = &free_list;
 
@@ -240,8 +274,9 @@ void *realloc(void *ptr, size_t nbytes)
 //
 // Total free memory currently available, in bytes.
 //
-size_t heap_available(void)
+size_t malloc_free_bytes(void)
 {
+    heap_setup();
     return free_words * WORD_BYTES;
 }
 
