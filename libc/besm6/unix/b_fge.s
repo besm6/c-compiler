@@ -13,14 +13,14 @@
     .text
     .globl b$fge
 b$fge:
-    ntr  // R := 0: full FP mode for the subtract
- 15 x-a  // A := a - b (FP); additive sign set
-    uza true  // a - b >= 0  ->  a >= b
-    xta  // A := 0 (false)
-    ntr 7  // restore integer mode for the caller
+    ntr         // R := 0: full FP mode for the subtract
+ 15 x-a         // A := a - b (FP); additive sign set
+    uza true    // a - b >= 0  ->  a >= b
+    xta         // A := 0 (false)
+    ntr 7       // restore integer mode for the caller
  13 uj
-//
+
 true:
-    xta #01  // A := 1 (true)
-    ntr 7  // restore integer mode for the caller
+    xta #01     // A := 1 (true)
+    ntr 7       // restore integer mode for the caller
  13 uj

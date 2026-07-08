@@ -8,7 +8,7 @@
     .text
     .globl b$lsh
 b$lsh:
-    aex #0177  // ~B is the same as -B-1
-    sti 14  // r14 = -B-1, pop A from stack
- 14 asn 64 + 1  // A <<= -r14-1
+    aex #0177       // ~B is the same as -B-1
+    sti 14          // r14 = -B-1, pop A from stack
+ 14 asn 64 + 1      // A <<= -r14-1
  13 uj

@@ -137,8 +137,9 @@ d:
               out);
 }
 
-// A Madlen literal-address expression (`=:64`, the INT-format exponent word) becomes a
-// b6as `#`-pool constant; b6as has no `=` literal syntax.
+// A Madlen left-aligned literal (`=:64`, the INT-format exponent word) becomes a b6as
+// `#`-pool constant using the prefix-apostrophe left-align form (`#0'64`); b6as has no
+// `=` literal syntax.
 TEST_F(CodegenTest, UnixIntFormatLiteral)
 {
     std::string out = CompileToUnix("double g(int n) { return n; }");
@@ -148,7 +149,7 @@ g:
     its 13
  13 vjm b$save
   6 xta
-    aox #06400000000000000
+    aox #0'64
     ntr 0
     a+x
     ntr 7

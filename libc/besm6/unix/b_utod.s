@@ -20,21 +20,23 @@
     .text
     .globl b$utod
 b$utod:
- 15 atx  // push u: mem[r15-1] := u ; r15 += 1        u /
+ 15 atx                 // push u: mem[r15-1] := u ; r15 += 1        u /
+
 // --- (double)hi * 2^24 ---
-    asn 64+24  // A := u >> 24 = hi   (logical shift, zero fill)
-    aox #06400000000000000  // A := INT-format hi
-    ntr  // R := 0: full FP mode (normalize + round)
-    a+x  // normalize: A := (double)hi   (A+X mem[0]=0)
-    a*x #05450000000000000  // A := (double)hi * 2^24
- 15 atx  // push hi24: mem[r15-1] := A ; r15 += 1      u hi24 /
+    asn 64+24           // A := u >> 24 = hi   (logical shift, zero fill)
+    aox #0'64           // A := INT-format hi
+    ntr                 // R := 0: full FP mode (normalize + round)
+    a+x                 // normalize: A := (double)hi   (A+X mem[0]=0)
+    a*x #0'545          // A := (double)hi * 2^24
+ 15 atx                 // push hi24: mem[r15-1] := A ; r15 += 1      u hi24 /
+
 // --- (double)lo, then add ---
- 15 xta -2  // A := u  (at r15-2)
-    aax #077777777  // A := u & (2^24-1) = lo
-    aox #06400000000000000  // A := INT-format lo
-    ntr  // R := 0: full FP mode
-    a+x  // normalize: A := (double)lo
- 15 a+x -1  // A := (double)lo + hi24 = (double)u
-    ntr 7  // R := 7: restore integer mode for the caller
- 15 utm -2  // drop u, hi24: r15 := entry
- 13 uj  // return to caller (return address in r13)
+ 15 xta -2              // A := u  (at r15-2)
+    aax #07777'7777     // A := u & (2^24-1) = lo
+    aox #0'64           // A := INT-format lo
+    ntr                 // R := 0: full FP mode
+    a+x                 // normalize: A := (double)lo
+ 15 a+x -1              // A := (double)lo + hi24 = (double)u
+    ntr 7               // R := 7: restore integer mode for the caller
+ 15 utm -2              // drop u, hi24: r15 := entry
+ 13 uj                  // return to caller (return address in r13)

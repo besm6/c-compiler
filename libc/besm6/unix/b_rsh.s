@@ -8,6 +8,6 @@
     .text
     .globl b$rsh
 b$rsh:
-    sti 14  // r14 = B, pop A from stack
- 14 asn 64  // A >>= r14
+    sti 14      // r14 = B, pop A from stack
+ 14 asn 64      // A >>= r14
  13 uj

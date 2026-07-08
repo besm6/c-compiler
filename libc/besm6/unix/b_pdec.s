@@ -10,28 +10,28 @@
     .globl b$pdec
 b$pdec:
     atx p
-    aax #077777  // A = word address (bits 15-1)
+    aax #07'7777                // A = word address (bits 15-1)
     atx w
     xta p
-    asn 64+44  // offset_enc -> bits 3-1
-    aax #07  // offset_enc (0..5)
+    asn 64+44                   // offset_enc -> bits 3-1
+    aax #07                     // offset_enc (0..5)
     atx enc
-    aex #05  // enc XOR 5 == 0  iff  offset_enc == 5
-    uza wrap  // offset_enc == 5 -> wrap to 0, step word back
+    aex #05                     // enc XOR 5 == 0  iff  offset_enc == 5
+    uza wrap                    // offset_enc == 5 -> wrap to 0, step word back
     xta enc
-    arx #01  // offset_enc + 1
-    aax #07  // re-mask to 3 bits (mirror b/pinc)
-    asn 64-44  // offset_enc' -> bits 47-45
-    aox #04000000000000000  // set marker (bit 48)
-    aox w  // OR in the word address
+    arx #01                     // offset_enc + 1
+    aax #07                     // re-mask to 3 bits (mirror b/pinc)
+    asn 64-44                   // offset_enc' -> bits 47-45
+    aox #0'40                   // set marker (bit 48)
+    aox w                       // OR in the word address
  13 uj
 wrap:
     xta w
-    arx #07777777777777776  // word -= 1 (end-around add of -1)
-    aax #077777
-    aox #04000000000000000  // marker + offset_enc 0 (LSB of the previous word)
+    arx #07777'7777'7777'7776   // word -= 1 (end-around add of -1)
+    aax #07'7777
+    aox #0'40                   // marker + offset_enc 0 (LSB of the previous word)
  13 uj
-//
+
     .bss
 p:
     . = . + 1

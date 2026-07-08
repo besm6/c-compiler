@@ -26,12 +26,12 @@ static int member_word_offset(int byte_offset)
 static const char *fat_marker_const(int byte_num)
 {
     static const char *const tab[BESM6_WORD_BYTES] = {
-        "=6400000000000000", // byte#0 -> offset_enc 5 (MSB)
-        "=6000000000000000", // byte#1 -> offset_enc 4
-        "=5400000000000000", // byte#2 -> offset_enc 3
-        "=5000000000000000", // byte#3 -> offset_enc 2
-        "=4400000000000000", // byte#4 -> offset_enc 1
-        "=4000000000000000", // byte#5 -> offset_enc 0 (LSB)
+        "=:64", // byte#0 -> offset_enc 5 (MSB)
+        "=:60", // byte#1 -> offset_enc 4
+        "=:54", // byte#2 -> offset_enc 3
+        "=:50", // byte#3 -> offset_enc 2
+        "=:44", // byte#4 -> offset_enc 1
+        "=:40", // byte#5 -> offset_enc 0 (LSB)
     };
     return tab[byte_num];
 }
@@ -252,13 +252,13 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         // a standalone char lives).
         if (instr->kind == TAC_INSTRUCTION_GET_ADDRESS_BYTE) {
             Besm_Instr *aox = emit(block, tail, BESM_LOG_AOX);
-            aox->name       = xstrdup("=4000000000000000"); // bit 48: fat marker, offset 0
+            aox->name       = xstrdup("=:40"); // bit 48: fat marker, offset 0
         }
         // A char/void array (or string) decaying to a char* points at its first byte,
         // which is packed in the MSB (byte #0): set the marker with offset_enc 5.
         if (instr->kind == TAC_INSTRUCTION_GET_ADDRESS_DECAY) {
             Besm_Instr *aox = emit(block, tail, BESM_LOG_AOX);
-            aox->name       = xstrdup("=6400000000000000"); // bit 48 + offset_enc 5 (MSB)
+            aox->name       = xstrdup("=:64"); // bit 48 + offset_enc 5 (MSB)
         }
         emit_store_a(block, tail, f, instr->u.get_address.dst->u.var_name);
         break;
@@ -879,7 +879,7 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
         lookup(f, dst->u.var_name, &rd, &od);
         emit_xta_val(block, tail, f, src);
         Besm_Instr *aox = emit(block, tail, BESM_LOG_AOX);
-        aox->name       = xstrdup("=6400000000000000"); // bit 48 (marker) + offset 5
+        aox->name       = xstrdup("=:64"); // bit 48 (marker) + offset 5
         emit_atx(block, tail, rd, od);
         break;
     }

@@ -28,30 +28,34 @@
     .text
     .globl b$umod
 b$umod:
- 15 atx  // push b: mem[E] := b, r15 := E+1
-    ita 13  // A := saved return address (r13)
- 15 atx  // push r13: mem[E+1] := r13, r15 := E+2
- 15 mtj 12  // r12 := r15 = E+2
- 12 utm -2  // r12 := E  (a = r12-1, b = r12, r13 = r12+1)
- 15 utm 1  // reserve scratch slot r12+2: r15 := E+3
+ 15 atx             // push b: mem[E] := b, r15 := E+1
+    ita 13          // A := saved return address (r13)
+ 15 atx             // push r13: mem[E+1] := r13, r15 := E+2
+ 15 mtj 12          // r12 := r15 = E+2
+ 12 utm -2          // r12 := E  (a = r12-1, b = r12, r13 = r12+1)
+ 15 utm 1           // reserve scratch slot r12+2: r15 := E+3
+
 // q = b/udiv(a, b)
- 12 xta -1  // A := a
- 12 xts  // push a, A := b   (load via r12+0)
- 13 vjm b$udiv  // A := q = a / b ; helper pops one word -> r15 = E+3
- 12 atx 2  // scratch := q
+ 12 xta -1          // A := a
+ 12 xts             // push a, A := b   (load via r12+0)
+ 13 vjm b$udiv      // A := q = a / b ; helper pops one word -> r15 = E+3
+ 12 atx 2           // scratch := q
+
 // p = b/umul(q, b)
- 12 xta 2  // A := q
- 12 xts  // push q, A := b   (load via r12+0)
- 13 vjm b$umul  // A := p = q * b ; r15 = E+3
- 12 atx 2  // scratch := p  (q no longer needed)
+ 12 xta 2           // A := q
+ 12 xts             // push q, A := b   (load via r12+0)
+ 13 vjm b$umul      // A := p = q * b ; r15 = E+3
+ 12 atx 2           // scratch := p  (q no longer needed)
+
 // r = b/usub(a, p) = a - p
- 12 xta -1  // A := a
- 12 xts 2  // push a, A := p   (load via r12+2)
- 13 vjm b$usub  // A := r = a - p ; r15 = E+3
+ 12 xta -1          // A := a
+ 12 xts 2           // push a, A := p   (load via r12+2)
+ 13 vjm b$usub      // A := r = a - p ; r15 = E+3
+
 // restore r13, return r
- 12 atx 2  // scratch := r  (free A to reload r13)
- 12 xta 1  // A := saved r13
-    ati 13  // r13 := A
- 12 xta 2  // A := r  (result)
- 15 utm -4  // drop the frame: r15 := entry - 1  (E+3 -> E-1)
- 13 uj  // return to caller
+ 12 atx 2           // scratch := r  (free A to reload r13)
+ 12 xta 1           // A := saved r13
+    ati 13          // r13 := A
+ 12 xta 2           // A := r  (result)
+ 15 utm -4          // drop the frame: r15 := entry - 1  (E+3 -> E-1)
+ 13 uj              // return to caller

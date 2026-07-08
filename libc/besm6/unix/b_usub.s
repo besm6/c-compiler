@@ -8,12 +8,12 @@
     .text
     .globl b$usub
 b$usub:
-    ntr 7  // B is on accumulator
-    uza b_zero  // jump when B 0= 0
-    aex #07777777777777777  // all ones
-    arx #01  // negate B
-    uj b$uadd  // compute A + (-B)
-//
+    ntr 7                       // B is on accumulator
+    uza b_zero                  // jump when B 0= 0
+    aex #07777'7777'7777'7777   // all ones
+    arx #01                     // negate B
+    uj b$uadd                   // compute A + (-B)
+
 b_zero:
-    stx  // pop A from stack
+    stx                         // pop A from stack
  13 uj

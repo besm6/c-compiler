@@ -21,12 +21,12 @@
     .text
     .globl b$dtoi
 b$dtoi:
- 15 atx  // push x as the sign reference: mem[r15-1] := x ; r15 += 1
-    ntr  // R := 0: full FP mode for the absolute value
- 15 avx -1  // A := |x|  (AVX negates A iff x at r15-1 < 0)
-    ntr 3  // R := 3: suppress normalize + round for integer extraction
-    a+x #06400000000000000  // realign |x| to the INT exponent, dropping the fraction
- 15 avx -1  // reapply sign: negate the magnitude iff x < 0
- 15 utm -1  // pop x: r15 := entry
-    aax #037777777777777  // mask off the exponent -> raw 41-bit signed int
- 13 uj  // return to caller (return address in r13)
+ 15 atx                     // push x as the sign reference: mem[r15-1] := x ; r15 += 1
+    ntr                     // R := 0: full FP mode for the absolute value
+ 15 avx -1                  // A := |x|  (AVX negates A iff x at r15-1 < 0)
+    ntr 3                   // R := 3: suppress normalize + round for integer extraction
+    a+x #0'64               // realign |x| to the INT exponent, dropping the fraction
+ 15 avx -1                  // reapply sign: negate the magnitude iff x < 0
+ 15 utm -1                  // pop x: r15 := entry
+    aax #037'7777'7777'7777 // mask off the exponent -> raw 41-bit signed int
+ 13 uj                      // return to caller (return address in r13)

@@ -7,9 +7,9 @@
     .text
     .globl ldexp
 ldexp:
-    aex #0100  // n + 64
-    asn 64-41  // (n+64) << 41  into the exponent field
- 15 xts -2  // x             push stack
- 15 e+x  // x * 2^n       pop stack
- 15 utm -1  // drop x
- 13 uj  // return
+    aex #0100       // n + 64
+    asn 64-41       // (n+64) << 41  into the exponent field
+ 15 xts -2          // x             push stack
+ 15 e+x             // x * 2^n       pop stack
+ 15 utm -1          // drop x
+ 13 uj              // return

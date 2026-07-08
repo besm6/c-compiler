@@ -29,108 +29,113 @@
     .text
     .globl b$udiv
 b$udiv:
- 15 atx  // push b: mem[E]=b, r15=E+1
- 15 xta -1  // reload b (logical w, w = b!=0)
-    uza u_z  // b == 0 -> return 0 (undefined)
- 15 xta -2  // A := a
- 15 aox -1  // A := a | b
-    asn 64+40  // A := (a|b) >> 40
-    uza u_fst  // both < 2^40 -> single hardware divide
- 15 xta -1  // A := b
-    asn 64+32  // A := b >> 32
-    uza u_two  // b < 2^32 -> 2-step b/div long division
+ 15 atx         // push b: mem[E]=b, r15=E+1
+ 15 xta -1      // reload b (logical w, w = b!=0)
+    uza u_z     // b == 0 -> return 0 (undefined)
+ 15 xta -2      // A := a
+ 15 aox -1      // A := a | b
+    asn 64+40   // A := (a|b) >> 40
+    uza u_fst   // both < 2^40 -> single hardware divide
+ 15 xta -1      // A := b
+    asn 64+32   // A := b >> 32
+    uza u_two   // b < 2^32 -> 2-step b/div long division
+
 // otherwise b >= 2^32: divisor-shift loop below
 //
 // --- wide path: divisor-shift long division (b >= 2^32) ---
 // rem = a;  s = 48 - msb_index(b);  for (; s >= 0; s--) if (rem >= b<<s) {
 // rem -= b<<s; quot |= 1<<s }.  Frame (from r15): rem=-5 b=-4 r13=-3 quot=-2 t=-1.
-    ita 13  // A := saved return address (r13)
-    xts  // push it: r15=E+2; A := mem[0] = 0
- 15 atx  // push quot = 0: r15=E+3
- 15 atx  // push t slot (= 0): r15=E+4
- 15 xta -4  // A := b
-    anx  // A := position p of b's highest set bit (1..48)
-    ntr 3  // suppress normalization for the integer subtract
-    x-a #01  // A := 1 - p  (= -(48 - msb_index(b)) = -s_start, <= 0)
-    ati 11  // r11 := -s
+    ita 13      // A := saved return address (r13)
+    xts         // push it: r15=E+2; A := mem[0] = 0
+ 15 atx         // push quot = 0: r15=E+3
+ 15 atx         // push t slot (= 0): r15=E+4
+ 15 xta -4      // A := b
+    anx         // A := position p of b's highest set bit (1..48)
+    ntr 3       // suppress normalization for the integer subtract
+    x-a #01     // A := 1 - p  (= -(48 - msb_index(b)) = -s_start, <= 0)
+    ati 11      // r11 := -s
 u_lp:
- 15 xta -4  // A := b
- 11 asn 64  // A := b << s          (EA = 64 + r11 = 64 - s)
- 15 atx -1  // t := A
- 15 xta -5  // A := rem
- 15 xts -2  // push rem, A := t   (XTS loads past the new top)
- 13 vjm b$uge  // A := (rem >= t) ? 1 : 0      (w = result != 0)
-    uza u_sk  // rem < t -> quotient bit stays 0
- 15 xta -5  // A := rem
- 15 xts -2  // push rem, A := t
+ 15 xta -4      // A := b
+ 11 asn 64      // A := b << s          (EA = 64 + r11 = 64 - s)
+ 15 atx -1      // t := A
+ 15 xta -5      // A := rem
+ 15 xts -2      // push rem, A := t   (XTS loads past the new top)
+ 13 vjm b$uge   // A := (rem >= t) ? 1 : 0      (w = result != 0)
+    uza u_sk    // rem < t -> quotient bit stays 0
+ 15 xta -5      // A := rem
+ 15 xts -2      // push rem, A := t
  13 vjm b$usub  // A := rem - t
- 15 atx -5  // rem := A
-    xta #01  // A := 1
- 11 asn 64  // A := 1 << s
- 15 aox -2  // A |= quot
- 15 atx -2  // quot := A
+ 15 atx -5      // rem := A
+    xta #1      // A := 1
+ 11 asn 64      // A := 1 << s
+ 15 aox -2      // A |= quot
+ 15 atx -2      // quot := A
 u_sk:
- 11 vzm u_dn  // s reached 0 -> done
- 11 utm 1  // s -= 1   (r11 += 1)
+ 11 vzm u_dn    // s reached 0 -> done
+ 11 utm 1       // s -= 1   (r11 += 1)
     uj u_lp
 u_dn:
- 15 xta -3  // A := saved return address
-    ati 13  // r13 := A
- 15 xta -2  // A := quot  (result, raw 48-bit)
- 15 utm -5  // drop the frame: r15 := entry - 1
- 13 uj  // return to caller
-//
+ 15 xta -3      // A := saved return address
+    ati 13      // r13 := A
+ 15 xta -2      // A := quot  (result, raw 48-bit)
+ 15 utm -5      // drop the frame: r15 := entry - 1
+ 13 uj          // return to caller
+
 // --- fast path: both operands < 2^40 -> exact signed divide ---
 u_fst:
- 15 xta  // pop b: A := b, r15 := entry
-    uj b$div  // a at mem[r15-1], b in A; b/div floors and returns
-//
+ 15 xta         // pop b: A := b, r15 := entry
+    uj b$div    // a at mem[r15-1], b in A; b/div floors and returns
+
 // --- 2-step path: b < 2^32, base-2^8 long division ---
 // q = (q1<<8) + q2,  q1 = aHi/b,  num2 = (aHi%b)<<8 | aLo,  q2 = num2/b,
 // aHi = a>>8 (< 2^40),  aLo = a & 0377.  Frame based at r10 (stable across the
 // nested calls):  a=r10-1  b=r10+0  r13=r10+1  q1=r10+2  num2=r10+3  q=r10+4.
 u_two:
- 15 mtj 10  // r10 := r15  (= E+1)
- 10 utm -1  // r10 := E    (base: b at r10, a at r10-1)
- 15 utm 4  // reserve frame: r15 := E+5 (slots r10+1..r10+4)
-    ita 13  // A := r13
- 10 atx 1  // save r13 at r10+1
+ 15 mtj 10      // r10 := r15  (= E+1)
+ 10 utm -1      // r10 := E    (base: b at r10, a at r10-1)
+ 15 utm 4       // reserve frame: r15 := E+5 (slots r10+1..r10+4)
+    ita 13      // A := r13
+ 10 atx 1       // save r13 at r10+1
+
 // q1 = b/div(aHi, b)
- 10 xta -1  // A := a
-    asn 64+8  // A := a >> 8 = aHi
- 10 xts  // push aHi, A := b      (load via r10+0)
- 13 vjm b$div  // A := q1 = aHi / b
- 10 atx 2  // q1 := A
+ 10 xta -1      // A := a
+    asn 64+8    // A := a >> 8 = aHi
+ 10 xts         // push aHi, A := b      (load via r10+0)
+ 13 vjm b$div   // A := q1 = aHi / b
+ 10 atx 2       // q1 := A
+
 // r1 = b/mod(aHi, b);  num2 = (r1<<8) | (a & 0377)
- 10 xta -1  // A := a
-    asn 64+8  // A := aHi
- 10 xts  // push aHi, A := b
- 13 vjm b$mod  // A := r1 = aHi mod b
-    asn 64-8  // A := r1 << 8
- 10 atx 3  // num2 := r1<<8  (temp)
- 10 xta -1  // A := a
-    aax #0377  // A := a & 0377 = aLo
- 10 aox 3  // A := aLo | (r1<<8) = num2
- 10 atx 3  // num2 := A
+ 10 xta -1      // A := a
+    asn 64+8    // A := aHi
+ 10 xts         // push aHi, A := b
+ 13 vjm b$mod   // A := r1 = aHi mod b
+    asn 64-8    // A := r1 << 8
+ 10 atx 3       // num2 := r1<<8  (temp)
+ 10 xta -1      // A := a
+    aax #0377   // A := a & 0377 = aLo
+ 10 aox 3       // A := aLo | (r1<<8) = num2
+ 10 atx 3       // num2 := A
+
 // q2 = b/div(num2, b)
- 10 xta 3  // A := num2
- 10 xts  // push num2, A := b
- 13 vjm b$div  // A := q2 = num2 / b
- 10 atx 4  // q2 := A  (temp)
+ 10 xta 3       // A := num2
+ 10 xts         // push num2, A := b
+ 13 vjm b$div   // A := q2 = num2 / b
+ 10 atx 4       // q2 := A  (temp)
+
 // q = (q1<<8) + q2
- 10 xta 2  // A := q1
-    asn 64-8  // A := q1 << 8
- 10 xts 4  // push q1<<8, A := q2
+ 10 xta 2       // A := q1
+    asn 64-8    // A := q1 << 8
+ 10 xts 4       // push q1<<8, A := q2
  13 vjm b$uadd  // A := (q1<<8) + q2 = q
- 10 atx 4  // q := A
- 10 xta 1  // A := saved r13
-    ati 13  // r13 := A
- 10 xta 4  // A := q  (result)
- 15 utm -6  // drop the frame: r15 := entry - 1  (E+5 -> E-1)
- 13 uj  // return to caller
-//
+ 10 atx 4       // q := A
+ 10 xta 1       // A := saved r13
+    ati 13      // r13 := A
+ 10 xta 4       // A := q  (result)
+ 15 utm -6      // drop the frame: r15 := entry - 1  (E+5 -> E-1)
+ 13 uj          // return to caller
+
 // b == 0: undefined; return 0 with the stack popped by one word.
 u_z:
-    xta  // A := 0
- 15 utm -2  // r15 := entry - 1  (we had pushed b)
+    xta         // A := 0
+ 15 utm -2      // r15 := entry - 1  (we had pushed b)
  13 uj

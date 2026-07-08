@@ -12,7 +12,7 @@ b$gt:
     u1a true
     xta
  13 uj
-//
+
 true:
     xta #01
  13 uj

@@ -7,10 +7,10 @@
     .text
     .globl b$uge
 b$uge:
- 15 aex  // A ^ B
- 15 atx  // push to stack
-    yta  // get B from RMR
- 15 apx  // pop A^B from stack, pack by B
-    asn 64+47  // get bit 48
-    aex #01  // invert
+ 15 aex         // A ^ B
+ 15 atx         // push to stack
+    yta         // get B from RMR
+ 15 apx         // pop A^B from stack, pack by B
+    asn 64+47   // get bit 48
+    aex #1      // invert
  13 uj

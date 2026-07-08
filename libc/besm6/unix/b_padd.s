@@ -21,70 +21,74 @@
     .globl b$padd
 b$padd:
     atx delta
- 15 xta  // pop the base a
+ 15 xta                     // pop the base a
     atx base
-    aax #077777  // word address (bits 15-1)
+    aax #07'7777            // word address (bits 15-1)
     atx word
+
 // byte# from the MSB
     xta base
-    aax #04000000000000000  // test the marker (bit 48)
-    uza bare  // marker clear -> byte# = 0
+    aax #0'40               // test the marker (bit 48)
+    uza bare                // marker clear -> byte# = 0
     xta base
-    asn 64+44  // offset_enc -> bits 3-1
+    asn 64+44               // offset_enc -> bits 3-1
     aax #07
     ati 11
- 11 xta ttab  // byte# = 5 - offset_enc
+ 11 xta ttab                // byte# = 5 - offset_enc
     uj havebyte
 bare:
     xta #00
 havebyte:
-    a+x delta  // m = byte# + delta  (R = 7 at entry: raw integer add)
+    a+x delta               // m = byte# + delta  (R = 7 at entry: raw integer add)
+
 // Bias m by 6*K (K = 0200000 = 65536 words) so the dividend is non-negative: INT-format
 // divide misreads a negative two's-complement mantissa, and the BESM-6 address space is
 // only 15 bits, so 6K exceeds any in-bounds byte span.  floor((m+6K)/6) = floor(m/6) + K
 // and (m+6K) mod 6 = m mod 6, so K is subtracted back from the quotient below.
-    a+x #01400000  // M = m + 6K  (>= 0)
+    a+x #0140'0000          // M = m + 6K  (>= 0)
     atx m
+
 // q = floor(M / 6): divide as normalized FP, then mask the fraction.  INT-format operands
 // must be normalized first (a+x mem[0]=0), as in b/utod.
-    ntr  // R := 0: full FP mode (normalize + round)
+    ntr                     // R := 0: full FP mode (normalize + round)
     xta #06
-    aox #06400000000000000  // INT-format 6
-    a+x  // normalize -> (double)6
+    aox #0'64               // INT-format 6
+    a+x                     // normalize -> (double)6
     atx six
     xta m
-    aox #06400000000000000  // INT-format M
-    a+x  // normalize -> (double)M
-    a/x six  // (double)M / (double)6
-    ntr 3  // R := 3: suppress normalize + round
-    a+x #06400000000000000  // re-align to the INT exponent, dropping the fraction
-    aax #037777777777777  // raw quotient q = floor(M/6)
+    aox #0'64               // INT-format M
+    a+x                     // normalize -> (double)M
+    a/x six                 // (double)M / (double)6
+    ntr 3                   // R := 3: suppress normalize + round
+    a+x #0'64               // re-align to the INT exponent, dropping the fraction
+    aax #037'7777'7777'7777 // raw quotient q = floor(M/6)
     atx q
-// 6*q = 4q + 2q
-    asn 64-1  // 2q
+                            // 6*q = 4q + 2q
+    asn 64-1                // 2q
     atx q2
     xta q
-    asn 64-2  // 4q
-    arx q2  // 6q
+    asn 64-2                // 4q
+    arx q2                  // 6q
     atx q6
-// r = m - 6q  (0..5)
-    ntr 7  // R := 7: raw integer additive mode
+                            // r = m - 6q  (0..5)
+    ntr 7                   // R := 7: raw integer additive mode
     xta m
     a-x q6
     ati 11
-// enc' = 5 - r
+                            // enc' = 5 - r
  11 xta ttab
-    asn 64-44  // offset_enc' -> bits 47-45
-    aox #04000000000000000  // set marker
+    asn 64-44               // offset_enc' -> bits 47-45
+    aox #0'40               // set marker
     atx encw
+
 // word' = word + q - K   (undo the bias added to the dividend)
     xta word
     a+x q
-    a-x #0200000
-    aax #077777
+    a-x #020'0000
+    aax #07'7777
     aox encw
  13 uj
-//
+
     .bss
 delta:
     . = . + 1
@@ -104,6 +108,7 @@ q6:
     . = . + 1
 encw:
     . = . + 1
+
 // ttab[i] = 5 - i  (octal)
     .data
 ttab:

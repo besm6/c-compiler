@@ -7,10 +7,10 @@
     .text
     .globl b$ugt
 b$ugt:
- 15 aex -1  // A ^ B
- 15 atx  // push A^B to stack
- 15 xta -2  // get A from stack
- 15 apx  // pop A^B from stack, pack by A
-    asn 64+47  // get bit 48
- 15 utm -1  // pop stack
+ 15 aex -1      // A ^ B
+ 15 atx         // push A^B to stack
+ 15 xta -2      // get A from stack
+ 15 apx         // pop A^B from stack, pack by A
+    asn 64+47   // get bit 48
+ 15 utm -1      // pop stack
  13 uj

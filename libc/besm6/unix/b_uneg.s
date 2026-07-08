@@ -6,9 +6,9 @@
     .text
     .globl b$uneg
 b$uneg:
-    aox  // OR mem[0]=0: ACC unchanged, set logical w so uza tests x==0
- 13 uza  // -0u -> 0u  (returns with logical w from the aox above)
-    aex #07777777777777777  // all ones
-    arx #01  // ~x + 1   (arx sets multiplicative w)
-    aox  // OR mem[0]=0: ACC unchanged, restore logical w-mode
+    aox                         // OR mem[0]=0: ACC unchanged, set logical w so uza tests x==0
+ 13 uza                         // -0u -> 0u  (returns with logical w from the aox above)
+    aex #07777'7777'7777'7777   // all ones
+    arx #01                     // ~x + 1   (arx sets multiplicative w)
+    aox                         // OR mem[0]=0: ACC unchanged, restore logical w-mode
  13 uj

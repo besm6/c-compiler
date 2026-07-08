@@ -20,7 +20,7 @@ _start:
  13 vjm flush       // call flush();
  15 xta             // pop status
     $77 1           // _exit(status): SYS_exit, status already in ACC
-//
+
     .data
 argv0:
     .word 0         // argv[0] = NULL terminator (argc == 0)

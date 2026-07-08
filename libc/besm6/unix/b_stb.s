@@ -12,28 +12,31 @@
     .text
     .globl b$stb
 b$stb:
-    aax #0377  // mask the byte value to 8 bits
-    atx val  // save b
- 15 xta  // pop the fat pointer a from the stack
-    atx ptr  // save the pointer (for the word address)
+    aax #0377   // mask the byte value to 8 bits
+    atx val     // save b
+ 15 xta         // pop the fat pointer a from the stack
+    atx ptr     // save the pointer (for the word address)
+
 // extract the byte offset (bits 47-45) into M11
-    asn 64+44  // shift offset down: bits 47-45 -> bits 3-1
-    aax #07  // keep the 3-bit offset (0..5)
+    asn 64+44   // shift offset down: bits 47-45 -> bits 3-1
+    aax #07     // keep the 3-bit offset (0..5)
     ati 11
+
 // word address (bits 15-1) into M12
     xta ptr
     ati 12
+
 // read-modify-write the containing word
- 12 xta  // A = word at the pointer's word address
- 11 aax mask  // clear the target byte
+ 12 xta         // A = word at the pointer's word address
+ 11 aax mask    // clear the target byte
     atx word
-    xta val  // A = byte value
- 11 asx shift  // shift it left into the target byte position
-    aox word  // OR it into the cleared word
- 12 atx  // write the word back
-    xta val  // return the stored byte in A
+    xta val     // A = byte value
+ 11 asx shift   // shift it left into the target byte position
+    aox word    // OR it into the cleared word
+ 12 atx         // write the word back
+    xta val     // return the stored byte in A
  13 uj
-//
+
     .bss
 val:
     . = . + 1
@@ -41,20 +44,22 @@ ptr:
     . = . + 1
 word:
     . = . + 1
+
 // mask[offset]: clears the target byte (offset 0 = LSB byte #5 .. 5 = MSB byte #0)
     .data
 mask:
-    .word 07777777777777400
-    .word 07777777777600377
-    .word 07777777700177777
-    .word 07777740077777777
-    .word 07760037777777777
-    .word 00017777777777777
+    .word 07777'7777'7777'7400
+    .word 07777'7777'7760'0377
+    .word 07777'7777'0017'7777
+    .word 07777'7400'7777'7777
+    .word 07760'0377'7777'7777
+    .word 00017'7777'7777'7777
+
 // shift[offset]: OCT exponent = 64 - offset*8, so ASX left-shifts by offset*8
 shift:
-    .word 04000000000000000
-    .word 03400000000000000
-    .word 03000000000000000
-    .word 02400000000000000
-    .word 02000000000000000
-    .word 01400000000000000
+    .word 0'40
+    .word 0'34
+    .word 0'30
+    .word 0'24
+    .word 0'20
+    .word 0'14

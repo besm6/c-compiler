@@ -53,7 +53,7 @@ b6as [-uaxXd] [-o outfile] [infile]
 | `-u` | Treat undefined names as an error. |
 | `-a` | Do **not** align instructions on word boundaries (suppresses the padding normally inserted after `vjm`/`ij`/`stop` and for `.word`/`.ascii`). |
 | `-x` | Discard local symbols from the output symbol table. |
-| `-X` | Discard local symbols whose names start with `L` or `.` (compiler-generated labels). Implies `-x`. |
+| `-X` | Discard local symbols whose names start with `.` (compiler-generated labels). Implies `-x`. |
 | `-d` | Debug mode (verbose). |
 
 If no `infile` is given and standard input is a terminal, the usage message is printed.
@@ -167,6 +167,27 @@ decimal** — a leading `0` is what makes it octal. There are no base-selecting 
 Literals are full 48-bit values, stored internally as two halves (`left`, `right`). There is
 no dedicated negative-literal syntax; negate with a unary minus in an expression
 ([§7](#7-expressions)).
+
+A single apostrophe `'` may be used as a digit-group separator between two digits, C++-style;
+it does not affect the value. This works in every base: `1'000'000`, `0xdead'beef`,
+`0100'000'000`, `0b1000'0000`. The apostrophe must sit **between** digits — a trailing or
+doubled `'` (e.g. `1'`, `1''0`) is an error.
+
+An apostrophe placed **immediately after the base prefix** instead marks the literal as
+**left-aligned** in the 48-bit word: the digits pack against the most-significant end and
+the low bits are zero-filled, producing a full-width word. Available for octal, hexadecimal
+and binary — not decimal (which has no prefix).
+
+| Form | Meaning | Value |
+|------|---------|-------|
+| `0'123` | octal `123`, left-aligned | `0123 \< 39` = `01230000000000000` |
+| `0x'abc` | hex `abc`, left-aligned | `0xabc \< 36` = `0xabc000000000` |
+| `0b'111` | binary `111`, left-aligned | `0b111 \< 45` |
+
+Formally, for `N` mantissa digits of `B` bits each (octal `B`=3, hex `B`=4, binary `B`=1),
+the value is `digits \< (48 - N*B)`; the octal base marker `0` is not part of the mantissa.
+Internal separators still work (`0x'ab'cd`). At least one digit must follow the marker, and
+the mantissa may not exceed 48 bits.
 
 ### 6.2 Bit-mask literals
 
@@ -462,7 +483,8 @@ entry:  vtm count, 1
 `*` `/` `%`; grouping `( )`; exponent-truncate `{ }`; current location `.`.
 
 **Number formats:** decimal (default) `1234`; octal `01234`; hex `0x1ff`; binary `0b101`;
-bit masks `.[a:b]` `.[a=b]` `.N`.
+bit masks `.[a:b]` `.[a=b]` `.N`. A `'` between digits is an ignored separator (`1'000'000`);
+a `'` right after the base prefix left-aligns the literal in the word (`0'123`, `0x'abc`, `0b'111`).
 
 **Operand forms:** `op addr` · `op #const` · `op addr, reg` · `op <addr>` · `op [addr]` ·
 `reg op addr` (leading modifier register).

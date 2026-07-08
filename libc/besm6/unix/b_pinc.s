@@ -12,24 +12,24 @@
     .globl b$pinc
 b$pinc:
     atx p
-    aax #077777  // A = word address (bits 15-1)
+    aax #07'7777    // A = word address (bits 15-1)
     atx w
     xta p
-    asn 64+44  // offset_enc -> bits 3-1
-    aax #07  // offset_enc (0..5)
-    uza wrap  // offset_enc == 0 -> wrap to 5, bump word
-    arx #07  // offset_enc - 1 as (enc+7) mod 8: a positive cyclic add,
-    aax #07  // so enc==1 yields 0 (a -1 add gives all-ones -0 -> masks to 7)
-    asn 64-44  // offset_enc' -> bits 47-45
-    aox #04000000000000000  // set marker (bit 48)
-    aox w  // OR in the word address
+    asn 64+44       // offset_enc -> bits 3-1
+    aax #07         // offset_enc (0..5)
+    uza wrap        // offset_enc == 0 -> wrap to 5, bump word
+    arx #07         // offset_enc - 1 as (enc+7) mod 8: a positive cyclic add,
+    aax #07         // so enc==1 yields 0 (a -1 add gives all-ones -0 -> masks to 7)
+    asn 64-44       // offset_enc' -> bits 47-45
+    aox #0'40       // set marker (bit 48)
+    aox w           // OR in the word address
  13 uj
 wrap:
     xta w
-    arx #01  // word += 1
-    aox #06400000000000000  // marker + offset_enc 5 (MSB of the next word)
+    arx #01         // word += 1
+    aox #0'64       // marker + offset_enc 5 (MSB of the next word)
  13 uj
-//
+
     .bss
 p:
     . = . + 1

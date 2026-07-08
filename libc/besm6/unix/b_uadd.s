@@ -9,36 +9,36 @@
     .globl b$uadd
 b$uadd:
     ntr 8+3
-    uza b_large  // jump when B[48] = 1
- 15 xts -2  // push B on stack, extract A
+    uza b_large     // jump when B[48] = 1
+ 15 xts -2          // push B on stack, extract A
     ntr 8+3
-    uza a_large  // jump when A[48] = 1
-//
- 15 arx  // add A[47:1] + B[47:1]
- 15 utm -1  // drop A from stack
-    aox  // OR mem[0]=0: ACC unchanged, restore logical w-mode
+    uza a_large     // jump when A[48] = 1
+
+ 15 arx             // add A[47:1] + B[47:1]
+ 15 utm -1          // drop A from stack
+    aox             // OR mem[0]=0: ACC unchanged, restore logical w-mode
  13 uj
-//
+
 b_large:
-    aex #04000000000000000  // clear bit 48 of B
- 15 xts -2  // push B on stack, extract A
+    aex #0'40       // clear bit 48 of B
+ 15 xts -2          // push B on stack, extract A
     ntr 8+3
-    uza ab_large  // jump when A[48] = 1
- 15 arx  // add A[47:1] + B[47:1]
-    aex #04000000000000000  // restore bit 48 contribution
- 15 utm -1  // drop A from stack
+    uza ab_large    // jump when A[48] = 1
+ 15 arx             // add A[47:1] + B[47:1]
+    aex #0'40       // restore bit 48 contribution
+ 15 utm -1          // drop A from stack
  13 uj
-//
+
 a_large:
-    aex #04000000000000000  // clear bit 48 of A
- 15 arx  // add A[47:1] + B[47:1]
-    aex #04000000000000000  // restore bit 48 contribution
- 15 utm -1  // drop A from stack
+    aex #0'40       // clear bit 48 of A
+ 15 arx             // add A[47:1] + B[47:1]
+    aex #0'40       // restore bit 48 contribution
+ 15 utm -1          // drop A from stack
  13 uj
-//
+
 ab_large:
-    aex #04000000000000000  // clear bit 48 of A
- 15 arx  // add A[47:1] + B[47:1]
- 15 utm -1  // drop A from stack
-    aox  // OR mem[0]=0: ACC unchanged, restore logical w-mode
+    aex #0'40       // clear bit 48 of A
+ 15 arx             // add A[47:1] + B[47:1]
+ 15 utm -1          // drop A from stack
+    aox             // OR mem[0]=0: ACC unchanged, restore logical w-mode
  13 uj

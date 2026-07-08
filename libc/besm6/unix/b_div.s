@@ -20,22 +20,22 @@
     .text
     .globl b$div
 b$div:
-    ntr  // R := 0: full FP mode (normalize + round) for the divide
-    aox #06400000000000000  // A := INT-format b (OR the exponent into b)
- 15 atx  // push b: mem[r15++] := A             a b / b
- 15 aex -2  // A := b XOR a (a at r15-2); bit41 = sign a ^ sign b
- 15 xts -2  // push sign word s, reload b into A   a b s / b
- 15 avx -2  // A := |b|, normalized (AVX negates A iff b at r15-2 < 0)
- 15 xts -4  // push |b|, reload raw a into A       a b s |b| / a
-    aox #06400000000000000  // A := INT-format a
- 15 avx -4  // A := |a|, normalized (AVX negates A iff a at r15-4 < 0)
- 15 a/x  // A := |a| / |b|; drops the divisor |b|    a b s / |q|
-    ntr 3  // R := 3: suppress normalize + round for integer extraction
-    a+x #06400000000000000  // add INT-format 0.0: re-align |q| to the INT exponent,
-// shifting the fraction out (truncates toward zero)
- 15 avx  // reapply sign: AVX negates |q| iff sign word (r15-1) < 0;
-// drops s                             a b / q
- 15 utm -2  // drop the leftover a, b: r15 := entry - 1
-    aax #037777777777777  // mask off the exponent field -> raw 41-bit signed result;
-// also leave logical w-mode for the caller
- 13 uj  // return to caller (return address in r13)
+    ntr                     // R := 0: full FP mode (normalize + round) for the divide
+    aox #0'64               // A := INT-format b (OR the exponent into b)
+ 15 atx                     // push b: mem[r15++] := A                  a b / b
+ 15 aex -2                  // A := b XOR a (a at r15-2); bit41 = sign a ^ sign b
+ 15 xts -2                  // push sign word s, reload b into A        a b s / b
+ 15 avx -2                  // A := |b|, normalized (AVX negates A iff b at r15-2 < 0)
+ 15 xts -4                  // push |b|, reload raw a into A            a b s |b| / a
+    aox #0'64               // A := INT-format a
+ 15 avx -4                  // A := |a|, normalized (AVX negates A iff a at r15-4 < 0)
+ 15 a/x                     // A := |a| / |b|; drops the divisor |b|    a b s / |q|
+    ntr 3                   // R := 3: suppress normalize + round for integer extraction
+    a+x #0'64               // add INT-format 0.0: re-align |q| to the INT exponent,
+                            // shifting the fraction out (truncates toward zero)
+ 15 avx                     // reapply sign: AVX negates |q| iff sign word (r15-1) < 0;
+                            // drops s                                  a b / q
+ 15 utm -2                  // drop the leftover a, b: r15 := entry - 1
+    aax #037'7777'7777'7777 // mask off the exponent field -> raw 41-bit signed result;
+                            // also leave logical w-mode for the caller
+ 13 uj                      // return to caller (return address in r13)

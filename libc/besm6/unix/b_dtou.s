@@ -22,27 +22,27 @@
     .text
     .globl b$dtou
 b$dtou:
- 15 atx  // push x ; r15 += 1                          x /
-// --- hi = trunc(x * 2^-24) ---
-    ntr  // R := 0: full FP mode for the multiply
-    a*x #02450000000000000  // A := x * 2^-24
-    ntr 3  // R := 3: suppress normalize + round
-    a+x #06400000000000000  // realign -> truncate toward zero
-    aax #037777777777777  // mask -> hi  (integer, < 2^24)
- 15 atx  // push hi ; r15 += 1                         x hi /
-// --- lo = trunc(x - (double)hi * 2^24) ---
-    aox #06400000000000000  // A := INT-format hi
-    ntr  // R := 0: full FP mode
-    a+x  // normalize: A := (double)hi
-    a*x #05450000000000000  // A := (double)hi * 2^24
- 15 x-a -2  // A := x - (double)hi*2^24 = lo  (x at r15-2)
-    ntr 3  // R := 3: suppress normalize + round
-    a+x #06400000000000000  // realign -> truncate toward zero
-    aax #037777777777777  // mask -> lo  (integer, < 2^24)
- 15 atx  // push lo ; r15 += 1                      x hi lo /
-// --- result = (hi << 24) | lo ---
- 15 xta -2  // A := hi  (at r15-2)
-    asn 64-24  // A := hi << 24
- 15 aox -1  // A := (hi << 24) | lo  (lo at r15-1)
- 15 utm -3  // drop x, hi, lo: r15 := entry
- 13 uj  // return to caller (return address in r13)
+ 15 atx                     // push x ; r15 += 1                        x /
+                            // --- hi = trunc(x * 2^-24) ---
+    ntr                     // R := 0: full FP mode for the multiply
+    a*x #0'245              // A := x * 2^-24
+    ntr 3                   // R := 3: suppress normalize + round
+    a+x #0'64               // realign -> truncate toward zero
+    aax #037'7777'7777'7777 // mask -> hi  (integer, < 2^24)
+ 15 atx                     // push hi ; r15 += 1                       x hi /
+                            // --- lo = trunc(x - (double)hi * 2^24) ---
+    aox #0'64               // A := INT-format hi
+    ntr                     // R := 0: full FP mode
+    a+x                     // normalize: A := (double)hi
+    a*x #0'545              // A := (double)hi * 2^24
+ 15 x-a -2                  // A := x - (double)hi*2^24 = lo  (x at r15-2)
+    ntr 3                   // R := 3: suppress normalize + round
+    a+x #0'64               // realign -> truncate toward zero
+    aax #037'7777'7777'7777 // mask -> lo  (integer, < 2^24)
+ 15 atx                     // push lo ; r15 += 1                       x hi lo /
+                            // --- result = (hi << 24) | lo ---
+ 15 xta -2                  // A := hi  (at r15-2)
+    asn 64-24               // A := hi << 24
+ 15 aox -1                  // A := (hi << 24) | lo  (lo at r15-1)
+ 15 utm -3                  // drop x, hi, lo: r15 := entry
+ 13 uj                      // return to caller (return address in r13)

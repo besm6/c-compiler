@@ -22,25 +22,25 @@
     .text
     .globl b$mod
 b$mod:
-    ntr  // R := 0: full FP mode (normalize + round) for the divide
-    aox #06400000000000000  // A := INT-format b (OR the exponent into b)
- 15 atx  // push b: mem[r15++] := INT b           a b / b
- 15 avx -1  // A := |b|, normalized (AVX negates A iff b at r15-1 < 0)
- 15 atx -1  // store the modulus back: mem[r15-1] := |b|   a |b| / |b|
- 15 xta -2  // A := raw a (dividend at r15-2)
-    aox #06400000000000000  // A := INT-format a
- 15 avx -2  // A := |a|, normalized (AVX negates A iff a at r15-2 < 0)
- 15 atx  // push |a|: mem[r15++] := |a|         a |b| |a| / |a|
- 15 a/x -2  // A := |a| / |b|  (|b| at r15-2)      a |b| |a| / |q|
-    ntr 3  // R := 3: suppress normalize + round for integer extraction
-    a+x #06400000000000000  // add INT-format 0.0: truncate |q| toward zero (drop fraction)
-    ntr  // R := 0: full FP mode again for the multiply + subtract
- 15 a*x -2  // A := |q| * |b|  (|b| at r15-2)
- 15 x-a -1  // A := |a| - product = |r|  (|a| at r15-1)
-    ntr 3  // R := 3: suppress normalize + round
-    a+x #06400000000000000  // re-align |r| to the INT exponent, dropping the fraction
-    aax #037777777777777  // mask off the exponent field -> raw 41-bit magnitude |r|
- 15 avx -3  // reapply dividend sign: AVX negates |r| iff a at r15-3 < 0
- 15 utm -3  // drop |a|, |b|, a: r15 := entry - 1               a / r
-    aox  // OR mem[0] = 0: ACC unchanged, restore logical w-mode
- 13 uj  // return to caller (return address in r13)
+    ntr                     // R := 0: full FP mode (normalize + round) for the divide
+    aox #0'64               // A := INT-format b (OR the exponent into b)
+ 15 atx                     // push b: mem[r15++] := INT b           a b / b
+ 15 avx -1                  // A := |b|, normalized (AVX negates A iff b at r15-1 < 0)
+ 15 atx -1                  // store the modulus back: mem[r15-1] := |b|   a |b| / |b|
+ 15 xta -2                  // A := raw a (dividend at r15-2)
+    aox #0'64               // A := INT-format a
+ 15 avx -2                  // A := |a|, normalized (AVX negates A iff a at r15-2 < 0)
+ 15 atx                     // push |a|: mem[r15++] := |a|         a |b| |a| / |a|
+ 15 a/x -2                  // A := |a| / |b|  (|b| at r15-2)      a |b| |a| / |q|
+    ntr 3                   // R := 3: suppress normalize + round for integer extraction
+    a+x #0'64               // add INT-format 0.0: truncate |q| toward zero (drop fraction)
+    ntr                     // R := 0: full FP mode again for the multiply + subtract
+ 15 a*x -2                  // A := |q| * |b|  (|b| at r15-2)
+ 15 x-a -1                  // A := |a| - product = |r|  (|a| at r15-1)
+    ntr 3                   // R := 3: suppress normalize + round
+    a+x #0'64               // re-align |r| to the INT exponent, dropping the fraction
+    aax #037'7777'7777'7777 // mask off the exponent field -> raw 41-bit magnitude |r|
+ 15 avx -3                  // reapply dividend sign: AVX negates |r| iff a at r15-3 < 0
+ 15 utm -3                  // drop |a|, |b|, a: r15 := entry - 1               a / r
+    aox                     // OR mem[0] = 0: ACC unchanged, restore logical w-mode
+ 13 uj                      // return to caller (return address in r13)

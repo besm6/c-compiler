@@ -28,81 +28,85 @@
     .text
     .globl b$umul
 b$umul:
- 15 atx  // mem[r15] := b ; r15 += 1
- 15 aox -2  // A := b | a              (a at mem[r15-2])
-    asn 64+40  // A := (a|b) >> 40
-    u1a longs  // high bits present -> long way
-//
+ 15 atx                         // mem[r15] := b ; r15 += 1
+ 15 aox -2                      // A := b | a              (a at mem[r15-2])
+    asn 64+40                   // A := (a|b) >> 40
+    u1a longs                   // high bits present -> long way
+
 // short way: single 40x40 -> low 48 (faithful port of u_mul_u short path).
 // A=prod[80:41], Y=prod[40:1] -> result = (prod[80:41] << 40) | prod[40:1].
- 15 xta -2  // A := a                   (operand2)
-    aox #04000000000000000  // a |= exponent offset
- 15 a*x  // [A,Y] := a*b             (operand1 = b at mem[r15-1])
-    xts  // push bits 80:41 ; set logical w
-    yta  // A := bits 40:1
- 15 stx -2  // save to stack
-    asn 64-40  // shift bits 80:41 to bits 48:41
- 15 aox  // combine -> prod[48:1]
- 13 uj  // return
-//
+ 15 xta -2                      // A := a                   (operand2)
+    aox #0'40                   // a |= exponent offset
+ 15 a*x                         // [A,Y] := a*b             (operand1 = b at mem[r15-1])
+    xts                         // push bits 80:41 ; set logical w
+    yta                         // A := bits 40:1
+ 15 stx -2                      // save to stack
+    asn 64-40                   // shift bits 80:41 to bits 48:41
+ 15 aox                         // combine -> prod[48:1]
+ 13 uj                          // return
+
 // long way: split each operand at the 40-bit mantissa boundary, push the four
 // parts (aL,aH,bL,bH), then form the three partial products in place on the
 // stack.  r15 = E+1 here, with a at mem[E-1] and b at mem[E].
 longs:
- 15 xta -2  // A := a
-    aax #017777777777777  // aL := a & (2^40-1)
- 15 atx  // push aL
- 15 xta -3  // A := a
-    asn 64+40  // aH := a >> 40           (<= 8 bits)
- 15 atx  // push aH
- 15 xta -3  // A := b
-    aax #017777777777777  // bL := b & (2^40-1)
- 15 atx  // push bL
- 15 xta -4  // A := b
-    asn 64+40  // bH := b >> 40
- 15 atx  // push bH
+ 15 xta -2                      // A := a
+    aax #017'7777'7777'7777     // aL := a & (2^40-1)
+ 15 atx                         // push aL
+ 15 xta -3                      // A := a
+    asn 64+40                   // aH := a >> 40           (<= 8 bits)
+ 15 atx                         // push aH
+ 15 xta -3                      // A := b
+    aax #017'7777'7777'7777     // bL := b & (2^40-1)
+ 15 atx                         // push bL
+ 15 xta -4                      // A := b
+    asn 64+40                   // bH := b >> 40
+ 15 atx                         // push bH
+
 // r15 = E+5 ; slots: aL=-4 aH=-3 bL=-2 bH=-1
 // main term: pll = (aL*bL) low 48  (inlined umul24, full repack)
- 15 xta -2  // A := bL                  (operand2)
-    aox #04000000000000000  // bL |= exponent offset
- 15 a*x -4  // [A,Y] := aL * bL         (operand1 = aL)
-    xts  // push bits 80:41 ; set logical
-    yta  // A := bits 40:1
- 15 xts -2  // A := bits 80:41
-    asn 64-40  // shift to bits 48:41
- 15 aox  // pll := prod[48:1]
- 15 atx -1  // store pll into the junk hi slot
+ 15 xta -2                      // A := bL                  (operand2)
+    aox #0'40                   // bL |= exponent offset
+ 15 a*x -4                      // [A,Y] := aL * bL         (operand1 = aL)
+    xts                         // push bits 80:41 ; set logical
+    yta                         // A := bits 40:1
+ 15 xts -2                      // A := bits 80:41
+    asn 64-40                   // shift to bits 48:41
+ 15 aox                         // pll := prod[48:1]
+ 15 atx -1                      // store pll into the junk hi slot
+
 // r15 = E+6 ; slots: aL=-5 aH=-4 bL=-3 bH=-2 pll=-1
 // cross term 1: c1 = (aL*bH) & 0xFF
- 15 xta -2  // A := bH                  (operand2)
-    aox #04000000000000000
- 15 a*x -5  // [A,Y] := aL * bH         (operand1 = aL)
-    xts  // push junk ; set logical
-    yta  // A := bits 40:1
-    aax #0377  // c1 := (aL*bH) & 0xFF
- 15 utm -1  // drop the junk push
- 15 atx  // push c1
+ 15 xta -2                      // A := bH                  (operand2)
+    aox #0'40
+ 15 a*x -5                      // [A,Y] := aL * bH         (operand1 = aL)
+    xts                         // push junk ; set logical
+    yta                         // A := bits 40:1
+    aax #0377                   // c1 := (aL*bH) & 0xFF
+ 15 utm -1                      // drop the junk push
+ 15 atx                         // push c1
+
 // r15 = E+7 ; slots: aH=-5 bL=-4 pll=-2 c1=-1
 // cross term 2: c2 = (aH*bL) & 0xFF ; cross = (c1+c2) & 0xFF
- 15 xta -4  // A := bL                  (operand2)
-    aox #04000000000000000
- 15 a*x -5  // [A,Y] := aH * bL         (operand1 = aH)
-    xts  // push junk ; set logical
-    yta  // A := bits 40:1
-    aax #0377  // c2 := (aH*bL) & 0xFF
- 15 utm -1  // drop the junk push
- 15 arx -1  // A := c2 + c1             (c1 at mem[r15-1])
-    aax #0377  // cross := (c1+c2) & 0xFF
- 15 atx -1  // store cross into the c1 slot
+ 15 xta -4                      // A := bL                  (operand2)
+    aox #0'40
+ 15 a*x -5                      // [A,Y] := aH * bL         (operand1 = aH)
+    xts                         // push junk ; set logical
+    yta                         // A := bits 40:1
+    aax #0377                   // c2 := (aH*bL) & 0xFF
+ 15 utm -1                      // drop the junk push
+ 15 arx -1                      // A := c2 + c1             (c1 at mem[r15-1])
+    aax #0377                   // cross := (c1+c2) & 0xFF
+ 15 atx -1                      // store cross into the c1 slot
+
 // result = (pll & mask40) | (((pll>>40) + cross) & 0xFF) << 40
- 15 xta -2  // A := pll
-    asn 64+40  // pll[48:41]
- 15 arx -1  // + cross
-    aax #0377  // & 0xFF
-    asn 64-40  // << 40  -> bits 48:41
- 15 atx -1  // store high byte into the cross slot
- 15 xta -2  // A := pll
-    aax #017777777777777  // pll low 40 bits
- 15 aox -1  // combine high byte -> result
- 15 utm -8  // net pop of one word (r15 = entry - 1)
+ 15 xta -2                      // A := pll
+    asn 64+40                   // pll[48:41]
+ 15 arx -1                      // + cross
+    aax #0377                   // & 0xFF
+    asn 64-40                   // << 40  -> bits 48:41
+ 15 atx -1                      // store high byte into the cross slot
+ 15 xta -2                      // A := pll
+    aax #017'7777'7777'7777     // pll low 40 bits
+ 15 aox -1                      // combine high byte -> result
+ 15 utm -8                      // net pop of one word (r15 = entry - 1)
  13 uj

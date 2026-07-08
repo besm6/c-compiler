@@ -142,21 +142,28 @@ static void unix_operand(char *buf, size_t n, const Besm_Instr *i)
     // Madlen literal-address expressions (i->name begins with '='): b6as has no '='
     // syntax, so translate to a '#'-pool constant, which pools+dedups the word in the
     // const segment exactly as Madlen '=' does.  instr.c bakes these as octal integer
-    // literals (=<octal>) plus the one INT-format word =:64 (exponent BESM_INT_EXP).
+    // literals (=<octal>) plus left-aligned octal literals (=:<octal>, MSB-anchored — the
+    // fat-pointer markers and the INT-format exponent word).
     if (i->name && i->name[0] == '=') {
-        if (i->name[1] == ':') {
-            // =:64 — INT-format 0.0: exponent BESM_INT_EXP in bits 48-42, rest zero.
-            snprintf(buf, n, "#0%llo", (unsigned long long)BESM_INT_EXP << 41);
-        } else {
-            // =<octal digits> (Madlen allows spaces for grouping) -> #0<digits>.
-            char digits[48];
-            size_t j = 0;
-            for (const char *p = i->name + 1; *p && j + 1 < sizeof(digits); p++)
-                if (*p != ' ')
-                    digits[j++] = *p;
-            digits[j] = '\0';
-            snprintf(buf, n, "#0%s", digits);
+        // Copy the octal digits, skipping any grouping spaces Madlen allows.
+        const char *src = i->name + 1;
+        char        prefix = '\0';
+        if (*src == ':') {
+            // =:<octal> is a Madlen left-aligned octal literal; b6as spells left-align as
+            // the prefix-apostrophe form 0'<octal>.  =:64 -> #0'64.
+            prefix = '\'';
+            src++;
         }
+        char digits[48];
+        size_t j = 0;
+        for (const char *p = src; *p && j + 1 < sizeof(digits); p++)
+            if (*p != ' ')
+                digits[j++] = *p;
+        digits[j] = '\0';
+        if (prefix)
+            snprintf(buf, n, "#0'%s", digits);
+        else
+            snprintf(buf, n, "#0%s", digits);
         return;
     }
     unix_addr(buf, n, i->name, i->addr);

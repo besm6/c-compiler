@@ -18,56 +18,59 @@
     .text
     .globl b$pdiff
 b$pdiff:
-    atx b  // save b (q), in A at entry
- 15 xta  // pop a (p)
+    atx b           // save b (q), in A at entry
+ 15 xta             // pop a (p)
     atx a
+
 // --- abs(a) = word_a*6 + byte#_a -> aa ---
-    aax #077777  // word_a (bits 15-1)
+    aax #07'7777    // word_a (bits 15-1)
     atx w
-    asn 64-1  // 2*word
+    asn 64-1        // 2*word
     atx w2
     xta w
-    asn 64-2  // 4*word
-    a+x w2  // 6*word_a
+    asn 64-2        // 4*word
+    a+x w2          // 6*word_a
     atx aa
     xta a
-    aax #04000000000000000  // test the marker (bit 48)
-    uza abare  // marker clear -> byte# = 0
+    aax #0'40       // test the marker (bit 48)
+    uza abare       // marker clear -> byte# = 0
     xta a
-    asn 64+44  // offset_enc -> bits 3-1
+    asn 64+44       // offset_enc -> bits 3-1
     aax #07
     ati 11
- 11 xta ttab  // byte# = 5 - offset_enc
+ 11 xta ttab        // byte# = 5 - offset_enc
     a+x aa
     atx aa
+
 // --- abs(b) = word_b*6 + byte#_b -> bb ---
 abare:
     xta b
-    aax #077777  // word_b (bits 15-1)
+    aax #07'7777    // word_b (bits 15-1)
     atx w
     asn 64-1
     atx w2
     xta w
     asn 64-2
-    a+x w2  // 6*word_b
+    a+x w2          // 6*word_b
     atx bb
     xta b
-    aax #04000000000000000  // test the marker (bit 48)
-    uza bbare  // marker clear -> byte# = 0
+    aax #0'40       // test the marker (bit 48)
+    uza bbare       // marker clear -> byte# = 0
     xta b
-    asn 64+44  // offset_enc -> bits 3-1
+    asn 64+44       // offset_enc -> bits 3-1
     aax #07
     ati 11
- 11 xta ttab  // byte# = 5 - offset_enc
+ 11 xta ttab        // byte# = 5 - offset_enc
     a+x bb
     atx bb
+
 // --- result = abs(a) - abs(b) ---
 bbare:
     xta aa
-    a-x bb  // R = 7: raw integer subtract (a-x sets additive w)
-    aox  // OR mem[0]=0: ACC unchanged, restore logical w-mode
+    a-x bb          // R = 7: raw integer subtract (a-x sets additive w)
+    aox             // OR mem[0]=0: ACC unchanged, restore logical w-mode
  13 uj
-//
+
     .bss
 a:
     . = . + 1
@@ -81,6 +84,7 @@ aa:
     . = . + 1
 bb:
     . = . + 1
+
 // ttab[i] = 5 - i  (octal)
     .data
 ttab:

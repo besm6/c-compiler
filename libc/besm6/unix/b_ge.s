@@ -12,7 +12,7 @@ b$ge:
     uza true
     xta
  13 uj
-//
+
 true:
     xta #01
  13 uj

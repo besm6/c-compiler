@@ -14,7 +14,7 @@ TEST_F(CodegenTest, GetAddressCharSetsFatMarker)
 {
     DisableOptimization();
     std::string output = CompileToMadlen("char c; char *p; void f(void){ p = &c; }");
-    EXPECT_NE(output.find(",aox, =4000000000000000"), std::string::npos) << output;
+    EXPECT_NE(output.find(",aox, =:40"), std::string::npos) << output;
 }
 
 // Dereferencing a char* emits the byte-load sequence wtc / xta / asx / aax =377.
@@ -41,7 +41,7 @@ TEST_F(CodegenTest, IntPtrToCharPtrSetsOffset5)
     DisableOptimization();
     std::string output =
         CompileToMadlen("char *f(int *q){ return (char*)q; }");
-    EXPECT_NE(output.find(",aox, =6400000000000000"), std::string::npos) << output;
+    EXPECT_NE(output.find(",aox, =:64"), std::string::npos) << output;
 }
 
 // Regression: an int* load uses the plain word dereference (WTC + bare XTA) and none of
@@ -390,7 +390,7 @@ TEST_F(CodegenTest, ArrayDecaySetsOffset5)
 {
     DisableOptimization();
     std::string output = CompileToMadlen("char g[6]; char *f(void){ return g; }");
-    EXPECT_NE(output.find(",aox, =6400000000000000"), std::string::npos) << output;
+    EXPECT_NE(output.find(",aox, =:64"), std::string::npos) << output;
 }
 
 // Shape: reading a packed char member emits a byte extract (asx-style shift + mask =377).

@@ -8,16 +8,18 @@
     .text
     .globl frexp
 frexp:
-    sti 14  // r14 := exp ; A := value ; r15 -= 1
- 14 atx  // *exp := 0
- 13 uza  // value == 0  ->  fraction 0, *exp 0
- 15 atx  // push value : value now at mem[r15-1]
+    sti 14                  // r14 := exp ; A := value ; r15 -= 1
+ 14 atx                     // *exp := 0
+ 13 uza                     // value == 0  ->  fraction 0, *exp 0
+ 15 atx                     // push value : value now at mem[r15-1]
+
 // --- *exp := exponent_field(value) - 64 ---
-    asn 64+41  // A := value >> 41 ; the 7-bit field lands in bits 7-1
-    aax #0177  // isolate the field (0..127)
-    a-x #0100  // r1 := field - 64 = e
- 14 stx  // *exp := e ; pop value from stack
+    asn 64+41               // A := value >> 41 ; the 7-bit field lands in bits 7-1
+    aax #0177               // isolate the field (0..127)
+    a-x #0100               // r1 := field - 64 = e
+ 14 stx                     // *exp := e ; pop value from stack
+
 // --- fraction := value with the exponent field forced to 64 ---
-    aax #037777777777777  // keep sign + mantissa (bits 41-1)
-    aox #04000000000000000  // set the exponent field to 64 (bit 48)
- 13 uj  // return the fraction in A
+    aax #037'7777'7777'7777 // keep sign + mantissa (bits 41-1)
+    aox #0'40               // set the exponent field to 64 (bit 48)
+ 13 uj                      // return the fraction in A
