@@ -259,20 +259,14 @@ TEST_F(CodegenTest, FatPointerNullArgument)
     EXPECT_EQ("FEET\n", result);
 }
 
-// TODO: re-enable once the BESM-6 basing/linking issue with malloc.c's
-// module-global pointer statics is resolved (the job loops to the instruction
-// cap with empty output; loader reports "long address" warnings).
-TEST_F(CodegenTest, DISABLED_MallocHeapRoundTrip)
+TEST_F(CodegenTest, MallocHeapRoundTrip)
 {
-    std::string result = CompileAndRun(R"(
+    std::string result = CompileAndRunUnix(R"(
         #include <stdio.h>
         #include <stdlib.h>
         #include <malloc.h>
 
-        static long arena[200];
-
-        void program() {
-            heap_setup(arena, 200);
+        int main() {
             long avail0 = malloc_free_bytes();
 
             int *a = malloc(10 * sizeof(int));
