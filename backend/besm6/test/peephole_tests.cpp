@@ -497,3 +497,100 @@ TEST_F(CodegenTest, GlobalReloadBehaviorUnchanged)
     )");
     EXPECT_EQ("7 3 1\n", out);
 }
+
+// Rule #27 through a dereference.  `*p = x; return *p;` stores via `6 ,wtc, / ,atx,` and
+// reloads via `6 ,wtc, / ,xta,` — the same location, since nothing writes `p` in between.
+// The reload group goes and the value flows out of A.  TAC copy propagation cannot reach
+// this either: a Store is not a copy, so the Load survives to instruction selection.  This
+// is the shape the C-group model was built for.
+TEST_F(CodegenTest, RedundantDerefReloadRemoved)
+{
+    std::string output = CompileToMadlen("int f(int *p, int x) { *p = x; return *p; }");
+    EXPECT_EQ(R"(c
+        f:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta, 1
+           6 ,wtc,
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// The same rewrite on the three-instruction group.  A global pointer's word is not in the
+// frame, so a dereference of it is `,utc, gp` (C = &gp) + `,wtc,` (C = gp) + the access.
+// The whole reload chain — all three nodes — is spliced out together.
+TEST_F(CodegenTest, DerefReloadThroughGlobalPointerRemoved)
+{
+    std::string output = CompileToMadlen("int *gp; int f(int x) { *gp = x; return *gp; }");
+    EXPECT_EQ(R"(c
+       gp:   ,name,
+             ,bss, 1
+             ,end,
+c
+        f:   ,name,
+    b/ret:   ,subp,
+       gp:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,utc, gp
+             ,wtc,
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// A store through a *different* pointer leaves A mirroring `*q`, not `*p`, so the reload of
+// `*p` must survive: `q` may point anywhere.  The two locations differ by the frame slot
+// their pointer lives in (`6 ,wtc,` vs `6 ,wtc, 1`), which is what `loc_eq` compares.
+TEST_F(CodegenTest, DerefReloadAcrossOtherPointerStoreKept)
+{
+    std::string output =
+        CompileToMadlen("int f(int *p, int *q, int x, int y) { *p = x; *q = y; return *p; }");
+    EXPECT_EQ(R"(c
+        f:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta, 2
+           6 ,wtc,
+             ,atx,
+           6 ,xta, 3
+           6 ,wtc, 1
+             ,atx,
+           6 ,wtc,
+             ,xta,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// Behavior guard for the dereference rewrite, three ways.  `self` must return its own store
+// (5).  `viaq` stores 2 through `q` before reloading `*p`; deleting that reload would leave
+// A holding 2 and return it instead of 1.  `viacall` has `bump` overwrite `*p` behind its
+// back, so its reload must survive the call boundary and read 99, not the stored 7.
+TEST_F(CodegenTest, DerefReloadBehaviorUnchanged)
+{
+    std::string out = CompileAndRun(R"(
+        #include <stdio.h>
+        int ga;
+        int gb;
+        int *gp;
+        int self(int *p, int x) { *p = x; return *p; }
+        int viaq(int *p, int *q, int x, int y) { *p = x; *q = y; return *p; }
+        int bump(void) { *gp = 99; return 0; }
+        int viacall(int *p, int x) { *p = x; bump(); return *p; }
+        void program(void) {
+            gp = &ga;
+            printf("%d %d %d\n", self(&ga, 5), viaq(&ga, &gb, 1, 2), viacall(&ga, 7));
+        }
+    )");
+    EXPECT_EQ("5 1 99\n", out);
+}

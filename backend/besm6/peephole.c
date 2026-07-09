@@ -51,13 +51,17 @@ typedef enum {
     LOC_NONE,   // unnameable: no rewrite may match it
     LOC_FRAME,  // mem[M[reg] + off]           — a frame slot
     LOC_GLOBAL, // mem[&name + off]            — a module-level global
+    LOC_DEREF,  // mem[mem[ptr]]               — through the pointer named below
 } LocKind;
 
 typedef struct {
     LocKind kind;
-    int reg;          // LOC_FRAME: the index register (r6/r7)
-    int off;          // LOC_FRAME: slot number;  LOC_GLOBAL: word offset from `name`
-    const char *name; // LOC_GLOBAL: the global's symbol, borrowed from its UTC's ->name
+    int reg;          // LOC_FRAME: the index register (r6/r7);  LOC_DEREF: ditto, of the ptr
+    int off;          // LOC_FRAME: slot number;  LOC_GLOBAL: word offset from `name`;
+                      // LOC_DEREF: the pointer's slot number
+    const char *name; // LOC_GLOBAL: the global's symbol;  LOC_DEREF: the global *pointer*'s
+                      // symbol, or NULL when the pointer is the frame slot (reg, off).
+                      // Borrowed from the group's UTC ->name; see the lifetime note below.
 } Loc;
 
 static Loc loc_none(void)
@@ -67,6 +71,12 @@ static Loc loc_none(void)
 }
 
 // Do two locations denote the same word?  LOC_NONE never matches, not even itself.
+//
+// Two LOC_DEREFs through the same pointer denote the same word only if the pointer still
+// holds the same value.  Nothing here checks that, and nothing needs to: the pointer lives
+// in a frame slot or a global, so any write to it is an `atx`/`stx` that settles `a_loc`
+// on the pointer itself (or on LOC_NONE), discarding the LOC_DEREF before it can be matched.
+// See the state-invariant note on PeepState.
 static bool loc_eq(Loc a, Loc b)
 {
     if (a.kind != b.kind)
@@ -76,6 +86,12 @@ static bool loc_eq(Loc a, Loc b)
         return a.reg == b.reg && a.off == b.off;
     case LOC_GLOBAL:
         return a.off == b.off && strcmp(a.name, b.name) == 0;
+    case LOC_DEREF:
+        if ((a.name == NULL) != (b.name == NULL))
+            return false;
+        if (a.name != NULL)
+            return strcmp(a.name, b.name) == 0;
+        return a.reg == b.reg && a.off == b.off;
     default:
         return false;
     }
@@ -98,6 +114,15 @@ static bool loc_eq(Loc a, Loc b)
 // at every instruction that does either (conservatively, to LOC_NONE unless it is an
 // `xta`/`atx` naming a location).  Only UTC and WTC leave `a_loc` untouched, and they touch
 // neither A nor memory.
+//
+// A LOC_DEREF additionally depends on the pointer's value.  That falls out of the same
+// invariant: the pointer is itself in memory, so it can only be written from A, by an
+// `atx`/`stx` that settles `a_loc` on the pointer's own location or on LOC_NONE — either
+// way discarding the LOC_DEREF.  A CALL, which may write anything, is a block boundary.
+//
+// `Loc.name` borrows the `->name` of the group's UTC.  Deletion always removes a whole group
+// at the cursor, and `a_loc` is only ever read to match a *later* group, so the instruction
+// a tracked name points into always outlives the state that names it.
 //
 typedef struct {
     Loc a_loc;    // the location A currently mirrors (LOC_NONE: unknown)
@@ -160,30 +185,58 @@ static Besm_Instr *c_group_consumer(Besm_Instr *first, int *count)
     return i;
 }
 
-// The memory location a C group addresses, for the only shape that names one: a single
-// `utc name` (C = &name + addr) followed by a bare `xta`/`atx` (EA = C + addr).  Every
-// other shape yields LOC_NONE:
+// The memory location a C group addresses.  Three shapes name one (all emitted by emit.c):
+//
+//   `utc name` + `xta/atx 0,woff`      LOC_GLOBAL(name, addr + woff)   emit_xta_val etc.
+//   `wtc reg,off` + `xta/atx`          LOC_DEREF via frame pointer     emit_wtc_ptr, local
+//   `utc name` + `wtc` + `xta/atx`     LOC_DEREF via global pointer    emit_wtc_ptr, global
+//
+// Everything else is LOC_NONE:
 //
 //   `utc reg,off`      — address arithmetic (emit_member_fatptr, GET_ADDRESS_DECAY, the
 //                        prologue's `utc 14,1`); C holds an address, not a location's name
-//   `wtc …`            — a dereference; the address is a pointer's runtime value
-//   `utc name` + `wtc` — a dereference through a global pointer
 //   any other consumer — `xts`, `asx`, arithmetic, `vjm`, `vtm`: not a plain word access
 //
 // A `utc` whose name is a Madlen constant literal (`,utc, =i1`) also classifies as
 // LOC_GLOBAL, which is sound: a constant-pool entry has a fixed address like any global.
 static Loc c_group_loc(const Besm_Instr *first)
 {
-    if (first->kind != BESM_MOD_UTC || first->name == NULL || first->konst != NULL ||
-        first->reg != 0)
-        return loc_none();
-    const Besm_Instr *c = first->next;
-    if (c == NULL || is_c_setter(c))
-        return loc_none();
-    if ((c->kind != BESM_MEM_XTA && c->kind != BESM_MEM_ATX) || c->reg != 0 ||
+    Loc l               = loc_none();
+    const Besm_Instr *c = first->next; // provisional consumer
+
+    if (first->kind == BESM_MOD_UTC) {
+        // A `utc` names a location only when it carries a symbol and no index register:
+        // C = &name + addr.  `utc reg,off` computes an address instead.
+        if (first->name == NULL || first->konst != NULL || first->reg != 0)
+            return loc_none();
+        if (c != NULL && c->kind == BESM_MOD_WTC && !has_operand_symbol(c) && c->reg == 0 &&
+            c->addr == 0 && first->addr == 0) {
+            l.kind = LOC_DEREF; // C = mem[&name]: through the global pointer `name`
+            l.name = first->name;
+            c      = c->next;
+        } else if (c != NULL && !is_c_setter(c)) {
+            l.kind = LOC_GLOBAL;
+            l.name = first->name;
+            l.off  = first->addr; // the consumer's own offset is added below
+        } else {
+            return loc_none();
+        }
+    } else { // BESM_MOD_WTC: C = mem[M[reg] + off], a frame-resident pointer
+        if (has_operand_symbol(first))
+            return loc_none();
+        l.kind = LOC_DEREF;
+        l.reg  = (int)first->reg;
+        l.off  = first->addr;
+    }
+
+    // The consumer must be a bare word access through C: `xta`/`atx` with EA = C + addr.
+    if (c == NULL || (c->kind != BESM_MEM_XTA && c->kind != BESM_MEM_ATX) || c->reg != 0 ||
         has_operand_symbol(c))
         return loc_none();
-    Loc l = { LOC_GLOBAL, 0, first->addr + c->addr, first->name };
+    if (l.kind == LOC_GLOBAL)
+        l.off += c->addr;
+    else if (c->addr != 0)
+        return loc_none(); // an offset off a dereferenced pointer: not a shape we model
     return l;
 }
 
@@ -722,9 +775,12 @@ void besm_peephole(Besm_Func *func, const Frame *frame)
     int num_autos = frame ? frame_num_autos(frame) : 0;
     for (Besm_Func *fn = func; fn; fn = fn->next) {
         for (Besm_Block *block = fn->blocks; block; block = block->next) {
-            // The multi-block classification is stable across the rewrites this pass
-            // performs (neither #27 nor #28 ever drops a temporary's only reference in a
-            // block), so compute it once before the fixpoint loop.
+            // The multi-block classification only ever goes stale in the safe direction.
+            // Deleting a `wtc %p` + `xta` reload group drops a read of `%p`, which may
+            // have been that block's only reference to the slot; the slot then stays
+            // marked multi-block when it is no longer, and rule #28 keeps a store it could
+            // have dropped.  Nothing can add a reference, so it is never marked
+            // single-block wrongly.  Compute it once before the fixpoint loop.
             bool *multiblock = compute_multiblock(block, num_autos);
             // Iterate to a fixpoint: one rewrite can expose another.
             while (peephole_sweep(block, frame, multiblock))
