@@ -415,3 +415,85 @@ TEST_F(CodegenTest, CConsumerNotDeletedAdjacentToSetter)
 
     besm_free_func(fn);
 }
+
+// Rule #27 through a C group: `g.x = 7; return g.x;` stores to the global via
+// `,utc, g / ,atx,` and would reload it via `,utc, g / ,xta,`.  A location is a global
+// plus a word offset, not just a frame slot, so the reload group — setter *and* consumer,
+// deleted together — is recognised as redundant and the 7 flows straight from A into the
+// return.  (TAC copy propagation cannot do this: `copy_from_offset` is not a copy.)
+TEST_F(CodegenTest, RedundantGlobalReloadRemoved)
+{
+    std::string output = CompileToMadlen(
+        "struct Foo { int x; int y; }; struct Foo g; int f(void) { g.x = 7; return g.x; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 2
+             ,end,
+c
+        f:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,xta, =7
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// The complement: by the time `g.x` is reloaded, A holds the 1 that went out through `p`,
+// not `g.x`.  Both instructions in between say so — the `,xta, =1` names no location, and
+// the `6 ,wtc, / ,atx,` dereference names none either — so the tracked location is unknown
+// and the reload group survives.  Were it deleted, `f` would return 1 whenever `p` points
+// anywhere but `g.x`.
+TEST_F(CodegenTest, GlobalReloadAcrossAliasingStoreKept)
+{
+    std::string output = CompileToMadlen("struct Foo { int x; int y; }; struct Foo g; "
+                                         "int f(int *p) { g.x = 7; *p = 1; return g.x; }");
+    EXPECT_EQ(R"(c
+        g:   ,name,
+             ,bss, 2
+             ,end,
+c
+        f:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+             ,xta, =7
+             ,utc, g
+             ,atx,
+             ,xta, =1
+           6 ,wtc,
+             ,atx,
+             ,utc, g
+             ,xta,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// Behavior guard for the global reload rewrite.  `getx` must see its own store (7).
+// `viaptr` reloads `g.x` after storing 1 through `p`, so the reload must survive and read
+// memory: 3 when `p` points elsewhere, 1 when it aliases `g.x`.  Both calls are needed —
+// deleting the reload leaves A holding the 1 that went through `p`, which is accidentally
+// right in the aliasing call and wrong (1 instead of 3) in the non-aliasing one.
+TEST_F(CodegenTest, GlobalReloadBehaviorUnchanged)
+{
+    std::string out = CompileAndRun(R"(
+        #include <stdio.h>
+        struct Foo { int x; int y; };
+        struct Foo g;
+        int q;
+        int getx(void) { g.x = 7; return g.x; }
+        int viaptr(int *p) { g.x = 3; *p = 1; return g.x; }
+        void program(void) {
+            printf("%d %d %d\n", getx(), viaptr(&q), viaptr(&g.x));
+        }
+    )");
+    EXPECT_EQ("7 3 1\n", out);
+}

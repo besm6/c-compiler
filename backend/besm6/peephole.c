@@ -29,26 +29,78 @@
 // mutates the list, neither of which the `(cur, st)` predicate signature carries, so they
 // are handled directly in the sweep.  Rule #32 would append entries to the rule table.
 //
-// Cutting across all of them is the *C group* invariant (see `is_c_setter` below): a UTC or
-// WTC and the instruction that follows it are one indivisible unit, because the C
-// address-modifier register survives exactly one instruction.  No rewrite may delete the
-// consumer of a setter, and the tracked state must not read a consumer's `(reg,addr)` fields
-// as if they named a frame slot.
+// Cutting across all of them is the *C group* (see `is_c_setter` below): a UTC or WTC and
+// the instruction that follows it are one indivisible unit, because the C address-modifier
+// register survives exactly one instruction.  The sweep therefore analyses and rewrites a
+// group as a whole — a consumer's `(reg,addr)` fields do not name a frame slot, and deleting
+// one while leaving its setter would re-bind C to whatever fell into the gap.  Rule #27 in
+// consequence matches on a `Loc`, the location a group or a plain `xta`/`atx` addresses,
+// rather than on a raw `(reg,off)` pair.
 //
+
+//
+// The memory location a value lives in.
+//
+// Instruction selection reaches a location three ways, and the peephole must be able to
+// tell them apart before it can say "A already holds this".  A plain `xta/atx reg,off`
+// names a frame slot.  A `utc g` + bare `xta/atx` names a module-level global.  Anything
+// else — a dereference, an address computation, a constant — is LOC_NONE: a real value,
+// but at an address this pass cannot name, so it licenses no rewrite.
+//
+typedef enum {
+    LOC_NONE,   // unnameable: no rewrite may match it
+    LOC_FRAME,  // mem[M[reg] + off]           — a frame slot
+    LOC_GLOBAL, // mem[&name + off]            — a module-level global
+} LocKind;
+
+typedef struct {
+    LocKind kind;
+    int reg;          // LOC_FRAME: the index register (r6/r7)
+    int off;          // LOC_FRAME: slot number;  LOC_GLOBAL: word offset from `name`
+    const char *name; // LOC_GLOBAL: the global's symbol, borrowed from its UTC's ->name
+} Loc;
+
+static Loc loc_none(void)
+{
+    Loc l = { LOC_NONE, 0, 0, NULL };
+    return l;
+}
+
+// Do two locations denote the same word?  LOC_NONE never matches, not even itself.
+static bool loc_eq(Loc a, Loc b)
+{
+    if (a.kind != b.kind)
+        return false;
+    switch (a.kind) {
+    case LOC_FRAME:
+        return a.reg == b.reg && a.off == b.off;
+    case LOC_GLOBAL:
+        return a.off == b.off && strcmp(a.name, b.name) == 0;
+    default:
+        return false;
+    }
+}
 
 //
 // Tracked implicit machine state, valid only along straight-line code.
 //
-// A value in A is described by the frame slot it mirrors: register (r6/r7) plus
-// offset.  Most rewrites are licensed by knowing "A currently holds slot (reg,off)".
-// The mode register R is also tracked (for NTR mode coalescing, rule #29).  The logical
-// flag ω is not tracked: compare → branch fusion (#30) falls out of #27 + #28 and relies
-// on the helpers' logical-ω exit contract rather than on ω state carried by this pass.
+// A value in A is described by the location it mirrors.  Most rewrites are licensed by
+// knowing "A currently holds location L".  The mode register R is also tracked (for NTR
+// mode coalescing, rule #29).  The logical flag ω is not tracked: compare → branch fusion
+// (#30) falls out of #27 + #28 and relies on the helpers' logical-ω exit contract rather
+// than on ω state carried by this pass.
+//
+// `a_loc` needs no memory-clobber analysis, which is worth spelling out because it looks
+// like it should.  On this machine memory is only ever written *from A* (`atx`, `stx`), so a
+// store can never falsify "A mirrors L": either it writes somewhere other than L, or it
+// writes L with the value A already holds.  A's mirror can therefore only go stale when A
+// itself changes, or when the frame base M[6]/M[7] moves — and `state_step` settles `a_loc`
+// at every instruction that does either (conservatively, to LOC_NONE unless it is an
+// `xta`/`atx` naming a location).  Only UTC and WTC leave `a_loc` untouched, and they touch
+// neither A nor memory.
 //
 typedef struct {
-    bool a_known; // true: A mirrors the frame slot below
-    unsigned a_reg;
-    int a_off;
+    Loc a_loc;    // the location A currently mirrors (LOC_NONE: unknown)
     bool r_known; // true: r_val is the current mode register R
     int r_val;
     bool in_unreachable; // true: we are past an unconditional transfer (uj/stop),
@@ -58,7 +110,7 @@ typedef struct {
 // Reset all tracked state — used at every basic-block boundary.
 static void state_reset(PeepState *st)
 {
-    st->a_known        = false;
+    st->a_loc          = loc_none();
     st->r_known        = false;
     st->in_unreachable = false;
 }
@@ -93,6 +145,58 @@ static bool is_c_setter(const Besm_Instr *i)
     return i->kind == BESM_MOD_UTC || i->kind == BESM_MOD_WTC;
 }
 
+// Walk the setter chain starting at `first` and return the single instruction that consumes
+// C, or NULL if the block ends on a setter.  `*count` gets the number of nodes in the whole
+// group (setters plus consumer), which is what a deletion must splice out.
+static Besm_Instr *c_group_consumer(Besm_Instr *first, int *count)
+{
+    int n            = 0;
+    Besm_Instr *i    = first;
+    while (i != NULL && is_c_setter(i)) {
+        n++;
+        i = i->next;
+    }
+    *count = (i != NULL) ? n + 1 : n;
+    return i;
+}
+
+// The memory location a C group addresses, for the only shape that names one: a single
+// `utc name` (C = &name + addr) followed by a bare `xta`/`atx` (EA = C + addr).  Every
+// other shape yields LOC_NONE:
+//
+//   `utc reg,off`      — address arithmetic (emit_member_fatptr, GET_ADDRESS_DECAY, the
+//                        prologue's `utc 14,1`); C holds an address, not a location's name
+//   `wtc …`            — a dereference; the address is a pointer's runtime value
+//   `utc name` + `wtc` — a dereference through a global pointer
+//   any other consumer — `xts`, `asx`, arithmetic, `vjm`, `vtm`: not a plain word access
+//
+// A `utc` whose name is a Madlen constant literal (`,utc, =i1`) also classifies as
+// LOC_GLOBAL, which is sound: a constant-pool entry has a fixed address like any global.
+static Loc c_group_loc(const Besm_Instr *first)
+{
+    if (first->kind != BESM_MOD_UTC || first->name == NULL || first->konst != NULL ||
+        first->reg != 0)
+        return loc_none();
+    const Besm_Instr *c = first->next;
+    if (c == NULL || is_c_setter(c))
+        return loc_none();
+    if ((c->kind != BESM_MEM_XTA && c->kind != BESM_MEM_ATX) || c->reg != 0 ||
+        has_operand_symbol(c))
+        return loc_none();
+    Loc l = { LOC_GLOBAL, 0, first->addr + c->addr, first->name };
+    return l;
+}
+
+// The location a non-group `xta`/`atx` addresses: its frame slot, unless it carries a
+// symbolic or constant operand (a global load emits its own UTC; a literal names no slot).
+static Loc plain_loc(const Besm_Instr *i)
+{
+    if ((i->kind != BESM_MEM_XTA && i->kind != BESM_MEM_ATX) || has_operand_symbol(i))
+        return loc_none();
+    Loc l = { LOC_FRAME, (int)i->reg, i->addr, NULL };
+    return l;
+}
+
 //
 // Does this instruction end a basic block?  A label can be re-entered from
 // elsewhere and a branch transfers control (a CALL also clobbers A), so tracked
@@ -125,15 +229,15 @@ static bool is_block_boundary(const Besm_Instr *i)
 }
 
 //
-// Update the tracked state to reflect executing `i` in straight-line code, given its
-// predecessor `prev` (NULL at the start of a block).  This runs only for non-boundary
-// instructions (boundaries reset the state instead).
+// Update the tracked state to reflect executing a single non-group instruction `i` in
+// straight-line code.  This runs only for non-boundary instructions (boundaries reset the
+// state instead); C groups are stepped by the sweep, which knows their effective location.
 //
 // XTA and ATX of a frame slot (no symbolic name) both leave A mirroring that slot.
 // Every other instruction may clobber A, so conservatively mark A unknown; later
 // rules refine this.
 //
-static void state_step(PeepState *st, const Besm_Instr *prev, const Besm_Instr *i)
+static void state_step(PeepState *st, const Besm_Instr *i)
 {
     // Mode register R: `ntr` (SETR) sets it to its operand.  Nothing else changes R
     // in straight-line code — a CALL is a block boundary, handled by the sweep.
@@ -144,42 +248,26 @@ static void state_step(PeepState *st, const Besm_Instr *prev, const Besm_Instr *
     switch (i->kind) {
     case BESM_MEM_XTA:
     case BESM_MEM_ATX:
-        // A C-consumer's operand is mem[C], not the frame slot its (reg,addr) fields
-        // spell out — a bare `xta`/`atx` after a setter reads reg 0, offset 0, which
-        // names no slot.  The value in A is real but its location is unnameable here,
-        // and the store case must additionally invalidate A: an `atx` through a pointer
-        // may have overwritten whatever slot A was mirroring.  Both fall out of marking
-        // A unknown.
-        if (prev != NULL && is_c_setter(prev)) {
-            st->a_known = false;
-            return;
-        }
-        if (!has_operand_symbol(i)) {
-            st->a_known = true;
-            st->a_reg   = i->reg;
-            st->a_off   = i->addr;
-            return;
-        }
-        st->a_known = false;
+        st->a_loc = plain_loc(i);
         return;
     default:
-        st->a_known = false;
+        st->a_loc = loc_none();
         return;
     }
 }
 
 //
-// Rule #27 — redundant reload elimination.
+// Rule #27 — redundant reload elimination.  Section 5.1 of docs/Peephole_Rewrites.md.
 //
-// `cur` is an `xta reg,off` reload of a frame slot whose value the tracked state
-// says A already holds (the immediately preceding `atx` to that slot stored it and
-// did not disturb A).  The reload is pure waste; report a match so the caller
-// splices it out.  Section 5.1 of docs/Peephole_Rewrites.md.
+// `cur` is an `xta` reload of a location whose value the tracked state says A already holds
+// (the preceding `atx` to it stored the value and did not disturb A).  The reload is pure
+// waste; report a match so the caller splices it out.  For a plain frame slot the reload is
+// the single `xta`; for a global it is the whole `utc name` + `xta` group, which the sweep
+// matches through `c_group_loc` instead of this predicate.
 //
 static bool rule_redundant_reload(const Besm_Instr *cur, const PeepState *st)
 {
-    return cur->kind == BESM_MEM_XTA && !has_operand_symbol(cur) && st->a_known &&
-           cur->reg == st->a_reg && cur->addr == st->a_off;
+    return cur->kind == BESM_MEM_XTA && loc_eq(plain_loc(cur), st->a_loc);
 }
 
 //
@@ -487,6 +575,28 @@ static void delete_instr(Besm_Block *block, Besm_Instr *prev, Besm_Instr *cur)
     besm_free_instr(cur);
 }
 
+// Splice a whole C group — `count` consecutive nodes starting at `first` — out of a block's
+// list and free them.  Relink around the run before freeing anything, then free node by
+// node (`besm_free_instr` recurses on ->next).
+static void delete_group(Besm_Block *block, Besm_Instr *prev, Besm_Instr *first, int count)
+{
+    Besm_Instr *after = first;
+    for (int n = 0; n < count; n++)
+        after = after->next;
+    if (prev)
+        prev->next = after;
+    else
+        block->body = after;
+
+    Besm_Instr *cur = first;
+    for (int n = 0; n < count; n++) {
+        Besm_Instr *next = cur->next;
+        cur->next        = NULL;
+        besm_free_instr(cur);
+        cur = next;
+    }
+}
+
 // One forward sweep over a block.  Returns true if any node was deleted.
 static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *multiblock)
 {
@@ -508,15 +618,49 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
             continue; // still unreachable: re-test the new cur (prev/st unchanged)
         }
 
-        // Never delete a C-consumer.  Its setter would survive and re-bind C to whatever
-        // instruction fell into the gap — a silent miscompile.  (The unreachable-tail rule
-        // above is exempt: it deletes a run head-first, so a group's setter goes before its
-        // consumer is ever the cursor.)  A setter is itself never deleted: no rule below
-        // matches UTC or WTC.
-        bool in_c_group = prev != NULL && is_c_setter(prev);
+        // A C group is stepped and rewritten as one unit, so the cursor skips from its
+        // setter straight past its consumer.  That is what makes it structurally impossible
+        // for any rule below to delete a consumer and leave the setter behind to re-bind C
+        // to whatever fell into the gap.  (The unreachable-tail rule above is the one
+        // exception, and it is safe: it deletes a run head-first, so a group's setter goes
+        // before its consumer is ever the cursor.)
+        if (is_c_setter(cur)) {
+            int count;
+            Besm_Instr *consumer = c_group_consumer(cur, &count);
+            if (consumer != NULL) {
+                Loc gl = c_group_loc(cur);
+
+                // Rule #27 for a global: the whole `utc name` + `xta` group reloads a
+                // location A already holds.  Delete setter and consumer together.
+                if (consumer->kind == BESM_MEM_XTA && loc_eq(gl, st.a_loc)) {
+                    Besm_Instr *next = consumer->next;
+                    delete_group(block, prev, cur, count);
+                    cur     = next;
+                    changed = true;
+                    continue; // prev and tracked state stay valid
+                }
+
+                // Step the group.  A word access settles A on the location it touched (a
+                // store leaves A mirroring what it wrote); a dereference or an address
+                // computation names no location, and every other consumer — `xts`, `asx`,
+                // arithmetic, `vtm`, `vjm` — clobbers A.  Both land on LOC_NONE.  No group
+                // member is a SETR, so R is unchanged.
+                if (consumer->kind == BESM_MEM_XTA || consumer->kind == BESM_MEM_ATX)
+                    st.a_loc = gl;
+                else
+                    st.a_loc = loc_none();
+                if (is_block_boundary(consumer)) // `wtc` + `vjm`: the indirect call
+                    state_reset(&st);
+
+                prev = consumer;
+                cur  = consumer->next;
+                continue;
+            }
+            // Malformed: the block ends on a setter.  Fall through to the single-node path.
+        }
 
         bool deleted = false;
-        for (size_t r = 0; !in_c_group && r < NUM_RULES; r++) {
+        for (size_t r = 0; r < NUM_RULES; r++) {
             if (rule_table[r](cur, &st)) {
                 Besm_Instr *next = cur->next;
                 delete_instr(block, prev, cur);
@@ -529,9 +673,8 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
         // Rule #28: dead temp-store elimination (needs look-ahead + the frame).
         // Rule #29(b): dead NTR elimination (needs forward look-ahead).
         // Rule #31(a): jump to the immediately following label (needs look-ahead).
-        if (!deleted && !in_c_group &&
-            (dead_temp_store(cur, frame, multiblock) || dead_ntr_set(cur) ||
-             jump_to_next_label(cur))) {
+        if (!deleted && (dead_temp_store(cur, frame, multiblock) || dead_ntr_set(cur) ||
+                         jump_to_next_label(cur))) {
             Besm_Instr *next = cur->next;
             delete_instr(block, prev, cur);
             cur     = next;
@@ -540,7 +683,7 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
         }
         // Rule #31(c): invert a conditional that only skips an unconditional jump.
         // It mutates `cur` in place and deletes the following `uj`, so re-test `cur`.
-        if (!deleted && !in_c_group && try_invert_branch_over_jump(block, cur)) {
+        if (!deleted && try_invert_branch_over_jump(block, cur)) {
             changed = true;
             continue; // prev and tracked state stay valid; re-test the rewritten cur
         }
@@ -563,7 +706,7 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
             if (cur->kind == BESM_BRANCH_UJ || cur->kind == BESM_BRANCH_STOP)
                 st.in_unreachable = true;
         } else {
-            state_step(&st, prev, cur);
+            state_step(&st, cur);
         }
 
         prev = cur;
