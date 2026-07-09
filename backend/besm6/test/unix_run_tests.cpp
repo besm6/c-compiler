@@ -117,3 +117,22 @@ TEST_F(CodegenTest, UnixRunArithmetic)
     )");
     EXPECT_EQ("136\n", result);
 }
+
+// The b6as counterpart of ZeroConstNeedsNoLiteralRun: a zero constant drops its `#`-pool
+// operand on XTA, on the integer and FP `a+x`, and on XTS, and b6as/b6ld/b6sim accept and
+// execute the resulting bare instructions.
+TEST_F(CodegenTest, UnixRunZeroConstNeedsNoLiteral)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunUnix(R"(
+        #include <stdio.h>
+        int add2(int a, int b) { return a + b; }
+        int iplus0(int x) { return x + 0; }
+        double dplus0(double v) { return v + 0.0; }
+        int main(void) {
+            printf("%d %d %d\n", iplus0(7), add2(7, 0), (int) dplus0(3.0));
+            return 0;
+        }
+    )");
+    EXPECT_EQ("7 7 3\n", result);
+}

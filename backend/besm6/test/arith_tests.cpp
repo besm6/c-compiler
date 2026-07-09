@@ -107,6 +107,70 @@ TEST_F(CodegenTest, BinaryConstSrc2)
               output);
 }
 
+// A zero constant operand reserves no literal: memory word 0 always reads as zero, so the
+// `a+x` drops its address field entirely (compare BinaryConstSrc2's `,a+x, =5`).
+TEST_F(CodegenTest, BinaryZeroConstNeedsNoLiteral)
+{
+    std::string output = CompileToMadlen("extern int g; void foo(int a) { g = a + 0; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,a+x,
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// Same for a real zero: 0.0 encodes to the all-zero word, so the FP `a+x` (bracketed by
+// ntr 0 / ntr 7) also drops its operand rather than reserving an `=r0.` literal.
+TEST_F(CodegenTest, BinaryZeroDoubleConstNeedsNoLiteral)
+{
+    std::string output = CompileToMadlen("extern double g; void foo(double a) { g = a + 0.0; }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,ntr, 0
+             ,a+x,
+             ,ntr, 7
+             ,utc, g
+             ,atx,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// A zero constant reaching XTS (a call argument) drops its operand too — `emit_xts_val` is
+// the third site that attaches a structural constant, alongside XTA and the arith ops.
+TEST_F(CodegenTest, XtsZeroConstNeedsNoLiteral)
+{
+    std::string output = CompileToMadlen("int g(int a, int b); int foo(int x) { return g(x, 0); }");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,xts,
+          14 ,vtm, -2
+             ,call, g
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
 // BINARY with a constant left operand: g = 5 + a.
 TEST_F(CodegenTest, BinaryConstSrc1)
 {

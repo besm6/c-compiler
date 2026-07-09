@@ -437,3 +437,22 @@ TEST_F(CodegenTest, AutoLocalBlockStructPartialCompoundInit)
     )");
     EXPECT_EQ("1 2 0 0 0\n", result);
 }
+
+// End-to-end: a zero constant operand is emitted with an empty address field, so the
+// instruction reads memory word 0 (architecturally zero) instead of a reserved literal.
+// This exercises the three sites that attach a structural constant — XTA, the arith ops
+// (integer `a+x` and the ntr-bracketed FP `a+x`), and XTS (a call argument) — and proves
+// Madlen accepts a bare address field on each of them.
+TEST_F(CodegenTest, ZeroConstNeedsNoLiteralRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int add2(int a, int b) { return a + b; }
+        int iplus0(int x) { return x + 0; }
+        double dplus0(double v) { return v + 0.0; }
+        void program() {
+            printf("%d %d %d\n", iplus0(7), add2(7, 0), (int) dplus0(3.0));
+        }
+    )");
+    EXPECT_EQ("7 7 3\n", result);
+}

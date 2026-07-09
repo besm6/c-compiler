@@ -113,7 +113,7 @@ TEST_F(CodegenTest, CopyConstToGlobal)
         g:   ,subp,
              ,its, 13
              ,call, b/save0
-             ,xta, =0
+             ,xta,
              ,utc, g
              ,atx,
              ,uj, b/ret

@@ -131,9 +131,16 @@ static void unix_addr(char *buf, size_t n, const char *name, int addr)
 // b6as `#`-pool operand: `#0octal` for an integer, `#<real>` for a floating value (the `#`
 // operator pools+deduplicates the word in the const segment).  Otherwise the (name, addr)
 // pair is rendered by unix_addr.
+//
+// A zero constant pools no word: the operand is left empty so the instruction reads memory
+// word 0, which always holds zero.  EA = M[reg] + offset + C, and a constant operand always
+// has reg == 0 with C == 0 — C survives only into the instruction right after a UTC/WTC,
+// where a `#`-pool operand would already read mem[pooled + C].
 static void unix_operand(char *buf, size_t n, const Besm_Instr *i)
 {
     if (i->konst) {
+        if (besm_const_is_zero(i->konst))
+            return; // buf is pre-zeroed by the caller: empty address field
         Besm_ConstWord     w    = besm_const_word(i->konst);
         unsigned long long word = w.is_real ? unix_real_word(w.real_val) : w.word;
         snprintf(buf, n, "#0%llo", word);

@@ -267,7 +267,7 @@ TEST_F(CodegenTest, NoreturnNoParamsWithAutoSetsFramePointer)
              ,ntr, 7
           15 ,mtj, 7
           15 ,utm, 1
-             ,xta, =0
+             ,xta,
            7 ,atx,
        *2:   ,bss,
            7 ,xta,

@@ -50,3 +50,12 @@ Besm_ConstWord besm_const_word(const Tac_Const *c)
     }
     return w;
 }
+
+// A zero constant needs no literal word: the operand is dropped and the instruction reads
+// memory word 0, which always holds zero.  Real 0.0 (and -0.0, which compares equal) encodes
+// to the all-zero word too, so both branches collapse to the same bare instruction.
+bool besm_const_is_zero(const Tac_Const *c)
+{
+    Besm_ConstWord w = besm_const_word(c);
+    return w.is_real ? w.real_val == 0.0 : w.word == 0;
+}

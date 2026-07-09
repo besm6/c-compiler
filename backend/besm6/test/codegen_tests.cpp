@@ -220,7 +220,7 @@ TEST_F(CodegenTest, MainEntryPointInt)
   program:   ,entry,
              ,its, 13
              ,call, b/save0
-             ,xta, =0
+             ,xta,
              ,uj, b/ret
              ,end,
 )",

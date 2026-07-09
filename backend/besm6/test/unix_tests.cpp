@@ -173,7 +173,7 @@ f:
     xta #01
     uj b$ret
 .T0:
-    xta #00
+    xta
     uj b$ret
 )",
               out);
