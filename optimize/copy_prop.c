@@ -123,8 +123,9 @@ typedef struct {
     StringMap *dst;
 } CopyCtx;
 
-static void copy_cb(intptr_t value, const void *arg)
+static void copy_cb(const char *key, intptr_t value, const void *arg)
 {
+    (void)key;
     const CopyCtx *ctx = (const CopyCtx *)arg;
     const CopyPair *sp = (const CopyPair *)value;
     CopyPair *np       = xalloc(sizeof(CopyPair), __func__, __FILE__, __LINE__);
@@ -150,8 +151,9 @@ typedef struct {
     const char *name;
 } KillNameCtx;
 
-static void kill_name_cb(intptr_t value, const void *arg)
+static void kill_name_cb(const char *key, intptr_t value, const void *arg)
 {
+    (void)key;
     const KillNameCtx *ctx = (const KillNameCtx *)arg;
     const CopyPair *pair   = (const CopyPair *)value;
     if (strcmp(pair->name, ctx->name) == 0 ||
@@ -180,8 +182,9 @@ typedef struct {
     const StringMap *alias;
 } KillAliasCtx;
 
-static void kill_alias_cb(intptr_t value, const void *arg)
+static void kill_alias_cb(const char *key, intptr_t value, const void *arg)
 {
+    (void)key;
     const KillAliasCtx *ctx = (const KillAliasCtx *)arg;
     const CopyPair *pair    = (const CopyPair *)value;
     bool kill               = map_get((StringMap *)ctx->alias, pair->name, NULL);
@@ -330,8 +333,9 @@ typedef struct {
     const StringMap *other;
 } IntersectCtx;
 
-static void intersect_cb(intptr_t value, const void *arg)
+static void intersect_cb(const char *key, intptr_t value, const void *arg)
 {
+    (void)key;
     const IntersectCtx *ctx = (const IntersectCtx *)arg;
     const CopyPair *pair    = (const CopyPair *)value;
     intptr_t oval           = 0;
@@ -364,8 +368,9 @@ typedef struct {
     const StringMap *other;
 } EqualCtx;
 
-static void equal_cb(intptr_t value, const void *arg)
+static void equal_cb(const char *key, intptr_t value, const void *arg)
 {
+    (void)key;
     const EqualCtx *ctx = (const EqualCtx *)arg;
     if (!*ctx->equal)
         return;

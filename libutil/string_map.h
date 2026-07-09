@@ -97,6 +97,8 @@ void map_destroy_free(StringMap *map, void (*dealloc)(intptr_t value));
 int map_node_height(const StringNode *node);
 
 //
-// Iterate and invoke callback for each node.
+// Iterate and invoke callback for each node, in ascending key order.
+// The key belongs to the map and stays valid until the entry is removed.
 //
-void map_iterate(StringMap *map, void (*func)(intptr_t value, const void *arg), const void *arg);
+void map_iterate(StringMap *map, void (*func)(const char *key, intptr_t value, const void *arg),
+                 const void *arg);

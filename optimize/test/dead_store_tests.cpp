@@ -980,3 +980,49 @@ TEST_F(OptimizerTest, DeadStoreLiveAcrossEmptyBlock)
               "    kind: var\n"
               "    name: %3\n");
 }
+
+// Regression: the alias sets must not borrow names out of the instruction stream.
+//
+// Label("fn") → FunCall("bar") → Binary(ADD, g, 1, %1) → Return(ConstInt(0))
+//
+// "g" is a non-temp, non-local name ⇒ an observable global, and this Binary is the
+// only instruction that mentions it, so the observable set is built from *this*
+// Binary's var_name. %1 is a compiler temporary, dead at exit, and Binary is pure,
+// so the backward removal walk frees the Binary — and then keeps walking backward to
+// the FunCall, whose transfer re-livens the observable set. If that set stored the
+// freed pointer rather than its own copy of the key, this reads freed memory.
+// (Silent in a normal build; ASan catches it. See optimize/alias.c.)
+TEST_F(OptimizerTest, DeadStoreAliasSetOutlivesFreedInstruction)
+{
+    Tac_Instruction *entry = make_label("fn");
+    Tac_Instruction *call  = make_fun_call("bar");
+    Tac_Instruction *bin =
+        make_binary(TAC_BINARY_ADD, make_var("g"), make_const_int(1), make_var("%1"));
+    Tac_Instruction *ret = make_return(make_const_int(0));
+    entry->next          = call;
+    call->next           = bin;
+    bin->next            = ret;
+
+    // No locals → "g" is observable, so the alias set records it from the Binary.
+    const Tac_TopLevel *tl = make_fn_tl({});
+
+    OptFlags flags          = opt_flags_default();
+    flags.copy_propagation  = false;
+    Tac_Instruction *result = optimize_function(entry, flags, tl);
+
+    // The dead Binary is gone; the call and the return survive.
+    EXPECT_EQ(capture_instructions(result),
+              "- instruction:\n"
+              "  kind: label\n"
+              "  name: fn\n"
+              "- instruction:\n"
+              "  kind: fun_call\n"
+              "  fun_name: bar\n"
+              "- instruction:\n"
+              "  kind: return\n"
+              "  src:\n"
+              "    kind: constant\n"
+              "    const:\n"
+              "      kind: int\n"
+              "      value: 0\n");
+}

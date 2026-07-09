@@ -17,8 +17,9 @@ void print_struct(const StructDef *def)
     }
 }
 
-static void structtab_print_callback(intptr_t ptr, const void *arg)
+static void structtab_print_callback(const char *key, intptr_t ptr, const void *arg)
 {
+    (void)key;
     (void)arg;
     print_struct((const StructDef *)ptr);
 }

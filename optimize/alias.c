@@ -36,16 +36,16 @@ static bool is_temp_name(const char *n)
     return n && n[0] == '%' && isdigit((unsigned char)n[1]);
 }
 
-// Insert `name` into `observable` (borrowing the pointer) unless it is a
-// temporary or one of the function's private (param/local) names.
+// Insert `name` into `observable` unless it is a temporary or one of the
+// function's private (param/local) names. The map copies the key; the value is
+// an unused placeholder (see collect_alias_sets).
 static void note_name(StringMap *observable, const StringMap *private_set, const char *name)
 {
     if (!name || is_temp_name(name))
         return;
     if (map_get((StringMap *)private_set, name, NULL))
         return;
-    if (!map_get(observable, name, NULL))
-        map_insert(observable, name, (intptr_t)name, 0);
+    map_insert(observable, name, 1, 0);
 }
 
 // Note every Var in a value list (covers FUN_CALL argument lists too).
@@ -163,9 +163,11 @@ static void note_instr(StringMap *observable, const StringMap *private_set,
     }
 }
 
-// Populate observable and address_taken (both freshly initialised here). The
-// names are borrowed from the TAC nodes — the maps store the same pointers, so
-// they stay valid only as long as the underlying instructions do.
+// Populate observable and address_taken (both freshly initialised here). Both
+// are key-only sets: membership is the whole fact, and the stored value is an
+// unused placeholder. That matters — a caller may free the TAC instructions
+// these names came from while still consulting the sets (dead-store elimination
+// does exactly that), and StringMap owns its keys, so nothing can dangle.
 void collect_alias_sets(const OptCfg *cfg, const Tac_TopLevel *fn, StringMap *observable,
                         StringMap *address_taken)
 {
@@ -207,7 +209,7 @@ void collect_alias_sets(const OptCfg *cfg, const Tac_TopLevel *fn, StringMap *ob
                 const Tac_Val *src = ins->u.get_address.src;
                 if (src->kind == TAC_VAL_VAR) {
                     const char *n = src->u.var_name;
-                    map_insert(address_taken, n, (intptr_t)n, 0);
+                    map_insert(address_taken, n, 1, 0);
                     OPT_TRACE("[alias] address-taken: %s\n", n);
                     n_taken++;
                 }

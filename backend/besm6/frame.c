@@ -8,8 +8,8 @@
 
 // Encode (reg, offset, temp) into a single intptr_t so we can store it in the map.
 // reg occupies bits 16-19; a "compiler temporary" marker is packed at bit 20 so the
-// peephole pass can recover temp-ness from an auto slot (map_iterate exposes only the
-// value, not the key, so the flag must travel inside the value).
+// peephole pass can recover temp-ness from an auto slot. (The marker is now also
+// derivable from the key via name_is_temp(); the packing is kept for compactness.)
 #define SLOT_ENCODE(reg, off, temp) \
     (((intptr_t)((temp) ? 1 : 0) << 20) | ((intptr_t)(reg) << 16) | (intptr_t)(off))
 #define SLOT_REG(v)  ((((int)(v)) >> 16) & 0xf)
@@ -254,15 +254,14 @@ static void allocate_aggregate(Frame *f, const Tac_Instruction *instr, int *auto
 }
 
 // map_iterate callback: record temp-ness of each auto slot into the bool array.
-// map_iterate exposes only the encoded value (not the key), which is why the temp
-// marker is packed into the slot encoding.
 typedef struct {
     bool *arr;
     int num;
 } TempFill;
 
-static void fill_auto_is_temp(intptr_t value, const void *arg)
+static void fill_auto_is_temp(const char *key, intptr_t value, const void *arg)
 {
+    (void)key;
     const TempFill *tf = (const TempFill *)arg;
     if (SLOT_REG(value) != REG_AUTO)
         return; // params (REG_PAR) are never temporaries

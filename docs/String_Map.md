@@ -371,13 +371,21 @@ with its own object type and its own cleanup logic.
 
 ```c
 void map_iterate(StringMap *map,
-                 void (*func)(intptr_t value, const void *arg),
+                 void (*func)(const char *key, intptr_t value, const void *arg),
                  const void *arg);
 ```
 
 An in-order traversal (left subtree, current node, right subtree) visits every entry in
-ascending alphabetical order by key.  The callback receives the value and an opaque `arg`
-pointer that the caller can use to pass any additional context.
+ascending alphabetical order by key.  The callback receives the key, the value, and an
+opaque `arg` pointer that the caller can use to pass any additional context.
+
+The `key` belongs to the map — it is the copy `map_insert` made, not the caller's original
+pointer — and stays valid until that entry is removed.  This matters for a *set*, where
+membership is the whole fact and the value is an unused placeholder: such a map stays safe
+to consult even after whatever the keys were copied from has been freed.  Callers that need
+only names should key on `key` rather than stash a borrowed pointer in `value`.
+(`optimize/alias.c` once did the latter, and dead-store elimination read those names back
+after freeing the TAC instructions that owned them.)
 
 ---
 

@@ -38,27 +38,15 @@
 
 // ============================================================================
 // Live-set primitives. A live set is a StringMap whose key is a variable name;
-// the same name is mirrored as the intptr_t value because map_iterate callbacks
-// receive only the value, not the key. Membership = the variable is live.
+// membership = the variable is live. The value is an unused placeholder, and
+// StringMap owns its keys, so a live set never points into the instruction
+// stream — it stays valid across the instruction frees the removal walk does.
 // ============================================================================
 
-static void live_name_free(intptr_t v)
-{
-    xfree((char *)v);
-}
-
-static void live_set_destroy(StringMap *ls)
-{
-    map_destroy_free(ls, live_name_free);
-}
-
-// Skip insert when key already present (avoids duplicate xstrdup).
 static void live_add(StringMap *ls, const char *name)
 {
-    if (!name || map_get(ls, name, NULL))
-        return;
-    const char *dup = xstrdup(name);
-    map_insert(ls, dup, (intptr_t)dup, 0);
+    if (name)
+        map_insert(ls, name, 0, 0);
 }
 
 static void live_add_val(StringMap *ls, const Tac_Val *v)
@@ -67,15 +55,10 @@ static void live_add_val(StringMap *ls, const Tac_Val *v)
         live_add(ls, v->u.var_name);
 }
 
+// map_remove_key is a no-op when the name is absent, so no membership pre-check.
 static void live_remove(StringMap *ls, const char *name)
 {
-    if (!name)
-        return;
-    intptr_t oval = 0;
-    if (!map_get(ls, name, &oval))
-        return;
     map_remove_key(ls, name);
-    live_name_free(oval);
 }
 
 // ============================================================================
@@ -86,9 +69,10 @@ typedef struct {
     StringMap *dst;
 } LiveCtx;
 
-static void live_copy_cb(intptr_t value, const void *arg)
+static void live_copy_cb(const char *key, intptr_t value, const void *arg)
 {
-    live_add(((const LiveCtx *)arg)->dst, (const char *)value);
+    (void)value;
+    live_add(((const LiveCtx *)arg)->dst, key);
 }
 
 static void live_set_copy(StringMap *dst, const StringMap *src)
@@ -115,12 +99,13 @@ typedef struct {
     const StringMap *other;
 } LiveEqualCtx;
 
-static void live_equal_cb(intptr_t value, const void *arg)
+static void live_equal_cb(const char *key, intptr_t value, const void *arg)
 {
     const LiveEqualCtx *ctx = (const LiveEqualCtx *)arg;
+    (void)value;
     if (!*ctx->equal)
         return;
-    if (!map_get((StringMap *)ctx->other, (const char *)value, NULL))
+    if (!map_get((StringMap *)ctx->other, key, NULL))
         *ctx->equal = false;
 }
 
@@ -461,8 +446,8 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *fn)
                 changed = true;
             }
 
-            live_set_destroy(&in_sets[i]);
-            live_set_destroy(&out_sets[i]);
+            map_destroy(&in_sets[i]);
+            map_destroy(&out_sets[i]);
             in_sets[i]  = new_in;
             out_sets[i] = new_out;
         }
@@ -506,13 +491,13 @@ void eliminate_dead_stores(const OptCfg *cfg, const Tac_TopLevel *fn)
                 live_transfer_backward(&live, ins, &static_names, &address_taken);
             }
         }
-        live_set_destroy(&live);
+        map_destroy(&live);
     }
 
     // Free all dataflow scaffolding and the alias maps.
     for (int i = 0; i < n; i++) {
-        live_set_destroy(&in_sets[i]);
-        live_set_destroy(&out_sets[i]);
+        map_destroy(&in_sets[i]);
+        map_destroy(&out_sets[i]);
         xfree(block_insts[i]);
     }
     xfree(in_sets);
