@@ -378,6 +378,111 @@ TEST_F(CodegenTest, VarDoubleInit)
               output);
 }
 
+// A real initializer that is not a bare literal: unary minus, binary arithmetic, a
+// comparison, a logical NOT and a cast all fold in the frontend before emission.
+TEST_F(CodegenTest, VarDoubleNegInit)
+{
+    std::string output = CompileToMadlen("double foo = -0.5;");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,real, -0.5
+             ,end,
+)",
+              output);
+}
+
+TEST_F(CodegenTest, VarFloatNegInit)
+{
+    std::string output = CompileToMadlen("float foo = -3.1415;");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,real, -3.1415
+             ,end,
+)",
+              output);
+}
+
+TEST_F(CodegenTest, VarDoubleFromNegIntInit)
+{
+    std::string output = CompileToMadlen("double foo = -1;");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,real, -1.
+             ,end,
+)",
+              output);
+}
+
+TEST_F(CodegenTest, VarDoubleConstExprInit)
+{
+    std::string output = CompileToMadlen("double foo = 1.0 / 4.0;");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,real, 0.25
+             ,end,
+)",
+              output);
+}
+
+// A comparison and a logical NOT yield an int, which converts to the real target.
+TEST_F(CodegenTest, VarDoubleCompareInit)
+{
+    std::string output = CompileToMadlen("double foo = (1.5 < 2.0);");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,real, 1.
+             ,end,
+)",
+              output);
+}
+
+TEST_F(CodegenTest, VarDoubleLogNotInit)
+{
+    std::string output = CompileToMadlen("double foo = !0.0;");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,real, 1.
+             ,end,
+)",
+              output);
+}
+
+// A cast to a narrower type wraps to that type's width: (char)300 is 44 (octal 54).
+TEST_F(CodegenTest, VarIntCastInit)
+{
+    std::string output = CompileToMadlen("int foo = (char)300;");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,log, 54
+             ,end,
+)",
+              output);
+}
+
+// A real constant expression converts to an integer target by truncation toward zero.
+TEST_F(CodegenTest, VarIntFromRealInit)
+{
+    std::string output = CompileToMadlen("int foo = (int)1.5;");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,log, 1
+             ,end,
+)",
+              output);
+}
+
+TEST_F(CodegenTest, ArrayDoubleNegInit)
+{
+    std::string output = CompileToMadlen("double foo[] = { -1.5, 2.5 };");
+    EXPECT_EQ(R"(c
+      foo:   ,name,
+             ,real, -1.5
+             ,real, 2.5
+             ,end,
+)",
+              output);
+}
+
 TEST_F(CodegenTest, ArrayIntInit)
 {
     std::string output = CompileToMadlen("int foo[] = { 12, 34, 56 };");

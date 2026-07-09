@@ -38,6 +38,7 @@ Expr *coerce_for_assignment(Expr *e, const Type *target_type);
 
 // Const evaluation — typecheck.c
 bool try_eval_const_int(const Expr *e, long *out);
+bool try_eval_const_real(const Expr *e, double *out);
 
 // Expression type-checking — expressions.c
 Expr *typecheck_string(Expr *e);

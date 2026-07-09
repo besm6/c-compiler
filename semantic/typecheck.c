@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +13,7 @@
 #include "semantic.h"
 #include "structtab.h"
 #include "symtab.h"
+#include "target.h"
 #include "typetab.h"
 
 // Enable debug output
@@ -402,152 +404,355 @@ Expr *coerce_for_assignment(Expr *e, const Type *target_type)
     fatal_error("Cannot convert type for assignment");
 }
 
-// Evaluate a constant integer expression; return false if not constant.
-bool try_eval_const_int(const Expr *e, long *out)
+//
+// A folded arithmetic constant: either an integer or a real.  C's usual arithmetic
+// conversions let an operator's operands disagree, and an operator's result kind need
+// not match its operands' (comparing two reals yields an int; casting a real to int
+// yields an int), so the folder carries the value's kind along with it rather than
+// committing to one up front.  try_eval_const_int/try_eval_const_real project the result.
+//
+typedef struct {
+    bool is_real;
+    long i;   // valid when !is_real
+    double d; // valid when  is_real
+} ConstVal;
+
+// The value of a folded constant as a real, whichever kind it holds.
+static double const_as_real(const ConstVal *v)
+{
+    return v->is_real ? v->d : (double)v->i;
+}
+
+// Value width in bits of an integer type on the active target.  A signed type uses the
+// target's <type>_bits (a BESM-6 signed int is 41-bit inside a 48-bit word); an unsigned
+// type uses the full storage width, size*8.  Mirrors target_signed_bits/target_unsigned_bits
+// in optimize/const_fold.c.  Returns 0 when no target is configured, and the caller then
+// keeps the host's narrowing.
+static int type_value_bits(const Type *t)
+{
+    if (!target_config)
+        return 0;
+    switch (unalias(t)->kind) {
+    case TYPE_CHAR:
+    case TYPE_SCHAR:
+    case TYPE_UCHAR:
+        return 8;
+    case TYPE_SHORT:
+        return target_config->short_bits;
+    case TYPE_USHORT:
+        return (int)target_config->short_size * 8;
+    case TYPE_INT:
+    case TYPE_ENUM:
+        return target_config->int_bits;
+    case TYPE_UINT:
+        return (int)target_config->int_size * 8;
+    case TYPE_LONG:
+        return target_config->long_bits;
+    case TYPE_ULONG:
+        return (int)target_config->long_size * 8;
+    case TYPE_LONG_LONG:
+        return target_config->llong_bits;
+    case TYPE_ULONG_LONG:
+        return (int)target_config->llong_size * 8;
+    default:
+        return 0;
+    }
+}
+
+// Convert a folded integer to an integer cast target: wrap it to that type's value width
+// and signedness (C11 §6.3.1.3), so "(char)300" folds to 44 rather than staying 300.
+// _Bool yields 0 or 1 (§6.3.1.2).
+static long narrow_to_int_type(const Type *t, long v)
+{
+    if (unalias(t)->kind == TYPE_BOOL)
+        return v != 0;
+
+    int width = type_value_bits(t);
+    if (width <= 0 || width >= 64)
+        return v; // no target configured, or already the host's width
+
+    uint64_t mask = ((uint64_t)1 << width) - 1;
+    uint64_t bits = (uint64_t)v & mask;
+    if (is_signed(t) && (bits >> (width - 1)) & 1)
+        bits |= ~mask; // sign-extend from the target's sign bit
+    return (long)bits;
+}
+
+// Fold a binary operator whose operands underwent the usual arithmetic conversions to a
+// real type.  Arithmetic yields a real; the comparisons and the logical operators yield
+// an int.  The remaining operators require integer operands and do not fold.
+static bool fold_real_binop(BinaryOp op, double left, double right, ConstVal *out)
+{
+    out->is_real = false;
+    switch (op) {
+    case BINARY_MUL:
+        out->is_real = true;
+        out->d       = left * right;
+        return true;
+    case BINARY_DIV:
+        // Division by zero is not a constant expression; reject rather than fold an
+        // infinity into a static initializer.  Mirrors the integer guard below.
+        if (right == 0.0)
+            return false;
+        out->is_real = true;
+        out->d       = left / right;
+        return true;
+    case BINARY_ADD:
+        out->is_real = true;
+        out->d       = left + right;
+        return true;
+    case BINARY_SUB:
+        out->is_real = true;
+        out->d       = left - right;
+        return true;
+    case BINARY_LT:
+        out->i = left < right;
+        return true;
+    case BINARY_GT:
+        out->i = left > right;
+        return true;
+    case BINARY_LE:
+        out->i = left <= right;
+        return true;
+    case BINARY_GE:
+        out->i = left >= right;
+        return true;
+    case BINARY_EQ:
+        out->i = left == right;
+        return true;
+    case BINARY_NE:
+        out->i = left != right;
+        return true;
+    case BINARY_LOG_AND:
+        out->i = (left != 0.0 && right != 0.0) ? 1L : 0L;
+        return true;
+    case BINARY_LOG_OR:
+        out->i = (left != 0.0 || right != 0.0) ? 1L : 0L;
+        return true;
+    default:
+        // BINARY_MOD, the shifts and the bitwise operators need integer operands.
+        return false;
+    }
+}
+
+// Evaluate a constant arithmetic expression; return false if not constant.
+static bool eval_const(const Expr *e, ConstVal *out)
 {
     switch (e->kind) {
     case EXPR_LITERAL:
+        out->is_real = false;
         switch (e->u.literal->kind) {
         case LITERAL_INT:
-            *out = e->u.literal->u.int_val;
+            out->i = e->u.literal->u.int_val;
             return true;
         case LITERAL_LONG:
-            *out = e->u.literal->u.long_val;
+            out->i = e->u.literal->u.long_val;
             return true;
         case LITERAL_LONG_LONG:
-            *out = (long)e->u.literal->u.long_long_val;
+            out->i = (long)e->u.literal->u.long_long_val;
             return true;
         case LITERAL_UINT:
-            *out = (long)e->u.literal->u.uint_val;
+            out->i = (long)e->u.literal->u.uint_val;
             return true;
         case LITERAL_ULONG:
-            *out = (long)e->u.literal->u.ulong_val;
+            out->i = (long)e->u.literal->u.ulong_val;
             return true;
         case LITERAL_ULONG_LONG:
-            *out = (long)e->u.literal->u.ulong_long_val;
+            out->i = (long)e->u.literal->u.ulong_long_val;
             return true;
         case LITERAL_CHAR:
-            *out = (unsigned char)e->u.literal->u.char_val;
+            out->i = (unsigned char)e->u.literal->u.char_val;
             return true;
         case LITERAL_ENUM: {
             const Symbol *sym = symtab_get_opt(e->u.literal->u.enum_const);
             if (!sym)
                 return false;
-            *out = sym->u.enum_val;
+            out->i = sym->u.enum_val;
             return true;
         }
+        case LITERAL_FLOAT:
+        case LITERAL_DOUBLE:
+        case LITERAL_LONG_DOUBLE:
+            out->is_real = true;
+            out->d       = literal_to_double(e->u.literal);
+            return true;
         default:
             return false;
         }
     case EXPR_CAST: {
-        long inner;
-        if (try_eval_const_int(e->u.cast.expr, &inner)) {
-            *out = inner;
+        ConstVal v;
+        if (!eval_const(e->u.cast.expr, &v))
+            return false;
+        const Type *ct = unalias(e->u.cast.type);
+        if (is_integer(ct)) {
+            // C11 §6.3.1.4: a real converts to an integer by truncation toward zero.
+            out->is_real = false;
+            out->i       = narrow_to_int_type(ct, v.is_real ? (long)v.d : v.i);
             return true;
         }
-        return false;
+        if (ct->kind == TYPE_FLOAT) {
+            // A cast to float rounds to float precision, and the folded value keeps it.
+            float rounded = (float)const_as_real(&v);
+            out->is_real  = true;
+            out->d        = rounded;
+            return true;
+        }
+        if (ct->kind == TYPE_DOUBLE || ct->kind == TYPE_LONG_DOUBLE) {
+            out->is_real = true;
+            out->d       = const_as_real(&v);
+            return true;
+        }
+        // A cast to a non-arithmetic type passes an integer operand through unchanged:
+        // build_static_init folds an address constant such as "(char *)0x4000" this way
+        // and then re-inspects the cast node itself.
+        if (v.is_real)
+            return false;
+        *out = v;
+        return true;
     }
     case EXPR_UNARY_OP: {
-        long inner;
-        if (!try_eval_const_int(e->u.unary_op.expr, &inner))
+        ConstVal v;
+        if (!eval_const(e->u.unary_op.expr, &v))
             return false;
         switch (e->u.unary_op.op) {
         case UNARY_NEG:
-            *out = -inner;
+            *out = v;
+            if (v.is_real)
+                out->d = -v.d;
+            else
+                out->i = -v.i;
             return true;
         case UNARY_PLUS:
-            *out = inner;
+            *out = v;
             return true;
         case UNARY_BIT_NOT:
-            *out = ~inner;
+            if (v.is_real)
+                return false; // ~ requires an integer operand
+            out->is_real = false;
+            out->i       = ~v.i;
+            return true;
+        case UNARY_LOG_NOT:
+            // ! yields an int whatever the operand's type is (C11 §6.5.3.3p5).
+            out->is_real = false;
+            out->i       = (const_as_real(&v) == 0.0) ? 1L : 0L;
             return true;
         default:
             return false;
         }
     }
     case EXPR_BINARY_OP: {
-        long left, right;
-        if (!try_eval_const_int(e->u.binary_op.left, &left) ||
-            !try_eval_const_int(e->u.binary_op.right, &right))
+        ConstVal l, r;
+        if (!eval_const(e->u.binary_op.left, &l) || !eval_const(e->u.binary_op.right, &r))
             return false;
+        if (l.is_real || r.is_real)
+            return fold_real_binop(e->u.binary_op.op, const_as_real(&l), const_as_real(&r), out);
+
+        long left    = l.i;
+        long right   = r.i;
+        out->is_real = false;
         switch (e->u.binary_op.op) {
         case BINARY_MUL:
-            *out = left * right;
+            out->i = left * right;
             return true;
         case BINARY_DIV:
         case BINARY_MOD:
             if (right == 0)
                 return false;
-            *out = (e->u.binary_op.op == BINARY_DIV) ? left / right : left % right;
+            out->i = (e->u.binary_op.op == BINARY_DIV) ? left / right : left % right;
             return true;
         case BINARY_ADD:
-            *out = left + right;
+            out->i = left + right;
             return true;
         case BINARY_SUB:
-            *out = left - right;
+            out->i = left - right;
             return true;
         case BINARY_LEFT_SHIFT:
             if (right < 0 || (unsigned long)right >= sizeof(long) * 8)
                 return false;
-            *out = (long)((unsigned long)left << (unsigned long)right);
+            out->i = (long)((unsigned long)left << (unsigned long)right);
             return true;
         case BINARY_RIGHT_SHIFT:
             if (right < 0 || (unsigned long)right >= sizeof(long) * 8)
                 return false;
-            *out = left >> right;
+            out->i = left >> right;
             return true;
         case BINARY_LT:
-            *out = left < right;
+            out->i = left < right;
             return true;
         case BINARY_GT:
-            *out = left > right;
+            out->i = left > right;
             return true;
         case BINARY_LE:
-            *out = left <= right;
+            out->i = left <= right;
             return true;
         case BINARY_GE:
-            *out = left >= right;
+            out->i = left >= right;
             return true;
         case BINARY_EQ:
-            *out = left == right;
+            out->i = left == right;
             return true;
         case BINARY_NE:
-            *out = left != right;
+            out->i = left != right;
             return true;
         case BINARY_BIT_AND:
-            *out = left & right;
+            out->i = left & right;
             return true;
         case BINARY_BIT_XOR:
-            *out = left ^ right;
+            out->i = left ^ right;
             return true;
         case BINARY_BIT_OR:
-            *out = left | right;
+            out->i = left | right;
             return true;
         case BINARY_LOG_AND:
-            *out = (left != 0 && right != 0) ? 1L : 0L;
+            out->i = (left != 0 && right != 0) ? 1L : 0L;
             return true;
         case BINARY_LOG_OR:
-            *out = (left != 0 || right != 0) ? 1L : 0L;
+            out->i = (left != 0 || right != 0) ? 1L : 0L;
             return true;
         default:
             return false;
         }
     }
     case EXPR_SIZEOF_TYPE:
-        *out = (long)get_size(e->u.sizeof_type);
+        out->is_real = false;
+        out->i       = (long)get_size(e->u.sizeof_type);
         return true;
     case EXPR_SIZEOF_EXPR:
         if (e->u.sizeof_expr->type) {
-            *out = (long)get_size(e->u.sizeof_expr->type);
+            out->is_real = false;
+            out->i       = (long)get_size(e->u.sizeof_expr->type);
             return true;
         }
         return false;
     case EXPR_ALIGNOF:
-        *out = (long)get_alignment(e->u.align_of);
+        out->is_real = false;
+        out->i       = (long)get_alignment(e->u.align_of);
         return true;
     default:
         return false;
     }
+}
+
+// Evaluate a constant integer expression; return false if not constant.  A folded real
+// value is not an integer constant expression (C11 §6.6p6) — "int a[1.5];" stays an
+// error; only an explicit cast, "(int)1.5", makes it integral.
+bool try_eval_const_int(const Expr *e, long *out)
+{
+    ConstVal v;
+    if (!eval_const(e, &v) || v.is_real)
+        return false;
+    *out = v.i;
+    return true;
+}
+
+// Evaluate a constant arithmetic expression as a real; an integral result converts.
+bool try_eval_const_real(const Expr *e, double *out)
+{
+    ConstVal v;
+    if (!eval_const(e, &v))
+        return false;
+    *out = const_as_real(&v);
+    return true;
 }
 
 // Type-check a global declaration and label its loops.  Loop labels draw from the

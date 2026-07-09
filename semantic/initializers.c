@@ -399,8 +399,28 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
             }
             return new_static_init_from_literal(var_type, &lit);
         }
+        // A real constant expression converts to the integer target (C11 §6.3.1.4):
+        // "int m = -1.5;".  new_static_init_from_literal truncates via literal_to_int64.
+        double real_val;
+        if (try_eval_const_real(expr, &real_val)) {
+            Literal lit = { .kind = LITERAL_DOUBLE, .u.real_val = real_val };
+            return new_static_init_from_literal(var_type, &lit);
+        }
         // A variable with static storage duration must have a constant
         // initializer (C11 §6.7.9p4): "int b = 1 + a;" / "static int b = a * 2;".
+        fatal_error("Static initializer is not a constant");
+    }
+
+    // Handle floating scalar initialized with a constant expression (e.g. -0.5, 1.0 / 4).
+    // The integer block above always returns or fails, so an arithmetic type reaching
+    // here is necessarily a real one.
+    if (init->kind == INITIALIZER_SINGLE && is_arithmetic(var_type)) {
+        const Expr *expr = typecheck_and_decay(init->u.expr);
+        double val;
+        if (try_eval_const_real(expr, &val)) {
+            Literal lit = { .kind = LITERAL_DOUBLE, .u.real_val = val };
+            return new_static_init_from_literal(var_type, &lit);
+        }
         fatal_error("Static initializer is not a constant");
     }
 

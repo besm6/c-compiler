@@ -45,6 +45,9 @@ char *decode_c_string_literal(const char *raw);
 // Convert literal to given arithmetic type and return as Tac_StaticInit.
 Tac_StaticInit *new_static_init_from_literal(const Type *type, const Literal *lit);
 
+// Convert any arithmetic literal to a real value.
+double literal_to_double(const Literal *lit);
+
 //
 // Helpers for Type.
 //
