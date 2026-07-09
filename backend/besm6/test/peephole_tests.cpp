@@ -376,3 +376,42 @@ TEST_F(CodegenTest, UnreachableTailRemoved)
 
     besm_free_func(fn);
 }
+
+// C-group atomicity: the instruction following a UTC or WTC reads mem[C], not the frame
+// slot its (reg, addr) fields spell out, and deleting it would leave the setter to re-bind
+// C to whatever fell into the gap.  Here `7 ,atx, 3` leaves A mirroring slot (7,3), then
+// `7 ,wtc, 3` sets C from that slot's pointer word, and `7 ,xta, 3` — textually the same
+// slot — actually loads mem[C + r7 + 3].  A rule that matched on (reg, addr) alone would
+// delete the `xta` as a redundant reload.  It must survive.
+TEST_F(CodegenTest, CConsumerNotDeletedAdjacentToSetter)
+{
+    Besm_Func *fn   = besm_new_func("foo", BESM_CC_INTERNAL);
+    Besm_Block *blk = besm_new_block();
+
+    Besm_Instr *atx = besm_new_instr(BESM_MEM_ATX); // A mirrors slot (7,3)
+    atx->reg        = 7;
+    atx->addr       = 3;
+    Besm_Instr *wtc = besm_new_instr(BESM_MOD_WTC); // C = mem[r7+3]
+    wtc->reg        = 7;
+    wtc->addr       = 3;
+    Besm_Instr *xta = besm_new_instr(BESM_MEM_XTA); // A = mem[C + r7 + 3]
+    xta->reg        = 7;
+    xta->addr       = 3;
+
+    atx->next  = wtc;
+    wtc->next  = xta;
+    blk->body  = atx;
+    fn->blocks = blk;
+
+    besm_peephole(fn, nullptr);
+
+    ASSERT_NE(nullptr, blk->body);
+    EXPECT_EQ(BESM_MEM_ATX, blk->body->kind);
+    ASSERT_NE(nullptr, blk->body->next);
+    EXPECT_EQ(BESM_MOD_WTC, blk->body->next->kind);
+    ASSERT_NE(nullptr, blk->body->next->next);
+    EXPECT_EQ(BESM_MEM_XTA, blk->body->next->next->kind);
+    EXPECT_EQ(nullptr, blk->body->next->next->next);
+
+    besm_free_func(fn);
+}

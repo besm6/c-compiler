@@ -29,6 +29,12 @@
 // mutates the list, neither of which the `(cur, st)` predicate signature carries, so they
 // are handled directly in the sweep.  Rule #32 would append entries to the rule table.
 //
+// Cutting across all of them is the *C group* invariant (see `is_c_setter` below): a UTC or
+// WTC and the instruction that follows it are one indivisible unit, because the C
+// address-modifier register survives exactly one instruction.  No rewrite may delete the
+// consumer of a setter, and the tracked state must not read a consumer's `(reg,addr)` fields
+// as if they named a frame slot.
+//
 
 //
 // Tracked implicit machine state, valid only along straight-line code.
@@ -67,6 +73,27 @@ static bool has_operand_symbol(const Besm_Instr *i)
 }
 
 //
+// C groups.
+//
+// The C address-modifier register is reset to zero after *every* instruction except UTC
+// (022) and WTC (023).  A C-setter and the single instruction that follows it therefore
+// form an atomic pair: the follower's effective address is `addr + M[reg] + C`, and nothing
+// may be inserted between them or deleted from between them.  The backend emits three
+// shapes (see emit.c): `utc name` + consumer, `wtc reg,off` + consumer, and — for a
+// dereference through a global pointer — `utc name` + `wtc 0,0` + consumer, where the middle
+// WTC is at once the first setter's consumer and the second setter.
+//
+// Two consequences for this pass.  A bare `xta`/`atx` (reg 0, addr 0) after a setter is *not*
+// a frame-slot access: it reads or writes mem[C], an address the tracked state has no name
+// for.  And no rewrite may delete a consumer while leaving its setter, which would silently
+// re-bind C to whatever instruction fell into the gap.
+//
+static bool is_c_setter(const Besm_Instr *i)
+{
+    return i->kind == BESM_MOD_UTC || i->kind == BESM_MOD_WTC;
+}
+
+//
 // Does this instruction end a basic block?  A label can be re-entered from
 // elsewhere and a branch transfers control (a CALL also clobbers A), so tracked
 // state cannot be assumed to survive past it.  The non-dataflow assembler
@@ -98,14 +125,15 @@ static bool is_block_boundary(const Besm_Instr *i)
 }
 
 //
-// Update the tracked state to reflect executing `i` in straight-line code.  This
-// runs only for non-boundary instructions (boundaries reset the state instead).
+// Update the tracked state to reflect executing `i` in straight-line code, given its
+// predecessor `prev` (NULL at the start of a block).  This runs only for non-boundary
+// instructions (boundaries reset the state instead).
 //
 // XTA and ATX of a frame slot (no symbolic name) both leave A mirroring that slot.
 // Every other instruction may clobber A, so conservatively mark A unknown; later
 // rules refine this.
 //
-static void state_step(PeepState *st, const Besm_Instr *i)
+static void state_step(PeepState *st, const Besm_Instr *prev, const Besm_Instr *i)
 {
     // Mode register R: `ntr` (SETR) sets it to its operand.  Nothing else changes R
     // in straight-line code — a CALL is a block boundary, handled by the sweep.
@@ -116,6 +144,16 @@ static void state_step(PeepState *st, const Besm_Instr *i)
     switch (i->kind) {
     case BESM_MEM_XTA:
     case BESM_MEM_ATX:
+        // A C-consumer's operand is mem[C], not the frame slot its (reg,addr) fields
+        // spell out — a bare `xta`/`atx` after a setter reads reg 0, offset 0, which
+        // names no slot.  The value in A is real but its location is unnameable here,
+        // and the store case must additionally invalidate A: an `atx` through a pointer
+        // may have overwritten whatever slot A was mirroring.  Both fall out of marking
+        // A unknown.
+        if (prev != NULL && is_c_setter(prev)) {
+            st->a_known = false;
+            return;
+        }
         if (!has_operand_symbol(i)) {
             st->a_known = true;
             st->a_reg   = i->reg;
@@ -470,8 +508,15 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
             continue; // still unreachable: re-test the new cur (prev/st unchanged)
         }
 
+        // Never delete a C-consumer.  Its setter would survive and re-bind C to whatever
+        // instruction fell into the gap — a silent miscompile.  (The unreachable-tail rule
+        // above is exempt: it deletes a run head-first, so a group's setter goes before its
+        // consumer is ever the cursor.)  A setter is itself never deleted: no rule below
+        // matches UTC or WTC.
+        bool in_c_group = prev != NULL && is_c_setter(prev);
+
         bool deleted = false;
-        for (size_t r = 0; r < NUM_RULES; r++) {
+        for (size_t r = 0; !in_c_group && r < NUM_RULES; r++) {
             if (rule_table[r](cur, &st)) {
                 Besm_Instr *next = cur->next;
                 delete_instr(block, prev, cur);
@@ -484,8 +529,9 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
         // Rule #28: dead temp-store elimination (needs look-ahead + the frame).
         // Rule #29(b): dead NTR elimination (needs forward look-ahead).
         // Rule #31(a): jump to the immediately following label (needs look-ahead).
-        if (!deleted && (dead_temp_store(cur, frame, multiblock) || dead_ntr_set(cur) ||
-                         jump_to_next_label(cur))) {
+        if (!deleted && !in_c_group &&
+            (dead_temp_store(cur, frame, multiblock) || dead_ntr_set(cur) ||
+             jump_to_next_label(cur))) {
             Besm_Instr *next = cur->next;
             delete_instr(block, prev, cur);
             cur     = next;
@@ -494,7 +540,7 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
         }
         // Rule #31(c): invert a conditional that only skips an unconditional jump.
         // It mutates `cur` in place and deletes the following `uj`, so re-test `cur`.
-        if (!deleted && try_invert_branch_over_jump(block, cur)) {
+        if (!deleted && !in_c_group && try_invert_branch_over_jump(block, cur)) {
             changed = true;
             continue; // prev and tracked state stay valid; re-test the rewritten cur
         }
@@ -517,7 +563,7 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
             if (cur->kind == BESM_BRANCH_UJ || cur->kind == BESM_BRANCH_STOP)
                 st.in_unreachable = true;
         } else {
-            state_step(&st, cur);
+            state_step(&st, prev, cur);
         }
 
         prev = cur;
