@@ -35,7 +35,6 @@
 static uint64_t const_to_uint64(const Tac_Const *c);
 static Tac_Val *make_int_const_val(Tac_ConstKind kind, uint64_t bits);
 static int target_signed_bits(Tac_ConstKind kind);
-static uint64_t unsigned_narrow(uint64_t bits, int w);
 
 // Truthiness test: is this constant equal to zero? Used both to fold the logical
 // NOT operator and to resolve conditional jumps. Covers all 11 scalar kinds.
@@ -308,26 +307,6 @@ static int target_unsigned_bits(Tac_ConstKind kind)
     default:
         return 0;
     }
-}
-
-// Sign-extend the low `w` bits of `bits` to a 64-bit signed value (w in (0,64)).
-// w<=0 or w>=64 means "no narrowing": return the full 64-bit pattern.
-static int64_t sign_narrow(uint64_t bits, int w)
-{
-    if (w <= 0 || w >= 64)
-        return (int64_t)bits;
-    uint64_t mask = ((uint64_t)1 << w) - 1;
-    uint64_t sbit = (uint64_t)1 << (w - 1);
-    uint64_t low  = bits & mask;
-    return (int64_t)((low ^ sbit) - sbit);
-}
-
-// Mask `bits` to the low `w` bits (w in (0,64)).  w<=0 or w>=64 returns `bits`.
-static uint64_t unsigned_narrow(uint64_t bits, int w)
-{
-    if (w <= 0 || w >= 64)
-        return bits;
-    return bits & (((uint64_t)1 << w) - 1);
 }
 
 // Build a constant-valued Tac_Val of `kind` from a 64-bit result `bits`, wrapping

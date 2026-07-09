@@ -1,4 +1,15 @@
+#include "target.h"
 #include "typecheck_fixture.h"
+
+namespace {
+// Temporarily switch the active target for a test, restoring it on scope exit
+// (so a width-specific fold does not leak into later, target-agnostic tests).
+struct TargetGuard {
+    const Target *saved;
+    explicit TargetGuard(const char *name) : saved(target_config) { target_config = target_lookup(name); }
+    ~TargetGuard() { target_config = saved; }
+};
+} // namespace
 
 // Struct definition through the full pipeline.
 // Verifies that struct registration does not double-register in structtab.
@@ -363,9 +374,7 @@ TEST_F(PipelineTest, ConstExprFoldsCastsAndReals)
 
 // A cast to an unsigned type, an enum, or a typedef name is a constant expression, and it
 // folds to the cast type's own width and signedness.  Widths are the x86_64 fixture
-// target's.  Nothing here casts to a 64-bit unsigned type: eval_const carries its integer
-// in a signed long, so a value at the host's full width neither narrows nor compares as
-// unsigned -- "(unsigned long)-1 > 0" folds to 0 on x86_64.
+// target's.  (Full-width 64-bit unsigned values are covered separately below.)
 TEST_F(PipelineTest, ConstExprFoldsUnsignedAndEnumCasts)
 {
     RunPipeline(R"(typedef unsigned int uint_t;
@@ -388,6 +397,45 @@ TEST_F(PipelineTest, ConstExprUnsignedCastFalseAssertFails)
     ParseProgram("_Static_assert((unsigned char)-1 == 254, \"bad\");");
     ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
                 "_Static_assert failed: bad");
+}
+
+// The folder carries a value's signedness, so an unsigned value at the host's full
+// 64 bits still compares, divides and shifts as unsigned, and the usual arithmetic
+// conversions make a mixed signed/unsigned operator unsigned.  Widths are the x86_64
+// fixture target's (unsigned = 32 bits, unsigned long = 64).
+TEST_F(PipelineTest, ConstExprFoldsFullWidthUnsigned)
+{
+    RunPipeline(R"(_Static_assert((unsigned long)-1 > 0, "full-width unsigned compares unsigned");
+_Static_assert((unsigned long)-1 == 18446744073709551615UL, "converts modulo 2^64");
+_Static_assert((unsigned long long)-1 > 0, "same at unsigned long long");
+_Static_assert(~0u == 4294967295u, "~ wraps to the unsigned operand type");
+_Static_assert(-1u == 4294967295u, "unary minus wraps unsigned");
+_Static_assert((-1 < 1u) == 0, "usual conversions make the compare unsigned");
+_Static_assert((unsigned)-1 / 2 == 2147483647, "unsigned division");
+_Static_assert((unsigned)-1 % 10 == 5, "unsigned remainder");
+_Static_assert((unsigned)-2 >> 1 == 2147483647, "unsigned >> is logical");
+_Static_assert(sizeof(int) - 8 > 0, "sizeof yields unsigned size_t");
+long w = ((unsigned long)-1 > 0);
+)");
+    EXPECT_EQ(sole_init("w")->u.long_val, 1);
+}
+
+// The same folds on the BESM-6 target, where a signed value is a 41-bit pattern inside
+// the 48-bit word whose upper bits hold zeros: converting a negative signed value to an
+// unsigned type is a plain word copy, so (unsigned long)-1 is 2^41-1 (not 2^48-1) --
+// matching const_to_uint64 in optimize/const_fold.c -- and a signed right shift is
+// logical over that pattern (Target.right_shift_is_logical), matching the value the
+// optimizer folds in BinaryFoldRightShiftNegativeBesm6Logical.
+TEST_F(PipelineTest, ConstExprFoldsUnsignedBesm6)
+{
+    TargetGuard besm6("besm6");
+    RunPipeline(R"(_Static_assert((unsigned long)-1 > 0, "unsigned compare");
+_Static_assert((unsigned long)-1 == 2199023255551UL, "signed word pattern, 2^41-1");
+_Static_assert((-1 < 1u) == 0, "mixed compare is unsigned");
+_Static_assert((-8160 >> 5) == 68719476481, "signed >> is logical on BESM-6");
+long w = ((unsigned long)-1 > 0);
+)");
+    EXPECT_EQ(sole_init("w")->u.long_val, 1);
 }
 
 // `!` folds, so it is usable where an integer constant expression is required.

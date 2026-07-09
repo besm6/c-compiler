@@ -411,28 +411,32 @@ Expr *coerce_for_assignment(Expr *e, const Type *target_type)
 // yields an int), so the folder carries the value's kind along with it rather than
 // committing to one up front.  try_eval_const_int/try_eval_const_real project the result.
 //
+// An integer value carries its C type kind and its canonical 64-bit representation:
+// a signed kind is sign-extended to 64 bits, an unsigned kind is zero-extended (masked
+// to its target width).  The kind decides whether an operator uses signed or unsigned
+// arithmetic, so "(unsigned long)-1 > 0" folds to 1 even when unsigned long fills the
+// full 64 bits.  This mirrors the TAC folder in optimize/const_fold.c
+// (const_to_int64/const_to_uint64/make_int_const_val); the two folders must agree.
+//
 typedef struct {
     bool is_real;
-    long i;   // valid when !is_real
-    double d; // valid when  is_real
+    TypeKind kind; // integer type kind of the value, valid when !is_real
+    uint64_t u;    // canonical bits (see above),      valid when !is_real
+    double d;      //                                  valid when  is_real
 } ConstVal;
 
-// The value of a folded constant as a real, whichever kind it holds.
-static double const_as_real(const ConstVal *v)
-{
-    return v->is_real ? v->d : (double)v->i;
-}
-
-// Value width in bits of an integer type on the active target.  A signed type uses the
-// target's <type>_bits (a BESM-6 signed int is 41-bit inside a 48-bit word); an unsigned
-// type uses the full storage width, size*8.  Mirrors target_signed_bits/target_unsigned_bits
-// in optimize/const_fold.c.  Returns 0 when no target is configured, and the caller then
-// keeps the host's narrowing.
-static int type_value_bits(const Type *t)
+// Value width in bits of an integer type kind on the active target.  A signed kind uses
+// the target's <type>_bits (a BESM-6 signed int is 41-bit inside a 48-bit word); an
+// unsigned kind uses the full storage width, size*8.  Mirrors
+// target_signed_bits/target_unsigned_bits in optimize/const_fold.c.  Returns 0 when no
+// target is configured, and the caller then keeps the host's 64-bit arithmetic.
+static int kind_value_bits(TypeKind k)
 {
     if (!target_config)
         return 0;
-    switch (unalias(t)->kind) {
+    switch (k) {
+    case TYPE_BOOL:
+        return 1;
     case TYPE_CHAR:
     case TYPE_SCHAR:
     case TYPE_UCHAR:
@@ -459,23 +463,143 @@ static int type_value_bits(const Type *t)
     }
 }
 
-// Convert a folded integer to an integer cast target: wrap it to that type's value width
-// and signedness (C11 §6.3.1.3), so "(char)300" folds to 44 rather than staying 300.
-// _Bool yields 0 or 1 (§6.3.1.2).
-static long narrow_to_int_type(const Type *t, long v)
+// Value-signedness of an integer type kind; plain char follows the target (see is_signed).
+static bool kind_is_unsigned(TypeKind k)
 {
-    if (unalias(t)->kind == TYPE_BOOL)
-        return v != 0;
+    switch (k) {
+    case TYPE_BOOL:
+    case TYPE_UCHAR:
+    case TYPE_USHORT:
+    case TYPE_UINT:
+    case TYPE_ULONG:
+    case TYPE_ULONG_LONG:
+        return true;
+    case TYPE_CHAR:
+        return target_config && !target_config->char_signed;
+    default:
+        return false;
+    }
+}
 
-    int width = type_value_bits(t);
-    if (width <= 0 || width >= 64)
-        return v; // no target configured, or already the host's width
+// Integer promotion (C11 §6.3.1.1p2) on a type kind: every sub-int kind promotes to int.
+// USHORT->INT deliberately matches get_common_type's rule rather than a stricter reading
+// of the standard (a BESM-6 unsigned short fills the word), so the folder and the
+// typechecker always agree.
+static TypeKind promote_kind(TypeKind k)
+{
+    switch (k) {
+    case TYPE_BOOL:
+    case TYPE_CHAR:
+    case TYPE_SCHAR:
+    case TYPE_UCHAR:
+    case TYPE_SHORT:
+    case TYPE_USHORT:
+    case TYPE_ENUM:
+        return TYPE_INT;
+    default:
+        return k;
+    }
+}
 
-    uint64_t mask = ((uint64_t)1 << width) - 1;
-    uint64_t bits = (uint64_t)v & mask;
-    if (is_signed(t) && (bits >> (width - 1)) & 1)
-        bits |= ~mask; // sign-extend from the target's sign bit
-    return (long)bits;
+// A borrowed Type singleton for a promoted integer kind, so the folder can reuse
+// get_common_type and is guaranteed the same conversion rules as the typechecker.
+static const Type *kind_type(TypeKind k)
+{
+    static const Type types[] = {
+        [TYPE_INT]        = { .kind = TYPE_INT },
+        [TYPE_UINT]       = { .kind = TYPE_UINT },
+        [TYPE_LONG]       = { .kind = TYPE_LONG },
+        [TYPE_ULONG]      = { .kind = TYPE_ULONG },
+        [TYPE_LONG_LONG]  = { .kind = TYPE_LONG_LONG },
+        [TYPE_ULONG_LONG] = { .kind = TYPE_ULONG_LONG },
+    };
+    return &types[k];
+}
+
+// The usual-arithmetic-conversions result kind for two promoted integer kinds.
+static TypeKind common_kind(TypeKind k1, TypeKind k2)
+{
+    return get_common_type(kind_type(k1), kind_type(k2))->kind;
+}
+
+// The folded integer as a signed 64-bit value (its canonical form).
+static int64_t cv_int64(const ConstVal *v)
+{
+    return (int64_t)v->u;
+}
+
+// Storage width in bits of an integer type kind on the active target: always size*8,
+// even for a signed kind whose *value* width is narrower (BESM-6 signed int: 41 value
+// bits inside 48 storage bits).
+static int kind_storage_bits(TypeKind k)
+{
+    if (!target_config)
+        return 0;
+    switch (k) {
+    case TYPE_SHORT:
+        return (int)target_config->short_size * 8;
+    case TYPE_INT:
+    case TYPE_ENUM:
+        return (int)target_config->int_size * 8;
+    case TYPE_LONG:
+        return (int)target_config->long_size * 8;
+    case TYPE_LONG_LONG:
+        return (int)target_config->llong_size * 8;
+    default:
+        return kind_value_bits(k); // unsigned/char/bool kinds: value width == storage
+    }
+}
+
+// The folded integer as a 64-bit bit pattern for unsigned arithmetic.  On a target whose
+// signed value width is narrower than the storage word (BESM-6: 41 bits inside 48), a
+// *negative* signed value reduces to the unsigned view of its word — its two's-complement
+// pattern zero-extended from the signed width, because the word's upper bits physically
+// hold zeros and a signed→unsigned conversion is a plain word copy: (unsigned long)-1
+// folds to 2^41-1 there, matching const_to_uint64 in optimize/const_fold.c and the code
+// the backend emits.  On a conventional target (signed width == storage width) the
+// sign-extended pattern is kept, so the C modulo conversion falls out when the caller
+// re-narrows: (unsigned long long)-1 on x86_64 is 2^64-1.
+static uint64_t cv_uint64(const ConstVal *v)
+{
+    if (!kind_is_unsigned(v->kind) && (int64_t)v->u < 0) {
+        int width = kind_value_bits(v->kind);
+        if (width > 0 && width < kind_storage_bits(v->kind))
+            return unsigned_narrow(v->u, width);
+    }
+    return v->u;
+}
+
+// Store `bits` as a folded integer of kind `k`, wrapping to the kind's target value
+// width and signedness (C11 §6.3.1.3), so "(char)300" folds to 44 rather than staying
+// 300.  _Bool yields 0 or 1 (§6.3.1.2).  This is the one place results re-narrow;
+// mirrors make_int_const_val in optimize/const_fold.c.
+static void cv_set_int(ConstVal *out, TypeKind k, uint64_t bits)
+{
+    out->is_real = false;
+    out->kind    = k;
+    if (k == TYPE_BOOL) {
+        out->u = bits != 0;
+        return;
+    }
+    int width = kind_value_bits(k);
+    out->u    = kind_is_unsigned(k) ? unsigned_narrow(bits, width)
+                                    : (uint64_t)sign_narrow(bits, width);
+}
+
+// The folded integer converted to integer kind `k` (C11 §6.3.1.3), as canonical bits.
+static uint64_t cv_convert(const ConstVal *v, TypeKind k)
+{
+    ConstVal t;
+    cv_set_int(&t, k, kind_is_unsigned(k) ? cv_uint64(v) : (uint64_t)cv_int64(v));
+    return t.u;
+}
+
+// The value of a folded constant as a real, whichever kind it holds.
+static double const_as_real(const ConstVal *v)
+{
+    if (v->is_real)
+        return v->d;
+    return kind_is_unsigned(v->kind) ? (double)v->u : (double)cv_int64(v);
 }
 
 // Fold a binary operator whose operands underwent the usual arithmetic conversions to a
@@ -483,7 +607,6 @@ static long narrow_to_int_type(const Type *t, long v)
 // an int.  The remaining operators require integer operands and do not fold.
 static bool fold_real_binop(BinaryOp op, double left, double right, ConstVal *out)
 {
-    out->is_real = false;
     switch (op) {
     case BINARY_MUL:
         out->is_real = true;
@@ -506,28 +629,28 @@ static bool fold_real_binop(BinaryOp op, double left, double right, ConstVal *ou
         out->d       = left - right;
         return true;
     case BINARY_LT:
-        out->i = left < right;
+        cv_set_int(out, TYPE_INT, left < right);
         return true;
     case BINARY_GT:
-        out->i = left > right;
+        cv_set_int(out, TYPE_INT, left > right);
         return true;
     case BINARY_LE:
-        out->i = left <= right;
+        cv_set_int(out, TYPE_INT, left <= right);
         return true;
     case BINARY_GE:
-        out->i = left >= right;
+        cv_set_int(out, TYPE_INT, left >= right);
         return true;
     case BINARY_EQ:
-        out->i = left == right;
+        cv_set_int(out, TYPE_INT, left == right);
         return true;
     case BINARY_NE:
-        out->i = left != right;
+        cv_set_int(out, TYPE_INT, left != right);
         return true;
     case BINARY_LOG_AND:
-        out->i = (left != 0.0 && right != 0.0) ? 1L : 0L;
+        cv_set_int(out, TYPE_INT, left != 0.0 && right != 0.0);
         return true;
     case BINARY_LOG_OR:
-        out->i = (left != 0.0 || right != 0.0) ? 1L : 0L;
+        cv_set_int(out, TYPE_INT, left != 0.0 || right != 0.0);
         return true;
     default:
         // BINARY_MOD, the shifts and the bitwise operators need integer operands.
@@ -540,34 +663,46 @@ static bool eval_const(const Expr *e, ConstVal *out)
 {
     switch (e->kind) {
     case EXPR_LITERAL:
+        // A literal loads unmasked (an out-of-target-range positive literal keeps its
+        // value, as in optimize/const_fold.c); results re-narrow through cv_set_int.
         out->is_real = false;
         switch (e->u.literal->kind) {
         case LITERAL_INT:
-            out->i = e->u.literal->u.int_val;
+            out->kind = TYPE_INT;
+            out->u    = (uint64_t)e->u.literal->u.int_val;
             return true;
         case LITERAL_LONG:
-            out->i = e->u.literal->u.long_val;
+            out->kind = TYPE_LONG;
+            out->u    = (uint64_t)(int64_t)e->u.literal->u.long_val;
             return true;
         case LITERAL_LONG_LONG:
-            out->i = (long)e->u.literal->u.long_long_val;
+            out->kind = TYPE_LONG_LONG;
+            out->u    = (uint64_t)(int64_t)e->u.literal->u.long_long_val;
             return true;
         case LITERAL_UINT:
-            out->i = (long)e->u.literal->u.uint_val;
+            out->kind = TYPE_UINT;
+            out->u    = e->u.literal->u.uint_val;
             return true;
         case LITERAL_ULONG:
-            out->i = (long)e->u.literal->u.ulong_val;
+            out->kind = TYPE_ULONG;
+            out->u    = e->u.literal->u.ulong_val;
             return true;
         case LITERAL_ULONG_LONG:
-            out->i = (long)e->u.literal->u.ulong_long_val;
+            out->kind = TYPE_ULONG_LONG;
+            out->u    = e->u.literal->u.ulong_long_val;
             return true;
         case LITERAL_CHAR:
-            out->i = (unsigned char)e->u.literal->u.char_val;
+            // A character constant has type int (C11 §6.4.4.4p10).
+            out->kind = TYPE_INT;
+            out->u    = (unsigned char)e->u.literal->u.char_val;
             return true;
         case LITERAL_ENUM: {
             const Symbol *sym = symtab_get_opt(e->u.literal->u.enum_const);
             if (!sym)
                 return false;
-            out->i = sym->u.enum_val;
+            // An enum constant has type int (C11 §6.7.2.2p3).
+            out->kind = TYPE_INT;
+            out->u    = (uint64_t)(int64_t)sym->u.enum_val;
             return true;
         }
         case LITERAL_FLOAT:
@@ -585,9 +720,14 @@ static bool eval_const(const Expr *e, ConstVal *out)
             return false;
         const Type *ct = unalias(e->u.cast.type);
         if (is_integer(ct)) {
-            // C11 §6.3.1.4: a real converts to an integer by truncation toward zero.
-            out->is_real = false;
-            out->i       = narrow_to_int_type(ct, v.is_real ? (long)v.d : v.i);
+            uint64_t bits;
+            if (v.is_real)
+                // C11 §6.3.1.4: a real converts to an integer by truncation toward zero
+                // (via int64_t when negative — a direct uint64_t conversion would be UB).
+                bits = v.d < 0 ? (uint64_t)(int64_t)v.d : (uint64_t)v.d;
+            else
+                bits = kind_is_unsigned(ct->kind) ? cv_uint64(&v) : (uint64_t)cv_int64(&v);
+            cv_set_int(out, ct->kind, bits);
             return true;
         }
         if (ct->kind == TYPE_FLOAT) {
@@ -615,26 +755,35 @@ static bool eval_const(const Expr *e, ConstVal *out)
         if (!eval_const(e->u.unary_op.expr, &v))
             return false;
         switch (e->u.unary_op.op) {
-        case UNARY_NEG:
-            *out = v;
-            if (v.is_real)
-                out->d = -v.d;
-            else
-                out->i = -v.i;
+        case UNARY_NEG: {
+            if (v.is_real) {
+                out->is_real = true;
+                out->d       = -v.d;
+                return true;
+            }
+            // The result has the promoted operand type; a negated unsigned wraps
+            // (C11 §6.2.5p9): -1u folds to UINT_MAX, not -1.
+            TypeKind k = promote_kind(v.kind);
+            cv_set_int(out, k, 0 - cv_convert(&v, k));
             return true;
+        }
         case UNARY_PLUS:
             *out = v;
+            if (!v.is_real) {
+                TypeKind k = promote_kind(v.kind);
+                cv_set_int(out, k, cv_convert(&v, k));
+            }
             return true;
-        case UNARY_BIT_NOT:
+        case UNARY_BIT_NOT: {
             if (v.is_real)
                 return false; // ~ requires an integer operand
-            out->is_real = false;
-            out->i       = ~v.i;
+            TypeKind k = promote_kind(v.kind);
+            cv_set_int(out, k, ~cv_convert(&v, k));
             return true;
+        }
         case UNARY_LOG_NOT:
             // ! yields an int whatever the operand's type is (C11 §6.5.3.3p5).
-            out->is_real = false;
-            out->i       = (const_as_real(&v) == 0.0) ? 1L : 0L;
+            cv_set_int(out, TYPE_INT, const_as_real(&v) == 0.0);
             return true;
         default:
             return false;
@@ -647,86 +796,118 @@ static bool eval_const(const Expr *e, ConstVal *out)
         if (l.is_real || r.is_real)
             return fold_real_binop(e->u.binary_op.op, const_as_real(&l), const_as_real(&r), out);
 
-        long left    = l.i;
-        long right   = r.i;
-        out->is_real = false;
+        // Both operands convert to the usual-arithmetic-conversions result kind; that
+        // kind's signedness picks signed or unsigned division, remainder and comparison
+        // (so "-1 < 1u" folds to 0).  The wrapping operators compute on the 64-bit
+        // pattern either way and re-narrow through cv_set_int.  The shifts are the
+        // exception: each operand converts independently and the result has the
+        // promoted *left* operand's kind (C11 §6.5.7p3).
+        TypeKind k    = common_kind(promote_kind(l.kind), promote_kind(r.kind));
+        bool uns      = kind_is_unsigned(k);
+        uint64_t ul   = cv_convert(&l, k);
+        uint64_t ur   = cv_convert(&r, k);
+        int64_t  sl   = (int64_t)ul;
+        int64_t  sr   = (int64_t)ur;
         switch (e->u.binary_op.op) {
         case BINARY_MUL:
-            out->i = left * right;
+            cv_set_int(out, k, ul * ur);
             return true;
         case BINARY_DIV:
-        case BINARY_MOD:
-            if (right == 0)
+        case BINARY_MOD: {
+            bool is_div = e->u.binary_op.op == BINARY_DIV;
+            if (ur == 0)
                 return false;
-            out->i = (e->u.binary_op.op == BINARY_DIV) ? left / right : left % right;
+            uint64_t bits;
+            if (uns)
+                bits = is_div ? ul / ur : ul % ur;
+            else if (sr == -1)
+                // x/-1 wraps as negation and x%-1 is 0; dividing INT64_MIN by -1
+                // directly would trap on the host.
+                bits = is_div ? 0 - ul : 0;
+            else
+                bits = (uint64_t)(is_div ? sl / sr : sl % sr);
+            cv_set_int(out, k, bits);
             return true;
+        }
         case BINARY_ADD:
-            out->i = left + right;
+            cv_set_int(out, k, ul + ur);
             return true;
         case BINARY_SUB:
-            out->i = left - right;
+            cv_set_int(out, k, ul - ur);
             return true;
         case BINARY_LEFT_SHIFT:
-            if (right < 0 || (unsigned long)right >= sizeof(long) * 8)
-                return false;
-            out->i = (long)((unsigned long)left << (unsigned long)right);
+        case BINARY_RIGHT_SHIFT: {
+            TypeKind lk   = promote_kind(l.kind);
+            int64_t count = cv_int64(&r);
+            if (count < 0 || count >= 64)
+                return false; // shift out of range: not a constant expression
+            uint64_t lbits = cv_convert(&l, lk);
+            uint64_t bits;
+            if (e->u.binary_op.op == BINARY_LEFT_SHIFT) {
+                bits = lbits << count;
+            } else if (kind_is_unsigned(lk)) {
+                bits = lbits >> count; // canonical unsigned bits are already masked
+            } else if (target_config && target_config->right_shift_is_logical) {
+                // The target (BESM-6) shifts right logically even for signed operands:
+                // zero-fill the operand's target-width bit pattern, matching the shift
+                // the backend emits.  Mirrors optimize/const_fold.c.
+                bits = unsigned_narrow(lbits, kind_value_bits(lk)) >> count;
+            } else {
+                bits = (uint64_t)((int64_t)lbits >> count); // arithmetic, sign-preserving
+            }
+            cv_set_int(out, lk, bits);
             return true;
-        case BINARY_RIGHT_SHIFT:
-            if (right < 0 || (unsigned long)right >= sizeof(long) * 8)
-                return false;
-            out->i = left >> right;
-            return true;
+        }
         case BINARY_LT:
-            out->i = left < right;
+            cv_set_int(out, TYPE_INT, uns ? ul < ur : sl < sr);
             return true;
         case BINARY_GT:
-            out->i = left > right;
+            cv_set_int(out, TYPE_INT, uns ? ul > ur : sl > sr);
             return true;
         case BINARY_LE:
-            out->i = left <= right;
+            cv_set_int(out, TYPE_INT, uns ? ul <= ur : sl <= sr);
             return true;
         case BINARY_GE:
-            out->i = left >= right;
+            cv_set_int(out, TYPE_INT, uns ? ul >= ur : sl >= sr);
             return true;
         case BINARY_EQ:
-            out->i = left == right;
+            cv_set_int(out, TYPE_INT, ul == ur);
             return true;
         case BINARY_NE:
-            out->i = left != right;
+            cv_set_int(out, TYPE_INT, ul != ur);
             return true;
         case BINARY_BIT_AND:
-            out->i = left & right;
+            cv_set_int(out, k, ul & ur);
             return true;
         case BINARY_BIT_XOR:
-            out->i = left ^ right;
+            cv_set_int(out, k, ul ^ ur);
             return true;
         case BINARY_BIT_OR:
-            out->i = left | right;
+            cv_set_int(out, k, ul | ur);
             return true;
         case BINARY_LOG_AND:
-            out->i = (left != 0 && right != 0) ? 1L : 0L;
+            cv_set_int(out, TYPE_INT, ul != 0 && ur != 0);
             return true;
         case BINARY_LOG_OR:
-            out->i = (left != 0 || right != 0) ? 1L : 0L;
+            cv_set_int(out, TYPE_INT, ul != 0 || ur != 0);
             return true;
         default:
             return false;
         }
     }
+    // sizeof and _Alignof yield size_t, an unsigned type; TYPE_ULONG matches the type
+    // the typechecker annotates on these expressions (see semantic/expressions.c).
     case EXPR_SIZEOF_TYPE:
-        out->is_real = false;
-        out->i       = (long)get_size(e->u.sizeof_type);
+        cv_set_int(out, TYPE_ULONG, get_size(e->u.sizeof_type));
         return true;
     case EXPR_SIZEOF_EXPR:
         if (e->u.sizeof_expr->type) {
-            out->is_real = false;
-            out->i       = (long)get_size(e->u.sizeof_expr->type);
+            cv_set_int(out, TYPE_ULONG, get_size(e->u.sizeof_expr->type));
             return true;
         }
         return false;
     case EXPR_ALIGNOF:
-        out->is_real = false;
-        out->i       = (long)get_alignment(e->u.align_of);
+        cv_set_int(out, TYPE_ULONG, get_alignment(e->u.align_of));
         return true;
     default:
         return false;
@@ -741,7 +922,9 @@ bool try_eval_const_int(const Expr *e, long *out)
     ConstVal v;
     if (!eval_const(e, &v) || v.is_real)
         return false;
-    *out = v.i;
+    // The canonical bit pattern converts to the caller's long; an unsigned value at the
+    // host's full width comes out sign-flipped, exactly as the C conversion would do it.
+    *out = (long)v.u;
     return true;
 }
 

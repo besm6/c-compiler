@@ -173,3 +173,20 @@ void target_list(void)
         fprintf(stderr, "  %s\n", targets[i].name);
     }
 }
+
+int64_t sign_narrow(uint64_t bits, int w)
+{
+    if (w <= 0 || w >= 64)
+        return (int64_t)bits;
+    uint64_t mask = ((uint64_t)1 << w) - 1;
+    uint64_t sbit = (uint64_t)1 << (w - 1);
+    uint64_t low  = bits & mask;
+    return (int64_t)((low ^ sbit) - sbit);
+}
+
+uint64_t unsigned_narrow(uint64_t bits, int w)
+{
+    if (w <= 0 || w >= 64)
+        return bits;
+    return bits & (((uint64_t)1 << w) - 1);
+}
