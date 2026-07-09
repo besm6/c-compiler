@@ -22,7 +22,7 @@ f:
     its 13
  13 vjm b$save
   6 xta
-    a+x #01
+    a+x #1
     uj b$ret
 )",
               out);
@@ -40,7 +40,7 @@ f:
   6 xta
  14 vtm -1
  13 vjm g
-    a+x #01
+    a+x #1
     uj b$ret
 )",
               out);
@@ -170,7 +170,7 @@ f:
  13 vjm b$save
   6 xta
     uza .T0
-    xta #01
+    xta #1
     uj b$ret
 .T0:
     xta
@@ -196,10 +196,10 @@ f:
  13 vjm b$save
   6 xta
     uza .T0
-    xta #01
+    xta #1
     uj b$ret
 .T0:
-    xta #02
+    xta #2
     uj b$ret
     .text
     .globl g
@@ -208,10 +208,10 @@ g:
  13 vjm b$save
   6 xta
     uza .T2
-    xta #03
+    xta #3
     uj b$ret
 .T2:
-    xta #04
+    xta #4
     uj b$ret
 )",
               out);
@@ -229,7 +229,7 @@ helper:
     its 13
  13 vjm b$save
   6 xta
-    a+x #01
+    a+x #1
     uj b$ret
     .text
     .globl caller
@@ -254,7 +254,7 @@ TEST_F(CodegenTest, UnixStaticVariable)
                                     "int bump(void) { return counter + pending; }");
     EXPECT_EQ(R"(    .data
 counter:
-    .word 05
+    .word 5
     .bss
 pending:
     . = . + 1

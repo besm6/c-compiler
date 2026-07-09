@@ -127,8 +127,15 @@ static void unix_addr(char *buf, size_t n, const char *name, int addr)
         snprintf(buf, n, "%d", addr);
 }
 
+// b6as reads a bare integer literal as decimal; a leading `0` selects octal.  For a value
+// below 8 the two spellings coincide, so the octal marker is redundant: emit `7`, not `07`.
+static const char *unix_octal_prefix(unsigned long long word)
+{
+    return word < 8 ? "" : "0";
+}
+
 // Format instruction `i`'s address operand.  A structural constant (`i->konst`) becomes a
-// b6as `#`-pool operand: `#0octal` for an integer, `#<real>` for a floating value (the `#`
+// b6as `#`-pool operand: `#<octal>` for an integer, `#<real>` for a floating value (the `#`
 // operator pools+deduplicates the word in the const segment).  Otherwise the (name, addr)
 // pair is rendered by unix_addr.
 //
@@ -139,7 +146,7 @@ static void unix_operand(char *buf, size_t n, const Besm_Instr *i)
     if (i->konst) {
         Besm_ConstWord     w    = besm_const_word(i->konst);
         unsigned long long word = w.is_real ? unix_real_word(w.real_val) : w.word;
-        snprintf(buf, n, "#0%llo", word);
+        snprintf(buf, n, "#%s%llo", unix_octal_prefix(word), word);
         return;
     }
     // Madlen literal-address expressions (i->name begins with '='): b6as has no '='
@@ -164,9 +171,12 @@ static void unix_operand(char *buf, size_t n, const Besm_Instr *i)
                 digits[j++] = *p;
         digits[j] = '\0';
         if (prefix)
+            // The left-align form is only defined after an explicit base marker, so the
+            // leading `0` stays even for a single digit.
             snprintf(buf, n, "#0'%s", digits);
         else
-            snprintf(buf, n, "#0%s", digits);
+            // One octal digit is below 8, hence needs no octal marker.
+            snprintf(buf, n, "#%s%s", (j == 1) ? "" : "0", digits);
         return;
     }
     unix_addr(buf, n, i->name, i->addr);
@@ -292,16 +302,18 @@ static const Besm_Instr *emit_unix_special(FILE *out, const Besm_Instr *instr, S
         set_segment(out, cur, SEG_DATA);
         if (instr->name)
             emit_ulabel(out, instr->name);
-        snprintf(a, sizeof(a), "0%llo", instr->log_val);
+        snprintf(a, sizeof(a), "%s%llo", unix_octal_prefix(instr->log_val), instr->log_val);
         emit_udir(out, ".word", a);
         break;
-    case BESM_DATA_REAL:
+    case BESM_DATA_REAL: {
         set_segment(out, cur, SEG_DATA);
         if (instr->name)
             emit_ulabel(out, instr->name);
-        snprintf(a, sizeof(a), "0%llo", unix_real_word(instr->real_val));
+        unsigned long long word = unix_real_word(instr->real_val);
+        snprintf(a, sizeof(a), "%s%llo", unix_octal_prefix(word), word);
         emit_udir(out, ".word", a);
         break;
+    }
     case BESM_DATA_INT:
         set_segment(out, cur, SEG_DATA);
         if (instr->name)
