@@ -47,16 +47,20 @@ static void emit_member_fatptr(Besm_Block *block, Besm_Instr **tail, const Frame
     int byte_num = offset % BESM6_WORD_BYTES;
     int br, bo;
     if (frame_lookup(f, base, &br, &bo)) {
+        // A frame slot's index register can only ride in a UTC: VTM's register field is
+        // its destination, so C must carry M[br] + bo + woff into the VTM.
         Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
         utc->reg        = br;
         utc->addr       = bo + woff;
+        Besm_Instr *vtm = emit(block, tail, BESM_REG_VTM);
+        vtm->reg        = 14;
     } else {
-        Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
-        utc->name       = xstrdup(base);
-        utc->addr       = woff;
+        // A global needs no index register, so VTM names it directly: M[14] = &base + woff.
+        Besm_Instr *vtm = emit(block, tail, BESM_REG_VTM);
+        vtm->reg        = 14;
+        vtm->name       = xstrdup(base);
+        vtm->addr       = woff;
     }
-    Besm_Instr *vtm = emit(block, tail, BESM_REG_VTM);
-    vtm->reg        = 14;
     Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);
     ita->addr       = 14; // A = member word address
     Besm_Instr *aox = emit(block, tail, BESM_LOG_AOX);
@@ -210,12 +214,20 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
     // TAC:   get_address src → dst   (src is the variable being addressed;
     //                                 dst receives its runtime word address)
     //
-    // BESM-6 sequence (r14 is a scratch index register):
+    // BESM-6 sequence (r14 is a scratch index register).  For a local at a nonzero frame
+    // offset the address needs an index register, which only UTC has room for (VTM's
+    // register field names its destination):
     //   reg_src ,UTC, off_src — C = M[reg_src] + off_src: copy
     //                           the word address of src into C
-    //   14 ,VTM,              — M[14] = C, so r14 now holds the word address of src
+    //   14 ,VTM, 0            — M[14] = 0 + C, so r14 now holds the word address of src
     //   ,ITA, 14              — A = M[14]: load that address into the accumulator
     //   reg_dst ,ATX, off_dst — store A (the address) into dst's frame slot
+    //
+    // A global needs no index register, and VTM's 15-bit address field takes a relocatable
+    // name just like UTC's, so the UTC folds away:
+    //   14 ,VTM, src          — M[14] = &src
+    //   ,ITA, 14
+    //   reg_dst ,ATX, off_dst
     //
     case TAC_INSTRUCTION_GET_ADDRESS:
     case TAC_INSTRUCTION_GET_ADDRESS_BYTE:
@@ -237,12 +249,11 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
                 ita->addr       = 14;
             }
         } else {
-            // Module-level static: M[0]=0 architecturally, so UTC 0,name gives C = label addr.
+            // Module-level static: VTM's address field holds the label directly.
             // The SUBP declaration for src_name is emitted before the prologue (single-pass).
-            Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
-            utc->name       = xstrdup(src_name);
             Besm_Instr *vtm = emit(block, tail, BESM_REG_VTM);
             vtm->reg        = 14;
+            vtm->name       = xstrdup(src_name);
             Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);
             ita->addr       = 14;
         }

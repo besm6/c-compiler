@@ -255,7 +255,13 @@ void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
             emit_line(out, NULL, 0, besm_latin_mnem[k], a);
             break;
         case BESM_SHAPE_IMMR:
-            snprintf(a, sizeof(a), "%d", instr->addr);
+            // `vtm` carries a symbolic address when it loads the address of a global into
+            // an index register; its 15-bit Format-2 field holds a relocatable name just
+            // as `utc`'s does.  Otherwise the operand is a plain decimal immediate.
+            if (instr->name)
+                mad_operand(a, sizeof(a), instr);
+            else
+                snprintf(a, sizeof(a), "%d", instr->addr);
             emit_line(out, NULL, instr->reg, besm_latin_mnem[k], a);
             break;
         case BESM_SHAPE_NONE:

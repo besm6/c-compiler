@@ -46,7 +46,7 @@ TEST_F(CodegenTest, FuncPtrIndirectCallViaDeref)
 }
 
 // A function name used as a call argument decays to its address: GET_ADDRESS emits
-// UTC <name>/VTM/ITA, not a UTC+XTA that would load the function's first code word.
+// VTM <name>/ITA, not a UTC+XTA that would load the function's first code word.
 TEST_F(CodegenTest, FuncPtrNameDecaysToAddress)
 {
     std::string output = CompileToMadlen(R"(
@@ -56,8 +56,9 @@ TEST_F(CodegenTest, FuncPtrNameDecaysToAddress)
             return apply(add, x, y);
         }
     )");
-    // call_add takes the address of add (ITA after UTC add) and calls apply directly.
-    EXPECT_NE(output.find(",utc, add"), std::string::npos) << output;
+    // call_add takes the address of add (ITA after VTM add) and calls apply directly.
+    EXPECT_NE(output.find("14 ,vtm, add"), std::string::npos) << output;
+    EXPECT_EQ(output.find(",xta, add"), std::string::npos) << output;
     EXPECT_NE(output.find(",ita,"), std::string::npos) << output;
     EXPECT_NE(output.find(",call, apply"), std::string::npos) << output;
 }

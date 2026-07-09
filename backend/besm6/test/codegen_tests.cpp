@@ -282,7 +282,8 @@ TEST_F(CodegenTest, GetAddressGlobalInt)
 {
     // p is a global pointer — the store p = &g survives DSE (globals are live at
     // exit), which also keeps get_address g → %0 alive.  Exercises the
-    // global-src GET_ADDRESS (UTC/VTM/ITA) and local→global COPY (XTA/UTC/ATX).
+    // global-src GET_ADDRESS (VTM/ITA — the global's label rides in VTM's own 15-bit
+    // address field, so no UTC) and local→global COPY (XTA/UTC/ATX).
     std::string output = CompileToMadlen("extern int g; extern int *p; void foo(void) { p = &g; }");
     EXPECT_EQ(R"(c
       foo:   ,name,
@@ -291,8 +292,7 @@ TEST_F(CodegenTest, GetAddressGlobalInt)
         p:   ,subp,
              ,its, 13
              ,call, b/save0
-             ,utc, g
-          14 ,vtm, 0
+          14 ,vtm, g
              ,ita, 14
              ,utc, p
              ,atx,

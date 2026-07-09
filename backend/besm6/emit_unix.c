@@ -355,7 +355,11 @@ static void emit_unix_instr(FILE *out, const Besm_Instr *instr, SegKind *cur)
             break;
         case BESM_SHAPE_IMMR:
             set_segment(out, cur, SEG_TEXT);
-            snprintf(a, sizeof(a), "%d", instr->addr);
+            // A symbolic `vtm` operand relocates like any other Format-2 address field.
+            if (instr->name)
+                unix_operand(a, sizeof(a), instr);
+            else
+                snprintf(a, sizeof(a), "%d", instr->addr);
             emit_uinstr(out, (int)instr->reg, besm_latin_mnem[k], a);
             break;
         case BESM_SHAPE_NONE:

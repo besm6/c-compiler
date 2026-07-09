@@ -81,6 +81,35 @@ c
               output);
 }
 
+// A packed char member of a *global* struct: emit_member_fatptr builds the member's fat
+// pointer with a single `14 ,vtm, s+1` — the base label and the member's word offset both
+// ride in VTM's own 15-bit address field, so the pair `,utc, s+1` / `14 ,vtm, 0` collapses.
+// (A local base still needs the UTC: its index register has nowhere else to go.)
+TEST_F(CodegenTest, CopyByteToOffsetGlobalStruct)
+{
+    std::string output =
+        CompileToMadlen("struct S { int a; char c; }; struct S s; void f(void){ s.c = 'Q'; }");
+    EXPECT_EQ(R"(c
+        s:   ,name,
+             ,bss, 2
+             ,end,
+c
+        f:   ,name,
+    b/ret:   ,subp,
+        s:   ,subp,
+             ,its, 13
+             ,call, b/save0
+          14 ,vtm, s+1
+             ,ita, 14
+             ,aox, =:64
+             ,xts, =121
+             ,call, b/stb
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
 // Runtime: write both members of a global struct, read them back and add.
 TEST_F(CodegenTest, CopyOffsetGlobalRun)
 {

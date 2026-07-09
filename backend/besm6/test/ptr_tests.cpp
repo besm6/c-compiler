@@ -8,7 +8,7 @@
 //
 
 // Global array, variable index, variable source: word scale 1 (plain).  The translator
-// decays the array to its label address (GET_ADDRESS: utc arr / vtm / ita), then ADD_PTR
+// decays the array to its label address (GET_ADDRESS: vtm arr / ita), then ADD_PTR
 // adds the scaled index to that pointer value with a plain A+X.
 TEST_F(CodegenTest, AddPtrGlobalArrayStore)
 {
@@ -24,8 +24,7 @@ c
              ,its, 13
              ,call, b/save
           15 ,utm, 2
-             ,utc, arr
-          14 ,vtm, 0
+          14 ,vtm, arr
              ,ita, 14
            7 ,atx,
            6 ,xta,
@@ -101,6 +100,26 @@ TEST_F(CodegenTest, AddPtrVarIndexRun)
         }
     )");
     EXPECT_EQ("42\n", result);
+}
+
+// Runtime: the address of a global now comes from a lone `14 ,vtm, <name>` rather than
+// `,utc, <name>` / `14 ,vtm, 0`.  Store through the taken address and through the global's
+// own name, and read both ways back, so a wrong address could not go unnoticed.
+TEST_F(CodegenTest, AddressOfGlobalRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int g;
+        int arr[3];
+        void program() {
+            int *p = &g;
+            *p = 42;
+            int *q = &arr[2];
+            *q = 7;
+            printf("%d %d %d\n", g, *p, arr[2]);
+        }
+    )");
+    EXPECT_EQ("42 42 7\n", result);
 }
 
 // Runtime: fill a global array element-by-element, then read every element back.

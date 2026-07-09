@@ -136,3 +136,29 @@ TEST_F(CodegenTest, UnixRunZeroConstNeedsNoLiteral)
     )");
     EXPECT_EQ("7 7 3\n", result);
 }
+
+// The address of a global rides in VTM's own 15-bit address field (`14 vtm g`), where it
+// used to need a preceding `utc g`.  VTM had never carried a relocatable operand before,
+// so this checks that b6as and b6ld relocate an external name in a VTM word exactly as
+// they do in a UTC word — for a plain global, an array element, and a packed char member.
+TEST_F(CodegenTest, UnixRunAddressOfGlobal)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunUnix(R"(
+        #include <stdio.h>
+        struct S { int a; char c; };
+        int g;
+        int arr[3];
+        struct S s;
+        int main(void) {
+            int *p = &g;
+            *p = 42;
+            int *q = &arr[2];
+            *q = 7;
+            s.c = 'Q';
+            printf("%d %d %d %c\n", g, *p, arr[2], s.c);
+            return 0;
+        }
+    )");
+    EXPECT_EQ("42 42 7 Q\n", result);
+}

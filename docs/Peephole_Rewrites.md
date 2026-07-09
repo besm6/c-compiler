@@ -428,8 +428,16 @@ these shapes ([emit.c](../backend/besm6/emit.c)):
 | `utc name` + `xta/atx 0,woff` | the global `name`, word `woff` |
 | `wtc reg,off` + `xta/atx` | through the pointer in frame slot `(reg, off)` |
 | `utc name` + `wtc` + `xta/atx` | through the global pointer `name` (C = &name, then C = name) |
-| `utc reg,off` + `vtm 14` | an address computation, not a memory operand |
+| `utc reg,off` + `vtm 14` | the address of a *local* at frame offset `off`, not a memory operand |
 | `wtc reg,off` + `vjm` | an indirect call: `vjm` jumps to `0 + C` |
+
+Taking the address of a *global* used to appear here too, as `utc name` + `vtm 14`. It no
+longer does. `vtm` (024) is a Format-2 instruction like `utc`, so its own 15-bit address field
+holds a relocatable name, and `M[reg] = offset + C` takes no `M[reg]` contribution — the
+whole pair collapses to a single `14 ,vtm, name` at instruction selection
+([instr.c](../backend/besm6/instr.c)), one instruction and one word shorter. The local form
+above cannot collapse: its index register `reg` lives in the `utc`'s register field, and
+`vtm`'s register field is already spoken for by the destination `M[14]`.
 
 Two rules follow.
 
