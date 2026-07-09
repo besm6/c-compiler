@@ -82,20 +82,23 @@ static bool is_constant_expression(const Expr *expression)
     }
 
     case EXPR_CAST: {
-        /* Casts are allowed if the operand is constant and target is scalar */
-        const Expr *operand     = expression->u.cast.expr;
+        /* Casts are allowed if the operand is constant and the target is scalar.
+         * The parser cannot resolve a typedef name, so it rejects only the targets
+         * that can never be scalar; typecheck_expr() does the real check once
+         * typedef names are resolved. */
         const Type *target_type = expression->u.cast.type;
-        /* Check if target type is scalar (void, arithmetic, pointer) */
-        bool is_scalar =
-            target_type &&
-            (target_type->kind == TYPE_VOID || target_type->kind == TYPE_BOOL ||
-             target_type->kind == TYPE_CHAR || target_type->kind == TYPE_SHORT ||
-             target_type->kind == TYPE_INT || target_type->kind == TYPE_LONG ||
-             target_type->kind == TYPE_LONG_LONG || target_type->kind == TYPE_FLOAT ||
-             target_type->kind == TYPE_DOUBLE || target_type->kind == TYPE_LONG_DOUBLE ||
-             target_type->kind == TYPE_COMPLEX || target_type->kind == TYPE_IMAGINARY ||
-             target_type->kind == TYPE_POINTER);
-        return is_scalar && is_constant_expression(operand);
+        if (!target_type)
+            return false;
+        switch (target_type->kind) {
+        case TYPE_ARRAY:
+        case TYPE_FUNCTION:
+        case TYPE_STRUCT:
+        case TYPE_UNION:
+            return false;
+        default:
+            break;
+        }
+        return is_constant_expression(expression->u.cast.expr);
     }
 
     case EXPR_CALL:

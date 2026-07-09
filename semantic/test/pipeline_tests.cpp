@@ -127,6 +127,39 @@ TEST_F(PipelineTest, StaticAssertInUnionPasses)
     EXPECT_STREQ(sd->members->name, "x");
 }
 
+// A file-scope _Static_assert is evaluated, not merely type-checked.
+TEST_F(PipelineTest, StaticAssertAtFileScopePasses)
+{
+    RunPipeline("_Static_assert(1, \"ok\"); int x;");
+
+    EXPECT_NE(symtab_get("x"), nullptr);
+}
+
+// A file-scope _Static_assert with a false condition is a compile-time error.
+TEST_F(PipelineTest, StaticAssertAtFileScopeFails)
+{
+    ParseProgram("_Static_assert(0, \"bad\"); int x;");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "_Static_assert failed: bad");
+}
+
+// A block-scope _Static_assert is evaluated too; it used to be an "unsupported
+// local declaration kind" error.
+TEST_F(PipelineTest, StaticAssertInBlockPasses)
+{
+    RunPipeline("int f(void) { _Static_assert(1, \"ok\"); return 0; }");
+
+    EXPECT_NE(symtab_get("f"), nullptr);
+}
+
+// A block-scope _Static_assert with a false condition is a compile-time error.
+TEST_F(PipelineTest, StaticAssertInBlockFails)
+{
+    ParseProgram("int f(void) { _Static_assert(0, \"bad\"); return 0; }");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "_Static_assert failed: bad");
+}
+
 // --- Missing-return diagnostic & main's implicit return 0 -------------------
 
 // A non-void, non-main function whose body can fall off the end is rejected.
@@ -308,10 +341,9 @@ TEST_F(PipelineTest, ConstExprCastNarrowsToCastType)
     EXPECT_EQ(sole_init("widened")->u.long_val, 4294967295L); // x86_64: unsigned is 32-bit
 }
 
-// A cast and a real operand in a constant expression.  A struct-member _Static_assert is
-// the vehicle: its condition goes through try_eval_const_int, so a wrong fold either fails
-// the assert or reports "not a constant expression".  (A file-scope _Static_assert parses
-// but is never evaluated, so it would silently pass whatever we wrote.)
+// A cast and a real operand in a constant expression.  A _Static_assert is the vehicle:
+// its condition goes through try_eval_const_int, so a wrong fold either fails the assert
+// or reports "not a constant expression".
 TEST_F(PipelineTest, ConstExprFoldsCastsAndReals)
 {
     RunPipeline(R"(struct S {
@@ -327,6 +359,35 @@ TEST_F(PipelineTest, ConstExprFoldsCastsAndReals)
 };
 )");
     EXPECT_TRUE(structtab_exists("S"));
+}
+
+// A cast to an unsigned type, an enum, or a typedef name is a constant expression, and it
+// folds to the cast type's own width and signedness.  Widths are the x86_64 fixture
+// target's.  Nothing here casts to a 64-bit unsigned type: eval_const carries its integer
+// in a signed long, so a value at the host's full width neither narrows nor compares as
+// unsigned -- "(unsigned long)-1 > 0" folds to 0 on x86_64.
+TEST_F(PipelineTest, ConstExprFoldsUnsignedAndEnumCasts)
+{
+    RunPipeline(R"(typedef unsigned int uint_t;
+enum E { A = 3 };
+_Static_assert((unsigned char)-1 == 255, "wraps to 8 bits, unsigned");
+_Static_assert((signed char)-1 == -1, "sign-extends from 8 bits");
+_Static_assert((unsigned short)-1 == 65535, "wraps to 16 bits");
+_Static_assert((unsigned)-1 == 4294967295, "wraps to 32 bits");
+_Static_assert((enum E)3 == A, "cast to enum");
+_Static_assert((uint_t)-1 == 4294967295, "cast through a typedef name");
+_Static_assert((unsigned char)300 == 44, "wraps like (char)300");
+int x;
+)");
+    EXPECT_NE(symtab_get("x"), nullptr);
+}
+
+// The unsigned cast is really evaluated: a false one fails.
+TEST_F(PipelineTest, ConstExprUnsignedCastFalseAssertFails)
+{
+    ParseProgram("_Static_assert((unsigned char)-1 == 254, \"bad\");");
+    ASSERT_EXIT(typecheck_program(program), ::testing::ExitedWithCode(1),
+                "_Static_assert failed: bad");
 }
 
 // `!` folds, so it is usable where an integer constant expression is required.

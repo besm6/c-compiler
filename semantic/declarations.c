@@ -131,6 +131,32 @@ static void register_function_declaration(InitDeclarator *decl, const DeclSpec *
     decl->type = adj; // normalized type now owned by AST
 }
 
+// Fail the compilation unless a _Static_assert condition folds to a nonzero constant.
+static void check_static_assert(const Expr *condition, const char *message)
+{
+    long val;
+    if (!try_eval_const_int(condition, &val))
+        fatal_error("_Static_assert condition is not a constant expression");
+    if (!val) {
+        if (message)
+            fatal_error("_Static_assert failed: %s", message);
+        else
+            fatal_error("_Static_assert failed");
+    }
+}
+
+// Type-check a _Static_assert declaration and evaluate it.  The typechecked condition
+// replaces the original: eval_const() reads the type that typecheck fills in (a sizeof
+// operand's type, an enum constant's symbol), so the folded expression must be this one.
+static void typecheck_static_assert_decl(Declaration *d)
+{
+    d->u.static_assrt.condition = typecheck_and_decay(d->u.static_assrt.condition);
+    if (!is_scalar(d->u.static_assrt.condition->type)) {
+        fatal_error("_Static_assert condition must have scalar type");
+    }
+    check_static_assert(d->u.static_assrt.condition, d->u.static_assrt.message);
+}
+
 // Validate struct members for uniqueness and completeness.
 static void validate_struct_definition(const char *tag, const Field *members)
 {
@@ -143,15 +169,7 @@ static void validate_struct_definition(const char *tag, const Field *members)
     map_init(&names);
     for (const Field *m = members; m; m = m->next) {
         if (m->kind == FIELD_STATIC_ASSERT) {
-            long val;
-            if (!try_eval_const_int(m->u.static_assrt.condition, &val))
-                fatal_error("_Static_assert condition is not a constant expression");
-            if (!val) {
-                if (m->u.static_assrt.message)
-                    fatal_error("_Static_assert failed: %s", m->u.static_assrt.message);
-                else
-                    fatal_error("_Static_assert failed");
-            }
+            check_static_assert(m->u.static_assrt.condition, m->u.static_assrt.message);
             continue;
         }
         if (unalias(m->u.member.type)->kind == TYPE_FUNCTION) {
@@ -713,6 +731,9 @@ void typecheck_local_decl(Declaration *d)
     case DECL_EMPTY:
         typecheck_tag_decl(d);
         break;
+    case DECL_STATIC_ASSERT:
+        typecheck_static_assert_decl(d);
+        break;
     default:
         fatal_error("Unsupported local declaration kind %d", d->kind);
     }
@@ -829,13 +850,9 @@ void typecheck_global_decl(ExternalDecl *d)
         case DECL_EMPTY:
             typecheck_tag_decl(d->u.declaration);
             break;
-        case DECL_STATIC_ASSERT: {
-            const Expr *e = typecheck_and_decay(d->u.declaration->u.static_assrt.condition);
-            if (!is_scalar(e->type)) {
-                fatal_error("_Static_assert condition must have scalar type");
-            }
+        case DECL_STATIC_ASSERT:
+            typecheck_static_assert_decl(d->u.declaration);
             break;
-        }
         }
         if (semantic_debug) {
             printf("--- result:\n");

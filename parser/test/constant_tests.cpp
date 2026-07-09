@@ -34,6 +34,49 @@ TEST_F(ParserTest, CaseConstant_negative)
                  "");
 }
 
+// A cast to any scalar type keeps a constant expression constant.  The parser cannot
+// resolve a typedef name, so it accepts one here and leaves the scalar check to typecheck.
+TEST_F(ParserTest, CastConstant_scalarTargets)
+{
+    ExternalDecl *first = GetExternalDecl(R"(
+typedef unsigned long size_t;
+enum E { A };
+_Static_assert((unsigned char)-1 == 255, "");
+_Static_assert((signed char)-1 == -1, "");
+_Static_assert((unsigned short)-1 > 0, "");
+_Static_assert((unsigned)-1 > 0, "");
+_Static_assert((unsigned long)-1 > 0, "");
+_Static_assert((unsigned long long)-1 > 0, "");
+_Static_assert((enum E)0 == A, "");
+_Static_assert((size_t)-1 > 0, "");
+_Static_assert((int *)0 == 0, "");
+)");
+    // Every _Static_assert above parsed; count them and check the last one's shape.
+    int asserts       = 0;
+    Declaration *last = nullptr;
+    for (ExternalDecl *d = first; d; d = d->next) {
+        if (d->kind == EXTERNAL_DECL_DECLARATION && d->u.declaration->kind == DECL_STATIC_ASSERT) {
+            asserts++;
+            last = d->u.declaration;
+        }
+    }
+    EXPECT_EQ(9, asserts);
+    ASSERT_NE(nullptr, last);
+    Expr *cond = last->u.static_assrt.condition;
+    ASSERT_EQ(EXPR_BINARY_OP, cond->kind);
+    ASSERT_EQ(EXPR_CAST, cond->u.binary_op.left->kind);
+    EXPECT_EQ(TYPE_POINTER, cond->u.binary_op.left->u.cast.type->kind);
+}
+
+// A cast to an aggregate type is never a constant expression.
+TEST_F(ParserTest, CastConstant_aggregateTarget_negative)
+{
+    EXPECT_DEATH(
+        program =
+            parse(CreateTempFile("struct S { int a; };\n_Static_assert((struct S)0, \"msg\");\n")),
+        "Expected constant expression");
+}
+
 // A plain decimal constant is a signed int.
 TEST_F(ParserTest, IntegerConstant_plain)
 {
