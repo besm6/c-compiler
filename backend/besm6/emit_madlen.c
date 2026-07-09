@@ -110,16 +110,12 @@ static void addr_str(char *buf, size_t n, const char *name, int addr)
 // (`i->konst`) becomes a Madlen literal-address expression: `=octal` for an integer,
 // `=r<value>` for a real.  Otherwise the (name, addr) pair is rendered by addr_str.
 //
-// A zero constant reserves no literal: the operand is left empty so the instruction reads
-// memory word 0 (`,xta,` is the documented idiom for A <- 0).  EA = M[reg] + offset + C, and
-// a constant operand always has reg == 0 with C == 0 — C survives only into the instruction
-// right after a UTC/WTC, where an `=literal` operand would already read mem[lit + C].
+// A zero constant never reaches here: instruction selection leaves such an instruction with
+// no operand at all, so it reads memory word 0 (`,xta,` is the documented idiom for A <- 0).
 //
 static void mad_operand(char *buf, size_t n, const Besm_Instr *i)
 {
     if (i->konst) {
-        if (besm_const_is_zero(i->konst))
-            return; // buf is pre-zeroed by the caller: empty address field
         Besm_ConstWord w = besm_const_word(i->konst);
         if (w.is_real) {
             char num[48];

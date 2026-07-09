@@ -1032,17 +1032,16 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
             // This covers the common &arr[k] / p +/- k / struct-member cases (including
             // word_scale == 1, where the product is just the index).
             //
-            // Attach the product as a structural constant rather than a pre-rendered
-            // literal name: each emitter applies the same 41-bit masking, and for the very
-            // common zero product (&arr[0], p + 0, a struct's first member) it drops the
-            // operand entirely so the load reads memory word 0.  A naked instruction cannot
-            // be built here instead — `name == NULL && konst == NULL` is how the backend
-            // spells a frame-slot access, so the peephole pass would fold this load into a
-            // preceding bare `atx` (see peephole.c's has_operand_symbol).
-            long prod              = tac_const_int(index->u.constant) * word_scale;
-            Besm_Instr *xta        = emit(block, tail, BESM_MEM_XTA);
-            xta->konst             = tac_new_const(TAC_CONST_LONG);
-            xta->konst->u.long_val = prod;
+            // Attach the product as a structural constant rather than a pre-rendered literal
+            // name, so the emitters apply the usual 41-bit masking.  A zero product -- the
+            // very common &arr[0] / p + 0 / first-struct-member -- gets no operand at all:
+            // the bare `xta` reads memory word 0, which always holds zero.
+            long prod       = tac_const_int(index->u.constant) * word_scale;
+            Besm_Instr *xta = emit(block, tail, BESM_MEM_XTA);
+            if (prod != 0) {
+                xta->konst             = tac_new_const(TAC_CONST_LONG);
+                xta->konst->u.long_val = prod;
+            }
         } else {
             emit_xta_val(block, tail, f, index);
             if (word_scale != 1) {

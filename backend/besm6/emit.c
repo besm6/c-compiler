@@ -107,14 +107,28 @@ void emit_asx_ptr(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *nam
 // Attach a TAC constant to an instruction as a structural operand.  The scalar is
 // copied (Tac_Const is a flat POD) so the instruction owns it independently of the
 // TAC being freed; each dialect's emitter later formats it into its own literal syntax
-// (Madlen =octal/=rX, Unix #const pool, Bemsh =Ю'…').  Kept off `->name` so the
-// peephole pass can still use `name == NULL` plus `konst == NULL` to recognise a plain
-// frame-slot operand.
+// (Madlen =octal/=rX, Unix #const pool, Bemsh =Ю'…').  Kept off `->name` so a name
+// always means a symbol.
 static Tac_Const *dup_const(const Tac_Const *c)
 {
     Tac_Const *d = tac_new_const(c->kind);
     d->u         = c->u;
     return d;
+}
+
+// Give `i` the constant `c` as its operand -- unless `c` is zero, which needs no operand at
+// all: the instruction is left with an empty address field, and EA = 0 reads memory word 0,
+// which always holds zero.  The literal is never reserved, in the pool or anywhere else.
+//
+// The resulting bare instruction is the same shape as a C-group consumer (`utc g` + `xta`),
+// and that is fine on both counts.  On the machine, C survives exactly one instruction and
+// every C-setter here emits its consumer immediately, so a constant operand never lands in
+// that slot.  In the peephole pass, a group is analysed as a unit and its consumer never
+// reaches `plain_loc`, so a bare `xta` seen there is always this zero load.
+static void attach_const(Besm_Instr *i, const Tac_Const *c)
+{
+    if (!besm_const_is_zero(c))
+        i->konst = dup_const(c);
 }
 
 // Emit XTA for a TAC value: variable from frame, UTC+XTA for a global, or a constant.
@@ -130,8 +144,7 @@ void emit_xta_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *
             emit_xta(b, t, 0, 0);
         }
     } else {
-        Besm_Instr *i = emit(b, t, BESM_MEM_XTA);
-        i->konst      = dup_const(v->u.constant);
+        attach_const(emit(b, t, BESM_MEM_XTA), v->u.constant);
     }
 }
 
@@ -152,8 +165,7 @@ void emit_xts_val(Besm_Block *b, Besm_Instr **t, const Frame *f, const Tac_Val *
             (void)i; // reg=0, addr=0 → XTS mem[C+0]
         }
     } else {
-        Besm_Instr *i = emit(b, t, BESM_MEM_XTS);
-        i->konst      = dup_const(v->u.constant);
+        attach_const(emit(b, t, BESM_MEM_XTS), v->u.constant);
     }
 }
 
@@ -171,7 +183,6 @@ void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind, const Fr
             emit(b, t, kind); // reg=0, addr=0 → op mem[C+0]
         }
     } else {
-        Besm_Instr *i = emit(b, t, kind);
-        i->konst      = dup_const(v->u.constant);
+        attach_const(emit(b, t, kind), v->u.constant);
     }
 }

@@ -112,9 +112,11 @@ struct Besm_Instr {
     char *name;                 // symbolic name, optional (heap-owned)
     char *label;                // Madlen label for a data word whose `name` is already an
                                 // operand (currently only BESM_DATA_Z00), optional (heap-owned)
-    struct Tac_Const *konst;    // scalar constant operand (=N / #N / =Ю'…'), optional
+    struct Tac_Const *konst;    // scalar nonzero constant operand (=N / #N / =Ю'…'), optional
                                 // (heap-owned); when set, the operand is this literal, not
-                                // (name, addr).  The per-dialect emitter formats it.
+                                // (name, addr).  The per-dialect emitter formats it.  A zero
+                                // constant is never attached: the instruction is left with no
+                                // operand and reads memory word 0 (see emit.c attach_const).
     unsigned long long log_val; // BESM_DATA_LOG: 48-bit logical constant
     double real_val;            // BESM_DATA_REAL
     // TODO: star plus offset

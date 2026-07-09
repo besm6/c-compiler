@@ -440,7 +440,15 @@ Two rules follow.
 - `LOC_FRAME(reg, off)` — a plain `xta/atx`, no C involved
 - `LOC_GLOBAL(name, woff)` — from the first shape above
 - `LOC_DEREF(pointer)` — from the second and third, identified by *where the pointer lives*
-- `LOC_NONE` — an address computation, a literal, a `vjm`: names nothing, matches nothing
+- `LOC_NONE` — an address computation, a nonzero literal, a `vjm`: names nothing, matches nothing
+
+A *zero* literal is the one constant that names a location. Instruction selection reserves no
+literal for it and leaves the instruction with an empty address field, because `mem[0]` always
+reads as zero; the bare `xta` therefore addresses `mem[M[0] + 0]` and classifies as
+`LOC_FRAME(0, 0)`. That is not a slot `frame_lookup` can ever hand out — those carry r6
+(`REG_PAR`) or r7 (`REG_AUTO`) — and nothing ever stores to it, so `A ≡ LOC_FRAME(0,0)` holds
+exactly when `A == 0`. A bare `xta` that reads `mem[C]` is a group *consumer* and is stepped by
+the sweep, so it never reaches `plain_loc` to be confused with one.
 
 Rule 5.1 then compares `Loc`s. `LOC_GLOBAL(g, 0)` and `LOC_GLOBAL(g, 1)` are different words,
 so `g.x = 7; return g.y;` keeps its reload; `LOC_DEREF` through slot `(6,0)` and through

@@ -44,8 +44,15 @@
 // Instruction selection reaches a location three ways, and the peephole must be able to
 // tell them apart before it can say "A already holds this".  A plain `xta/atx reg,off`
 // names a frame slot.  A `utc g` + bare `xta/atx` names a module-level global.  Anything
-// else — a dereference, an address computation, a constant — is LOC_NONE: a real value,
-// but at an address this pass cannot name, so it licenses no rewrite.
+// else — a dereference, an address computation, a nonzero literal — is LOC_NONE: a real
+// value, but at an address this pass cannot name, so it licenses no rewrite.
+//
+// A *zero* literal is the one constant that does name a location.  Instruction selection
+// gives it no operand (see emit.c's attach_const), so it addresses mem[M[0] + 0] = mem[0],
+// which the machine guarantees reads as zero.  It therefore classifies as LOC_FRAME(0, 0),
+// a slot no `frame_lookup` can ever hand out — those carry r6 (REG_PAR) or r7 (REG_AUTO) —
+// and one nothing ever stores to.  So `a_loc == LOC_FRAME(0,0)` holds exactly when A == 0,
+// and rule #27 collapsing a second zero load onto the first is sound.
 //
 typedef enum {
     LOC_NONE,   // unnameable: no rewrite may match it
@@ -241,7 +248,10 @@ static Loc c_group_loc(const Besm_Instr *first)
 }
 
 // The location a non-group `xta`/`atx` addresses: its frame slot, unless it carries a
-// symbolic or constant operand (a global load emits its own UTC; a literal names no slot).
+// symbolic or constant operand (a global load emits its own UTC; a nonzero literal names no
+// slot).  An operandless `xta` reaching here is a zero load and yields LOC_FRAME(0, 0) —
+// mem[0] — never a real slot; a bare `xta`/`atx` that reads mem[C] belongs to a C group and
+// is stepped by the sweep, so it never reaches this function.
 static Loc plain_loc(const Besm_Instr *i)
 {
     if ((i->kind != BESM_MEM_XTA && i->kind != BESM_MEM_ATX) || has_operand_symbol(i))

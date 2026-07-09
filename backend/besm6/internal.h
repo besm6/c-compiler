@@ -27,9 +27,9 @@ typedef struct {
 
 Besm_ConstWord besm_const_word(const Tac_Const *c);
 
-// True when the constant encodes the all-zero 48-bit word.  Such an operand needs no
-// literal at all: memory word 0 always reads as zero, so the instruction can be emitted
-// with an empty address field (EA = 0).  Defined in besm_const.c.
+// True when the constant encodes the all-zero 48-bit word.  Such an operand needs no literal
+// at all, so instruction selection attaches none and leaves the instruction with an empty
+// address field: EA = 0, and memory word 0 always reads as zero.  Defined in besm_const.c.
 bool besm_const_is_zero(const Tac_Const *c);
 
 // How an instruction's operand and modifier-register field are formed.  The regular
