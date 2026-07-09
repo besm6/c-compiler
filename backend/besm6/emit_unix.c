@@ -259,12 +259,15 @@ static const Besm_Instr *emit_unix_special(FILE *out, const Besm_Instr *instr, S
         emit_uinstr(out, REG_RET, "vjm", a);
         break;
 
-    // Subprogram name / secondary entry → export the symbol and define the label.
+    // Subprogram name → define the label.  Whether the symbol is also exported depends on
+    // the owning function's linkage, which only emit_unix_func knows; it emits the .globl
+    // just ahead of this label.
     case BESM_STMT_NAME:
         set_segment(out, cur, SEG_TEXT);
-        emit_uglobl(out, instr->name);
         emit_ulabel(out, instr->name);
         break;
+
+    // Secondary entry → export the symbol and define the label.
     case BESM_STMT_ENTRY:
         emit_uglobl(out, instr->name);
         emit_ulabel(out, instr->name);
@@ -354,9 +357,17 @@ static void emit_unix_instr(FILE *out, const Besm_Instr *instr, SegKind *cur)
 
 static void emit_unix_func(FILE *out, const Besm_Func *func, SegKind *cur)
 {
-    for (; func; func = func->next)
+    for (; func; func = func->next) {
+        // An internal-linkage (`static`) function stays unexported: its BESM_STMT_NAME still
+        // defines the label, but no `.globl` precedes it, so b6as leaves the symbol local to
+        // the object and two same-named statics in different objects cannot collide in b6ld.
+        if (func->global) {
+            set_segment(out, cur, SEG_TEXT);
+            emit_uglobl(out, func->name);
+        }
         for (const Besm_Block *block = func->blocks; block; block = block->next)
             emit_unix_instr(out, block->body, cur);
+    }
 }
 
 static void emit_unix_data_section(FILE *out, const Besm_DataSection *section, SegKind *cur)

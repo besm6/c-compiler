@@ -233,7 +233,9 @@ module Besm6 {
   call_conv = BESM6_C
             | INTERNAL
 
-  func = Func(string name, call_conv cc, block* blocks)
+  -- `global` is external linkage: false for a `static` function, which the Unix
+  -- emitter leaves unexported (no .globl).
+  func = Func(string name, bool global, call_conv cc, block* blocks)
 
   -- =========================================================
   -- Data directives (Madlen pseudo-ops)
@@ -272,7 +274,10 @@ module Besm6 {
                | SK_Data   -- initialised data (globals, string literals, constants)
                | SK_Bss    -- zero-initialised storage (BSS words)
 
-  data_section = DataSection(section_kind kind, string? name, data_item* items)
+  -- `global` is external linkage, as for func.  `tentative` marks a C tentative
+  -- definition (no initialiser); a global tentative def becomes a .comm common.
+  data_section = DataSection(section_kind kind, string? name, bool global, bool tentative,
+                             data_item* items)
 
   module = Module(string name, func* funcs, data_section* sections)
 

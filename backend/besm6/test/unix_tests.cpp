@@ -216,3 +216,58 @@ g:
 )",
               out);
 }
+
+// A `static` function has internal linkage, so its label must not be preceded by `.globl`
+// — b6as would otherwise export it, letting two same-named statics in different objects
+// collide in b6ld.  The intra-object ` 13 vjm helper` still resolves against the local label.
+TEST_F(CodegenTest, UnixStaticFunction)
+{
+    std::string out = CompileToUnix("static int helper(int x) { return x + 1; }\n"
+                                    "int caller(int y) { return helper(y); }");
+    EXPECT_EQ(R"(    .text
+helper:
+    its 13
+ 13 vjm b$save
+  6 xta
+    a+x #01
+    uj b$ret
+    .text
+    .globl caller
+caller:
+    its 13
+ 13 vjm b$save
+  6 xta
+ 14 vtm -1
+ 13 vjm helper
+    uj b$ret
+)",
+              out);
+}
+
+// A `static` file-scope variable is likewise unexported.  The tentative one (`pending`, no
+// initializer) stays a strong .bss label rather than becoming a `.comm` common — merging
+// across objects is only correct for external linkage.
+TEST_F(CodegenTest, UnixStaticVariable)
+{
+    std::string out = CompileToUnix("static int counter = 5;\n"
+                                    "static int pending;\n"
+                                    "int bump(void) { return counter + pending; }");
+    EXPECT_EQ(R"(    .data
+counter:
+    .word 05
+    .bss
+pending:
+    . = . + 1
+    .text
+    .globl bump
+bump:
+    its 13
+ 13 vjm b$save0
+    utc counter
+    xta
+    utc pending
+    a+x
+    uj b$ret
+)",
+              out);
+}

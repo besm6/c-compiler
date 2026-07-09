@@ -131,6 +131,7 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
 
     Besm_Module *module = besm_new_module(name);
     Besm_Func *func     = besm_new_func(name, BESM_CC_BESM6_C);
+    func->global        = tl->u.function.global;
     module->funcs       = func;
 
     Besm_Block *block = besm_new_block();
