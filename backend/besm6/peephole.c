@@ -35,7 +35,7 @@
 // group as a whole — a consumer's `(reg,addr)` fields do not name a frame slot, and deleting
 // one while leaving its setter would re-bind C to whatever fell into the gap.  Rule #27 in
 // consequence matches on a `Loc`, the location a group or a plain `xta`/`atx` addresses,
-// rather than on a raw `(reg,off)` pair.
+// rather than on a raw `(reg,off)` pair.  See docs/Peephole_Rewrites.md §5.9.
 //
 
 //

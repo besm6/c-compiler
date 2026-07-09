@@ -119,7 +119,9 @@ To reason about a window of BESM-6 instructions, the pass tracks the small amoun
 **implicit machine state** that makes a rewrite legal:
 
 - **A — the accumulator.** Most instructions read and/or write A. Knowing "A currently holds
-  the value last stored to slot *t*" is what licenses dropping a reload of *t*.
+  the value last stored to location *L*" is what licenses dropping a reload of *L*. A
+  *location* is a frame slot, a global, or a word reached through a pointer — see
+  Section 5.9, which explains why the naive "slot (register, offset)" is not enough.
 - **R — the mode register** (set by `ntr`, written `NTR n` in the comments here). `b/save`
   leaves **R = 7** (logical mode, normalization and rounding suppressed) so integer and
   bitwise instructions act on raw words. Floating-point instructions need **R = 0**
@@ -184,7 +186,8 @@ the consuming load independently:
 ```
 
 `atx` stores A without disturbing it, so the reload `7 ,xta, 3` is pure waste. **Rule: an
-`atx reg,off` immediately followed by `xta reg,off` to the same slot ⇒ delete the `xta`.**
+`atx` to some location, followed by an `xta` of that same location with A undisturbed in
+between ⇒ delete the `xta`.**
 
 ```
    7 ,xta, 0
@@ -195,6 +198,23 @@ the consuming load independently:
 
 This is the highest-frequency pattern in the whole backend, because *every* value-producing
 TAC instruction ends with `emit_atx` and *every* consumer begins with `emit_xta_val`.
+
+The rule is stated in terms of a **location**, not a `(register, offset)` pair, and the
+difference matters. Only a frame slot is addressed by a register and an offset; a global is
+reached through `,utc, g` and a pointer through `,wtc,`, and in both of those the following
+`,xta,` carries the fields `(0, 0)` — an offset from the C register, naming nothing. Reading
+those fields as a slot number is how a peephole miscompiles. Section 5.9 develops the
+location model; the same rule then removes reloads of all three kinds:
+
+```
+   ,utc, g       ; g.x = 7                6 ,wtc,       ; *p = x
+   ,atx,                                    ,atx,
+   ,utc, g       ; ← redundant           6 ,wtc,        ; ← redundant
+   ,xta,           (whole group)           ,xta,          (whole group)
+```
+
+Note the *whole group* goes, setter and consumer together. Deleting the `,xta,` alone would
+leave the `,utc,` to load C for whatever instruction fell in behind it.
 
 ### 5.2 Dead temporary-store elimination
 
@@ -390,10 +410,65 @@ LOAD  *p → d:                 STORE  *p = src:
 
 Since the C register resets after the one instruction that uses it (every instruction except
 `utc`/`wtc` clears C), consecutive dereferences cannot share it, so there is nothing left for a
-peephole to reuse. The one interaction the backend must honour is that a `wtc reg,off` of an
-auto temp **reads** that slot — `instr_reads_auto_slot` in [peephole.c](../backend/besm6/peephole.c)
+peephole to reuse. What the peephole *can* do is drop a redundant dereference outright — see
+5.9. The one interaction the backend must honour is that a `wtc reg,off` of an auto temp
+**reads** that slot — `instr_reads_auto_slot` in [peephole.c](../backend/besm6/peephole.c)
 lists `WTC` so that dead-temp-store elimination (5.2) does not drop the store that materialises
 an `ADD_PTR` address the following `wtc` dereferences.
+
+### 5.9 C groups as the unit of analysis
+
+The C address-modifier register is reset to zero after every instruction **except `utc` (022)
+and `wtc` (023)**. A C-setter and the instruction after it are therefore one indivisible unit —
+a **C group** — and the pass must both analyse and rewrite them together. The backend emits
+these shapes ([emit.c](../backend/besm6/emit.c)):
+
+| Group | Meaning |
+|---|---|
+| `utc name` + `xta/atx 0,woff` | the global `name`, word `woff` |
+| `wtc reg,off` + `xta/atx` | through the pointer in frame slot `(reg, off)` |
+| `utc name` + `wtc` + `xta/atx` | through the global pointer `name` (C = &name, then C = name) |
+| `utc reg,off` + `vtm 14` | an address computation, not a memory operand |
+| `wtc reg,off` + `vjm` | an indirect call: `vjm` jumps to `0 + C` |
+
+Two rules follow.
+
+**A consumer's `(reg, addr)` fields do not name a frame slot.** Its effective address is
+`addr + M[reg] + C`. The pass models this with a `Loc`, in
+[peephole.c](../backend/besm6/peephole.c):
+
+- `LOC_FRAME(reg, off)` — a plain `xta/atx`, no C involved
+- `LOC_GLOBAL(name, woff)` — from the first shape above
+- `LOC_DEREF(pointer)` — from the second and third, identified by *where the pointer lives*
+- `LOC_NONE` — an address computation, a literal, a `vjm`: names nothing, matches nothing
+
+Rule 5.1 then compares `Loc`s. `LOC_GLOBAL(g, 0)` and `LOC_GLOBAL(g, 1)` are different words,
+so `g.x = 7; return g.y;` keeps its reload; `LOC_DEREF` through slot `(6,0)` and through
+`(6,1)` are different pointers, so `*p = x; *q = y; return *p;` keeps its reload too.
+
+**A consumer may never be deleted alone.** Its setter would survive and re-bind C to whatever
+instruction fell into the gap. The sweep guarantees this structurally rather than by a guard:
+it steps the cursor from a group's setter straight past its consumer, so no rule ever sees a
+consumer as its cursor, and a match splices out the whole group — two nodes, or three for a
+dereference through a global pointer.
+
+#### Why there is no memory-clobber analysis
+
+"A mirrors location *L*" looks like it should be invalidated by any store that might alias
+*L*. It is not, and the reason is a property of the machine: **memory is only ever written
+from A** (`atx`, `stx`). A store therefore either writes somewhere other than *L*, or writes
+*L* the very value A already holds. Either way A still mirrors *L*. The mirror can only go
+stale when **A itself changes**, or when the frame base `M[6]`/`M[7]` moves — and the pass
+settles its tracked location at every instruction that does either.
+
+`LOC_DEREF` gets the same guarantee for free. It depends on the pointer's value, but the
+pointer lives in memory, so it can only be written from A, by an `atx`/`stx` that settles the
+tracked location on the pointer itself (or on `LOC_NONE`) — discarding the `LOC_DEREF` before
+it can be matched. A `call`, which may write anything, is already a basic-block boundary.
+
+This is worth stating plainly because the natural design — a table of "a store to a frame slot
+kills all dereferences, a store through a pointer kills everything" — is dead code on this
+architecture. A machine with a store-immediate or a memory-to-memory move would need it.
 
 ---
 
@@ -402,7 +477,7 @@ an `ADD_PTR` address the following `wtc` dereferences.
 The pass is a new translation unit, `peephole.c` / `peephole.h`, exposing:
 
 ```c
-void besm_peephole(Besm_Func *func);
+void besm_peephole(Besm_Func *func, const Frame *frame);
 ```
 
 Structure:
@@ -418,7 +493,8 @@ Structure:
    ([besm_free.c](../backend/besm6/besm_free.c)), which also frees its heap-owned `name`. Be
    careful never to free a `name` string that another node still points at (the emit helpers
    `xstrdup` their names, so each node owns its own copy — splicing one node never dangles
-   another).
+   another). The tracked location does borrow a node's `name`, but only ever a node that
+   precedes the group being deleted, so it cannot dangle either.
 4. **Iterate to a fixpoint.** One rewrite can expose another (5.1 enables 5.2, which with 5.3
    enables further `ntr` collapsing), so the pass repeats over the list until a full sweep
    makes no change.
