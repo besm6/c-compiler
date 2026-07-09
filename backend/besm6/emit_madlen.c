@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -122,7 +123,7 @@ static void mad_operand(char *buf, size_t n, const Besm_Instr *i)
             mad_format_real(num, sizeof(num), w.real_val);
             snprintf(buf, n, "=r%s", num);
         } else {
-            snprintf(buf, n, "=%llo", w.word);
+            snprintf(buf, n, "=%" PRIo64, w.word);
         }
         return;
     }
@@ -197,7 +198,7 @@ static void emit_madlen_special(FILE *out, const Besm_Instr *instr)
 
     // Data section directives.
     case BESM_DATA_LOG:
-        snprintf(a, sizeof(a), "%llo", instr->log_val);
+        snprintf(a, sizeof(a), "%" PRIo64, instr->log_val);
         emit_line(out, instr->name, 0, "log", a);
         break;
     case BESM_DATA_BSS:

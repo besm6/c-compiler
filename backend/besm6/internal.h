@@ -2,6 +2,7 @@
 #define BESM6_INTERNAL_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include "besm.h"
@@ -20,9 +21,9 @@ _Noreturn void fatal_error(const char *fmt, ...);
 // Each per-dialect emitter renders this into its own literal syntax (Madlen =octal/=rX,
 // Unix #const pool, Bemsh =Ю'…'/=Е'…').  Defined in besm_const.c.
 typedef struct {
-    bool is_real;            // true → real_val holds an FP constant; false → word
-    double real_val;         // valid when is_real
-    unsigned long long word; // valid when !is_real: the masked 48-bit integer pattern
+    bool is_real;    // true → real_val holds an FP constant; false → word
+    double real_val; // valid when is_real
+    uint64_t word;   // valid when !is_real: the masked 48-bit integer pattern
 } Besm_ConstWord;
 
 Besm_ConstWord besm_const_word(const Tac_Const *c);

@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -10,7 +11,7 @@
 // docs/Besm6_Data_Representation.md §6): bits 48-42 = 7-bit exponent biased by 64, bit 41 =
 // sign, bits 40-1 = 40-bit two's-complement mantissa.  b6as has no floating-point literal
 // syntax, so the Unix emitter renders every real as its octal bit pattern.
-static unsigned long long unix_real_word(double v)
+static uint64_t unix_real_word(double v)
 {
     if (v == 0.0)
         return 0; // machine zero is the all-zero word
@@ -19,9 +20,9 @@ static unsigned long long unix_real_word(double v)
     double f = frexp(v, &e2); // v = f * 2^e2, with 0.5 <= |f| < 1
     // A 41-bit two's-complement value T (bit 41 = sign, bits 40-1 = mantissa) with
     // T / 2^40 = f gives value = (T / 2^40) * 2^e2, i.e. biased exponent E = e2 + 64.
-    long long T = llround(ldexp(f, 40));
-    int       E = e2 + 64;
-    if (T >= (1LL << 40)) {
+    int64_t T = llround(ldexp(f, 40));
+    int E     = e2 + 64;
+    if (T >= (INT64_C(1) << 40)) {
         // f rounded up to 1.0 (fraction not representable): renormalize.
         T >>= 1;
         E++;
@@ -31,15 +32,15 @@ static unsigned long long unix_real_word(double v)
     // bit 40 — un-normalized.  Renormalize to mantissa -1.0 (T == -2^40, one lower
     // exponent) so the bit pattern matches the hardware / Madlen assembler
     // (e.g. -1.0 = 0x810000000000, not 0x838000000000).
-    if (T == -(1LL << 39)) {
-        T = -(1LL << 40); // T * 2, one lower exponent
+    if (T == -(INT64_C(1) << 39)) {
+        T = -(INT64_C(1) << 40); // T * 2, one lower exponent
         E--;
     }
     if (E < 1 || E > 127)
         fatal_error("floating constant %g out of BESM-6 exponent range", v);
 
-    unsigned long long mant = (unsigned long long)T & ((1ULL << 41) - 1); // bits 41-1
-    return ((unsigned long long)E << 41) | mant;
+    uint64_t mant = (uint64_t)T & ((UINT64_C(1) << 41) - 1); // bits 41-1
+    return ((uint64_t)E << 41) | mant;
 }
 
 //
@@ -129,7 +130,7 @@ static void unix_addr(char *buf, size_t n, const char *name, int addr)
 
 // b6as reads a bare integer literal as decimal; a leading `0` selects octal.  For a value
 // below 8 the two spellings coincide, so the octal marker is redundant: emit `7`, not `07`.
-static const char *unix_octal_prefix(unsigned long long word)
+static const char *unix_octal_prefix(uint64_t word)
 {
     return word < 8 ? "" : "0";
 }
@@ -144,9 +145,9 @@ static const char *unix_octal_prefix(unsigned long long word)
 static void unix_operand(char *buf, size_t n, const Besm_Instr *i)
 {
     if (i->konst) {
-        Besm_ConstWord     w    = besm_const_word(i->konst);
-        unsigned long long word = w.is_real ? unix_real_word(w.real_val) : w.word;
-        snprintf(buf, n, "#%s%llo", unix_octal_prefix(word), word);
+        Besm_ConstWord w = besm_const_word(i->konst);
+        uint64_t word    = w.is_real ? unix_real_word(w.real_val) : w.word;
+        snprintf(buf, n, "#%s%" PRIo64, unix_octal_prefix(word), word);
         return;
     }
     // Madlen literal-address expressions (i->name begins with '='): b6as has no '='
@@ -302,15 +303,15 @@ static const Besm_Instr *emit_unix_special(FILE *out, const Besm_Instr *instr, S
         set_segment(out, cur, SEG_DATA);
         if (instr->name)
             emit_ulabel(out, instr->name);
-        snprintf(a, sizeof(a), "%s%llo", unix_octal_prefix(instr->log_val), instr->log_val);
+        snprintf(a, sizeof(a), "%s%" PRIo64, unix_octal_prefix(instr->log_val), instr->log_val);
         emit_udir(out, ".word", a);
         break;
     case BESM_DATA_REAL: {
         set_segment(out, cur, SEG_DATA);
         if (instr->name)
             emit_ulabel(out, instr->name);
-        unsigned long long word = unix_real_word(instr->real_val);
-        snprintf(a, sizeof(a), "%s%llo", unix_octal_prefix(word), word);
+        uint64_t word = unix_real_word(instr->real_val);
+        snprintf(a, sizeof(a), "%s%" PRIo64, unix_octal_prefix(word), word);
         emit_udir(out, ".word", a);
         break;
     }

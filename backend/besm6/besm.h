@@ -2,6 +2,7 @@
 #define BESM_H
 
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #ifdef __cplusplus
@@ -107,18 +108,18 @@ typedef enum {
 struct Besm_Instr {
     struct Besm_Instr *next;
     Besm_InstrKind kind;
-    unsigned reg;               // index-register 0..15, or displacement (BESM_DATA_Z00)
-    int addr;                   // offset, or integer data value (BESM_DATA_INT/BSS/EQU)
-    char *name;                 // symbolic name, optional (heap-owned)
-    char *label;                // Madlen label for a data word whose `name` is already an
-                                // operand (currently only BESM_DATA_Z00), optional (heap-owned)
-    struct Tac_Const *konst;    // scalar nonzero constant operand (=N / #N / =Ю'…'), optional
-                                // (heap-owned); when set, the operand is this literal, not
-                                // (name, addr).  The per-dialect emitter formats it.  A zero
-                                // constant is never attached: the instruction is left with no
-                                // operand and reads memory word 0 (see emit.c attach_const).
-    unsigned long long log_val; // BESM_DATA_LOG: 48-bit logical constant
-    double real_val;            // BESM_DATA_REAL
+    unsigned reg;            // index-register 0..15, or displacement (BESM_DATA_Z00)
+    int addr;                // offset, or integer data value (BESM_DATA_INT/BSS/EQU)
+    char *name;              // symbolic name, optional (heap-owned)
+    char *label;             // Madlen label for a data word whose `name` is already an
+                             // operand (currently only BESM_DATA_Z00), optional (heap-owned)
+    struct Tac_Const *konst; // scalar nonzero constant operand (=N / #N / =Ю'…'), optional
+                             // (heap-owned); when set, the operand is this literal, not
+                             // (name, addr).  The per-dialect emitter formats it.  A zero
+                             // constant is never attached: the instruction is left with no
+                             // operand and reads memory word 0 (see emit.c attach_const).
+    uint64_t log_val;        // BESM_DATA_LOG: 48-bit logical constant
+    double real_val;         // BESM_DATA_REAL
     // TODO: star plus offset
     // TODO: literal address with value (int, uns, real)
 };

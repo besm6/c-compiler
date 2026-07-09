@@ -5,36 +5,36 @@
 // Signed integers occupy the low 41 bits of the 48-bit word (raw two's complement,
 // exponent field zero); unsigned integers occupy all 48 bits.  This dialect-independent
 // bit pattern is what each emitter renders into its own literal syntax.
-#define BESM_MASK41 0x1FFFFFFFFFFULL
-#define BESM_MASK48 0xFFFFFFFFFFFFULL
+#define BESM_MASK41 UINT64_C(0x1FFFFFFFFFF)
+#define BESM_MASK48 UINT64_C(0xFFFFFFFFFFFF)
 
 Besm_ConstWord besm_const_word(const Tac_Const *c)
 {
     Besm_ConstWord w = { 0 };
     switch (c->kind) {
     case TAC_CONST_INT:
-        w.word = (unsigned long long)((long long)c->u.int_val & (long long)BESM_MASK41);
+        w.word = (uint64_t)((int64_t)c->u.int_val & (int64_t)BESM_MASK41);
         break;
     case TAC_CONST_LONG:
-        w.word = (unsigned long long)(c->u.long_val & (long long)BESM_MASK41);
+        w.word = (uint64_t)(c->u.long_val & (int64_t)BESM_MASK41);
         break;
     case TAC_CONST_LONG_LONG:
-        w.word = (unsigned long long)(c->u.long_long_val & (long long)BESM_MASK41);
+        w.word = (uint64_t)(c->u.long_long_val & (int64_t)BESM_MASK41);
         break;
     case TAC_CONST_SCHAR:
-        w.word = (unsigned long long)((long long)c->u.char_val & (long long)BESM_MASK41);
+        w.word = (uint64_t)((int64_t)c->u.char_val & (int64_t)BESM_MASK41);
         break;
     case TAC_CONST_UINT:
-        w.word = (unsigned long long)(c->u.uint_val & BESM_MASK48);
+        w.word = (uint64_t)(c->u.uint_val & BESM_MASK48);
         break;
     case TAC_CONST_ULONG:
-        w.word = (unsigned long long)(c->u.ulong_val & BESM_MASK48);
+        w.word = (uint64_t)(c->u.ulong_val & BESM_MASK48);
         break;
     case TAC_CONST_ULONG_LONG:
-        w.word = (unsigned long long)(c->u.ulong_long_val & BESM_MASK48);
+        w.word = (uint64_t)(c->u.ulong_long_val & BESM_MASK48);
         break;
     case TAC_CONST_UCHAR:
-        w.word = (unsigned long long)c->u.uchar_val;
+        w.word = (uint64_t)c->u.uchar_val;
         break;
     case TAC_CONST_FLOAT:
     case TAC_CONST_DOUBLE:

@@ -136,7 +136,7 @@ static Besm_Instr *char_array_log_items(const Tac_StaticInit *init, bool zero_as
 
     Besm_Instr *head = NULL, **tail = &head;
     for (size_t w = 0; w < log_words; w++) {
-        unsigned long long word = 0;
+        uint64_t word = 0;
         for (int b = 0; b < 6; b++)
             word = (word << 8) | buf[w * 6 + b];
         Besm_Instr *si = besm_new_instr(BESM_DATA_LOG);
@@ -158,23 +158,23 @@ static Besm_Instr *char_array_log_items(const Tac_StaticInit *init, bool zero_as
     return head;
 }
 
-static unsigned long long static_init_log_val(const Tac_StaticInit *init)
+static uint64_t static_init_log_val(const Tac_StaticInit *init)
 {
     switch (init->kind) {
     case TAC_STATIC_INIT_I8:
-        return (unsigned long long)(uint8_t)init->u.char_val;
+        return (uint64_t)(uint8_t)init->u.char_val;
     case TAC_STATIC_INIT_U8:
-        return (unsigned long long)init->u.uchar_val;
+        return (uint64_t)init->u.uchar_val;
     case TAC_STATIC_INIT_I16:
-        return (unsigned long long)(int64_t)init->u.short_val & 0x1FFFFFFFFFF;
+        return (uint64_t)(int64_t)init->u.short_val & 0x1FFFFFFFFFF;
     case TAC_STATIC_INIT_I32:
-        return (unsigned long long)(int64_t)init->u.int_val & 0x1FFFFFFFFFF;
+        return (uint64_t)(int64_t)init->u.int_val & 0x1FFFFFFFFFF;
     case TAC_STATIC_INIT_I64:
-        return (unsigned long long)init->u.long_val & 0x1FFFFFFFFFF;
+        return (uint64_t)init->u.long_val & 0x1FFFFFFFFFF;
     case TAC_STATIC_INIT_U16:
-        return (unsigned long long)init->u.ushort_val;
+        return (uint64_t)init->u.ushort_val;
     case TAC_STATIC_INIT_U32:
-        return (unsigned long long)init->u.uint_val;
+        return (uint64_t)init->u.uint_val;
     case TAC_STATIC_INIT_U64:
         return init->u.ulong_val & 0xFFFFFFFFFFFF;
     default:
@@ -279,7 +279,7 @@ static bool needs_byte_packing(const Tac_Type *t)
 static void flush_packed_words(const unsigned char *buf, int lo, int hi, Besm_Instr ***tailp)
 {
     for (int w = lo; w < hi; w += 6) {
-        unsigned long long word = 0;
+        uint64_t word = 0;
         for (int b = 0; b < 6; b++)
             word = (word << 8) | buf[w + b];
         Besm_Instr *si = besm_new_instr(BESM_DATA_LOG);
@@ -596,7 +596,7 @@ Besm_Instr *besm_string_log_items(const Tac_StaticInit *init, const char *label,
 
     Besm_Instr *head = NULL, **tail = &head;
     for (size_t w = 0; w * 6 < nbytes; w++) {
-        unsigned long long word = 0;
+        uint64_t word = 0;
         for (int b = 0; b < 6; b++) {
             size_t pos      = w * 6 + b;
             unsigned char c = (pos < len) ? (unsigned char)s[pos] : 0;

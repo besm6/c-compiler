@@ -78,7 +78,7 @@ KOI7 stdout buffer), `flush` (`b/tout`), `getch` (`moncard_`/`monread_`) — sta
 `libc/besm6/unix` target reimplements those three over Unix v7 syscalls (`write.s`/`read.s`
 extracode leaves, plus a `crt0.s` startup that calls `int main`) and archives everything with
 `b6ar`/`b6ranlib` into a `b6as` `libc.a` (+ standalone `crt0.o`) for the `b6as`/`b6ld`/`b6sim`
-path. All `.c` are compiled by our own toolchain (`parse → lower → genbesm` → `.madlen`) and
+path. All `.c` are compiled by our own toolchain (`parse → lower → genbesm --madlen` → `.madlen`) and
 assembled with the Madlen helpers (`b_*.madlen`, `b_tout`, `exit`, `frexp`, `ldexp`) into
 `libc.bin` — see `libc/besm6/CMakeLists.txt` (`LIBC_C_PORTABLE` / `LIBC_C_DUBNA` /
 `LIBC_MADLEN`) and `libc/besm6/unix/CMakeLists.txt` for the Unix `libc.a`/`crt0.o`. The
@@ -130,7 +130,8 @@ and the resulting `ACC` / `RAU` (mode register R) / index-register values, e.g.:
 Search the trace for a routine label (e.g. `B/MOD`, `B/DIV`) to follow a runtime helper and
 inspect the accumulator/exponent at each step — the fastest way to localize a wrong
 mode-bit, exponent, or addressing error in hand-written Madlen. To build a focused job by
-hand: assemble a `.mad` with `genbesm`, wrap it with the `*name/*disc/*file:libc,40/*assem
+hand: assemble a `.mad` with `genbesm --madlen` (Unix is the default dialect, so the flag is
+required here), wrap it with the `*name/*disc/*file:libc,40/*assem
 … *library:40/*execute/*end file` boilerplate (see `codegen_test.h` `CompileAndRun`), and
 run `dubna [-d c] job.dub`.
 
@@ -185,6 +186,12 @@ Try the compiler tools:
 ./build/lower --yaml /tmp/input.ast -     # → YAML TAC to stdout ("-" = stdout)
 ./build/lower -t x86_64 /tmp/input.ast -  # → TAC with x86_64 type sizes/offsets
 ./build/lower -D /tmp/input.ast           # debug: translator trace
+
+# genbesm defaults to the Unix (b6as) dialect; the output file's extension follows the
+# dialect (.s for Unix, .mad for Madlen, .bem for Bemsh) when no output name is given.
+./build/backend/genbesm /tmp/input.tac              # → Unix b6as assembly to /tmp/input.s
+./build/backend/genbesm --madlen /tmp/input.tac     # → Madlen assembly to /tmp/input.mad
+./build/backend/genbesm /tmp/input.tac out.s        # explicit output filename
 ```
 
 Compiler flags in use: `-Wall -Werror -Wshadow` — all warnings are errors.
@@ -198,7 +205,8 @@ Source (.c)
   → [parse]      Scanner → Parser → AST (binary/YAML/DOT)
   → [lower]      Typecheck → Translate → Optimize → TAC (binary/YAML/DOT)
   → [genx86]     Frame alloc → Instruction select → GNU AT&T assembly (.s)
-  → [genbesm]    Frame alloc → Instruction select → Madlen assembly (.mad)
+  → [genbesm]    Frame alloc → Instruction select → Unix b6as assembly (.s, default)
+                                                  → Madlen assembly (.mad, --madlen)
 ```
 
 **`parse`** (`parser/main.c`): Lexes and parses a C source file, outputs a binary AST stream (via `wio`) to stdout, or `--yaml`/`--dot` for human-readable forms.
