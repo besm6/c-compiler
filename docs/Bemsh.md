@@ -1027,12 +1027,10 @@ with spaces; the resulting statement is then translated by the ordinary rules.
 | Letter | Type | Body |
 |--------|------|------|
 | `Ф`/`F` | integer, decimal | `'…'` |
-| `Ю`/`U` | integer, binary | `'…'` |
 | `В` | integer, octal | `'…'` |
 | `Х` | integer, hexadecimal | `'…'` |
 | `Е` | floating-point (`КОНД` only) | `'mantissa[Eorder]'` |
 | `А` | address (expression) | `(…)` |
-| `К` | machine-command word | `'…'` |
 | `Т` | text (`ТЕКСТ`) | `'…'` |
 
 The constant body is in single quotes for all types except `А` (parentheses). `КОНД` allows a repeat

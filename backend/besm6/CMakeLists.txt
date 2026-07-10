@@ -8,6 +8,7 @@ add_library(besm STATIC
     besm_mnem.c
     emit_madlen.c
     emit_unix.c
+    emit_bemsh.c
     frame.c
     codegen.c
     emit.c
@@ -34,6 +35,7 @@ add_executable(besm-tests
     test/unix_tests.cpp
     test/unix_link_tests.cpp
     test/unix_run_tests.cpp
+    test/bemsh_tests.cpp
     test/arith_tests.cpp
     test/copy_tests.cpp
     test/flow_tests.cpp

@@ -5,8 +5,7 @@
 #include "besm.h"
 #include "internal.h"
 
-// Dispatch to the per-dialect module emitter.  The Unix (b6as) and Bemsh emitters
-// are not implemented yet; see backend/besm6/TODO.md (tasks U1, B1).
+// Dispatch to the per-dialect module emitter.
 void besm_emit_module(FILE *out, const Besm_Module *module, Besm_Dialect dialect)
 {
     switch (dialect) {
@@ -17,7 +16,8 @@ void besm_emit_module(FILE *out, const Besm_Module *module, Besm_Dialect dialect
         emit_unix_module(out, module);
         break;
     case BESM_BEMSH:
-        fatal_error("Bemsh assembler output is not yet implemented");
+        emit_bemsh_module(out, module);
+        break;
     }
 }
 

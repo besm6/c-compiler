@@ -175,6 +175,7 @@ protected:
 
     std::string CompileToMadlen(const char *src) { return CompileTo(src, BESM_MADLEN); }
     std::string CompileToUnix(const char *src) { return CompileTo(src, BESM_UNIX); }
+    std::string CompileToBemsh(const char *src) { return CompileTo(src, BESM_BEMSH); }
 
     // Compile C source, run it under the Dubna simulator, and return the program output.
     // Returns "ERROR" on compile failure, simulator failure, or malformed listing.

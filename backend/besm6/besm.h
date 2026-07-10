@@ -258,6 +258,11 @@ void emit_madlen_module(FILE *out, const Besm_Module *module);
 //
 void emit_unix_module(FILE *out, const Besm_Module *module);
 
+//
+// Emit Bemsh (Cyrillic autocode) assembly
+//
+void emit_bemsh_module(FILE *out, const Besm_Module *module);
+
 #ifdef __cplusplus
 }
 #endif

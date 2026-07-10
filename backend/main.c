@@ -44,7 +44,7 @@ static const char *dialect_ext(Besm_Dialect d)
     case BESM_UNIX:
         return ".s";
     case BESM_BEMSH:
-        return ".bem";
+        return ".bemsh";
     case BESM_MADLEN:
     default:
         return ".mad";
