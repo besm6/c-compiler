@@ -39,7 +39,7 @@ file(GLOB BESM6_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
 # directory (libc/besm6).  Most have no Dubna dependency — they build on the
 # putbyte/flush/getch seam or are pure computation — so libc/besm6/unix and
 # libc/besm6/bemsh will reuse them once each supplies its own leaves below.  The
-# lone exception is malloc: its heap is provisioned between the linker _end symbol
+# lone exception is malloc: its heap is provisioned between the linker `end` symbol
 # and the b6sim stack base, which only the Unix path supplies, so it is dropped
 # from the Madlen libc.bin below (but kept in the Unix libc.a).
 set(LIBC_C_PORTABLE
@@ -80,7 +80,7 @@ macro(besm6_compile_libc_c name srcdir)
     list(APPEND LIBC_C_MADLEN ${c_mad})
 endmacro()
 
-# malloc/calloc/realloc/free rely on the Unix (b6ld/b6sim) memory map — the _end
+# malloc/calloc/realloc/free rely on the Unix (b6ld/b6sim) memory map — the `end`
 # boundary symbol and the 070000 stack base — which the dubna monitor does not
 # provide, so the allocator is excluded from the Madlen libc.bin.  It stays in
 # LIBC_C_PORTABLE for the Unix libc.a build (see unix/CMakeLists.txt).

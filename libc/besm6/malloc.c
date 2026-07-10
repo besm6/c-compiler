@@ -13,9 +13,9 @@
 // and no integer<->pointer casts are needed.
 //
 // There is no sbrk on this machine.  Instead the heap occupies the fixed span
-// from the linker end-of-program symbol `_end` up to the BESM-6 stack base
+// from the linker end-of-program symbol `end` up to the BESM-6 stack base
 // (HEAP_LIMIT); it is claimed lazily on the first allocation.  This layout is
-// supplied by the Unix (b6ld/b6sim) toolchain — b6ld defines `_end` and b6sim
+// supplied by the Unix (b6ld/b6sim) toolchain — b6ld defines `end` and b6sim
 // seeds the stack at HEAP_LIMIT — so the allocator is a Unix-only routine and is
 // not assembled into the Madlen libc.bin (see libc/besm6/CMakeLists.txt).
 //
@@ -92,7 +92,7 @@ static void copy_words(size_t *d, const size_t *s, size_t n)
 }
 
 //
-// Claim the whole heap span [_end, HEAP_LIMIT) as one free block, once.
+// Claim the whole heap span [end, HEAP_LIMIT) as one free block, once.
 // Called lazily on the first allocation or free-memory query.
 //
 static void heap_setup(void)
@@ -103,8 +103,8 @@ static void heap_setup(void)
         return;
     initialized = 1;
 
-    extern heap_header_t _end;
-    heap_header_t *h = &_end;
+    extern heap_header_t end;
+    heap_header_t *h = &end;
     if ((size_t)h >= HEAP_LIMIT) {
         return; // program fills memory up to the stack: no room for a heap
     }
