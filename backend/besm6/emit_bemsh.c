@@ -170,9 +170,9 @@ static void emit_line(FILE *out, const char *label, int mreg, const char *mnem,
     if (label) {
         char sl[8];
         bemsh_sanitize(sl, sizeof(sl), label);
-        fprintf(out, "%-8s", sl);
+        fprintf(out, "%-6s", sl);
     } else {
-        fprintf(out, "        ");
+        fprintf(out, "      ");
     }
     fprintf(out, " %s", mnem);
     if (operand[0])
