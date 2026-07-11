@@ -152,7 +152,7 @@ static void bemsh_operand(char *buf, size_t n, const Besm_Instr *i)
 }
 
 //
-// Emit one Bemsh statement line: label in column 1 (8-wide, blank if none), then the
+// Emit one Bemsh statement line: label in column 1 (6-wide, blank if none), then the
 // mnemonic, then the operand.  The index register (mreg) is appended parenthesized to the
 // operand — `уиа масс(13)`, or `(13)` when there is no address.
 //

@@ -6,7 +6,7 @@
 // the `старт`/`финиш` module framing, Cyrillic mnemonics, and `=в'…'`/`=е'…'` literal
 // commands, with the index register parenthesized after the address (`сч (6)`, `уиа g(14)`).
 //
-// Layout: label field is 8 columns (column 1 = leftmost), then the mnemonic, then the
+// Layout: label field is 6 columns (column 1 = leftmost), then the mnemonic, then the
 // operand — all space-separated.  Names are provisionally sanitized to ≤6 chars (the real
 // mangling and the Bemsh-libc helper-symbol map are task B2), so e.g. `program`→`progra`,
 // `counter`→`counte`, `b$ret`→`b_ret`.
