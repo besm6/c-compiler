@@ -36,6 +36,7 @@ add_executable(besm-tests
     test/unix_link_tests.cpp
     test/unix_run_tests.cpp
     test/bemsh_tests.cpp
+    test/bemsh_run_tests.cpp
     test/arith_tests.cpp
     test/copy_tests.cpp
     test/flow_tests.cpp
@@ -79,7 +80,7 @@ add_executable(besm-tests
     test/chapter20_tests.cpp
 )
 target_link_libraries(besm-tests besm parser translator semantic GTest::gtest_main test_util)
-add_dependencies(besm-tests besm-libc-dubna besm-libc-unix)
+add_dependencies(besm-tests besm-libc-dubna besm-libc-unix besm-libc-bemsh)
 add_definitions(-DTEST_DIR="${CMAKE_CURRENT_BINARY_DIR}")
 target_compile_definitions(besm-tests PRIVATE
     BESM6_CPP="${SystemCpp}"

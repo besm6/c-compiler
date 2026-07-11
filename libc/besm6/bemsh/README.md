@@ -1,18 +1,24 @@
 # Bemsh C Runtime Library for BESM-6
 
-Bemsh (Cyrillic autocode) port of the hand-written BESM-6 C runtime helpers, assembled by
-`besmc` (Assembler БЕМШ) into `libbem.bin` for the Dubna simulator. This is the third
-assembler dialect the backend targets, alongside Madlen ([../madlen/](../madlen)) and the
-Unix `b6as` ([../unix/](../unix)).
+Bemsh (Cyrillic autocode) port of the BESM-6 C runtime, assembled by `besmc` (Assembler
+БЕМШ) into `libbem.bin` for the Dubna simulator. This is the third assembler dialect the
+backend targets, alongside Madlen ([../madlen/](../madlen)) and the Unix `b6as`
+([../unix/](../unix)).
 
-**Scope (task B4): helpers only.** Each `.bemsh` file is a hand-translation of the
-same-stem `../madlen/b_NAME.madlen`, covering the full `LIBC_MADLEN` set — the calling
-convention (`_save`/`_save0`/`_ret`), the arithmetic / comparison / shift / pointer / byte
-helpers, `b_tout`, `exit`, `frexp`, `ldexp` (41 files). The C-level libc
-(`LIBC_C_PORTABLE`, and the three Dubna C leaves `putbyte`/`flush`/`getch`) is **not** built
-here yet: the C→Bemsh compile path needs the Bemsh code emitter
-([../../../backend/besm6/emit_bemsh.c](../../../backend/besm6/emit_bemsh.c), task B1) wired
-through `genbesm` plus the B2 name mangler. So `libbem.bin` is currently the helper set only.
+**Contents.** Two layers:
+
+- **Hand-written helpers (task B4).** Each `b_NAME.bemsh` is a hand-translation of the
+  same-stem `../madlen/b_NAME.madlen`, covering the full `LIBC_MADLEN` set — the calling
+  convention (`_save`/`_save0`/`_ret`), the arithmetic / comparison / shift / pointer / byte
+  helpers, `b_tout`, `exit`, `frexp`, `ldexp` (41 files).
+- **Compiled stdout leaves (task B3).** The minimal C stdout chain
+  `putbyte`→`flush`→`b_tout` plus the `putchar`/`putch` wrappers is compiled from the
+  **shared** `../madlen/{putbyte,flush}.c` and `../{putchar,putch}.c` through our own
+  toolchain (`cpp → parse → lower → genbesm --bemsh`) and assembled alongside the helpers.
+  This gives a C program run under `*bemsh` visible stdout identical to the Madlen path
+  (see `backend/besm6/test/bemsh_run_tests.cpp`). The rest of `LIBC_C_PORTABLE`
+  (`printf`/`doprnt`, string/mem/math) and the `getch` input leaf are not built here yet —
+  see task B5 in [../../../backend/besm6/TODO.md](../../../backend/besm6/TODO.md).
 
 Build: `make` (the `besm-libc-bemsh` ALL target) → `build/libc/besm6/bemsh/libbem.bin`,
 staged next to `besm-tests` as `build/backend/besm6/libbem.bin` for the future Bemsh run

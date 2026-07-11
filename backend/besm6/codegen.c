@@ -16,6 +16,7 @@
 // Forward declaration.
 static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out,
                              Besm_Dialect dialect);
+static void bemsh_declare_call_targets(Besm_Func *func, const char *self_name);
 
 void codegen_program(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out,
                      Besm_Dialect dialect)
@@ -116,6 +117,49 @@ static void remove_instr(Besm_Block *block, const Besm_Instr *target)
         besm_free_instr(i);
         return;
     }
+}
+
+// Bemsh has no auto-declaring call macro — unlike Madlen's `,call,` and Unix b6as, which
+// implicitly extern an undefined callee, Bemsh's `пв` (VJM) does not.  So every distinct
+// call target must be declared external with a `внешн`.  After instruction selection, scan
+// the final stream for BESM_BRANCH_CALL targets and splice one BESM_STMT_SUBP (rendered as
+// `внешн .NAME` by emit_bemsh.c) right after the `,name,`/старт for each distinct one.
+// Excludes the function's own label (a recursive call stays a local reference) and any name
+// already declared external (b$ret and globals, from the pre-selection SUBP scan).  The new
+// SUBPs are spliced in behind the forward scan cursor, so they are never re-visited and no
+// bound on the number of callees is needed.  Bemsh-only; Madlen/Unix rely on their assembler.
+static void bemsh_declare_call_targets(Besm_Func *func, const char *self_name)
+{
+    Besm_Block *first = func->blocks;
+    if (!first || !first->body)
+        return;
+    Besm_Instr *name_node = first->body; // the ,name, (старт) — always the first instruction
+
+    StringMap declared;
+    map_init(&declared);
+    intptr_t dummy;
+    map_insert(&declared, self_name, 1, 0);
+    for (const Besm_Block *b = func->blocks; b; b = b->next)
+        for (const Besm_Instr *i = b->body; i; i = i->next)
+            if (i->kind == BESM_STMT_SUBP && i->name)
+                map_insert(&declared, i->name, 1, 0);
+
+    Besm_Instr *ins = name_node; // insertion cursor: keeps declarations in call order
+    for (const Besm_Block *b = func->blocks; b; b = b->next) {
+        for (const Besm_Instr *i = b->body; i; i = i->next) {
+            if (i->kind != BESM_BRANCH_CALL || !i->name)
+                continue;
+            if (map_get(&declared, i->name, &dummy))
+                continue;
+            map_insert(&declared, i->name, 1, 0);
+            Besm_Instr *subp = besm_new_instr(BESM_STMT_SUBP);
+            subp->name       = xstrdup(i->name);
+            subp->next       = ins->next;
+            ins->next        = subp;
+            ins              = subp;
+        }
+    }
+    map_destroy(&declared);
 }
 
 static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out,
@@ -375,6 +419,11 @@ static void codegen_function(const Tac_TopLevel *program, const Tac_TopLevel *tl
 
     if (f)
         frame_free(f);
+
+    // Bemsh needs an explicit `внешн` for each call target (its `пв` does not auto-declare).
+    // Run after selection/peephole so only surviving calls are declared; Bemsh-only.
+    if (dialect == BESM_BEMSH)
+        bemsh_declare_call_targets(func, name);
 
     // Emit this function's block-scope static locals as module-local labeled data, spliced
     // in after the code (before `,end,`).  Done before folding string constants so that a

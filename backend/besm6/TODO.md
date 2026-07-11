@@ -19,6 +19,12 @@ objects), and **Bemsh** (Cyrillic autocode, runs on `dubna`). See
 [docs/Madlen.md](../../docs/Madlen.md), [docs/Besm6_Unix_Assembler.md](../../docs/Besm6_Unix_Assembler.md),
 and [docs/Bemsh.md](../../docs/Bemsh.md).
 
+All planned multi-assembler tasks (B1 emitter, B2 mangler, B3 run-integration, B4 runtime
+helpers) are done. Compiler-generated Bemsh now assembles and runs end-to-end on `dubna`
+(`CodegenTest.Bemsh*Run` in `test/bemsh_run_tests.cpp`).
+
+Possible follow-ups:
+
 | #  | Task | Description |
 |----|------|-------------|
-| B3 | Bemsh run-integration on dubna | `CompileAndRunBemsh` variant of `CompileAndRun` wrapping output in a `*bemsh` control-card job (model on `tmp/bemsh.dub`), **reusing the existing `libc.bin`**, running `dubna`, parsing `.lst`. This is the only new-dialect path runnable end-to-end today. **Prerequisite fix (surfaced by B2):** helpers reached via `пв` (`BESM_BRANCH_CALL`) — `b$save`/`b$save0` and every arithmetic/comparison/conversion/pointer helper — are currently emitted with **no** `внешн` declaration (only `b$ret`, a `пб`/UJ target, gets one via the SUBP at `codegen.c:185`). Madlen's `,call,` auto-declares externals; Bemsh's `пв` does not, so compiler-generated Bemsh has undefined externals for every call target. B3's call lowering must emit one `внешн ._X` per distinct `BESM_BRANCH_CALL` target (and likewise for any global operand that Madlen's `,call,`/macros auto-declare). *Acceptance:* a subset of run tests pass under `*bemsh` with output identical to the Madlen path. |
+| B5 | Full C libc for Bemsh | B3 compiled only the char-level stdout chain (`putbyte`/`flush`/`putchar`/`putch`) into `libbem.bin` for visible-output run tests. Extend `libc/besm6/bemsh/CMakeLists.txt` to compile the rest of `LIBC_C_PORTABLE` (`printf`/`doprnt`, `sprintf`/`snprintf`, the string/mem/math routines, `atoi`) with `genbesm --bemsh`, add `getch` for input, and port the run tests that use `printf`. Watch for further emitter bugs the larger surface may surface. |

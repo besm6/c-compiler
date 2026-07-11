@@ -227,7 +227,15 @@ protected:
         if (!lst)
             return "ERROR";
         std::string listing((std::istreambuf_iterator<char>(lst)), {});
+        return ExtractDubnaOutput(listing);
+    }
 
+    // Extract a program's captured stdout from a Dubna `.lst`.  The monitor brackets the
+    // program's own output between the second `≠` line (U+2260) and the trailing `----`
+    // separator.  Shared by the Madlen (`*assem`) and Bemsh (`*bemsh`) run paths, which
+    // produce the same monitor listing framing.  Returns "ERROR" if the markers are absent.
+    static std::string ExtractDubnaOutput(const std::string &listing)
+    {
         // Find second "≠" line (U+2260, UTF-8: 3 bytes).
         const std::string NE = "\xe2\x89\xa0";
         int ne_count         = 0;
@@ -265,6 +273,62 @@ protected:
             pos = nl + 1;
         }
         return content;
+    }
+
+    // Compile C source through the Bemsh dialect, run it under the Dubna simulator against
+    // the Bemsh runtime library (libbem.bin), and return the program output.  The `*bemsh`
+    // counterpart of CompileAndRun: genbesm --bemsh already wraps each module in its own
+    // ввд$$$…кнц$$$ deck, so the job just adds the control cards around it (linking libbem on
+    // library 40 and naming the `progra` entry — bemsh_mangle("program")).  Returns "ERROR"
+    // on compile/simulator failure or a malformed listing.  Model: backend/besm6/tmp/bemsh.dub.
+    std::string CompileAndRunBemsh(const std::string &src)
+    {
+        std::string bemsh = CompileToBemsh(src.c_str());
+
+        std::string job =
+            "*name .\n"
+            "*disc:1/local\n"
+            "*file:libbem,40\n"
+            "*library:40\n"
+            "*bemsh\n";
+        job += bemsh;
+        job +=
+            "*main progra\n"
+            "*execute\n"
+            "*end file\n";
+
+        const char *test_name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+        std::string dub_path  = std::string(TEST_DIR "/") + test_name + ".dub";
+        std::string lst_path  = std::string(TEST_DIR "/") + test_name + ".lst";
+
+        // See CompileAndRun: guards against a concurrent besm-tests run clobbering the
+        // shared per-test .dub/.lst files.
+        FlockGuard dub_lock(dub_path);
+        if (!dub_lock.locked()) {
+            ADD_FAILURE() << "Concurrent besm-tests run detected for this test; do not "
+                             "launch two besm-tests processes at once ("
+                          << dub_path << ")";
+            return "ERROR";
+        }
+
+        {
+            std::ofstream dub(dub_path);
+            if (!dub)
+                return "ERROR";
+            dub << job;
+        }
+
+        try {
+            RunExternalProgram("dubna", { dub_path }, lst_path);
+        } catch (...) {
+            return "ERROR";
+        }
+
+        std::ifstream lst(lst_path);
+        if (!lst)
+            return "ERROR";
+        std::string listing((std::istreambuf_iterator<char>(lst)), {});
+        return ExtractDubnaOutput(listing);
     }
 
     // Compile C source through the Unix (b6as) path, assemble it with b6as, and link it

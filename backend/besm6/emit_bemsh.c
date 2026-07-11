@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "abi.h"
 #include "besm.h"
 #include "internal.h"
 
@@ -257,10 +258,14 @@ static void emit_bemsh_special(FILE *out, const Besm_Instr *instr)
         emit_line(out, NULL, instr->reg, "слиа", a);
         break;
 
-    // Provisional call rendering — Bemsh has no `call` macro; real call lowering is B3.
+    // Call: Bemsh has no auto-declaring `call` macro (Madlen's expands to `13 vjm name`),
+    // so the call is rendered explicitly as `пв name(13)` — VJM through r13, which passes the
+    // return address the callee restores via `пб (13)`.  Its `внешн` declaration is emitted
+    // separately — codegen.c splices one BESM_STMT_SUBP per distinct call target after the
+    // `,name,` for the Bemsh dialect.
     case BESM_BRANCH_CALL:
         bemsh_mangle(a, sizeof(a), instr->name);
-        emit_line(out, NULL, 0, "пв", a);
+        emit_line(out, NULL, REG_RET, "пв", a);
         break;
     case BESM_STMT_BASE:
         bemsh_mangle(a, sizeof(a), instr->name);
@@ -268,11 +273,21 @@ static void emit_bemsh_special(FILE *out, const Besm_Instr *instr)
         break;
 
     // Assembly directives — the defined name goes in the label field (column 1).
-    case BESM_STMT_LABEL: // define a code label = current address counter (`*`)
-        emit_line(out, instr->name, 0, "экв", "*");
+    case BESM_STMT_LABEL:
+        // Define a code label as a labeled `ноп` (no-op).  `экв *` is wrong here: `*` is the
+        // integer part of the half-cell address counter, so a label after an odd number of
+        // instructions captures the current (right-half) cell while the next real instruction —
+        // placed in the left half of a *fresh* cell (Bemsh §7.7) — lands one cell later, and a
+        // branch to the `экв` label then hits the previous cell's left instruction.  A labeled
+        // `ноп` is itself placed in the left half of a fresh cell, so the label names a
+        // reachable instruction and control falls through it to the code that follows.
+        emit_line(out, instr->name, 0, "ноп", "");
         break;
     case BESM_STMT_NAME: // open a named subprogram (auto entry point)
-        emit_line(out, instr->name, 0, "старт", "");
+        // старт requires a start-address operand — the translator rejects an empty one.
+        // The value is irrelevant for a relocatable module (the loader relocates it), so
+        // use `1`, matching the hand-written libbem helpers (`_save старт 1`) and bemsh.dub.
+        emit_line(out, instr->name, 0, "старт", "1");
         break;
     case BESM_STMT_SUBP: { // external reference — provisional `.label` (search-all) binding
         char ext[8];
@@ -382,29 +397,50 @@ static void emit_bemsh_block(FILE *out, const Besm_Block *block)
         emit_bemsh_instr(out, block->body);
 }
 
-static void emit_bemsh_func(FILE *out, const Besm_Func *func)
+// Every старт…финиш is a self-contained Macro-Bemsh translation unit and must be wrapped in
+// its own `ввд$$$` … `квч$$$/трн$$$/0-0/блмак/бтмалф/кнц$$$` deck: the БЕМШ translator
+// processes exactly one module per deck, and besmc/the Dubna job add no such markers (it feeds
+// the source verbatim after the `*bemsh` control card).  Multiple decks after one `*bemsh` all
+// assemble, so a compiled TU with several modules emits several decks back to back.  This
+// mirrors the hand-written libbem `.bemsh` files, each of which carries the same deck.
+static void deck_open(FILE *out, const char *comment)
 {
-    for (; func; func = func->next)
-        emit_bemsh_block(out, func->blocks);
+    fputs("ввд$$$\n", out);
+    // A full-line comment is a `*` in column 1 (Bemsh).
+    if (comment)
+        fprintf(out, "* %s\n", comment);
+    else
+        fputs("*\n", out);
 }
 
-static void emit_bemsh_data_section(FILE *out, const Besm_DataSection *section)
+static void deck_close(FILE *out)
+{
+    fputs("квч$$$\nтрн$$$\n0-0\nблмак\nбтмалф\nкнц$$$\n", out);
+}
+
+static void emit_bemsh_func(FILE *out, const char *comment, const Besm_Func *func)
+{
+    for (; func; func = func->next) {
+        deck_open(out, comment);
+        emit_bemsh_block(out, func->blocks); // the block stream carries старт…финиш
+        deck_close(out);
+    }
+}
+
+static void emit_bemsh_data_section(FILE *out, const char *comment,
+                                    const Besm_DataSection *section)
 {
     for (; section; section = section->next) {
-        emit_line(out, section->name, 0, "старт", "");
+        deck_open(out, comment);
+        emit_line(out, section->name, 0, "старт", "1"); // start-address operand (see BESM_STMT_NAME)
         emit_bemsh_instr(out, section->items);
         emit_line(out, NULL, 0, "финиш", "");
+        deck_close(out);
     }
 }
 
 void emit_bemsh_module(FILE *out, const Besm_Module *module)
 {
-    // A full-line comment is a `*` in column 1 (Bemsh).
-    if (module->comment)
-        fprintf(out, "* %s\n", module->comment);
-    else
-        fprintf(out, "*\n");
-
-    emit_bemsh_func(out, module->funcs);
-    emit_bemsh_data_section(out, module->sections);
+    emit_bemsh_func(out, module->comment, module->funcs);
+    emit_bemsh_data_section(out, module->comment, module->sections);
 }

@@ -1,10 +1,12 @@
 //
 // Golden-file tests for the Bemsh (Cyrillic autocode) emitter (emit_bemsh.c).
 //
-// These assert the exact `.bemsh` text produced for a representative set — the B1
-// acceptance criteria.  Bemsh is a Dubna-monitor dialect like Madlen, so the output uses
-// the `старт`/`финиш` module framing, Cyrillic mnemonics, and `=в'…'`/`=е'…'` literal
-// commands, with the index register parenthesized after the address (`сч (6)`, `уиа g(14)`).
+// These assert the exact `.bemsh` text produced for a representative set.  Bemsh is a
+// Dubna-monitor dialect like Madlen: each module uses the `старт`/`финиш` framing, Cyrillic
+// mnemonics, and `=в'…'`/`=е'…'` literal commands, with the index register parenthesized after
+// the address (`сч (6)`, `уиа g(14)`).  Every `старт…финиш` module is further wrapped in its own
+// Macro-Bemsh `ввд$$$` … `квч$$$/трн$$$/0-0/блмак/бтмалф/кнц$$$` deck (task B3) — the БЕМШ
+// translator processes one module per deck, and besmc/the Dubna job add no such markers.
 //
 // Layout: label field is 6 columns (column 1 = leftmost), then the mnemonic, then the
 // operand — all space-separated.  Names are mangled by bemsh_mangle (task B2) to ≤6-char,
@@ -57,15 +59,23 @@ bool valid_chars(const std::string &s)
 TEST_F(CodegenTest, BemshScalarReturn)
 {
     std::string out = CompileToBemsh("int f(int x) { return x + 1; }");
-    EXPECT_EQ(R"(*
-f      старт
+    EXPECT_EQ(R"(ввд$$$
+*
+f      старт 1
+_save  внешн ._save
 _ret   внешн ._ret
        счим 13
-       пв _save
+       пв _save(13)
        сч (6)
        сл =в'1'
        пб _ret
        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
 )",
               out);
 }
@@ -74,17 +84,26 @@ _ret   внешн ._ret
 TEST_F(CodegenTest, BemshCall)
 {
     std::string out = CompileToBemsh("int g(int); int f(int x) { return g(x) + 1; }");
-    EXPECT_EQ(R"(*
-f      старт
+    EXPECT_EQ(R"(ввд$$$
+*
+f      старт 1
+_save  внешн ._save
+g      внешн .g
 _ret   внешн ._ret
        счим 13
-       пв _save
+       пв _save(13)
        сч (6)
        уиа -1(14)
-       пв g
+       пв g(13)
        сл =в'1'
        пб _ret
        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
 )",
               out);
 }
@@ -94,15 +113,23 @@ _ret   внешн ._ret
 TEST_F(CodegenTest, BemshMainEntry)
 {
     std::string out = CompileToBemsh("int main() { return 0; }");
-    EXPECT_EQ(R"(*
-main   старт
+    EXPECT_EQ(R"(ввд$$$
+*
+main   старт 1
+_save0 внешн ._save0
 _ret   внешн ._ret
        входн progra
        счим 13
-       пв _save0
+       пв _save0(13)
        сч
        пб _ret
        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
 )",
               out);
 }
@@ -112,20 +139,35 @@ _ret   внешн ._ret
 TEST_F(CodegenTest, BemshGlobalAccess)
 {
     std::string out = CompileToBemsh("int counter; int f(void) { return counter; }");
-    EXPECT_EQ(R"(*
-counte старт
+    EXPECT_EQ(R"(ввд$$$
+*
+counte старт 1
        пам 1
        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
+ввд$$$
 *
-f      старт
+f      старт 1
+_save0 внешн ._save0
 _ret   внешн ._ret
 counte внешн .counte
        счим 13
-       пв _save0
+       пв _save0(13)
        мода counte
        сч
        пб _ret
        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
 )",
               out);
 }
@@ -134,14 +176,22 @@ counte внешн .counte
 TEST_F(CodegenTest, BemshFloatConst)
 {
     std::string out = CompileToBemsh("double f(void) { return 1.5; }");
-    EXPECT_EQ(R"(*
-f      старт
+    EXPECT_EQ(R"(ввд$$$
+*
+f      старт 1
+_save0 внешн ._save0
 _ret   внешн ._ret
        счим 13
-       пв _save0
+       пв _save0(13)
        сч =е'1.5'
        пб _ret
        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
 )",
               out);
 }
@@ -151,12 +201,19 @@ _ret   внешн ._ret
 TEST_F(CodegenTest, BemshStringGlobal)
 {
     std::string out = CompileToBemsh("char *s = \"HELLO\";");
-    EXPECT_EQ(R"(*
-s      старт
+    EXPECT_EQ(R"(ввд$$$
+*
+s      старт 1
        конд а()
        конд а(_str0)
 _str0  конд в'2204251423047400'
        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
 )",
               out);
 }
@@ -166,12 +223,19 @@ _str0  конд в'2204251423047400'
 TEST_F(CodegenTest, BemshIntArray)
 {
     std::string out = CompileToBemsh("int a[3] = {10, 20, 30};");
-    EXPECT_EQ(R"(*
-a      старт
+    EXPECT_EQ(R"(ввд$$$
+*
+a      старт 1
        конд в'12'
        конд в'24'
        конд в'36'
        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
 )",
               out);
 }
@@ -180,20 +244,35 @@ a      старт
 TEST_F(CodegenTest, BemshAddrOfGlobal)
 {
     std::string out = CompileToBemsh("int g; int *f(void) { return &g; }");
-    EXPECT_EQ(R"(*
-g      старт
+    EXPECT_EQ(R"(ввд$$$
+*
+g      старт 1
        пам 1
        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
+ввд$$$
 *
-f      старт
+f      старт 1
+_save0 внешн ._save0
 _ret   внешн ._ret
 g      внешн .g
        счим 13
-       пв _save0
+       пв _save0(13)
        уиа g(14)
        счи 14
        пб _ret
        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
 )",
               out);
 }
@@ -306,9 +385,8 @@ TEST(BemshMangle, NoCollisionsOverCorpus)
 
 // Cross-module consistency: a linkage name (here the 7-char function `counter`, truncated to
 // `counte`) must mangle identically at its definition module and at its `пв` call site in
-// another module — otherwise separately-emitted modules would fail to link.  (An explicit
-// `внешн` declaration for a `пв` call target is a separate B3 concern and is not asserted
-// here.)
+// another module — otherwise separately-emitted modules would fail to link.  (The `внешн`
+// declaration B3 now emits for a `пв` call target is exercised by the golden tests above.)
 TEST_F(CodegenTest, BemshCrossModuleNameConsistency)
 {
     std::string out =

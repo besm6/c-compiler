@@ -150,6 +150,22 @@ tree) resolve by bare name on `PATH`; `crt0.o` and `libc.a` are staged next to `
 stays green where the toolchain is absent. To reproduce by hand:
 `b6sim build/backend/besm6/<TestName>.b6` (add `-d irm` / `--trace=FILE` for tracing).
 
+**Running a program on the Bemsh (`*bemsh`) path.** `codegen_test.h` also provides
+`CompileAndRunBemsh` — the Bemsh-dialect `dubna` run harness (`besm-tests` `CodegenTest.Bemsh*Run`,
+`test/bemsh_run_tests.cpp`). It compiles in-process via `CompileToBemsh` (`genbesm --bemsh`), wraps
+the output in a `*bemsh` job linking the Bemsh runtime `libbem.bin` on library 40 (model:
+`backend/besm6/tmp/bemsh.dub`, entry `*main progra`), runs `dubna`, and scrapes the same `.lst`
+`≠`/`----` framing as the Madlen path — both share the `ExtractDubnaOutput` helper. genbesm
+`--bemsh` wraps each module in its own `ввд$$$…кнц$$$` Macro-Bemsh deck (the translator processes
+one module per deck). Unlike Madlen's auto-declaring `,call,`, Bemsh's `пв` needs an explicit
+`внешн` per call target (spliced in by `codegen.c` for the Bemsh dialect) and must carry the return
+register — `пв name(13)`; code labels are emitted as a labeled `ноп` (not `экв *`, which captures
+the wrong half-cell address). `libbem.bin` holds the hand-written helpers (task B4) plus the
+compiled char-level stdout chain `putbyte`/`flush`/`putchar`/`putch` (task B3), so these tests use
+`void program()` and produce visible output identical to the Madlen path; `printf` and the rest of
+the C libc for Bemsh are future work (task B5 in `backend/besm6/TODO.md`). To reproduce by hand:
+`dubna [-d rime] build/backend/besm6/<TestName>.dub`.
+
 **Target standard headers (`libc/besm6/include/`).** C11 standard-library headers for
 programs compiled for the BESM-6 (the freestanding subset is complete; the hosted subset
 declares the few implemented libc routines plus future ones — see the dir's `README.md`).
@@ -268,7 +284,7 @@ Tests are GoogleTest (C++17). Source lives alongside the module it tests:
 - `parser/test/simple_tests.cpp`, `statement_tests.cpp`, … (9 files, including `negative_tests.cpp`) → `parser-tests`
 - `tac/test/yaml_tests.cpp`, `graphviz_tests.cpp`, `binary_tests.cpp` → `tac-tests`
 - `semantic/test/symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` → `semantic-tests`
-- `backend/besm6/test/codegen_tests.cpp`, `arith_tests.cpp`, `copy_tests.cpp`, `flow_tests.cpp`, `run_tests.cpp`, `unary_tests.cpp`, `convert_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp`, `char_tests.cpp`, `peephole_tests.cpp`, `printf_tests.cpp`, `funcptr_tests.cpp`, `stdarg_tests.cpp`, `mem_tests.cpp`, and the Unix (`b6as`) dialect tests `unix_tests.cpp` (golden `.s`), `unix_link_tests.cpp` (`CompileAndAssembleUnix`: `b6as`+`b6ld`), `unix_run_tests.cpp` (`CompileAndRunUnix`: `b6as`+`b6ld`+`b6sim`) → `besm-tests`
+- `backend/besm6/test/codegen_tests.cpp`, `arith_tests.cpp`, `copy_tests.cpp`, `flow_tests.cpp`, `run_tests.cpp`, `unary_tests.cpp`, `convert_tests.cpp`, `frame_tests.cpp`, `init_tests.cpp`, `label_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp`, `char_tests.cpp`, `peephole_tests.cpp`, `printf_tests.cpp`, `funcptr_tests.cpp`, `stdarg_tests.cpp`, `mem_tests.cpp`, the Bemsh dialect tests `bemsh_tests.cpp` (golden `.bemsh`) and `bemsh_run_tests.cpp` (`CompileAndRunBemsh`: `genbesm --bemsh`+`besmc`+`dubna`), and the Unix (`b6as`) dialect tests `unix_tests.cpp` (golden `.s`), `unix_link_tests.cpp` (`CompileAndAssembleUnix`: `b6as`+`b6ld`), `unix_run_tests.cpp` (`CompileAndRunUnix`: `b6as`+`b6ld`+`b6sim`) → `besm-tests`
 - `translator/test/decl_tests.cpp`, `expr_tests.cpp`, `stmt_tests.cpp`, `cast_tests.cpp`, `incdec_tests.cpp`, `switch_tests.cpp`, `ptr_tests.cpp`, `struct_tests.cpp` → `translate-tests`
 - `optimize/test/const_fold_tests.cpp`, `jump_unreachable_tests.cpp`, `copy_prop_tests.cpp`, `dead_store_tests.cpp`, `type_conv_tests.cpp`, `pipeline_tests.cpp` → `optimizer-tests`
 - `libutil/test/string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-tests`
