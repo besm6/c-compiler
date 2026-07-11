@@ -20,6 +20,7 @@ Order of Lenin Institute of Applied Mathematics, USSR Academy of Sciences, May 1
 11. [Program-Linking Commands](#11-program-linking-commands)
 12. [The Blankless Statement Form](#12-the-blankless-statement-form)
 13. [Quick Reference](#13-quick-reference)
+14. [Assembling and Running Bemsh on Dubna (toolchain notes)](#14-assembling-and-running-bemsh-on-dubna-toolchain-notes)
 
 ---
 
@@ -1047,6 +1048,127 @@ coefficient `(p)` for every type except `А`. Type `Е` is allowed only in `КО
 `СЧ`=XTA · `СЧИ`=ITA · `СЧИМ`=ITS · `СЧМ`=XTS · `СЧМР`=YTA · `СЧРЖ`=RTE ·
 `УВВ`=I/O (priv.) · `УИ`=ATI · `УИА`=VTM · `УИИ`=MTJ · `УИМ`=STI ·
 `УМН`=A*X · `ЧЕД`=ACX · `ЦИКЛ`=VLM
+
+---
+
+## 14. Assembling and Running Bemsh on Dubna (toolchain notes)
+
+Sections 1–13 describe the *language* as defined in the 1967 manual. This section records the
+practical conventions for feeding Bemsh to the modern **`besmc`** driver (which runs the native
+*Макро-БЕМШ* translator inside the [`dubna`](Besm6_Unix_Assembler.md) simulator) and for running the
+result. These are the rules this project's BESM-6 C backend (`genbesm --bemsh`,
+[emit_bemsh.c](../backend/besm6/emit_bemsh.c)) obeys when it emits machine-generated Bemsh; several
+were learned the hard way, by tracing wrong output on `dubna`, and are easy to get wrong by writing
+straight from the manual.
+
+### 14.1 The Macro-Bemsh input deck
+
+`besmc` (and a `*bemsh` Dubna job) feed the source **verbatim** after the `*bemsh` control card and
+add no framing of their own. Every module — one `СТАРТ … ФИНИШ` unit — must therefore be wrapped by
+the source itself in a **Macro-Bemsh deck**:
+
+```text
+ввд$$$
+        <one СТАРТ … ФИНИШ module>
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
+```
+
+`ввд$$$` opens the input stream and `кнц$$$` closes the deck; the intervening `квч$$$ / трн$$$ /
+0-0 / блмак / бтмалф` lines are the fixed translate/macro-library trailer the translator expects.
+Treat the seven lines as an indivisible required wrapper.
+
+**One module per deck.** The translator processes exactly **one** `СТАРТ … ФИНИШ` module between a
+`ввд$$$` and its `кнц$$$`; a second `СТАРТ` inside the same deck is silently dropped. A translation
+unit that defines several modules (e.g. a function plus its module-level globals, each of which is
+its own `СТАРТ … ФИНИШ`) must emit **several decks back to back**. Multiple decks after a single
+`*bemsh` card all assemble into one relocatable object, so a whole compiled `.c` file — or a whole
+runtime library — is just a concatenation of one-module decks.
+
+### 14.2 The `*bemsh` Dubna job
+
+A minimal job that assembles a Bemsh program, links a prebuilt object library, and runs it:
+
+```text
+*name .
+*disc:1/local
+*file:LIB,40            ; attach the object library file LIB (basename LIB.bin) on slot 40
+*library:40            ; search slot 40 to resolve externals at load time
+*bemsh
+<one or more ввд$$$ … кнц$$$ decks>
+*main NAME             ; designate the entry object (see §14.3)
+*execute
+*end file
+```
+
+`*file:LIB,40` mounts a prebuilt library and `*library:40` makes the loader search it — both are
+needed, and both go **before** `*bemsh`. `*main NAME` names the object to run and `*execute` loads
+and starts it. A program's line output (via extracode `Э71`, the `b/tout` primitive) is bracketed in
+the printed `.lst` between the second `≠` line and the trailing `----` separator — the same framing
+as a Madlen job, so the two share one output scraper.
+
+### 14.3 Entry point, externals, and calls
+
+- **Auto entry.** `СТАРТ` names the program *and* makes that name an entry point automatically (no
+  `ВХОДН` needed). `*main NAME` on the job then selects it. Because labels are truncated to six
+  characters (§4), the name on the job must be the *truncated* form: a C `program` becomes `progra`,
+  so the card reads `*main progra`.
+- **`ФИНИШ` may be empty.** With `*main` selecting the entry, `ФИНИШ` needs no operand.
+- **`СТАРТ` needs a start-address operand.** An empty operand is rejected; use `СТАРТ 1` (the value
+  is irrelevant for a relocatable module — the loader relocates it).
+- **Every call target needs an explicit `ВНЕШН`.** Unlike Madlen's `,call,` macro, Bemsh's `ПВ`
+  (VJM) does **not** auto-declare its callee. Each distinct `ПВ` target must be declared external —
+  `NAME ВНЕШН .NAME` (the search-all `.name` form) — before its first use, or the load leaves it
+  undefined. (A recursive call to the current module's own `СТАРТ` name stays a local reference and
+  must *not* be declared external.)
+- **`ПВ` must carry the return register.** A call is `ПВ name(13)` — VJM through index register 13,
+  which the callee reads to return via `ПБ (13)`. Writing a bare `ПВ name` puts the return link in
+  register 0 (architecturally zero, so it is discarded) and the callee returns to a stale address —
+  usually somewhere in the monitor. This is the single most common way to get a job that assembles
+  cleanly (0 errors) yet runs into garbage.
+
+### 14.4 Code labels: use a labeled instruction, not `ЭКВ *`
+
+A branch target must be the address of a **whole cell** (control cannot enter the right instruction
+of a cell — §7.7). Do **not** define a code label with `NAME ЭКВ *`: the `*` operand yields only the
+*integer part* of the half-cell address counter (§5), so a label written after an odd number of
+instructions captures the current (right-half) cell, while the instruction it is meant to name — the
+next *labeled* item, which the translator forces into the **left half of a fresh cell** — lands one
+cell later. A branch to such a label then executes the *previous* cell's left instruction instead.
+
+Instead, define the label with `NAME НОП`. `НОП` is a Macro-Bemsh **label-holder** pseudo-operation:
+it does *not* generate a machine instruction, but it aligns the address counter to a fresh whole cell
+(padding any pending right half) and binds the name to that cell. The next real instruction is then
+placed at that cell, so the label names it exactly, and a branch to the label lands on a genuine cell
+boundary. (This is what `genbesm --bemsh` emits for every basic-block label.)
+
+### 14.5 `ПАМ` does not clear memory
+
+`ПАМ N` reserves *N* cells but does **not** zero them (§9.2) — a C-style tentative definition such as
+`int counter;` compiled to `counter ПАМ 1` must not assume the cell is zero. In practice the Dubna
+loader delivers a freshly loaded program region already zeroed, so simple cases work; but nothing in
+the *language* guarantees it, and reused or overlaid memory will not be clear. Emit explicit zero
+constants (`КОНД В'0'`, optionally with a repeat coefficient) when zero-initialization must be
+guaranteed.
+
+### 14.6 Reading the listing and tracing
+
+- **Fields print in octal.** The `.lst` disassembly shows index registers and short addresses in
+  octal. `СЧИМ 13` (decimal register 13) prints as `ITS 15`; a call `ПВ name(13)` prints as
+  `VJM …(15)`. Octal `15` = decimal 13 — not a discrepancy.
+- **Per-module summary.** Each module ends with a line `NAME HAM=… … BXOДH=… BHEШH=… ЧИCЛO METOK=…`
+  (entry-point count, external count, label count) and `ЧИCЛO OШИБOK=NNNN` (error count). A nonzero
+  error count, or an `OTCYTCTBYET NAME` at load time, pinpoints an undefined external.
+- **Instruction tracing.** Re-run a job under the simulator with
+  `dubna -d rime --trace=FILE job.dub` to get a full register/instruction/extracode/memory trace
+  (modes: `r` registers, `i` instructions, `m` memory, `e` extracodes; add `p` for print extracodes).
+  Follow a routine by its load address from the link map (the symbol/address table printed between
+  the two `≠` lines), remembering that during loading the same low addresses are reused by the
+  loader's own block-copy loop — the program proper runs last, near the end of the trace.
 
 ---
 
