@@ -1,0 +1,20 @@
+ввд$$$
+_uneg   старт   1
+_true   внешн   ._true
+* _true+2 = bits 48...1
+*
+* Compute unary negate operation for unsigned value.
+*
+        или
+        по      (13)            ; -0u -> 0u
+        нтж     _true+2         ; all ones
+        слц     _true           ; ~x + 1
+        или
+        пб      (13)
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

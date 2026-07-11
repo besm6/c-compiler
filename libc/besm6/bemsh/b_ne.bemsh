@@ -1,0 +1,22 @@
+ввд$$$
+_ne     старт   1
+*
+* Compute relational Not Equal operation.
+* Pop two values from stack.
+* Push result back.
+*
+_true   внешн   ._true
+        нтж     (15)
+        пе      true
+        сч
+        пб      (13)
+*
+true    сч      _true
+        пб      (13)
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

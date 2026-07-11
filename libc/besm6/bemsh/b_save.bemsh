@@ -1,0 +1,22 @@
+ввд$$$
+_save   старт   1
+*
+* Save registers on the stack.
+* Called on entry to each C function with one or more parameters.
+*
+        сли     14(15)
+        счим    7
+        счим    6
+        счим    5
+        счим
+        уии     6(14)
+        уии     7(15)
+        ржа     7
+        пб      (13)
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

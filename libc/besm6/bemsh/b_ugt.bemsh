@@ -1,0 +1,20 @@
+ввд$$$
+_ugt    старт   1
+*
+* Unsigned greater than.
+* Pop two values from stack, push result back.
+*
+        нтж     -1(15)          ; A ^ B
+        зп      (15)            ; push A^B to stack
+        сч      -2(15)          ; get A from stack
+        сбр     (15)            ; pop A^B from stack, pack by A
+        сда     64+47           ; get bit 48
+        слиа    -1(15)          ; pop stack
+        пб      (13)
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

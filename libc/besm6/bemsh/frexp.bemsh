@@ -1,0 +1,25 @@
+ввд$$$
+frexp   старт   1
+_true   внешн   ._true
+* _true+1 = bit 48
+*
+* double frexp(double value, int *exp)
+*
+        уим     14              ; r14 := exp ; A := value ; r15 -= 1
+        зп      (14)            ; *exp := 0
+        по      (13)            ; value == 0 -> fraction 0, *exp 0
+        зп      (15)            ; push value : value now at mem[r15-1]
+        сда     64+41           ; A := value >> 41 ; field lands in bits 7-1
+        и       =в'177'         ; isolate the field (0..127)
+        вч      =в'100'         ; A := field - 64 = e
+        зпм     (14)            ; *exp := e ; pop value from stack
+        и       =в'377777777777777'   ; keep sign + mantissa (bits 41-1)
+        или     _true+1         ; set the exponent field to 64 (bit 48)
+        пб      (13)            ; return the fraction in A
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

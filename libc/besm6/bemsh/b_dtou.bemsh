@@ -1,0 +1,36 @@
+ввд$$$
+_dtou   старт   1
+        употр   *(14)
+*
+* Convert a native floating-point value to a 48-bit unsigned integer, truncated
+* toward zero:  result = (unsigned)x.  Operand x in A; result in A.
+*   hi = trunc(x * 2^-24);  lo = trunc(x - (double)hi * 2^24);  result = (hi<<24)|lo
+*
+        зп      (15)            ; push x
+        ржа
+        умн     =в'2450000000000000'    ; A := x * 2^-24
+        ржа     3               ; R := 3: suppress normalize + round
+        сл      =в'6400000000000000'    ; realign -> truncate toward zero
+        и       =в'37777777777777'      ; mask -> hi  (integer, < 2^24)
+        зп      (15)            ; push hi
+        или     =в'6400000000000000'    ; A := INT-format hi
+        ржа
+        сл
+        умн     =в'5450000000000000'    ; A := (double)hi * 2^24
+        вчоб    -2(15)          ; A := x - (double)hi*2^24 = lo
+        ржа     3               ; R := 3: suppress normalize + round
+        сл      =в'6400000000000000'    ; realign -> truncate toward zero
+        и       =в'37777777777777'      ; mask -> lo  (integer, < 2^24)
+        зп      (15)            ; push lo
+        сч      -2(15)          ; A := hi
+        сда     64-24           ; A := hi << 24
+        или     -1(15)          ; A := (hi << 24) | lo
+        слиа    -3(15)          ; drop x, hi, lo
+        пб      (13)            ; return
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

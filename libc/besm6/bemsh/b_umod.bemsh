@@ -1,0 +1,45 @@
+ввд$$$
+_umod   старт   1
+_udiv   внешн   ._udiv
+_umul   внешн   ._umul
+_usub   внешн   ._usub
+*
+* Unsigned remainder of two 48-bit integers:  result = a % b  (full 48-bit range).
+* Dividend a on the stack at mem[r15-1], divisor b in A; remainder in A; pops one word.
+*   r = a - (a / b) * b   using _udiv, _umul, _usub.
+* Frame (relative to r12): a = r12-1, b = r12+0, r13 = r12+1, scratch = r12+2.
+* NB: like _udiv this routine has NO base directive; labels resolve absolutely.
+*
+        зп      (15)            ; push b: mem[E] := b, r15 := E+1
+        счи     13              ; A := saved return address (r13)
+        зп      (15)            ; push r13: mem[E+1] := r13, r15 := E+2
+        уии     12(15)          ; r12 := r15 = E+2
+        слиа    -2(12)          ; r12 := E
+        слиа    1(15)           ; reserve scratch slot r12+2: r15 := E+3
+* q = _udiv(a, b)
+        сч      -1(12)          ; A := a
+        счм     (12)            ; push a, A := b
+        пв      _udiv(13)       ; A := q = a / b
+        зп      2(12)           ; scratch := q
+* p = _umul(q, b)
+        сч      2(12)           ; A := q
+        счм     (12)            ; push q, A := b
+        пв      _umul(13)       ; A := p = q * b
+        зп      2(12)           ; scratch := p
+* r = _usub(a, p) = a - p
+        сч      -1(12)          ; A := a
+        счм     2(12)           ; push a, A := p
+        пв      _usub(13)       ; A := r = a - p
+        зп      2(12)           ; scratch := r
+        сч      1(12)           ; A := saved r13
+        уи      13              ; r13 := A
+        сч      2(12)           ; A := r  (result)
+        слиа    -4(15)          ; drop the frame
+        пб      (13)            ; return
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

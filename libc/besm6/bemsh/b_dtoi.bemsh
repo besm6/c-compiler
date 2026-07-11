@@ -1,0 +1,24 @@
+ввд$$$
+_dtoi   старт   1
+        употр   *(14)
+*
+* Convert a native floating-point value to a signed int, truncated toward zero:
+* result = (int)x.  Operand x in A; result in A.
+* Realign the MAGNITUDE |x| to the INT exponent (=:64), then reapply the sign.
+*
+        зп      (15)            ; push x as the sign reference
+        ржа
+        знак    -1(15)          ; A := |x|
+        ржа     3               ; R := 3: suppress normalize + round
+        сл      =в'6400000000000000'    ; realign |x|, dropping the fraction
+        знак    -1(15)          ; reapply sign
+        слиа    -1(15)          ; pop x
+        и       =в'37777777777777'      ; mask off exponent -> raw 41-bit int
+        пб      (13)            ; return
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

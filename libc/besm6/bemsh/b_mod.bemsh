@@ -1,0 +1,38 @@
+ввд$$$
+_mod    старт   1
+        употр   *(14)
+*
+* Signed remainder, result takes the sign of the DIVIDEND (C semantics): a % b.
+* Dividend a on the stack at mem[r15-1], divisor b in A; remainder returned in A.
+* Compute |r| = |a| - (|a| / |b|) * |b| from non-negative operands, then negate
+* iff the dividend a was negative.  INT-format via the =:64 literal.
+*
+        ржа
+        или     =в'6400000000000000'    ; A := INT-format b
+        зп      (15)            ; push b
+        знак    -1(15)          ; A := |b|, normalized
+        зп      -1(15)          ; store the modulus back: mem[r15-1] := |b|
+        сч      -2(15)          ; A := raw a (dividend)
+        или     =в'6400000000000000'    ; A := INT-format a
+        знак    -2(15)          ; A := |a|, normalized
+        зп      (15)            ; push |a|
+        дел     -2(15)          ; A := |a| / |b|
+        ржа     3               ; R := 3: suppress normalize + round
+        сл      =в'6400000000000000'    ; truncate |q| toward zero
+        ржа
+        умн     -2(15)          ; A := |q| * |b|
+        вчоб    -1(15)          ; A := |a| - product = |r|
+        ржа     3               ; R := 3: suppress normalize + round
+        сл      =в'6400000000000000'    ; re-align |r|, dropping the fraction
+        и       =в'37777777777777'      ; mask off the exponent field
+        знак    -3(15)          ; reapply dividend sign
+        слиа    -3(15)          ; drop |a|, |b|, a
+        или
+        пб      (13)            ; return
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

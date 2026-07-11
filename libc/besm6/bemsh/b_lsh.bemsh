@@ -1,0 +1,18 @@
+ввд$$$
+_lsh    старт   1
+*
+* Compute a left shift operation A << B.
+* Pop two values from stack.
+* Push result back.
+*
+        нтж     =в'177'         ; ~B is the same as -B-1
+        уим     14              ; r14 = -B-1, pop A from stack
+        сда     64+1(14)        ; A <<= -r14-1
+        пб      (13)
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

@@ -1,0 +1,53 @@
+ввд$$$
+_stb    старт   1
+        употр   *(14)
+*
+* Store one byte through a char*/void* fat pointer (read-modify-write).
+*   a = fat pointer  — on the stack top (mem[r15-1]); popped by this helper.
+*   b = byte value   — in the accumulator.
+* The fat pointer encodes the word address in bits 15-1 and the byte offset in
+* bits 47-45 (exponent = 64 + offset*8).  r6/r7 are preserved.
+*
+        и       =в'377'         ; mask the byte value to 8 bits
+        зп      val             ; save b
+        сч      (15)            ; pop the fat pointer a from the stack
+        зп      ptr             ; save the pointer (for the word address)
+        сда     64+44           ; offset: bits 47-45 -> bits 3-1
+        и       =в'7'           ; keep the 3-bit offset (0..5)
+        уи      11
+        сч      ptr
+        уи      12
+        сч      (12)            ; A = word at the pointer's word address
+        и       mask(11)        ; clear the target byte
+        зп      word
+        сч      val             ; A = byte value
+        сд      shift(11)       ; shift it left into the target byte position
+        или     word            ; OR it into the cleared word
+        зп      (12)            ; write the word back
+        сч      val             ; return the stored byte in A
+        пб      (13)
+*
+val     пам     1
+ptr     пам     1
+word    пам     1
+* mask[offset]: clears the target byte (offset 0 = LSB byte#5 .. 5 = MSB byte#0)
+mask    конд    в'7777777777777400'
+        конд    в'7777777777600377'
+        конд    в'7777777700177777'
+        конд    в'7777740077777777'
+        конд    в'7760037777777777'
+        конд    в'0017777777777777'
+* shift[offset]: OCT exponent = 64 - offset*8, so ASX left-shifts by offset*8
+shift   конд    в'4000000000000000'
+        конд    в'3400000000000000'
+        конд    в'3000000000000000'
+        конд    в'2400000000000000'
+        конд    в'2000000000000000'
+        конд    в'1400000000000000'
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

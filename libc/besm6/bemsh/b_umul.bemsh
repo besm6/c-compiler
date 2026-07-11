@@ -1,0 +1,89 @@
+ввд$$$
+_umul   старт   1
+_true   внешн   ._true
+* _true+1 = bit 48
+        употр   *(14)
+*
+* Multiply two 48-bit unsigned integers, low 48 bits of the product (a*b mod 2^48).
+* Operand a on the stack at mem[r15-1], b in A; product in A; pops one word.
+*   Short (both < 2^40): one 40x40 -> low-48 multiply, then repack.
+*   Long  (some >= 2^40): split at 2^40, assemble low 48 from the partial products.
+*
+        зп      (15)            ; mem[r15] := b ; r15 += 1
+        или     -2(15)          ; A := b | a
+        сда     64+40           ; A := (a|b) >> 40
+        пе      longs           ; high bits present -> long way
+*
+* short way: single 40x40 -> low 48
+        сч      -2(15)          ; A := a
+        или     _true+1         ; a |= exponent offset
+        умн     (15)            ; [A,Y] := a*b
+        счм
+        счмр
+        зпм     -2(15)          ; save to stack
+        сда     64-40           ; shift bits 80:41 to bits 48:41
+        или     (15)            ; combine -> prod[48:1]
+        пб      (13)            ; return
+*
+* long way: split each operand at the 40-bit mantissa boundary
+longs   сч      -2(15)          ; A := a
+        и       =в'177777777777777'     ; aL := a & (2^40-1)
+        зп      (15)            ; push aL
+        сч      -3(15)          ; A := a
+        сда     64+40           ; aH := a >> 40
+        зп      (15)            ; push aH
+        сч      -3(15)          ; A := b
+        и       =в'177777777777777'     ; bL := b & (2^40-1)
+        зп      (15)            ; push bL
+        сч      -4(15)          ; A := b
+        сда     64+40           ; bH := b >> 40
+        зп      (15)            ; push bH
+* main term: pll = (aL*bL) low 48
+        сч      -2(15)          ; A := bL
+        или     _true+1         ; bL |= exponent offset
+        умн     -4(15)          ; [A,Y] := aL * bL
+        счм
+        счмр
+        счм     -2(15)          ; A := bits 80:41
+        сда     64-40           ; shift to bits 48:41
+        или     (15)            ; pll := prod[48:1]
+        зп      -1(15)          ; store pll into the junk hi slot
+* cross term 1: c1 = (aL*bH) & 0xFF
+        сч      -2(15)          ; A := bH
+        или     _true+1
+        умн     -5(15)          ; [A,Y] := aL * bH
+        счм
+        счмр
+        и       =в'377'         ; c1 := (aL*bH) & 0xFF
+        слиа    -1(15)          ; drop the junk push
+        зп      (15)            ; push c1
+* cross term 2: c2 = (aH*bL) & 0xFF ; cross = (c1+c2) & 0xFF
+        сч      -4(15)          ; A := bL
+        или     _true+1
+        умн     -5(15)          ; [A,Y] := aH * bL
+        счм
+        счмр
+        и       =в'377'         ; c2 := (aH*bL) & 0xFF
+        слиа    -1(15)          ; drop the junk push
+        слц     -1(15)          ; A := c2 + c1
+        и       =в'377'         ; cross := (c1+c2) & 0xFF
+        зп      -1(15)          ; store cross into the c1 slot
+* result = (pll & mask40) | (((pll>>40) + cross) & 0xFF) << 40
+        сч      -2(15)          ; A := pll
+        сда     64+40           ; pll[48:41]
+        слц     -1(15)          ; + cross
+        и       =в'377'         ; & 0xFF
+        сда     64-40           ; << 40  -> bits 48:41
+        зп      -1(15)          ; store high byte into the cross slot
+        сч      -2(15)          ; A := pll
+        и       =в'177777777777777'     ; pll low 40 bits
+        или     -1(15)          ; combine high byte -> result
+        слиа    -8(15)          ; net pop of one word
+        пб      (13)
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

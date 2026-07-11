@@ -120,6 +120,10 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libc.bin DESTINATION share/besm6/lib)
 # and LIBC_MADLEN (the reuse surface) set above.
 add_subdirectory(unix)
 
+# The Bemsh (Cyrillic autocode) runtime library (libbem.bin).  A child scope so it inherits
+# LIBC_MADLEN (its reuse surface — helpers only for now); see bemsh/CMakeLists.txt.
+add_subdirectory(bemsh)
+
 # Target C11 standard headers, installed alongside the runtime library.
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
         DESTINATION share/besm6/include

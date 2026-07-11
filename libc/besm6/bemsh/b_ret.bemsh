@@ -1,0 +1,30 @@
+ввд$$$
+_ret    старт   1
+*
+* Restore registers from the stack.
+* Called on exit from a C function.
+*
+        уии     14(6)
+        уии     15(7)
+        зпм     -5(7)
+        уим     5
+        уим     6
+        уим     7
+        уим     13
+        уии     15(14)
+        пб      (13)
+*
+* Block of constants for other routines,
+* to be accessed as _true + offset.
+*
+        входн   _true
+_true   конд    в'1'
+bit48   конд    в'4000000000000000'
+bits48  конд    в'7777777777777777'
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

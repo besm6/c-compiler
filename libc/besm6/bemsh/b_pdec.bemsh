@@ -1,0 +1,39 @@
+ввд$$$
+_pdec   старт   1
+*
+* Decrement a char*/void* fat pointer by one byte (char*--): move toward the MSB.
+* Mirror of b/pinc: advancing back one byte increments offset_enc; at offset_enc 5
+* it wraps to 0 and the word address steps back by one.  Operand/result A.
+*
+        зп      p
+        и       =в'77777'       ; A = word address (bits 15-1)
+        зп      w
+        сч      p
+        сда     64+44           ; offset_enc -> bits 3-1
+        и       =в'7'           ; offset_enc (0..5)
+        зп      enc
+        нтж     =в'5'           ; enc XOR 5 == 0  iff  offset_enc == 5
+        по      wrap            ; offset_enc == 5 -> wrap to 0, step word back
+        сч      enc
+        слц     =в'1'           ; offset_enc + 1
+        и       =в'7'           ; re-mask to 3 bits
+        сда     64-44           ; offset_enc' -> bits 47-45
+        или     =в'4000000000000000'    ; set marker (bit 48)
+        или     w               ; OR in the word address
+        пб      (13)
+wrap    сч      w
+        слц     =в'7777777777777776'    ; word -= 1 (end-around add of -1)
+        и       =в'77777'
+        или     =в'4000000000000000'    ; marker + offset_enc 0 (LSB of prev word)
+        пб      (13)
+*
+p       пам     1
+w       пам     1
+enc     пам     1
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

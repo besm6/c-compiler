@@ -1,0 +1,19 @@
+ввд$$$
+ldexp   старт   1
+*
+* double ldexp(double x, int n) -- return x * 2^n.
+* Entry: x at mem[r15-1], n in the accumulator.  Result in the accumulator.
+*
+        нтж     =в'100'         ; n + 64
+        сда     64-41           ; (n+64) << 41  into the exponent field
+        счм     -2(15)          ; x             push stack
+        слп     (15)            ; x * 2^n       pop stack
+        слиа    -1(15)          ; drop x
+        пб      (13)            ; return
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

@@ -1,0 +1,17 @@
+ввд$$$
+_rsh    старт   1
+*
+* Compute a right shift operation A >> B.
+* Pop two values from stack.
+* Push result back.
+*
+        уим     14              ; r14 = B, pop A from stack
+        сда     64(14)          ; A >>= r14
+        пб      (13)
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

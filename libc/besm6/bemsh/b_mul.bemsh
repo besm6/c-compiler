@@ -1,0 +1,23 @@
+ввд$$$
+_mul    старт   1
+        употр   *(14)
+*
+* Multiply two 41-bit signed integers, giving the low 41 bits of the product.
+* Operand a on the stack at mem[r15-1], b in A; product returned in A.
+*
+        или     =в'6400000000000000'    ; A := INT-format b
+        зпм     (15)
+        или     =в'6400000000000000'    ; A := INT-format a
+        ржа     2
+        умн     1(15)
+        ржа     3
+        сл      =в'6400000000000000'    ; re-align, truncate toward zero
+        и       =в'377777777777777'     ; mask off exponent field
+        пб      (13)
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

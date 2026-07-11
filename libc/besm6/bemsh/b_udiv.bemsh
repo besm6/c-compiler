@@ -1,0 +1,118 @@
+ввд$$$
+_udiv   старт   1
+_div    внешн   ._div
+_mod    внешн   ._mod
+_uge    внешн   ._uge
+_usub   внешн   ._usub
+_uadd   внешн   ._uadd
+*
+* Divide two 48-bit unsigned integers, floor quotient:  result = a / b.
+* Dividend a on the stack at mem[r15-1], divisor b in A; quotient in A; pops one word.
+*   b == 0            : return 0.
+*   (a|b) < 2^40      : tail-jump to _div (one hardware divide).
+*   b < 2^32          : 2-step base-2^8 long division using _div / _mod.
+*   b >= 2^32         : divisor-shift / subtract loop.
+* NB: deliberately NO base directive (literals/labels addressed absolutely).
+*
+        зп      (15)            ; push b: mem[E]=b, r15=E+1
+        сч      -1(15)          ; reload b (logical w, w = b!=0)
+        по      uz              ; b == 0 -> return 0
+        сч      -2(15)          ; A := a
+        или     -1(15)          ; A := a | b
+        сда     64+40           ; A := (a|b) >> 40
+        по      ufst            ; both < 2^40 -> single hardware divide
+        сч      -1(15)          ; A := b
+        сда     64+32           ; A := b >> 32
+        по      utwo            ; b < 2^32 -> 2-step long division
+*
+* wide path: divisor-shift long division (b >= 2^32)
+* frame (from r15): rem=-5 b=-4 r13=-3 quot=-2 t=-1
+        счи     13              ; A := saved return address (r13)
+        счм
+        зп      (15)            ; push quot = 0
+        зп      (15)            ; push t slot (= 0)
+        сч      -4(15)          ; A := b
+        нед
+        ржа     3               ; suppress normalization
+        вчоб    =в'1'           ; A := 1 - p  (= -s_start, <= 0)
+        уи      11              ; r11 := -s
+ulp     сч      -4(15)          ; A := b
+        сда     64(11)          ; A := b << s
+        зп      -1(15)          ; t := A
+        сч      -5(15)          ; A := rem
+        счм     -2(15)          ; push rem, A := t
+        пв      _uge(13)        ; A := (rem >= t) ? 1 : 0
+        по      usk             ; rem < t -> quotient bit stays 0
+        сч      -5(15)          ; A := rem
+        счм     -2(15)          ; push rem, A := t
+        пв      _usub(13)       ; A := rem - t
+        зп      -5(15)          ; rem := A
+        сч      =в'1'           ; A := 1
+        сда     64(11)          ; A := 1 << s
+        или     -2(15)          ; A |= quot
+        зп      -2(15)          ; quot := A
+usk     пио     udn(11)         ; s reached 0 -> done
+        слиа    1(11)           ; s -= 1   (r11 += 1)
+        пб      ulp
+udn     сч      -3(15)          ; A := saved return address
+        уи      13              ; r13 := A
+        сч      -2(15)          ; A := quot  (result, raw 48-bit)
+        слиа    -5(15)          ; drop the frame
+        пб      (13)            ; return
+*
+* fast path: both operands < 2^40 -> exact signed divide
+ufst    сч      (15)            ; pop b: A := b, r15 := entry
+        пб      _div            ; a at mem[r15-1], b in A; _div floors
+*
+* 2-step path: b < 2^32, base-2^8 long division
+* frame based at r10:  a=r10-1  b=r10+0  r13=r10+1  q1=r10+2  num2=r10+3  q=r10+4
+utwo    уии     10(15)          ; r10 := r15  (= E+1)
+        слиа    -1(10)          ; r10 := E    (base: b at r10, a at r10-1)
+        слиа    4(15)           ; reserve frame: r15 := E+5
+        счи     13              ; A := r13
+        зп      1(10)           ; save r13 at r10+1
+* q1 = _div(aHi, b)
+        сч      -1(10)          ; A := a
+        сда     64+8            ; A := a >> 8 = aHi
+        счм     (10)            ; push aHi, A := b
+        пв      _div(13)        ; A := q1 = aHi / b
+        зп      2(10)           ; q1 := A
+* r1 = _mod(aHi, b);  num2 = (r1<<8) | (a & 0377)
+        сч      -1(10)          ; A := a
+        сда     64+8            ; A := aHi
+        счм     (10)            ; push aHi, A := b
+        пв      _mod(13)        ; A := r1 = aHi mod b
+        сда     64-8            ; A := r1 << 8
+        зп      3(10)           ; num2 := r1<<8  (temp)
+        сч      -1(10)          ; A := a
+        и       =в'377'         ; A := a & 0377 = aLo
+        или     3(10)           ; A := aLo | (r1<<8) = num2
+        зп      3(10)           ; num2 := A
+* q2 = _div(num2, b)
+        сч      3(10)           ; A := num2
+        счм     (10)            ; push num2, A := b
+        пв      _div(13)        ; A := q2 = num2 / b
+        зп      4(10)           ; q2 := A  (temp)
+* q = (q1<<8) + q2
+        сч      2(10)           ; A := q1
+        сда     64-8            ; A := q1 << 8
+        счм     4(10)           ; push q1<<8, A := q2
+        пв      _uadd(13)       ; A := (q1<<8) + q2 = q
+        зп      4(10)           ; q := A
+        сч      1(10)           ; A := saved r13
+        уи      13              ; r13 := A
+        сч      4(10)           ; A := q  (result)
+        слиа    -6(15)          ; drop the frame
+        пб      (13)            ; return
+*
+* b == 0: undefined; return 0 with the stack popped by one word.
+uz      сч
+        слиа    -2(15)          ; r15 := entry - 1
+        пб      (13)
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

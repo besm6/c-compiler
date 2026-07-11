@@ -1,0 +1,33 @@
+ввд$$$
+_div    старт   1
+        употр   *(14)
+*
+* Signed integer division, truncated toward zero:  result = a / b.
+* Dividend a on the stack at mem[r15-1], divisor b in A; quotient returned in A.
+* Divide the MODULI and reapply the sign afterwards (the FP divide floors).
+* Operands are put in INT-format (=:64 = exponent 0150B) so the FP unit reads
+* each raw word as its integer value.
+*
+        ржа
+        или     =в'6400000000000000'    ; A := INT-format b
+        зп      (15)            ; push b
+        нтж     -2(15)          ; A := b XOR a
+        счм     -2(15)          ; push sign word s, reload b
+        знак    -2(15)          ; A := |b|
+        счм     -4(15)          ; push |b|, reload raw a
+        или     =в'6400000000000000'    ; A := INT-format a
+        знак    -4(15)          ; A := |a|
+        дел     (15)            ; A := |a| / |b|
+        ржа     3               ; R := 3
+        сл      =в'6400000000000000'    ; re-align, truncate toward zero
+        знак    (15)            ; reapply sign
+        слиа    -2(15)          ; drop a,b
+        и       =в'37777777777777'      ; mask off exponent field
+        пб      (13)            ; return
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

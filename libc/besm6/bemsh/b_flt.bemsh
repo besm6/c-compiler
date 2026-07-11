@@ -1,0 +1,28 @@
+ввд$$$
+_flt    старт   1
+*
+* Floating-point relational Less Than:  result = (a < b).
+* Pop two FP values from stack (a at mem[r15-1], b in A).  Push raw 0/1 back.
+*
+* NTR (R := 0) selects full FP mode so the subtract normalizes and rounds.
+* Before returning, each path restores R := 7 (the integer mode b/save leaves
+* in place).  The NTR 7 must follow the branch, since NTR overwrites omega.
+*
+_true   внешн   ._true
+        ржа
+        вчоб    (15)            ; A := a - b (FP); additive sign set
+        пе      true            ; a - b < 0  ->  a < b
+        сч
+        ржа     7               ; restore integer mode for the caller
+        пб      (13)
+*
+true    сч      _true           ; A := 1 (true)
+        ржа     7               ; restore integer mode for the caller
+        пб      (13)
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

@@ -1,0 +1,74 @@
+ввд$$$
+_pdiff  старт   1
+        употр   *(14)
+*
+* Difference of two char*/void* fat pointers: p - q -> ptrdiff_t byte count.
+* Minuend a (= p) on the stack top (mem[r15-1]); subtrahend b (= q) in A; result a-b
+* in A, a popped.  abs = word*6 + byte#  (byte# = 5 - offset_enc, or 0 if marker clear).
+* All raw integer mode (R = 7 at entry): no normalization, no division.
+*
+        зп      b               ; save b (q), in A at entry
+        сч      (15)            ; pop a (p)
+        зп      a
+        и       =в'77777'       ; word_a (bits 15-1)
+        зп      w
+        сда     64-1            ; 2*word
+        зп      w2
+        сч      w
+        сда     64-2            ; 4*word
+        сл      w2              ; 6*word_a
+        зп      aa
+        сч      a
+        и       =в'4000000000000000'    ; test the marker (bit 48)
+        по      abare           ; marker clear -> byte# = 0
+        сч      a
+        сда     64+44           ; offset_enc -> bits 3-1
+        и       =в'7'
+        уи      11
+        сч      ttab(11)        ; byte# = 5 - offset_enc
+        сл      aa
+        зп      aa
+abare   сч      b
+        и       =в'77777'       ; word_b (bits 15-1)
+        зп      w
+        сда     64-1
+        зп      w2
+        сч      w
+        сда     64-2
+        сл      w2              ; 6*word_b
+        зп      bb
+        сч      b
+        и       =в'4000000000000000'    ; test the marker (bit 48)
+        по      bbare           ; marker clear -> byte# = 0
+        сч      b
+        сда     64+44           ; offset_enc -> bits 3-1
+        и       =в'7'
+        уи      11
+        сч      ttab(11)        ; byte# = 5 - offset_enc
+        сл      bb
+        зп      bb
+bbare   сч      aa
+        вч      bb              ; R = 7: raw integer subtract
+        или
+        пб      (13)
+*
+a       пам     1
+b       пам     1
+w       пам     1
+w2      пам     1
+aa      пам     1
+bb      пам     1
+* ttab[i] = 5 - i  (octal)
+ttab    конд    в'5'
+        конд    в'4'
+        конд    в'3'
+        конд    в'2'
+        конд    в'1'
+        конд    в'0'
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

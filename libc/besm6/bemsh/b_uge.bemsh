@@ -1,0 +1,21 @@
+ввд$$$
+_uge    старт   1
+*
+* Unsigned greater than or equal.
+* Pop two values from stack, push result back.
+*
+_true   внешн   ._true
+        нтж     (15)            ; A ^ B
+        зп      (15)            ; push to stack
+        счмр
+        сбр     (15)            ; pop A^B from stack, pack by B
+        сда     64+47           ; get bit 48
+        нтж     _true           ; invert
+        пб      (13)
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

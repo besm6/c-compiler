@@ -1,0 +1,22 @@
+ввд$$$
+_ule    старт   1
+*
+* Unsigned less than or equal.
+* Pop two values from stack, push result back.
+*
+_true   внешн   ._true
+        нтж     -1(15)          ; A ^ B
+        зп      (15)            ; push A^B to stack
+        сч      -2(15)          ; get A from stack
+        сбр     (15)            ; pop A^B from stack, pack by A
+        сда     64+47           ; get bit 48
+        слиа    -1(15)          ; pop stack
+        нтж     _true           ; invert
+        пб      (13)
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$

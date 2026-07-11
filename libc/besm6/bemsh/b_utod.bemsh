@@ -1,0 +1,31 @@
+ввд$$$
+_utod   старт   1
+        употр   *(14)
+*
+* Convert a 48-bit unsigned integer to a native floating-point value:
+* result = (double)u.  Operand u in A; result in A.
+*   u = hi * 2^24 + lo;  (double)u = (double)hi * 2^24 + (double)lo
+*
+        зп      (15)            ; push u
+        сда     64+24           ; A := u >> 24 = hi
+        или     =в'6400000000000000'    ; A := INT-format hi
+        ржа
+        сл
+        умн     =в'5450000000000000'    ; A := (double)hi * 2^24
+        зп      (15)            ; push hi24
+        сч      -2(15)          ; A := u
+        и       =в'77777777'    ; A := u & (2^24-1) = lo
+        или     =в'6400000000000000'    ; A := INT-format lo
+        ржа
+        сл
+        сл      -1(15)          ; A := (double)lo + hi24 = (double)u
+        ржа     7               ; R := 7: restore integer mode
+        слиа    -2(15)          ; drop u, hi24
+        пб      (13)            ; return
+        финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
