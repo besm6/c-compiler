@@ -44,6 +44,30 @@ Other modules import `_true` (`внешн ._true`) and reference `_true+1` / `_t
 in instruction operands** — Bemsh forbids `ЭКВ` on an external symbol, but an
 external±offset in an operand is fine.
 
+## Compiler name mangling (`bemsh_mangle`, task B2)
+
+The backend produces these symbol names through `bemsh_mangle` in
+[../../../backend/besm6/emit_bemsh.c](../../../backend/besm6/emit_bemsh.c). Note the runtime
+helpers reach the emitter in their **canonical IR form** with a `$` separator (`b$ret`,
+`b$save`, …), not `b/…`; the table above uses the Madlen `b/…` spelling, but the mangler's
+input is `b$NAME`. `bemsh_mangle` is a **pure, deterministic function of the name** (no state),
+so a linkage label mangles identically in every module and in every separately-compiled
+translation unit — the property that keeps cross-TU linkage correct. The rule, in order:
+
+1. A `=…` literal-command operand passes through verbatim.
+2. A runtime helper `b$NAME` maps to its `libbem.bin` export `_NAME` via an exact-match table
+   (the 38 helpers above — the 37 the compiler emits plus `b$tout` from the C libc). The table
+   also keeps a block-scope static suffixed `name$N` off the helper path (a static named `b`
+   becomes `b$0`, *not* a helper → general rule → `b0`).
+3. General: keep `[A-Za-z0-9]` and `_`, drop `$`/`%`/`/` and any other character; prefix `T`
+   if the result would begin with a digit; then **truncate to 6**. Examples: `program`→`progra`
+   (matching B3's `*main progra` control card), `counter`→`counte`, `_str0`→`_str0`,
+   `%L2`→`L2`, `%3`→`T3`.
+
+**Provisional limitation.** Truncation to 6 chars can in principle map two distinct long names
+to the same label. This residual collision risk is accepted for B2 and guarded by the
+`BemshMangle.NoCollisionsOverCorpus` unit test; a whole-program–unique allocator is future work.
+
 ## Madlen → Bemsh translation reference
 
 Driven by the two mnemonic tables in the backend:

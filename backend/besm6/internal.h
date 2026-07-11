@@ -109,4 +109,9 @@ void besm_fold_string_constants(Besm_Module *module, const Tac_TopLevel *program
 // spliced into the function's module just before its `,end,` (defined in static.c).
 void besm_emit_static_locals(Besm_Module *module, const Tac_TopLevel *fn, Besm_Dialect dialect);
 
+// Mangle a name into a valid Bemsh label: ≤6 chars, letter-first, letters/digits/`_` only,
+// with runtime helpers (`b$…`) mapped to their `libbem.bin` exports (`_…`).  A pure
+// deterministic function of the name (defined in emit_bemsh.c); exposed for unit testing.
+void bemsh_mangle(char *dst, size_t n, const char *src);
+
 #endif // BESM6_INTERNAL_H

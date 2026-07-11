@@ -21,10 +21,10 @@
 //   * Bemsh column form: the label begins in column 1 (blank column 1 = no label);
 //     fields are space-separated.
 //
-// Name mangling is provisional here (see bemsh_sanitize): the real ≤6-char, letter-first,
-// collision-safe scheme and the Bemsh-libc helper-symbol map are task B2; dubna
+// Name mangling is bemsh_mangle (below): ≤6-char, letter-first, deterministic, with the
+// runtime-helper names mapped to the Bemsh libc (`libbem.bin`) exports — task B2.  Dubna
 // run-integration is task B3.  Several SPECIAL renderings (call, внешн binding, финиш
-// entry operand, Z00 displacement) are provisional golden-file forms, refined under B2/B3.
+// entry operand, Z00 displacement) are provisional golden-file forms, refined under B3.
 //
 
 // Cyrillic machine-instruction mnemonics indexed by Besm_InstrKind — the Bemsh counterpart
@@ -90,21 +90,82 @@ static void bemsh_format_real(char *buf, size_t n, double val)
     }
 }
 
-// Provisional Bemsh identifier sanitizer (B1 placeholder; the real ≤6-char, letter-first,
-// collision-safe mangler and the Bemsh-libc helper-symbol map are task B2).  The IR carries
-// runtime helpers as `b$ret`/`b$save` and temporaries/labels as `%…`; Bemsh labels are
-// letters+digits only, so replace the `$`/`/`/`%` separators with `_` and truncate to 6.
-// (In Dubna output the `_` renders as `Ю` — that is normal.)
-static void bemsh_sanitize(char *dst, size_t n, const char *src)
+// Runtime-helper name map.  The canonical IR carries runtime helpers with a `$` separator
+// (`b$ret`, `b$save`); task B4's Bemsh runtime library `libbem.bin` exports each under the
+// name `_NAME` (drop the leading `b`, `$`→`_`, ≤6 chars).  An exact-match table both
+// guarantees the emitted symbol matches the library export and keeps a block-scope static
+// suffixed `name$N` off the helper path (e.g. a static named `b` becomes `b$0`, which is not
+// a helper and must take the general rule → `b0`).  The non-`b$` libc leaves `exit`/`frexp`/
+// `ldexp` carry no `$`, are already ≤6 chars, and pass through the general rule unchanged.
+// Kept in sync with the "Exported helper-symbol map" in libc/besm6/bemsh/README.md.
+static const struct {
+    const char *ir;    // canonical b$… name in the IR
+    const char *bemsh; // libbem.bin export symbol
+} bemsh_helper_map[] = {
+    { "b$save", "_save" },   { "b$save0", "_save0" }, { "b$ret", "_ret" },
+    { "b$mul", "_mul" },     { "b$div", "_div" },     { "b$mod", "_mod" },
+    { "b$uadd", "_uadd" },   { "b$usub", "_usub" },   { "b$umul", "_umul" },
+    { "b$udiv", "_udiv" },   { "b$umod", "_umod" },   { "b$uneg", "_uneg" },
+    { "b$lsh", "_lsh" },     { "b$rsh", "_rsh" },     { "b$eq", "_eq" },
+    { "b$ne", "_ne" },       { "b$lt", "_lt" },       { "b$le", "_le" },
+    { "b$gt", "_gt" },       { "b$ge", "_ge" },       { "b$not", "_not" },
+    { "b$ult", "_ult" },     { "b$ule", "_ule" },     { "b$ugt", "_ugt" },
+    { "b$uge", "_uge" },     { "b$flt", "_flt" },     { "b$fle", "_fle" },
+    { "b$fgt", "_fgt" },     { "b$fge", "_fge" },     { "b$dtoi", "_dtoi" },
+    { "b$dtou", "_dtou" },   { "b$utod", "_utod" },   { "b$padd", "_padd" },
+    { "b$pinc", "_pinc" },   { "b$pdec", "_pdec" },   { "b$pdiff", "_pdiff" },
+    { "b$stb", "_stb" },     { "b$tout", "_tout" },
+};
+
+// Mangle a name into a valid Bemsh label: ≤6 chars, begins with a letter (a leading `_`
+// counts — Dubna renders it as the Cyrillic letter Ю), letters/digits/`_` only.  This is a
+// PURE deterministic function of `src` with no state, so a linkage label (global, function,
+// string constant) mangles identically in every module and in every separately-compiled
+// translation unit — the only scheme that keeps cross-TU linkage correct.  Order:
+//   1. A `=…` literal-command operand passes through verbatim.
+//   2. A runtime helper maps to its libbem.bin export (bemsh_helper_map).
+//   3. General: keep [A-Za-z0-9] and `_`; drop `$`/`%`/`/` and any other char; prefix `T`
+//      when the result would start with a digit; truncate to 6.
+// Truncation can in principle map two long names to the same 6 chars; that residual collision
+// risk is an accepted provisional B2 limitation, guarded by the mangler corpus unit test.
+void bemsh_mangle(char *dst, size_t n, const char *src)
 {
+    if (n == 0)
+        return;
+    if (!src) {
+        dst[0] = '\0';
+        return;
+    }
+    if (src[0] == '=') { // literal-command operand — not an identifier
+        snprintf(dst, n, "%s", src);
+        return;
+    }
+    for (size_t k = 0; k < sizeof bemsh_helper_map / sizeof bemsh_helper_map[0]; k++) {
+        if (strcmp(src, bemsh_helper_map[k].ir) == 0) {
+            snprintf(dst, n, "%s", bemsh_helper_map[k].bemsh);
+            return;
+        }
+    }
+
     size_t lim = n - 1 < 6 ? n - 1 : 6;
     size_t i   = 0;
-    for (; *src && i < lim; src++, i++) {
-        char c = *src;
-        if (c == '_' || c == '$' || c == '/' || c == '%')
-            c = '_';
-        dst[i] = c;
+    for (const char *p = src; *p && i < lim; p++) {
+        char c    = *p;
+        int alnum = (c >= '0' && c <= '9') || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+        if (alnum) {
+            if (i == 0 && c >= '0' && c <= '9') {
+                dst[i++] = 'T'; // a label must begin with a letter
+                if (i >= lim)
+                    break;
+            }
+            dst[i++] = c;
+        } else if (c == '_') {
+            dst[i++] = '_'; // renders as the Cyrillic letter Ю (valid, letter-first-safe)
+        }
+        // '$', '%', '/', and any other character are dropped
     }
+    if (i == 0)
+        dst[i++] = 'T'; // nothing survived — still emit a valid bare label
     dst[i] = '\0';
 }
 
@@ -117,7 +178,7 @@ static void addr_str(char *buf, size_t n, const char *name, int addr)
     char sname[8];
     const char *aname = name;
     if (name && name[0] != '=') {
-        bemsh_sanitize(sname, sizeof(sname), name);
+        bemsh_mangle(sname, sizeof(sname), name);
         aname = sname;
     }
     if (name && addr > 0)
@@ -169,7 +230,7 @@ static void emit_line(FILE *out, const char *label, int mreg, const char *mnem,
 
     if (label) {
         char sl[8];
-        bemsh_sanitize(sl, sizeof(sl), label);
+        bemsh_mangle(sl, sizeof(sl), label);
         fprintf(out, "%-6s", sl);
     } else {
         fprintf(out, "      ");
@@ -198,11 +259,11 @@ static void emit_bemsh_special(FILE *out, const Besm_Instr *instr)
 
     // Provisional call rendering — Bemsh has no `call` macro; real call lowering is B3.
     case BESM_BRANCH_CALL:
-        bemsh_sanitize(a, sizeof(a), instr->name);
+        bemsh_mangle(a, sizeof(a), instr->name);
         emit_line(out, NULL, 0, "пв", a);
         break;
     case BESM_STMT_BASE:
-        bemsh_sanitize(a, sizeof(a), instr->name);
+        bemsh_mangle(a, sizeof(a), instr->name);
         emit_line(out, NULL, instr->reg, "употр", a);
         break;
 
@@ -215,13 +276,13 @@ static void emit_bemsh_special(FILE *out, const Besm_Instr *instr)
         break;
     case BESM_STMT_SUBP: { // external reference — provisional `.label` (search-all) binding
         char ext[8];
-        bemsh_sanitize(ext, sizeof(ext), instr->name);
+        bemsh_mangle(ext, sizeof(ext), instr->name);
         snprintf(a, sizeof(a), ".%s", ext);
         emit_line(out, instr->name, 0, "внешн", a);
         break;
     }
     case BESM_STMT_ENTRY: // declare an additional entry point
-        bemsh_sanitize(a, sizeof(a), instr->name);
+        bemsh_mangle(a, sizeof(a), instr->name);
         emit_line(out, NULL, 0, "входн", a);
         break;
     case BESM_STMT_END:
@@ -255,7 +316,7 @@ static void emit_bemsh_special(FILE *out, const Besm_Instr *instr)
         break;
     case BESM_DATA_REF: {
         char ref[8];
-        bemsh_sanitize(ref, sizeof(ref), instr->name);
+        bemsh_mangle(ref, sizeof(ref), instr->name);
         snprintf(a, sizeof(a), "а(%s)", ref);
         emit_line(out, NULL, 0, "конд", a);
         break;
