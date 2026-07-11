@@ -1,6 +1,7 @@
 ввд$$$
 _mod    старт   1
-        употр   *(14)
+        уиа     _mod(14)        ; M14 := base (Madlen ,base, loads it; Bemsh УПОТР does not)
+        употр   _mod(14)
 *
 * Signed remainder, result takes the sign of the DIVIDEND (C semantics): a % b.
 * Dividend a on the stack at mem[r15-1], divisor b in A; remainder returned in A.

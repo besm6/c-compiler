@@ -1,6 +1,7 @@
 ввд$$$
 _padd   старт   1
-        употр   *(14)
+        уиа     _padd(14)       ; M14 := base (Madlen ,base, loads it; Bemsh УПОТР does not)
+        употр   _padd(14)       ; declare M14 holds _padd — the base for the local data below
 *
 * Add a signed byte count to a char*/void* base, returning a normalized fat pointer.
 * Base a on the stack top (mem[r15-1]); signed byte delta in A; result in A, a popped.

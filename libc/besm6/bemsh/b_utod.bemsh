@@ -1,6 +1,7 @@
 ввд$$$
 _utod   старт   1
-        употр   *(14)
+        уиа     _utod(14)       ; M14 := base (Madlen ,base, loads it; Bemsh УПОТР does not)
+        употр   _utod(14)
 *
 * Convert a 48-bit unsigned integer to a native floating-point value:
 * result = (double)u.  Operand u in A; result in A.

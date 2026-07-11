@@ -1,6 +1,7 @@
 ввд$$$
 _mul    старт   1
-        употр   *(14)
+        уиа     _mul(14)        ; M14 := base (Madlen ,base, loads it; Bemsh УПОТР does not)
+        употр   _mul(14)
 *
 * Multiply two 41-bit signed integers, giving the low 41 bits of the product.
 * Operand a on the stack at mem[r15-1], b in A; product returned in A.

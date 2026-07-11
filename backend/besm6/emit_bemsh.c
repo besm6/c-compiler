@@ -1,4 +1,5 @@
 #include <inttypes.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -91,6 +92,65 @@ static void bemsh_format_real(char *buf, size_t n, double val)
     }
 }
 
+// Encode a C double as a native BESM-6 48-bit floating-point word (see
+// docs/Besm6_Data_Representation.md §6): bits 48-42 = 7-bit exponent biased by 64, bit 41 =
+// sign, bits 40-1 = 40-bit two's-complement mantissa.  Copied from emit_unix.c's
+// unix_real_word so the two emitters stay decoupled; used only for the octal fallback below.
+static uint64_t bemsh_real_word(double v)
+{
+    if (v == 0.0)
+        return 0; // machine zero is the all-zero word
+
+    int e2;
+    double f  = frexp(v, &e2); // v = f * 2^e2, with 0.5 <= |f| < 1
+    int64_t T = llround(ldexp(f, 40));
+    int E     = e2 + 64;
+    if (T >= (INT64_C(1) << 40)) { // f rounded up to 1.0: renormalize
+        T >>= 1;
+        E++;
+    }
+    if (T == -(INT64_C(1) << 39)) { // -0.5 is un-normalized (bit 41 == bit 40): use -1.0
+        T = -(INT64_C(1) << 40);
+        E--;
+    }
+    if (E < 1 || E > 127)
+        fatal_error("floating constant %g out of BESM-6 exponent range", v);
+
+    uint64_t mant = (uint64_t)T & ((UINT64_C(1) << 41) - 1); // bits 41-1
+    return ((uint64_t)E << 41) | mant;
+}
+
+// True when the decimal mantissa digit-string of `num` fits Bemsh's type-Е field: its value
+// (digits only, ignoring sign/point) must not exceed 2^40 - 1 = 1 099 511 627 775 (Bemsh
+// §9.3).  2^40 itself (= 1.099511627776e12) has a 13-digit mantissa one over the limit and has
+// no exact shorter-mantissa decimal form, so such constants take the octal fallback instead.
+static bool bemsh_mantissa_fits(const char *num)
+{
+    uint64_t m = 0;
+    for (const char *p = num; *p && *p != 'e' && *p != 'E'; p++) {
+        if (*p >= '0' && *p <= '9') {
+            m = m * 10 + (uint64_t)(*p - '0');
+            if (m > UINT64_C(1099511627775))
+                return false;
+        }
+    }
+    return true;
+}
+
+// Build the operand body for a floating-point constant `val`, WITHOUT the leading `=` (a
+// literal command adds it; a `конд` datum does not): normally the readable type-Е decimal
+// literal `е'<decimal>'`, but for a value whose exact decimal mantissa overflows the Е field
+// the exact octal bit pattern `в'<octal>'` (type В), which Bemsh always accepts.
+static void bemsh_real_body(char *buf, size_t n, double val)
+{
+    char num[48];
+    bemsh_format_real(num, sizeof(num), val);
+    if (bemsh_mantissa_fits(num))
+        snprintf(buf, n, "е'%s'", num);
+    else
+        snprintf(buf, n, "в'%" PRIo64 "'", bemsh_real_word(val));
+}
+
 // Runtime-helper name map.  The canonical IR carries runtime helpers with a `$` separator
 // (`b$ret`, `b$save`); task B4's Bemsh runtime library `libbem.bin` exports each under the
 // name `_NAME` (drop the leading `b`, `$`→`_`, ≤6 chars).  An exact-match table both
@@ -171,14 +231,62 @@ void bemsh_mangle(char *dst, size_t n, const char *src)
 }
 
 //
+// Convert a literal-command operand carried in Besm_Instr.name into its Bemsh spelling.
+// The shared instruction selector (backend/besm6/instr.c) writes octal LOG-literal masks
+// and immediates in *Madlen* syntax — `= <octal>` (right-justified, value as-is) and, in
+// principle, `=: <octal>` (OCT, left-filled to a full word).  Bemsh writes both as a type-В
+// (octal) literal command `=в'<octal>'` (the right-fill form) — a bare `=377` is rejected by
+// Macro-Bemsh as a mistyped constant (`TИП KOHCT`, severity 4), which empties the library.
+// A literal not in this octal form (already `=в'…'`/`=е'…'`, or anything else) passes through
+// unchanged; the shared selector emits none such today, so this is a safety fallback.
+static void bemsh_madlen_literal(char *buf, size_t n, const char *lit)
+{
+    const char *p = lit + 1; // skip '='
+    int leftjust = 0;
+    if (*p == ':') { // Madlen =: — OCT: the digits are left-justified in the 48-bit word
+        leftjust = 1;
+        p++;
+    }
+    if (*p == '\0') {
+        snprintf(buf, n, "%s", lit);
+        return;
+    }
+    for (const char *q = p; *q; q++) {
+        if (*q < '0' || *q > '7') { // not a pure-octal literal — pass through verbatim
+            snprintf(buf, n, "%s", lit);
+            return;
+        }
+    }
+    if (leftjust) {
+        // OCT (`=:64` → `=в'6400000000000000'`): value at the left, zero-padded to 16 on the
+        // right (a full word), vs the LOG default (`=64` → `=в'64'`, right-justified value).
+        char padded[17];
+        size_t len = strlen(p);
+        if (len > 16)
+            len = 16; // digits already fill the word
+        memcpy(padded, p, len);
+        memset(padded + len, '0', 16 - len);
+        padded[16] = '\0';
+        snprintf(buf, n, "=в'%s'", padded);
+    } else {
+        snprintf(buf, n, "=в'%s'", p);
+    }
+}
+
+//
 // Build the address-field string from (name, addr): "name+N" / "name-N" / "name" / "N".
-// Names beginning with '=' are Bemsh literal-command operands, passed through verbatim.
+// Names beginning with '=' are Bemsh literal-command operands (rendered by
+// bemsh_madlen_literal); a literal never carries an address offset.
 //
 static void addr_str(char *buf, size_t n, const char *name, int addr)
 {
     char sname[8];
     const char *aname = name;
-    if (name && name[0] != '=') {
+    if (name && name[0] == '=') {
+        bemsh_madlen_literal(buf, n, name);
+        return;
+    }
+    if (name) {
         bemsh_mangle(sname, sizeof(sname), name);
         aname = sname;
     }
@@ -202,9 +310,9 @@ static void bemsh_operand(char *buf, size_t n, const Besm_Instr *i)
     if (i->konst) {
         Besm_ConstWord w = besm_const_word(i->konst);
         if (w.is_real) {
-            char num[48];
-            bemsh_format_real(num, sizeof(num), w.real_val);
-            snprintf(buf, n, "=е'%s'", num);
+            char body[48];
+            bemsh_real_body(body, sizeof(body), w.real_val);
+            snprintf(buf, n, "=%s", body);
         } else {
             snprintf(buf, n, "=в'%" PRIo64 "'", w.word);
         }
@@ -318,13 +426,10 @@ static void emit_bemsh_special(FILE *out, const Besm_Instr *instr)
         snprintf(a, sizeof(a), "ф'%d'", instr->addr);
         emit_line(out, instr->name, 0, "конд", a);
         break;
-    case BESM_DATA_REAL: {
-        char num[48];
-        bemsh_format_real(num, sizeof(num), instr->real_val);
-        snprintf(a, sizeof(a), "е'%s'", num);
+    case BESM_DATA_REAL:
+        bemsh_real_body(a, sizeof(a), instr->real_val);
         emit_line(out, instr->name, 0, "конд", a);
         break;
-    }
     case BESM_DATA_EQU:
         snprintf(a, sizeof(a), "%d", instr->addr);
         emit_line(out, NULL, 0, "экв", a);

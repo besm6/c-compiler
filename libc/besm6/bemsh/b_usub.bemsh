@@ -14,7 +14,8 @@ _true   внешн   ._true
         слц     _true           ; negate B
         пб      _uadd           ; compute A + (-B)
 *
-bzero   экв     *               ; B == 0, nothing to subtract
+* B == 0, nothing to subtract  (code label: labeled `ноп`, not `экв *`)
+bzero   ноп
         зпм
         пб      (13)
         финиш

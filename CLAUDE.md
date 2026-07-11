@@ -160,10 +160,17 @@ the output in a `*bemsh` job linking the Bemsh runtime `libbem.bin` on library 4
 one module per deck). Unlike Madlen's auto-declaring `,call,`, Bemsh's `пв` needs an explicit
 `внешн` per call target (spliced in by `codegen.c` for the Bemsh dialect) and must carry the return
 register — `пв name(13)`; code labels are emitted as a labeled `ноп` (not `экв *`, which captures
-the wrong half-cell address). `libbem.bin` holds the hand-written helpers (task B4) plus the
-compiled char-level stdout chain `putbyte`/`flush`/`putchar`/`putch` (task B3), so these tests use
-`void program()` and produce visible output identical to the Madlen path; `printf` and the rest of
-the C libc for Bemsh are future work (task B5 in `backend/besm6/TODO.md`). To reproduce by hand:
+the wrong half-cell address). `libbem.bin` holds the hand-written helpers (task B4) plus the full
+compiled portable C libc (task B5): `printf`/`doprnt`, `sprintf`/`snprintf`, the `str*`/`mem*`
+families, the `fabs`/`fmax`/`fmin`/`fma`/`modf` math, `atoi`, and the stdout chain
+`putbyte`/`flush`/`putchar`/`putch`/`puts` — the same `LIBC_C_PORTABLE` set as the Madlen `libc.bin`
+minus `malloc` (needs the Unix heap map) and `getch` (input, deferred). So these tests use `void
+program()` with the same hosted-libc surface as the Madlen path; the printf/string/float run tests
+are in `test/bemsh_printf_tests.cpp`. Bringing up that surface surfaced (and fixed) B4 helper bugs —
+a missing base-register load (Madlen `,base,` loads the register, Bemsh `УПОТР` only declares it, so
+each based helper needs an explicit `уиа _NAME(14)`) and `экв *` code labels (now labeled `ноп`) —
+plus emitter literal bugs (Madlen-form `=377`/`=:64` literals → Bemsh `=в'377'`/`=в'6400000000000000'`,
+and a type-Е mantissa overflow on 2^40 → octal bit-pattern fallback). To reproduce by hand:
 `dubna [-d rime] build/backend/besm6/<TestName>.dub`.
 
 **Target standard headers (`libc/besm6/include/`).** C11 standard-library headers for

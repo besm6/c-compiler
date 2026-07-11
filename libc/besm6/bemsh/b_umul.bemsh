@@ -2,7 +2,8 @@
 _umul   старт   1
 _true   внешн   ._true
 * _true+1 = bit 48
-        употр   *(14)
+        уиа     _umul(14)       ; M14 := base (Madlen ,base, loads it; Bemsh УПОТР does not)
+        употр   _umul(14)
 *
 * Multiply two 48-bit unsigned integers, low 48 bits of the product (a*b mod 2^48).
 * Operand a on the stack at mem[r15-1], b in A; product in A; pops one word.

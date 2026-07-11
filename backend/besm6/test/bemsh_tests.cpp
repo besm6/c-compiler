@@ -395,3 +395,33 @@ TEST_F(CodegenTest, BemshCrossModuleNameConsistency)
     EXPECT_NE(out.find("пв counte"), std::string::npos);    // call site in f
     EXPECT_EQ(out.find("counter"), std::string::npos);      // never the un-truncated name
 }
+
+// LOG literal (task B5): the shared instruction selector carries octal masks/immediates in
+// Madlen form (`=377`).  Bemsh must render the type-В (octal) literal `=в'377'` — Macro-Bemsh
+// rejects a bare `=377` as a mistyped constant.  A char-byte load masks with `и =в'377'`.
+TEST_F(CodegenTest, BemshByteMaskLiteral)
+{
+    std::string out = CompileToBemsh("int f(char *p) { return *p; }");
+    EXPECT_NE(out.find("и =в'377'"), std::string::npos); // type-В octal, not bare =377
+    EXPECT_EQ(out.find("=377"), std::string::npos);      // never the Madlen LOG form
+}
+
+// OCT literal (task B5): the Madlen `=:64` (OCT) literal is *left*-justified in the word, so
+// Bemsh must render `=в'6400000000000000'` (value at the left, zero-padded right), not the
+// right-justified `=в'0000000000000064'`.  A char*/array decay ORs in the fat-pointer marker.
+TEST_F(CodegenTest, BemshFatMarkerLiteral)
+{
+    std::string out = CompileToBemsh("char a[4]; int f(void) { return a[0]; }");
+    EXPECT_NE(out.find("=в'6400000000000000'"), std::string::npos); // left-justified OCT
+    EXPECT_EQ(out.find("=в'0000000000000064'"), std::string::npos); // not right-justified
+}
+
+// Large real (task B5): 2^40 = 1.099511627776e12 has a 13-digit decimal mantissa one over the
+// Bemsh type-Е field limit (2^40-1) and no exact shorter form, so the emitter falls back to the
+// exact octal bit pattern `=в'…'` rather than an overflowing `=е'…'`.  Small reals stay decimal.
+TEST_F(CodegenTest, BemshLargeRealOctalFallback)
+{
+    std::string out = CompileToBemsh("double f(void) { return 1099511627776.0; }");
+    EXPECT_NE(out.find("сч =в'6450000000000000'"), std::string::npos); // exact octal word
+    EXPECT_EQ(out.find("=е'"), std::string::npos);                     // no decimal (would overflow)
+}

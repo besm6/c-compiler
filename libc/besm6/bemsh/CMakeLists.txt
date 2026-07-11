@@ -6,10 +6,12 @@
 # This mirrors ../CMakeLists.txt (the Madlen/libc.bin build) but targets the Bemsh dialect.
 # The ~41 hand-written Madlen helpers (LIBC_MADLEN, inherited from the parent scope) are
 # hand-translated into Bemsh autocode here, with the same stems (b_NAME.bemsh).  On top of
-# those, task B3 compiles the minimal C stdout chain (putbyte -> flush -> _tout, plus the
-# putchar/putch wrappers) through our own toolchain with `genbesm --bemsh`, so a C program
-# run under `*bemsh` produces visible output identical to the Madlen path.  The rest of the
-# C-level libc (printf/doprnt and the string/math routines) is not built here yet.
+# those we compile the portable C-level libc (LIBC_C_PORTABLE: printf/doprnt, sprintf/snprintf,
+# the string/mem/math routines, atoi, and the stdout chain putchar/putch) plus the two Dubna
+# stdout leaves (putbyte -> flush -> _tout) through our own toolchain with `genbesm --bemsh`,
+# so a C program run under `*bemsh` has the same hosted-libc surface as the Madlen path.  As on
+# the Madlen path, malloc is excluded (its heap needs the Unix end/stack memory map the dubna
+# monitor does not provide); getch (the input leaf) is deferred (task B5 follow-up).
 #
 # Each .bemsh file (hand-written or genbesm-emitted) is a Macro-Bemsh deck: each module
 # (СТАРТ ... ФИНИШ) is wrapped in the ВВД$$$ ... КНЦ$$$ input/translate markers that the
@@ -45,12 +47,20 @@ macro(besm6_compile_libc_c_bemsh name srcdir)
     list(APPEND BEMSH_C_SOURCES ${c_bem})
 endmacro()
 
-# The Dubna-monitor stdout leaves (shared with the Madlen build, compiled from ../madlen)
-# and the portable putchar/putch wrappers (from ..).  _tout is already a hand-written helper.
+# The portable C routines shared by every BESM-6 assembler backend (printf/doprnt,
+# sprintf/snprintf, string/mem/math, atoi, the putchar/putch stdout wrappers).  Compiled from
+# the parent dir (libc/besm6), exactly as the Madlen build does.  malloc is dropped here for
+# the same reason the Madlen libc.bin drops it — the dubna monitor supplies no heap memory map.
+set(BEMSH_C_PORTABLE ${LIBC_C_PORTABLE})
+list(REMOVE_ITEM BEMSH_C_PORTABLE malloc)
+foreach(name ${BEMSH_C_PORTABLE})
+    besm6_compile_libc_c_bemsh(${name} ${BEMSH_DIR}/..)
+endforeach()
+
+# The Dubna-monitor stdout leaves (shared with the Madlen build, compiled from ../madlen).
+# _tout is already a hand-written helper; getch (the input leaf) is deferred.
 besm6_compile_libc_c_bemsh(putbyte ${BEMSH_DIR}/../madlen)
 besm6_compile_libc_c_bemsh(flush   ${BEMSH_DIR}/../madlen)
-besm6_compile_libc_c_bemsh(putchar ${BEMSH_DIR}/..)
-besm6_compile_libc_c_bemsh(putch   ${BEMSH_DIR}/..)
 
 add_custom_command(
     OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/libbem.bin

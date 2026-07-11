@@ -1,6 +1,7 @@
 ввд$$$
 _stb    старт   1
-        употр   *(14)
+        уиа     _stb(14)        ; M14 := base (Madlen ,base, loads it; Bemsh УПОТР does not)
+        употр   _stb(14)
 *
 * Store one byte through a char*/void* fat pointer (read-modify-write).
 *   a = fat pointer  — on the stack top (mem[r15-1]); popped by this helper.

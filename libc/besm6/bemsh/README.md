@@ -10,15 +10,23 @@ backend targets, alongside Madlen ([../madlen/](../madlen)) and the Unix `b6as`
 - **Hand-written helpers (task B4).** Each `b_NAME.bemsh` is a hand-translation of the
   same-stem `../madlen/b_NAME.madlen`, covering the full `LIBC_MADLEN` set — the calling
   convention (`_save`/`_save0`/`_ret`), the arithmetic / comparison / shift / pointer / byte
-  helpers, `b_tout`, `exit`, `frexp`, `ldexp` (41 files).
-- **Compiled stdout leaves (task B3).** The minimal C stdout chain
-  `putbyte`→`flush`→`b_tout` plus the `putchar`/`putch` wrappers is compiled from the
-  **shared** `../madlen/{putbyte,flush}.c` and `../{putchar,putch}.c` through our own
-  toolchain (`cpp → parse → lower → genbesm --bemsh`) and assembled alongside the helpers.
-  This gives a C program run under `*bemsh` visible stdout identical to the Madlen path
-  (see `backend/besm6/test/bemsh_run_tests.cpp`). The rest of `LIBC_C_PORTABLE`
-  (`printf`/`doprnt`, string/mem/math) and the `getch` input leaf are not built here yet —
-  see task B5 in [../../../backend/besm6/TODO.md](../../../backend/besm6/TODO.md).
+  helpers, `b_tout`, `exit`, `frexp`, `ldexp` (41 files). Two translation subtleties bite only
+  once printf exercises the whole set (task B5): a Madlen `I ,base, *` **loads** the base
+  register (emits a VTM), whereas the Bemsh `УПОТР` only *declares* it, so every based helper
+  needs an explicit `уиа _NAME(14)` ahead of the `употр`; and a code label must be a placed
+  instruction (a labeled `ноп`, as the compiler emits) — Madlen `,bss,` lands correctly but a
+  Bemsh `LABEL экв *` captures the wrong half-cell address.
+- **Compiled portable C libc (tasks B3, B5).** The full `LIBC_C_PORTABLE` set —
+  `printf`/`doprnt`, `sprintf`/`snprintf`, the `str*`/`mem*` families, the `fabs`/`fmax`/
+  `fmin`/`fma`/`modf` math, `atoi`, and the stdout chain `putbyte`→`flush`→`b_tout` with the
+  `putchar`/`putch`/`puts` wrappers — is compiled from the **shared** `../*.c` (and the two
+  Dubna leaves `../madlen/{putbyte,flush}.c`) through our own toolchain
+  (`cpp → parse → lower → genbesm --bemsh`) and assembled alongside the helpers. So a C
+  program run under `*bemsh` has the same hosted-libc surface as the Madlen path (see
+  `backend/besm6/test/bemsh_printf_tests.cpp`). As on the Madlen `libc.bin`, `malloc` is
+  excluded (its heap needs the Unix `end`/stack memory map the dubna monitor does not supply)
+  and `getch` (the input leaf) is deferred — see task B5 in
+  [../../../backend/besm6/TODO.md](../../../backend/besm6/TODO.md).
 
 Build: `make` (the `besm-libc-bemsh` ALL target) → `build/libc/besm6/bemsh/libbem.bin`,
 staged next to `besm-tests` as `build/backend/besm6/libbem.bin` for the future Bemsh run
@@ -93,7 +101,7 @@ parenthesized **after** the operand: Madlen `15 ,mtj, 14` → `уии 14(15)`; `
 | `,subp,` | `NAME  внешн  .NAME` | external, `.name` search-all form |
 | `,entry,` | `входн NAME` | + the label on the following word |
 | `,base,*` | `употр *(14)` | use register as base (does not load it) |
-| `,bss,` (empty) | `NAME экв *` | reserves 0 words = a bare label |
+| `,bss,` (empty) | `NAME ноп` | reserves 0 words = a bare label |
 | `,bss, N` | `NAME пам N` | reserve N words |
 | `,log, X` | `конд в'X'` | whole-word octal, right-justified (as-is) |
 | `,oct, X` | `конд в'<X left-filled to 16 octal digits>'` | left-fill: pad zeros on the right |

@@ -18,7 +18,9 @@ _true   внешн   ._true
         или
         пб      (13)
 *
-blarge  экв     *               ; bit B[48] == 1
+* bit B[48] == 1  (a code label must be a placed instruction, not `экв *`, whose half-cell
+* `*` value names the wrong cell — mirror the compiler's labeled-`ноп` for code labels)
+blarge  ноп
         нтж     _true+1         ; clear bit 48 of B
         счм     -2(15)          ; push B on stack, extract A
         ржа     8+3
@@ -28,14 +30,16 @@ blarge  экв     *               ; bit B[48] == 1
         слиа    -1(15)          ; drop A from stack
         пб      (13)
 *
-alarge  экв     *               ; bit A[48] == 1, bit B[48] == 0
+* bit A[48] == 1, bit B[48] == 0
+alarge  ноп
         нтж     _true+1         ; clear bit 48 of A
         слц     (15)            ; add A[47:1] + B[47:1]
         нтж     _true+1         ; restore bit 48 contribution
         слиа    -1(15)          ; drop A from stack
         пб      (13)
 *
-ablarg  экв     *               ; bit A[48] == 1, bit B[48] == 1
+* bit A[48] == 1, bit B[48] == 1
+ablarg  ноп
         нтж     _true+1         ; clear bit 48 of A
         слц     (15)            ; add A[47:1] + B[47:1]
         слиа    -1(15)          ; drop A from stack

@@ -1,6 +1,7 @@
 ввд$$$
 _dtoi   старт   1
-        употр   *(14)
+        уиа     _dtoi(14)       ; M14 := base (Madlen ,base, loads it; Bemsh УПОТР does not)
+        употр   _dtoi(14)
 *
 * Convert a native floating-point value to a signed int, truncated toward zero:
 * result = (int)x.  Operand x in A; result in A.

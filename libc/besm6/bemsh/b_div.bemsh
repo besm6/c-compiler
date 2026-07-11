@@ -1,6 +1,7 @@
 ввд$$$
 _div    старт   1
-        употр   *(14)
+        уиа     _div(14)        ; M14 := base (Madlen ,base, loads it; Bemsh УПОТР does not)
+        употр   _div(14)
 *
 * Signed integer division, truncated toward zero:  result = a / b.
 * Dividend a on the stack at mem[r15-1], divisor b in A; quotient returned in A.

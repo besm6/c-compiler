@@ -1,6 +1,7 @@
 ввд$$$
 _dtou   старт   1
-        употр   *(14)
+        уиа     _dtou(14)       ; M14 := base (Madlen ,base, loads it; Bemsh УПОТР does not)
+        употр   _dtou(14)
 *
 * Convert a native floating-point value to a 48-bit unsigned integer, truncated
 * toward zero:  result = (unsigned)x.  Operand x in A; result in A.

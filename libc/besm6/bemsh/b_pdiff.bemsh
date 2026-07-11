@@ -1,6 +1,7 @@
 ввд$$$
 _pdiff  старт   1
-        употр   *(14)
+        уиа     _pdiff(14)      ; M14 := base (Madlen ,base, loads it; Bemsh УПОТР does not)
+        употр   _pdiff(14)
 *
 * Difference of two char*/void* fat pointers: p - q -> ptrdiff_t byte count.
 * Minuend a (= p) on the stack top (mem[r15-1]); subtrahend b (= q) in A; result a-b
