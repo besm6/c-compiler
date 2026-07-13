@@ -8,7 +8,7 @@
 // Key architectural fact.  On BESM-6 a machine word is 48 bits and
 // semantic/target.c makes "int", "long"/"long int" and "long long" the SAME
 // type: a single 41-bit signed word (range -2^40 .. 2^40-1, about +-1.1e12).
-// codegen_sizeof (abi.h) returns one word for all of them, and a conversion
+// codegen_sizeof (static.c) returns one word for all of them, and a conversion
 // among them is a plain COPY (no truncate/extend).
 //
 // Chapter 11 is written to prove an x86 compiler distinguishes 32-bit int from

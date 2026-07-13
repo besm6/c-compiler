@@ -118,7 +118,7 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
             word             = w.word;
         }
 
-        // A computed address is materialized into the scratch index register: EA = M[12] + 0.
+        // A computed address is materialized into the scratch index register: EA = M[14] + 0.
         // The hardware genuinely needs one — `002 0100`-`0137` (the РУУ mode bits) encodes its
         // data *in* the address, and tape-transport control selects the unit as addr - 0100.
         if (!immediate) {
@@ -186,7 +186,7 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
     //
     // The effective address lowers exactly like ext/mod's device address: a constant that
     // fits the Format-1 offset field becomes the instruction's own address, anything else is
-    // materialized into the scratch index register (EA = M[12] + 0).
+    // materialized into the scratch index register (EA = M[14] + 0).
     if (strcmp(name, "__besm6_extracode") == 0) {
         const Tac_Val *op  = instr->u.fun_call.args;
         const Tac_Val *ea  = op ? op->next : NULL;
@@ -232,8 +232,10 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
         // The result is the accumulator the extracode leaves behind.  Discarding it drops
         // only the store: the trap itself is never eliminable.  Note the ABI consequence —
         // an extracode sets M[016] (r14) from the effective address, so r14 is clobbered
-        // here; it is caller-saved, and nothing can be live in it across this point (the
-        // argument count is loaded immediately before a `,call,`).
+        // here; that is harmless, and in the computed case it merely rewrites the scratch
+        // register (REG_SCRATCH *is* r14) with the address already in it.  Nothing can be
+        // live in r14 across this point: it holds the argument count, which the caller loads
+        // immediately before a `,call,`.
         const Tac_Val *dst = instr->u.fun_call.dst;
         if (dst && dst->kind == TAC_VAL_VAR)
             emit_store_a(block, tail, f, dst->u.var_name);

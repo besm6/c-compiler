@@ -555,8 +555,8 @@ TEST_F(CodegenTest, IntrinsicExtConstMadlen)
 }
 
 //
-// A computed address is materialized into the scratch index register r12, and the
-// instruction reads it as EA = M[12] + 0.  The hardware genuinely needs this: `002 0100`-
+// A computed address is materialized into the scratch index register r14, and the
+// instruction reads it as EA = M[14] + 0.  The hardware genuinely needs this: `002 0100`-
 // `0137` (the РУУ mode bits) encodes its data *in* the address, and tape-transport control
 // selects the unit as addr - 0100.
 //
@@ -575,9 +575,9 @@ TEST_F(CodegenTest, IntrinsicExtComputedMadlen)
              ,its, 13
              ,call, b/save
            6 ,xta,
-             ,ati, 12
+             ,ati, 14
            6 ,xta, 1
-          12 ,ext,
+          14 ,ext,
              ,uj, b/ret
              ,end,
 )",
@@ -629,7 +629,7 @@ c
 // word 0, which always reads as zero.
 //
 // The second function's address, 010000, is the one case that does not fit the 12-bit
-// Format-1 offset field, so it falls back to the r12 path even though it is a constant.  No
+// Format-1 offset field, so it falls back to the r14 path even though it is a constant.  No
 // address in the peripherals map is that large; the fallback is what keeps an out-of-range
 // constant correct rather than truncated.
 //
@@ -655,9 +655,9 @@ c
              ,its, 13
              ,call, b/save0
              ,xta, =10000
-             ,ati, 12
+             ,ati, 14
              ,xta,
-          12 ,ext,
+          14 ,ext,
              ,uj, b/ret
              ,end,
 )",
@@ -730,9 +730,9 @@ io:
     its 13
  13 vjm b$save
   6 xta
-    ati 12
+    ati 14
   6 xta 1
- 12 ext
+ 14 ext
     uj b$ret
     .text
     .globl mask
@@ -748,7 +748,7 @@ mask:
 
 //
 // Instruction selection — Bemsh.  увв = ext (033) and рег = mod (002); the modifier register
-// is parenthesized after the address, so the computed form reads `увв (12)`.
+// is parenthesized after the address, so the computed form reads `увв (14)`.
 //
 TEST_F(CodegenTest, IntrinsicExtConstBemsh)
 {
@@ -791,9 +791,9 @@ _ret   внешн ._ret
        счим 13
        пв _save(13)
        сч (6)
-       уи 12
+       уи 14
        сч 1(6)
-       рег (12)
+       рег (14)
        пб _ret
        финиш
 квч$$$
@@ -807,7 +807,7 @@ _ret   внешн ._ret
 }
 
 //
-// The one mechanical validation available: b6as assembles `ext 2073` / ` 12 ext` / `mod 30`,
+// The one mechanical validation available: b6as assembles `ext 2073` / ` 14 ext` / `mod 30`,
 // and b6ld links with no `__besm6_ext` symbol left to resolve — the intrinsic is a call in the
 // IR and never a symbol in the object.  (Running it is impossible: b6sim, like dubna, throws
 // `Illegal instruction` on a user-mode 002/033.)
@@ -884,8 +884,8 @@ TEST_F(CodegenTest, IntrinsicExtracodeMadlen)
 }
 
 //
-// A computed effective address goes through the scratch index register r12, exactly as a
-// computed device address does for ext/mod: EA = M[12] + 0.  The accumulator is loaded last,
+// A computed effective address goes through the scratch index register r14, exactly as a
+// computed device address does for ext/mod: EA = M[14] + 0.  The accumulator is loaded last,
 // because materializing the address clobbers it.
 //
 TEST_F(CodegenTest, IntrinsicExtracodeComputedMadlen)
@@ -900,9 +900,9 @@ TEST_F(CodegenTest, IntrinsicExtracodeComputedMadlen)
              ,its, 13
              ,call, b/save
            6 ,xta,
-             ,ati, 12
+             ,ati, 14
            6 ,xta, 1
-          12 ,*70,
+          14 ,*70,
              ,uj, b/ret
              ,end,
 )",
@@ -930,9 +930,9 @@ trap:
     its 13
  13 vjm b$save
   6 xta
-    ati 12
+    ati 14
   6 xta 1
- 12 $70
+ 14 $70
     uj b$ret
 )",
               output);
@@ -1005,7 +1005,7 @@ TEST_F(CodegenTest, BemshIntrinsicExtracodeRun)
 }
 
 //
-// b6as assembles both forms — the immediate `$77 1` and the r12-modified ` 12 $70` — and b6ld
+// b6as assembles both forms — the immediate `$77 1` and the r14-modified ` 14 $70` — and b6ld
 // links with no `__besm6_extracode` symbol left to resolve: the intrinsic is a call in the IR
 // and never a symbol in the object.
 //

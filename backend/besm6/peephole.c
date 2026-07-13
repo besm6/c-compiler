@@ -424,7 +424,7 @@ static bool instr_reads_auto_slot(const Besm_Instr *i, int off)
     case BESM_EXP_SETRMEM:
     // EXT/MOD/EXTRACODE reach no memory word — their effective address *is* the device
     // register or the extracode's argument, and instruction selection never gives them a
-    // frame-slot operand (their modifier register is 0 or the scratch r12).  They are listed
+    // frame-slot operand (their modifier register is 0 or the scratch r14).  They are listed
     // only so the whitelist stays complete: its `default: return false` means an operand kind
     // left out would license rule #28 to delete the store that feeds it.
     case BESM_IO_EXT:

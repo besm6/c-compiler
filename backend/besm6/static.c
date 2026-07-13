@@ -12,6 +12,43 @@
 
 static void insert_before_end(Besm_Block *block, Besm_Instr *chain);
 
+//
+// Type sizes (in 48-bit words).
+// BESM-6 is word-addressed; every C scalar and pointer fits in one word.
+// Arrays occupy element_size * N consecutive words.  A structure's TAC size is in
+// target bytes, so it is divided by the word size (rounded up) to yield words.
+// Alignment is always 1 (no sub-word alignment requirement).
+//
+static int codegen_sizeof(const Tac_Type *t)
+{
+    switch (t->kind) {
+    case TAC_TYPE_SCHAR:
+    case TAC_TYPE_UCHAR:
+    case TAC_TYPE_SHORT:
+    case TAC_TYPE_USHORT:
+    case TAC_TYPE_INT:
+    case TAC_TYPE_UINT:
+    case TAC_TYPE_LONG:
+    case TAC_TYPE_ULONG:
+    case TAC_TYPE_LONG_LONG:
+    case TAC_TYPE_ULONG_LONG:
+    case TAC_TYPE_FLOAT:
+    case TAC_TYPE_DOUBLE:
+    case TAC_TYPE_LONG_DOUBLE:
+    case TAC_TYPE_POINTER:
+        return 1;
+    case TAC_TYPE_ARRAY:
+        if (t->u.array.elem_type->kind == TAC_TYPE_SCHAR ||
+            t->u.array.elem_type->kind == TAC_TYPE_UCHAR)
+            return (t->u.array.size + 5) / 6;
+        return codegen_sizeof(t->u.array.elem_type) * t->u.array.size;
+    case TAC_TYPE_STRUCTURE:
+        return (t->u.structure.size + BESM6_WORD_BYTES - 1) / BESM6_WORD_BYTES;
+    default:
+        return 1;
+    }
+}
+
 // Encode a source string into static data bytes.  Madlen/Bemsh target the Dubna monitor,
 // which stores text in KOI-7; the Unix (b6as) dialect keeps the raw source bytes so a
 // program's write(1,…) reaches the host stdout unchanged.  KOI-7 conversion never expands

@@ -1,8 +1,6 @@
 #ifndef BESM6_ABI_H
 #define BESM6_ABI_H
 
-#include "tac.h"
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -11,49 +9,6 @@ extern "C" {
 // bytes (CopyToOffset offsets, AddPtr scales, AllocateLocal/structure sizes); the
 // backend converts to words by dividing by this, rounding up.
 #define BESM6_WORD_BYTES 6
-
-//
-// Type sizes (in 48-bit words).
-// BESM-6 is word-addressed; every C scalar and pointer fits in one word.
-// Arrays occupy element_size * N consecutive words.  A structure's TAC size is in
-// target bytes, so it is divided by the word size (rounded up) to yield words.
-// Alignment is always 1 (no sub-word alignment requirement).
-//
-static inline int codegen_sizeof(const Tac_Type *t)
-{
-    switch (t->kind) {
-    case TAC_TYPE_SCHAR:
-    case TAC_TYPE_UCHAR:
-    case TAC_TYPE_SHORT:
-    case TAC_TYPE_USHORT:
-    case TAC_TYPE_INT:
-    case TAC_TYPE_UINT:
-    case TAC_TYPE_LONG:
-    case TAC_TYPE_ULONG:
-    case TAC_TYPE_LONG_LONG:
-    case TAC_TYPE_ULONG_LONG:
-    case TAC_TYPE_FLOAT:
-    case TAC_TYPE_DOUBLE:
-    case TAC_TYPE_LONG_DOUBLE:
-    case TAC_TYPE_POINTER:
-        return 1;
-    case TAC_TYPE_ARRAY:
-        if (t->u.array.elem_type->kind == TAC_TYPE_SCHAR ||
-            t->u.array.elem_type->kind == TAC_TYPE_UCHAR)
-            return (t->u.array.size + 5) / 6;
-        return codegen_sizeof(t->u.array.elem_type) * t->u.array.size;
-    case TAC_TYPE_STRUCTURE:
-        return (t->u.structure.size + BESM6_WORD_BYTES - 1) / BESM6_WORD_BYTES;
-    default:
-        return 1;
-    }
-}
-
-static inline int codegen_alignof(const Tac_Type *t)
-{
-    (void)t;
-    return 1; // word-addressed; all types are 1-word aligned
-}
 
 //
 // INT-format encoding for integers.
@@ -84,11 +39,16 @@ static inline int codegen_alignof(const Tac_Type *t)
 #define REG_RET  13 // return address (set by caller via VJM)
 #define REG_SP   15 // stack pointer (grows toward higher addresses)
 
-// Scratch index register, free for a value live across a couple of instructions: r1-r7 are
-// callee-saved, r13/r14/r15 are ABI, so r8-r12 are free — and r12 is already the runtime
-// helpers' scratch (`,ati, 12` in libc/besm6/madlen/b_tout.madlen).  Used by the privileged
-// I/O intrinsics to hold a computed device address (intrinsics.c); needs no save/restore.
-#define REG_SCRATCH 12
+// Scratch index register, free for a value live across a couple of instructions.  r14 is the
+// argument count (REG_CNT), but only across a call: the caller loads it immediately before the
+// `,call,`, and b/save consumes it at entry, so between calls nothing is live in it.  The
+// backend already treats it as scratch — GET_ADDRESS materializes an address with a lone
+// `14 ,vtm, name` — and an extracode sets M[016] = r14 from its effective address anyway.  Used
+// by the privileged I/O intrinsics to hold a computed device address (intrinsics.c); needs no
+// save/restore.  Keeping it out of r8-r12 also leaves those free for the register allocator
+// (task 4) and clear of the runtime helpers, which use r12 as their own scratch and frame base
+// (`,ati, 12` in b_tout.madlen, the r12 frame in b_umod.madlen).
+#define REG_SCRATCH 14 // same register as REG_CNT — see above
 
 #ifdef __cplusplus
 }

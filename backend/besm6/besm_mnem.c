@@ -80,7 +80,7 @@ Besm_OperandShape besm_operand_shape(Besm_InstrKind kind)
     case BESM_BRANCH_VLM:
     // EXT/MOD are Format-1 like every kind above, so the same shape renders them: a constant
     // device address is the instruction's own 12-bit offset field (`,ext, 2073`), a computed
-    // one rides in the modifier register (`12 ,ext,`, EA = M[12] + 0).  Their operand is not
+    // one rides in the modifier register (`14 ,ext,`, EA = M[14] + 0).  Their operand is not
     // a memory word — EA *is* the register being addressed.
     case BESM_IO_EXT:
     case BESM_IO_MOD:
