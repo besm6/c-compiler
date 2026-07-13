@@ -1,14 +1,15 @@
 //
 // The BESM-6 compiler intrinsics declared in <besm6.h> (docs/Besm6_Intrinsics.md).
 //
-// The back end does not lower them yet (tasks I2-I5 in backend/besm6/TODO.md),
-// so these tests stop at typecheck: they pin the contract the header
-// establishes — the names, the signatures, the argument types the prototype
-// checks against, and the _Noreturn-ness of __besm6_stop.
+// The back end lowers them inline (backend/besm6/intrinsics.c, covered by
+// backend/besm6/test/intrinsics_tests.cpp); these tests stop at typecheck and
+// pin the contract the header establishes — the names, the signatures, the
+// argument types the prototype checks against, the _Noreturn-ness of
+// __besm6_stop, and the constant-folded opcode of __besm6_extracode.
 //
 #include "typecheck_fixture.h"
 
-// Every intrinsic and every convenience macro, called once.
+// Every intrinsic, called once.
 TEST_F(PipelineTest, Besm6IntrinsicsCallAll)
 {
     RunPipeline(R"(#include <besm6.h>
@@ -23,9 +24,9 @@ unsigned poke(unsigned a, unsigned m)
     unsigned sum   = __besm6_arx(ready, grp);
     unsigned code  = __besm6_extracode(077, 1, 0);
 
-    unsigned n = b6_popcount(back) + b6_highbit(sum) + b6_grp_read();
-    b6_grp_mask(m);
-    b6_grp_clear(1);
+    unsigned n = __besm6_acx(back, 0) + __besm6_anx(sum, 0) + __besm6_mod(0237, 0);
+    __besm6_mod(036, m);
+    __besm6_mod(037, ~(unsigned)1);
 
     if (n + ones + top + code == 0)
         __besm6_stop(5);
@@ -53,7 +54,7 @@ TEST_F(PipelineTest, Besm6IntrinsicWordIsUnsigned)
     RunPipeline(R"(#include <besm6.h>
 unsigned grp(void)
 {
-    return b6_grp_read();
+    return __besm6_mod(0237, 0);
 })");
 
     const Symbol *mod = symtab_get("__besm6_mod");

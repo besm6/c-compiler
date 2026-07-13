@@ -15,15 +15,15 @@
 //
 // Instruction selection — Madlen.
 //
-// b6_popcount(a) is __besm6_acx(a, 0), and a zero operand needs no literal at all: the
-// `,acx,` is left with an empty address field, so EA = 0 and it reads memory word 0, which
-// always reads as zero.
+// A plain population count is __besm6_acx(a, 0), and a zero operand needs no literal at all:
+// the `,acx,` is left with an empty address field, so EA = 0 and it reads memory word 0,
+// which always reads as zero.
 //
 TEST_F(CodegenTest, IntrinsicPopcountMadlen)
 {
     std::string output = CompileToMadlen(R"(
         #include <besm6.h>
-        unsigned pcnt(unsigned a) { return b6_popcount(a); }
+        unsigned pcnt(unsigned a) { return __besm6_acx(a, 0); }
     )");
     EXPECT_EQ(R"(c
      pcnt:   ,name,
@@ -75,7 +75,7 @@ TEST_F(CodegenTest, IntrinsicHighbitUnix)
 {
     std::string output = CompileToUnix(R"(
         #include <besm6.h>
-        unsigned highbit(unsigned a) { return b6_highbit(a); }
+        unsigned highbit(unsigned a) { return __besm6_anx(a, 0); }
     )");
     EXPECT_EQ(R"(    .text
     .globl highbit
@@ -118,7 +118,7 @@ TEST_F(CodegenTest, IntrinsicPopcountBemsh)
 {
     std::string output = CompileToBemsh(R"(
         #include <besm6.h>
-        unsigned pcnt(unsigned a) { return b6_popcount(a); }
+        unsigned pcnt(unsigned a) { return __besm6_acx(a, 0); }
     )");
     EXPECT_EQ(R"(ввд$$$
 *
@@ -234,8 +234,8 @@ TEST_F(CodegenTest, IntrinsicPopcountRun)
     std::string result = CompileAndRun(R"(
         #include <stdio.h>
         #include <besm6.h>
-        unsigned pcnt(unsigned a) { return b6_popcount(a); }
-        unsigned hbit(unsigned a) { return b6_highbit(a); }
+        unsigned pcnt(unsigned a) { return __besm6_acx(a, 0); }
+        unsigned hbit(unsigned a) { return __besm6_anx(a, 0); }
         void program()
         {
             printf("%d %d\n", pcnt(0377), pcnt(0));
@@ -331,7 +331,7 @@ TEST_F(CodegenTest, UnixRunIntrinsics)
         {
             unsigned a = 0525252525252525u;
             unsigned m = 0770077007700770u;
-            printf("%d %d\n", b6_popcount(0377), b6_highbit(1));
+            printf("%d %d\n", __besm6_acx(0377, 0), __besm6_anx(1, 0));
             printf("%d\n", __besm6_aux(__besm6_apx(a, m), m) == (a & m));
             printf("%d\n", __besm6_arx(07777777777777777u, 1));
             if (__besm6_arx(ga, gb))
@@ -589,16 +589,17 @@ TEST_F(CodegenTest, IntrinsicExtComputedMadlen)
 // the caller discards it.  The store goes, the instruction stays — these are the machine's
 // only I/O and are never eliminable.
 //
-// The second function is the header's own b6_grp_clear(m) = __besm6_mod(037, ~(unsigned)m):
-// a computed *accumulator* (not address) stays pure accumulator dataflow — the complement is
-// an `,aex,` against the all-ones word, and the ГРП write follows it directly.
+// The second function dismisses a ГРП interrupt — __besm6_mod(037, ~m), and note the
+// complement: 002 037 clears ГРП by writing a mask in which a ZERO bit clears.  A computed
+// *accumulator* (not address) stays pure accumulator dataflow — the complement is an `,aex,`
+// against the all-ones word, and the ГРП write follows it directly.
 //
 TEST_F(CodegenTest, IntrinsicModWriteMadlen)
 {
     std::string output = CompileToMadlen(R"(
         #include <besm6.h>
         void mask(unsigned m) { __besm6_mod(036, m); }
-        void dismiss(unsigned m) { b6_grp_clear(m); }
+        void dismiss(unsigned m) { __besm6_mod(037, ~m); }
     )");
     EXPECT_EQ(R"(c
      mask:   ,name,
@@ -624,7 +625,7 @@ c
 }
 
 //
-// b6_grp_read() is __besm6_mod(0237, 0): a read address (bit 0200), and a zero accumulator
+// Reading ГРП is __besm6_mod(0237, 0): a read address (bit 0200), and a zero accumulator
 // needs no literal at all — the `,xta,` is left with an empty address field and reads memory
 // word 0, which always reads as zero.
 //
@@ -637,7 +638,7 @@ TEST_F(CodegenTest, IntrinsicExtLongAddrMadlen)
 {
     std::string output = CompileToMadlen(R"(
         #include <besm6.h>
-        unsigned grp(void) { return b6_grp_read(); }
+        unsigned grp(void) { return __besm6_mod(0237, 0); }
         unsigned far(void) { return __besm6_ext(010000, 0); }
     )");
     EXPECT_EQ(R"(c
@@ -819,9 +820,9 @@ TEST_F(CodegenTest, UnixAssembleIntrinsicIo)
 #include <besm6.h>
 int main(void) {
     unsigned ready = __besm6_ext(04031, 0);
-    unsigned grp = b6_grp_read();
+    unsigned grp = __besm6_mod(0237, 0);
     __besm6_mod(036, 0);
-    b6_grp_clear(1);
+    __besm6_mod(037, ~1u);
     return (int)(__besm6_ext(ready & 07777, grp) & 1);
 }
 )"));
@@ -841,7 +842,7 @@ TEST_F(CodegenTest, BemshIntrinsicsRun)
         {
             unsigned a = 0525252525252525u;
             unsigned m = 0770077007700770u;
-            printf("%d %d\n", b6_popcount(0377), b6_highbit(1));
+            printf("%d %d\n", __besm6_acx(0377, 0), __besm6_anx(1, 0));
             printf("%d\n", __besm6_aux(__besm6_apx(a, m), m) == (a & m));
             printf("%d\n", __besm6_arx(07777777777777777u, 1));
             if (__besm6_arx(ga, gb))

@@ -536,8 +536,8 @@ condition system, and stack-mode behaviour are documented. Opcodes are octal. Co
 | `РЖ`   | 027 | set mode register from memory | `XTR` |
 | `СЧРЖ` | 030 | read mode register | `RTE` |
 | `СЧМР` | 031 | read younger-bits register | `YTA` |
-| `УВВ`  | 032 | I/O control / full write **(priv.)** | `EXT` |
-| `УВВ`  | 033 | I/O control / full read **(priv.)** | — |
+| —      | 032 | no mnemonic **(priv.)** | — |
+| `УВВ`  | 033 | I/O control — the peripherals **(priv.)** | `EXT` |
 | `СЛПА` | 034 | add exponent immediate | `E+N` |
 | `ВЧПА` | 035 | subtract exponent immediate | `E-N` |
 | `СДА`  | 036 | shift immediate | `ASN` |
@@ -551,7 +551,9 @@ condition system, and stack-mode behaviour are documented. Opcodes are octal. Co
 
 Opcodes 046–047 are illegal. Opcodes **050–077** are **extracodes** (экстракоды) — the system-call
 and math-library interface (square root, trig, logarithm, exponential, I/O, formatted print, system
-operations). See [Besm6_Instruction_Set.md §6](Besm6_Instruction_Set.md#6-instruction-reference).
+operations). Bemsh names them by their opcode: `э74` is extracode 074. See
+[Besm6_Instruction_Set.md §6](Besm6_Instruction_Set.md#6-instruction-reference), and
+[Besm6_Intrinsics.md](Besm6_Intrinsics.md) for reaching them (and `УВВ`/`РЕГ`/`СТОП`) from C.
 
 #### Second structure — long commands (opcodes 020–037)
 
@@ -1046,7 +1048,7 @@ coefficient `(p)` for every type except `А`. Type `Е` is allowed only in `КО
 `РЖА`=NTR · `РЗБ`=AUX · `СБР`=APX · `СД`=ASX · `СДА`=ASN · `СЛ`=A+X ·
 `СЛИ`=J+M · `СЛИА`=UTM · `СЛП`=E+X · `СЛПА`=E+N · `СЛЦ`=ARX · `СТОП`=STOP ·
 `СЧ`=XTA · `СЧИ`=ITA · `СЧИМ`=ITS · `СЧМ`=XTS · `СЧМР`=YTA · `СЧРЖ`=RTE ·
-`УВВ`=I/O (priv.) · `УИ`=ATI · `УИА`=VTM · `УИИ`=MTJ · `УИМ`=STI ·
+`УВВ`=EXT (priv.) · `УИ`=ATI · `УИА`=VTM · `УИИ`=MTJ · `УИМ`=STI ·
 `УМН`=A*X · `ЧЕД`=ACX · `ЦИКЛ`=VLM
 
 ---

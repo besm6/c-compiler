@@ -141,6 +141,10 @@ window:
   A survives across a label.
 - **A branch** (`uj`, `uza`, `u1a`, `call`, …). After a branch the next instruction may be a
   branch target, and a `call` runs a helper that clobbers A.
+- **A supervisor instruction** (`ext`, `mod`, an extracode — the `<besm6.h>` intrinsics, see
+  5.10). These are not branches, but they rewrite the state the pass tracks: `ext`/`mod` put
+  the AU mode register R into logical mode on a read address, and an extracode runs the
+  monitor's handler, which may do anything at all.
 
 So the peephole pass treats the instruction list as a sequence of **basic blocks** delimited
 by labels and branches, resets its tracked A/R/ω state at every boundary, and never rewrites
@@ -487,6 +491,28 @@ it can be matched. A `call`, which may write anything, is already a basic-block 
 This is worth stating plainly because the natural design — a table of "a store to a frame slot
 kills all dereferences, a store through a pointer kills everything" — is dead code on this
 architecture. A machine with a store-immediate or a memory-to-memory move would need it.
+
+### 5.10 What a new instruction kind owes the pass
+
+Two of the pass's structures are **whitelists**, and a whitelist is silent when it is
+incomplete: a kind left out of one does not fail to build, does not fail to assemble, and does
+not fail to link. It miscompiles. Whoever adds a `Besm_InstrKind` owes both of these:
+
+- **A kind with a memory operand must be added to `instr_reads_auto_slot`**
+  ([peephole.c](../backend/besm6/peephole.c)). It ends in `default: return false` — "this
+  instruction reads no frame slot" — so an omitted kind tells dead-temp-store elimination (5.2)
+  that the temporary feeding it is never read, and the store that materialises its operand is
+  deleted out from under it. This is why `WTC` is in the list.
+- **A kind that clobbers A, R or ω must be a basic-block boundary** (`is_block_boundary`, and
+  Section 4). Otherwise the pass keeps believing a stale "A mirrors *L*" or a stale R across
+  it, and rules 5.1 and 5.3 rewrite on that belief.
+
+The `<besm6.h>` intrinsics ([Besm6_Intrinsics.md](Besm6_Intrinsics.md)) are the worked example
+of both. `BESM_IO_EXT`, `BESM_IO_MOD` and `BESM_IO_EXTRACODE` are boundaries, for the reasons
+in Section 4. And one of them is deliberately *not* what it looks like: `BESM_BRANCH_STOP` is
+**not** a terminator, so 5.5(b) must not open an unreachable run at it — the BESM-6 halt is
+resumable, the operator presses *continue*, and the code after it is live. A `stop` treated as
+a terminator would silently delete the rest of the block.
 
 ---
 

@@ -122,7 +122,10 @@ module Besm6 {
   --
   -- Branches (UZA U1A UJ):            reg=M-field  addr+name=address
   -- VJM VZM V1M VLM:                  reg=link/test/cnt  addr+name=target
-  -- STOP:                             (no operands)
+  -- STOP:                             addr=halt code (15 bits, 0..077777)
+  --
+  -- Privileged I/O (EXT MOD):         reg=M-field  addr=device/register address
+  -- EXTRACODE:                        opcode=050..077  reg=M-field  addr=EA
   --
   -- Directives:
   --   Label Name Subp:  name=Madlen label (before first comma)
@@ -191,7 +194,20 @@ module Besm6 {
     | VZM      -- if M[reg]=0: K=addr+name                  (opcode 034 F2)
     | V1M      -- if M[reg]≠0: K=addr+name                  (opcode 035 F2)
     | VLM      -- if M[reg]≠0: M[reg]+=1; K=addr+name       (opcode 037 F2)
-    | STOP     -- halt processor                             (opcode 033 F2)
+    | STOP     -- halt processor; addr = halt code, resumable (opcode 033 F2)
+
+    -- Privileged I/O (supervisor) — the machine's only I/O: EA names a device or a
+    -- CPU register, A carries the data in both directions, and one bit of the address
+    -- selects the direction (04000 for EXT, 0200 for MOD).  Distinct from the UTC/WTC
+    -- C-register group above, despite the name.  Emitted for the <besm6.h> intrinsics
+    -- (docs/Besm6_Intrinsics.md).
+    | EXT      -- A ↔ peripheral register named by EA        (opcode 033 F1)
+    | MOD      -- A ↔ CPU-internal register named by EA      (opcode 002 F1)
+
+    -- Extracode (user mode): M[016] = EA; the opcode selects the operating-system
+    -- service.  The opcode *is* the mnemonic, and each dialect spells it differently
+    -- (Madlen `,*74,`, Bemsh `э74`, b6as `$74`), so it rides in its own field.
+    | EXTRACODE -- invoke extracode `opcode`                  (opcodes 050-077)
 
     -- Assembly directives
     | Label    -- name: ,bss,  — label definition point
@@ -208,7 +224,10 @@ module Besm6 {
 
   -- `label` is the Madlen label of a data word whose `name` is already an operand
   -- (currently only Z00, used to label a pointer-initialized static local).
-  instr = Instr(instr_kind kind, int reg, int addr, string? name, string? label)
+  -- `opcode` is EXTRACODE's own opcode, 050..077 — the one instruction whose mnemonic
+  -- is a function of its operand rather than of its kind.
+  instr = Instr(instr_kind kind, int reg, int addr, string? name, string? label,
+                int? opcode)
 
   -- =========================================================
   -- Code structure

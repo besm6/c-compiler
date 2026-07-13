@@ -80,7 +80,8 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
 
         // The inline binop shape: A = a; A op= x; dst = A.  A zero constant operand needs
         // no literal at all — the instruction is left with an empty address field and reads
-        // memory word 0, which always reads as zero (b6_popcount(a) is exactly that).
+        // memory word 0, which always reads as zero (a plain popcount, acx(a, 0), is exactly
+        // that).
         emit_xta_val(block, tail, f, a);
         emit_arith_val(block, tail, bit_intrinsics[i].kind, f, x);
 

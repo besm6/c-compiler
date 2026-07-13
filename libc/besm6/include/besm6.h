@@ -12,6 +12,11 @@
  * bit manipulations, and Tier 3 (the extracode).  Each becomes a single inline
  * machine instruction, never a call.
  *
+ * This header declares those nine and nothing else.  Readable wrappers for the
+ * registers a given program cares about — a popcount, an spl(), the ГРП bit
+ * names — are the caller's own business; they are one #define each, and what
+ * they should be named depends on the program.
+ *
  * Every intrinsic that carries a machine word takes and returns `unsigned`,
  * never `int`.  A BESM-6 word is 48 bits, but a signed int on this target holds
  * only 41 of them; a device control word or a ГРП value (whose bit 48 is live)
@@ -50,6 +55,14 @@ unsigned __besm6_ext(unsigned addr, unsigned acc);
  * 002 mod (рег) — the CPU-internal registers: the cache БРЗ, the page registers
  * РП, the protection register РЗ, the interrupt register ГРП and its mask МГРП,
  * the mode bits РУУ.  A := acc; mod addr; result := A.
+ *
+ * Two surprises worth restating, both about ГРП, the interrupt register.  002
+ * 037 clears it by writing a mask in which a ZERO bit clears (GRP &= ACC |
+ * GRP_WIRED_BITS), so to dismiss one interrupt you write the COMPLEMENT of its
+ * bit.  And the wired bits — the "device free" and "exchange done" bits of the
+ * mass-storage channels — are live wires, not flip-flops; they cannot be
+ * cleared that way at all, and go down only when the device is itself given a
+ * new command.
  */
 unsigned __besm6_mod(unsigned addr, unsigned acc);
 
@@ -125,22 +138,5 @@ unsigned __besm6_arx(unsigned a, unsigned x);
  * It is caller-saved, so this is legal.
  */
 unsigned __besm6_extracode(int op, unsigned ea, unsigned acc);
-
-/* ---- Conveniences ---- */
-
-#define b6_popcount(a) __besm6_acx((a), 0)
-#define b6_highbit(a)  __besm6_anx((a), 0) /* 1 = bit 48 … 48 = bit 1; 0 -> 0 */
-
-/*
- * ГРП, the interrupt register, and МГРП, its mask.  Note that b6_grp_clear
- * writes the COMPLEMENT of the bits to dismiss: 002 037 clears ГРП by writing a
- * mask in which a ZERO bit clears (GRP &= ACC | GRP_WIRED_BITS).  Wired bits —
- * the "device free" and "exchange done" bits of the mass-storage channels — are
- * live wires, not flip-flops, and cannot be cleared this way at all; they go
- * down only when the device is itself given a new command.
- */
-#define b6_grp_read()   __besm6_mod(0237, 0)
-#define b6_grp_mask(m)  ((void) __besm6_mod(036, (m)))
-#define b6_grp_clear(m) ((void) __besm6_mod(037, ~(unsigned)(m)))
 
 #endif /* _BESM6_H */

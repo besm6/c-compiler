@@ -63,7 +63,7 @@ allocator, which is in the Unix `libc.a` only (it depends on the b6ld/b6sim memo
 | `string.h` | `strlen`, `strcpy`, `strncpy`, `strcat`, `strncat`, `strcmp`, `strncmp`, `strchr`, `strrchr`, `strstr`, `strtok`, `strerror`, `memcpy`, `memmove`, `memset`, `memcmp`, `memchr` |
 | `math.h` | `modf`, `fabs`, `fmin`, `fmax`, `fma`, `frexp`, `ldexp` |
 | `stdarg.h` | `va_start`, `va_arg`, `va_end`, `va_copy` (word-pointer `va_list`) |
-| `besm6.h` | none — the `__besm6_*` intrinsics are no library routines but machine instructions the back end inlines, and that lowering is not implemented yet (tasks I2–I5 in [backend/besm6/TODO.md](../../../backend/besm6/TODO.md)); today a call to one compiles into an ordinary external call to a symbol that does not exist |
+| `besm6.h` | none, and none needed — the nine `__besm6_*` intrinsics are not library routines but machine instructions the back end inlines, so each compiles into a single instruction and leaves no symbol to link |
 | all others | — (declarations only, for now) |
 
 The `printf`/`sprintf`/`snprintf` prototypes use the ordinary ISO variadic form.

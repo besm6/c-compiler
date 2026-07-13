@@ -350,9 +350,23 @@ This is an unconditional pop regardless of the addressing mode.
 
 ---
 
-#### 002 — MOD (рег) — Modify privileged registers
+#### 002 — MOD (рег) — CPU-internal registers
+
+```
+A ↔ register named by EA
+```
 
 **Kernel mode only.** Throws `Illegal instruction` in user mode.
+
+One of the machine's two supervisor instructions, and the one that reaches everything
+*inside* the CPU: the cache БРЗ, the page registers РП (`020`–`027`), the protection
+register РЗ, the interrupt register ГРП (`0237`) and its mask МГРП (`036`), the mode bits
+РУУ (`0100`–`0137`). The effective address names the register and the accumulator carries
+the data **in both directions**; one bit of the address — `0200` — selects a read, and on a
+read the AU switches to logical mode, because what arrives in A is a bit pattern, not a
+number.
+
+Reachable from C as the `__besm6_mod` intrinsic ([Besm6_Intrinsics.md](Besm6_Intrinsics.md)).
 
 ---
 
@@ -737,15 +751,38 @@ This is used to reconstruct the second word of a double-precision value.
 
 ---
 
-#### 032 — EXT (зпп) — Full-width I/O write
+#### 032 — (no mnemonic)
 
 **Kernel mode only.** Throws `Illegal instruction` in user mode.
+
+The assemblers name no mnemonic for this opcode: Madlen writes it `*32` and `b6as`
+([cmd/as/tables.c](https://github.com/besm6/v7besm/blob/main/cmd/as/tables.c)) has no entry
+for it at all. It is *not* `ext` — that is 033, below.
 
 ---
 
-#### 033 — (счп) — Full-width I/O read
+#### 033 — EXT (увв) — I/O control
+
+```
+A ↔ peripheral register named by EA
+```
 
 **Kernel mode only.** Throws `Illegal instruction` in user mode.
+
+The machine's other supervisor instruction, and the only way to reach a peripheral: drums,
+disks, tape, printer, punches, card equipment, terminals. The BESM-6 has no I/O address
+space, no memory-mapped device registers and no channel programs — every device is driven by
+an `ext` whose effective address names a device register, with the accumulator carrying the
+control word or the data **in both directions**. One bit of the address — `04000` — selects
+a read, and on a read the AU switches to logical mode.
+
+Note that opcode 033 names *two* instructions: this one in the first structure (Format 1,
+long address) and [STOP](#033--stop-стоп--stop) in the second (Format 2). The address-field
+width is what distinguishes them.
+
+Reachable from C as the `__besm6_ext` intrinsic ([Besm6_Intrinsics.md](Besm6_Intrinsics.md));
+the device address map is in
+[Besm6_Peripherals.md](https://github.com/besm6/v7besm/blob/main/doc/Besm6_Peripherals.md).
 
 ---
 
@@ -910,6 +947,16 @@ Extracodes are the system call and mathematical library interface. When executed
 3. On return, ω mode is set to **Logical**.
 
 All extracodes share this same dispatch mechanism in `Processor::step()`.
+
+They execute in **user** mode: an extracode is how a program asks the operating system for a
+privileged operation, and the Unix v7 syscall trap `$77 N` rides on exactly this mechanism —
+`N` is the effective address, the accumulator carries the argument, and `M[016]` comes back
+holding `errno`. Reachable from C as the `__besm6_extracode` intrinsic
+([Besm6_Intrinsics.md](Besm6_Intrinsics.md)); note that because it writes `M[016]`, an
+extracode clobbers **r14**.
+
+Each assembler spells an extracode by its opcode rather than by a mnemonic, and each does it
+differently: Madlen `,*74,`, Bemsh `э74`, `b6as` `$74`.
 
 | Opcode(s) | Purpose |
 |-----------|---------|
@@ -1092,8 +1139,19 @@ Return is normally accomplished with `UJ M[reg]` which branches to the saved ret
 halt
 ```
 
-Stops the processor. The simulation loop terminates and the program ends. Accessible in
-both user and kernel mode.
+Stops the processor. Accessible in both user and kernel mode.
+
+On real hardware the halt is **resumable**: the machine stops, the operator reads the halt
+reason — the instruction's own 15-bit address field — off the console, presses *continue*,
+and execution carries on at the next instruction. Our simulators do not model that: `dubna`
+and `b6sim` alike treat opcode 0330 as "the run is over", ignore the address field, and end
+the simulation.
+
+This is the Format-2 (short-address) 033; the Format-1 033 is a different instruction
+entirely, [EXT](#033--ext-увв--io-control). Madlen has no mnemonic for the halt at all — it
+is written as the raw octal machine code `,33,` — while Bemsh spells it `стоп` and `b6as`
+`stop`. Reachable from C as the `__besm6_stop` intrinsic
+([Besm6_Intrinsics.md](Besm6_Intrinsics.md)), which is deliberately *not* `_Noreturn`.
 
 ---
 
@@ -1223,15 +1281,16 @@ execute normally.
 
 | Opcode | Mnemonic | Description |
 |--------|----------|-------------|
-| 002 | MOD (рег) | Modify privileged registers (clock, interrupt masks, etc.) |
-| 032 | EXT (зпп) | Full-width write to external I/O control registers |
-| 033 | — (счп) | Full-width read from external I/O control registers |
+| 002 | MOD (рег) | CPU-internal registers: page registers, protection, ГРП and its mask, mode bits |
+| 032 | — | No mnemonic in any assembler (Madlen writes it `*32`) |
+| 033 | EXT (увв) | I/O control — the peripherals; the machine's only device access |
 | 046 | — (соп) | Special memory access with extended privileges |
 | 047 | — (э47) | Reserved; always illegal |
 | 0320 | IJ (выпр) | Return from interrupt (restores kernel/user mode and PC) |
 
 All other instructions execute identically in both user and kernel mode. In particular:
-- **STOP (033)** is accessible in user mode.
+- **STOP (033, Format 2)** is accessible in user mode — unlike the Format-1 033, `EXT`, which
+  is privileged. The two share an opcode and are told apart by the address-field width.
 - All extracodes (050–077, 020, 021) execute in user mode; they implement the system call
   interface through which user programs request privileged operations.
 - Stack operations, arithmetic, logical, and branch instructions have no privilege check.
