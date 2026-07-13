@@ -163,6 +163,7 @@ For debug logging, verbose mode, and full `lower` behavior, see [docs/Technical_
 | [docs/Besm6_Calling_Conventions.md](docs/Besm6_Calling_Conventions.md) | BESM-6 C calling convention (registers, b/save, b/ret) |
 | [docs/Besm6_Instruction_Set.md](docs/Besm6_Instruction_Set.md) | BESM-6 instruction set reference |
 | [docs/Besm6_Runtime_Library.md](docs/Besm6_Runtime_Library.md) | BESM-6 runtime helper library (`b/save`, `b/mul`, `b/div`, unsigned arithmetic, signed/unsigned/FP comparisons, int↔FP conversions, and other helpers) |
+| [docs/Besm6_Intrinsics.md](docs/Besm6_Intrinsics.md) | BESM-6 compiler intrinsics (`<besm6.h>`): the supervisor instructions `ext`/`mod`, the bit-manipulation instructions with no C equivalent, `stop` and the extracode trap |
 | [docs/Standard_Include_Files.md](docs/Standard_Include_Files.md) | C11 standard headers for the BESM-6: role of each header, declared functions, how they relate, and target specifics |
 | [docs/Frexp_Ldexp.md](docs/Frexp_Ldexp.md) | The `frexp`/`ldexp` C11 math pair and their frameless Madlen implementation via the BESM-6 exponent-field instructions |
 | [docs/KOI7_Encoding.md](docs/KOI7_Encoding.md) | KOI-7 character encoding: the BESM-6 code page, the ASCII→KOI7 conversion the codegen performs, and how the glyph data was collected |

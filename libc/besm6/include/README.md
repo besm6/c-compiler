@@ -43,6 +43,11 @@ so `va_list` is a word pointer and `va_arg` steps one word (the same walk
 All other headers, **except** `complex.h`, `stdatomic.h`, `threads.h` (and
 `tgmath.h`'s complex half), which are intentionally not provided.
 
+`besm6.h` and `malloc.h` belong to neither subset: they are BESM-6 extensions,
+not C11 headers.  `besm6.h` declares the compiler intrinsics that give C direct
+access to the machine instructions it cannot otherwise express — see
+[docs/Besm6_Intrinsics.md](../../../docs/Besm6_Intrinsics.md).
+
 ## What is implemented vs. planned
 
 A routine listed below has a real implementation in the runtime library; everything
@@ -58,6 +63,7 @@ allocator, which is in the Unix `libc.a` only (it depends on the b6ld/b6sim memo
 | `string.h` | `strlen`, `strcpy`, `strncpy`, `strcat`, `strncat`, `strcmp`, `strncmp`, `strchr`, `strrchr`, `strstr`, `strtok`, `strerror`, `memcpy`, `memmove`, `memset`, `memcmp`, `memchr` |
 | `math.h` | `modf`, `fabs`, `fmin`, `fmax`, `fma`, `frexp`, `ldexp` |
 | `stdarg.h` | `va_start`, `va_arg`, `va_end`, `va_copy` (word-pointer `va_list`) |
+| `besm6.h` | none — the `__besm6_*` intrinsics are no library routines but machine instructions the back end inlines, and that lowering is not implemented yet (tasks I2–I5 in [backend/besm6/TODO.md](../../../backend/besm6/TODO.md)); today a call to one compiles into an ordinary external call to a symbol that does not exist |
 | all others | — (declarations only, for now) |
 
 The `printf`/`sprintf`/`snprintf` prototypes use the ordinary ISO variadic form.

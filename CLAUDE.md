@@ -314,6 +314,7 @@ run by `make run` (see **Build & Test** above).
 - [docs/Besm6_Calling_Conventions.md](docs/Besm6_Calling_Conventions.md) — BESM-6 C calling convention (registers, b/save, b/ret)
 - [docs/Besm6_Instruction_Set.md](docs/Besm6_Instruction_Set.md) — BESM-6 instruction set reference
 - [docs/Besm6_Runtime_Library.md](docs/Besm6_Runtime_Library.md) — BESM-6 runtime helper library specifications (`b/save`, `b/mul`, `b/div`, comparisons, etc.)
+- [docs/Besm6_Intrinsics.md](docs/Besm6_Intrinsics.md) — BESM-6 compiler intrinsics (`libc/besm6/include/besm6.h`): the two supervisor instructions `ext`/`mod` that reach every peripheral, the bit-manipulation instructions with no C equivalent (`apx`/`aux`/`acx`/`anx`/`arx`), the halt `stop`, and the extracode trap; declarations only so far — the backend lowering is tasks I2–I5 in [backend/besm6/TODO.md](backend/besm6/TODO.md)
 - [docs/Frexp_Ldexp.md](docs/Frexp_Ldexp.md) — the `frexp`/`ldexp` C11 math pair: meaning, usage, and a proposed frameless Madlen implementation via the BESM-6 exponent-field instructions (`E+X`, `ASN`, `STI`)
 - [docs/Standard_Include_Files.md](docs/Standard_Include_Files.md) — C11 standard headers (`libc/besm6/include/`): role of each header, declared functions, inter-header relationships, and BESM-6 specifics (freestanding vs hosted, no complex/atomics/threads)
 - [docs/KOI7_Encoding.md](docs/KOI7_Encoding.md) — KOI-7 character encoding: the BESM-6 code page (code→glyph), the ASCII→KOI7 conversion the codegen performs (`utf8_to_koi7.c`), and how the glyph data was collected on Dubna

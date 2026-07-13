@@ -11,7 +11,7 @@ from 1** (bit 1 = LSB, bit 48 = MSB), as everywhere else in this project.
 Companion reading, in the order it becomes relevant:
 [Besm6_Instruction_Set.md](Besm6_Instruction_Set.md) (what the instructions do),
 [Besm6_Data_Representation.md](Besm6_Data_Representation.md) (how a C scalar sits in a word),
-[Besm6_Peripherals.md](Besm6_Peripherals.md) (the `033`/`002` address map),
+[Besm6_Peripherals.md](https://github.com/besm6/v7besm/blob/main/doc/Besm6_Peripherals.md) (the `033`/`002` address map),
 [Besm6_Calling_Conventions.md](Besm6_Calling_Conventions.md) (the C ABI).
 
 ---
@@ -41,8 +41,8 @@ which name a register through the *effective address* and pass data through the 
 | `002` | `mod` / `рег` | CPU-internal registers — the cache БРЗ, the page registers РП, the protection register РЗ, the interrupt register ГРП and its mask МГРП, the mode bits РУУ |
 
 There is no way to express either one in C. Today the kernel obtains *every* machine operation by
-calling out-of-line assembly in [kernel/besm6.S](../kernel/besm6.S), where the thirty-odd routines
-are still `//TODO` stubs, and the 93 device-I/O call sites in [kernel/dev/](../kernel/dev/) are all
+calling out-of-line assembly in [kernel/besm6.S](https://github.com/besm6/v7besm/blob/main/kernel/besm6.S), where the thirty-odd routines
+are still `//TODO` stubs, and the 93 device-I/O call sites in [kernel/dev/](https://github.com/besm6/v7besm/tree/main/kernel/dev) are all
 x86 `inb`/`outb` inherited from the v7/x86 port.
 
 With these two instructions available as intrinsics, most of that assembly disappears:
@@ -71,13 +71,7 @@ are always zero, bit 41 is the sign, bits 40–1 are the magnitude (see
 This is not a stylistic preference. **ГРП uses all 48 bits** — bit 48 is `GRP_PRN1_SYNC` — so an
 intrinsic typed `int` could not carry a ГРП value at all, and the top seven bits of every device
 control word would be silently lost. Every intrinsic that carries a machine word is therefore
-typed `unsigned`.
-
-The header defines the spelling used throughout:
-
-```c
-typedef unsigned besm6_word;    /* one 48-bit machine word */
-```
+typed `unsigned`, spelled out — the header defines no typedef alias for the machine word.
 
 ### 2.2 Constant versus computed arguments
 
@@ -104,8 +98,8 @@ word-sized types. Absolute machine locations therefore need no intrinsic; a `vol
 reaches them directly:
 
 ```c
-#define DRUM1_SERVICE  ((volatile besm6_word *) 010)   /* 8 service words, 010-017 */
-#define PANEL_SWITCH   ((volatile besm6_word *) 01)    /* front-panel switch registers 1-7 */
+#define DRUM1_SERVICE  ((volatile unsigned *) 010)   /* 8 service words, 010-017 */
+#define PANEL_SWITCH   ((volatile unsigned *) 01)    /* front-panel switch registers 1-7 */
 ```
 
 This covers the fixed low-memory buffers where mass-storage exchanges deposit their 8 service words
@@ -128,8 +122,8 @@ cannot touch a device.
 
 | Intrinsic | Op | Semantics |
 |-----------|----|-----------|
-| `besm6_word __besm6_ext(unsigned addr, besm6_word acc)` | `033` `ext` увв | `A := acc; ext addr; result := A` |
-| `besm6_word __besm6_mod(unsigned addr, besm6_word acc)` | `002` `mod` рег | `A := acc; mod addr; result := A` |
+| `unsigned __besm6_ext(unsigned addr, unsigned acc)` | `033` `ext` увв | `A := acc; ext addr; result := A` |
+| `unsigned __besm6_mod(unsigned addr, unsigned acc)` | `002` `mod` рег | `A := acc; mod addr; result := A` |
 | `_Noreturn void __besm6_stop(unsigned code)` | `033` fmt 2 `stop` стоп | halt the processor |
 
 **One intrinsic per opcode, returning the accumulator.** This mirrors the hardware exactly: the
@@ -139,11 +133,11 @@ for `002` — and on a read the arithmetic unit switches to logical mode because
 a bit pattern, not a number.
 
 `addr` is the **verbatim address from the map in
-[Besm6_Peripherals.md](Besm6_Peripherals.md)**, read bit included. That document says "`033 4031`
+[Besm6_Peripherals.md](https://github.com/besm6/v7besm/blob/main/doc/Besm6_Peripherals.md)**, read bit included. That document says "`033 4031`
 reads the device-ready register"; you write:
 
 ```c
-besm6_word ready = __besm6_ext(04031, 0);
+unsigned ready = __besm6_ext(04031, 0);
 ```
 
 and the two read the same. On a read address the hardware ignores the incoming accumulator, so pass
@@ -176,11 +170,11 @@ These have no C equivalent, and the kernel wants all of them.
 
 | Intrinsic | Op | Semantics |
 |-----------|----|-----------|
-| `besm6_word __besm6_apx(besm6_word a, besm6_word mask)` | `020` `apx` сбр | gather the bits of `a` selected by `mask` |
-| `besm6_word __besm6_aux(besm6_word a, besm6_word mask)` | `021` `aux` рзб | scatter the top bits of `a` into `mask`'s positions |
-| `besm6_word __besm6_acx(besm6_word a, besm6_word x)` | `022` `acx` чед | `popcount(a) ⊞ x` |
-| `besm6_word __besm6_anx(besm6_word a, besm6_word x)` | `023` `anx` нед | (position of `a`'s highest set bit) `⊞ x` |
-| `besm6_word __besm6_arx(besm6_word a, besm6_word x)` | `013` `arx` слц | `a ⊞ x` — 48-bit add with end-around carry |
+| `unsigned __besm6_apx(unsigned a, unsigned mask)` | `020` `apx` сбр | gather the bits of `a` selected by `mask` |
+| `unsigned __besm6_aux(unsigned a, unsigned mask)` | `021` `aux` рзб | scatter the top bits of `a` into `mask`'s positions |
+| `unsigned __besm6_acx(unsigned a, unsigned x)` | `022` `acx` чед | `popcount(a) ⊞ x` |
+| `unsigned __besm6_anx(unsigned a, unsigned x)` | `023` `anx` нед | (position of `a`'s highest set bit) `⊞ x` |
+| `unsigned __besm6_arx(unsigned a, unsigned x)` | `013` `arx` слц | `a ⊞ x` — 48-bit add with end-around carry |
 
 `⊞` throughout means **end-around-carry addition**: a 48-bit unsigned add in which a carry out of
 bit 48 is added back into bit 1 (one's-complement addition). It is the machine's own integer add,
@@ -231,12 +225,12 @@ and the AU mode register R* for the contract compiled code holds.
 
 | Intrinsic | Op | Semantics |
 |-----------|----|-----------|
-| `besm6_word __besm6_extracode(int op, unsigned ea, besm6_word acc)` | `$50`…`$77` | `M[016] := ea; A := acc;` invoke extracode `op`; result := A |
+| `unsigned __besm6_extracode(int op, unsigned ea, unsigned acc)` | `$50`…`$77` | `M[016] := ea; A := acc;` invoke extracode `op`; result := A |
 
 `op` must be a compile-time constant — it *is* the opcode. Extracodes execute in **user** mode:
 they are the interface through which a user program asks the operating system for a privileged
 operation, and the v7 syscall trap `$77 N` rides on exactly this mechanism (see
-[Aout_Simulator.md](Aout_Simulator.md)).
+[Aout_Simulator.md](https://github.com/besm6/v7besm/blob/main/doc/Aout_Simulator.md)).
 
 The kernel does not *call* extracodes — it implements them. But this intrinsic matters anyway,
 because it is what would let libc's hand-written syscall leaves (`write.s` = `$77 4`, `exit.s` =
@@ -259,7 +253,7 @@ These are what the proposal buys. All four are assembly today.
 The whole of `spl0`…`spl7`/`splx`, plus `cli`/`sti`, is one write of the МГРП mask:
 
 ```c
-static besm6_word ipl[8] = { /* МГРП mask for each level */ };
+static unsigned ipl[8] = { /* МГРП mask for each level */ };
 static int cur_ipl;
 
 int splx(int s)
@@ -274,20 +268,20 @@ int spl6(void) { return splx(6); }
 void cli(void) { __besm6_mod(036, 0); }
 ```
 
-Note `ipl[]` is `besm6_word`, not `int`: ГРП bit 48 exists and would not survive a 41-bit type.
+Note `ipl[]` is `unsigned`, not `int`: ГРП bit 48 exists and would not survive a 41-bit type.
 
 ### 6.2 The interrupt dispatcher
 
 Read ГРП, find the highest pending unmasked bit, dismiss it:
 
 ```c
-besm6_word grp = __besm6_mod(0237, 0);          /* 002 0237 -- read ГРП */
-besm6_word pending = grp & ipl[cur_ipl];
+unsigned grp = __besm6_mod(0237, 0);          /* 002 0237 -- read ГРП */
+unsigned pending = grp & ipl[cur_ipl];
 
 if (pending) {
     /* anx numbers from the MSB: 1 = bit 48, 48 = bit 1. */
     int n = __besm6_anx(pending, 0);
-    besm6_word b = (besm6_word)1 << (48 - n);   /* back to a bit mask */
+    unsigned b = (unsigned)1 << (48 - n);   /* back to a bit mask */
 
     dispatch(n);
 
@@ -303,7 +297,7 @@ set bit", and without the intrinsic it is a loop.
 
 ### 6.3 Reading a drum page
 
-This is [Besm6_Peripherals.md](Besm6_Peripherals.md) § *A worked example: reading a drum page*,
+This is [Besm6_Peripherals.md](https://github.com/besm6/v7besm/blob/main/doc/Besm6_Peripherals.md) § *A worked example: reading a drum page*,
 transliterated. That document builds control word `001420024` — page mode, read, memory page 2,
 zone `05` — and issues it with `xta 100` / `ext 1`. In C:
 
@@ -314,7 +308,7 @@ zone `05` — and issues it with `xta 100` / `ext 1`. In C:
 
 /* Memory page in bits 17-13, zone in bits 10-3.  Bit N has the value 2^(N-1),
  * so the page field is scaled by 2^12 and the zone field by 2^2. */
-besm6_word cw = DRUM_PAGE_MODE | DRUM_READ | (page << 12) | (zone << 2);
+unsigned cw = DRUM_PAGE_MODE | DRUM_READ | (page << 12) | (zone << 2);
 
 __besm6_ext(01, cw);                                    /* 033 1 -- go */
 while (!(__besm6_mod(0237, 0) & GRP_DRUM1_FREE))        /* poll ГРП bit 46 */
@@ -337,9 +331,9 @@ That is a bit-scatter, and `aux` is a bit-scatter instruction:
 
 ```c
 /* Mask of every bit position that page i contributes to, in descending order. */
-static const besm6_word rp_mask[4] = { /* … */ };
+static const unsigned rp_mask[4] = { /* … */ };
 
-besm6_word w = 0;
+unsigned w = 0;
 for (int i = 0; i < 4; i++)
     w |= __besm6_aux(pageno[i] << (48 - 10), rp_mask[i]);
 __besm6_mod(020 + n, w);                /* load page register n */
@@ -354,28 +348,26 @@ number. Written by hand, this is a dozen shifts and masks per page.
 
 The intrinsics should be declared in a single header, alongside the readable wrappers built on
 them. It belongs in the C compiler's `libc/besm6/include/` and installs into
-`share/besm6/include/`, where [cmd/cc/cc.c](../cmd/cc/cc.c)'s `besm6_include_dir()` already looks.
+`share/besm6/include/`, where [cmd/cc/cc.c](https://github.com/besm6/v7besm/blob/main/cmd/cc/cc.c)'s `besm6_include_dir()` already looks.
 
 ```c
 #ifndef _BESM6_H
 #define _BESM6_H
 
-typedef unsigned besm6_word;            /* one 48-bit machine word */
-
 /* Tier 1 -- privileged */
-besm6_word __besm6_ext(unsigned addr, besm6_word acc);
-besm6_word __besm6_mod(unsigned addr, besm6_word acc);
+unsigned __besm6_ext(unsigned addr, unsigned acc);
+unsigned __besm6_mod(unsigned addr, unsigned acc);
 _Noreturn void __besm6_stop(unsigned code);
 
 /* Tier 2 -- bit manipulation */
-besm6_word __besm6_apx(besm6_word a, besm6_word mask);
-besm6_word __besm6_aux(besm6_word a, besm6_word mask);
-besm6_word __besm6_acx(besm6_word a, besm6_word x);
-besm6_word __besm6_anx(besm6_word a, besm6_word x);
-besm6_word __besm6_arx(besm6_word a, besm6_word x);
+unsigned __besm6_apx(unsigned a, unsigned mask);
+unsigned __besm6_aux(unsigned a, unsigned mask);
+unsigned __besm6_acx(unsigned a, unsigned x);
+unsigned __besm6_anx(unsigned a, unsigned x);
+unsigned __besm6_arx(unsigned a, unsigned x);
 
 /* Tier 3 -- extracodes */
-besm6_word __besm6_extracode(int op, unsigned ea, besm6_word acc);  /* op constant */
+unsigned __besm6_extracode(int op, unsigned ea, unsigned acc);  /* op constant */
 
 /* ------------------------------------------------------------------ */
 /* Conveniences */
@@ -385,13 +377,13 @@ besm6_word __besm6_extracode(int op, unsigned ea, besm6_word acc);  /* op consta
 
 #define b6_grp_read()    __besm6_mod(0237, 0)
 #define b6_grp_mask(m)   ((void) __besm6_mod(036, (m)))
-#define b6_grp_clear(m)  ((void) __besm6_mod(037, ~(besm6_word)(m)))
+#define b6_grp_clear(m)  ((void) __besm6_mod(037, ~(unsigned)(m)))
 
 #endif /* _BESM6_H */
 ```
 
 The kernel additionally wants the ГРП/ПРП bit names and the per-device control-word field
-definitions from [Besm6_Peripherals.md](Besm6_Peripherals.md). Those are hardware constants, not
+definitions from [Besm6_Peripherals.md](https://github.com/besm6/v7besm/blob/main/doc/Besm6_Peripherals.md). Those are hardware constants, not
 intrinsics, and belong in the kernel's own include tree.
 
 ---
@@ -412,16 +404,16 @@ intrinsics, and belong in the kernel's own include tree.
 
 Of these, only `ext` and `mod` are absent from the compiler's back-end instruction table; every
 other mnemonic named above is already there, and all of them — plus `ij` and `stop` — are already
-assembled by [cmd/as/tables.c](../cmd/as/tables.c).
+assembled by [cmd/as/tables.c](https://github.com/besm6/v7besm/blob/main/cmd/as/tables.c).
 
 ---
 
 ## See also
 
 - [Besm6_Instruction_Set.md](Besm6_Instruction_Set.md) — the opcodes, the registers, the ω mode.
-- [Besm6_Peripherals.md](Besm6_Peripherals.md) — the `033`/`002` address map and the ГРП/ПРП bits.
+- [Besm6_Peripherals.md](https://github.com/besm6/v7besm/blob/main/doc/Besm6_Peripherals.md) — the `033`/`002` address map and the ГРП/ПРП bits.
 - [Besm6_Data_Representation.md](Besm6_Data_Representation.md) — why the word type is `unsigned`.
 - [Besm6_Runtime_Library.md](Besm6_Runtime_Library.md) — the `NTR 3` / logical-ω contract that
   compiled code holds.
 - [Besm6_Calling_Conventions.md](Besm6_Calling_Conventions.md) — the C ABI these plug into.
-- [Kernel_Assembly_Routines.md](Kernel_Assembly_Routines.md) — what stays in assembly regardless.
+- [Kernel_Assembly_Routines.md](https://github.com/besm6/v7besm/blob/main/doc/Kernel_Assembly_Routines.md) — what stays in assembly regardless.

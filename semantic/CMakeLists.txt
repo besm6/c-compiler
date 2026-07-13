@@ -35,6 +35,7 @@ add_executable(semantic-tests
    test/label_loops_tests.cpp
    test/const_convert_tests.cpp
    test/coercion_tests.cpp
+   test/intrinsics_tests.cpp
    test/chapter3_tests.cpp
    test/chapter5_tests.cpp
    test/chapter6_tests.cpp
