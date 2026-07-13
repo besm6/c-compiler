@@ -8,11 +8,10 @@
  * kernel or a driver can be written in C instead of assembly.  They are
  * specified in docs/Besm6_Intrinsics.md.
  *
- * Status: declarations only.  The back end does not lower these yet (tasks
- * I2-I5 in backend/besm6/TODO.md), so a call to one currently compiles into an
- * ordinary external call to a symbol that does not exist.  The header defines
- * the contract — the names, the signatures, and the argument types the front
- * end checks against — which the lowering will honour.
+ * Status: the five bit-manipulation intrinsics below are lowered — each becomes
+ * a single inline machine instruction, never a call.  Tiers 1 and 3 (ext, mod,
+ * stop, extracode) are declarations only so far; the back end diagnoses a call
+ * to one rather than emitting it (tasks I3-I5 in backend/besm6/TODO.md).
  *
  * Every intrinsic that carries a machine word takes and returns `unsigned`,
  * never `int`.  A BESM-6 word is 48 bits, but a signed int on this target holds

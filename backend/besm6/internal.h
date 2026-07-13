@@ -89,6 +89,13 @@ void emit_arith_val(Besm_Block *b, Besm_Instr **t, Besm_InstrKind kind, const Fr
 void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *block,
                    Besm_Instr **tail);
 
+// Lower a call to a <besm6.h> compiler intrinsic into inline machine instructions, or
+// return false when `instr` is an ordinary call (defined in intrinsics.c).  Every
+// `__besm6_` name is handled here: they all collide under Madlen's 8-character truncation,
+// so one left to fall through would silently alias another instead of failing to link.
+bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block *block,
+                       Besm_Instr **tail);
+
 // Emit a module-level static variable (defined in static.c).  `program` is the full
 // toplevel chain, used to fold referenced string constants into this module.
 void codegen_static_variable(const Tac_TopLevel *program, const Tac_TopLevel *tl, FILE *out,

@@ -14,6 +14,7 @@ add_library(besm STATIC
     emit.c
     static.c
     instr.c
+    intrinsics.c
     peephole.c
     utf8_to_koi7.c
 )
@@ -49,6 +50,7 @@ add_executable(besm-tests
     test/struct_tests.cpp
     test/char_tests.cpp
     test/peephole_tests.cpp
+    test/intrinsics_tests.cpp
     test/printf_tests.cpp
     test/funcptr_tests.cpp
     test/stdarg_tests.cpp

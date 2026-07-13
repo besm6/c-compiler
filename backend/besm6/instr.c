@@ -723,6 +723,12 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
     // Nothing may sit between the WTC and the VJM (same C-survival rule as LOAD/STORE).
     case TAC_INSTRUCTION_FUN_CALL:
     case TAC_INSTRUCTION_FUN_CALL_NORETURN: {
+        // A <besm6.h> intrinsic is a call in the IR but never one in the machine code: it
+        // lowers to inline instructions.  Intercepted before any argument setup, and so
+        // also above the _Noreturn branch below (__besm6_stop is _Noreturn).
+        if (codegen_intrinsic(instr, f, block, tail))
+            break;
+
         const char *fun_name = instr->u.fun_call.fun_name;
         const Tac_Val *args  = instr->u.fun_call.args;
         const Tac_Val *dst   = instr->u.fun_call.dst;
