@@ -173,6 +173,36 @@ static Expr *typecheck_literal(Expr *e)
     return e;
 }
 
+//
+// The opcode argument of __besm6_extracode(op, ea, acc) — the one <besm6.h> intrinsic the
+// front end has to look at (docs/Besm6_Intrinsics.md §5).  `op` *is* the extracode's opcode,
+// so it becomes an immediate field of the instruction word and must be a compile-time
+// constant in 050..077; the other eight intrinsics need nothing here and are lowered from an
+// ordinary call in the back end.
+//
+// Evaluate it, diagnose a non-constant or out-of-range opcode, and replace the argument with
+// the folded literal, so that it reaches the back end as a TAC constant whatever the
+// optimizer flags say.  Returns the new argument list head.
+//
+static Expr *fold_extracode_opcode(Expr *args)
+{
+    long op = 0;
+    if (!try_eval_const_int(args, &op))
+        fatal_error("__besm6_extracode: the opcode must be a compile-time constant");
+    if (op < 050 || op > 077)
+        fatal_error("__besm6_extracode: opcode %lo is not an extracode (050..077)", op);
+
+    Expr *lit                 = new_expression(EXPR_LITERAL);
+    lit->u.literal            = new_literal(LITERAL_INT);
+    lit->u.literal->u.int_val = (int)op;
+    lit                       = typecheck_literal(lit);
+
+    lit->next  = args->next;
+    args->next = NULL; // free_expression walks the ->next chain
+    free_expression(args);
+    return lit;
+}
+
 // Type-check an expression.
 // C11 §6.5.2.2: default argument promotions for variadic trailing arguments.
 static Expr *promote_variadic_arg(Expr *e)
@@ -641,6 +671,11 @@ static Expr *typecheck_expr(Expr *e)
             prev = new_arg;
             arg  = arg_next;
         }
+        // The one intrinsic whose argument the front end must constant-fold: an extracode's
+        // opcode is an immediate field of the instruction word, not a value.
+        if (func->kind == EXPR_VAR && strcmp(func->u.var, "__besm6_extracode") == 0)
+            new_args = fold_extracode_opcode(new_args);
+
         free_type(e->type);
         e->type        = clone_type(fn_type->u.function.return_type, __func__, __FILE__, __LINE__);
         e->u.call.args = new_args;

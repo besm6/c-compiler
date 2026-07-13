@@ -108,8 +108,10 @@ Besm_OperandShape besm_operand_shape(Besm_InstrKind kind)
     case BESM_REG_JADDM:
         return BESM_SHAPE_IMMR;
 
-    // UTM (operand suppressed when zero), CALL/BASE (name operand), the assembler
-    // directives, and every data pseudo-op need dialect-specific formatting.
+    // UTM (operand suppressed when zero), CALL/BASE (name operand), the extracode (whose
+    // mnemonic *is* its opcode, spelled `,*71,` / `э71` / `$77` — hence no shared entry in
+    // either mnemonic table), the assembler directives, and every data pseudo-op need
+    // dialect-specific formatting.
     default:
         return BESM_SHAPE_SPECIAL;
     }

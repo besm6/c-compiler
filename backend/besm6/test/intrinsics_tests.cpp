@@ -852,3 +852,194 @@ TEST_F(CodegenTest, BemshIntrinsicsRun)
     )");
     EXPECT_EQ("8 48\n" "1\n" "1\n" "ZERO\n", result);
 }
+
+//
+// __besm6_extracode(op, ea, acc) — Tier 3.  The user-mode trap into the operating system:
+// M[016] := EA, A := acc, invoke the extracode, result := A.  The Unix v7 syscall trap
+// `$77 N` rides on exactly this mechanism, which is what would let libc's hand-written
+// syscall leaves (write.s, read.s, exit.s) be written in C.
+//
+// `op` *is* the opcode, so it is not an operand at all: it becomes the mnemonic, and each
+// dialect spells that differently — Madlen `,*77,`, Bemsh `э77`, b6as `$77` (a raw octal
+// opcode; b6as names no mnemonic for 050-077).  The effective address is an ordinary
+// Format-1 address field, rendered in decimal like every other numeric address.
+//
+TEST_F(CodegenTest, IntrinsicExtracodeMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        void bye(unsigned code) { __besm6_extracode(077, 1, code); }
+    )");
+    EXPECT_EQ(R"(c
+      bye:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,*77, 1
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+//
+// A computed effective address goes through the scratch index register r12, exactly as a
+// computed device address does for ext/mod: EA = M[12] + 0.  The accumulator is loaded last,
+// because materializing the address clobbers it.
+//
+TEST_F(CodegenTest, IntrinsicExtracodeComputedMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        unsigned trap(unsigned ea, unsigned acc) { return __besm6_extracode(070, ea, acc); }
+    )");
+    EXPECT_EQ(R"(c
+     trap:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,ati, 12
+           6 ,xta, 1
+          12 ,*70,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+TEST_F(CodegenTest, IntrinsicExtracodeUnix)
+{
+    std::string output = CompileToUnix(R"(
+        #include <besm6.h>
+        void bye(unsigned code) { __besm6_extracode(077, 1, code); }
+        unsigned trap(unsigned ea, unsigned acc) { return __besm6_extracode(070, ea, acc); }
+    )");
+    EXPECT_EQ(R"(    .text
+    .globl bye
+bye:
+    its 13
+ 13 vjm b$save
+  6 xta
+    $77 1
+    uj b$ret
+    .text
+    .globl trap
+trap:
+    its 13
+ 13 vjm b$save
+  6 xta
+    ati 12
+  6 xta 1
+ 12 $70
+    uj b$ret
+)",
+              output);
+}
+
+TEST_F(CodegenTest, IntrinsicExtracodeBemsh)
+{
+    std::string output = CompileToBemsh(R"(
+        #include <besm6.h>
+        void bye(unsigned code) { __besm6_extracode(077, 1, code); }
+    )");
+    EXPECT_EQ(R"(ввд$$$
+*
+bye    старт 1
+_save  внешн ._save
+_ret   внешн ._ret
+       счим 13
+       пв _save(13)
+       сч (6)
+       э77 1
+       пб _ret
+       финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
+)",
+              output);
+}
+
+//
+// Execution — Madlen / dubna.  Extracode 074 is the monitor's "finish" (a legal halt), so the
+// program ends inside the intrinsic: HELLO is printed, WORLD never is.  That the run reaches
+// the halt at all is the point — it proves the Madlen translator both accepts `,*74,` (a
+// symbolic mnemonic, unlike the halt's raw octal `,33,`) and executes it as an extracode.
+//
+TEST_F(CodegenTest, IntrinsicExtracodeRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        #include <besm6.h>
+        void program()
+        {
+            puts("HELLO");
+            __besm6_extracode(074, 0, 0);
+            puts("WORLD");
+        }
+    )");
+    EXPECT_EQ("HELLO\n", result);
+}
+
+//
+// The same finish extracode on the Bemsh path, spelled `э74`.
+//
+TEST_F(CodegenTest, BemshIntrinsicExtracodeRun)
+{
+    std::string result = CompileAndRunBemsh(R"(
+        #include <stdio.h>
+        #include <besm6.h>
+        void program()
+        {
+            puts("HELLO");
+            __besm6_extracode(074, 0, 0);
+            puts("WORLD");
+        }
+    )");
+    EXPECT_EQ("HELLO\n", result);
+}
+
+//
+// b6as assembles both forms — the immediate `$77 1` and the r12-modified ` 12 $70` — and b6ld
+// links with no `__besm6_extracode` symbol left to resolve: the intrinsic is a call in the IR
+// and never a symbol in the object.
+//
+TEST_F(CodegenTest, UnixAssembleIntrinsicExtracode)
+{
+    SKIP_IF_NO_UNIX_TOOLS();
+    CompileAndAssembleUnix(WrapMain(R"(
+#include <besm6.h>
+unsigned trap(unsigned ea, unsigned acc) { return __besm6_extracode(070, ea, acc); }
+int main(void) {
+    __besm6_extracode(077, 1, 0);
+    return (int)trap(1, 2);
+}
+)"));
+}
+
+//
+// Execution — Unix (b6as/b6ld/b6sim).  `$77 1` is SYS_exit, whose status the simulator takes
+// from the accumulator alone: the one v7 syscall whose ABI needs no stack arguments, so a
+// plain C call site can issue it.  The code before the trap runs (BYE), the code after it does
+// not, and b6sim's --status prints the status the accumulator carried.
+//
+TEST_F(CodegenTest, UnixRunIntrinsicExtracode)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunBook(R"(
+        #include <stdio.h>
+        #include <besm6.h>
+        int main(void)
+        {
+            puts("BYE");
+            __besm6_extracode(077, 1, 42);
+            return 7;
+        }
+    )");
+    EXPECT_EQ("BYE\n" "42\n", result);
+}

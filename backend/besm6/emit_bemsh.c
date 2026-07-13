@@ -368,6 +368,18 @@ static void emit_bemsh_special(FILE *out, const Besm_Instr *instr)
         emit_line(out, NULL, instr->reg, "слиа", a);
         break;
 
+    // Extracode: Bemsh names it `эNN`, the opcode in octal (`э71` is the print-line
+    // extracode, as in libc/besm6/bemsh/b_tout.bemsh).  The effective address is the
+    // ordinary (reg, addr) pair — emit_line appends the modifier register parenthesized.
+    case BESM_IO_EXTRACODE: {
+        char mnem[8];
+        snprintf(mnem, sizeof(mnem), "э%o", instr->opcode);
+        if (instr->addr)
+            snprintf(a, sizeof(a), "%d", instr->addr);
+        emit_line(out, NULL, instr->reg, mnem, a);
+        break;
+    }
+
     // Call: Bemsh has no auto-declaring `call` macro (Madlen's expands to `13 vjm name`),
     // so the call is rendered explicitly as `пв name(13)` — VJM through r13, which passes the
     // return address the callee restores via `пб (13)`.  Its `внешн` declaration is emitted

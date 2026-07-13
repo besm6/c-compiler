@@ -176,5 +176,69 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
         fatal_error("intrinsic %s takes one argument: a constant halt code in 0..077777", name);
     }
 
-    fatal_error("intrinsic %s is not lowered yet (task I5 in backend/besm6/TODO.md)", name);
+    // __besm6_extracode(op, ea, acc) — the user-mode trap into the operating system:
+    // M[016] := EA, A := acc, invoke extracode `op`, result := A.  The v7 syscall trap
+    // `$77 N` rides on exactly this mechanism (N is the effective address).
+    //
+    // `op` *is* the opcode, so it must be a compile-time constant — the front end
+    // (semantic/expressions.c) evaluates and range-checks it and folds the argument into a
+    // literal, so it always arrives here as a TAC constant, whatever the optimizer flags.
+    //
+    // The effective address lowers exactly like ext/mod's device address: a constant that
+    // fits the Format-1 offset field becomes the instruction's own address, anything else is
+    // materialized into the scratch index register (EA = M[12] + 0).
+    if (strcmp(name, "__besm6_extracode") == 0) {
+        const Tac_Val *op  = instr->u.fun_call.args;
+        const Tac_Val *ea  = op ? op->next : NULL;
+        const Tac_Val *acc = ea ? ea->next : NULL;
+        if (!acc || acc->next)
+            fatal_error("intrinsic %s takes exactly three arguments: an opcode, an effective "
+                        "address and a word",
+                        name);
+        if (op->kind != TAC_VAL_CONSTANT)
+            fatal_error("intrinsic %s: the opcode must be a compile-time constant", name);
+
+        Besm_ConstWord w = besm_const_word(op->u.constant);
+        if (w.is_real || w.word < 050 || w.word > 077)
+            fatal_error("intrinsic %s: opcode %llo is not an extracode (050..077)", name,
+                        (unsigned long long)w.word);
+        int opcode = (int)w.word;
+
+        bool immediate = false;
+        uint64_t addr  = 0;
+        if (ea->kind == TAC_VAL_CONSTANT) {
+            Besm_ConstWord e = besm_const_word(ea->u.constant);
+            immediate        = !e.is_real && e.word <= BESM_SHORT_ADDR_MAX;
+            addr             = e.word;
+        }
+
+        if (!immediate) {
+            emit_xta_val(block, tail, f, ea);
+            Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
+            ati->addr       = REG_SCRATCH; // ATI is SHAPE_IMM0: the register number is the
+                                           // address field, not the modifier register
+        }
+
+        // The accumulator is loaded last: materializing the address clobbers it.
+        emit_xta_val(block, tail, f, acc);
+
+        Besm_Instr *xc = emit(block, tail, BESM_IO_EXTRACODE);
+        xc->opcode     = opcode;
+        if (immediate)
+            xc->addr = (int)addr;
+        else
+            xc->reg = REG_SCRATCH;
+
+        // The result is the accumulator the extracode leaves behind.  Discarding it drops
+        // only the store: the trap itself is never eliminable.  Note the ABI consequence —
+        // an extracode sets M[016] (r14) from the effective address, so r14 is clobbered
+        // here; it is caller-saved, and nothing can be live in it across this point (the
+        // argument count is loaded immediately before a `,call,`).
+        const Tac_Val *dst = instr->u.fun_call.dst;
+        if (dst && dst->kind == TAC_VAL_VAR)
+            emit_store_a(block, tail, f, dst->u.var_name);
+        return true;
+    }
+
+    fatal_error("%s is not a <besm6.h> intrinsic", name);
 }

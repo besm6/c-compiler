@@ -186,6 +186,19 @@ static void emit_madlen_special(FILE *out, const Besm_Instr *instr)
         emit_line(out, NULL, instr->reg, "utm", a);
         break;
 
+    // Extracode: the mnemonic is the opcode itself, written `*NN` in octal (`,*71,` is the
+    // print-line extracode, as in libc/besm6/madlen/b_tout.madlen).  Unlike the raw octal
+    // machine code the halt uses, this is a symbolic mnemonic, so it keeps automatic basing.
+    // The effective address is the ordinary (reg, addr) pair, rendered in decimal.
+    case BESM_IO_EXTRACODE: {
+        char mnem[8];
+        snprintf(mnem, sizeof(mnem), "*%o", instr->opcode);
+        if (instr->addr)
+            snprintf(a, sizeof(a), "%d", instr->addr);
+        emit_line(out, NULL, instr->reg, mnem, a);
+        break;
+    }
+
     // Call / basing take a sanitized name in the operand field.
     case BESM_BRANCH_CALL:
         sanitize_name(a, sizeof(a), instr->name);

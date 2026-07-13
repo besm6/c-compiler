@@ -93,6 +93,12 @@ typedef enum {
     BESM_IO_EXT, // EXT(mem_addr addr) -- 033: peripherals
     BESM_IO_MOD, // MOD(mem_addr addr) -- 002: CPU-internal registers
 
+    // Extracode (user mode).  The trap into the operating system: M[016] = EA, the
+    // accumulator carries the data in both directions, and the opcode (050-077) selects
+    // the service.  Every dialect spells it differently — Madlen `,*71,`, Bemsh `э71`,
+    // b6as `$77` — so it is BESM_SHAPE_SPECIAL and its opcode rides in `opcode`.
+    BESM_IO_EXTRACODE, // EXTRACODE(int opcode, mem_addr addr) -- 050..077
+
     // Assembly directives
     BESM_STMT_LABEL, // name: ,bss,        — label definition point
     BESM_STMT_NAME,  // name: ,name,       — subprogram name
@@ -127,6 +133,8 @@ struct Besm_Instr {
                              // operand and reads memory word 0 (see emit.c attach_const).
     uint64_t log_val;        // BESM_DATA_LOG: 48-bit logical constant
     double real_val;         // BESM_DATA_REAL
+    int opcode;              // BESM_IO_EXTRACODE: the extracode opcode, 050..077 (the
+                             // mnemonic is a function of it, and differs per dialect)
     // TODO: star plus offset
     // TODO: literal address with value (int, uns, real)
 };

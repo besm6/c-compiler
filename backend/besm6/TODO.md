@@ -25,17 +25,17 @@ Unix kernel in the sibling `v7besm` tree drive the hardware from C instead of as
 as ordinary prototypes in [libc/besm6/include/besm6.h](../../libc/besm6/include/besm6.h) (task I1,
 done), so `typecheck_expr`'s `case EXPR_CALL` already checks arity and coerces every argument against
 the prototype. They arrive at the backend as a plain `TAC_INSTRUCTION_FUN_CALL` whose `fun_name`
-begins with `__besm6_`, and `codegen_intrinsic` (`intrinsics.c`, tasks I2, I3 and I4, done) intercepts
+begins with `__besm6_`, and `codegen_intrinsic` (`intrinsics.c`, tasks I2–I5, all done) intercepts
 them at the top of that case in `instr.c` and emits inline machine instructions instead of a `,call,`.
-**`tac/`, `optimize/`, `ast/`, `semantic/` and `translator/` are untouched** — and
-`optimize/dead_store.c` already treats a FUN_CALL as never-dead, which is exactly the
-"side-effecting and never eliminable" contract the intrinsics need.
+**`tac/`, `optimize/`, `ast/` and `translator/` are untouched** — and `optimize/dead_store.c` already
+treats a FUN_CALL as never-dead, which is exactly the "side-effecting and never eliminable" contract
+the intrinsics need. `semantic/` has exactly one change, for the one argument that is not a value but
+an opcode: `expressions.c` constant-folds and range-checks `__besm6_extracode`'s `op` (task I5).
 
 **All nine names collide under Madlen's 8-character truncation** — they share the `__besm6_` prefix —
 so `codegen_intrinsic` must intercept *every* one of them. Any intrinsic left unintercepted does not
 fail to link; it silently aliases to whichever other one the assembler saw first. Hence its bottom
-line is a `fatal_error`, not a `return false`: the one name still to be lowered is diagnosed, and
-I5 just adds a table entry ahead of it.
+line is a `fatal_error`, not a `return false`.
 
 **Five traps** that silently miscompile if missed: `peephole.c`'s `instr_reads_auto_slot` is a
 whitelist with `default: return false` (a new memory-operand kind that is not added to it lets
@@ -46,16 +46,21 @@ compiled code contracts for (handled in I2 — the five Tier-2 ω classes are no
 (handled in I3 — it is out of rule #31(b)'s unreachable-run trigger, and `__besm6_stop` is not
 `_Noreturn`); `BESM_MOD_*` is already taken by the C-register address-modification group
 (`BESM_MOD_UTC`/`BESM_MOD_WTC`), so the privileged `002 mod` instruction must not reuse that prefix
-(handled in I4 — the kinds are `BESM_IO_EXT`/`BESM_IO_MOD`); and `ext`/`mod` **rewrite the AU mode
-register R** — on a read address (`04000` for `ext`, `0200` for `mod`) the hardware switches it to
-logical, which is exactly the register peephole rules #29(a)/(b) track (handled in I4 — both kinds
-are `is_block_boundary`, so the tracked R and A are dropped across them).
+(handled in I4 — the kinds are `BESM_IO_EXT`/`BESM_IO_MOD`, joined in I5 by `BESM_IO_EXTRACODE`); and
+`ext`/`mod` **rewrite the AU mode register R** — on a read address (`04000` for `ext`, `0200` for
+`mod`) the hardware switches it to logical, which is exactly the register peephole rules #29(a)/(b)
+track (handled in I4 — both kinds are `is_block_boundary`, so the tracked R and A are dropped across
+them; the extracode is one too, since the monitor's handler runs arbitrary code before returning).
 
 **Madlen names no halt.** `,stop,` is "ошибка в коп"; the halt goes out as Madlen's raw octal machine
 code, and the digit count picks the format: `,33,` is the Format-2 opcode 033 (the halt), while
 `,033,` is the Format-1 033 — that is `ext`, which faults. `emit_madlen.c`'s `mad_mnem` holds that
 one override; Bemsh (`стоп`) and `b6as` (`stop`) spell it normally. `ext` is the *other* 033, and
-Madlen spells that one normally: `,ext, 2073` assembles to opcode 033 (verified under `dubna`).
+Madlen spells that one normally: `,ext, 2073` assembles to opcode 033 (verified under `dubna`). The
+extracode is the third spelling problem: its mnemonic *is* its opcode, and each dialect writes that
+differently — Madlen `,*74,`, Bemsh `э74`, `b6as` `$77` (a raw octal opcode; `b6as` names no mnemonic
+for 050–077) — so `BESM_IO_EXTRACODE` is `BESM_SHAPE_SPECIAL`, with a case in each of the three
+emitters.
 
 **Every numeric address field is decimal** in all three dialects, so the octal addresses of the
 peripherals map come out converted: `__besm6_ext(04031, …)` emits `,ext, 2073`, and `b6_grp_read()`
@@ -63,5 +68,4 @@ peripherals map come out converted: `__besm6_ext(04031, …)` emits `,ext, 2073`
 
 | #  | Task | Description |
 |----|------|-------------|
-| I5 | Tier 3 — `__besm6_extracode` | New `BESM_IO_EXTRACODE` kind carrying the opcode in a new per-kind `Besm_Instr` field (idiomatic — `log_val` and `real_val` are already per-kind) and the effective address in `reg`/`addr`. It is `BESM_SHAPE_SPECIAL`: every dialect spells it differently, so add a case to `emit_madlen_special`, `emit_bemsh_special` and `emit_unix_special`. All three spellings are already in our own libc — Madlen `,*71,` (`libc/besm6/madlen/b_tout.madlen`), Bemsh `э71` (`libc/besm6/bemsh/b_tout.bemsh`), Unix `$77 4` (`libc/besm6/unix/write.s`). **The one frontend change in the series:** `op` *is* the opcode, so it must be a compile-time constant. In `semantic/expressions.c`'s `case EXPR_CALL`, after the normal prototype check, run `try_eval_const_int()` (already in scope via `typecheck.h`) on `__besm6_extracode`'s first argument, `fatal_error` if it is not constant or falls outside `050`…`077`, and rewrite the argument into a folded `EXPR_LITERAL` so it reaches TAC as a `TAC_VAL_CONSTANT` whatever the optimizer flags. Backend lowering mirrors the `ext`/`mod` lowering already in `intrinsics.c` (constant `ea` → the address field; computed `ea` → scratch `REG_SCRATCH` = r12); add the kind to `instr_reads_auto_slot` and `is_block_boundary`. **ABI note for [docs/Besm6_Calling_Conventions.md](../../docs/Besm6_Calling_Conventions.md):** an extracode sets `M[016]` — r14 — from the effective address; r14 is the argument-count register on entry and, in `b6sim`'s syscall ABI, where `errno` comes back. It is caller-saved, so this is legal, but code around the intrinsic must treat r14 as clobbered. The existing hand-written libc syscall leaves (`write.s`/`read.s`/`exit.s`) **stay in assembly** — rewriting them in C is out of scope. *Acceptance:* golden tests in all three dialects; a negative test that a non-constant `op` is diagnosed; a run test that issues a syscall extracode under `b6sim` (e.g. `$77 1` = exit, status observable through the existing `CompileAndRunBook` / `b6sim --status` path). Both simulators execute extracodes `050`–`077`. |
 | I6 | Documentation | `backend/besm6/besm6.asdl` — the new instruction kinds (it is the canonical spec; `besm.h` is hand-maintained alongside it). [docs/Besm6_Intrinsics.md](../../docs/Besm6_Intrinsics.md) — an implementation section: how each tier lowers, the r12 scratch register, the ω correction after `arx`, the r14 clobber, and the fact that Tier 1 has no run test. [docs/Peephole_Rewrites.md](../../docs/Peephole_Rewrites.md) — the standing obligation that any new memory-operand kind be added to `instr_reads_auto_slot` and any A/R/ω-clobbering kind to `is_block_boundary`. [docs/Besm6_Instruction_Set.md](../../docs/Besm6_Instruction_Set.md) — **it has the two privileged opcodes wrong**: it labels `032` as `EXT (зпп)` and leaves `033` nameless (`счп`), whereas `033` *is* `ext`/`увв` and `002` is `mod`/`рег` (checked against `v7besm/cmd/as/tables.c`, `dubna`'s own Madlen table, and a historical Bemsh source that writes `увв '4007'`); also cover the extracode range. [docs/Bemsh.md](../../docs/Bemsh.md) — its instruction table lists `УВВ` for *both* `032` and `033`. `CLAUDE.md` — the BESM-6 row of the compiler-phases table. *Acceptance:* `make run` green; the ASDL and `besm.h` agree. |

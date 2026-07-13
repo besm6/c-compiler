@@ -8,11 +8,9 @@
  * kernel or a driver can be written in C instead of assembly.  They are
  * specified in docs/Besm6_Intrinsics.md.
  *
- * Status: all of Tier 1 (ext, mod, the halt) and all five Tier-2 bit
- * manipulations are lowered — each becomes a single inline machine instruction,
- * never a call.  Tier 3 (extracode) is a declaration only so far; the back end
- * diagnoses a call to it rather than emitting it (task I5 in
- * backend/besm6/TODO.md).
+ * Status: all nine are lowered — Tier 1 (ext, mod, the halt), all five Tier-2
+ * bit manipulations, and Tier 3 (the extracode).  Each becomes a single inline
+ * machine instruction, never a call.
  *
  * Every intrinsic that carries a machine word takes and returns `unsigned`,
  * never `int`.  A BESM-6 word is 48 bits, but a signed int on this target holds
@@ -118,10 +116,13 @@ unsigned __besm6_arx(unsigned a, unsigned x);
  * system for a privileged operation, and the Unix v7 syscall trap $77 N rides
  * on exactly this mechanism.
  *
- * OP is the opcode, so it must be a compile-time constant; the compiler
- * diagnoses anything else.  Note the ABI consequence: an extracode sets M[016]
- * — that is, r14 — from the effective address, so code around this intrinsic
- * must treat r14 as clobbered.  It is caller-saved, so this is legal.
+ * OP is the opcode — it becomes an immediate field of the instruction word, so
+ * it must be a compile-time constant in 050..077; the compiler evaluates it at
+ * typecheck and diagnoses anything else.  EA may be constant or computed.
+ *
+ * Note the ABI consequence: an extracode sets M[016] — that is, r14 — from the
+ * effective address, so code around this intrinsic must treat r14 as clobbered.
+ * It is caller-saved, so this is legal.
  */
 unsigned __besm6_extracode(int op, unsigned ea, unsigned acc);
 

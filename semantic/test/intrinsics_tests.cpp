@@ -101,3 +101,40 @@ unsigned f(unsigned a)
 })"),
                  "wrong number of arguments");
 }
+
+// __besm6_extracode's opcode *is* the instruction's opcode, so it must be a compile-time
+// constant — the one intrinsic argument the front end has to look at.  A non-constant is
+// diagnosed here rather than left to miscompile in the back end.
+TEST_F(PipelineTest, Besm6ExtracodeOpNotConstant_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"(#include <besm6.h>
+unsigned trap(int op, unsigned ea)
+{
+    return __besm6_extracode(op, ea, 0);
+})"),
+                 "compile-time constant");
+}
+
+// Only 050..077 are extracodes; anything else names a different instruction entirely.
+TEST_F(PipelineTest, Besm6ExtracodeOpOutOfRange_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"(#include <besm6.h>
+unsigned trap(unsigned ea)
+{
+    return __besm6_extracode(0100, ea, 0);
+})"),
+                 "not an extracode");
+}
+
+// A constant *expression* is fine, and is folded at typecheck: the argument reaches the back
+// end as a literal whatever the optimizer does with it.  (The v7 write syscall is $77 4.)
+TEST_F(PipelineTest, Besm6ExtracodeOpConstantExpr)
+{
+    RunPipeline(R"(#include <besm6.h>
+enum { SYSCALL = 070 };
+unsigned wr(unsigned n)
+{
+    return __besm6_extracode(SYSCALL + 7, 4, n);
+})");
+    EXPECT_NE(program, nullptr);
+}

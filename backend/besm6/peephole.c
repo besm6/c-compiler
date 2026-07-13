@@ -289,6 +289,10 @@ static bool is_block_boundary(const Besm_Instr *i)
     case BESM_BRANCH_STOP:
     case BESM_IO_EXT:
     case BESM_IO_MOD:
+    // An extracode traps into the operating system, which runs arbitrary code before
+    // returning: A, the mode register R and ω are all unknown afterwards (and so is r14,
+    // which the hardware loads from the effective address).
+    case BESM_IO_EXTRACODE:
     case BESM_STMT_LABEL:
     case BESM_STMT_NAME:
     case BESM_STMT_BASE:
@@ -418,13 +422,14 @@ static bool instr_reads_auto_slot(const Besm_Instr *i, int off)
     case BESM_EXP_ESUBX:
     case BESM_EXP_SHIFTX:
     case BESM_EXP_SETRMEM:
-    // EXT/MOD reach no memory word — their effective address *is* the device register they
-    // name, and instruction selection never gives them a frame-slot operand (their modifier
-    // register is 0 or the scratch r12).  They are listed only so the whitelist stays
-    // complete: its `default: return false` means an operand kind left out would license
-    // rule #28 to delete the store that feeds it.
+    // EXT/MOD/EXTRACODE reach no memory word — their effective address *is* the device
+    // register or the extracode's argument, and instruction selection never gives them a
+    // frame-slot operand (their modifier register is 0 or the scratch r12).  They are listed
+    // only so the whitelist stays complete: its `default: return false` means an operand kind
+    // left out would license rule #28 to delete the store that feeds it.
     case BESM_IO_EXT:
     case BESM_IO_MOD:
+    case BESM_IO_EXTRACODE:
         return true;
     default:
         return false;

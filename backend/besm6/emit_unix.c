@@ -265,6 +265,20 @@ static const Besm_Instr *emit_unix_special(FILE *out, const Besm_Instr *instr, S
         emit_uinstr(out, (int)instr->reg, "utm", a);
         break;
 
+    // Extracode: b6as has no mnemonic for opcodes 050-077, so they are written as the raw
+    // short-address opcode `$NN` in octal (docs/Besm6_Unix_Assembler.md §9.3) — `$77 4` is
+    // the v7 write syscall, as in libc/besm6/unix/write.s.  A raw opcode takes the same
+    // operand forms as a named instruction, so the (reg, addr) pair renders as usual.
+    case BESM_IO_EXTRACODE: {
+        set_segment(out, cur, SEG_TEXT);
+        char mnem[8];
+        snprintf(mnem, sizeof(mnem), "$%o", instr->opcode);
+        if (instr->addr)
+            snprintf(a, sizeof(a), "%d", instr->addr);
+        emit_uinstr(out, (int)instr->reg, mnem, a);
+        break;
+    }
+
     // A direct call is `13 vjm name` (,call, ≡ 13 ,vjm,, link register r13); b6as
     // auto-declares the undefined callee as external, so no .globl is needed.
     case BESM_BRANCH_CALL:
