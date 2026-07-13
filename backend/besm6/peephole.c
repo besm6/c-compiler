@@ -270,6 +270,11 @@ static Loc plain_loc(const Besm_Instr *i)
 // but the operator may have altered the registers from the console, so the tracked
 // state is dropped across it too.
 //
+// The privileged I/O instructions (EXT/MOD) transfer no control either, but they rewrite
+// the tracked state behind the pass's back: each leaves A holding a device word, and on a
+// *read* address (bit 04000 for EXT, 0200 for MOD) the hardware switches the AU mode
+// register R to logical — the very register rules #29(a)/(b) track.  So they reset too.
+//
 static bool is_block_boundary(const Besm_Instr *i)
 {
     switch (i->kind) {
@@ -282,6 +287,8 @@ static bool is_block_boundary(const Besm_Instr *i)
     case BESM_BRANCH_VLM:
     case BESM_BRANCH_CALL:
     case BESM_BRANCH_STOP:
+    case BESM_IO_EXT:
+    case BESM_IO_MOD:
     case BESM_STMT_LABEL:
     case BESM_STMT_NAME:
     case BESM_STMT_BASE:
@@ -411,6 +418,13 @@ static bool instr_reads_auto_slot(const Besm_Instr *i, int off)
     case BESM_EXP_ESUBX:
     case BESM_EXP_SHIFTX:
     case BESM_EXP_SETRMEM:
+    // EXT/MOD reach no memory word — their effective address *is* the device register they
+    // name, and instruction selection never gives them a frame-slot operand (their modifier
+    // register is 0 or the scratch r12).  They are listed only so the whitelist stays
+    // complete: its `default: return false` means an operand kind left out would license
+    // rule #28 to delete the store that feeds it.
+    case BESM_IO_EXT:
+    case BESM_IO_MOD:
         return true;
     default:
         return false;

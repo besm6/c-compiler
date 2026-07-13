@@ -58,6 +58,8 @@ static const char *const besm_cyr_mnem[] = {
     [BESM_BRANCH_VJM] = "пв",  [BESM_BRANCH_VZM] = "пио", [BESM_BRANCH_V1M] = "пино",
     [BESM_BRANCH_VLM] = "цикл", [BESM_BRANCH_STOP] = "стоп",
 
+    [BESM_IO_EXT] = "увв",     [BESM_IO_MOD] = "рег",
+
     // Directives / data / UTM / CALL / BASE are BESM_SHAPE_SPECIAL — no shared entry.
     [BESM_DATA_Z00] = NULL,
 };

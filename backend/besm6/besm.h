@@ -86,6 +86,13 @@ typedef enum {
     BESM_BRANCH_CALL, // ,call, name -- declare + call external
     BESM_BRANCH_STOP, // STOP                       -- halt processor
 
+    // Privileged I/O (supervisor).  The machine's only I/O: the effective address names a
+    // device or a CPU register, the accumulator carries the data in both directions, and
+    // one bit of the address selects the direction.  Distinct from the BESM_MOD_* group
+    // above, which is the C-register address modification (UTC/WTC).
+    BESM_IO_EXT, // EXT(mem_addr addr) -- 033: peripherals
+    BESM_IO_MOD, // MOD(mem_addr addr) -- 002: CPU-internal registers
+
     // Assembly directives
     BESM_STMT_LABEL, // name: ,bss,        — label definition point
     BESM_STMT_NAME,  // name: ,name,       — subprogram name

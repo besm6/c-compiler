@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "abi.h"
 #include "besm.h"
 #include "frame.h"
 #include "internal.h"
@@ -36,6 +37,24 @@ static const struct {
     { "__besm6_anx", BESM_LOG_ANX, false }, // 023 нед — highest-set-bit position ⊞ x
     { "__besm6_arx", BESM_LOG_ARX, true },  // 013 слц — a ⊞ x (end-around carry)
 };
+
+// The Tier-1 privileged intrinsics: the machine's only I/O.  The BESM-6 has no I/O address
+// space and no memory-mapped device registers — every peripheral is reached by `ext` and
+// every CPU-internal register (page registers, ГРП and its mask, the mode bits) by `mod`.
+// Both name their register through the *effective address* and pass the data through the
+// accumulator in both directions; one bit of the address selects the direction.
+static const struct {
+    const char *name;
+    Besm_InstrKind kind;
+} io_intrinsics[] = {
+    { "__besm6_ext", BESM_IO_EXT }, // 033 увв — the peripherals
+    { "__besm6_mod", BESM_IO_MOD }, // 002 рег — the CPU-internal registers
+};
+
+// The Format-1 offset field is 12 bits, and every address in the peripherals map fits (033
+// reaches 04177, 002 reaches 0237), so a constant address is always an immediate and the
+// Format-1 S bit is never needed.
+#define BESM_SHORT_ADDR_MAX 07777
 
 //
 // Lower one intrinsic call, or return false if `instr` is an ordinary call.
@@ -80,6 +99,57 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
         return true;
     }
 
+    for (size_t i = 0; i < sizeof(io_intrinsics) / sizeof(io_intrinsics[0]); i++) {
+        if (strcmp(name, io_intrinsics[i].name) != 0)
+            continue;
+
+        const Tac_Val *addr = instr->u.fun_call.args;
+        const Tac_Val *acc  = addr ? addr->next : NULL;
+        if (!acc || acc->next)
+            fatal_error("intrinsic %s takes exactly two arguments: an address and a word",
+                        name);
+
+        // A constant address becomes the instruction's own 12-bit offset field: `,ext, 2073`.
+        bool immediate = false;
+        uint64_t word  = 0;
+        if (addr->kind == TAC_VAL_CONSTANT) {
+            Besm_ConstWord w = besm_const_word(addr->u.constant);
+            immediate        = !w.is_real && w.word <= BESM_SHORT_ADDR_MAX;
+            word             = w.word;
+        }
+
+        // A computed address is materialized into the scratch index register: EA = M[12] + 0.
+        // The hardware genuinely needs one — `002 0100`-`0137` (the РУУ mode bits) encodes its
+        // data *in* the address, and tape-transport control selects the unit as addr - 0100.
+        if (!immediate) {
+            emit_xta_val(block, tail, f, addr);
+            Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
+            ati->addr       = REG_SCRATCH; // ATI is SHAPE_IMM0: the register number is the
+                                           // address field, not the modifier register
+        }
+
+        // The accumulator is loaded last: materializing the address clobbers it.  (The `ati`
+        // in between also stops peephole rule #27 from dropping this load as a redundant
+        // reload — it leaves A unknown — which is what makes __besm6_ext(a, a) work.)
+        emit_xta_val(block, tail, f, acc);
+
+        Besm_Instr *io = emit(block, tail, io_intrinsics[i].kind);
+        if (immediate)
+            io->addr = (int)word;
+        else
+            io->reg = REG_SCRATCH;
+
+        // The result is the accumulator the instruction leaves behind.  Discarding it (a
+        // write address returns the unchanged word) drops only the store: the instruction
+        // itself is never eliminable — it is the machine's only I/O.  No ω correction is
+        // needed: a read address leaves the AU in logical mode, which is the mode compiled
+        // code already runs in.
+        const Tac_Val *dst = instr->u.fun_call.dst;
+        if (dst && dst->kind == TAC_VAL_VAR)
+            emit_store_a(block, tail, f, dst->u.var_name);
+        return true;
+    }
+
     // __besm6_stop — the halt (033, Format 2).  It is *resumable*: the machine stops, the
     // operator reads the halt reason off the console and presses continue, and execution
     // carries on at the next instruction.  So it is an ordinary call that returns — no `,uj,`,
@@ -106,5 +176,5 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
         fatal_error("intrinsic %s takes one argument: a constant halt code in 0..077777", name);
     }
 
-    fatal_error("intrinsic %s is not lowered yet (tasks I4-I5 in backend/besm6/TODO.md)", name);
+    fatal_error("intrinsic %s is not lowered yet (task I5 in backend/besm6/TODO.md)", name);
 }

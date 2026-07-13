@@ -8,11 +8,11 @@
  * kernel or a driver can be written in C instead of assembly.  They are
  * specified in docs/Besm6_Intrinsics.md.
  *
- * Status: the five bit-manipulation intrinsics below are lowered, and so is the
- * halt — each becomes a single inline machine instruction, never a call.  The
- * rest of Tier 1 (ext, mod) and Tier 3 (extracode) are declarations only so
- * far; the back end diagnoses a call to one rather than emitting it (tasks
- * I4-I5 in backend/besm6/TODO.md).
+ * Status: all of Tier 1 (ext, mod, the halt) and all five Tier-2 bit
+ * manipulations are lowered — each becomes a single inline machine instruction,
+ * never a call.  Tier 3 (extracode) is a declaration only so far; the back end
+ * diagnoses a call to it rather than emitting it (task I5 in
+ * backend/besm6/TODO.md).
  *
  * Every intrinsic that carries a machine word takes and returns `unsigned`,
  * never `int`.  A BESM-6 word is 48 bits, but a signed int on this target holds

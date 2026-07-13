@@ -84,6 +84,12 @@ static inline int codegen_alignof(const Tac_Type *t)
 #define REG_RET  13 // return address (set by caller via VJM)
 #define REG_SP   15 // stack pointer (grows toward higher addresses)
 
+// Scratch index register, free for a value live across a couple of instructions: r1-r7 are
+// callee-saved, r13/r14/r15 are ABI, so r8-r12 are free — and r12 is already the runtime
+// helpers' scratch (`,ati, 12` in libc/besm6/madlen/b_tout.madlen).  Used by the privileged
+// I/O intrinsics to hold a computed device address (intrinsics.c); needs no save/restore.
+#define REG_SCRATCH 12
+
 #ifdef __cplusplus
 }
 #endif

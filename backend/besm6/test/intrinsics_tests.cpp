@@ -1,7 +1,8 @@
 //
 // The <besm6.h> compiler intrinsics (docs/Besm6_Intrinsics.md), Tier 2: the five
 // bit-manipulation instructions that have no C equivalent — gather, scatter, population
-// count, highest set bit, and the machine's own end-around-carry add.
+// count, highest set bit, and the machine's own end-around-carry add; Tier 1: the halt, and
+// the two supervisor instructions `ext`/`mod` that are the machine's only I/O.
 //
 // Each is a call in the IR and an inline instruction in the machine code: the golden tests
 // below pin that no `,call,` (and no `,subp,`) survives — which matters more than it looks,
@@ -518,6 +519,312 @@ TEST_F(CodegenTest, UnixRunIntrinsicStop)
         }
     )");
     EXPECT_EQ("before\n", result);
+}
+
+//
+// __besm6_ext / __besm6_mod — Tier 1, the machine's only I/O (033 ext, 002 mod, both
+// Format 1).  The accumulator is both the input and the output; the *direction* of the
+// transfer lives in the address, not in the instruction.
+//
+// A constant address becomes the instruction's own 12-bit offset field — rendered in
+// decimal, like every numeric address field, so the octal 04031 of the peripherals map
+// comes out as 2073 (and 036 as 30, 0237 as 159).  Every address in the map fits.
+//
+// There is no run test: opcodes 002 and 033 are kernel-mode, and both dubna and b6sim throw
+// `Illegal instruction` on them.  What *is* verified mechanically is that each assembler
+// accepts the mnemonic — b6as by UnixAssembleIntrinsicIo below, and the two Dubna
+// translators by hand (`,ext, 2073` and `увв 2073` both assemble to opcode 033).
+//
+TEST_F(CodegenTest, IntrinsicExtConstMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        unsigned ready(void) { return __besm6_ext(04031, 0); }
+    )");
+    EXPECT_EQ(R"(c
+    ready:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,xta,
+             ,ext, 2073
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+//
+// A computed address is materialized into the scratch index register r12, and the
+// instruction reads it as EA = M[12] + 0.  The hardware genuinely needs this: `002 0100`-
+// `0137` (the РУУ mode bits) encodes its data *in* the address, and tape-transport control
+// selects the unit as addr - 0100.
+//
+// Note the order: the address is materialized first and the accumulator loaded last, because
+// `,xta,` of the address clobbers A.
+//
+TEST_F(CodegenTest, IntrinsicExtComputedMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        unsigned io(unsigned addr, unsigned acc) { return __besm6_ext(addr, acc); }
+    )");
+    EXPECT_EQ(R"(c
+       io:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,ati, 12
+           6 ,xta, 1
+          12 ,ext,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+//
+// A write: the address carries no read bit, so the result is the unchanged accumulator and
+// the caller discards it.  The store goes, the instruction stays — these are the machine's
+// only I/O and are never eliminable.
+//
+// The second function is the header's own b6_grp_clear(m) = __besm6_mod(037, ~(unsigned)m):
+// a computed *accumulator* (not address) stays pure accumulator dataflow — the complement is
+// an `,aex,` against the all-ones word, and the ГРП write follows it directly.
+//
+TEST_F(CodegenTest, IntrinsicModWriteMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        void mask(unsigned m) { __besm6_mod(036, m); }
+        void dismiss(unsigned m) { b6_grp_clear(m); }
+    )");
+    EXPECT_EQ(R"(c
+     mask:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,mod, 30
+             ,uj, b/ret
+             ,end,
+c
+  dismiss:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,aex, =7777777777777777
+             ,mod, 31
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+//
+// b6_grp_read() is __besm6_mod(0237, 0): a read address (bit 0200), and a zero accumulator
+// needs no literal at all — the `,xta,` is left with an empty address field and reads memory
+// word 0, which always reads as zero.
+//
+// The second function's address, 010000, is the one case that does not fit the 12-bit
+// Format-1 offset field, so it falls back to the r12 path even though it is a constant.  No
+// address in the peripherals map is that large; the fallback is what keeps an out-of-range
+// constant correct rather than truncated.
+//
+TEST_F(CodegenTest, IntrinsicExtLongAddrMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        unsigned grp(void) { return b6_grp_read(); }
+        unsigned far(void) { return __besm6_ext(010000, 0); }
+    )");
+    EXPECT_EQ(R"(c
+      grp:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,xta,
+             ,mod, 159
+             ,uj, b/ret
+             ,end,
+c
+      far:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,xta, =10000
+             ,ati, 12
+             ,xta,
+          12 ,ext,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+//
+// The ω contract, pinned.  Peephole rules #27+#28 drop the store/reload of the result, so the
+// branch consumes the accumulator the `,ext,` itself left — `,ext,` then `,uza,` with nothing
+// in between.  That is correct, and needs no correcting `,aox,` (unlike `arx`): a read address
+// switches the AU mode register to *logical*, which is the mode compiled code already runs in,
+// so the `uza` tests A ≠ 0 and not abs(A) < 0.5.
+//
+TEST_F(CodegenTest, IntrinsicExtBranchMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <stdio.h>
+        #include <besm6.h>
+        void poll(void)
+        {
+            if (__besm6_ext(04031, 0))
+                puts("READY");
+        }
+    )");
+    EXPECT_EQ(R"(c
+     poll:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,xta,
+             ,ext, 2073
+             ,uza, *3
+          14 ,vtm, *str0
+             ,ita, 14
+             ,aox, =:64
+          14 ,vtm, -1
+             ,call, puts
+             ,uj, *4
+       *3:   ,bss,
+       *4:   ,bss,
+             ,uj, b/ret
+    *str0:   ,log, 2444250121054400
+             ,end,
+)",
+              output);
+}
+
+//
+// Instruction selection — Unix (b6as).  Same two instructions, same Latin mnemonics.
+//
+TEST_F(CodegenTest, IntrinsicIoUnix)
+{
+    std::string output = CompileToUnix(R"(
+        #include <besm6.h>
+        unsigned ready(void) { return __besm6_ext(04031, 0); }
+        unsigned io(unsigned addr, unsigned acc) { return __besm6_ext(addr, acc); }
+        void mask(unsigned m) { __besm6_mod(036, m); }
+    )");
+    EXPECT_EQ(R"(    .text
+    .globl ready
+ready:
+    its 13
+ 13 vjm b$save0
+    xta
+    ext 2073
+    uj b$ret
+    .text
+    .globl io
+io:
+    its 13
+ 13 vjm b$save
+  6 xta
+    ati 12
+  6 xta 1
+ 12 ext
+    uj b$ret
+    .text
+    .globl mask
+mask:
+    its 13
+ 13 vjm b$save
+  6 xta
+    mod 30
+    uj b$ret
+)",
+              output);
+}
+
+//
+// Instruction selection — Bemsh.  увв = ext (033) and рег = mod (002); the modifier register
+// is parenthesized after the address, so the computed form reads `увв (12)`.
+//
+TEST_F(CodegenTest, IntrinsicExtConstBemsh)
+{
+    std::string output = CompileToBemsh(R"(
+        #include <besm6.h>
+        unsigned ready(void) { return __besm6_ext(04031, 0); }
+    )");
+    EXPECT_EQ(R"(ввд$$$
+*
+ready  старт 1
+_save0 внешн ._save0
+_ret   внешн ._ret
+       счим 13
+       пв _save0(13)
+       сч
+       увв 2073
+       пб _ret
+       финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
+)",
+              output);
+}
+
+TEST_F(CodegenTest, IntrinsicModComputedBemsh)
+{
+    std::string output = CompileToBemsh(R"(
+        #include <besm6.h>
+        unsigned io(unsigned addr, unsigned acc) { return __besm6_mod(addr, acc); }
+    )");
+    EXPECT_EQ(R"(ввд$$$
+*
+io     старт 1
+_save  внешн ._save
+_ret   внешн ._ret
+       счим 13
+       пв _save(13)
+       сч (6)
+       уи 12
+       сч 1(6)
+       рег (12)
+       пб _ret
+       финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
+)",
+              output);
+}
+
+//
+// The one mechanical validation available: b6as assembles `ext 2073` / ` 12 ext` / `mod 30`,
+// and b6ld links with no `__besm6_ext` symbol left to resolve — the intrinsic is a call in the
+// IR and never a symbol in the object.  (Running it is impossible: b6sim, like dubna, throws
+// `Illegal instruction` on a user-mode 002/033.)
+//
+TEST_F(CodegenTest, UnixAssembleIntrinsicIo)
+{
+    SKIP_IF_NO_UNIX_TOOLS();
+    CompileAndAssembleUnix(WrapMain(R"(
+#include <besm6.h>
+int main(void) {
+    unsigned ready = __besm6_ext(04031, 0);
+    unsigned grp = b6_grp_read();
+    __besm6_mod(036, 0);
+    b6_grp_clear(1);
+    return (int)(__besm6_ext(ready & 07777, grp) & 1);
+}
+)"));
 }
 
 //

@@ -32,6 +32,8 @@ const char *const besm_latin_mnem[] = {
     [BESM_BRANCH_VJM] = "vjm", [BESM_BRANCH_VZM] = "vzm", [BESM_BRANCH_V1M] = "v1m",
     [BESM_BRANCH_VLM] = "vlm", [BESM_BRANCH_STOP] = "stop",
 
+    [BESM_IO_EXT] = "ext",    [BESM_IO_MOD] = "mod",
+
     // Directives / data / UTM / CALL / BASE are BESM_SHAPE_SPECIAL — no shared entry.
     [BESM_DATA_Z00] = NULL,
 };
@@ -76,6 +78,12 @@ Besm_OperandShape besm_operand_shape(Besm_InstrKind kind)
     case BESM_BRANCH_VZM:
     case BESM_BRANCH_V1M:
     case BESM_BRANCH_VLM:
+    // EXT/MOD are Format-1 like every kind above, so the same shape renders them: a constant
+    // device address is the instruction's own 12-bit offset field (`,ext, 2073`), a computed
+    // one rides in the modifier register (`12 ,ext,`, EA = M[12] + 0).  Their operand is not
+    // a memory word — EA *is* the register being addressed.
+    case BESM_IO_EXT:
+    case BESM_IO_MOD:
         return BESM_SHAPE_MEM;
 
     // Immediate decimal operand; no modifier register.  STOP is here for its halt code, which
