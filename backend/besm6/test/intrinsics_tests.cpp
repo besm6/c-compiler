@@ -344,6 +344,183 @@ TEST_F(CodegenTest, UnixRunIntrinsics)
 }
 
 //
+// __besm6_stop — the halt (033, Format 2).  Instruction selection in all three dialects.
+//
+// The halt code rides in the instruction's own 15-bit address field, which is why it must be a
+// compile-time constant; the field is rendered in decimal, so the octal 0377 below comes out as
+// 255.  Note what is *absent*: no `,call,`, and no `,subp, __besm6_stop` — the intrinsic is a
+// call in the IR and never a symbol in the object.
+//
+// Madlen is the odd one out: it has no `stop` mnemonic at all, so the halt goes out as the raw
+// octal machine code `,33,` — two digits selecting the Format-2 opcode 033 (three digits,
+// `,033,`, would be the Format-1 033, i.e. `ext`, which faults).  Bemsh and b6as spell it
+// `стоп` / `stop`.
+//
+TEST_F(CodegenTest, IntrinsicStopMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        void bye(void) { __besm6_stop(0377); }
+    )");
+    EXPECT_EQ(R"(c
+      bye:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,33, 255
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+//
+// The halt is RESUMABLE — the operator presses continue on the console and execution goes on at
+// the next instruction — so `stop` is not a terminator: it is an ordinary call that returns, the
+// function keeps its `,uj, b/ret` epilogue (above), and the code after the halt is live.
+//
+// This is the test that guards peephole rule #31(b): `stop` must not open an unreachable run.  If
+// it did, everything from the halt to the next label would be deleted and the second `,call, puts`
+// below would vanish.
+//
+TEST_F(CodegenTest, IntrinsicStopResumableMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <stdio.h>
+        #include <besm6.h>
+        void f(void)
+        {
+            puts("A");
+            __besm6_stop(5);
+            puts("B");
+        }
+    )");
+    EXPECT_EQ(R"(c
+        f:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+          14 ,vtm, *str0
+             ,ita, 14
+             ,aox, =:64
+          14 ,vtm, -1
+             ,call, puts
+             ,33, 5
+          14 ,vtm, *str1
+             ,ita, 14
+             ,aox, =:64
+          14 ,vtm, -1
+             ,call, puts
+             ,uj, b/ret
+    *str1:   ,log, 2040000000000000
+    *str0:   ,log, 2020000000000000
+             ,end,
+)",
+              output);
+}
+
+TEST_F(CodegenTest, IntrinsicStopUnix)
+{
+    std::string output = CompileToUnix(R"(
+        #include <besm6.h>
+        void bye(void) { __besm6_stop(5); }
+    )");
+    EXPECT_EQ(R"(    .text
+    .globl bye
+bye:
+    its 13
+ 13 vjm b$save0
+    stop 5
+    uj b$ret
+)",
+              output);
+}
+
+TEST_F(CodegenTest, IntrinsicStopBemsh)
+{
+    std::string output = CompileToBemsh(R"(
+        #include <besm6.h>
+        void bye(void) { __besm6_stop(5); }
+    )");
+    EXPECT_EQ(R"(ввд$$$
+*
+bye    старт 1
+_save0 внешн ._save0
+_ret   внешн ._ret
+       счим 13
+       пв _save0(13)
+       стоп 5
+       пб _ret
+       финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
+)",
+              output);
+}
+
+//
+// The halt, executed.  Real hardware stops and can be resumed from the console; both of our
+// simulators instead treat opcode 0330 as "the run is over" and end it, ignoring the halt code.
+// So BEFORE — already flushed, since putbyte flushes on '\n' — is printed and AFTER is not, even
+// though IntrinsicStopResumableMadlen proves the code for it was emitted.  The job still ends
+// cleanly: dubna prints its usual footer and exits 0.
+//
+TEST_F(CodegenTest, IntrinsicStopRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        #include <besm6.h>
+        void program()
+        {
+            puts("BEFORE");
+            __besm6_stop(5);
+            puts("AFTER");
+        }
+    )");
+    EXPECT_EQ("BEFORE\n", result);
+}
+
+// The same halt through the Bemsh translator (стоп 5) — the one assembler in the chain whose
+// source we cannot read, so this is what proves it accepts an operand on стоп.
+TEST_F(CodegenTest, BemshIntrinsicStopRun)
+{
+    std::string result = CompileAndRunBemsh(R"(
+        #include <stdio.h>
+        #include <besm6.h>
+        void program()
+        {
+            puts("BEFORE");
+            __besm6_stop(5);
+            puts("AFTER");
+        }
+    )");
+    EXPECT_EQ("BEFORE\n", result);
+}
+
+// And through the Unix path: b6as assembles `stop 5`, b6ld links with no __besm6_stop symbol to
+// resolve, and b6sim halts on it and exits 0.
+TEST_F(CodegenTest, UnixRunIntrinsicStop)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunUnix(R"(
+        #include <stdio.h>
+        #include <besm6.h>
+        int main(void)
+        {
+            puts("before");
+            __besm6_stop(5);
+            puts("after");
+            return 0;
+        }
+    )");
+    EXPECT_EQ("before\n", result);
+}
+
+//
 // Execution — Bemsh / dubna (the Cyrillic mnemonics, assembled by the Bemsh translator and
 // linked against libbem.bin).  Upper case again, for the same reason as the Madlen path.
 //

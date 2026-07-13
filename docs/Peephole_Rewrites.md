@@ -337,7 +337,9 @@ rules. They are locked in by the `DuplicateEpilogueJumpRemoved`, `ConditionalOve
   The second is unreachable; drop it. (The backend source already flags this as dead code.)
 
 - **Unreachable tail.** Any instruction between an unconditional `uj` and the next label is
-  unreachable and can be deleted.
+  unreachable and can be deleted. Note that the halt (`stop`, emitted by the `__besm6_stop`
+  intrinsic) does **not** open such a run: the halt is resumable — the operator presses continue
+  on the console and execution goes on at the next instruction — so the code after it is live.
 
 - **Branch over an unconditional jump.** A conditional that only skips a following `uj`
   inverts:

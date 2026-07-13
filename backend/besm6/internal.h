@@ -42,7 +42,6 @@ typedef enum {
     BESM_SHAPE_IMM0,    // decimal immediate operand; mreg = 0
     BESM_SHAPE_IMMR,    // decimal immediate, or a symbolic address when instr->name is set
                         // (`vtm g`, a Format-2 15-bit field); mreg = instr->reg
-    BESM_SHAPE_NONE,    // no operand; mreg = 0
     BESM_SHAPE_SPECIAL, // dialect-specific (directives, data, UTM/CALL/BASE)
 } Besm_OperandShape;
 

@@ -43,7 +43,7 @@ unsigned poke(unsigned a, unsigned m)
     const Symbol *stop = symtab_get("__besm6_stop");
     ASSERT_NE(stop, nullptr);
     EXPECT_EQ(stop->kind, SYM_FUNC);
-    EXPECT_TRUE(stop->u.func.noret);
+    EXPECT_FALSE(stop->u.func.noret);
 }
 
 // A machine word is carried as unsigned, never as int: a signed int on this
@@ -72,16 +72,23 @@ unsigned grp(void)
     EXPECT_EQ(acc->next->type->kind, TYPE_UINT);
 }
 
-// __besm6_stop is _Noreturn, so a non-void body ending in it does not fall off
-// the end — the natural bottom of panic().
-TEST_F(PipelineTest, Besm6StopEndsNonVoidFunction)
+// The halt is RESUMABLE: the operator presses continue on the console and the
+// machine goes on at the next instruction.  So __besm6_stop is deliberately NOT
+// _Noreturn — it is an ordinary void call, the code after it is reachable, and a
+// non-void function containing one still has to return a value.
+TEST_F(PipelineTest, Besm6StopIsResumable)
 {
     RunPipeline(R"(#include <besm6.h>
-int panic(void)
+int panic(int code)
 {
     __besm6_stop(1);
+    return code;
 })");
     EXPECT_NE(program, nullptr);
+
+    const Symbol *stop = symtab_get("__besm6_stop");
+    ASSERT_NE(stop, nullptr);
+    EXPECT_FALSE(stop->u.func.noret);
 }
 
 // The prototype is enforced: the front end checks arity against it.

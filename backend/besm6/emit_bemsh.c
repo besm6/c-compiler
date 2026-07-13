@@ -486,9 +486,6 @@ static void emit_bemsh_instr(FILE *out, const Besm_Instr *instr)
                 snprintf(a, sizeof(a), "%d", instr->addr);
             emit_line(out, NULL, instr->reg, besm_cyr_mnem[k], a);
             break;
-        case BESM_SHAPE_NONE:
-            emit_line(out, NULL, 0, besm_cyr_mnem[k], "");
-            break;
         case BESM_SHAPE_SPECIAL:
             emit_bemsh_special(out, instr);
             break;

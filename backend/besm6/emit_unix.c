@@ -363,10 +363,6 @@ static void emit_unix_instr(FILE *out, const Besm_Instr *instr, SegKind *cur)
                 snprintf(a, sizeof(a), "%d", instr->addr);
             emit_uinstr(out, (int)instr->reg, besm_latin_mnem[k], a);
             break;
-        case BESM_SHAPE_NONE:
-            set_segment(out, cur, SEG_TEXT);
-            emit_uinstr(out, 0, besm_latin_mnem[k], "");
-            break;
         case BESM_SHAPE_SPECIAL:
             instr = emit_unix_special(out, instr, cur);
             break;

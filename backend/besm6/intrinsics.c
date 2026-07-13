@@ -80,5 +80,31 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
         return true;
     }
 
-    fatal_error("intrinsic %s is not lowered yet (tasks I3-I5 in backend/besm6/TODO.md)", name);
+    // __besm6_stop — the halt (033, Format 2).  It is *resumable*: the machine stops, the
+    // operator reads the halt reason off the console and presses continue, and execution
+    // carries on at the next instruction.  So it is an ordinary call that returns — no `,uj,`,
+    // and the code after it is reachable (peephole rule #31(b) must not treat it as the start
+    // of an unreachable run).
+    //
+    // The halt code rides in the instruction's own 15-bit address field (BESM_SHAPE_IMM0), so
+    // it has to be a compile-time constant.  Nothing is lost: it is a diagnostic literal, and
+    // neither dubna nor b6sim even reads it — both simply end the run.  (IMM0 zeroes the
+    // register field; should a register-modified code ever be wanted, IMMR renders identically
+    // when reg == 0.)
+    if (strcmp(name, "__besm6_stop") == 0) {
+        const Tac_Val *code = instr->u.fun_call.args;
+        if (code && !code->next && code->kind == TAC_VAL_CONSTANT) {
+            Besm_ConstWord w = besm_const_word(code->u.constant);
+            if (w.is_real || w.word > 077777)
+                fatal_error("intrinsic %s: halt code %llo does not fit the 15-bit address field",
+                            name, (unsigned long long)w.word);
+
+            Besm_Instr *stop = emit(block, tail, BESM_BRANCH_STOP);
+            stop->addr       = (int)w.word;
+            return true;
+        }
+        fatal_error("intrinsic %s takes one argument: a constant halt code in 0..077777", name);
+    }
+
+    fatal_error("intrinsic %s is not lowered yet (tasks I4-I5 in backend/besm6/TODO.md)", name);
 }

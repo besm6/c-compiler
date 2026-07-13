@@ -37,7 +37,7 @@ const char *const besm_latin_mnem[] = {
 };
 
 // Classify how an instruction's operand and modifier-register field are formed.  The
-// machine instructions fall into four regular shapes; everything with dialect-specific
+// machine instructions fall into three regular shapes; everything with dialect-specific
 // framing (directives, data pseudo-ops, and the few irregular machine ops UTM/CALL/BASE)
 // is BESM_SHAPE_SPECIAL and handled explicitly by each emitter.
 Besm_OperandShape besm_operand_shape(Besm_InstrKind kind)
@@ -78,7 +78,9 @@ Besm_OperandShape besm_operand_shape(Besm_InstrKind kind)
     case BESM_BRANCH_VLM:
         return BESM_SHAPE_MEM;
 
-    // Immediate decimal operand; no modifier register.
+    // Immediate decimal operand; no modifier register.  STOP is here for its halt code, which
+    // rides in its own 15-bit Format-2 address field (`stop 5` / `стоп 5`; Madlen names no halt
+    // at all and writes the raw octal opcode instead — see mad_mnem in emit_madlen.c).
     case BESM_MEM_ITA:
     case BESM_MEM_ATI:
     case BESM_MEM_ITS:
@@ -89,6 +91,7 @@ Besm_OperandShape besm_operand_shape(Besm_InstrKind kind)
     case BESM_EXP_ESUBN:
     case BESM_EXP_SHIFTN:
     case BESM_EXP_SETR:
+    case BESM_BRANCH_STOP:
         return BESM_SHAPE_IMM0;
 
     // Immediate decimal operand; mreg = instr->reg.
@@ -96,10 +99,6 @@ Besm_OperandShape besm_operand_shape(Besm_InstrKind kind)
     case BESM_REG_VTM:
     case BESM_REG_JADDM:
         return BESM_SHAPE_IMMR;
-
-    // No operand.
-    case BESM_BRANCH_STOP:
-        return BESM_SHAPE_NONE;
 
     // UTM (operand suppressed when zero), CALL/BASE (name operand), the assembler
     // directives, and every data pseudo-op need dialect-specific formatting.

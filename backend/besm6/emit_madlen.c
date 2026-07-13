@@ -131,6 +131,23 @@ static void mad_operand(char *buf, size_t n, const Besm_Instr *i)
 }
 
 //
+// The Madlen mnemonic for kind `k`.  Madlen shares the Latin mnemonic table with the Unix
+// (b6as) emitter, with one exception: the 1972 autocode names no halt — `,stop,` is rejected
+// with "ошибка в коп" — so the halt is written as the raw octal machine code Madlen accepts in
+// place of any mnemonic (docs/Madlen.md §4, "Octal Machine Codes").
+//
+// The digit count picks the instruction format, and both formats have an opcode 033: two
+// digits, `,33,`, is the Format-2 (long-address) 033 — the halt — while three digits, `,033,`,
+// is the Format-1 033, which is `ext` and faults as a privileged instruction.  The raw form
+// forfeits automatic basing, which the halt does not want anyway: its address field carries a
+// halt code, not a memory address.
+//
+static const char *mad_mnem(Besm_InstrKind k)
+{
+    return (k == BESM_BRANCH_STOP) ? "33" : besm_latin_mnem[k];
+}
+
+//
 // Emit one Madlen statement line.
 //
 static void emit_line(FILE *out, const char *label, int mreg, const char *mnem, const char *addr)
@@ -249,11 +266,11 @@ void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
         switch (besm_operand_shape(k)) {
         case BESM_SHAPE_MEM:
             mad_operand(a, sizeof(a), instr);
-            emit_line(out, NULL, instr->reg, besm_latin_mnem[k], a);
+            emit_line(out, NULL, instr->reg, mad_mnem(k), a);
             break;
         case BESM_SHAPE_IMM0:
             snprintf(a, sizeof(a), "%d", instr->addr);
-            emit_line(out, NULL, 0, besm_latin_mnem[k], a);
+            emit_line(out, NULL, 0, mad_mnem(k), a);
             break;
         case BESM_SHAPE_IMMR:
             // `vtm` carries a symbolic address when it loads the address of a global into
@@ -263,10 +280,7 @@ void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
                 mad_operand(a, sizeof(a), instr);
             else
                 snprintf(a, sizeof(a), "%d", instr->addr);
-            emit_line(out, NULL, instr->reg, besm_latin_mnem[k], a);
-            break;
-        case BESM_SHAPE_NONE:
-            emit_line(out, NULL, 0, besm_latin_mnem[k], "");
+            emit_line(out, NULL, instr->reg, mad_mnem(k), a);
             break;
         case BESM_SHAPE_SPECIAL:
             emit_madlen_special(out, instr);

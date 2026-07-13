@@ -8,10 +8,11 @@
  * kernel or a driver can be written in C instead of assembly.  They are
  * specified in docs/Besm6_Intrinsics.md.
  *
- * Status: the five bit-manipulation intrinsics below are lowered — each becomes
- * a single inline machine instruction, never a call.  Tiers 1 and 3 (ext, mod,
- * stop, extracode) are declarations only so far; the back end diagnoses a call
- * to one rather than emitting it (tasks I3-I5 in backend/besm6/TODO.md).
+ * Status: the five bit-manipulation intrinsics below are lowered, and so is the
+ * halt — each becomes a single inline machine instruction, never a call.  The
+ * rest of Tier 1 (ext, mod) and Tier 3 (extracode) are declarations only so
+ * far; the back end diagnoses a call to one rather than emitting it (tasks
+ * I4-I5 in backend/besm6/TODO.md).
  *
  * Every intrinsic that carries a machine word takes and returns `unsigned`,
  * never `int`.  A BESM-6 word is 48 bits, but a signed int on this target holds
@@ -55,11 +56,18 @@ unsigned __besm6_ext(unsigned addr, unsigned acc);
 unsigned __besm6_mod(unsigned addr, unsigned acc);
 
 /*
- * 033 format 2, stop (стоп) — halt the processor.  CODE is a halt reason that
- * both simulators display, which makes this the natural bottom of panic().
- * Legal in user mode.
+ * 033 format 2, stop (стоп) — halt the processor.  Legal in user mode, and NOT
+ * _Noreturn: the halt is resumable.  A human operator presses the console's
+ * continue button and execution carries on at the next instruction, so this is
+ * an ordinary void call and the code after it is reachable.
+ *
+ * CODE is a halt reason, encoded in the instruction's own 15-bit address field
+ * — it must therefore be a compile-time constant in 0..077777.  It identifies
+ * the halt site on the operator's console and in a trace or dump; note that our
+ * two simulators (dubna, b6sim) ignore it and simply end the simulation, so
+ * nothing after a stop runs under them.
  */
-_Noreturn void __besm6_stop(unsigned code);
+void __besm6_stop(unsigned code);
 
 /* ---- Tier 2: bit manipulation ---- */
 /*

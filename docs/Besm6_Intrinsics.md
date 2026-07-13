@@ -75,10 +75,11 @@ typed `unsigned`, spelled out — the header defines no typedef alias for the ma
 
 ### 2.2 Constant versus computed arguments
 
-One argument becomes an *immediate field of the instruction word* and must therefore be a
+Two arguments become an *immediate field of the instruction word* and must therefore be a
 compile-time constant; the compiler must diagnose a non-constant:
 
 - `__besm6_extracode(op, …)` — `op` *is* the opcode.
+- `__besm6_stop(code)` — `code` is the halt instruction's own 15-bit address field (`0`…`077777`).
 
 The register address of `__besm6_ext` and `__besm6_mod` may be either. `ext` and `mod` are
 Format-1 instructions, whose offset field is 12 bits (`07777` maximum), and every address in the
@@ -124,7 +125,7 @@ cannot touch a device.
 |-----------|----|-----------|
 | `unsigned __besm6_ext(unsigned addr, unsigned acc)` | `033` `ext` увв | `A := acc; ext addr; result := A` |
 | `unsigned __besm6_mod(unsigned addr, unsigned acc)` | `002` `mod` рег | `A := acc; mod addr; result := A` |
-| `_Noreturn void __besm6_stop(unsigned code)` | `033` fmt 2 `stop` стоп | halt the processor |
+| `void __besm6_stop(unsigned code)` | `033` fmt 2 `stop` стоп | halt the processor (resumable) |
 
 **One intrinsic per opcode, returning the accumulator.** This mirrors the hardware exactly: the
 accumulator is both the input and the output, and the *direction* of the transfer lives in the
@@ -159,8 +160,21 @@ Three rules from the peripherals document are worth restating here, because they
   out which device it was.
 
 `__besm6_stop` is the halt instruction (Format 2, opcode `033` — a different opcode 033 from `ext`,
-which is Format 1). Its address field carries a halt reason that SIMH and `b6sim` both display, so
-it is the natural bottom of `panic()`. It is legal in user mode.
+which is Format 1). It is legal in user mode, and it is **not** `_Noreturn`: the halt is *resumable*.
+The machine stops, the operator reads the halt reason off the console, presses *continue*, and
+execution carries on at the next instruction. So a call to it is an ordinary void call, and the code
+after it is reachable — the compiler must not treat it as a terminator.
+
+The halt reason rides in the instruction's own 15-bit address field, which is why it must be a
+compile-time constant in `0`…`077777`. It identifies the halt site on the console and in a trace or
+dump. Both of our simulators, however, ignore it: `dubna` and `b6sim` alike execute opcode `0330` as
+"the run is over" and end the simulation without displaying the address or offering to resume.
+
+One assembler quirk, since the compiler must live with it: **Madlen has no halt mnemonic.** `,stop,`
+is rejected outright, so the halt is emitted as Madlen's raw octal machine code — and there the digit
+count picks the instruction format. `,33,` is the Format-2 opcode 033, the halt; `,033,` is the
+Format-1 033, which is `ext` and faults as privileged. Bemsh (`стоп`) and `b6as` (`stop`) both name
+it normally.
 
 ---
 
@@ -357,7 +371,7 @@ them. It belongs in the C compiler's `libc/besm6/include/` and installs into
 /* Tier 1 -- privileged */
 unsigned __besm6_ext(unsigned addr, unsigned acc);
 unsigned __besm6_mod(unsigned addr, unsigned acc);
-_Noreturn void __besm6_stop(unsigned code);
+void __besm6_stop(unsigned code);               /* code constant; resumable */
 
 /* Tier 2 -- bit manipulation */
 unsigned __besm6_apx(unsigned a, unsigned mask);
@@ -394,7 +408,7 @@ intrinsics, and belong in the kernel's own include tree.
 |-----------|----|----------|--------------|
 | `__besm6_ext` | `033` | увв | — |
 | `__besm6_mod` | `002` | рег | — |
-| `__besm6_stop` | `033` fmt 2 | стоп | — |
+| `__besm6_stop` | `033` fmt 2 | стоп | `code` |
 | `__besm6_apx` | `020` | сбр | — |
 | `__besm6_aux` | `021` | рзб | — |
 | `__besm6_acx` | `022` | чед | — |

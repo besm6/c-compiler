@@ -265,7 +265,10 @@ static Loc plain_loc(const Besm_Instr *i)
 // elsewhere and a branch transfers control (a CALL also clobbers A), so tracked
 // state cannot be assumed to survive past it.  The non-dataflow assembler
 // directives (NAME/SUBP/BASE/ENTRY/END and the data pseudo-ops) likewise carry no
-// straight-line machine state, so they reset too.
+// straight-line machine state, so they reset too.  A STOP does not transfer control
+// — execution resumes at the next instruction when the operator presses continue —
+// but the operator may have altered the registers from the console, so the tracked
+// state is dropped across it too.
 //
 static bool is_block_boundary(const Besm_Instr *i)
 {
@@ -764,9 +767,11 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
                 st.r_known = true;
                 st.r_val   = 7;
             }
-            // An unconditional transfer (uj/stop) makes the following instructions
-            // unreachable until the next label or structural directive (rule #31(b)).
-            if (cur->kind == BESM_BRANCH_UJ || cur->kind == BESM_BRANCH_STOP)
+            // An unconditional transfer (uj) makes the following instructions unreachable
+            // until the next label or structural directive (rule #31(b)).  A `stop` is NOT
+            // one: the halt is resumable — the operator presses continue and execution goes
+            // on at the next instruction — so what follows it is live code.
+            if (cur->kind == BESM_BRANCH_UJ)
                 st.in_unreachable = true;
         } else {
             state_step(&st, cur);
