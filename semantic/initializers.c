@@ -335,6 +335,37 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         return pointer_init;
     }
 
+    // Handle pointer initialized with address-of a struct/union member (&s.field).
+    if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
+        init->u.expr->kind == EXPR_UNARY_OP && init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
+        init->u.expr->u.unary_op.expr->kind == EXPR_FIELD_ACCESS &&
+        init->u.expr->u.unary_op.expr->u.field_access.expr->kind == EXPR_VAR) {
+        const Expr *field_access = init->u.expr->u.unary_op.expr;
+        const char *var_name     = field_access->u.field_access.expr->u.var;
+        const char *field_name   = field_access->u.field_access.field;
+        const Symbol *sym        = symtab_get(var_name);
+        const Type *st           = unalias(sym->type);
+        if (st->kind != TYPE_STRUCT && st->kind != TYPE_UNION)
+            fatal_error("Member access of non-struct type in static initializer");
+        const FieldDef *field = structtab_find(st->u.struct_t.name)->members;
+        for (; field; field = field->next) {
+            if (strcmp(field->name, field_name) == 0)
+                break;
+        }
+        if (!field)
+            fatal_error("Struct %s has no member %s", st->u.struct_t.name, field_name);
+        // A char*/void* points at a specific byte; a word pointer at a word offset.  Field
+        // offsets are byte offsets within the struct (declarations.c), matching either encoding.
+        const Type *ptr_target = unalias(var_type->u.pointer.target);
+        bool is_fat            = (ptr_target->kind == TYPE_CHAR || ptr_target->kind == TYPE_SCHAR ||
+                                  ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
+        Tac_StaticInit *pointer_init =
+            tac_new_static_init(is_fat ? TAC_STATIC_INIT_FAT_POINTER : TAC_STATIC_INIT_POINTER);
+        pointer_init->u.pointer.name        = xstrdup(var_name);
+        pointer_init->u.pointer.byte_offset = field->offset;
+        return pointer_init;
+    }
+
     // Handle pointer initialized with an integer constant expression (e.g. cast from integer).
     if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE) {
         long val;

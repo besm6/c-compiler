@@ -271,3 +271,28 @@ bump:
 )",
               out);
 }
+
+TEST_F(CodegenTest, UnixStructFieldPtrInit)
+{
+    std::string output = CompileToUnix(R"(
+        struct foo {
+            int a;
+            int b;
+        };
+        struct foo bar = { 1, 2 };
+        int *quz = &bar.b;
+)");
+    // `bar` and `quz` are separate modules in the Unix dialect, so each re-emits its own
+    // `.data` segment directive (harmless/idempotent for b6as).
+    EXPECT_EQ(R"(    .data
+    .globl bar
+bar:
+    .word 1
+    .word 2
+    .data
+    .globl quz
+quz:
+    .word bar+1
+)",
+              output);
+}
