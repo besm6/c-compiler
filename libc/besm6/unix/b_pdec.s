@@ -6,27 +6,30 @@
 // wraps to 0 and the word address steps back by one.  Operand in A, result in A;
 // R is left unchanged.  See b/pinc for the fat-pointer layout.
 //
+// The `< sym >` escapes below expand to `utc sym` + the instruction, reaching this file's
+// own .bss with a 15-bit address; see b_padd.s for why a bare `atx p` is unsafe.
+//
     .text
     .globl b$pdec
 b$pdec:
-    atx p
+    atx <p>
     aax #07'7777                // A = word address (bits 15-1)
-    atx w
-    xta p
+    atx <w>
+    xta <p>
     asn 64+44                   // offset_enc -> bits 3-1
     aax #07                     // offset_enc (0..5)
-    atx enc
+    atx <enc>
     aex #05                     // enc XOR 5 == 0  iff  offset_enc == 5
     uza wrap                    // offset_enc == 5 -> wrap to 0, step word back
-    xta enc
+    xta <enc>
     arx #01                     // offset_enc + 1
     aax #07                     // re-mask to 3 bits (mirror b/pinc)
     asn 64-44                   // offset_enc' -> bits 47-45
     aox #0'40                   // set marker (bit 48)
-    aox w                       // OR in the word address
+    aox <w>                     // OR in the word address
  13 uj
 wrap:
-    xta w
+    xta <w>
     arx #07777'7777'7777'7776   // word -= 1 (end-around add of -1)
     aax #07'7777
     aox #0'40                   // marker + offset_enc 0 (LSB of the previous word)

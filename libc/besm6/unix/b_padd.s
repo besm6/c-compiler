@@ -17,36 +17,47 @@
 // floor(m/6) uses the hardware FP divide: dividing two normalized INT-format operands and
 // masking the fraction rounds toward -infinity (a true floor), so no sign juggling needed.
 //
+// Every reference below to this file's own .bss/.data goes through a `utc` long-address
+// escape, because b6as has no equivalent of Madlen's `,base,` (which is what makes the
+// Madlen original position-independent).  A bare `atx delta` would encode the address in
+// the 12-bit short-address field, and b6as/b6ld silently mask it to 12 bits — so once the
+// linked image puts this scratch above word 07777 (any program with a few thousand words
+// of data ahead of libc), the helper would read and write the wrong memory with no
+// diagnostic.  `< sym >` expands to `utc sym` + the instruction; the two indexed `ttab`
+// lookups spell the `utc` out by hand, since `< >` would apply the index register to the
+// generated `utc` as well and double-count it.  `utc` touches neither A nor R.
+//
     .text
     .globl b$padd
 b$padd:
-    atx delta
+    atx <delta>
  15 xta                     // pop the base a
-    atx base
+    atx <base>
     aax #07'7777            // word address (bits 15-1)
-    atx word
+    atx <word>
 
 // byte# from the MSB
-    xta base
+    xta <base>
     aax #0'40               // test the marker (bit 48)
     uza bare                // marker clear -> byte# = 0
-    xta base
+    xta <base>
     asn 64+44               // offset_enc -> bits 3-1
     aax #07
     ati 11
- 11 xta ttab                // byte# = 5 - offset_enc
+    utc ttab
+ 11 xta                     // byte# = 5 - offset_enc  (EA = 0 + M11 + C)
     uj havebyte
 bare:
     xta #00
 havebyte:
-    a+x delta               // m = byte# + delta  (R = 7 at entry: raw integer add)
+    a+x <delta>             // m = byte# + delta  (R = 7 at entry: raw integer add)
 
 // Bias m by 6*K (K = 0200000 = 65536 words) so the dividend is non-negative: INT-format
 // divide misreads a negative two's-complement mantissa, and the BESM-6 address space is
 // only 15 bits, so 6K exceeds any in-bounds byte span.  floor((m+6K)/6) = floor(m/6) + K
 // and (m+6K) mod 6 = m mod 6, so K is subtracted back from the quotient below.
     a+x #0140'0000          // M = m + 6K  (>= 0)
-    atx m
+    atx <m>
 
 // q = floor(M / 6): divide as normalized FP, then mask the fraction.  INT-format operands
 // must be normalized first (a+x mem[0]=0), as in b/utod.
@@ -54,39 +65,40 @@ havebyte:
     xta #06
     aox #0'64               // INT-format 6
     a+x                     // normalize -> (double)6
-    atx six
-    xta m
+    atx <six>
+    xta <m>
     aox #0'64               // INT-format M
     a+x                     // normalize -> (double)M
-    a/x six                 // (double)M / (double)6
+    a/x <six>               // (double)M / (double)6
     ntr 3                   // R := 3: suppress normalize + round
     a+x #0'64               // re-align to the INT exponent, dropping the fraction
     aax #037'7777'7777'7777 // raw quotient q = floor(M/6)
-    atx q
+    atx <q>
                             // 6*q = 4q + 2q
     asn 64-1                // 2q
-    atx q2
-    xta q
+    atx <q2>
+    xta <q>
     asn 64-2                // 4q
-    arx q2                  // 6q
-    atx q6
+    arx <q2>                // 6q
+    atx <q6>
                             // r = m - 6q  (0..5)
     ntr 7                   // R := 7: raw integer additive mode
-    xta m
-    a-x q6
+    xta <m>
+    a-x <q6>
     ati 11
                             // enc' = 5 - r
- 11 xta ttab
+    utc ttab
+ 11 xta                     // EA = 0 + M11 + C
     asn 64-44               // offset_enc' -> bits 47-45
     aox #0'40               // set marker
-    atx encw
+    atx <encw>
 
 // word' = word + q - K   (undo the bias added to the dividend)
-    xta word
-    a+x q
+    xta <word>
+    a+x <q>
     a-x #020'0000
     aax #07'7777
-    aox encw
+    aox <encw>
  13 uj
 
     .bss

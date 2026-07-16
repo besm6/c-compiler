@@ -137,6 +137,33 @@ TEST_F(CodegenTest, UnixRunZeroConstNeedsNoLiteral)
     EXPECT_EQ("7 7 3\n", result);
 }
 
+// Index a char array that the linker places at a high word address.  The b6as helpers
+// keep their scratch and lookup tables in their own `.bss`/`.data`, which b6ld lays out
+// after every object's data — so a large initialized array in the program pushes b$padd's
+// `ttab` past word 07777 (4095), beyond the reach of a 12-bit short address field.  Before
+// the `utc` escapes went in, b6as/b6ld silently masked those references to 12 bits: `ttab`
+// linked at 047244 was read at 07244 (inside `pad[]`, reading zeros), so every fat pointer
+// came back with offset_enc 0 and addressed byte #5 of the right word — digits[6] yielded
+// 'b' instead of '6'.  `pad` must be *initialized* to land in `.data`: `.bss` follows libc's
+// `.data`, so an uninitialized pad would leave `ttab` low and hide the bug.
+TEST_F(CodegenTest, UnixRunCharPtrHighAddress)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunUnix(R"(
+        #include <stdio.h>
+        int  pad[5000] = { 1 };
+        char digits[] = "0123456789abcdef";
+        int main(void) {
+            volatile int i;
+            for (i = 0; i < 16; i++)
+                putchar(digits[i]);
+            putchar('\n');
+            return 0;
+        }
+    )");
+    EXPECT_EQ("0123456789abcdef\n", result);
+}
+
 // The address of a global rides in VTM's own 15-bit address field (`14 vtm g`), where it
 // used to need a preceding `utc g`.  VTM had never carried a relocatable operand before,
 // so this checks that b6as and b6ld relocate an external name in a VTM word exactly as

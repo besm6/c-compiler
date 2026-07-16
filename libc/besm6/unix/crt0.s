@@ -9,11 +9,18 @@
 // the accumulator, r14 = -argc_count.  main's int result is left in the
 // accumulator and passed straight to _exit (SYS_exit, $77 1).
 //
+// `xts <argvp>` expands to `utc argvp` + `xts`, reaching argvp with a 15-bit address.  A
+// bare `xts argvp` would encode it in the 12-bit short-address field, which b6as/b6ld
+// silently mask: crt0's data happens to link low today (crt0.o goes first, so its .data
+// sits at the start of the data segment), but the segment order is const|text|data, so any
+// program with more than ~4095 words of const+text ahead of it would push argvp out of
+// reach and start main() with a garbage argv.  See b_padd.s for the full story.
+//
     .text
     .globl _start
 _start:
     xta             // ACC = argc = 0 (bare xta reads mem[0], architecturally 0)
-    xts argvp       // push argc; ACC = argv (word address of the dummy argv[])
+    xts <argvp>     // push argc; ACC = argv (word address of the dummy argv[])
  14 vtm -2          // r14 = -argc_count (two args)
  13 vjm main        // call main(argc, argv); int result left in ACC
  15 atx             // push status

@@ -15,59 +15,67 @@
 // and the result is abs(a) - abs(b).  sizeof(char) == 1, so no scaling is needed.  All raw
 // integer mode (R = 7 at entry): no normalization, no division.
 //
+// Every reference below to this file's own .bss/.data goes through a `utc` long-address
+// escape; see b_padd.s for why (b6as has no Madlen `,base,`, and a short address field is
+// only 12 bits wide, silently masked).  `< sym >` expands to `utc sym` + the instruction;
+// the two indexed `ttab` lookups spell the `utc` out by hand, since `< >` would apply the
+// index register to the generated `utc` as well.
+//
     .text
     .globl b$pdiff
 b$pdiff:
-    atx b           // save b (q), in A at entry
+    atx <b>         // save b (q), in A at entry
  15 xta             // pop a (p)
-    atx a
+    atx <a>
 
 // --- abs(a) = word_a*6 + byte#_a -> aa ---
     aax #07'7777    // word_a (bits 15-1)
-    atx w
+    atx <w>
     asn 64-1        // 2*word
-    atx w2
-    xta w
+    atx <w2>
+    xta <w>
     asn 64-2        // 4*word
-    a+x w2          // 6*word_a
-    atx aa
-    xta a
+    a+x <w2>        // 6*word_a
+    atx <aa>
+    xta <a>
     aax #0'40       // test the marker (bit 48)
     uza abare       // marker clear -> byte# = 0
-    xta a
+    xta <a>
     asn 64+44       // offset_enc -> bits 3-1
     aax #07
     ati 11
- 11 xta ttab        // byte# = 5 - offset_enc
-    a+x aa
-    atx aa
+    utc ttab
+ 11 xta             // byte# = 5 - offset_enc  (EA = 0 + M11 + C)
+    a+x <aa>
+    atx <aa>
 
 // --- abs(b) = word_b*6 + byte#_b -> bb ---
 abare:
-    xta b
+    xta <b>
     aax #07'7777    // word_b (bits 15-1)
-    atx w
+    atx <w>
     asn 64-1
-    atx w2
-    xta w
+    atx <w2>
+    xta <w>
     asn 64-2
-    a+x w2          // 6*word_b
-    atx bb
-    xta b
+    a+x <w2>        // 6*word_b
+    atx <bb>
+    xta <b>
     aax #0'40       // test the marker (bit 48)
     uza bbare       // marker clear -> byte# = 0
-    xta b
+    xta <b>
     asn 64+44       // offset_enc -> bits 3-1
     aax #07
     ati 11
- 11 xta ttab        // byte# = 5 - offset_enc
-    a+x bb
-    atx bb
+    utc ttab
+ 11 xta             // byte# = 5 - offset_enc  (EA = 0 + M11 + C)
+    a+x <bb>
+    atx <bb>
 
 // --- result = abs(a) - abs(b) ---
 bbare:
-    xta aa
-    a-x bb          // R = 7: raw integer subtract (a-x sets additive w)
+    xta <aa>
+    a-x <bb>        // R = 7: raw integer subtract (a-x sets additive w)
     aox             // OR mem[0]=0: ACC unchanged, restore logical w-mode
  13 uj
 

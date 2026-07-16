@@ -8,13 +8,16 @@
 // Advancing one byte decrements offset_enc; at offset_enc 0 it wraps to 5 and the word
 // address advances by one.  Operand in A, result in A; R is left unchanged.
 //
+// The `< sym >` escapes below expand to `utc sym` + the instruction, reaching this file's
+// own .bss with a 15-bit address; see b_padd.s for why a bare `atx p` is unsafe.
+//
     .text
     .globl b$pinc
 b$pinc:
-    atx p
+    atx <p>
     aax #07'7777    // A = word address (bits 15-1)
-    atx w
-    xta p
+    atx <w>
+    xta <p>
     asn 64+44       // offset_enc -> bits 3-1
     aax #07         // offset_enc (0..5)
     uza wrap        // offset_enc == 0 -> wrap to 5, bump word
@@ -22,10 +25,10 @@ b$pinc:
     aax #07         // so enc==1 yields 0 (a -1 add gives all-ones -0 -> masks to 7)
     asn 64-44       // offset_enc' -> bits 47-45
     aox #0'40       // set marker (bit 48)
-    aox w           // OR in the word address
+    aox <w>         // OR in the word address
  13 uj
 wrap:
-    xta w
+    xta <w>
     arx #01         // word += 1
     aox #0'64       // marker + offset_enc 5 (MSB of the next word)
  13 uj

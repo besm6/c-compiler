@@ -9,13 +9,19 @@
 // bits 47-45 (its exponent field = 64 + offset*8).  Offset 0 = byte #5 (LSB),
 // offset 5 = byte #0 (MSB).  r6/r7 are preserved.
 //
+// Every reference below to this file's own .bss/.data goes through a `utc` long-address
+// escape; see b_padd.s for why (b6as has no Madlen `,base,`, and a short address field is
+// only 12 bits wide, silently masked).  `< sym >` expands to `utc sym` + the instruction;
+// the indexed `mask`/`shift` lookups spell the `utc` out by hand, since `< >` would apply
+// the index register to the generated `utc` as well.  `utc` touches neither A nor R.
+//
     .text
     .globl b$stb
 b$stb:
     aax #0377   // mask the byte value to 8 bits
-    atx val     // save b
+    atx <val>   // save b
  15 xta         // pop the fat pointer a from the stack
-    atx ptr     // save the pointer (for the word address)
+    atx <ptr>   // save the pointer (for the word address)
 
 // extract the byte offset (bits 47-45) into M11
     asn 64+44   // shift offset down: bits 47-45 -> bits 3-1
@@ -23,18 +29,20 @@ b$stb:
     ati 11
 
 // word address (bits 15-1) into M12
-    xta ptr
+    xta <ptr>
     ati 12
 
 // read-modify-write the containing word
  12 xta         // A = word at the pointer's word address
- 11 aax mask    // clear the target byte
-    atx word
-    xta val     // A = byte value
- 11 asx shift   // shift it left into the target byte position
-    aox word    // OR it into the cleared word
+    utc mask
+ 11 aax         // clear the target byte (EA = 0 + M11 + C)
+    atx <word>
+    xta <val>   // A = byte value
+    utc shift
+ 11 asx         // shift it left into the target byte position (EA = 0 + M11 + C)
+    aox <word>  // OR it into the cleared word
  12 atx         // write the word back
-    xta val     // return the stored byte in A
+    xta <val>   // return the stored byte in A
  13 uj
 
     .bss

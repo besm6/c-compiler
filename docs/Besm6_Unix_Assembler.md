@@ -299,6 +299,22 @@ For a machine instruction, the operand after the mnemonic may take any of these 
 The leading **modifier register** (the `modreg` of [§3](#3-source-line-structure)) is distinct
 from the trailing `, reg` index; both ultimately fill the instruction's 4-bit modifier field.
 
+**`< >` is mandatory, not merely available, once a short-address operand names a symbol that
+lands above `07777`** — see [§9.1](#91-the-two-formats). There is no `,base,` directive as in
+Madlen, so hand-written assembly that keeps scratch in its own `.bss`/`.data` must escape
+every reference to it: the segment order is `const | text | data | commons | bss` with all
+objects concatenated per segment, so a module's own data can be pushed out of short-address
+reach by a *different* object entirely. `libc/besm6/unix/b_padd.s` is the worked example.
+
+Do **not** combine `< >` with an index register: `11 xta <ttab>` assembles to
+`11 utc ttab` + `11 xta 0` — the prefix applies to the generated `utc` as well, so M11 is
+added twice. Write the escape out by hand instead:
+
+```
+    utc ttab
+ 11 xta             // EA = 0 + M11 + C
+```
+
 ---
 
 ## 9. Instructions
@@ -312,6 +328,13 @@ BESM-6 instructions come in two formats (see
   logical, and stack operations.
 - **Long address** — opcodes `020`–`037`, a 15-bit address field. Jumps, register-load, and
   address-setup instructions. In the assembler these mnemonics carry the `TLONG` flag.
+
+A short-address operand therefore cannot name anything above `07777` (4095). Both tools
+diagnose this rather than truncating: `b6as` reports `short address out of range` once it
+adds the segment base (pass 2), and `b6ld` reports it again after the final link-time shift —
+the case that matters for a small object whose data the linker places high. Use `< >` / `[ ]`
+to reach further. (A signed stack offset such as `atx -5, 7` is absolute, not relocated, and
+is never flagged.)
 
 Two 24-bit instructions pack into one 48-bit word; the assembler fills the left half first,
 then the right. Three long jumps — `vjm`, `ij`, `stop` — additionally carry an *align-after*
