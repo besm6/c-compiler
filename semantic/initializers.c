@@ -175,6 +175,122 @@ static size_t count_init_items(const InitItem *items)
     return n;
 }
 
+// --- static address-constant evaluation --------------------------------------
+//
+// A static pointer initializer must be an address constant (C11 §6.6): the address of a
+// static-storage object, optionally displaced by constant subscripting, member selection, and
+// integer pointer arithmetic, composed in any order (`&s.v[2]`, `&arr[1].b`, `arr + 2`, ...).
+// The two helpers fold such an expression to the triple (base symbol name, linear byte offset
+// from that symbol, type), so build_static_init can emit a single POINTER/FAT_POINTER relocation
+// instead of pattern-matching each syntactic shape.  Both return false for anything that is not
+// a compile-time address constant, letting the caller fall back to null-pointer / integer-cast
+// handling; a malformed address constant (non-constant subscript, unknown member) is a
+// fatal_error, since build_static_init is the validation point for static initializers.
+
+// Fold an lvalue expression to the storage it names: (base symbol, byte offset, object type).
+static bool eval_lvalue_addr(const Expr *e, const char **name, long *off, const Type **type)
+{
+    switch (e->kind) {
+    case EXPR_VAR: {
+        const Symbol *sym = symtab_get(e->u.var);
+        if (!sym)
+            return false;
+        *name = e->u.var;
+        *off  = 0;
+        *type = unalias(sym->type);
+        return true;
+    }
+    case EXPR_FIELD_ACCESS: {
+        const Type *base_type;
+        if (!eval_lvalue_addr(e->u.field_access.expr, name, off, &base_type))
+            return false;
+        if (base_type->kind != TYPE_STRUCT && base_type->kind != TYPE_UNION)
+            fatal_error("Member access of non-struct type in static initializer");
+        const FieldDef *member = structtab_find(base_type->u.struct_t.name)->members;
+        for (; member; member = member->next) {
+            if (strcmp(member->name, e->u.field_access.field) == 0)
+                break;
+        }
+        if (!member)
+            fatal_error("Struct %s has no member %s", base_type->u.struct_t.name,
+                        e->u.field_access.field);
+        assert(member);
+        *off += member->offset; // field offsets are byte offsets within the struct
+        *type = unalias(member->type);
+        return true;
+    }
+    case EXPR_SUBSCRIPT: {
+        const Type *base_type;
+        if (!eval_lvalue_addr(e->u.subscript.left, name, off, &base_type))
+            return false;
+        // Only an array has a constant element address; subscripting a runtime pointer
+        // (its value is a separate object) is not an address constant.
+        if (base_type->kind != TYPE_ARRAY)
+            return false;
+        long index;
+        if (!try_eval_const_int(e->u.subscript.right, &index))
+            fatal_error("Array subscript in static initializer must be a compile-time constant");
+        const Type *element = unalias(base_type->u.array.element);
+        *off += index * (long)get_size(element);
+        *type = element;
+        return true;
+    }
+    default:
+        return false;
+    }
+}
+
+// Fold a pointer-valued address constant to (base symbol, byte offset, pointee type).
+static bool eval_addr_const(const Expr *e, const char **name, long *off, const Type **pointee)
+{
+    switch (e->kind) {
+    case EXPR_UNARY_OP:
+        // &lvalue: the pointer points at the addressed object.
+        if (e->u.unary_op.op != UNARY_ADDRESS)
+            return false;
+        return eval_lvalue_addr(e->u.unary_op.expr, name, off, pointee);
+    case EXPR_VAR: {
+        // An array or function name decays to a pointer to its first element / to the function.
+        // A scalar variable's value is not an address constant.
+        const Type *t;
+        if (!eval_lvalue_addr(e, name, off, &t))
+            return false;
+        if (t->kind == TYPE_ARRAY) {
+            *pointee = unalias(t->u.array.element);
+            return true;
+        }
+        if (t->kind == TYPE_FUNCTION) {
+            *pointee = t;
+            return true;
+        }
+        return false;
+    }
+    case EXPR_BINARY_OP: {
+        BinaryOp op = e->u.binary_op.op;
+        if (op != BINARY_ADD && op != BINARY_SUB)
+            return false;
+        // (address ± constant); '+' also commutes as (constant + address), '-' does not.
+        const Expr *addr_side = e->u.binary_op.left;
+        const Expr *int_side  = e->u.binary_op.right;
+        if (!eval_addr_const(addr_side, name, off, pointee)) {
+            if (op != BINARY_ADD)
+                return false;
+            addr_side = e->u.binary_op.right;
+            int_side  = e->u.binary_op.left;
+            if (!eval_addr_const(addr_side, name, off, pointee))
+                return false;
+        }
+        long delta;
+        if (!try_eval_const_int(int_side, &delta))
+            return false;
+        *off += (op == BINARY_SUB ? -delta : delta) * (long)get_size(*pointee);
+        return true;
+    }
+    default:
+        return false;
+    }
+}
+
 // Convert an initializer to a Tac_StaticInit list for global/static variables.
 Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
 {
@@ -246,124 +362,49 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         return pointer_init;
     }
 
-    // Handle pointer initialized with array or function name.
-    if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
-        init->u.expr->kind == EXPR_VAR) {
-        const Symbol *sym = symtab_get(init->u.expr->u.var);
-        const Type *st    = unalias(sym->type);
-        if (st->kind == TYPE_ARRAY) {
-            if (!compatible_type(var_type->u.pointer.target, st->u.array.element)) {
-                fatal_error("Initialization of pointer with incompatible array");
+    // Handle a pointer initialized with a constant address expression (C11 §6.6): an array or
+    // function name (decay), &lvalue, and constant pointer arithmetic, composed in any order —
+    // e.g. `arr + 2`, `&arr[1] + 1`, `&s.v[2]`, `&o.in.y`, `&arr[1].b`.  eval_addr_const folds
+    // the whole expression to a base symbol and a linear byte offset from it.
+    if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE) {
+        const char *base;
+        long off;
+        const Type *pointee;
+        if (eval_addr_const(init->u.expr, &base, &off, &pointee)) {
+            const Type *target = unalias(var_type->u.pointer.target);
+            // A void pointer is compatible with any object address, and any pointer accepts a
+            // void address; otherwise the pointee types must match (the checks the per-shape
+            // blocks used to make, unified here).
+            if (target->kind != TYPE_VOID && pointee->kind != TYPE_VOID &&
+                !compatible_type(var_type->u.pointer.target, pointee)) {
+                fatal_error("Incompatible types in static pointer initialization");
             }
-        } else if (st->kind == TYPE_FUNCTION) {
-            if (!compatible_type(var_type->u.pointer.target, st)) {
-                fatal_error("Initialization of pointer with incompatible function");
+            bool is_fat = (target->kind == TYPE_CHAR || target->kind == TYPE_SCHAR ||
+                           target->kind == TYPE_UCHAR || target->kind == TYPE_VOID);
+            if (is_fat) {
+                // A char*/void* addresses a byte.  eval_addr_const already yields the packed
+                // byte position for a char-array element/member and for a string/array decay;
+                // a directly-addressed scalar char keeps its value in the low byte of its
+                // one-word cell, so &c is byte#5 (offset_enc 5).  Sub-word char addressing
+                // beyond these forms is the known char-in-struct limitation.
+                if (init->u.expr->kind == EXPR_UNARY_OP &&
+                    init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
+                    init->u.expr->u.unary_op.expr->kind == EXPR_VAR) {
+                    const Type *ot =
+                        unalias(symtab_get(init->u.expr->u.unary_op.expr->u.var)->type);
+                    if (ot->kind == TYPE_CHAR || ot->kind == TYPE_SCHAR || ot->kind == TYPE_UCHAR)
+                        off += 5;
+                }
+                Tac_StaticInit *fi        = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
+                fi->u.pointer.name        = xstrdup(base);
+                fi->u.pointer.byte_offset = (int)off;
+                return fi;
             }
-        } else {
-            fatal_error("Pointer can only be initialized by array or function");
+            Tac_StaticInit *pointer_init        = tac_new_static_init(TAC_STATIC_INIT_POINTER);
+            pointer_init->u.pointer.name        = xstrdup(base);
+            pointer_init->u.pointer.byte_offset = (int)off;
+            return pointer_init;
         }
-        // A char*/void* initialized by a char-array name is a fat pointer to the array's
-        // first byte (byte#0 = MSB), i.e. byte_offset 0 / offset_enc 5.
-        const Type *ptr_target = unalias(var_type->u.pointer.target);
-        bool is_fat            = st->kind == TYPE_ARRAY &&
-                     (ptr_target->kind == TYPE_CHAR || ptr_target->kind == TYPE_SCHAR ||
-                      ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
-        if (is_fat) {
-            Tac_StaticInit *fi          = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
-            fi->u.pointer.name          = xstrdup(init->u.expr->u.var);
-            fi->u.pointer.byte_offset   = 0;
-            return fi;
-        }
-        Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
-        pointer_init->u.pointer.name = xstrdup(init->u.expr->u.var);
-        return pointer_init;
-    }
-
-    // Handle pointer initialized with address-of a variable (&var).
-    if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
-        init->u.expr->kind == EXPR_UNARY_OP && init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
-        init->u.expr->u.unary_op.expr->kind == EXPR_VAR) {
-        const char *var_name   = init->u.expr->u.unary_op.expr->u.var;
-        const Type *ptr_target = unalias(var_type->u.pointer.target);
-        bool is_fat            = (ptr_target->kind == TYPE_CHAR || ptr_target->kind == TYPE_SCHAR ||
-                                  ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
-        if (is_fat) {
-            const Symbol *sym  = symtab_get(var_name);
-            const Type *st     = unalias(sym->type);
-            bool byte_sized    = (st->kind == TYPE_CHAR || st->kind == TYPE_SCHAR ||
-                                  st->kind == TYPE_UCHAR);
-            Tac_StaticInit *fi = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
-            fi->u.pointer.name = xstrdup(var_name);
-            fi->u.pointer.byte_offset = byte_sized ? 5 : 0;
-            return fi;
-        }
-        Tac_StaticInit *pointer_init = tac_new_static_init(TAC_STATIC_INIT_POINTER);
-        pointer_init->u.pointer.name = xstrdup(var_name);
-        return pointer_init;
-    }
-
-    // Handle pointer initialized with address-of an array element (&arr[N]).
-    if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
-        init->u.expr->kind == EXPR_UNARY_OP && init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
-        init->u.expr->u.unary_op.expr->kind == EXPR_SUBSCRIPT &&
-        init->u.expr->u.unary_op.expr->u.subscript.left->kind == EXPR_VAR) {
-        const Expr *subscript  = init->u.expr->u.unary_op.expr;
-        const char *arr_name   = subscript->u.subscript.left->u.var;
-        const Expr *index_expr = subscript->u.subscript.right;
-        long index;
-        if (!try_eval_const_int(index_expr, &index))
-            fatal_error("Array subscript in static initializer must be a compile-time constant");
-        const Symbol *arr_sym = symtab_get(arr_name);
-        const Type *ast       = unalias(arr_sym->type);
-        if (ast->kind != TYPE_ARRAY)
-            fatal_error("Subscript of non-array type in static initializer");
-        if (!compatible_type(var_type->u.pointer.target, ast->u.array.element))
-            fatal_error("Incompatible types in pointer initialization with array element");
-        const Type *ptr_target = unalias(var_type->u.pointer.target);
-        bool is_fat            = (ptr_target->kind == TYPE_CHAR || ptr_target->kind == TYPE_SCHAR ||
-                                  ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
-        int byte_offset        = (int)index * (int)get_size(ast->u.array.element);
-        if (is_fat) {
-            Tac_StaticInit *fi        = tac_new_static_init(TAC_STATIC_INIT_FAT_POINTER);
-            fi->u.pointer.name        = xstrdup(arr_name);
-            fi->u.pointer.byte_offset = byte_offset;
-            return fi;
-        }
-        Tac_StaticInit *pointer_init        = tac_new_static_init(TAC_STATIC_INIT_POINTER);
-        pointer_init->u.pointer.name        = xstrdup(arr_name);
-        pointer_init->u.pointer.byte_offset = byte_offset;
-        return pointer_init;
-    }
-
-    // Handle pointer initialized with address-of a struct/union member (&s.field).
-    if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
-        init->u.expr->kind == EXPR_UNARY_OP && init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
-        init->u.expr->u.unary_op.expr->kind == EXPR_FIELD_ACCESS &&
-        init->u.expr->u.unary_op.expr->u.field_access.expr->kind == EXPR_VAR) {
-        const Expr *field_access = init->u.expr->u.unary_op.expr;
-        const char *var_name     = field_access->u.field_access.expr->u.var;
-        const char *field_name   = field_access->u.field_access.field;
-        const Symbol *sym        = symtab_get(var_name);
-        const Type *st           = unalias(sym->type);
-        if (st->kind != TYPE_STRUCT && st->kind != TYPE_UNION)
-            fatal_error("Member access of non-struct type in static initializer");
-        const FieldDef *field = structtab_find(st->u.struct_t.name)->members;
-        for (; field; field = field->next) {
-            if (strcmp(field->name, field_name) == 0)
-                break;
-        }
-        if (!field)
-            fatal_error("Struct %s has no member %s", st->u.struct_t.name, field_name);
-        // A char*/void* points at a specific byte; a word pointer at a word offset.  Field
-        // offsets are byte offsets within the struct (declarations.c), matching either encoding.
-        const Type *ptr_target = unalias(var_type->u.pointer.target);
-        bool is_fat            = (ptr_target->kind == TYPE_CHAR || ptr_target->kind == TYPE_SCHAR ||
-                                  ptr_target->kind == TYPE_UCHAR || ptr_target->kind == TYPE_VOID);
-        Tac_StaticInit *pointer_init =
-            tac_new_static_init(is_fat ? TAC_STATIC_INIT_FAT_POINTER : TAC_STATIC_INIT_POINTER);
-        pointer_init->u.pointer.name        = xstrdup(var_name);
-        pointer_init->u.pointer.byte_offset = field->offset;
-        return pointer_init;
     }
 
     // Handle pointer initialized with an integer constant expression (e.g. cast from integer).

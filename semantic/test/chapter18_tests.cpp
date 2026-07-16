@@ -1786,6 +1786,29 @@ struct pair p = {1, 2, 3};
                  "Too many elements in struct initializer");
 }
 
+// A static pointer initialized with an address constant whose array subscript is not a
+// compile-time constant is rejected (the address-constant evaluator's diagnostic).
+TEST_F(PipelineTest, Chapter18_StaticAddressConstantNonConstSubscript_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"SRC(
+int arr[3];
+int i;
+int *p = &arr[i];
+)SRC"),
+                 "Array subscript in static initializer must be a compile-time constant");
+}
+
+// A scalar variable's value is not an address constant, so it cannot initialize a static
+// pointer; the evaluator declines it and the catch-all rejects the initializer.
+TEST_F(PipelineTest, Chapter18_StaticPointerFromScalarVar_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"SRC(
+int x;
+int *p = x;
+)SRC"),
+                 "Unsupported initializer for type ptr");
+}
+
 
 // --- invalid_types/invalid_incomplete_structs ---
 

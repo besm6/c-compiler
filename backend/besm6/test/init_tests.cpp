@@ -356,6 +356,83 @@ TEST_F(CodegenTest, VarCharPtrInitNameOffset)
               output);
 }
 
+// A static pointer initializer may be any C11 §6.6 address constant: an array/function name,
+// &lvalue, and constant pointer arithmetic, composed in any order.  build_static_init folds the
+// whole expression to a base symbol + word offset (backend/besm6/static.c renders name+word).
+
+// Array name plus a constant: `arr + 2` — decays to &arr[0], then +2 elements.
+TEST_F(CodegenTest, VarIntPtrInitArrayPlusConst)
+{
+    std::string output = CompileToMadlen("extern int arr[]; int *p = arr + 2;");
+    EXPECT_EQ(R"(c
+        p:   ,name,
+      arr:   ,subp,
+             ,z00,
+             ,z00, arr+2
+             ,end,
+)",
+              output);
+}
+
+// Address of an element with further arithmetic: `&arr[1] + 1` == arr+2.
+TEST_F(CodegenTest, VarIntPtrInitElemPlusConst)
+{
+    std::string output = CompileToMadlen("extern int arr[]; int *p = &arr[1] + 1;");
+    EXPECT_EQ(R"(c
+        p:   ,name,
+      arr:   ,subp,
+             ,z00,
+             ,z00, arr+2
+             ,end,
+)",
+              output);
+}
+
+// Element of an array member: `&s.v[2]` — a(word0), v(word1), v[2] -> word3.
+TEST_F(CodegenTest, VarIntPtrInitArrayMemberElem)
+{
+    std::string output =
+        CompileToMadlen("struct S{int a; int v[4];}; extern struct S s; int *p = &s.v[2];");
+    EXPECT_EQ(R"(c
+        p:   ,name,
+        s:   ,subp,
+             ,z00,
+             ,z00, s+3
+             ,end,
+)",
+              output);
+}
+
+// Nested member chain: `&o.in.y` — a(word0), in(word1), in.y -> word2.
+TEST_F(CodegenTest, VarIntPtrInitNestedMember)
+{
+    std::string output = CompileToMadlen("struct I{int x,y;}; struct O{int a; struct I in;}; "
+                                         "extern struct O o; int *p = &o.in.y;");
+    EXPECT_EQ(R"(c
+        p:   ,name,
+        o:   ,subp,
+             ,z00,
+             ,z00, o+2
+             ,end,
+)",
+              output);
+}
+
+// Member of an array element: `&arr[1].b` — arr[1](word2), .b -> word3.
+TEST_F(CodegenTest, VarIntPtrInitElementMember)
+{
+    std::string output =
+        CompileToMadlen("struct S{int a,b;}; extern struct S arr[]; int *p = &arr[1].b;");
+    EXPECT_EQ(R"(c
+        p:   ,name,
+      arr:   ,subp,
+             ,z00,
+             ,z00, arr+3
+             ,end,
+)",
+              output);
+}
+
 TEST_F(CodegenTest, VarFloatInit)
 {
     std::string output = CompileToMadlen("float foo = 3.1415;");

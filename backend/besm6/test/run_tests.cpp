@@ -456,3 +456,22 @@ TEST_F(CodegenTest, ZeroConstNeedsNoLiteralRun)
     )");
     EXPECT_EQ("7 7 3\n", result);
 }
+
+// End-to-end: static pointers initialized with composed C11 §6.6 address constants must
+// point at the right word at run time, not merely compile.  `&arr[1] + 1` == &arr[2] (30);
+// `&s.v[2]` selects the third element of the array member (300).  Proves the byte offset
+// build_static_init folds is arithmetically correct after the backend's divide-by-word.
+TEST_F(CodegenTest, StaticAddressConstantRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int arr[3] = { 10, 20, 30 };
+        int *p = &arr[1] + 1;
+        struct S { int a; int v[3]; } s = { 7, { 100, 200, 300 } };
+        int *q = &s.v[2];
+        void program() {
+            printf("%d %d\n", *p, *q);
+        }
+    )");
+    EXPECT_EQ("30 300\n", result);
+}
