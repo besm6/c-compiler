@@ -499,12 +499,13 @@ protected:
             return "ERROR";
 
         // Run under the simulator with --status so it appends main()'s return value
-        // ("%d\n") to the program's own stdout, captured to out_path.  The executable
-        // is passed first (RunExternalProgram probes input_filenames[0] for
-        // readability); b6sim accepts the flag after the program file.  b6sim exits
-        // with the guest's return value, so ignore_exit_status must be set.
+        // ("%d\n") to the program's own stdout, captured to out_path.  The flag must come
+        // BEFORE the executable: b6sim's optstring starts with '+', so getopt stops at the
+        // first non-option argument and everything after the program file is the *guest's*
+        // argv.  b6sim exits with the guest's return value, so ignore_exit_status must be
+        // set.
         try {
-            RunExternalProgram("b6sim", { exe_path, "--status" }, out_path,
+            RunExternalProgram("b6sim", { "--status", exe_path }, out_path,
                                /*ignore_exit_status=*/true);
         } catch (...) {
             return "ERROR";
@@ -536,7 +537,8 @@ protected:
             throw std::runtime_error("Cannot fork");
 
         if (pid == 0) {
-            int in_fd = open(input_filenames[0].c_str(), O_RDONLY);
+            // The input file is the LAST argument: an option, where there is one, precedes it.
+            int in_fd = open(input_filenames.back().c_str(), O_RDONLY);
             if (in_fd < 0)
                 exit(STATUS_CANNOT_READ_INPUT);
             close(in_fd);
@@ -566,7 +568,7 @@ protected:
         case STATUS_OK:
             return;
         case STATUS_CANNOT_READ_INPUT:
-            throw std::runtime_error("Cannot read " + input_filenames[0]);
+            throw std::runtime_error("Cannot read " + input_filenames.back());
         case STATUS_CANNOT_WRITE_OUTPUT:
             throw std::runtime_error("Cannot write " + output_filename);
         case STATUS_CANNOT_RUN_PROGRAM:
