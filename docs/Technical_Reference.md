@@ -13,7 +13,7 @@ c-compiler/
 │   └── ...         # aarch64/, arm32/, riscv/ — ISA ASDL specs
 ├── docs/           # Project documentation (this file)
 ├── grammar/        # C11 Yacc/Lex/ASDL reference; see docs/C_Grammar.md
-├── libc/           # Target C runtime + C11 headers: besm6/{include, madlen (libc.bin), unix (libc.a, crt0.o)}
+├── libc/           # Target C runtime + C11 headers: besm6/{include, madlen (libc.bin), unix (libruntime.a, libc0.a, crt0.o)}
 ├── libutil/        # xalloc, wio, string_map
 ├── parser/         # Recursive-descent parser, nametab; parse driver
 ├── scanner/        # Hand-written lexer

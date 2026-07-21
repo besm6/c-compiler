@@ -15,9 +15,14 @@ make clean        # remove ./build/
 
 **`make install`** builds everything, then installs the artifacts via `cmake --install`
 to `~/.local` if that directory exists, otherwise `/usr/local`: `parse` → `bin/b6parse`,
-`lower` → `bin/b6lower`, `genbesm` → `bin/b6codegen`, `libc.bin` →
-`share/besm6/lib/libc.bin`, and the target C11 standard headers
-(`libc/besm6/include/*.h`) → `share/besm6/include/`.
+`lower` → `bin/b6lower`, `genbesm` → `bin/b6codegen`, and the three runtime libraries
+`libc.bin` / `libbem.bin` / `libruntime.a` → `share/besm6/lib/`. **Deliberately not
+installed:** the Unix `libc0.a`, `crt0.o`, and the target C11 standard headers
+(`libc/besm6/include/*.h`) — the sibling **v7besm** project owns the authoritative
+hosted `libc.a`, `crt0.o`, and headers, so this repo ships only what v7besm cannot
+supply: `libruntime.a`, the `b$*` helpers the code generator emits calls to. The
+headers and `libc0.a` still build and are used in-tree (test fixtures, the
+`besm-headers` test, the Unix run harnesses).
 The prefix is chosen in the Makefile at install time and passed as `cmake --install build
 --prefix`; the driver binaries are renamed (`b6` prefix) only at install time via
 `install(PROGRAMS … RENAME)`, so the in-tree build outputs (`build/parse`, `build/lower`,
@@ -76,12 +81,20 @@ BESM-6 assembler backend, while only the three Dubna-monitor **leaves** — `put
 KOI7 stdout buffer), `flush` (`b/tout`), `getch` (`moncard_`/`monread_`) — stay in
 `libc/besm6/madlen/*.c` alongside the hand-written Madlen helpers; the sibling
 `libc/besm6/unix` target reimplements those three over Unix v7 syscalls (`write.s`/`read.s`
-extracode leaves, plus a `crt0.s` startup that calls `int main`) and archives everything with
-`b6ar`/`b6ranlib` into a `b6as` `libc.a` (+ standalone `crt0.o`) for the `b6as`/`b6ld`/`b6sim`
-path. All `.c` are compiled by our own toolchain (`parse → lower → genbesm --madlen` → `.madlen`) and
+extracode leaves, plus a `crt0.s` startup that calls `int main`) and archives the result with
+`b6ar`/`b6ranlib` into **two** archives for the `b6as`/`b6ld`/`b6sim` path (+ a standalone
+`crt0.o`): `libruntime.a`, holding only the 37 `b$*` compiler helpers (`b_*.s`), and
+`libc0.a`, holding the minimal C library — the portable routines, the `putbyte`/`flush`/`getch`
+leaves, the `write.s`/`read.s` syscall leaves, and the hand-written standard-C assembly
+`exit.s`/`frexp.s`/`ldexp.s`. The split exists because only `libruntime.a` is installed; v7besm
+owns the real `libc.a`/`crt0.o`/headers. Link order is always `crt0.o`, the program object,
+`libc0.a`, `libruntime.a` — libc0 calls the helpers, never the reverse (the only intra-helper
+edges are `b_udiv.s` → `b$div`/`b$mod`).
+All `.c` are compiled by our own toolchain (`parse → lower → genbesm --madlen` → `.madlen`) and
 assembled with the Madlen helpers (`b_*.madlen`, `b_tout`, `exit`, `frexp`, `ldexp`) into
 `libc.bin` — see `libc/besm6/CMakeLists.txt` (`LIBC_C_PORTABLE` / `LIBC_C_DUBNA` /
-`LIBC_MADLEN`) and `libc/besm6/unix/CMakeLists.txt` for the Unix `libc.a`/`crt0.o`. The
+`LIBC_MADLEN`) and `libc/besm6/unix/CMakeLists.txt` (`UNIX_RUNTIME_HELPERS` /
+`UNIX_ASM_LIBC`, the `besm6_unix_archive` macro) for the Unix archives. The
 original B sources have been removed; the runtime is now C plus Madlen only. Runtime-helper
 names use `$` as their special separator (e.g. `b$tout`, `b$ret`, `b$save`) — this is the
 **canonical IR form** carried unchanged from the scanner through TAC into the `Besm_Module`;
@@ -139,13 +152,15 @@ run `dubna [-d c] job.dub`.
 `codegen_test.h` provides `CompileAndRunUnix` — the Unix-dialect run harness (`besm-tests`
 `CodegenTest.UnixRun*`, `test/unix_run_tests.cpp`). It compiles in-process via `CompileToUnix`
 (`genbesm --unix`), assembles with `b6as`, links with `b6ld` — **`crt0.o` first**, then the
-program object, then `libc.a` (`b6ld` takes the entry point from the first object's first text
-word) — and runs the linked `b.out` under the `b6sim` simulator via `RunExternalProgram`,
+program object, then `libc0.a` and `libruntime.a` (`b6ld` takes the entry point from the first
+object's first text word) — and runs the linked `b.out` under the `b6sim` simulator via
+`RunExternalProgram`,
 returning the captured stdout. `b6sim` traps the Unix v7 syscalls onto the host, so a program's
 `write(1,…)` lands straight on stdout — no `.lst`/`≠` scraping (unlike the `dubna` path). The
 Unix `crt0` calls `int main(void)` (not the Madlen libc's `void program()`), so these test
 programs define `main()`. All external tools (`b6as`/`b6ld`/`b6sim`, in the sibling `v7besm`
-tree) resolve by bare name on `PATH`; `crt0.o` and `libc.a` are staged next to `besm-tests` in
+tree) resolve by bare name on `PATH`; `crt0.o`, `libc0.a`, and `libruntime.a` are staged
+next to `besm-tests` in
 `build/backend/besm6/`. Tests using it guard with `SKIP_IF_NO_UNIX_RUN_TOOLS()` so `make run`
 stays green where the toolchain is absent. To reproduce by hand:
 `b6sim build/backend/besm6/<TestName>.b6` (add `-d irm` / `--trace=FILE` for tracing).

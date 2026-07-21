@@ -2,8 +2,8 @@
  * <stdlib.h> — general utilities (C11 §7.22), BESM-6 target.
  *
  * Status: exit() and atoi() are implemented in the runtime library (Madlen
- * libc.bin and Unix libc.a).  The dynamic allocator (malloc/calloc/realloc/
- * free) is implemented in the Unix libc.a only — it depends on the b6ld/b6sim
+ * libc.bin and Unix libc0.a).  The dynamic allocator (malloc/calloc/realloc/
+ * free) is implemented in the Unix libc0.a only — it depends on the b6ld/b6sim
  * memory map and is absent from the Madlen libc.bin.  The rest are declared for
  * future implementation (TODO).
  */
@@ -32,7 +32,7 @@ typedef struct {
 _Noreturn void exit(int status);
 int   atoi(const char *nptr);
 
-/* ---- implemented in the Unix libc.a only (absent from Madlen libc.bin) ---- */
+/* ---- implemented in the Unix libc0.a only (absent from Madlen libc.bin) ---- */
 void *malloc(size_t size);
 void *calloc(size_t nmemb, size_t size);
 void *realloc(void *ptr, size_t size);

@@ -79,7 +79,7 @@ add_custom_command(
     COMMENT "Assembling BESM-6 Bemsh C runtime library (libbem.bin)")
 
 # Built by the default `make`/`make all` (ALL) alongside the Madlen libc.bin and the Unix
-# libc.a.
+# libruntime.a/libc0.a.
 add_custom_target(besm-libc-bemsh ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libbem.bin)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libbem.bin DESTINATION share/besm6/lib)

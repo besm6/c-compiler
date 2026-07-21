@@ -25,13 +25,13 @@ Those services live in the **standard library**, and the library presents itself
 program through a fixed set of **headers** — files you pull in with `#include`. A header
 declares the *interface* (types, macros, function prototypes); the *implementation* lives
 in a compiled library — here the BESM-6 runtime, built as the Madlen `libc.bin` (Dubna)
-and the Unix `libc.a` (`b6as`/`b6ld`/`b6sim`).
+and the Unix `libc0.a` (`b6as`/`b6ld`/`b6sim`).
 
 This article describes the full C11 header *interface*. Only a subset is implemented so
 far (see "What is implemented vs. planned" in
 [`libc/besm6/include/README.md`](../libc/besm6/include/README.md)); the rest are
 declarations awaiting an implementation. Availability notes call out the gaps that
-matter — most notably the allocator, which is provided in the Unix `libc.a` only.
+matter — most notably the allocator, which is provided in the Unix `libc0.a` only.
 
 ### Freestanding versus hosted
 
@@ -294,7 +294,7 @@ returned by `malloc` is word-aligned, which on this machine is the only alignmen
 
 **Runtime availability.** `exit` and `atoi` are implemented in both runtime builds. The
 allocator (`malloc`/`calloc`/`realloc`/`free`) is provided only on the Unix
-(`b6as`/`b6ld`/`b6sim`) runtime (`libc.a`): it claims its heap over the linker `_end`
+(`b6as`/`b6ld`/`b6sim`) runtime (`libc0.a`): it claims its heap over the linker `_end`
 symbol up to the `b6sim` stack base, a layout the Madlen (Dubna) `libc.bin` does not
 supply, so the allocator is **absent from `libc.bin`**. The remaining `<stdlib.h>`
 routines are declared but not yet implemented.

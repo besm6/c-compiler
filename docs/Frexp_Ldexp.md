@@ -241,7 +241,7 @@ c        --- fraction := value with the exponent field forced to 64 ---
    prefix — these are user-facing libc entry points, not internal `b/…` helpers).
 2. Appended `ldexp frexp` to the `LIBC_MADLEN` list in
    [libc/besm6/CMakeLists.txt](../libc/besm6/CMakeLists.txt) (so they build into both the
-   Madlen `libc.bin` and, via the shared helper list, the Unix `libc.a`).
+   Madlen `libc.bin` and, via the shared helper list, the Unix `libc0.a`).
 3. Listed the `frexp` / `ldexp` prototypes in [math.h](../libc/besm6/include/math.h) among
    the implemented routines.
 4. Added a `besm-tests` `CompileAndRun` round-trip case, run from `build/backend/besm6`

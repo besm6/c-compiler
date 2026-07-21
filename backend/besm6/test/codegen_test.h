@@ -332,7 +332,7 @@ protected:
     }
 
     // Compile C source through the Unix (b6as) path, assemble it with b6as, and link it
-    // with b6ld against the U2 libc.a.  Asserts each external step exits 0 (non-fatal
+    // with b6ld against libc0.a + libruntime.a.  Asserts each external step exits 0 (non-fatal
     // EXPECT, with the tool's captured diagnostics on failure).  Returns the emitted .s
     // text so a caller may additionally golden-diff it.  Execution under b6sim is out of
     // scope (tasks U5/U6) — this only proves the assembly assembles and links cleanly.
@@ -374,18 +374,21 @@ protected:
         if (as_rc != 0)
             return asm_text;
 
-        // Objects first, libc.a last so back-references resolve via the b6ranlib index.
-        // libc.a is staged in the test's working directory (build/backend/besm6), which
-        // besm-tests chdir()s into at startup, so a plain relative path suffices.
-        int ld_rc = RunTool({ "b6ld", "-o", exe_path, o_path, "libc.a" }, ld_log);
+        // Objects first, then the archives, so back-references resolve via the b6ranlib
+        // index; libruntime.a (the b$* helpers) goes last because libc0.a calls into it
+        // and nothing in it calls back.  Both are staged in the test's working directory
+        // (build/backend/besm6), which besm-tests chdir()s into at startup, so plain
+        // relative paths suffice.
+        int ld_rc =
+            RunTool({ "b6ld", "-o", exe_path, o_path, "libc0.a", "libruntime.a" }, ld_log);
         EXPECT_EQ(0, ld_rc) << "b6ld failed linking " << o_path << ":\n" << ReadFile(ld_log);
 
         return asm_text;
     }
 
     // Compile C source through the Unix (b6as) path, assemble with b6as, link with b6ld
-    // against libc.a, then run the executable under the b6sim simulator and return its
-    // captured stdout.  The Unix-path counterpart of CompileAndRun (which uses the Madlen
+    // against libc0.a + libruntime.a, then run the executable under the b6sim simulator and
+    // return its captured stdout.  The Unix-path counterpart of CompileAndRun (which uses the Madlen
     // .mad → dubna .lst path): b6sim writes the program's write(1,…) output straight to
     // stdout, so there is no listing to scrape.  Returns "ERROR" on any tool failure.
     std::string CompileAndRunUnix(const std::string &src)
@@ -427,10 +430,12 @@ protected:
             return "ERROR";
 
         // crt0.o first: b6ld takes the entry point from the first object's first text word,
-        // so the C startup object must lead, ahead of the program object and libc.a.  All
-        // three are staged in the working directory (build/backend/besm6), which besm-tests
+        // so the C startup object must lead, ahead of the program object and the archives
+        // (libruntime.a last — libc0.a calls the b$* helpers, not the other way round).
+        // All are staged in the working directory (build/backend/besm6), which besm-tests
         // chdir()s into at startup, so plain relative names suffice.
-        int ld_rc = RunTool({ "b6ld", "-o", exe_path, "crt0.o", o_path, "libc.a" }, ld_log);
+        int ld_rc = RunTool(
+            { "b6ld", "-o", exe_path, "crt0.o", o_path, "libc0.a", "libruntime.a" }, ld_log);
         EXPECT_EQ(0, ld_rc) << "b6ld failed linking " << o_path << ":\n" << ReadFile(ld_log);
         if (ld_rc != 0)
             return "ERROR";
@@ -490,10 +495,12 @@ protected:
             return "ERROR";
 
         // crt0.o first: b6ld takes the entry point from the first object's first text
-        // word, so the C startup object must lead, ahead of the program object and
-        // libc.a.  All are staged in the working directory (build/backend/besm6), which
+        // word, so the C startup object must lead, ahead of the program object and the
+        // archives (libruntime.a last — libc0.a calls the b$* helpers, not the other way
+        // round).  All are staged in the working directory (build/backend/besm6), which
         // besm-tests chdir()s into at startup, so plain relative names suffice.
-        int ld_rc = RunTool({ "b6ld", "-o", exe_path, "crt0.o", o_path, "libc.a" }, ld_log);
+        int ld_rc = RunTool(
+            { "b6ld", "-o", exe_path, "crt0.o", o_path, "libc0.a", "libruntime.a" }, ld_log);
         EXPECT_EQ(0, ld_rc) << "b6ld failed linking " << o_path << ":\n" << ReadFile(ld_log);
         if (ld_rc != 0)
             return "ERROR";

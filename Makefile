@@ -6,8 +6,8 @@
 #
 # make run   -- run all unit tests (including the textbook chapter tests)
 #
-# make install -- install b6parse, b6lower, b6codegen and libc.bin
-#               (to ~/.local if it exists, otherwise /usr/local)
+# make install -- install b6parse, b6lower, b6codegen, libc.bin, libbem.bin and
+#                 libruntime.a (to ~/.local if it exists, otherwise /usr/local)
 #
 # make clean -- remove build files
 #

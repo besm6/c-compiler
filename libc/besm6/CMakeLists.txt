@@ -41,7 +41,7 @@ file(GLOB BESM6_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
 # libc/besm6/bemsh will reuse them once each supplies its own leaves below.  The
 # lone exception is malloc: its heap is provisioned between the linker `end` symbol
 # and the b6sim stack base, which only the Unix path supplies, so it is dropped
-# from the Madlen libc.bin below (but kept in the Unix libc.a).
+# from the Madlen libc.bin below (but kept in the Unix libc0.a).
 set(LIBC_C_PORTABLE
     printf puts putchar putch
     doprnt sprintf snprintf modf malloc
@@ -83,7 +83,7 @@ endmacro()
 # malloc/calloc/realloc/free rely on the Unix (b6ld/b6sim) memory map — the `end`
 # boundary symbol and the 070000 stack base — which the dubna monitor does not
 # provide, so the allocator is excluded from the Madlen libc.bin.  It stays in
-# LIBC_C_PORTABLE for the Unix libc.a build (see unix/CMakeLists.txt).
+# LIBC_C_PORTABLE for the Unix libc0.a build (see unix/CMakeLists.txt).
 set(LIBC_C_MADLEN_SOURCES ${LIBC_C_PORTABLE})
 list(REMOVE_ITEM LIBC_C_MADLEN_SOURCES malloc)
 foreach(name ${LIBC_C_MADLEN_SOURCES})
@@ -116,18 +116,18 @@ add_custom_target(besm-libc-dubna ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libc.b
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libc.bin DESTINATION share/besm6/lib)
 
-# The Unix (b6as) runtime library (libc.a).  A child scope so it inherits LIBC_C_PORTABLE
-# and LIBC_MADLEN (the reuse surface) set above.
+# The Unix (b6as) runtime archives (libruntime.a, libc0.a).  A child scope so it inherits
+# LIBC_C_PORTABLE and LIBC_MADLEN (the reuse surface) set above.
 add_subdirectory(unix)
 
 # The Bemsh (Cyrillic autocode) runtime library (libbem.bin).  A child scope so it inherits
 # LIBC_C_PORTABLE and LIBC_MADLEN (the reuse surface); see bemsh/CMakeLists.txt.
 add_subdirectory(bemsh)
 
-# Target C11 standard headers, installed alongside the runtime library.
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
-        DESTINATION share/besm6/include
-        FILES_MATCHING PATTERN "*.h")
+# The target C11 standard headers in include/ are NOT installed: the sibling v7besm
+# project ships the authoritative headers.  They stay in the source tree, where the libc
+# build above, the besm-headers test below, and the test fixtures (BESM6_INCLUDE_DIR)
+# all consume them directly.
 
 #
 # Standard-library header check: every header in include/ must preprocess (via the

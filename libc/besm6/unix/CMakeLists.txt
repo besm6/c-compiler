@@ -1,6 +1,16 @@
 #
-# Unix (b6as) BESM-6 C runtime library: assemble the reusable portable routines and the
-# hand-written runtime helpers into libc.a with the v7besm toolchain (b6as, b6ar).
+# Unix (b6as) BESM-6 target runtime: two archives built with the v7besm toolchain
+# (b6as, b6ar, b6ranlib).
+#
+#   libruntime.a  the compiler's own helper set — the b$* routines the code generator
+#                 emits calls to (b$save, b$ret, b$div, b$padd, ...).  These are an
+#                 implementation detail of this backend's calling convention and
+#                 lowering, so this is the one Unix-path artifact we install.
+#   libc0.a       a minimal C standard library — the portable routines (printf/str*/
+#                 mem*/malloc/...), the stdout/stdin leaves, and the $77 syscall
+#                 leaves.  Built for our own test harnesses only, NOT installed: the
+#                 authoritative libc.a, crt0.o, and standard headers come from the
+#                 sibling v7besm project.
 #
 # This mirrors ../CMakeLists.txt (the Madlen/libc.bin build) but targets the Unix
 # assembler.  The reusable portable C sources (LIBC_C_PORTABLE, inherited from the parent
@@ -8,8 +18,12 @@
 # with b6as.  The hand-written Madlen helpers (LIBC_MADLEN) are replaced here by
 # hand-written b6as .s files with the same stems; the three Dubna leaves
 # (putbyte/flush/getch) are stubbed C in this directory.  The tools are invoked by bare
-# name on PATH, exactly like dubna/besmc in the Madlen path.  b6ranlib then indexes the
+# name on PATH, exactly like dubna/besmc in the Madlen path.  b6ranlib then indexes each
 # archive so back-references resolve regardless of member order.
+#
+# Link order is libc0.a before libruntime.a: libc0 members call b$* helpers, and no
+# helper calls back into libc0 (the only cross-references among the helpers are
+# b_udiv.s -> b$div/b$mod, both inside libruntime.a).
 #
 
 set(UNIX_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -23,18 +37,28 @@ set(UNIX_LEAVES putbyte flush getch)
 # C leaves call.  exit ($77 1) rides in on LIBC_MADLEN below (unix/exit.s).
 set(UNIX_ASM_LEAVES write read)
 
-# The inherited LIBC_MADLEN helpers, minus the Dubna-only b/tout ($71 print-line
-# extracode): the Unix path emits stdout through SYS_write, so b_tout is unused.
-set(UNIX_MADLEN_HELPERS ${LIBC_MADLEN})
-list(REMOVE_ITEM UNIX_MADLEN_HELPERS b_tout)
+# The inherited LIBC_MADLEN list holds two different things: the b$* compiler helpers
+# and a few hand-written standard-C routines that happen to be assembly.  Split them.
+#
+# libruntime.a gets the b$* helpers: LIBC_MADLEN minus the Dubna-only b/tout ($71
+# print-line extracode — the Unix path emits stdout through SYS_write) and minus the
+# three standard-C stems below.
+set(UNIX_RUNTIME_HELPERS ${LIBC_MADLEN})
+list(REMOVE_ITEM UNIX_RUNTIME_HELPERS b_tout exit frexp ldexp)
+
+# libc0.a gets the hand-written assembly that is standard C, not a compiler helper:
+# exit ($77 1) and the <math.h> exponent pair.
+set(UNIX_ASM_LIBC exit frexp ldexp)
 
 # Shipped standard headers the portable C sources #include; an edit to any of them rebuilds.
 file(GLOB BESM6_HEADERS ${PORTABLE_DIR}/include/*.h)
 
 # Compile one NAME.c (portable from ${PORTABLE_DIR}, or a leaf from here) through
-# cpp -> parse -> lower -> genbesm --unix -> b6as into NAME.o, and record it in UNIX_OBJS.
-set(UNIX_OBJS "")
-macro(besm6_unix_compile_c name srcdir)
+# cpp -> parse -> lower -> genbesm --unix -> b6as into NAME.o, and record it in the
+# ${objlist} variable (LIBC0_OBJS or RUNTIME_OBJS).
+set(LIBC0_OBJS "")
+set(RUNTIME_OBJS "")
+macro(besm6_unix_compile_c name srcdir objlist)
     set(c_src ${srcdir}/${name}.c)
     set(c_pre ${CMAKE_CURRENT_BINARY_DIR}/${name}.i)
     set(c_ast ${CMAKE_CURRENT_BINARY_DIR}/${name}.ast)
@@ -50,11 +74,11 @@ macro(besm6_unix_compile_c name srcdir)
         COMMAND b6as -o ${c_obj} ${c_asm}
         DEPENDS ${c_src} ${BESM6_HEADERS} parse lower genbesm
         COMMENT "Compiling ${name}.c -> ${name}.o (Unix)")
-    list(APPEND UNIX_OBJS ${c_obj})
+    list(APPEND ${objlist} ${c_obj})
 endmacro()
 
-# Assemble one hand-written NAME.s runtime helper into NAME.o.
-macro(besm6_unix_assemble name)
+# Assemble one hand-written NAME.s into NAME.o, recorded in ${objlist}.
+macro(besm6_unix_assemble name objlist)
     set(s_src ${UNIX_DIR}/${name}.s)
     set(s_obj ${CMAKE_CURRENT_BINARY_DIR}/${name}.o)
     add_custom_command(
@@ -62,42 +86,50 @@ macro(besm6_unix_assemble name)
         COMMAND b6as -o ${s_obj} ${s_src}
         DEPENDS ${s_src}
         COMMENT "Assembling ${name}.s -> ${name}.o (Unix)")
-    list(APPEND UNIX_OBJS ${s_obj})
+    list(APPEND ${objlist} ${s_obj})
 endmacro()
 
 foreach(name ${LIBC_C_PORTABLE})
-    besm6_unix_compile_c(${name} ${PORTABLE_DIR})
+    besm6_unix_compile_c(${name} ${PORTABLE_DIR} LIBC0_OBJS)
 endforeach()
 foreach(name ${UNIX_LEAVES})
-    besm6_unix_compile_c(${name} ${UNIX_DIR})
+    besm6_unix_compile_c(${name} ${UNIX_DIR} LIBC0_OBJS)
 endforeach()
-foreach(name ${UNIX_ASM_LEAVES})
-    besm6_unix_assemble(${name})
+foreach(name ${UNIX_ASM_LEAVES} ${UNIX_ASM_LIBC})
+    besm6_unix_assemble(${name} LIBC0_OBJS)
 endforeach()
-foreach(name ${UNIX_MADLEN_HELPERS})
-    besm6_unix_assemble(${name})
+foreach(name ${UNIX_RUNTIME_HELPERS})
+    besm6_unix_assemble(${name} RUNTIME_OBJS)
 endforeach()
 
-add_custom_command(
-    OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/libc.a
-    # Rebuild from scratch so a replaced member never leaves a stale copy behind.
-    COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_CURRENT_BINARY_DIR}/libc.a
-    COMMAND b6ar rc ${CMAKE_CURRENT_BINARY_DIR}/libc.a ${UNIX_OBJS}
-    # Index the archive so b6ld resolves back-references regardless of member order.
-    COMMAND b6ranlib ${CMAKE_CURRENT_BINARY_DIR}/libc.a
-    # Stage a copy next to besm-tests (mirrors the Madlen libc.bin copy) for U3.
-    COMMAND ${CMAKE_COMMAND} -E copy
-            ${CMAKE_CURRENT_BINARY_DIR}/libc.a
-            ${CMAKE_BINARY_DIR}/backend/besm6/libc.a
-    DEPENDS ${UNIX_OBJS}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    COMMENT "Archiving BESM-6 Unix C runtime library (libc.a)")
+# Archive one object list into NAME.a and stage a copy next to besm-tests (mirroring
+# the Madlen libc.bin copy): that binary chdir()s into build/backend/besm6 at startup
+# and the run harnesses name the archives by relative path.
+macro(besm6_unix_archive name objs)
+    add_custom_command(
+        OUTPUT  ${CMAKE_CURRENT_BINARY_DIR}/${name}.a
+        # Rebuild from scratch so a replaced member never leaves a stale copy behind.
+        COMMAND ${CMAKE_COMMAND} -E rm -f ${CMAKE_CURRENT_BINARY_DIR}/${name}.a
+        COMMAND b6ar rc ${CMAKE_CURRENT_BINARY_DIR}/${name}.a ${objs}
+        # Index the archive so b6ld resolves back-references regardless of member order.
+        COMMAND b6ranlib ${CMAKE_CURRENT_BINARY_DIR}/${name}.a
+        COMMAND ${CMAKE_COMMAND} -E copy
+                ${CMAKE_CURRENT_BINARY_DIR}/${name}.a
+                ${CMAKE_BINARY_DIR}/backend/besm6/${name}.a
+        DEPENDS ${objs}
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+        COMMENT "Archiving BESM-6 Unix ${name}.a")
+endmacro()
 
-# crt0.o — the C startup object.  Kept OUT of libc.a: b6ld takes the entry point
-# from the first linked object's first text word, so crt0.o must be linked ahead
-# of libc.a as a standalone object (the U6 run harness does this).  Staged next
-# to besm-tests (mirroring libc.a) so that harness — which chdir()s into
-# build/backend/besm6 — can pick it up by relative path.
+besm6_unix_archive(libruntime "${RUNTIME_OBJS}")
+besm6_unix_archive(libc0      "${LIBC0_OBJS}")
+
+# crt0.o — the C startup object.  Kept OUT of the archives: b6ld takes the entry point
+# from the first linked object's first text word, so crt0.o must be linked ahead of
+# everything else as a standalone object (the run harnesses do this).  Staged next to
+# besm-tests (mirroring the archives) so that harness — which chdir()s into
+# build/backend/besm6 — can pick it up by relative path.  Not installed: v7besm owns
+# the real crt0.o.
 add_custom_command(
     OUTPUT  ${CMAKE_BINARY_DIR}/backend/besm6/crt0.o
     COMMAND b6as -o ${CMAKE_CURRENT_BINARY_DIR}/crt0.o ${UNIX_DIR}/crt0.s
@@ -109,9 +141,10 @@ add_custom_command(
 
 # Built by the default `make`/`make all` (ALL) alongside the Madlen libc.bin.
 add_custom_target(besm-libc-unix ALL
-    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libc.a
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/libruntime.a
+            ${CMAKE_CURRENT_BINARY_DIR}/libc0.a
             ${CMAKE_BINARY_DIR}/backend/besm6/crt0.o)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libc.a
-              ${CMAKE_BINARY_DIR}/backend/besm6/crt0.o
-        DESTINATION share/besm6/lib)
+# Only the compiler's own helper set is installed.  libc0.a and crt0.o stay build-local
+# (our test harnesses link them); v7besm supplies the real libc.a and crt0.o.
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libruntime.a DESTINATION share/besm6/lib)

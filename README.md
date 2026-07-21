@@ -27,9 +27,15 @@ The BESM-6 target also ships a **hosted libc subset** as its runtime: `<stdio.h>
 (`printf`/`sprintf`/`snprintf`, `puts`/`putchar`, console I/O), all of `<string.h>` and
 the `mem*` family, `<math.h>` helpers (`modf`/`fabs`/`fmin`/`fmax`/`fma`/`frexp`/`ldexp`),
 `atoi`, `exit`, and a working `<stdarg.h>`. It builds in two forms — the Madlen `libc.bin`
-for the Dubna monitor and the Unix `libc.a` for the `b6as`/`b6ld`/`b6sim` path; the
-dynamic allocator (`malloc`/`calloc`/`realloc`/`free`) is provided in the Unix `libc.a`
+for the Dubna monitor and the Unix `libc0.a` for the `b6as`/`b6ld`/`b6sim` path; the
+dynamic allocator (`malloc`/`calloc`/`realloc`/`free`) is provided in the Unix `libc0.a`
 only. Everything else in the headers is declared for future implementation.
+
+`libc0.a` is a *minimal* libc that keeps this repo's own test harnesses self-contained; it
+is not installed. The authoritative hosted `libc.a`, `crt0.o`, and standard headers come
+from the sibling **v7besm** project. What this repo does install for the Unix path is
+`libruntime.a` — the `b$*` helper routines the code generator emits calls to, which are an
+implementation detail of this backend and cannot come from anywhere else.
 
 The compiler also has a few deliberate language behaviors — no identifier shadowing, `$` as an
 identifier character for BESM-6 runtime helpers, and GCC-style multi-character constant packing —
@@ -97,14 +103,17 @@ make install    # installs the compiler and runtime (see below)
 BESM-6 runtimes, and the C11 headers to `~/.local` if that directory exists, otherwise
 to `/usr/local`:
 
-| Build artifact        | Installed path                | Notes                          |
-| --------------------- | ----------------------------- | ------------------------------ |
-| `parse`               | `bin/b6parse`                 | compiler driver                |
-| `lower`               | `bin/b6lower`                 | compiler driver                |
-| `genbesm`             | `bin/b6codegen`               | compiler driver                |
-| `libc.bin`            | `share/besm6/lib/libc.bin`    | Madlen / Dubna runtime         |
-| `libc.a`, `crt0.o`    | `share/besm6/lib/`            | Unix (`b6as`/`b6ld`/`b6sim`) runtime |
-| `include/*.h`         | `share/besm6/include/`        | C11 standard headers           |
+| Build artifact | Installed path                 | Notes                                               |
+| -------------- | ------------------------------ | --------------------------------------------------- |
+| `parse`        | `bin/b6parse`                  | compiler driver                                     |
+| `lower`        | `bin/b6lower`                  | compiler driver                                     |
+| `genbesm`      | `bin/b6codegen`                | compiler driver                                     |
+| `libc.bin`     | `share/besm6/lib/libc.bin`     | Madlen / Dubna runtime                              |
+| `libbem.bin`   | `share/besm6/lib/libbem.bin`   | Bemsh / Dubna runtime                               |
+| `libruntime.a` | `share/besm6/lib/libruntime.a` | Unix (`b6as`/`b6ld`/`b6sim`) `b$*` compiler helpers |
+
+`libc0.a`, `crt0.o`, and the C11 headers in `libc/besm6/include/` are built and used
+in-tree but deliberately **not** installed — v7besm ships those.
 
 The driver binaries are renamed (`b6` prefix) at install time only; the in-tree build
 outputs keep their original names. To install elsewhere, pass a prefix to CMake directly:
