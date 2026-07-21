@@ -1404,7 +1404,18 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         Expr *func = e->u.call.func;
         const char *fun_name;
         Tac_Val *fn_ptr = NULL;
+        bool indirect = true;
         if (func->kind == EXPR_VAR) {
+            // A bare name: the callee itself, or a *variable* holding its address.  Either
+            // way the name is what the call names, so this arm is shared; what differs is
+            // how the backend must read it, which is what `indirect` records.  The node's
+            // own type tells them apart — a function designator has function type, a
+            // function-pointer variable has pointer type — and typecheck stamped it there
+            // from the symbol precisely because the symbol is gone by now: locals and
+            // parameters are purged from the symbol table when their block ends.  (Do not
+            // gen_expr the node either: a bare-name callee is not decayed, so its value is
+            // the name itself.)
+            indirect = func->type && unalias(func->type)->kind != TYPE_FUNCTION;
             fun_name = func->u.var;
         } else {
             // Indirect call. C11 §6.3.2.1p4: dereferencing a function pointer yields a
@@ -1430,15 +1441,17 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                                                                             : NULL;
         // A direct call to a _Noreturn function never returns, so emit the dedicated kind:
         // the backend tail-jumps to it and drops the dead post-call path.  (Indirect calls
-        // through a function pointer stay a plain FUN_CALL — the callee is not known here.)
+        // through a function pointer stay a plain FUN_CALL — the callee is not known here,
+        // which is also why FUN_CALL_NORETURN never carries the `indirect` flag.)
         Tac_InstructionKind call_kind = TAC_INSTRUCTION_FUN_CALL;
-        if (func->kind == EXPR_VAR) {
+        if (!indirect) {
             const Symbol *sym = symtab_get_opt(func->u.var);
             if (sym && sym->kind == SYM_FUNC && sym->u.func.noret)
                 call_kind = TAC_INSTRUCTION_FUN_CALL_NORETURN;
         }
         Tac_Instruction *in     = tac_new_instruction(call_kind);
         in->u.fun_call.fun_name = xstrdup(fun_name);
+        in->u.fun_call.indirect = indirect;
         in->u.fun_call.args     = args_head;
         in->u.fun_call.dst      = dst;
         tac_append(ctx, in);

@@ -486,6 +486,8 @@ static void emit_instruction(FILE *fd, const Tac_Instruction *instr, int parent_
         fprintf(fd, "%s: ",
                 instr->kind == TAC_INSTRUCTION_FUN_CALL_NORETURN ? "FunCallNoreturn" : "FunCall");
         emit_string(fd, instr->u.fun_call.fun_name);
+        if (instr->u.fun_call.indirect)
+            fprintf(fd, " (indirect)");
         break;
     case TAC_INSTRUCTION_ALLOCATE_LOCAL:
         fprintf(fd, "AllocateLocal: ");

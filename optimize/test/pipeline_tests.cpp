@@ -239,6 +239,7 @@ TEST_F(PipelineTest, DeadStoreKeepsIndirectCallTarget)
               "- instruction:\n"
               "  kind: fun_call\n"
               "  fun_name: %0\n"
+              "  indirect: true\n"
               "  args:\n"
               "    - val:\n"
               "      kind: constant\n"

@@ -625,7 +625,15 @@ static Expr *typecheck_expr(Expr *e)
         const Type *fn_type;
         if (func->kind == EXPR_VAR) {
             const Symbol *sym = symtab_get(func->u.var);
-            fn_type           = unalias(sym->type);
+            // Type the callee node from its symbol.  A bare name is not decayed here (the
+            // call names it directly), but it must still carry its type: a function
+            // designator's is a function type and a function-pointer variable's is a
+            // pointer, and that is the only thing that later tells a direct call from a
+            // call through a pointer.  The symbol table cannot answer it later — locals and
+            // parameters are scoped and purged on block exit, long before TAC lowering runs.
+            free_type(func->type);
+            func->type = clone_type(sym->type, __func__, __FILE__, __LINE__);
+            fn_type    = unalias(func->type);
             if (fn_type->kind == TYPE_POINTER)
                 fn_type = unalias(fn_type->u.pointer.target); // function pointer decay
             if (fn_type->kind != TYPE_FUNCTION)

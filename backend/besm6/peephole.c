@@ -163,9 +163,10 @@ static bool has_operand_symbol(const Besm_Instr *i)
 // (022) and WTC (023).  A C-setter and the single instruction that follows it therefore
 // form an atomic pair: the follower's effective address is `addr + M[reg] + C`, and nothing
 // may be inserted between them or deleted from between them.  The backend emits three
-// shapes (see emit.c): `utc name` + consumer, `wtc reg,off` + consumer, and — for a
-// dereference through a global pointer — `utc name` + `wtc 0,0` + consumer, where the middle
-// WTC is at once the first setter's consumer and the second setter.
+// shapes (see emit.c): `utc name` + consumer (a global's own word), `wtc reg,off` + consumer
+// (through a frame-resident pointer) and `wtc name` + consumer (through a global pointer).
+// A group of more than two nodes is still possible in principle — WTC is at once a consumer
+// and a setter — so the walk below chains setters rather than assuming a pair.
 //
 // Two consequences for this pass.  A bare `xta`/`atx` (reg 0, addr 0) after a setter is *not*
 // a frame-slot access: it reads or writes mem[C], an address the tracked state has no name
@@ -196,7 +197,7 @@ static Besm_Instr *c_group_consumer(Besm_Instr *first, int *count)
 //
 //   `utc name` + `xta/atx 0,woff`      LOC_GLOBAL(name, addr + woff)   emit_xta_val etc.
 //   `wtc reg,off` + `xta/atx`          LOC_DEREF via frame pointer     emit_wtc_ptr, local
-//   `utc name` + `wtc` + `xta/atx`     LOC_DEREF via global pointer    emit_wtc_ptr, global
+//   `wtc name` + `xta/atx`             LOC_DEREF via global pointer    emit_wtc_ptr, global
 //
 // Everything else is LOC_NONE:
 //
@@ -216,24 +217,26 @@ static Loc c_group_loc(const Besm_Instr *first)
         // C = &name + addr.  `utc reg,off` computes an address instead.
         if (first->name == NULL || first->konst != NULL || first->reg != 0)
             return loc_none();
-        if (c != NULL && c->kind == BESM_MOD_WTC && !has_operand_symbol(c) && c->reg == 0 &&
-            c->addr == 0 && first->addr == 0) {
-            l.kind = LOC_DEREF; // C = mem[&name]: through the global pointer `name`
-            l.name = first->name;
-            c      = c->next;
-        } else if (c != NULL && !is_c_setter(c)) {
-            l.kind = LOC_GLOBAL;
-            l.name = first->name;
-            l.off  = first->addr; // the consumer's own offset is added below
-        } else {
+        if (c == NULL || is_c_setter(c))
             return loc_none();
+        l.kind = LOC_GLOBAL;
+        l.name = first->name;
+        l.off  = first->addr; // the consumer's own offset is added below
+    } else {                  // BESM_MOD_WTC: C = the pointer's contents — a dereference
+        if (first->konst != NULL)
+            return loc_none();
+        if (first->name != NULL) {
+            // `wtc name`: through the module-level pointer `name`.  An index register
+            // would make the pointer's own word a computed address we cannot name.
+            if (first->reg != 0 || first->addr != 0)
+                return loc_none();
+            l.kind = LOC_DEREF;
+            l.name = first->name;
+        } else { // `wtc reg,off`: through the frame-resident pointer in that slot
+            l.kind = LOC_DEREF;
+            l.reg  = (int)first->reg;
+            l.off  = first->addr;
         }
-    } else { // BESM_MOD_WTC: C = mem[M[reg] + off], a frame-resident pointer
-        if (has_operand_symbol(first))
-            return loc_none();
-        l.kind = LOC_DEREF;
-        l.reg  = (int)first->reg;
-        l.off  = first->addr;
     }
 
     // The consumer must be a bare word access through C: `xta`/`atx` with EA = C + addr.

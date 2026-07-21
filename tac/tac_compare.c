@@ -315,6 +315,8 @@ bool tac_compare_instruction(const Tac_Instruction *a, const Tac_Instruction *b)
             return false;
         if (a->u.fun_call.fun_name && strcmp(a->u.fun_call.fun_name, b->u.fun_call.fun_name) != 0)
             return false;
+        if (a->u.fun_call.indirect != b->u.fun_call.indirect)
+            return false;
         return tac_compare_val(a->u.fun_call.args, b->u.fun_call.args) &&
                tac_compare_val(a->u.fun_call.dst, b->u.fun_call.dst);
     case TAC_INSTRUCTION_ALLOCATE_LOCAL:

@@ -364,6 +364,13 @@ typedef struct Tac_Instruction {
         } label;
         struct {
             char *fun_name;
+            // How to read fun_name.  False: it names the callee itself — a direct call to
+            // that function.  True: it names an *object* holding the callee's address — a
+            // call through a function pointer, whether that object is a parameter, a local,
+            // a compiler temporary or a module-level variable.  The name alone cannot say
+            // which (a global `f` may be either), and a backend that guesses from frame
+            // residency calls the pointer's own storage.  FUN_CALL_NORETURN is always direct.
+            bool indirect;
             Tac_Val *args; // Linked list of values
             Tac_Val *dst;
         } fun_call;

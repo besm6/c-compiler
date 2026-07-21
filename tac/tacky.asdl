@@ -57,8 +57,8 @@ module TAC {
                 | JumpIfZero(Val condition, identifier target)
                 | JumpIfNotZero(Val condition, identifier target)
                 | Label(identifier name)
-                | FunCall(identifier fun_name, Val* args, Val? dst)
-                | FunCallNoreturn(identifier fun_name, Val* args, Val? dst) -- call to a _Noreturn function
+                | FunCall(identifier fun_name, bool indirect, Val* args, Val? dst) -- indirect: fun_name is an object holding the callee's address
+                | FunCallNoreturn(identifier fun_name, Val* args, Val? dst) -- call to a _Noreturn function; always direct
                 | AllocateLocal(identifier name, int size, int alignment) -- size/alignment in target bytes
 
     Val = Constant(Const val)

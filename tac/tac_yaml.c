@@ -838,6 +838,10 @@ static void export_yaml_instruction(FILE *fd, const Tac_Instruction *instr, int 
                 instr->kind == TAC_INSTRUCTION_FUN_CALL_NORETURN ? "fun_call_noreturn" : "fun_call");
         print_indent(fd, level);
         fprintf(fd, "fun_name: %s\n", instr->u.fun_call.fun_name ? instr->u.fun_call.fun_name : "");
+        if (instr->u.fun_call.indirect) {
+            print_indent(fd, level);
+            fprintf(fd, "indirect: true\n");
+        }
         if (instr->u.fun_call.args) {
             print_indent(fd, level);
             fprintf(fd, "args:\n");

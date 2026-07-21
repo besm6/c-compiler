@@ -280,7 +280,7 @@ The BESM-6 frame allocator (`backend/besm6/frame.c`) then assigns a stack slot t
 | `jump_if_zero` | `condition:` `target: label` |
 | `jump_if_not_zero` | `condition:` `target: label` |
 | `label` | `name: label` |
-| `fun_call` | `fun_name: f` `args:` list (omitted when none) `dst:` (omitted for void) |
+| `fun_call` | `fun_name: f` `indirect: true` (omitted when false) `args:` list (omitted when none) `dst:` (omitted for void) |
 | `fun_call_noreturn` | same fields as `fun_call`; a direct call to a `_Noreturn` function — the BESM-6 backend tail-jumps to it and drops the dead post-call path |
 
 Unary ops: `complement`, `negate`, `not`.

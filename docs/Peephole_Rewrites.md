@@ -433,9 +433,9 @@ these shapes ([emit.c](../backend/besm6/emit.c)):
 |---|---|
 | `utc name` + `xta/atx 0,woff` | the global `name`, word `woff` |
 | `wtc reg,off` + `xta/atx` | through the pointer in frame slot `(reg, off)` |
-| `utc name` + `wtc` + `xta/atx` | through the global pointer `name` (C = &name, then C = name) |
+| `wtc name` + `xta/atx` | through the global pointer `name` (C = mem[name]) |
 | `utc reg,off` + `vtm 14` | the address of a *local* at frame offset `off`, not a memory operand |
-| `wtc reg,off` + `vjm` | an indirect call: `vjm` jumps to `0 + C` |
+| `wtc reg,off` + `vjm`, `wtc name` + `vjm` | an indirect call: `vjm` jumps to `0 + C` |
 
 Taking the address of a *global* used to appear here too, as `utc name` + `vtm 14`. It no
 longer does. `vtm` (024) is a Format-2 instruction like `utc`, so its own 15-bit address field
@@ -445,6 +445,11 @@ whole pair collapses to a single `14 ,vtm, name` at instruction selection
 above cannot collapse: its index register `reg` lives in the `utc`'s register field, and
 `vtm`'s register field is already spoken for by the destination `M[14]`.
 
+A dereference *through* a global pointer collapsed the same way, and for the same reason:
+it used to be `utc name` + `wtc` (C = &name, then C = mem[C]), but `wtc` (023) is Format 2
+too, so `wtc name` loads C from `mem[name]` on its own. That is what a call through a
+file-scope function pointer now emits, ahead of its bare `13 ,vjm,`.
+
 Two rules follow.
 
 **A consumer's `(reg, addr)` fields do not name a frame slot.** Its effective address is
@@ -453,7 +458,8 @@ Two rules follow.
 
 - `LOC_FRAME(reg, off)` — a plain `xta/atx`, no C involved
 - `LOC_GLOBAL(name, woff)` — from the first shape above
-- `LOC_DEREF(pointer)` — from the second and third, identified by *where the pointer lives*
+- `LOC_DEREF(pointer)` — from the two `wtc` shapes, identified by *where the pointer lives*
+  (a frame slot, or a name)
 - `LOC_NONE` — an address computation, a nonzero literal, a `vjm`: names nothing, matches nothing
 
 A *zero* literal is the one constant that names a location. Instruction selection reserves no

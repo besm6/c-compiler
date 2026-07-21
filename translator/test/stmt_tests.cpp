@@ -215,6 +215,7 @@ TEST_F(TranslateTest, IndirectCallViaFunctionPointer)
     - instruction:
       kind: fun_call
       fun_name: %fp
+      indirect: true
       args:
         - val:
           kind: constant
@@ -248,6 +249,7 @@ TEST_F(TranslateTest, IndirectCallViaExplicitDeref)
     - instruction:
       kind: fun_call
       fun_name: %fp
+      indirect: true
       args:
         - val:
           kind: constant

@@ -45,6 +45,61 @@ TEST_F(CodegenTest, FuncPtrIndirectCallViaDeref)
     EXPECT_EQ(output.find(",wtc,", first + 1), std::string::npos) << output;
 }
 
+// A pointer at FILE scope has no frame slot, and the callee is its *contents*: `,wtc, gp`
+// (WTC's 15-bit address field reaches any global) + a bare `13 ,vjm,`.  Never `,call, gp`,
+// which would call the pointer's own storage in the data segment — the defect this shape
+// exists to prevent.  Whether a bare name is a function or an object holding a function's
+// address cannot be read off the name, only off the type, which is why the IR carries the
+// `indirect` flag: `gp(v)` and `(*gp)(v)` are the same call and must compile alike.
+TEST_F(CodegenTest, FuncPtrIndirectCallViaFileScopePointer)
+{
+    std::string output = CompileToMadlen(R"(
+        int addone(int x) { return x + 1; }
+        static int (*gp)(int) = addone;
+        int viaglobal(int v) { return gp(v); }
+    )");
+    EXPECT_NE(output.find(",wtc, gp"), std::string::npos) << output;
+    EXPECT_NE(output.find("13 ,vjm,"), std::string::npos) << output;
+    EXPECT_EQ(output.find(",call, gp"), std::string::npos) << output;
+}
+
+// The explicit dereference is the same call and must compile identically.
+TEST_F(CodegenTest, FuncPtrIndirectDerefCallViaFileScopePointer)
+{
+    std::string output = CompileToMadlen(R"(
+        int addone(int x) { return x + 1; }
+        static int (*gp)(int) = addone;
+        int viaglobal(int v) { return (*gp)(v); }
+    )");
+    EXPECT_NE(output.find(",wtc, gp"), std::string::npos) << output;
+    EXPECT_NE(output.find("13 ,vjm,"), std::string::npos) << output;
+    EXPECT_EQ(output.find(",call, gp"), std::string::npos) << output;
+}
+
+// The same for a pointer this module does not define: an extern one is nowhere in the TAC
+// program, so nothing but the flag can tell the backend it is not a function.
+TEST_F(CodegenTest, FuncPtrIndirectCallViaExternPointer)
+{
+    std::string output = CompileToMadlen(R"(
+        extern int (*xp)(int);
+        int viaextern(int v) { return xp(v); }
+    )");
+    EXPECT_NE(output.find(",wtc, xp"), std::string::npos) << output;
+    EXPECT_EQ(output.find(",call, xp"), std::string::npos) << output;
+}
+
+// ... and for a block-scope static, whose storage is module-local but likewise outside the
+// frame.  Its symbol is purged with its block, long before lowering runs.
+TEST_F(CodegenTest, FuncPtrIndirectCallViaBlockScopeStatic)
+{
+    std::string output = CompileToMadlen(R"(
+        int addone(int x) { return x + 1; }
+        int viastatic(int v) { static int (*sp)(int); sp = addone; return sp(v); }
+    )");
+    EXPECT_NE(output.find(",wtc, sp"), std::string::npos) << output;
+    EXPECT_EQ(output.find(",call, sp"), std::string::npos) << output;
+}
+
 // A function name used as a call argument decays to its address: GET_ADDRESS emits
 // VTM <name>/ITA, not a UTC+XTA that would load the function's first code word.
 TEST_F(CodegenTest, FuncPtrNameDecaysToAddress)
@@ -132,6 +187,25 @@ TEST_F(CodegenTest, FuncPtrExplicitDerefCall)
         }
     )");
     EXPECT_EQ("15\n", result);
+}
+
+// The file-scope pointer end to end: two callees reached through one module-level variable,
+// re-aimed between the calls.  The v7 qsort keeps its comparison function exactly this way.
+TEST_F(CodegenTest, FuncPtrFileScopeDispatch)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int add(int a, int b) { return a + b; }
+        int sub(int a, int b) { return a - b; }
+        static int (*gp)(int, int) = add;
+        static int apply(int x, int y) { return gp(x, y); }
+        void program() {
+            printf("%d\n", apply(20, 5));
+            gp = sub;
+            printf("%d\n", apply(20, 5));
+        }
+    )");
+    EXPECT_EQ("25\n15\n", result);
 }
 
 // Array of function pointers, indexed dispatch.

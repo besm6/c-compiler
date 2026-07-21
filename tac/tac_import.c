@@ -372,6 +372,8 @@ static Tac_Instruction *import_instr(WFILE *in)
     case TAC_INSTRUCTION_FUN_CALL_NORETURN:
         instr->u.fun_call.fun_name = wgetstr(in);
         check_input(in, "fun_call fun_name");
+        instr->u.fun_call.indirect = (bool)wgetw(in);
+        check_input(in, "fun_call indirect");
         instr->u.fun_call.args = import_val(in);
         instr->u.fun_call.dst  = import_val(in);
         break;

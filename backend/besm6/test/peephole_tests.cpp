@@ -520,9 +520,9 @@ TEST_F(CodegenTest, RedundantDerefReloadRemoved)
               output);
 }
 
-// The same rewrite on the three-instruction group.  A global pointer's word is not in the
-// frame, so a dereference of it is `,utc, gp` (C = &gp) + `,wtc,` (C = gp) + the access.
-// The whole reload chain — all three nodes — is spliced out together.
+// The same rewrite through a global pointer.  Its word is not in the frame, so the
+// dereference is `,wtc, gp` (C = gp, WTC's 15-bit address field reaches any global) + the
+// access.  Both nodes of the reload are spliced out together.
 TEST_F(CodegenTest, DerefReloadThroughGlobalPointerRemoved)
 {
     std::string output = CompileToMadlen("int *gp; int f(int x) { *gp = x; return *gp; }");
@@ -537,8 +537,7 @@ c
              ,its, 13
              ,call, b/save
            6 ,xta,
-             ,utc, gp
-             ,wtc,
+             ,wtc, gp
              ,atx,
              ,uj, b/ret
              ,end,

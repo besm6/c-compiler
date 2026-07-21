@@ -635,8 +635,9 @@ void tac_print_instruction(FILE *fd, const Tac_Instruction *instr, int depth)
     case TAC_INSTRUCTION_FUN_CALL:
     case TAC_INSTRUCTION_FUN_CALL_NORETURN:
         print_indent(fd, depth + 1);
-        fprintf(fd, "Fun_name: %s\n",
-                instr->u.fun_call.fun_name ? instr->u.fun_call.fun_name : "(null)");
+        fprintf(fd, "Fun_name: %s%s\n",
+                instr->u.fun_call.fun_name ? instr->u.fun_call.fun_name : "(null)",
+                instr->u.fun_call.indirect ? " (indirect)" : "");
         print_indent(fd, depth + 1);
         fprintf(fd, "Args:\n");
         tac_print_val(fd, instr->u.fun_call.args, depth + 2);

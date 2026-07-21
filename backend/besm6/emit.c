@@ -65,22 +65,22 @@ void emit_store_a(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *nam
 }
 
 // Set the C address-modifier register to the value of a pointer variable, so a
-// following bare XTA/ATX dereferences it (EA = C).  For a frame-resident pointer
-// this is a single WTC from its slot.  For a module-level (global) pointer the
-// pointer word is not in the frame: UTC sets C to the global's address, then a
-// bare WTC reads mem[C] (the pointer word) back into C.  Neither instruction
-// touches A, so this is safe between a source load and a store.
+// following bare XTA/ATX dereferences it (EA = C), or a bare VJM calls through it.
+// One instruction either way: WTC (023) loads C from the low 15 bits of mem[EA],
+// and it is a Format 2 instruction, so its address field is 15 bits wide and reaches
+// any global directly — `wtc name` needs no UTC escape.  (The Format 1 accessors are
+// the ones that do: see emit_asx_ptr.)  WTC touches neither A nor an index register,
+// so this is safe between a source load and a store, and after the argument setup of
+// a call.
 void emit_wtc_ptr(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *name)
 {
     int reg, off;
+    Besm_Instr *wtc = emit(b, t, BESM_MOD_WTC);
     if (frame_lookup(f, name, &reg, &off)) {
-        Besm_Instr *wtc = emit(b, t, BESM_MOD_WTC);
-        wtc->reg        = reg;
-        wtc->addr       = off; // C = pointer word (bits 15:1)
+        wtc->reg  = reg;
+        wtc->addr = off; // C = mem[slot] = pointer word (bits 15:1)
     } else {
-        Besm_Instr *utc = emit(b, t, BESM_MOD_UTC);
-        utc->name       = xstrdup(name); // C = &global
-        emit(b, t, BESM_MOD_WTC);        // reg=0, addr=0 → C = mem[C] = pointer word
+        wtc->name = xstrdup(name); // C = mem[global] = pointer word
     }
 }
 
@@ -90,6 +90,8 @@ void emit_wtc_ptr(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *nam
 // pointer this is a single ASX reg=slot.  For a module-level (global) pointer the pointer
 // word is not in the frame: UTC sets C to the global's address, then a bare ASX (EA = C)
 // uses mem[C] as its operand.  UTC does not touch A, so the shifted value is preserved.
+// The escape is needed here and not in emit_wtc_ptr because ASX is a Format 1 instruction:
+// its address field is only 12 bits and cannot hold a global's address.
 void emit_asx_ptr(Besm_Block *b, Besm_Instr **t, const Frame *f, const char *name)
 {
     int reg, off;

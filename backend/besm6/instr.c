@@ -713,14 +713,23 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
     //   ,CALL, fun_name    — call; r13 ← return address
     //   reg ,ATX, off      — store result (A) into dst frame slot, if dst present
     //
-    // Indirect call (fun_name is a frame-resident function pointer): the callee address is
-    // not a label but the pointer value held in a frame slot.  VJM's target is offset + C
+    // Indirect call (`indirect`: fun_name names a function *pointer*, not the callee): the
+    // callee address is not a label but the pointer's contents.  VJM's target is offset + C
     // (the C address-modifier register; M[reg] is not added — see the ISA reference), so the
-    // arg setup is followed by WTC of the pointer slot (C ← the target address, which survives
-    // exactly one instruction) and a bare VJM to offset 0:
-    //   14 ,WTC, off       — C = mem[slot][15:1] = target function address
-    //   13 ,VJM, 0         — M[13] ← return address; jump to 0 + C = the target
+    // arg setup is followed by a WTC that loads C from the pointer word (it survives exactly
+    // one instruction) and a bare VJM to offset 0 — emit_wtc_ptr reaches the pointer wherever
+    // it lives, a frame slot or a module-level variable:
+    //   7 ,WTC, off        — C = mem[slot][15:1]  = target function address
+    //     ,WTC, name       — C = mem[name][15:1]  = target function address (global pointer)
+    //  13 ,VJM, 0          — M[13] ← return address; jump to 0 + C = the target
     // Nothing may sit between the WTC and the VJM (same C-survival rule as LOAD/STORE).
+    //
+    // Whether the name is a function or an object holding a function's address cannot be
+    // recovered from the name: a module-level `f` may be either, and an extern pointer
+    // defined in another translation unit appears nowhere in this program.  Only the flag
+    // the translator set from the symbol's type may decide it — deducing "indirect" from
+    // frame residency would compile a call through a file-scope pointer into a direct call
+    // to the pointer's own storage in the data segment.
     case TAC_INSTRUCTION_FUN_CALL:
     case TAC_INSTRUCTION_FUN_CALL_NORETURN: {
         // A <besm6.h> intrinsic is a call in the IR but never one in the machine code: it
@@ -756,12 +765,9 @@ void codegen_instr(const Tac_Instruction *instr, const Frame *f, Besm_Block *blo
             break;
         }
 
-        int fr, fo;
-        if (frame_lookup(f, fun_name, &fr, &fo)) {
-            // Indirect call through a function-pointer frame slot.
-            Besm_Instr *wtc = emit(block, tail, BESM_MOD_WTC);
-            wtc->reg        = fr;
-            wtc->addr       = fo;
+        if (instr->u.fun_call.indirect) {
+            // Indirect call: C = the pointer's contents, then jump to it.
+            emit_wtc_ptr(block, tail, f, fun_name);
             Besm_Instr *vjm = emit(block, tail, BESM_BRANCH_VJM);
             vjm->reg        = REG_RET;
             vjm->addr       = 0;
