@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "c_escape.h"
 #include "translate.h"
 #include "xalloc.h"
 
@@ -65,8 +66,8 @@ static void collect_cases(TacCtx *ctx, Stmt *stmt, CaseList *list)
 static void gen_char_array_string_init(TacCtx *ctx, const char *var_name, int base_offset,
                                        const Expr *str_expr, int array_bytes)
 {
-    char *decoded = decode_c_string_literal(str_expr->u.literal->u.string_val);
-    size_t len    = strlen(decoded);
+    size_t len;
+    char *decoded = c_decode_string_literal(str_expr->u.literal->u.string_val, &len);
     for (int i = 0; i < array_bytes; i++) {
         int byte                    = (size_t)i < len ? (unsigned char)decoded[i] : 0;
         Tac_Instruction *in         = tac_new_instruction(TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET);

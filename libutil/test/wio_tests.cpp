@@ -5,6 +5,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <string>
+
 #include "wio.h"
 #include "xalloc.h"
 
@@ -307,5 +309,71 @@ TEST_F(WIOTest, WPutStrAndWGetStr)
     EXPECT_FALSE(weof(&rstream));           // at file end
     EXPECT_EQ(wgetw(&rstream), (size_t)-1); // failed
     EXPECT_TRUE(weof(&rstream));            // beyond file end
+    wclose(&rstream);
+}
+
+//
+// Write byte blobs holding embedded NUL bytes and read them back: unlike wputstr(),
+// wputdata() carries an explicit length, so nothing is cut short at a zero byte.
+// This is what a decoded C string literal such as "a\0c" needs.
+//
+TEST_F(WIOTest, WPutDataAndWGetData)
+{
+    static const char embedded[] = "a\0c\0\0z"; // 6 bytes, four of them past a NUL
+    WFILE wstream;
+    ASSERT_GE(wopen(&wstream, filename, "w"), 0);
+    EXPECT_EQ(wputw(42, &wstream), 0);
+    EXPECT_EQ(wputdata(embedded, sizeof(embedded) - 1, &wstream), 0);
+    EXPECT_EQ(wputdata("", 0, &wstream), 0);                  // empty blob
+    EXPECT_EQ(wputdata("exactly-eight!!!", 16, &wstream), 0); // whole number of words
+    EXPECT_EQ(wputw(999, &wstream), 0);
+    EXPECT_EQ(wflush(&wstream), 0);
+    wclose(&wstream);
+
+    WFILE rstream;
+    ASSERT_GE(wopen(&rstream, filename, "r"), 0);
+    EXPECT_EQ(wgetw(&rstream), 42u);
+    size_t len = 0;
+    char *data = static_cast<char *>(wgetdata(&len, &rstream));
+    ASSERT_NE(data, nullptr);
+    EXPECT_EQ(len, sizeof(embedded) - 1);
+    EXPECT_EQ(memcmp(data, embedded, len), 0);
+    xfree(data);
+    data = static_cast<char *>(wgetdata(&len, &rstream)); // empty blob
+    EXPECT_EQ(data, nullptr);
+    EXPECT_EQ(len, 0u);
+    data = static_cast<char *>(wgetdata(&len, &rstream));
+    ASSERT_NE(data, nullptr);
+    EXPECT_EQ(len, 16u);
+    EXPECT_EQ(memcmp(data, "exactly-eight!!!", 16), 0);
+    xfree(data);
+    EXPECT_EQ(wgetw(&rstream), 999u);
+    wclose(&rstream);
+}
+
+//
+// A string far longer than wgetstr()'s initial buffer must survive the round trip:
+// the buffer grows instead of giving up and returning NULL (which silently dropped
+// any string of 1016 bytes or more).
+//
+TEST_F(WIOTest, WGetStrLongString)
+{
+    std::string huge(4000, 'x');
+    huge += "-end";
+
+    WFILE wstream;
+    ASSERT_GE(wopen(&wstream, filename, "w"), 0);
+    EXPECT_EQ(wputstr(huge.c_str(), &wstream), 0);
+    EXPECT_EQ(wputw(7, &wstream), 0);
+    EXPECT_EQ(wflush(&wstream), 0);
+    wclose(&wstream);
+
+    WFILE rstream;
+    ASSERT_GE(wopen(&rstream, filename, "r"), 0);
+    char *str = wgetstr(&rstream);
+    ASSERT_NE(str, nullptr);
+    EXPECT_STREQ(str, huge.c_str());
+    xfree(str);
+    EXPECT_EQ(wgetw(&rstream), 7u);
     wclose(&rstream);
 }

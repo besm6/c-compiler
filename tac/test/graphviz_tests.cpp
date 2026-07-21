@@ -1054,6 +1054,7 @@ TEST_F(TacDotTest, StaticInitString)
     tl->u.static_constant.type->u.array.size      = 6;
     Tac_StaticInit *init                          = tac_new_static_init(TAC_STATIC_INIT_STRING);
     init->u.string.val                            = xstrdup("hello");
+    init->u.string.len                            = 5;
     init->u.string.null_terminated                = true;
     tl->u.static_constant.init                    = init;
 

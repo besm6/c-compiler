@@ -216,11 +216,13 @@ void symtab_add_fun(const char *name, const Type *t, bool global, bool defined, 
 
 //
 // Add a string literal
-// Precondition: s is a non-null string.
-// Postcondition: A Symbol with SYM_CONST, a unique name, type Array(Char, len(s)+1), and string
+// Precondition: s is a non-null buffer of len decoded bytes.  The byte count is passed in
+// rather than measured with strlen, because a decoded literal may hold embedded NUL bytes
+// ("a\0c" is three bytes long).
+// Postcondition: A Symbol with SYM_CONST, a unique name, type Array(Char, len+1), and string
 // initializer is added. Returns: The unique name (owned by caller) for the string literal.
 //
-char *symtab_add_string(const char *s)
+char *symtab_add_string(const char *s, size_t len)
 {
     if (!s) {
         fatal_error("symtab_add_string: NULL string input");
@@ -229,18 +231,19 @@ char *symtab_add_string(const char *s)
 
     char *name = xstruniq("_str", &str_id);
 
-    // Create array type: char[strlen(s) + 1]
+    // Create array type: char[len + 1]
     Type *t            = new_type(TYPE_ARRAY, __func__, __FILE__, __LINE__);
     t->u.array.element = new_type(TYPE_CHAR, __func__, __FILE__, __LINE__);
     t->u.array.size    = new_expression(EXPR_LITERAL);
 
     // Set array size
     t->u.array.size->u.literal            = new_literal(LITERAL_INT);
-    t->u.array.size->u.literal->u.int_val = strlen(s) + 1;
+    t->u.array.size->u.literal->u.int_val = len + 1;
 
     // Create Tac_StaticInit
     Tac_StaticInit *init           = tac_new_static_init(TAC_STATIC_INIT_STRING);
-    init->u.string.val             = xstrdup(s);
+    init->u.string.val             = xmemdup(s, len);
+    init->u.string.len             = len;
     init->u.string.null_terminated = true;
 
     // Add to symbol table

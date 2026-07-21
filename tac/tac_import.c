@@ -201,7 +201,7 @@ static Tac_StaticInit *import_static_init(WFILE *in)
         check_input(in, "static_init zero");
         break;
     case TAC_STATIC_INIT_STRING:
-        si->u.string.val = wgetstr(in);
+        si->u.string.val = wgetdata(&si->u.string.len, in);
         check_input(in, "static_init string val");
         si->u.string.null_terminated = (bool)wgetw(in);
         check_input(in, "static_init string null_terminated");

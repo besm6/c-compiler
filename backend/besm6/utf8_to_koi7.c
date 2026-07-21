@@ -1,5 +1,7 @@
 #include "utf8_to_koi7.h"
 
+#include <string.h>
+
 //
 // Convert a Unicode character (16-bit) to KOI7 encoding (8-bit).
 // For details, see: https://ru.wikipedia.org/wiki/%D0%9A%D0%9E%D0%98-7#%D0%9A%D0%9E%D0%98-7_%D0%9D2
@@ -256,40 +258,49 @@ static unsigned char unicode_to_koi7(unsigned short val)
 }
 
 //
-// Convert a source string in UTF-8 encoding (NUL terminated)
-// to a destination string in KOI-7 encoding (NUL terminated).
+// Convert srclen bytes of UTF-8 source text to KOI-7, and return the number of bytes
+// written.  The length is explicit because string-literal data may hold embedded NUL
+// bytes, which are ordinary data here (KOI-7 maps 0 to 0) and must not end the string.
+// A multi-byte sequence cut short by the end of the input is dropped.
 //
-void utf8_to_koi7(const char *src, char *dst)
+size_t utf8_to_koi7_n(const char *src, size_t srclen, char *dst)
 {
-    for (;;) {
-        unsigned char a = (unsigned char)*src++;
-        if (!a) {
-            break;
-        }
+    const char *out = dst;
+    for (size_t i = 0; i < srclen;) {
+        unsigned char a = (unsigned char)src[i++];
         if (!(a & 0x80)) {
             // Single-byte ASCII character.
             *dst++ = unicode_to_koi7(a);
             continue;
         }
 
-        unsigned char b = (unsigned char)*src++;
-        if (!b) {
+        if (i >= srclen) {
             // Incomplete sequence at end of string.
             break;
         }
+        unsigned char b = (unsigned char)src[i++];
         if (!(a & 0x20)) {
             // Two-byte sequence: 10-bit codepoint.
             *dst++ = unicode_to_koi7((unsigned short)((a & 0x1f) << 6 | (b & 0x3f)));
             continue;
         }
 
-        unsigned char c = (unsigned char)*src++;
-        if (!c) {
+        if (i >= srclen) {
             // Incomplete sequence at end of string.
             break;
         }
+        unsigned char c = (unsigned char)src[i++];
         // Three-byte sequence: 16-bit codepoint.
         *dst++ = unicode_to_koi7((unsigned short)((a & 0x0f) << 12 | (b & 0x3f) << 6 | (c & 0x3f)));
     }
-    *dst = 0;
+    return (size_t)(dst - out);
+}
+
+//
+// Convert a source string in UTF-8 encoding (NUL terminated)
+// to a destination string in KOI-7 encoding (NUL terminated).
+//
+void utf8_to_koi7(const char *src, char *dst)
+{
+    dst[utf8_to_koi7_n(src, strlen(src), dst)] = 0;
 }

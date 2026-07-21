@@ -2,6 +2,7 @@
 # Parser library
 #
 add_library(libutil STATIC
+    c_escape.c
     string_map.c
     xalloc.c
     wio.c
@@ -18,9 +19,10 @@ add_library(test_util INTERFACE)
 target_include_directories(test_util INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/test)
 
 #
-# Tests for string map, wio and xalloc
+# Tests for the escape decoder, string map, wio and xalloc
 #
 add_executable(libutil-tests
+    test/c_escape_tests.cpp
     test/string_map_tests.cpp
     test/wio_tests.cpp
     test/xalloc_tests.cpp

@@ -86,7 +86,18 @@ A string like `"hello"` does not fit in one word, so it must span multiple. `wpu
 
 Each word is zero-initialized before copying, so unused trailing bytes are always zero. When `memccpy` finds the null terminator inside a word, that is the last word written. A NULL pointer is encoded as a single all-zero word.
 
-`wgetstr` reads one word at a time and uses `memchr` to scan each word for a zero byte. When it finds one, it stops and returns a freshly allocated string containing all the accumulated bytes. The maximum string length is 128 words (1 KB), which is more than enough for any identifier.
+`wgetstr` reads one word at a time and uses `memchr` to scan each word for a zero byte. When it finds one, it stops and returns a freshly allocated string containing all the accumulated bytes. It starts with a 128-word (1 KB) buffer and grows it as needed, so a string of any length round-trips.
+
+## Serializing byte blobs: `wputdata` / `wgetdata`
+
+A zero byte terminates a `wputstr` string, so that pair cannot carry data that *contains* zero bytes — and a decoded C string literal can: `"a\0c"` is three bytes, not one. `wputdata` therefore writes an explicit length first, then the raw bytes, zero-padded to the last word:
+
+```
+"a\0c"  →  [ 3 | a \0 c 0 0 0 0 0 ]
+            len   word 0
+```
+
+`wgetdata` reads the length word, then exactly that many bytes' worth of words, and returns a freshly allocated buffer plus the byte count through its `size_t *len` argument (one extra NUL is appended, so the buffer is still safe to print when it happens to hold text). A zero length reads back as `NULL`, matching `wputstr`'s convention for the empty string. This is what the TAC exporter uses for string static initializers.
 
 ## Serializing floating-point: `wputd` / `wgetd`
 

@@ -176,7 +176,10 @@ bool tac_compare_static_init(const Tac_StaticInit *a, const Tac_StaticInit *b)
     case TAC_STATIC_INIT_STRING:
         if ((a->u.string.val == NULL) != (b->u.string.val == NULL))
             return false;
-        if (a->u.string.val && strcmp(a->u.string.val, b->u.string.val) != 0)
+        if (a->u.string.len != b->u.string.len)
+            return false;
+        // memcmp, not strcmp: the bytes may include embedded NULs.
+        if (a->u.string.val && memcmp(a->u.string.val, b->u.string.val, a->u.string.len) != 0)
             return false;
         return a->u.string.null_terminated == b->u.string.null_terminated;
     case TAC_STATIC_INIT_POINTER:

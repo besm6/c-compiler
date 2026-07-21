@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "tac.h"
+#include "xalloc.h"
 
 #define INDENT_STEP 2
 
@@ -22,6 +23,50 @@ void tac_format_hex_double(char *out, size_t outsz, double v)
     char *p = strrchr(buf, 'p');
     *p      = '\0';
     snprintf(out, outsz, "%sp%+d", buf, e - 1);
+}
+
+// Render len bytes of a decoded string literal as printable text for the TAC dumps
+// (see tac.h).  A decoded literal may hold embedded NULs and other non-printables, so
+// the byte count is passed explicitly and every byte that cannot be shown as itself
+// becomes a C escape — a named one where C has it, otherwise three octal digits, which
+// unlike "\0" or "\x41" cannot run into a following digit.
+char *tac_escape_string_bytes(const char *s, size_t len)
+{
+    if (!s)
+        len = 0;
+    char *out = xalloc(len * 4 + 1, __func__, __FILE__, __LINE__); // worst case "\ooo"
+    char *p   = out;
+    for (size_t i = 0; i < len; i++) {
+        unsigned char c = (unsigned char)s[i];
+        switch (c) {
+        case '\\':
+        case '"':
+            *p++ = '\\';
+            *p++ = (char)c;
+            break;
+        case '\n':
+            *p++ = '\\';
+            *p++ = 'n';
+            break;
+        case '\r':
+            *p++ = '\\';
+            *p++ = 'r';
+            break;
+        case '\t':
+            *p++ = '\\';
+            *p++ = 't';
+            break;
+        default:
+            if (c >= 0x20 && c < 0x7f) {
+                *p++ = (char)c;
+            } else {
+                p += sprintf(p, "\\%03o", c);
+            }
+            break;
+        }
+    }
+    *p = '\0';
+    return out;
 }
 
 // Helper function to print indentation to a file
@@ -270,12 +315,15 @@ void tac_print_static_init(FILE *fd, const Tac_StaticInit *init, int depth)
     case TAC_STATIC_INIT_ZERO:
         fprintf(fd, "zero %d bytes\n", init->u.zero_bytes);
         break;
-    case TAC_STATIC_INIT_STRING:
-        fprintf(fd, "string \"%s", init->u.string.val);
+    case TAC_STATIC_INIT_STRING: {
+        char *text = tac_escape_string_bytes(init->u.string.val, init->u.string.len);
+        fprintf(fd, "string \"%s", text);
+        xfree(text);
         if (init->u.string.null_terminated)
             fprintf(fd, "\\0");
         fprintf(fd, "\"\n");
         break;
+    }
     case TAC_STATIC_INIT_POINTER:
         fprintf(fd, "pointer %s offset=%d\n",
                 init->u.pointer.name ? init->u.pointer.name : "(null)",

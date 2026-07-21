@@ -31,6 +31,7 @@ void *xalloc(size_t size, const char *funcname, const char *filename, unsigned l
 void xfree(void *ptr);
 void xfree_all(void);
 char *xstrdup(const char *str);
+char *xmemdup(const void *data, size_t len);
 void xreport_lost_memory(void);
 size_t xtotal_allocated_size(void);
 char *xstruniq(const char *prefix, int *counter);

@@ -205,6 +205,22 @@ char *xstrdup(const char *str)
 }
 
 //
+// Return a freshly allocated copy of the first len bytes of data, or NULL if data is NULL.
+// The length-carrying counterpart of xstrdup(): the copy may hold embedded NUL bytes, and
+// one extra NUL is appended so it is still safe to print when it happens to be text.
+// The copy must be released with xfree() when no longer needed.
+//
+char *xmemdup(const void *data, size_t len)
+{
+    if (!data)
+        return NULL;
+    char *copy = xalloc(len + 1, __func__, __FILE__, __LINE__);
+    memcpy(copy, data, len);
+    copy[len] = '\0';
+    return copy;
+}
+
+//
 // Build a unique name by combining prefix with a counter, then increment the counter.
 // For example, xstruniq("%", &n) returns "%0", "%1", "%2", … on successive calls.
 // The caller owns the counter: declare it where the name series should start and reset,

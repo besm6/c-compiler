@@ -38,10 +38,6 @@ _Noreturn
 #endif
 void fatal_error(const char *message, ...);
 
-// Decode a C string literal raw token (with surrounding quotes and escape sequences)
-// to a heap-allocated C string with the actual bytes. Caller must xfree() the result.
-char *decode_c_string_literal(const char *raw);
-
 // Convert literal to given arithmetic type and return as Tac_StaticInit.
 Tac_StaticInit *new_static_init_from_literal(const Type *type, const Literal *lit);
 

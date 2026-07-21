@@ -161,7 +161,7 @@ TEST_F(SymtabTest, AddFunction)
 TEST_F(SymtabTest, AddStringLiteral)
 {
     const char *str = "hello";
-    char *str_id    = symtab_add_string(str);
+    char *str_id    = symtab_add_string(str, strlen(str));
 
     // Check symbol
     Symbol *sym = symtab_get(str_id);
@@ -186,6 +186,7 @@ TEST_F(SymtabTest, AddStringLiteral)
     ASSERT_NE(init, nullptr);
     EXPECT_EQ(init->kind, TAC_STATIC_INIT_STRING);
     EXPECT_TRUE(init->u.string.null_terminated);
+    EXPECT_EQ(init->u.string.len, strlen(str));
     EXPECT_STREQ(init->u.string.val, str);
     EXPECT_EQ(init->next, nullptr);
 
@@ -247,8 +248,8 @@ TEST_F(SymtabTest, PurgeFreesLocalSymbols)
 // Test symtab_add_string unique IDs
 TEST_F(SymtabTest, AddStringUniqueIDs)
 {
-    char *id1 = symtab_add_string("str1");
-    char *id2 = symtab_add_string("str2");
+    char *id1 = symtab_add_string("str1", 4);
+    char *id2 = symtab_add_string("str2", 4);
 
     ASSERT_STRNE(id1, id2);
     ASSERT_TRUE(symtab_get_opt(id1) != nullptr);

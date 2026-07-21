@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "tac.h"
+#include "xalloc.h"
 
 static int node_id = 0;
 
@@ -312,10 +313,15 @@ static void emit_static_init(FILE *fd, const Tac_StaticInit *init, int parent_id
         case TAC_STATIC_INIT_ZERO:
             fprintf(fd, "zero %d", init->u.zero_bytes);
             break;
-        case TAC_STATIC_INIT_STRING:
+        case TAC_STATIC_INIT_STRING: {
             fprintf(fd, "string ");
-            emit_string(fd, init->u.string.val);
+            // C-escape the bytes first (they may include NULs), then let emit_string
+            // escape that text for the DOT label.
+            char *text = tac_escape_string_bytes(init->u.string.val, init->u.string.len);
+            emit_string(fd, text);
+            xfree(text);
             break;
+        }
         case TAC_STATIC_INIT_POINTER:
             if (init->u.pointer.byte_offset)
                 fprintf(fd, "pointer offset=%d ", init->u.pointer.byte_offset);

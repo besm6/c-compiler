@@ -189,3 +189,24 @@ TEST_F(CodegenTest, UnixRunAddressOfGlobal)
     )");
     EXPECT_EQ("42 42 7 Q\n", result);
 }
+
+// End-to-end through the real toolchain: a string literal with an embedded NUL keeps
+// every byte.  Both the static copy (data words emitted by the backend) and the local
+// copy (byte stores emitted by the translator) must hold 'a', NUL, 'c', NUL — the
+// literal used to be cut short at the decoded NUL and arrive as the single byte 'a'.
+TEST_F(CodegenTest, UnixRunStringWithEmbeddedNul)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunUnix(R"(
+        #include <stdio.h>
+        char g[] = "a\0c";
+        int main(void) {
+            char s[] = "a\0c";
+            printf("%d %d %d %d\n", g[0], g[1], g[2], g[3]);
+            printf("%d %d %d %d\n", s[0], s[1], s[2], s[3]);
+            printf("%d %d\n", (int)sizeof g, (int)sizeof "a\0c");
+            return 0;
+        }
+    )");
+    EXPECT_EQ("97 0 99 0\n97 0 99 0\n4 4\n", result);
+}

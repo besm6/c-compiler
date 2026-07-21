@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "c_escape.h"
 #include "parser_internal.h"
 #include "xalloc.h"
 
@@ -189,81 +190,6 @@ Expr *parse_primary_expression()
     return expr;
 }
 
-// Decode a single backslash escape. On entry *ps points at the '\'; on return
-// it has been advanced past the whole escape. Returns the escape's value (a
-// hex/octal escape may exceed a byte; the caller keeps only the low 8 bits).
-static int parse_one_escape(const char **ps)
-{
-    const char *s = *ps + 1; // skip backslash
-    int val;
-    switch (*s) {
-    case '\'':
-        val = '\'';
-        s++;
-        break;
-    case '"':
-        val = '"';
-        s++;
-        break;
-    case '?':
-        val = '?';
-        s++;
-        break;
-    case '\\':
-        val = '\\';
-        s++;
-        break;
-    case 'a':
-        val = '\a';
-        s++;
-        break;
-    case 'b':
-        val = '\b';
-        s++;
-        break;
-    case 'f':
-        val = '\f';
-        s++;
-        break;
-    case 'n':
-        val = '\n';
-        s++;
-        break;
-    case 'r':
-        val = '\r';
-        s++;
-        break;
-    case 't':
-        val = '\t';
-        s++;
-        break;
-    case 'v':
-        val = '\v';
-        s++;
-        break;
-    default:
-        if (*s >= '0' && *s <= '7') { // octal, up to 3 digits
-            val = *s++ - '0';
-            if (*s >= '0' && *s <= '7')
-                val = val * 8 + (*s++ - '0');
-            if (*s >= '0' && *s <= '7')
-                val = val * 8 + (*s++ - '0');
-        } else if (*s == 'x') { // hex, any number of digits
-            val = 0;
-            for (s++; isxdigit((unsigned char)*s); s++)
-                val =
-                    val * 16 +
-                    (isdigit((unsigned char)*s) ? *s - '0' : tolower((unsigned char)*s) - 'a' + 10);
-        } else {
-            val = (unsigned char)*s;
-            s++;
-        }
-        break;
-    }
-    *ps = s;
-    return val;
-}
-
 // Append one byte to the big-endian packed value, padding from the left with
 // zeroes. At most 6 bytes (one BESM-6 word) may be packed.
 static void pack_char_byte(uint64_t *value, int *nbytes, unsigned char b)
@@ -300,7 +226,7 @@ static uint64_t parse_char_literal(const char *s, int *out_nbytes)
     while (*s && *s != '\'') {
         unsigned char b = (unsigned char)*s;
         if (b == '\\') {
-            pack_char_byte(&value, &nbytes, (unsigned char)parse_one_escape(&s));
+            pack_char_byte(&value, &nbytes, (unsigned char)c_escape_value(&s));
         } else if (!(b & 0x80)) {
             pack_char_byte(&value, &nbytes, b);
             s++;

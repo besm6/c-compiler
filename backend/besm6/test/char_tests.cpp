@@ -656,3 +656,44 @@ TEST_F(CodegenTest, MultiDimCharArrayEmptyRowRun)
     )");
     EXPECT_EQ("0BC0\n", result);
 }
+
+// A decoded string literal keeps its embedded NUL bytes: "A\0C" is four bytes (three
+// plus the terminator), not one.  The static data must hold all of them — the literal
+// used to be cut short at the first decoded NUL, emitting just 'A' and a terminator.
+TEST_F(CodegenTest, StringWithEmbeddedNulData)
+{
+    std::string output = CompileToUnix("char a[] = \"A\\0C\";");
+    EXPECT_NE(output.find(".word 02020010300000000"), std::string::npos) << output;
+}
+
+// sizeof counts the decoded bytes, so an embedded NUL is one of them.
+TEST_F(CodegenTest, StringWithEmbeddedNulSizeof)
+{
+    std::string output = CompileToUnix("int n = sizeof \"A\\0C\";");
+    EXPECT_NE(output.find(".word 4"), std::string::npos) << output;
+}
+
+// Octal and hex escapes are decoded, not copied through: "\x41\101" is "AA".
+TEST_F(CodegenTest, StringOctalAndHexEscapes)
+{
+    std::string output = CompileToUnix("char a[] = \"\\x41\\101\";");
+    EXPECT_NE(output.find(".word 02024040000000000"), std::string::npos) << output;
+}
+
+// Runtime: read back every byte of a local char array initialized with an embedded NUL.
+TEST_F(CodegenTest, EmbeddedNulCharArrayRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            char a[5] = "A\0C";
+            putbyte(a[0]);
+            putbyte('0' + a[1]);                           /* the embedded null */
+            putbyte(a[2]);
+            putbyte('0' + a[3]);                           /* the terminator */
+            putbyte('0' + sizeof "A\0C");
+            putbyte('\n');
+        }
+    )");
+    EXPECT_EQ("A0C04\n", result);
+}

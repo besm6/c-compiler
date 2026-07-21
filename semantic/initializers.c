@@ -5,71 +5,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "c_escape.h"
 #include "semantic.h"
 #include "structtab.h"
 #include "symtab.h"
 #include "typecheck.h"
 #include "xalloc.h"
-
-// Decode a C string literal raw token (includes surrounding quotes, raw escapes)
-// to a heap-allocated C string containing the actual bytes. Caller must xfree().
-char *decode_c_string_literal(const char *raw)
-{
-    if (!raw || *raw != '"')
-        return xstrdup(raw);
-    const char *src = raw + 1;
-    size_t n        = strlen(raw);
-    char *buf       = xalloc(n, __func__, __FILE__, __LINE__);
-    char *dst       = buf;
-    while (*src && *src != '"') {
-        if (*src == '\\' && src[1]) {
-            src++;
-            switch (*src) {
-            case 'n':
-                *dst++ = '\n';
-                break;
-            case 't':
-                *dst++ = '\t';
-                break;
-            case 'r':
-                *dst++ = '\r';
-                break;
-            case 'a':
-                *dst++ = '\a';
-                break;
-            case 'b':
-                *dst++ = '\b';
-                break;
-            case 'f':
-                *dst++ = '\f';
-                break;
-            case 'v':
-                *dst++ = '\v';
-                break;
-            case '\\':
-                *dst++ = '\\';
-                break;
-            case '\'':
-                *dst++ = '\'';
-                break;
-            case '"':
-                *dst++ = '"';
-                break;
-            case '0':
-                *dst++ = '\0';
-                break;
-            default:
-                *dst++ = *src;
-                break;
-            }
-        } else {
-            *dst++ = *src;
-        }
-        src++;
-    }
-    *dst = '\0';
-    return buf;
-}
 
 // Create a zero initializer for a type.
 static Initializer *make_zero_init(Type *t)
@@ -318,8 +259,9 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
             element_type->kind != TYPE_UCHAR) {
             fatal_error("String literal can only initialize character array");
         }
-        char *decoded        = decode_c_string_literal(init->u.expr->u.literal->u.string_val);
-        size_t string_length = strlen(decoded);
+        size_t string_length;
+        char *decoded =
+            c_decode_string_literal(init->u.expr->u.literal->u.string_val, &string_length);
         size_t array_size;
         if (!var_type->u.array.size) {
             // Array size is not specified - use string size.
@@ -335,6 +277,7 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
 
         Tac_StaticInit *string_init           = tac_new_static_init(TAC_STATIC_INIT_STRING);
         string_init->u.string.val             = decoded;
+        string_init->u.string.len             = string_length;
         string_init->u.string.null_terminated = (array_size >= string_length + 1);
         if (array_size > string_length + 1) {
             Tac_StaticInit *zero_padding = tac_new_static_init(TAC_STATIC_INIT_ZERO);
@@ -351,8 +294,10 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         if (unalias(var_type->u.pointer.target)->kind != TYPE_CHAR) {
             fatal_error("String literal can only initialize pointer to char");
         }
-        char *decoded   = decode_c_string_literal(init->u.expr->u.literal->u.string_val);
-        char *string_id = symtab_add_string(decoded);
+        size_t decoded_length;
+        char *decoded =
+            c_decode_string_literal(init->u.expr->u.literal->u.string_val, &decoded_length);
+        char *string_id = symtab_add_string(decoded, decoded_length);
         xfree(decoded);
         // A char*/void* is a fat pointer.  A string decays to its first byte, which is
         // packed in the MSB (byte#0), so byte_offset 0 yields offset_enc 5.
@@ -627,8 +572,9 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
             element_type->kind != TYPE_UCHAR) {
             fatal_error("String literal can only initialize character array");
         }
-        char *decoded        = decode_c_string_literal(init->u.expr->u.literal->u.string_val);
-        size_t string_length = strlen(decoded);
+        size_t string_length;
+        char *decoded =
+            c_decode_string_literal(init->u.expr->u.literal->u.string_val, &string_length);
         xfree(decoded);
         if (!target_type->u.array.size) {
             set_array_size(target_type, string_length + 1);

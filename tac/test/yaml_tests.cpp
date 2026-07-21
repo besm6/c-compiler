@@ -757,6 +757,7 @@ TEST_F(TacYamlTest, StaticVariableAllInits)
     zero->u.zero_bytes            = 16;
     Tac_StaticInit *str           = tac_new_static_init(TAC_STATIC_INIT_STRING);
     str->u.string.val             = xstrdup("hello");
+    str->u.string.len             = 5;
     str->u.string.null_terminated = false;
     Tac_StaticInit *ptr           = tac_new_static_init(TAC_STATIC_INIT_POINTER);
     ptr->u.pointer.name           = xstrdup("arr");
@@ -802,6 +803,7 @@ TEST_F(TacYamlTest, StaticVariableStringNullTerminated)
 
     Tac_StaticInit *si              = tac_new_static_init(TAC_STATIC_INIT_STRING);
     si->u.string.val                = xstrdup("world");
+    si->u.string.len                = 5;
     si->u.string.null_terminated    = true;
     tl->u.static_variable.init_list = si;
 

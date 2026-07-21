@@ -873,6 +873,7 @@ TEST_F(TacBinaryTest, StaticVariableAllInits)
     zero->u.zero_bytes            = 16;
     Tac_StaticInit *str           = tac_new_static_init(TAC_STATIC_INIT_STRING);
     str->u.string.val             = xstrdup("hello");
+    str->u.string.len             = 5;
     str->u.string.null_terminated = false;
     Tac_StaticInit *ptr           = tac_new_static_init(TAC_STATIC_INIT_POINTER);
     ptr->u.pointer.name           = xstrdup("arr");
@@ -906,11 +907,42 @@ TEST_F(TacBinaryTest, StaticVariableStringNullTerminated)
 
     Tac_StaticInit *si                       = tac_new_static_init(TAC_STATIC_INIT_STRING);
     si->u.string.val                         = xstrdup("world");
+    si->u.string.len                         = 5;
     si->u.string.null_terminated             = true;
     orig->decls->u.static_variable.init_list = si;
 
     Tac_Program *copy = roundtrip(orig);
     EXPECT_TRUE(tac_compare_program(orig, copy));
+
+    tac_free_program(orig);
+    tac_free_program(copy);
+}
+
+// A decoded string literal may hold embedded NUL bytes ("a\0c" is three bytes long),
+// so the wire format carries an explicit length instead of a terminator.
+TEST_F(TacBinaryTest, StaticVariableStringWithEmbeddedNul)
+{
+    static const char bytes[] = "a\0c\0z"; // 5 bytes, three of them past a NUL
+
+    Tac_Program *orig                     = tac_new_program();
+    orig->decls                           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+    orig->decls->u.static_variable.name   = xstrdup("s");
+    orig->decls->u.static_variable.global = true;
+    orig->decls->u.static_variable.type   = tac_new_type(TAC_TYPE_SCHAR);
+
+    Tac_StaticInit *si                       = tac_new_static_init(TAC_STATIC_INIT_STRING);
+    si->u.string.val                         = xmemdup(bytes, sizeof(bytes) - 1);
+    si->u.string.len                         = sizeof(bytes) - 1;
+    si->u.string.null_terminated             = true;
+    orig->decls->u.static_variable.init_list = si;
+
+    Tac_Program *copy = roundtrip(orig);
+    EXPECT_TRUE(tac_compare_program(orig, copy));
+
+    const Tac_StaticInit *back = copy->decls->u.static_variable.init_list;
+    ASSERT_NE(back, nullptr);
+    EXPECT_EQ(back->u.string.len, sizeof(bytes) - 1);
+    EXPECT_EQ(memcmp(back->u.string.val, bytes, sizeof(bytes) - 1), 0);
 
     tac_free_program(orig);
     tac_free_program(copy);

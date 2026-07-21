@@ -322,22 +322,25 @@ void wclearerr(WFILE *stream)
 
 //
 // Read a zero terminated string, aligned to word boundary.
-// Return a dynamically allocated buffer.
-// Max size is limited by 128 words.
+// Return a dynamically allocated buffer; the caller frees it with xfree().
+// The buffer grows as needed, so the string may be of any length.
 // In case of zero length string return NULL.
 //
 char *wgetstr(WFILE *stream)
 {
-    size_t buf[128];
-    int n = 0;
+    size_t capacity = 128; // words
+    size_t *buf     = xalloc(capacity * sizeof(size_t), __func__, __FILE__, __LINE__);
+    size_t n        = 0;
 
     for (;;) {
         buf[n] = wgetw(stream);
         if (stream->is_eof) {
+            xfree(buf);
             return NULL;
         }
         if (n == 0 && buf[n] == 0) {
             // Read empty string.
+            xfree(buf);
             return NULL;
         }
         // Does this word contain '\0' byte?
@@ -346,12 +349,17 @@ char *wgetstr(WFILE *stream)
             if (wio_debug) {
                 printf("    %s '%s'\n", __func__, (char *)buf);
             }
-            return xstrdup((char *)buf);
+            char *str = xstrdup((char *)buf);
+            xfree(buf);
+            return str;
         }
-        n++;
-        if (n * sizeof(size_t) >= sizeof(buf)) {
-            // Too long string
-            return NULL;
+        if (++n == capacity) {
+            // Grow the word buffer: xalloc has no realloc, so copy into a larger block.
+            size_t *bigger = xalloc(capacity * 2 * sizeof(size_t), __func__, __FILE__, __LINE__);
+            memcpy(bigger, buf, capacity * sizeof(size_t));
+            xfree(buf);
+            buf = bigger;
+            capacity *= 2;
         }
     }
 }
@@ -380,6 +388,65 @@ int wputstr(const char *str, WFILE *stream)
         }
         str += sizeof(size_t);
     }
+}
+
+//
+// Write a byte blob of a known length, aligned to word boundary: one word holding the
+// byte count, then the bytes themselves, zero-padded to the last word.  Unlike wputstr()
+// nothing terminates the data, so it may contain NUL bytes — which is what a decoded C
+// string literal such as "a\0c" needs.
+//
+int wputdata(const void *data, size_t len, WFILE *stream)
+{
+    if (wio_debug) {
+        printf("    %s %zu bytes\n", __func__, len);
+    }
+    if (wputw(len, stream) < 0) {
+        return -1;
+    }
+    const char *p = data;
+    for (size_t pos = 0; pos < len; pos += sizeof(size_t)) {
+        size_t w     = 0;
+        size_t chunk = len - pos;
+        if (chunk > sizeof(size_t)) {
+            chunk = sizeof(size_t);
+        }
+        memcpy(&w, p + pos, chunk);
+        if (wputw(w, stream) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+//
+// Read a byte blob written by wputdata().  Returns a dynamically allocated buffer of
+// *len bytes (with one extra NUL appended, so it is safe to print when it holds text),
+// or NULL for a zero-length blob or on EOF.  The caller frees it with xfree().
+//
+void *wgetdata(size_t *len, WFILE *stream)
+{
+    *len     = 0;
+    size_t n = wgetw(stream);
+    if (stream->is_eof || n == 0) {
+        return NULL;
+    }
+    size_t nwords = (n + sizeof(size_t) - 1) / sizeof(size_t);
+    char *buf     = xalloc(nwords * sizeof(size_t) + 1, __func__, __FILE__, __LINE__);
+    for (size_t i = 0; i < nwords; i++) {
+        size_t w = wgetw(stream);
+        if (stream->is_eof) {
+            xfree(buf);
+            return NULL;
+        }
+        memcpy(buf + i * sizeof(size_t), &w, sizeof(size_t));
+    }
+    buf[n] = '\0';
+    if (wio_debug) {
+        printf("    %s %zu bytes\n", __func__, n);
+    }
+    *len = n;
+    return buf;
 }
 
 //

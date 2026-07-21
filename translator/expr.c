@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "c_escape.h"
 #include "semantic.h"
 #include "structtab.h"
 #include "translate.h"
@@ -991,8 +992,9 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         case LITERAL_CHAR:
             return val_int(e->u.literal->u.char_val);
         case LITERAL_STRING: {
-            char *decoded_str = decode_c_string_literal(e->u.literal->u.string_val);
-            const char *sname = symtab_add_string(decoded_str);
+            size_t decoded_len;
+            char *decoded_str = c_decode_string_literal(e->u.literal->u.string_val, &decoded_len);
+            const char *sname = symtab_add_string(decoded_str, decoded_len);
             xfree(decoded_str);
             Symbol *sym = symtab_get(sname);
 

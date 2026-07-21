@@ -516,7 +516,8 @@ typedef struct Tac_StaticInit {
 
         // INIT_STRING
         struct {
-            char *val;
+            char *val;  // decoded bytes; NUL-terminated for printing, but see len
+            size_t len; // byte count — a decoded literal may hold embedded NULs
             bool null_terminated;
         } string;
 
@@ -563,6 +564,10 @@ void tac_free_toplevel(Tac_TopLevel *toplevel);
 // subnormals (glibc: 0x0.0..1p-1022, macOS: 0x1p-1074); this normalizes via frexp so the
 // significand is always in [1,2) — a normal value both libcs format identically.
 void tac_format_hex_double(char *out, size_t outsz, double v);
+
+// Render len bytes of a decoded string literal as printable text (C escapes for
+// non-printables), for the TAC dumps.  Returns an xalloc'd string; caller xfree()s it.
+char *tac_escape_string_bytes(const char *s, size_t len);
 void tac_print_const(FILE *fd, const Tac_Const *constant, int depth);
 void tac_print_val(FILE *fd, const Tac_Val *val, int depth);
 void tac_print_type(FILE *fd, const Tac_Type *type, int depth);

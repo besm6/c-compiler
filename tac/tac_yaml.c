@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "tac.h"
+#include "xalloc.h"
 
 #define INDENT_STEP 2
 
@@ -281,13 +282,16 @@ static void export_yaml_static_init(FILE *fd, const Tac_StaticInit *init, int le
         print_indent(fd, level);
         fprintf(fd, "bytes: %d\n", init->u.zero_bytes);
         break;
-    case TAC_STATIC_INIT_STRING:
+    case TAC_STATIC_INIT_STRING: {
         fprintf(fd, "string\n");
         print_indent(fd, level);
-        fprintf(fd, "value: %s\n", init->u.string.val ? init->u.string.val : "");
+        char *text = tac_escape_string_bytes(init->u.string.val, init->u.string.len);
+        fprintf(fd, "value: %s\n", text);
+        xfree(text);
         print_indent(fd, level);
         fprintf(fd, "null_terminated: %s\n", init->u.string.null_terminated ? "true" : "false");
         break;
+    }
     case TAC_STATIC_INIT_POINTER:
         fprintf(fd, "pointer\n");
         print_indent(fd, level);

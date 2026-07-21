@@ -115,8 +115,8 @@ void symtab_add_fun(const char *name, const Type *t, bool global, bool defined, 
 // Precondition: name is a non-null string, t is a valid Type* (function type).
 // Postcondition: A Symbol with SYM_FUNC, name, t, global, defined, and noret is added/replaced in symtab.
 
-// Add a string literal
-char *symtab_add_string(const char *s);
+// Add a string literal: len decoded bytes, which may include embedded NULs.
+char *symtab_add_string(const char *s, size_t len);
 
 // Add an enum constant
 void symtab_add_enum_const(const char *ident, int val, int level);

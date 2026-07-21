@@ -49,18 +49,33 @@ static int codegen_sizeof(const Tac_Type *t)
     }
 }
 
-// Encode a source string into static data bytes.  Madlen/Bemsh target the Dubna monitor,
-// which stores text in KOI-7; the Unix (b6as) dialect keeps the raw source bytes so a
-// program's write(1,…) reaches the host stdout unchanged.  KOI-7 conversion never expands
-// the byte count, so strlen(src)+1 sizes both cases.  Caller frees the result with xfree.
-static char *encode_static_string(const char *src, Besm_Dialect dialect)
+// Encode `len` source bytes into static data bytes, returning the encoded byte count in
+// *out_len.  Madlen/Bemsh target the Dubna monitor, which stores text in KOI-7; the Unix
+// (b6as) dialect keeps the raw source bytes so a program's write(1,…) reaches the host
+// stdout unchanged.  KOI-7 conversion never expands the byte count, so len+1 sizes both
+// cases — but it may *shrink* it (a multi-byte UTF-8 sequence becomes one byte), which is
+// why the encoded length is returned rather than measured.  It cannot be measured in any
+// case: a decoded literal may hold embedded NULs.  Caller frees the result with xfree.
+static char *encode_static_string(const char *src, size_t len, size_t *out_len,
+                                  Besm_Dialect dialect)
 {
-    char *dst = xalloc(strlen(src) + 1, __func__, __FILE__, __LINE__);
-    if (dialect == BESM_UNIX)
-        strcpy(dst, src);
-    else
-        utf8_to_koi7(src, dst);
+    char *dst = xalloc(len + 1, __func__, __FILE__, __LINE__);
+    if (dialect == BESM_UNIX) {
+        memcpy(dst, src, len);
+        *out_len = len;
+    } else {
+        *out_len = utf8_to_koi7_n(src, len, dst);
+    }
+    dst[*out_len] = 0;
     return dst;
+}
+
+// The decoded bytes of a string static init, and their count.  A re-imported empty string
+// literal has a NULL `val` (a zero-length wio blob); treat it as the empty string.
+static const char *string_init_bytes(const Tac_StaticInit *init, size_t *len)
+{
+    *len = init->u.string.val ? init->u.string.len : 0;
+    return init->u.string.val ? init->u.string.val : "";
 }
 
 // True for an array whose innermost element is a character type — its bytes are
@@ -88,11 +103,10 @@ static size_t char_init_item_bytes(const Tac_StaticInit *init, Besm_Dialect dial
     case TAC_STATIC_INIT_ZERO:
         return (size_t)init->u.zero_bytes;
     case TAC_STATIC_INIT_STRING: {
-        // An empty string literal serialises to a zero-length wio string and re-imports
-        // with a NULL `val`; treat it as the empty string.
-        const char *src = init->u.string.val ? init->u.string.val : "";
-        char *enc       = encode_static_string(src, dialect);
-        size_t nb       = strlen(enc) + (init->u.string.null_terminated ? 1 : 0);
+        size_t len, enc_len;
+        const char *src = string_init_bytes(init, &len);
+        char *enc       = encode_static_string(src, len, &enc_len, dialect);
+        size_t nb       = enc_len + (init->u.string.null_terminated ? 1 : 0);
         xfree(enc);
         return nb;
     }
@@ -145,9 +159,10 @@ static Besm_Instr *char_array_log_items(const Tac_StaticInit *init, bool zero_as
     size_t pos = 0, data_end = 0;
     for (const Tac_StaticInit *it = init; it; it = it->next) {
         if (it->kind == TAC_STATIC_INIT_STRING) {
-            const char *src = it->u.string.val ? it->u.string.val : "";
-            char *enc       = encode_static_string(src, dialect);
-            size_t nb       = strlen(enc) + (it->u.string.null_terminated ? 1 : 0);
+            size_t len, enc_len;
+            const char *src = string_init_bytes(it, &len);
+            char *enc       = encode_static_string(src, len, &enc_len, dialect);
+            size_t nb       = enc_len + (it->u.string.null_terminated ? 1 : 0);
             for (size_t i = 0; i < nb && pos + i < total; i++)
                 buf[pos + i] = (unsigned char)enc[i];
             pos += nb;
@@ -361,9 +376,10 @@ static Besm_Instr *struct_log_items(const Tac_StaticInit *init, bool zero_as_wor
             buf[pos++] = it->u.uchar_val;
             data_end   = pos;
         } else if (it->kind == TAC_STATIC_INIT_STRING) {
-            const char *src = it->u.string.val ? it->u.string.val : "";
-            char *enc       = encode_static_string(src, dialect);
-            int nb          = (int)strlen(enc) + (it->u.string.null_terminated ? 1 : 0);
+            size_t len, enc_len;
+            const char *src = string_init_bytes(it, &len);
+            char *enc       = encode_static_string(src, len, &enc_len, dialect);
+            int nb          = (int)enc_len + (it->u.string.null_terminated ? 1 : 0);
             for (int i = 0; i < nb; i++)
                 buf[pos + i] = (unsigned char)enc[i];
             pos += nb;
@@ -623,11 +639,11 @@ Besm_Instr *besm_string_log_items(const Tac_StaticInit *init, const char *label,
     if (init->kind != TAC_STATIC_INIT_STRING)
         fatal_error("string constant init is not a string");
 
-    const char *raw = init->u.string.val ? init->u.string.val : "";
-    char *enc       = encode_static_string(raw, dialect);
+    size_t raw_len, len;
+    const char *raw = string_init_bytes(init, &raw_len);
+    char *enc       = encode_static_string(raw, raw_len, &len, dialect);
     const char *s   = enc;
-    size_t len      = strlen(s);
-    size_t nbytes = len + (init->u.string.null_terminated ? 1 : 0);
+    size_t nbytes   = len + (init->u.string.null_terminated ? 1 : 0);
     if (nbytes == 0)
         nbytes = 1;
 

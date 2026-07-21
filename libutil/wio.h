@@ -47,6 +47,8 @@ int wfileno(const WFILE *stream);
 void wclearerr(WFILE *stream);
 char *wgetstr(WFILE *stream); // dynamically allocated
 int wputstr(const char *str, WFILE *stream);
+void *wgetdata(size_t *len, WFILE *stream); // dynamically allocated
+int wputdata(const void *data, size_t len, WFILE *stream);
 
 #ifdef __cplusplus
 }

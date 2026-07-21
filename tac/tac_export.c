@@ -347,7 +347,9 @@ static void export_static_init(WFILE *out, const Tac_StaticInit *si)
         wputw((size_t)si->u.zero_bytes, out);
         break;
     case TAC_STATIC_INIT_STRING:
-        wputstr(si->u.string.val ? si->u.string.val : "", out);
+        // A length-prefixed blob, not wputstr: the decoded bytes may include NULs.
+        wputdata(si->u.string.val ? si->u.string.val : "", si->u.string.val ? si->u.string.len : 0,
+                 out);
         wputw(si->u.string.null_terminated ? 1 : 0, out);
         break;
     case TAC_STATIC_INIT_POINTER:
