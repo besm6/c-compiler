@@ -22,6 +22,13 @@
 // intrinsic the assembler saw first.  Hence the fatal_error at the bottom rather than a
 // `return false`.
 
+// PSW, the mode word — machine register 021.  The register file the index registers live in
+// continues past M[017] into the machine's own control registers, and PSW is the one a kernel
+// needs from C: it carries the interrupt priority (БлПр 02000) and the mapping and protection
+// overrides (БлП 01, БлЗ 02).  `ita`/`ati` name it through their address field just as they
+// name an index register.
+#define BESM_PSW_MREG 021
+
 // The Tier-2 bit-manipulation intrinsics: gather, scatter, population count, highest set
 // bit, and the machine's own end-around-carry add.  Each is a single A-op-X instruction —
 // the operand comes from memory, the accumulator is both the other input and the result —
@@ -204,6 +211,63 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
         if (dst && dst->kind == TAC_VAL_VAR)
             emit_store_a(block, tail, f, dst->u.var_name);
         return true;
+    }
+
+    // __besm6_getpsw — read the mode word back.  `ita` loads M[021] into A zero-extended, so
+    // the whole 15-bit word arrives; it leaves ω logical, the mode compiled code runs in, and
+    // so needs no correction.  PSW is the only machine register that can be read back at all —
+    // РП and РЗ are write-only — which is what makes this intrinsic worth having.
+    if (strcmp(name, "__besm6_getpsw") == 0) {
+        if (instr->u.fun_call.args)
+            fatal_error("intrinsic %s takes no arguments", name);
+
+        Besm_Instr *ita = emit(block, tail, BESM_MEM_ITA);
+        ita->addr       = BESM_PSW_MREG; // A = M[021]
+
+        const Tac_Val *dst = instr->u.fun_call.dst;
+        if (dst && dst->kind == TAC_VAL_VAR)
+            emit_store_a(block, tail, f, dst->u.var_name);
+        return true;
+    }
+
+    // __besm6_setpsw — the general mode-word write: `ati` takes A[15:1], so the argument goes
+    // through the accumulator like any other value.  This is the read-modify-write path, for
+    // the bits __besm6_maskpsw cannot reach; ω is kept, so again nothing to correct.
+    if (strcmp(name, "__besm6_setpsw") == 0) {
+        const Tac_Val *psw = instr->u.fun_call.args;
+        if (!psw || psw->next)
+            fatal_error("intrinsic %s takes exactly one argument: the mode word", name);
+
+        emit_xta_val(block, tail, f, psw); // A = psw
+        Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
+        ati->addr       = BESM_PSW_MREG; // M[021] = A[15:1]
+        return true;                     // void: there is no result to store
+    }
+
+    // __besm6_maskpsw — the one-instruction mode write.  `024 vtm` with REGISTER FIELD 0 is not
+    // an index-register load: M[0] always reads 0, so in supervisor mode the hardware spends the
+    // instruction on PSW instead and writes БлП (01), БлЗ (02) and БлПр (02000) straight out of
+    // the address field, all three at once.  It is a *masked* write — ПоП, ПоК and the
+    // write-watch bit are not in the mask and keep their values — and it disturbs neither the
+    // accumulator nor ω, unlike the `ita`/`ati` read-modify-write above.  In user mode it has no
+    // effect at all.
+    //
+    // The mask therefore rides in the instruction's own 15-bit address field, exactly like the
+    // halt code below, and must likewise be a compile-time constant.
+    if (strcmp(name, "__besm6_maskpsw") == 0) {
+        const Tac_Val *mask = instr->u.fun_call.args;
+        if (mask && !mask->next && mask->kind == TAC_VAL_CONSTANT) {
+            Besm_ConstWord w = besm_const_word(mask->u.constant);
+            if (w.is_real || w.word > 077777)
+                fatal_error("intrinsic %s: mask %llo does not fit the 15-bit address field",
+                            name, (unsigned long long)w.word);
+
+            Besm_Instr *vtm = emit(block, tail, BESM_REG_VTM);
+            vtm->reg        = 0; // the register field being 0 *is* the mode write
+            vtm->addr       = (int)w.word;
+            return true;
+        }
+        fatal_error("intrinsic %s takes one argument: a constant mask in 0..077777", name);
     }
 
     // __besm6_stop — the halt (033, Format 2).  It is *resumable*: the machine stops, the

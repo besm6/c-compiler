@@ -1,10 +1,10 @@
 # BESM-6 Compiler Intrinsics
 
-The nine intrinsics of [`<besm6.h>`](../libc/besm6/include/besm6.h) give C direct access to the
+The twelve intrinsics of [`<besm6.h>`](../libc/besm6/include/besm6.h) give C direct access to the
 machine operations it cannot otherwise express: the two supervisor instructions that reach every
-peripheral, the bit-manipulation instructions that have no C equivalent, the halt, and the
-extracode trap. Each one compiles into **a single inline machine instruction** — never a call,
-never a library routine.
+peripheral, the three that read and write the mode word PSW, the bit-manipulation instructions
+that have no C equivalent, the halt, and the extracode trap. Each one compiles into **a single
+inline machine instruction** — never a call, never a library routine.
 
 They are what lets an operating system be written in C on this machine.
 
@@ -76,7 +76,7 @@ cc -E -nostdinc -Ilibc/besm6/include prog.c | parse -
 
 The header is not installed by this repo — the target's standard headers, `besm6.h` among
 them, are shipped by the sibling v7besm project; here it is consumed straight from
-`libc/besm6/include/`. It declares the nine intrinsics **and
+`libc/besm6/include/`. It declares the twelve intrinsics **and
 nothing else**: readable wrappers — a `popcount()`, an `spl()`, the ГРП bit names, the control-word
 field definitions of a particular device — are the caller's own business. Each is one `#define`,
 and what it should be called depends on the program.
@@ -95,13 +95,19 @@ typed `unsigned`, spelled out; the header defines no typedef alias for the machi
 The same goes for your own constants: a bit above 40 does not fit a signed literal, so
 `01000000000000000U` needs its `U`.
 
+**The three PSW intrinsics are the deliberate exception: they are typed `int`.** What they carry
+is not a machine word but a 15-bit address-field value. PSW is read and written through
+`ita`/`ati`/`vtm`, every one of which is a 15-bit path, so the whole mode word fits a signed `int`
+with thirty-odd bits to spare and nothing is lost.
+
 ### 2.3 Constant versus computed arguments
 
-Two arguments become an *immediate field of the instruction word* and must therefore be
+Three arguments become an *immediate field of the instruction word* and must therefore be
 compile-time constants; the compiler diagnoses anything else:
 
 - `__besm6_extracode(op, …)` — `op` *is* the opcode.
 - `__besm6_stop(code)` — `code` is the halt instruction's own 15-bit address field (`0`…`077777`).
+- `__besm6_maskpsw(mask)` — `mask` is the mode write's own 15-bit address field (§3.3).
 
 A constant *expression* is fine — it is folded before the check, so `__besm6_extracode(SYSCALL + 7,
 4, n)` works.
@@ -148,6 +154,9 @@ touch a device.
 | `unsigned __besm6_ext(unsigned addr, unsigned acc)` | `033` `ext` увв | `A := acc; ext addr; result := A` |
 | `unsigned __besm6_mod(unsigned addr, unsigned acc)` | `002` `mod` рег | `A := acc; mod addr; result := A` |
 | `void __besm6_stop(unsigned code)` | `033` fmt 2 `stop` стоп | halt the processor (resumable) |
+| `int __besm6_getpsw(void)` | `042` `ita` счи | `A := M[021]` — read the mode word |
+| `void __besm6_setpsw(int psw)` | `040` `ati` уи | `A := psw; M[021] := A[15:1]` |
+| `void __besm6_maskpsw(int mask)` | `024` `vtm` уиа, reg 0 | `PSW.{БлП,БлЗ,БлПр} := mask` |
 
 ### 3.1 `ext` and `mod`
 
@@ -230,6 +239,79 @@ is rejected outright ("ошибка в коп"), so the halt is emitted as Madle
 and there the digit count picks the instruction format. `,33,` is the Format-2 opcode 033, the halt;
 `,033,` would be the Format-1 033, which is `ext` and faults as privileged. Bemsh (`стоп`) and
 `b6as` (`stop`) both name it normally.
+
+### 3.3 `getpsw` / `setpsw` / `maskpsw` — the mode word
+
+The register file that holds the index registers does not stop at `M[017]`: it continues into the
+machine's own control registers, and **PSW, at `021`, is the one a kernel needs from C**. It
+carries three bits that no C construct can otherwise reach:
+
+| Bit | Name | Meaning |
+|-----|------|---------|
+| `02000` | БлПр | interrupts blocked — the global interrupt flag, and hence the kernel's **interrupt priority level** |
+| `01` | БлП | address mapping off |
+| `02` | БлЗ | protection register off |
+
+Unlike РП and РЗ, which are write-only, **PSW can be read back** — which is the only reason a
+getter can exist at all.
+
+`ita`/`ati` name PSW through their address field exactly as they name an index register, so the
+pair is the general path: read into the accumulator, modify, write back.
+
+```c
+__besm6_setpsw(__besm6_getpsw() | 02000);       /* block interrupts, keep everything else */
+```
+
+**`__besm6_maskpsw` is the one-instruction form, and it is a genuine oddity of the machine.**
+`024 vtm` with a **register field of 0** is not an index-register load: `M[0]` always reads 0, so
+the register half of the instruction is a no-op and in supervisor mode the hardware spends it on
+PSW instead, writing БлП, БлЗ and БлПр **all three at once** straight out of the address field. It
+is a *masked* write — ПоП, ПоК and the write-watch bit are not in the mask and do not move — and
+it disturbs neither the accumulator nor ω, unlike the read-modify-write above. In user mode it has
+no effect at all.
+
+That makes `cli` and `sti` one instruction each, which is exactly how the sibling v7besm kernel
+writes them by hand in [`kernel/psw.s`](https://github.com/besm6/v7besm/blob/main/kernel/psw.s):
+
+```c
+void cli(void) { __besm6_maskpsw(02003); }   /* БлП|БлЗ|БлПр — interrupts off */
+void sti(void) { __besm6_maskpsw(3);     }   /* БлП|БлЗ      — interrupts on  */
+```
+
+Writing БлП and БлЗ as well is not a hazard, it is the point: a kernel that runs unmapped with
+protection off holds `БлП = БлЗ = 1` as a standing invariant, so `02003`/`3` put back exactly what
+is already there and re-assert the invariant on the way past. The corollary is that
+`__besm6_maskpsw` must not be called from inside a *mapped* bracket — it would slam БлП back on
+and pull the mapping out from under the copy. Such a bracket has to bank the whole word with
+`__besm6_getpsw`/`__besm6_setpsw`, precisely because it must preserve a БлПр it does not know.
+
+The mask rides in the instruction's own 15-bit address field, so it must be a compile-time
+constant (§2.3, §7).
+
+The generated code, and here **the Madlen column is the interesting one**:
+
+| Dialect | `getpsw` | `setpsw` | `maskpsw(02003)` |
+|---------|----------|----------|------------------|
+| Madlen | `,ita, 17` | `,xta, …` / `,ati, 17` | `,24, 1027` |
+| Bemsh | `счи 17` | `сч …` / `уи 17` | `уиа 1027` |
+| b6as | `ita 17` | `xta …` / `ati 17` | `vtm 1027` |
+
+**Madlen will not spell the mode write.** `,vtm,` with a zero modifier — omitted or written out as
+`0 ,vtm,` — is rejected with *ошибка в модификаторе*; the 1972 autocode accepts only `1`–`15` there,
+for `,utm,` as well, since writing `M[0]` is meaningless in ordinary code and it has no idea the
+hardware repurposes the encoding. So the mode write goes out as raw octal machine code, the same
+escape the halt takes in §3.2: `,24,` is the Format-2 opcode 024 with a zero register field.
+
+That the raw form is the same instruction was checked two ways, not assumed. Bemsh's own
+translator encodes `уиа 1027` as `00 24 02003` — register `00`, opcode `24`, address `02003`,
+which is `kernel/psw.s`'s `vtm 02003` word for word. And `dubna` *executes* `,24, 4` as the
+instruction trace toggle it gives a register-0 `vtm`, which no other decoding would do.
+
+**Neither simulator models the register file past the index registers.** `dubna` and `b6sim` both
+compute `M[Aex & 017]` for `ita`/`ati`, so under them `ita 021` reads index register `M[1]` and
+`ati 021` would *clobber* it — an ABI-preserved register — and both give the register-0 `vtm` that
+private trace meaning instead of a PSW write. These intrinsics are for the real machine and for
+`simh`, and like `ext`/`mod` they are verified by assembling, not by running (§9).
 
 ---
 
@@ -377,10 +459,20 @@ int splx(int s)
 }
 
 int spl6(void) { return splx(6); }
-void cli(void) { __besm6_mod(036, 0); }
 ```
 
 Note `ipl[]` is `unsigned`, not `int`: ГРП bit 48 exists and would not survive a 41-bit type.
+
+The *global* interrupt flag is a different mechanism — the БлПр bit of PSW, not a ГРП mask — and
+so a different intrinsic (§3.3), one instruction each:
+
+```c
+void cli(void) { __besm6_maskpsw(02003); }   /* interrupts off */
+void sti(void) { __besm6_maskpsw(3);     }   /* interrupts on  */
+```
+
+Which of the two carries the kernel's priority level is a design choice; v7besm builds `setipl()`
+on БлПр, and `getpsw()` is how C reads that level back.
 
 ### 6.2 The interrupt dispatcher
 
@@ -471,10 +563,13 @@ hard errors:
 | `__besm6_extracode(0100, …)` | `__besm6_extracode: opcode 100 is not an extracode (050..077)` |
 | `__besm6_stop(x)` with a non-constant `x` | `intrinsic __besm6_stop takes one argument: a constant halt code in 0..077777` |
 | `__besm6_stop(0100000)` | `intrinsic __besm6_stop: halt code 100000 does not fit the 15-bit address field` |
+| `__besm6_maskpsw(x)` with a non-constant `x` | `intrinsic __besm6_maskpsw takes one argument: a constant mask in 0..077777` |
+| `__besm6_maskpsw(0100000)` | `intrinsic __besm6_maskpsw: mask 100000 does not fit the 15-bit address field` |
 
 The extracode opcode is checked in the front end ([semantic/expressions.c](../semantic/expressions.c)),
 early enough that the argument reaches the back end already folded to a literal whatever the
-optimizer does; the halt code is checked at instruction selection.
+optimizer does; the halt code and the PSW mask are checked at instruction selection, where a
+constant *expression* has already been folded by the TAC constant folder.
 
 One thing is deliberately *not* an error: an `ext`/`mod` address too large for the 12-bit Format-1
 offset field (above `07777`). No address in the peripherals map is that large, but rather than
@@ -497,7 +592,7 @@ with `__besm6_`. Only instruction selection knows better: `codegen_intrinsic`
 "side-effecting and never eliminable" contract Tier 1 needs. `semantic/` has exactly one change: the
 constant-folding of the extracode opcode (§7).
 
-**Every `__besm6_` name must be intercepted.** All nine collide under Madlen's 8-character
+**Every `__besm6_` name must be intercepted.** All twelve collide under Madlen's 8-character
 truncation — they share the prefix, and `__besm6_apx` and `__besm6_arx` both sanitize to the same
 symbol — so an intrinsic left to fall through would not fail to link. It would silently *alias*
 whichever other one the assembler saw first. Hence `codegen_intrinsic`'s bottom line is a
@@ -550,6 +645,19 @@ does not survive one. Nothing can be live in it across the trap: r14 is caller-s
 role is the argument count, which a caller loads immediately before the `,call,`. The lowering
 itself no longer goes anywhere near it.
 
+**The PSW trio needs no new machinery at all** — the one place in this feature where the answer is
+"nothing to do", and worth recording as such. `ita`, `ati` and `vtm` are kinds the backend already
+had (`BESM_MEM_ITA`, `BESM_MEM_ATI`, `BESM_REG_VTM`), already modelled correctly by the peephole:
+`state_step` falls to its `default:` for all three and marks the accumulator unknown, which is
+conservative and right (`ita` clobbers A; `ati`/`vtm` do not, so the pessimism costs at most a
+missed reload elimination); all three are already listed R-independent, and none touches the mode
+register; and none is a basic-block boundary, nor should become one, since `ita` leaves ω logical
+— the mode compiled code runs in — while `ati` and `vtm` keep it. The frame machinery is likewise
+untouched: `instr_reads_auto_slot` and the post-peephole frame shrink both gate on
+`reg == REG_AUTO`, and these carry `reg == 0`, so `ita 17` can never be mistaken for a reference to
+frame slot 17. The only backend change outside `intrinsics.c` is the Madlen emitter's raw-octal
+spelling of the register-0 `vtm` (§3.3).
+
 **Three new instruction kinds** carry this in the backend IR ([besm6.asdl](../backend/besm6/besm6.asdl),
 [besm.h](../backend/besm6/besm.h)): `BESM_IO_EXT`, `BESM_IO_MOD` and `BESM_IO_EXTRACODE`. The
 privileged `mod` could not reuse the `BESM_MOD_*` prefix — that is already the C-register address
@@ -568,15 +676,17 @@ if missed (see [Peephole_Rewrites.md](Peephole_Rewrites.md) §5.11):
 
 **Per-dialect spelling** is where the three emitters diverge:
 
-| Dialect | `ext` | `mod` | halt | extracode |
-|---------|-------|-------|------|-----------|
-| Madlen | `,ext,` | `,mod,` | `,33,` (raw octal — no mnemonic) | `,*74,` |
-| Bemsh | `увв` | `рег` | `стоп` | `э74` |
-| b6as | `ext` | `mod` | `stop` | `$74` |
+| Dialect | `ext` | `mod` | halt | extracode | mode write |
+|---------|-------|-------|------|-----------|------------|
+| Madlen | `,ext,` | `,mod,` | `,33,` (raw octal — no mnemonic) | `,*74,` | `,24,` (raw octal — modifier 0 rejected) |
+| Bemsh | `увв` | `рег` | `стоп` | `э74` | `уиа` |
+| b6as | `ext` | `mod` | `stop` | `$74` | `vtm` |
 
 Every numeric address field is **decimal** in all three, so the octal addresses of the peripherals
 map come out converted: `__besm6_ext(04031, …)` emits `,ext, 2073`, `__besm6_mod(0237, 0)` emits
-`,mod, 159`, and `__besm6_stop(0377)` emits `,33, 255`.
+`,mod, 159`, `__besm6_stop(0377)` emits `,33, 255`, and `__besm6_maskpsw(02003)` emits `,24, 1027`.
+Note the two raw-octal cells, and that they are the same phenomenon: Madlen declines to *name*
+both of the Format-2 forms this header needs, so both are written as machine code.
 
 ---
 
@@ -601,6 +711,15 @@ map come out converted: `__besm6_ext(04031, …)` emits `,ext, 2073`, `__besm6_m
   is that the assemblers accept what we emit: `b6as` assembles and `b6ld` links both forms
   (`UnixAssembleIntrinsicIo`), with no `__besm6_ext` symbol left to resolve, and the two Dubna
   translators were checked by hand (`,ext, 2073` and `увв 2073` each assemble to opcode 033).
+- **The PSW trio likewise, for a different reason.** These are not privileged instructions — they
+  assemble and execute — but neither simulator implements what they mean: `dubna` and `b6sim` both
+  compute `M[Aex & 017]`, so `ita 021` reads index register M[1] and `ati 021` would clobber it, and
+  both repurpose the register-0 `vtm` as an instruction-trace toggle. Running one would not test
+  the intrinsic; it would test the simulator's private meaning for the encoding. So the coverage is
+  golden assembly in all three dialects plus `UnixAssembleIntrinsicPsw` (b6as + b6ld), and the
+  Madlen and Bemsh spellings were verified on `dubna` by hand — the listing shows Bemsh encoding
+  `счи 17` / `уи 17` / `уиа 1027` as `00 042 0021` / `00 040 0021` / `00 24 02003`, which is
+  v7besm `kernel/psw.s` word for word, and `,vtm,` with a zero modifier failing to assemble at all.
 
 ---
 
@@ -611,6 +730,9 @@ map come out converted: `__besm6_ext(04031, …)` emits `,ext, 2073`, `__besm6_m
 | `__besm6_ext` | `033` | увв | — | privileged; never eliminable |
 | `__besm6_mod` | `002` | рег | — | privileged; never eliminable |
 | `__besm6_stop` | `033` fmt 2 | стоп | `code` | resumable — not `_Noreturn` |
+| `__besm6_getpsw` | `042` | счи | — | PSW is `M[021]`; the only readable machine register |
+| `__besm6_setpsw` | `040` | уи | — | the general mode-word write |
+| `__besm6_maskpsw` | `024` reg 0 | уиа | `mask` | БлП/БлЗ/БлПр at once; Madlen writes it `,24,` |
 | `__besm6_apx` | `020` | сбр | — | gathers MSB-aligned, unlike PEXT |
 | `__besm6_aux` | `021` | рзб | — | inverse of `apx` |
 | `__besm6_acx` | `022` | чед | — | `⊞`, not `+` |

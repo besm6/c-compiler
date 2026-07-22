@@ -8,11 +8,11 @@
  * kernel or a driver can be written in C instead of assembly.  They are
  * specified in docs/Besm6_Intrinsics.md.
  *
- * Status: all nine are lowered — Tier 1 (ext, mod, the halt), all five Tier-2
- * bit manipulations, and Tier 3 (the extracode).  Each becomes a single inline
- * machine instruction, never a call.
+ * Status: all twelve are lowered — Tier 1 (ext, mod, the halt, and the three
+ * mode-word intrinsics), all five Tier-2 bit manipulations, and Tier 3 (the
+ * extracode).  Each becomes a single inline machine instruction, never a call.
  *
- * This header declares those nine and nothing else.  Readable wrappers for the
+ * This header declares those twelve and nothing else.  Readable wrappers for the
  * registers a given program cares about — a popcount, an spl(), the ГРП bit
  * names — are the caller's own business; they are one #define each, and what
  * they should be named depends on the program.
@@ -21,6 +21,11 @@
  * never `int`.  A BESM-6 word is 48 bits, but a signed int on this target holds
  * only 41 of them; a device control word or a ГРП value (whose bit 48 is live)
  * would not survive the trip.  See docs/Besm6_Data_Representation.md.
+ *
+ * The three PSW intrinsics are the deliberate exception: they are typed `int`.
+ * What they carry is not a machine word but a 15-bit address-field value — PSW
+ * is read and written through the 15-bit paths `ita`/`ati`/`vtm`, and every bit
+ * of it fits a signed int with room to spare.
  *
  * Absolute machine addresses need no intrinsic: the BESM-6 is word-addressed,
  * so a C pointer is a word index and a `volatile unsigned *` reaches low memory
@@ -79,6 +84,49 @@ unsigned __besm6_mod(unsigned addr, unsigned acc);
  * nothing after a stop runs under them.
  */
 void __besm6_stop(unsigned code);
+
+/*
+ * The mode word PSW — machine register 021.  The register file that holds the
+ * index registers continues past M[017] into the machine's own control
+ * registers, and PSW is the one a kernel needs from C: bit БлПр (02000) is the
+ * global interrupt-enable flag, and hence the kernel's interrupt priority
+ * level, while БлП (01) and БлЗ (02) override the address mapping and the
+ * protection register.
+ *
+ * Unlike РП and РЗ, which are write-only, PSW CAN be read back — which is why
+ * a getter exists at all.
+ */
+
+/*
+ * 042 ita (счи) — A := M[021], zero-extended.  The only way to see the
+ * interrupt level from C.
+ */
+int __besm6_getpsw(void);
+
+/*
+ * 040 ati (уи) — M[021] := A[15:1].  The general mode-word write, for the bits
+ * __besm6_maskpsw cannot reach; use it with __besm6_getpsw for a
+ * read-modify-write.
+ */
+void __besm6_setpsw(int psw);
+
+/*
+ * 024 vtm (уиа) with REGISTER FIELD 0 — the one-instruction mode write.  M[0]
+ * always reads 0, so the register half of the instruction is a no-op and in
+ * supervisor mode the hardware spends it on PSW instead: БлП (01), БлЗ (02) and
+ * БлПр (02000) are taken straight from MASK and written ALL THREE AT ONCE.  It
+ * is a *masked* write — ПоП, ПоК and the write-watch bit are not in the mask and
+ * do not move — and it disturbs neither the accumulator nor ω.  In user mode it
+ * has no effect at all.
+ *
+ * This is the whole of cli/sti: __besm6_maskpsw(02003) blocks interrupts,
+ * __besm6_maskpsw(3) delivers them, both re-asserting the unmapped kernel
+ * invariant БлП = БлЗ = 1 on the way past.
+ *
+ * MASK is an immediate field of the instruction word, so it must be a
+ * compile-time constant in 0..077777.
+ */
+void __besm6_maskpsw(int mask);
 
 /* ---- Tier 2: bit manipulation ---- */
 /*

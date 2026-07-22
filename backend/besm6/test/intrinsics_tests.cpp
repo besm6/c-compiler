@@ -522,6 +522,190 @@ TEST_F(CodegenTest, UnixRunIntrinsicStop)
 }
 
 //
+// __besm6_getpsw / __besm6_setpsw / __besm6_maskpsw — Tier 1, the mode word PSW, machine
+// register 021 of the register file.  `ita`/`ati` name it through their address field just as
+// they name an index register, so the octal 021 comes out as the decimal 17 every assembler
+// wants; `__besm6_maskpsw` is a `vtm` whose *modifier register is 0*, which is what makes it a
+// PSW write instead of an index-register load.
+//
+// Madlen will not spell that last one: `,vtm,` with a zero modifier — omitted or written out —
+// is rejected with "ошибка в модификаторе" (verified on dubna; it takes only 1-15, for `,utm,`
+// too), so the mode write goes out as the raw octal Format-2 opcode `,24,`, exactly as the halt
+// goes out as `,33,`.  That the raw form is the same instruction was verified two ways: Bemsh's
+// own translator encodes `уиа 1027` as `00 24 02003`, and dubna executes `,24, 4` as the trace
+// toggle it gives a register-0 `vtm`.
+//
+// There is no run test, and there cannot be one.  Neither simulator models the register file
+// past the index registers: dubna and b6sim both compute `M[Aex & 017]`, so `ita 021` would read
+// M[1] and `ati 021` would *clobber* it — an ABI-preserved register — and both give a register-0
+// `vtm` a private meaning (the instruction-trace toggle).  As with ext/mod, what is verified
+// mechanically is that every assembler accepts what we emit.
+//
+TEST_F(CodegenTest, IntrinsicPswMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        int  rd(void)  { return __besm6_getpsw(); }
+        void wr(int p) { __besm6_setpsw(p); }
+        void cli(void) { __besm6_maskpsw(02003); }
+    )");
+    EXPECT_EQ(R"(c
+       rd:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,ita, 17
+             ,uj, b/ret
+             ,end,
+c
+       wr:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,ati, 17
+             ,uj, b/ret
+             ,end,
+c
+      cli:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save0
+             ,24, 1027
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+//
+// A read-modify-write of the mode word, which is what `setpsw` exists for: the peephole leaves
+// the three instructions with nothing between them, since `ita` delivers the value straight to
+// the accumulator the `aox` and the `ati` want.
+//
+TEST_F(CodegenTest, IntrinsicPswReadModifyWriteMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        void raise(int bits) { __besm6_setpsw(__besm6_getpsw() | bits); }
+    )");
+    EXPECT_EQ(R"(c
+    raise:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+             ,ita, 17
+           6 ,aox,
+             ,ati, 17
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+//
+// b6as names the register-0 `vtm` normally — `vtm 1027`, the same instruction Madlen has to
+// write as `,24, 1027`, and the same one kernel/psw.s in the sibling v7besm tree writes as
+// `vtm 02003`.
+//
+TEST_F(CodegenTest, IntrinsicPswUnix)
+{
+    std::string output = CompileToUnix(R"(
+        #include <besm6.h>
+        int  getpsw(void) { return __besm6_getpsw(); }
+        void cli(void)    { __besm6_maskpsw(02003); }
+        void sti(void)    { __besm6_maskpsw(3); }
+    )");
+    EXPECT_EQ(R"(    .text
+    .globl getpsw
+getpsw:
+    its 13
+ 13 vjm b$save0
+    ita 17
+    uj b$ret
+    .text
+    .globl cli
+cli:
+    its 13
+ 13 vjm b$save0
+    vtm 1027
+    uj b$ret
+    .text
+    .globl sti
+sti:
+    its 13
+ 13 vjm b$save0
+    vtm 3
+    uj b$ret
+)",
+              output);
+}
+
+// Bemsh keeps the mnemonics too: счи / уи / уиа, the last with an empty register field.
+TEST_F(CodegenTest, IntrinsicPswBemsh)
+{
+    std::string output = CompileToBemsh(R"(
+        #include <besm6.h>
+        void wr(int p) { __besm6_setpsw(p); }
+        void cli(void) { __besm6_maskpsw(02003); }
+    )");
+    EXPECT_EQ(R"(ввд$$$
+*
+wr     старт 1
+_save  внешн ._save
+_ret   внешн ._ret
+       счим 13
+       пв _save(13)
+       сч (6)
+       уи 17
+       пб _ret
+       финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
+ввд$$$
+*
+cli    старт 1
+_save0 внешн ._save0
+_ret   внешн ._ret
+       счим 13
+       пв _save0(13)
+       уиа 1027
+       пб _ret
+       финиш
+квч$$$
+трн$$$
+0-0
+блмак
+бтмалф
+кнц$$$
+)",
+              output);
+}
+
+//
+// The mechanical validation: b6as assembles `ita 17` / `ati 17` / `vtm 1027` and b6ld links with
+// no `__besm6_getpsw` symbol left to resolve.  (It is not run — see the header above.)
+//
+TEST_F(CodegenTest, UnixAssembleIntrinsicPsw)
+{
+    SKIP_IF_NO_UNIX_TOOLS();
+    CompileAndAssembleUnix(WrapMain(R"(
+#include <besm6.h>
+int main(void) {
+    int psw = __besm6_getpsw();
+    __besm6_setpsw(psw | 02000);
+    __besm6_maskpsw(02003);
+    __besm6_maskpsw(3);
+    return psw & 1;
+}
+)"));
+}
+
+//
 // __besm6_ext / __besm6_mod — Tier 1, the machine's only I/O (033 ext, 002 mod, both
 // Format 1).  The accumulator is both the input and the output; the *direction* of the
 // transfer lives in the address, not in the instruction.

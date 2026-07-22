@@ -852,7 +852,8 @@ M[I] = A[15:1]    ; I = EA[4:1]
 
 ω mode: **Kept**
 
-Copies the low 15 bits of A into the index register selected by the low 4 bits of EA.
+Copies the low 15 bits of A into the index register selected by the low 4 bits of EA. On the real
+machine the file extends further — `ati 021` writes the mode word PSW; see `042 ITA` below.
 
 ---
 
@@ -882,6 +883,15 @@ A = M[I]    ; I = EA[4:1]; zero-extended to 48 bits
 ω mode: **Logical**
 
 Loads the 15-bit value of index register M[I] into A as an unsigned integer.
+
+**The register file continues past the index registers.** On the real machine (and in `simh`) the
+address field selects from a wider file that includes the machine's own control registers, of
+which **PSW, the mode word, is at `021`** — carrying БлПр (`02000`, interrupts blocked), БлП
+(`01`) and БлЗ (`02`). So `ita 021` reads the mode word and `ati 021` writes it, and unlike РП and
+РЗ, which are write-only, PSW can be read back this way — the only machine register that can. C
+reaches the pair as `__besm6_getpsw`/`__besm6_setpsw` ([Besm6_Intrinsics.md](Besm6_Intrinsics.md)
+§3.3). Note that our two simulators model only the index registers: `dubna` and `b6sim` both
+compute `M[Aex & 017]`, so under them `ita 021` reads M[1] and `ati 021` overwrites it.
 
 ---
 
@@ -1033,6 +1043,22 @@ M[reg] = V    ; V = offset + C (the address field, without M[reg] contribution)
 
 Loads M[reg] with the 15-bit value V (the raw offset plus C, not including the current
 M[reg]). This allows loading an absolute value into any modifier register.
+
+**With `reg == 0`, in supervisor mode, this is the mode-word write.** M[0] always reads 0, so the
+register half of the instruction is a no-op and the hardware spends it on PSW instead: the БлП
+(`01`), БлЗ (`02`) and БлПр (`02000`) bits of V are written into PSW, **all three at once**. It is
+a *masked* write — ПоП, ПоК and the write-watch bit are not in the mask and keep their values — and
+it disturbs neither the accumulator nor ω. In user mode there is no side effect at all. `025 UTM`
+with `reg == 0` does the identical thing, from the identical address field.
+
+This is the only single-instruction way to change the interrupt level or the mapping override, and
+a kernel uses it as such: `vtm 3` enables interrupts, `vtm 02003` blocks them, `vtm 02002` turns
+mapping on for a `copyin` bracket. It is exposed to C as `__besm6_maskpsw`
+([Besm6_Intrinsics.md](Besm6_Intrinsics.md) §3.3). Two caveats when writing it by hand: **Madlen
+will not assemble it** — `,vtm,` with a zero modifier, omitted or explicit, is rejected with
+*ошибка в модификаторе*, so it must be written as the raw octal `,24, N` — and **neither `dubna`
+nor `b6sim` implements it**; both give a register-0 `vtm` a private meaning, the instruction-trace
+toggle.
 
 ---
 

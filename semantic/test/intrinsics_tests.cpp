@@ -28,6 +28,9 @@ unsigned poke(unsigned a, unsigned m)
     __besm6_mod(036, m);
     __besm6_mod(037, ~(unsigned)1);
 
+    __besm6_setpsw(__besm6_getpsw() | 02000);
+    __besm6_maskpsw(02003);
+
     if (n + ones + top + code == 0)
         __besm6_stop(5);
     return n;
@@ -71,6 +74,46 @@ unsigned grp(void)
     ASSERT_NE(acc->next, nullptr);
     ASSERT_NE(acc->next->type, nullptr);
     EXPECT_EQ(acc->next->type->kind, TYPE_UINT);
+}
+
+// The three PSW intrinsics are the deliberate exception to the rule above: they are typed
+// `int`, because what they carry is not a 48-bit machine word but a 15-bit address-field
+// value — PSW is read and written through `ita`/`ati`/`vtm`, all of which are 15-bit paths.
+// __besm6_getpsw is also the one intrinsic that takes no arguments at all.
+TEST_F(PipelineTest, Besm6PswIsInt)
+{
+    RunPipeline(R"(#include <besm6.h>
+int level(void)
+{
+    int psw = __besm6_getpsw();
+    __besm6_setpsw(psw);
+    __besm6_maskpsw(02003);
+    return psw & 02000;
+})");
+
+    const Symbol *get = symtab_get("__besm6_getpsw");
+    ASSERT_NE(get, nullptr);
+    ASSERT_NE(get->type, nullptr);
+    ASSERT_EQ(get->type->kind, TYPE_FUNCTION);
+    ASSERT_NE(get->type->u.function.return_type, nullptr);
+    EXPECT_EQ(get->type->u.function.return_type->kind, TYPE_INT);
+    EXPECT_EQ(get->type->u.function.params, nullptr); // (void)
+
+    const Symbol *set = symtab_get("__besm6_setpsw");
+    ASSERT_NE(set, nullptr);
+    ASSERT_NE(set->type, nullptr);
+    ASSERT_NE(set->type->u.function.return_type, nullptr);
+    EXPECT_EQ(set->type->u.function.return_type->kind, TYPE_VOID);
+    ASSERT_NE(set->type->u.function.params, nullptr);
+    ASSERT_NE(set->type->u.function.params->type, nullptr);
+    EXPECT_EQ(set->type->u.function.params->type->kind, TYPE_INT);
+
+    const Symbol *mask = symtab_get("__besm6_maskpsw");
+    ASSERT_NE(mask, nullptr);
+    ASSERT_NE(mask->type, nullptr);
+    ASSERT_NE(mask->type->u.function.params, nullptr);
+    ASSERT_NE(mask->type->u.function.params->type, nullptr);
+    EXPECT_EQ(mask->type->u.function.params->type->kind, TYPE_INT);
 }
 
 // The halt is RESUMABLE: the operator presses continue on the console and the

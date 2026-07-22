@@ -293,7 +293,17 @@ void emit_madlen_instr(FILE *out, const Besm_Instr *instr)
                 mad_operand(a, sizeof(a), instr);
             else
                 snprintf(a, sizeof(a), "%d", instr->addr);
-            emit_line(out, NULL, instr->reg, mad_mnem(k), a);
+            // The mode-word write (`__besm6_maskpsw`) is a `vtm` whose modifier register is 0
+            // — that is what makes it a PSW write rather than an index-register load.  Madlen
+            // will not spell it: `,vtm,` with modifier 0, absent or written out, is rejected
+            // with "ошибка в модификаторе" (it accepts only 1-15, for `,utm,` too).  So the
+            // mode write goes out as raw octal machine code, exactly as the halt does above —
+            // `,24, N` is the Format-2 opcode 024 with a zero register field, verified against
+            // Bemsh's `уиа 1027`, which the translator encodes as `00 24 02003`.
+            if (k == BESM_REG_VTM && instr->reg == 0)
+                emit_line(out, NULL, 0, "24", a);
+            else
+                emit_line(out, NULL, instr->reg, mad_mnem(k), a);
             break;
         case BESM_SHAPE_SPECIAL:
             emit_madlen_special(out, instr);
