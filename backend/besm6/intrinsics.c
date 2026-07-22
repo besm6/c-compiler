@@ -51,10 +51,89 @@ static const struct {
     { "__besm6_mod", BESM_IO_MOD }, // 002 рег — the CPU-internal registers
 };
 
-// The Format-1 offset field is 12 bits, and every address in the peripherals map fits (033
-// reaches 04177, 002 reaches 0237), so a constant address is always an immediate and the
-// Format-1 S bit is never needed.
-#define BESM_SHORT_ADDR_MAX 07777
+//
+// How the effective address of an `ext` / `mod` / extracode is delivered.  All three name
+// their device register or trap argument through the EA, and `EA = addr + M[reg] + C`, so
+// there are exactly three ways to get a value there.
+//
+typedef enum {
+    IO_ADDR_IMM,  // small constant: the instruction's own 12-bit offset field
+    IO_ADDR_UTC,  // larger constant: `utc N` (Format 2, 15 bits) puts it in C
+    IO_ADDR_STACK // anything computed: push A, pop it back into C with a stack-mode `wtc`
+} IoAddrMode;
+
+//
+// Classify an address operand and, for IO_ADDR_IMM, hand back the field value.
+//
+// A constant is an immediate when it fits the short field, and rides a `utc` when it fits
+// the long one.  Everything else — a variable, a global, a computed temporary, an
+// out-of-range or floating constant — goes through the accumulator and the stack.
+//
+static IoAddrMode io_addr_classify(const Tac_Val *addr, int *imm)
+{
+    if (addr->kind != TAC_VAL_CONSTANT)
+        return IO_ADDR_STACK;
+
+    Besm_ConstWord w = besm_const_word(addr->u.constant);
+    if (w.is_real)
+        return IO_ADDR_STACK;
+    if (w.word <= BESM_SHORT_ADDR_MAX) {
+        *imm = (int)w.word;
+        return IO_ADDR_IMM;
+    }
+    if (w.word <= BESM_LONG_ADDR_MAX) {
+        *imm = (int)w.word;
+        return IO_ADDR_UTC;
+    }
+    return IO_ADDR_STACK;
+}
+
+//
+// Emit the address setup and the accumulator load shared by `ext`, `mod` and the extracode,
+// then the instruction itself, and return it so the caller can stamp in an opcode.
+//
+// The C register is added to the next instruction's EA and to that one only, so a C setter
+// has to be the instruction immediately before the I/O op.  That fixes the order: whatever
+// is needed for the address comes first, the accumulator second, the C setter last.
+//
+//   IO_ADDR_IMM     `xta acc`                       `,ext, N`     EA = N
+//   IO_ADDR_UTC     `xta acc` `utc N`               `,ext,`       EA = C = N
+//   IO_ADDR_STACK   `xta addr` `xts acc` `15 wtc`   `,ext,`       EA = C = the pushed word
+//
+// The stack round-trip is what keeps a computed address off an index register: XTS (003)
+// writes A to mem[M[15]] and bumps the pointer, then loads the accumulator operand; the
+// `wtc` that follows is in stack mode (V = 0 and M = 017), so it decrements the pointer and
+// loads C from the word just pushed.  Push and pop are adjacent and balanced, no index
+// register is disturbed, and both instructions leave ω logical — the mode compiled code
+// already runs in.  It costs exactly what materializing the address into a register costs,
+// and unlike a register it is a shape the peephole can fold: rules #32(a) and #32(b) turn
+// `xta x` + `a+x =N` + this trailer into a lone `wtc x` plus the displacement N in the
+// instruction's own address field.  See docs/Peephole_Rewrites.md §5.10.
+//
+static Besm_Instr *emit_io_op(Besm_Block *block, Besm_Instr **tail, const Frame *f,
+                              Besm_InstrKind kind, const Tac_Val *addr, const Tac_Val *acc)
+{
+    int imm         = 0;
+    IoAddrMode mode = io_addr_classify(addr, &imm);
+
+    if (mode == IO_ADDR_STACK) {
+        emit_xta_val(block, tail, f, addr); // A = the effective address
+        emit_xts_val(block, tail, f, acc);  // push it; A = the accumulator operand
+        Besm_Instr *wtc = emit(block, tail, BESM_MOD_WTC);
+        wtc->reg        = REG_SP; // stack mode: pop the address back into C
+    } else {
+        emit_xta_val(block, tail, f, acc);
+        if (mode == IO_ADDR_UTC) {
+            Besm_Instr *utc = emit(block, tail, BESM_MOD_UTC);
+            utc->addr       = imm; // C = N; UTC touches neither A nor a register
+        }
+    }
+
+    Besm_Instr *io = emit(block, tail, kind);
+    if (mode == IO_ADDR_IMM)
+        io->addr = imm;
+    return io;
+}
 
 //
 // Lower one intrinsic call, or return false if `instr` is an ordinary call.
@@ -110,35 +189,11 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
             fatal_error("intrinsic %s takes exactly two arguments: an address and a word",
                         name);
 
-        // A constant address becomes the instruction's own 12-bit offset field: `,ext, 2073`.
-        bool immediate = false;
-        uint64_t word  = 0;
-        if (addr->kind == TAC_VAL_CONSTANT) {
-            Besm_ConstWord w = besm_const_word(addr->u.constant);
-            immediate        = !w.is_real && w.word <= BESM_SHORT_ADDR_MAX;
-            word             = w.word;
-        }
-
-        // A computed address is materialized into the scratch index register: EA = M[14] + 0.
-        // The hardware genuinely needs one — `002 0100`-`0137` (the РУУ mode bits) encodes its
-        // data *in* the address, and tape-transport control selects the unit as addr - 0100.
-        if (!immediate) {
-            emit_xta_val(block, tail, f, addr);
-            Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
-            ati->addr       = REG_SCRATCH; // ATI is SHAPE_IMM0: the register number is the
-                                           // address field, not the modifier register
-        }
-
-        // The accumulator is loaded last: materializing the address clobbers it.  (The `ati`
-        // in between also stops peephole rule #27 from dropping this load as a redundant
-        // reload — it leaves A unknown — which is what makes __besm6_ext(a, a) work.)
-        emit_xta_val(block, tail, f, acc);
-
-        Besm_Instr *io = emit(block, tail, io_intrinsics[i].kind);
-        if (immediate)
-            io->addr = (int)word;
-        else
-            io->reg = REG_SCRATCH;
+        // A constant address becomes the instruction's own 12-bit offset field
+        // (`,ext, 2073`); a computed one arrives in C.  The hardware genuinely needs the
+        // computed case — `002 0100`-`0137` (the РУУ mode bits) encodes its data *in* the
+        // address, and tape-transport control selects the unit as addr - 0100.
+        emit_io_op(block, tail, f, io_intrinsics[i].kind, addr, acc);
 
         // The result is the accumulator the instruction leaves behind.  Discarding it (a
         // write address returns the unchanged word) drops only the store: the instruction
@@ -185,9 +240,9 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
     // (semantic/expressions.c) evaluates and range-checks it and folds the argument into a
     // literal, so it always arrives here as a TAC constant, whatever the optimizer flags.
     //
-    // The effective address lowers exactly like ext/mod's device address: a constant that
-    // fits the Format-1 offset field becomes the instruction's own address, anything else is
-    // materialized into the scratch index register (EA = M[14] + 0).
+    // The effective address lowers exactly like ext/mod's device address (emit_io_op): a
+    // constant that fits the Format-1 offset field becomes the instruction's own address,
+    // anything else arrives in the C register.
     if (strcmp(name, "__besm6_extracode") == 0) {
         const Tac_Val *op  = instr->u.fun_call.args;
         const Tac_Val *ea  = op ? op->next : NULL;
@@ -205,38 +260,14 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
                         (unsigned long long)w.word);
         int opcode = (int)w.word;
 
-        bool immediate = false;
-        uint64_t addr  = 0;
-        if (ea->kind == TAC_VAL_CONSTANT) {
-            Besm_ConstWord e = besm_const_word(ea->u.constant);
-            immediate        = !e.is_real && e.word <= BESM_SHORT_ADDR_MAX;
-            addr             = e.word;
-        }
-
-        if (!immediate) {
-            emit_xta_val(block, tail, f, ea);
-            Besm_Instr *ati = emit(block, tail, BESM_MEM_ATI);
-            ati->addr       = REG_SCRATCH; // ATI is SHAPE_IMM0: the register number is the
-                                           // address field, not the modifier register
-        }
-
-        // The accumulator is loaded last: materializing the address clobbers it.
-        emit_xta_val(block, tail, f, acc);
-
-        Besm_Instr *xc = emit(block, tail, BESM_IO_EXTRACODE);
+        Besm_Instr *xc = emit_io_op(block, tail, f, BESM_IO_EXTRACODE, ea, acc);
         xc->opcode     = opcode;
-        if (immediate)
-            xc->addr = (int)addr;
-        else
-            xc->reg = REG_SCRATCH;
 
         // The result is the accumulator the extracode leaves behind.  Discarding it drops
         // only the store: the trap itself is never eliminable.  Note the ABI consequence —
         // an extracode sets M[016] (r14) from the effective address, so r14 is clobbered
-        // here; that is harmless, and in the computed case it merely rewrites the scratch
-        // register (REG_SCRATCH *is* r14) with the address already in it.  Nothing can be
-        // live in r14 across this point: it holds the argument count, which the caller loads
-        // immediately before a `,call,`.
+        // here.  That is harmless: nothing can be live in r14 across this point, since it
+        // holds the argument count, which the caller loads immediately before a `,call,`.
         const Tac_Val *dst = instr->u.fun_call.dst;
         if (dst && dst->kind == TAC_VAL_VAR)
             emit_store_a(block, tail, f, dst->u.var_name);

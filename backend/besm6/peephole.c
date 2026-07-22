@@ -5,6 +5,7 @@
 #include "abi.h"
 #include "besm.h"
 #include "frame.h"
+#include "internal.h"
 #include "xalloc.h"
 
 //
@@ -18,8 +19,9 @@
 // sequences, and backend/besm6/TODO.md (Phase M) for the rule catalogue.
 //
 // Currently implemented: the framework itself (this file), rule #27 (redundant reload
-// elimination), rule #28 (dead temp-store elimination), rule #29 (NTR mode coalescing)
-// and rule #31 (branch / label cleanup).  Rule #30 (compare → branch fusion) needs no
+// elimination), rule #28 (dead temp-store elimination), rule #29 (NTR mode coalescing),
+// rule #31 (branch / label cleanup) and rule #32 (I/O address folding).  Rule #30
+// (compare → branch fusion) needs no
 // dedicated code: it is the emergent product of #27 (which drops the boolean reload) and
 // #28 (which drops the now-dead boolean store), made correct by the runtime helpers'
 // logical-ω exit contract (see docs/Besm6_Runtime_Library.md, "ω mode and the AU mode
@@ -27,7 +29,8 @@
 // tail (which also collapses the duplicate `uj b/ret`), and conditional-over-jump
 // inversion — are not `rule_table` entries either: two need list look-ahead and one
 // mutates the list, neither of which the `(cur, st)` predicate signature carries, so they
-// are handled directly in the sweep.  Rule #32 would append entries to the rule table.
+// are handled directly in the sweep.  Rule #32's two rewrites join them there for the same
+// reason: each matches a fixed multi-instruction shape and rewrites it in place.
 //
 // Cutting across all of them is the *C group* (see `is_c_setter` below): a UTC or WTC and
 // the instruction that follows it are one indivisible unit, because the C address-modifier
@@ -604,6 +607,173 @@ static bool try_invert_branch_over_jump(Besm_Block *block, Besm_Instr *cur)
     return true;
 }
 
+//
+// Rule #32 — I/O address folding.  See docs/Peephole_Rewrites.md §5.10.
+//
+// `ext`, `mod` and the extracode name their device register / trap argument through the
+// effective address, `EA = (addr + M[reg] + C) mod 0100000`.  For anything but a small
+// constant, instruction selection (emit_io_op in intrinsics.c) delivers that address through
+// the stack:
+//
+//     xta <addr>          A = the effective address
+//     [utc g]  xts <acc>  push it; A = the accumulator operand
+//  15 wtc                 stack mode: pop it back into C
+//     ext                 EA = C
+//
+// The round-trip is a fixed, recognizable trailer, and two rewrites shorten what feeds it.
+// Both are pure look-ahead on the list shape, so like rule #31 they live in the sweep rather
+// than in `rule_table`; neither inserts a node — each deletes its anchor and mutates the
+// trailer in place.  Their guard is that only these three instruction kinds ever carry this
+// trailer, so no ordinary code can match.
+//
+
+static bool is_io_kind(const Besm_Instr *i)
+{
+    return i->kind == BESM_IO_EXT || i->kind == BESM_IO_MOD || i->kind == BESM_IO_EXTRACODE;
+}
+
+// Match the trailer above starting at `i`, and hand back its three nodes.  The `utc name`
+// escape is the one emit_xts_val emits when the *accumulator* operand is a global; its C is
+// consumed by the `xts`, well before the `wtc` sets C again for the I/O op.
+static Besm_Instr *io_stack_trailer(Besm_Instr *i, Besm_Instr **out_xts, Besm_Instr **out_wtc)
+{
+    if (i != NULL && i->kind == BESM_MOD_UTC && i->name != NULL && i->konst == NULL && i->reg == 0)
+        i = i->next;
+    if (i == NULL || i->kind != BESM_MEM_XTS)
+        return NULL;
+    Besm_Instr *wtc = i->next;
+    if (wtc == NULL || wtc->kind != BESM_MOD_WTC || (int)wtc->reg != REG_SP || wtc->addr != 0 ||
+        has_operand_symbol(wtc))
+        return NULL;
+    Besm_Instr *io = wtc->next;
+    if (io == NULL || !is_io_kind(io) || io->reg != 0)
+        return NULL;
+    *out_xts = i;
+    *out_wtc = wtc;
+    return io;
+}
+
+// The value of `i`'s constant operand as a displacement that fits the Format-1 address
+// field, or -1 when it has none, is real, or is too large.  A literal operand is required:
+// an instruction with no operand at all is the zero constant (see emit.c's attach_const),
+// but adding zero never survives TAC constant folding, so a bare instruction here is a
+// memory operand — a frame slot, or mem[C] inside a C group — and names no displacement.
+static int displacement_operand(const Besm_Instr *i)
+{
+    if (i->name != NULL || i->konst == NULL)
+        return -1;
+    Besm_ConstWord w = besm_const_word(i->konst);
+    if (w.is_real || w.word > BESM_SHORT_ADDR_MAX)
+        return -1;
+    return (int)w.word;
+}
+
+//
+// Rule #32(a) — displacement fusion.  A constant added to the address just before the
+// trailer belongs in the instruction's own address field instead:
+//
+//   6 xta        6 xta            6 xta          6 xta
+//     a+x =100     xts       ⇒      xts =1         xts
+//     xts       15 wtc              call b$uadd 15 wtc
+//  15 wtc          ext 64        15 wtc            ext 1
+//     ext                           ext
+//
+// Two shapes reach here because C picks the addition by the operand type.  A signed one is
+// the machine's own `a+x`; an unsigned one is a call to the runtime helper `b$uadd`, which
+// pops the pushed left operand and leaves the sum in A (see libc/besm6/b_uadd) — deleting
+// the `xts`+`call` pair leaves the base in A and the stack balanced exactly as before.
+//
+// Folding is exact in both cases even though the addition is 48-bit and the address field
+// is 15: the trailer's `wtc` keeps only bits 15:1 and EA is formed mod 0100000, and
+// truncation commutes with addition, so `low15(base + N)` and `low15(base) + N mod 2^15`
+// are the same address.  Overflow of the C-level sum therefore cannot change the outcome.
+//
+static int try_io_displacement_fusion(Besm_Instr *cur)
+{
+    Besm_Instr *after = NULL; // the trailer's first node
+    int nodes         = 0;    // how many nodes at `cur` the fold removes
+
+    if (cur->kind == BESM_ARITH_ADD && cur->reg == 0) {
+        after = cur->next;
+        nodes = 1;
+    } else if (cur->kind == BESM_MEM_XTS && cur->next != NULL &&
+               cur->next->kind == BESM_BRANCH_CALL && cur->next->name != NULL &&
+               strcmp(cur->next->name, "b$uadd") == 0) {
+        after = cur->next->next;
+        nodes = 2;
+    } else {
+        return 0;
+    }
+
+    int disp = displacement_operand(cur);
+    if (disp < 0)
+        return 0;
+
+    Besm_Instr *xts, *wtc;
+    Besm_Instr *io = io_stack_trailer(after, &xts, &wtc);
+    if (io == NULL || io->addr != 0)
+        return 0;
+
+    io->addr = disp;
+    return nodes;
+}
+
+//
+// Rule #32(b) — memory-resident address.  When the address was merely loaded out of a frame
+// slot or a global, the push/pop round-trip is pure waste: `wtc` reads memory itself, so it
+// can address that location directly and the load disappears.
+//
+//   6 xta              xta          utc g            xta
+//     xts       ⇒    6 wtc            xta      ⇒     wtc g
+//  15 wtc              ext 1          xts            ext 1
+//     ext 1                        15 wtc
+//                                     ext 1
+//
+// The `xts` becomes the plain accumulator load it always was, and the `wtc` moves off the
+// stack pointer onto the location itself — one instruction either way, since WTC is Format 2
+// and its own 15-bit address field reaches any global directly.  A's previous value is dead
+// across the rewrite: the `xts`-turned-`xta` redefines it unconditionally before the I/O op,
+// which is itself a basic-block boundary.
+//
+static int try_io_memory_address(Besm_Instr *cur)
+{
+    Loc base;
+    Besm_Instr *after; // the trailer's first node
+    int nodes;         // how many nodes at `cur` the fold removes
+
+    if (cur->kind == BESM_MEM_XTA && !has_operand_symbol(cur) && cur->reg != 0) {
+        base  = plain_loc(cur);
+        after = cur->next;
+        nodes = 1;
+    } else if (cur->kind == BESM_MOD_UTC) {
+        base = c_group_loc(cur);
+        if (base.kind != LOC_GLOBAL || base.off != 0 || cur->next == NULL ||
+            cur->next->kind != BESM_MEM_XTA)
+            return 0;
+        after = cur->next->next;
+        nodes = 2;
+    } else {
+        return 0;
+    }
+    if (base.kind != LOC_FRAME && base.kind != LOC_GLOBAL)
+        return 0;
+
+    Besm_Instr *xts, *wtc;
+    if (io_stack_trailer(after, &xts, &wtc) == NULL)
+        return 0;
+
+    xts->kind = BESM_MEM_XTA;
+    wtc->reg  = 0;
+    wtc->addr = 0;
+    if (base.kind == LOC_FRAME) {
+        wtc->reg  = (unsigned)base.reg;
+        wtc->addr = base.off;
+    } else {
+        wtc->name = xstrdup(base.name); // borrowed from `cur`, which is about to be freed
+    }
+    return nodes;
+}
+
 // If `i` directly reads or writes an auto slot, report its offset.  Used to attribute
 // each slot reference to the basic block it occurs in (multi-block analysis).
 static bool instr_auto_slot_ref(const Besm_Instr *i, int *off)
@@ -685,6 +855,18 @@ static void delete_group(Besm_Block *block, Besm_Instr *prev, Besm_Instr *first,
     }
 }
 
+// Splice `count` nodes out at the cursor and return the new cursor (the node that follows
+// the run).  `prev` and the tracked state stay valid across it — nothing deleted this way
+// changes A, R or ω.
+static Besm_Instr *delete_run(Besm_Block *block, Besm_Instr *prev, Besm_Instr *cur, int count)
+{
+    Besm_Instr *after = cur;
+    for (int n = 0; n < count; n++)
+        after = after->next;
+    delete_group(block, prev, cur, count);
+    return after;
+}
+
 // One forward sweep over a block.  Returns true if any node was deleted.
 static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *multiblock)
 {
@@ -713,6 +895,15 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
         // exception, and it is safe: it deletes a run head-first, so a group's setter goes
         // before its consumer is ever the cursor.)
         if (is_c_setter(cur)) {
+            // Rule #32(b) for a global address: the anchor is the whole `utc g` + `xta`
+            // group, so it has to be caught before the group is stepped past.
+            int fold = try_io_memory_address(cur);
+            if (fold > 0) {
+                cur     = delete_run(block, prev, cur, fold);
+                changed = true;
+                continue;
+            }
+
             int count;
             Besm_Instr *consumer = c_group_consumer(cur, &count);
             if (consumer != NULL) {
@@ -768,6 +959,18 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
             cur     = next;
             changed = true;
             deleted = true;
+        }
+        // Rule #32: I/O address folding.  Each removes one or two nodes at the cursor and
+        // rewrites the `xts`/`wtc`/`ext` trailer that follows in place.
+        if (!deleted) {
+            int fold = try_io_displacement_fusion(cur);
+            if (fold == 0)
+                fold = try_io_memory_address(cur);
+            if (fold > 0) {
+                cur     = delete_run(block, prev, cur, fold);
+                changed = true;
+                deleted = true;
+            }
         }
         // Rule #31(c): invert a conditional that only skips an unconditional jump.
         // It mutates `cur` in place and deletes the following `uj`, so re-test `cur`.

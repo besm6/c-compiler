@@ -142,9 +142,9 @@ window:
 - **A branch** (`uj`, `uza`, `u1a`, `call`, …). After a branch the next instruction may be a
   branch target, and a `call` runs a helper that clobbers A.
 - **A supervisor instruction** (`ext`, `mod`, an extracode — the `<besm6.h>` intrinsics, see
-  5.10). These are not branches, but they rewrite the state the pass tracks: `ext`/`mod` put
-  the AU mode register R into logical mode on a read address, and an extracode runs the
-  monitor's handler, which may do anything at all.
+  5.10 and 5.11). These are not branches, but they rewrite the state the pass tracks:
+  `ext`/`mod` put the AU mode register R into logical mode on a read address, and an extracode
+  runs the monitor's handler, which may do anything at all.
 
 So the peephole pass treats the instruction list as a sequence of **basic blocks** delimited
 by labels and branches, resets its tracked A/R/ω state at every boundary, and never rewrites
@@ -498,7 +498,92 @@ This is worth stating plainly because the natural design — a table of "a store
 kills all dereferences, a store through a pointer kills everything" — is dead code on this
 architecture. A machine with a store-immediate or a memory-to-memory move would need it.
 
-### 5.10 What a new instruction kind owes the pass
+### 5.10 I/O address folding
+
+`ext` (033), `mod` (002) and the extracode all name their operand — a device register, a CPU
+register, a trap argument — through the **effective address** rather than through a memory
+word: `EA = (addr + M[reg] + C) mod 0100000`. A constant address that fits the 12-bit Format-1
+field is simply that field, but everything else has to be *put* somewhere the address
+calculation reads from, and the only two candidates are an index register and the C register.
+
+Instruction selection ([intrinsics.c](../backend/besm6/intrinsics.c), `emit_io_op`) picks C,
+and reaches it through the stack:
+
+```
+   xta <addr>          A = the effective address
+   xts <acc>           push it; A = the accumulator operand
+15 wtc                 stack mode (V = 0, M = 017): pop it back into C
+   ext                 EA = C
+```
+
+XTS (003) writes A to `mem[M[15]]`, bumps the pointer and loads the accumulator operand in one
+instruction; the `wtc` that follows is in stack mode, so it decrements the pointer and loads C
+from the word just pushed. Push and pop are adjacent and balanced, no index register is
+disturbed, and both instructions leave ω logical.
+
+That costs exactly what materialising the address into an index register costs. What it buys
+is a shape the peephole can fold — and both folds below are impossible on the index-register
+form, because there the address arrives in a register whose `(reg, addr)` fields name no
+location the pass can reason about.
+
+**(a) Displacement fusion.** A constant addend belongs in the instruction's own address field,
+where `EA = addr + C` adds it back for free:
+
+```
+6 xta        6 xta            6 xta          6 xta
+  a+x =100     xts       ⇒      xts =1         xts
+  xts       15 wtc              call b$uadd 15 wtc
+15 wtc         ext 64        15 wtc            ext 1
+  ext                           ext
+```
+
+Two shapes reach the rule because C picks the addition by operand type: a signed one is the
+machine's own `a+x`, an unsigned one a call to the runtime helper `b$uadd`, which pops the
+pushed left operand and leaves the sum in A. Deleting the `xts`+`call` pair leaves the base in
+A with the stack balanced exactly as before. Since `<besm6.h>` declares the address parameter
+`unsigned`, the helper form is the one device code actually produces.
+
+The fold is exact even though the C addition is 48-bit and the address field is 15: the `wtc`
+keeps only bits 15:1 and EA is formed mod 0100000, and truncation commutes with addition, so
+`low15(base + N)` and `low15(base) + N` are the same address. Overflow of the C-level sum
+cannot change the outcome. The displacement must fit the short field (≤ `07777`); a larger one
+declines the fold rather than truncating.
+
+**(b) Memory-resident address.** When the address was merely loaded out of a frame slot or a
+global, the round-trip is waste — `wtc` reads memory itself, so it can address that location
+directly:
+
+```
+6 xta              xta          utc g            xta
+  xts       ⇒    6 wtc            xta      ⇒     wtc g
+15 wtc             ext 1          xts            ext 1
+  ext 1                        15 wtc
+                                  ext 1
+```
+
+The `xts` becomes the plain accumulator load it always was, and the `wtc` moves off the stack
+pointer onto the location itself — one instruction either way, since WTC is Format 2 and its
+own 15-bit address field reaches any global directly (the Format 1 accessors are the ones that
+need a `utc` escape). A's previous value is dead across the rewrite: the `xts`-turned-`xta`
+redefines it unconditionally before the I/O op, which is itself a basic-block boundary.
+
+The two compose, and the pass already re-sweeps to a fixed point, so (a) exposes the base that
+(b) then anchors on. `__besm6_ext(x + 1, w)` goes from six nodes to three:
+
+```
+6 xta
+  xts =1                     6 xta 1
+  call b$uadd        ⇒       6 wtc
+6 xts 1                        ext 1
+15 wtc
+  ext
+```
+
+Neither rule can fire on ordinary code: only these three instruction kinds ever carry the
+`xts`/`15 wtc`/io trailer the matcher requires. Both need list look-ahead and rewrite in
+place, so like 5.5 they live in the sweep rather than in `rule_table`.
+
+### 5.11 What a new instruction kind owes the pass
 
 Two of the pass's structures are **whitelists**, and a whitelist is silent when it is
 incomplete: a kind left out of one does not fail to build, does not fail to assemble, and does

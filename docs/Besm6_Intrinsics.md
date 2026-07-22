@@ -108,9 +108,11 @@ A constant *expression* is fine — it is folded before the check, so `__besm6_e
 
 Every other argument may be constant or computed. In particular the register address of
 `__besm6_ext`/`__besm6_mod` may be either, and the hardware genuinely uses both: a constant address
-becomes the instruction's own offset field, while a computed one is materialised into an index
+becomes the instruction's own offset field, while a computed one arrives in the C address-modifier
 register (`002 0100`–`0137`, the РУУ mode bits, encodes its *data in the address*, and
-tape-transport control selects the unit as `addr − 0100`).
+tape-transport control selects the unit as `addr − 0100`). Neither costs an index register, and the
+common computed shapes — a variable, or a variable plus a constant — cost one instruction, the same
+as a constant: see §8.
 
 ### 2.4 What is *not* an intrinsic: absolute machine addresses
 
@@ -476,8 +478,8 @@ optimizer does; the halt code is checked at instruction selection.
 
 One thing is deliberately *not* an error: an `ext`/`mod` address too large for the 12-bit Format-1
 offset field (above `07777`). No address in the peripherals map is that large, but rather than
-truncate such a constant the compiler quietly falls back to the computed-address path through r14 —
-so `__besm6_ext(010000, 0)` is correct, just one instruction longer.
+truncate such a constant the compiler puts it in the C register with a `utc` — Format 2, whose own
+address field is 15 bits — so `__besm6_ext(010000, 0)` is correct, just one instruction longer.
 
 ---
 
@@ -508,17 +510,45 @@ correcting no-op `,aox,` — the other four already leave logical ω, verified c
 rules #27 and #28 drop the store/reload of a boolean, so a branch on an `arx` result consumes
 the accumulator the `arx` itself left, with nothing in between to reset ω.
 
-**Tier 1 and Tier 3** share their addressing. A constant address that fits the 12-bit Format-1
-offset field becomes the instruction's own address; anything else is materialised into
-`REG_SCRATCH` — **r14** — and the instruction reads `EA = M[14] + 0`. The accumulator is loaded
-**last**, because materialising the address clobbers A. That ordering does double duty: the `ati`
-between the two loads leaves A unknown to the peephole, which is what stops rule #27 from dropping
-the accumulator load as a redundant reload — and so what makes `__besm6_ext(a, a)` work.
+**Tier 1 and Tier 3** share their addressing. All three name their operand through the effective
+address, `EA = (addr + M[reg] + C) mod 0100000`, and `emit_io_op` reaches it three ways — never
+through an index register:
 
-**The r14 clobber.** An extracode sets `M[016]` from the effective address, so r14 does not survive
-one. Nothing can be live in it across the trap: r14 is caller-saved, and its ABI role is the
-argument count, which a caller loads immediately before the `,call,`. In the computed-address case
-the extracode merely rewrites the scratch register with the address that was already in it.
+| Address | Setup | Instruction |
+|---------|-------|-------------|
+| constant ≤ `07777` | — | `,ext, N` |
+| constant ≤ `077777` | `,utc, N` (Format 2, 15-bit field) | `,ext,` |
+| anything else | `,xts,` the accumulator operand, then `15 ,wtc,` | `,ext,` |
+
+The third row is the general case, and it is the interesting one. The address is computed into A as
+usual; then XTS (003) writes A to `mem[M[15]]`, bumps the stack pointer and loads the accumulator
+operand — all in one instruction — and the `wtc` that follows runs in **stack mode** (`V = 0`,
+`M = 017`), so it decrements the pointer and loads C from the word just pushed. Push and pop are
+adjacent and balanced, both leave ω logical, and nothing but A and the stack is touched.
+
+That costs exactly what an index register would have cost, and it folds where an index register
+could not. The peephole's rule #32 ([Peephole_Rewrites.md](Peephole_Rewrites.md) §5.10) rewrites the
+two shapes device code actually writes:
+
+```
+unsigned io(unsigned addr, unsigned acc)      unsigned tape(int unit)
+{ return __besm6_ext(addr, acc); }            { return __besm6_ext(unit + 0100, 0); }
+
+  6 ,xta, 1                                       ,xta,
+  6 ,wtc,                                       6 ,wtc,
+    ,ext,                                         ,ext, 64
+```
+
+An address already in memory needs no round-trip at all — `wtc` reads memory itself, and being
+Format 2 it reaches a global directly (`,wtc, dev`, no `utc` escape). A constant *added* to the
+address belongs in the instruction's own offset field, which `EA = addr + C` adds back for free;
+that fold is exact despite the 48-bit C-level addition, because truncation to 15 bits commutes with
+addition. So the two common computed forms cost one instruction, the same as a constant.
+
+**The r14 clobber.** An extracode sets `M[016]` — that is, r14 — from the effective address, so r14
+does not survive one. Nothing can be live in it across the trap: r14 is caller-saved, and its ABI
+role is the argument count, which a caller loads immediately before the `,call,`. The lowering
+itself no longer goes anywhere near it.
 
 **Three new instruction kinds** carry this in the backend IR ([besm6.asdl](../backend/besm6/besm6.asdl),
 [besm.h](../backend/besm6/besm.h)): `BESM_IO_EXT`, `BESM_IO_MOD` and `BESM_IO_EXTRACODE`. The
@@ -528,7 +558,7 @@ is `BESM_SHAPE_SPECIAL` with its opcode in the `opcode` field, because its mnemo
 and every dialect writes that differently.
 
 **Two peephole obligations** come with those kinds, and both are the sort that miscompiles silently
-if missed (see [Peephole_Rewrites.md](Peephole_Rewrites.md) §5.10):
+if missed (see [Peephole_Rewrites.md](Peephole_Rewrites.md) §5.11):
 
 - `BESM_IO_EXT`/`BESM_IO_MOD`/`BESM_IO_EXTRACODE` are **basic-block boundaries**. `ext`/`mod`
   rewrite the AU mode register R (a read address switches it to logical), which is the very

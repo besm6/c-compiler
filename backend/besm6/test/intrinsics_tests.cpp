@@ -555,13 +555,16 @@ TEST_F(CodegenTest, IntrinsicExtConstMadlen)
 }
 
 //
-// A computed address is materialized into the scratch index register r14, and the
-// instruction reads it as EA = M[14] + 0.  The hardware genuinely needs this: `002 0100`-
-// `0137` (the РУУ mode bits) encodes its data *in* the address, and tape-transport control
-// selects the unit as addr - 0100.
+// A computed address rides in the C address-modifier register, and the instruction reads it
+// as EA = 0 + C.  The hardware genuinely needs a computed address: `002 0100`-`0137` (the
+// РУУ mode bits) encodes its data *in* the address, and tape-transport control selects the
+// unit as addr - 0100.
 //
-// Note the order: the address is materialized first and the accumulator loaded last, because
-// `,xta,` of the address clobbers A.
+// Here the address is a parameter, so it is already in memory and `wtc` (023, "C = bits 15:1
+// of mem[EA]") reads it straight from its frame slot — no index register, and no accumulator
+// round-trip.  Instruction selection emits the general stack form and peephole rule #32(b)
+// collapses it to this; see IntrinsicExtSumMadlen for the form that survives when the
+// address is genuinely computed.
 //
 TEST_F(CodegenTest, IntrinsicExtComputedMadlen)
 {
@@ -574,10 +577,113 @@ TEST_F(CodegenTest, IntrinsicExtComputedMadlen)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save
-           6 ,xta,
-             ,ati, 14
            6 ,xta, 1
-          14 ,ext,
+           6 ,wtc,
+             ,ext,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+//
+// A module-level address variable takes the same single `wtc`, with no `utc` escape ahead of
+// it: WTC is a Format 2 instruction, so its own address field is 15 bits and reaches any
+// global directly.  (The Format 1 accessors are the ones that need the escape.)
+//
+TEST_F(CodegenTest, IntrinsicExtGlobalAddrMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        unsigned dev;
+        unsigned io(unsigned acc) { return __besm6_ext(dev, acc); }
+    )");
+    EXPECT_EQ(R"(c
+      dev:   ,name,
+             ,bss, 1
+             ,end,
+c
+       io:   ,name,
+    b/ret:   ,subp,
+      dev:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,wtc, dev
+             ,ext,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+//
+// A constant *added* to an address does not need to be computed at all: it fits the
+// instruction's own 12-bit offset field, and `EA = addr + C` adds it back at no cost.  This
+// is the tape-transport shape from the peripherals map — unit selection is `addr - 0100`, so
+// device code says `unit + 0100` — and both C spellings of the addition fold.
+//
+// `unit + 0100` on a signed operand is the machine's own `a+x`; `x + 1` on the header's
+// `unsigned` parameter is a call to the runtime helper `b$uadd`.  Rule #32(a) deletes either
+// and moves the constant into the address field.  That is exact even though the C addition
+// is 48-bit and the field is 15: the `wtc` keeps only bits 15:1 and EA is formed mod
+// 0100000, and truncation commutes with addition.
+//
+TEST_F(CodegenTest, IntrinsicExtDisplacementMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        unsigned tape(int unit) { return __besm6_ext(unit + 0100, 0); }
+        unsigned next(unsigned x) { return __besm6_ext(x + 1, 0); }
+    )");
+    EXPECT_EQ(R"(c
+     tape:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+             ,xta,
+           6 ,wtc,
+             ,ext, 64
+             ,uj, b/ret
+             ,end,
+c
+     next:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+             ,xta,
+           6 ,wtc,
+             ,ext, 1
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+//
+// The general form, when the address really is computed and lives nowhere: XTS (003) pushes
+// it and loads the accumulator operand in one instruction, and the `wtc` that follows is in
+// stack mode (V = 0, M = 017), so it decrements the stack pointer and pops the address into
+// C.  Push and pop are adjacent and balanced, and no index register is disturbed — r14 in
+// particular is left alone, which the old lowering could not say.
+//
+TEST_F(CodegenTest, IntrinsicExtSumMadlen)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        unsigned io(unsigned a, unsigned b, unsigned acc) { return __besm6_ext(a + b, acc); }
+    )");
+    EXPECT_EQ(R"(c
+       io:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+           6 ,xts, 1
+             ,call, b/uadd
+           6 ,xts, 2
+          15 ,wtc,
+             ,ext,
              ,uj, b/ret
              ,end,
 )",
@@ -630,9 +736,10 @@ c
 // word 0, which always reads as zero.
 //
 // The second function's address, 010000, is the one case that does not fit the 12-bit
-// Format-1 offset field, so it falls back to the r14 path even though it is a constant.  No
-// address in the peripherals map is that large; the fallback is what keeps an out-of-range
-// constant correct rather than truncated.
+// Format-1 offset field.  It still needs no computation: `utc` (022) is Format 2, so its own
+// 15-bit address field holds the whole value and it sets C from it directly, touching
+// neither A nor an index register.  No address in the peripherals map is that large; this is
+// what keeps an out-of-range constant correct rather than truncated.
 //
 TEST_F(CodegenTest, IntrinsicExtLongAddrMadlen)
 {
@@ -655,10 +762,9 @@ c
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save0
-             ,xta, =10000
-             ,ati, 14
              ,xta,
-          14 ,ext,
+             ,utc, 4096
+             ,ext,
              ,uj, b/ret
              ,end,
 )",
@@ -730,10 +836,9 @@ ready:
 io:
     its 13
  13 vjm b$save
-  6 xta
-    ati 14
   6 xta 1
- 14 ext
+  6 wtc
+    ext
     uj b$ret
     .text
     .globl mask
@@ -748,8 +853,9 @@ mask:
 }
 
 //
-// Instruction selection — Bemsh.  увв = ext (033) and рег = mod (002); the modifier register
-// is parenthesized after the address, so the computed form reads `увв (14)`.
+// Instruction selection — Bemsh.  увв = ext (033) and рег = mod (002); мод = wtc (023), the
+// C-register load whose own modifier register is parenthesized after the address, so a
+// computed address reads `мод (6)` and the I/O op that consumes it needs no operand at all.
 //
 TEST_F(CodegenTest, IntrinsicExtConstBemsh)
 {
@@ -791,10 +897,9 @@ _save  внешн ._save
 _ret   внешн ._ret
        счим 13
        пв _save(13)
-       сч (6)
-       уи 14
        сч 1(6)
-       рег (14)
+       мод (6)
+       рег
        пб _ret
        финиш
 квч$$$
@@ -900,10 +1005,9 @@ TEST_F(CodegenTest, IntrinsicExtracodeComputedMadlen)
     b/ret:   ,subp,
              ,its, 13
              ,call, b/save
-           6 ,xta,
-             ,ati, 14
            6 ,xta, 1
-          14 ,*70,
+           6 ,wtc,
+             ,*70,
              ,uj, b/ret
              ,end,
 )",
@@ -930,10 +1034,9 @@ bye:
 trap:
     its 13
  13 vjm b$save
-  6 xta
-    ati 14
   6 xta 1
- 14 $70
+  6 wtc
+    $70
     uj b$ret
 )",
               output);
@@ -1039,6 +1142,59 @@ TEST_F(CodegenTest, UnixRunIntrinsicExtracode)
         {
             puts("BYE");
             __besm6_extracode(077, 1, 42);
+            return 7;
+        }
+    )");
+    EXPECT_EQ("BYE\n" "42\n", result);
+}
+
+//
+// The same trap with a *computed* effective address, so the C-register lowering is executed
+// rather than only pattern-matched.  `base + 1` with base = 0 is syscall 1 again, and the
+// exit code still arrives in A — but this reaches the trap through peephole rule #32(a)
+// (the displacement folds into the instruction's own address field) and #32(b) (the base
+// comes straight out of its frame slot via `wtc`), i.e. through the three-instruction form.
+//
+TEST_F(CodegenTest, UnixRunIntrinsicExtracodeComputed)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunBook(R"(
+        #include <stdio.h>
+        #include <besm6.h>
+        void leave(unsigned base, unsigned code)
+        {
+            __besm6_extracode(077, base + 1, code);
+        }
+        int main(void)
+        {
+            puts("BYE");
+            leave(0, 42);
+            return 7;
+        }
+    )");
+    EXPECT_EQ("BYE\n" "42\n", result);
+}
+
+//
+// And once more through the shape nothing folds: the effective address is the sum of two
+// runtime values, so it exists only in the accumulator and reaches C by the general route —
+// XTS pushes it while loading the code, and the stack-mode `wtc` pops it back.  This is the
+// test that the push/pop pair is balanced and lands the right word in C.
+//
+TEST_F(CodegenTest, UnixRunIntrinsicExtracodeStacked)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunBook(R"(
+        #include <stdio.h>
+        #include <besm6.h>
+        void leave(unsigned a, unsigned b, unsigned code)
+        {
+            __besm6_extracode(077, a + b, code);
+        }
+        int main(void)
+        {
+            puts("BYE");
+            leave(0, 1, 42);
             return 7;
         }
     )");

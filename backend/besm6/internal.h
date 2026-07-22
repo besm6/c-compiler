@@ -28,6 +28,15 @@ typedef struct {
 
 Besm_ConstWord besm_const_word(const Tac_Const *c);
 
+// The widest address each instruction format can carry in its own field.  A Format-1 offset
+// is 12 bits — every address in the peripherals map fits (033 reaches 04177, 002 reaches
+// 0237), so an I/O intrinsic's constant address is always an immediate and the Format-1 S
+// bit is never needed.  A Format-2 offset is 15 bits, the whole address space, and so is the
+// C register a `utc` sets from it.  Shared by intrinsics.c (lowering) and peephole.c
+// (rule #32, which folds a displacement back into the short field).
+#define BESM_SHORT_ADDR_MAX 07777
+#define BESM_LONG_ADDR_MAX  077777
+
 // True when the constant encodes the all-zero 48-bit word.  Such an operand needs no literal
 // at all, so instruction selection attaches none and leaves the instruction with an empty
 // address field: EA = 0, and memory word 0 always reads as zero.  Defined in besm_const.c.

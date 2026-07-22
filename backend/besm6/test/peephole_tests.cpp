@@ -593,3 +593,64 @@ TEST_F(CodegenTest, DerefReloadBehaviorUnchanged)
     )");
     EXPECT_EQ("5 1 99\n", out);
 }
+
+//
+// Rule #32 — I/O address folding.  See docs/Peephole_Rewrites.md §5.10.
+//
+// Instruction selection always delivers a non-constant `ext`/`mod`/extracode address through
+// the stack (`xts` pushes it while loading the accumulator operand, a stack-mode `wtc` pops
+// it into C).  #32(b) collapses that to a single `wtc` when the address was merely loaded
+// out of memory, and #32(a) moves a constant addend into the instruction's own address
+// field.  Together they turn six nodes into three.
+//
+
+// Both rules on the same call: `x + 1` on the header's `unsigned` parameter lowers to
+// `xta x` + `xts =1` + `call b/uadd`, and the folded result reads the address straight out
+// of the frame slot with the displacement in the `ext` itself.  Nothing is left of the
+// addition, and no index register is touched.
+TEST_F(CodegenTest, IoAddressFoldedToWtc)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        unsigned poke(unsigned x, unsigned w) { return __besm6_ext(x + 1, w); }
+    )");
+    EXPECT_EQ(R"(c
+     poke:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta, 1
+           6 ,wtc,
+             ,ext, 1
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// The displacement bound.  010000 does not fit the 12-bit Format-1 address field, so #32(a)
+// must decline — and with the addition still in the way, #32(b) has no memory-resident base
+// to anchor on either.  The whole stack form survives, which is what keeps the address
+// correct rather than truncated into the field.
+TEST_F(CodegenTest, IoAddressDisplacementTooLargeKept)
+{
+    std::string output = CompileToMadlen(R"(
+        #include <besm6.h>
+        unsigned poke(unsigned x, unsigned w) { return __besm6_ext(x + 010000, w); }
+    )");
+    EXPECT_EQ(R"(c
+     poke:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,xts, =10000
+             ,call, b/uadd
+           6 ,xts, 1
+          15 ,wtc,
+             ,ext,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
