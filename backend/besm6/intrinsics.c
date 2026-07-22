@@ -253,7 +253,12 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
     // effect at all.
     //
     // The mask therefore rides in the instruction's own 15-bit address field, exactly like the
-    // halt code below, and must likewise be a compile-time constant.
+    // halt code below, and must likewise be a compile-time constant.  The front end
+    // (semantic/expressions.c, fold_immediate_arg0) evaluates and range-checks it and folds the
+    // argument into a literal, so it arrives here as a TAC constant however deeply nested the
+    // source expression was and whatever the optimizer flags say.  The test below is the
+    // backstop, not the mechanism: relying on TAC-level folding instead used to reject a mask
+    // written as a three-term OR of named bits.
     if (strcmp(name, "__besm6_maskpsw") == 0) {
         const Tac_Val *mask = instr->u.fun_call.args;
         if (mask && !mask->next && mask->kind == TAC_VAL_CONSTANT) {
@@ -277,7 +282,8 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
     // of an unreachable run).
     //
     // The halt code rides in the instruction's own 15-bit address field (BESM_SHAPE_IMM0), so
-    // it has to be a compile-time constant.  Nothing is lost: it is a diagnostic literal, and
+    // it has to be a compile-time constant — folded and range-checked in the front end, like
+    // the mask above.  Nothing is lost: it is a diagnostic literal, and
     // neither dubna nor b6sim even reads it — both simply end the run.  (IMM0 zeroes the
     // register field; should a register-modified code ever be wanted, IMMR renders identically
     // when reg == 0.)

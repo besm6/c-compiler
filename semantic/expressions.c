@@ -178,27 +178,62 @@ static Expr *typecheck_literal(Expr *e)
 }
 
 //
-// The opcode argument of __besm6_extracode(op, ea, acc) — the one <besm6.h> intrinsic the
-// front end has to look at (docs/Besm6_Intrinsics.md §5).  `op` *is* the extracode's opcode,
-// so it becomes an immediate field of the instruction word and must be a compile-time
-// constant in 050..077; the other eight intrinsics need nothing here and are lowered from an
-// ordinary call in the back end.
+// The <besm6.h> intrinsics whose FIRST argument is an immediate field of the instruction word
+// rather than a value (docs/Besm6_Intrinsics.md §3.3, §3.4, §5).  There is no register to put
+// such an argument in: it is part of the encoding, so it must be a compile-time constant, and
+// the back end can only emit the instruction once it has one.
 //
-// Evaluate it, diagnose a non-constant or out-of-range opcode, and replace the argument with
-// the folded literal, so that it reaches the back end as a TAC constant whatever the
-// optimizer flags say.  Returns the new argument list head.
+// The other nine intrinsics need nothing here and are lowered from an ordinary call.
 //
-static Expr *fold_extracode_opcode(Expr *args)
+static const struct {
+    const char *name;
+    const char *what;  // names the argument in the diagnostic
+    const char *range; // completes "<name>: <what> <value> ..." when out of range
+    long lo, hi;
+} immediate_arg0[] = {
+    // `op` *is* the extracode's opcode; only 050..077 are extracodes, anything else names a
+    // different instruction entirely.
+    { "__besm6_extracode", "opcode", "is not an extracode (050..077)", 050, 077 },
+    // The mask of the register-0 `vtm` mode write, and the halt code of `033`: both ride in
+    // the instruction's own 15-bit address field.
+    { "__besm6_maskpsw", "mask", "does not fit the 15-bit address field", 0, 077777 },
+    { "__besm6_stop", "halt code", "does not fit the 15-bit address field", 0, 077777 },
+};
+
+//
+// Evaluate such an argument, diagnose a non-constant or out-of-range one, and replace it with
+// the folded literal.
+//
+// THE FOLD HAS TO HAPPEN HERE, not at instruction selection.  eval_const() is the language's
+// own constant-expression evaluator and is fully recursive, so it sees through an arbitrarily
+// nested constant expression — `(PSW_MMAP_DISABLE | PSW_PROT_DISABLE) | PSW_INTR_DISABLE`, the
+// way a kernel actually spells a mode-word mask.  The TAC-level folding the back end used to
+// rely on is neither: it collapsed one level and left anything deeper as a live OR node, so a
+// three-term mask reached the back end unfolded and was rejected as "not a constant" — with a
+// diagnostic pointing at the one thing that was not wrong.  Folding in the front end also makes
+// the contract independent of the optimizer flags.
+//
+// Returns the new argument list head; `args` must be non-NULL (arity is checked by the
+// prototype in <besm6.h> before this runs).
+//
+static Expr *fold_immediate_arg0(Expr *args, const char *name)
 {
-    long op = 0;
-    if (!try_eval_const_int(args, &op))
-        fatal_error("__besm6_extracode: the opcode must be a compile-time constant");
-    if (op < 050 || op > 077)
-        fatal_error("__besm6_extracode: opcode %lo is not an extracode (050..077)", op);
+    unsigned i;
+    for (i = 0; i < sizeof(immediate_arg0) / sizeof(immediate_arg0[0]); i++)
+        if (strcmp(name, immediate_arg0[i].name) == 0)
+            break;
+    if (i == sizeof(immediate_arg0) / sizeof(immediate_arg0[0]))
+        return args; // not one of them
+
+    long val = 0;
+    if (!try_eval_const_int(args, &val))
+        fatal_error("%s: the %s must be a compile-time constant", name, immediate_arg0[i].what);
+    if (val < immediate_arg0[i].lo || val > immediate_arg0[i].hi)
+        fatal_error("%s: %s %lo %s", name, immediate_arg0[i].what, val, immediate_arg0[i].range);
 
     Expr *lit                 = new_expression(EXPR_LITERAL);
     lit->u.literal            = new_literal(LITERAL_INT);
-    lit->u.literal->u.int_val = (int)op;
+    lit->u.literal->u.int_val = (int)val;
     lit                       = typecheck_literal(lit);
 
     lit->next  = args->next;
@@ -683,10 +718,11 @@ static Expr *typecheck_expr(Expr *e)
             prev = new_arg;
             arg  = arg_next;
         }
-        // The one intrinsic whose argument the front end must constant-fold: an extracode's
-        // opcode is an immediate field of the instruction word, not a value.
-        if (func->kind == EXPR_VAR && strcmp(func->u.var, "__besm6_extracode") == 0)
-            new_args = fold_extracode_opcode(new_args);
+        // The intrinsics whose first argument the front end must constant-fold: an extracode's
+        // opcode, a mode-word mask and a halt code are immediate fields of the instruction
+        // word, not values.
+        if (func->kind == EXPR_VAR && new_args)
+            new_args = fold_immediate_arg0(new_args, func->u.var);
 
         free_type(e->type);
         e->type        = clone_type(fn_type->u.function.return_type, __func__, __FILE__, __LINE__);

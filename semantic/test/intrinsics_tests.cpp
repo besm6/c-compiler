@@ -182,3 +182,69 @@ unsigned wr(unsigned n)
 })");
     EXPECT_NE(program, nullptr);
 }
+
+// __besm6_maskpsw's mask and __besm6_stop's halt code are immediate fields too, and are folded
+// by the same front-end pass.  A DEEPLY NESTED constant expression must fold — this is how a
+// kernel spells a mode-word mask, out of the named PSW bits rather than as one magic octal.
+//
+// The regression this pins: the fold used to happen at TAC level in the back end and collapsed
+// only ONE level, so a three-term OR arrived as a live node and was rejected as "not a
+// constant".  Two terms folded, three did not, which made the rule look arbitrary at the call
+// site.  eval_const() is recursive, so nesting depth is no longer a property anyone has to know.
+TEST_F(PipelineTest, Besm6MaskpswNestedConstantExpr)
+{
+    RunPipeline(R"(#include <besm6.h>
+#define PSW_MMAP_DISABLE 00001
+#define PSW_PROT_DISABLE 00002
+#define PSW_INTR_DISABLE 02000
+#define PSW_KERNEL (PSW_MMAP_DISABLE | PSW_PROT_DISABLE)
+static int curipl = 1;
+int setipl(int s)
+{
+    int old = curipl;
+    curipl = s;
+    if (s)
+        __besm6_maskpsw(PSW_KERNEL | PSW_INTR_DISABLE);
+    else
+        __besm6_maskpsw(PSW_KERNEL);
+    return old;
+}
+void halt(void)
+{
+    __besm6_stop((1 << 3) | (1 << 1) | 1);
+})");
+    EXPECT_NE(program, nullptr);
+}
+
+// The constant requirement itself still holds: the mask is part of the encoding, and there is
+// no register to put it in.
+TEST_F(PipelineTest, Besm6MaskpswNotConstant_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"(#include <besm6.h>
+void spl(int mask)
+{
+    __besm6_maskpsw(mask);
+})"),
+                 "compile-time constant");
+}
+
+// ... and so does the 15-bit range of the address field it rides in.
+TEST_F(PipelineTest, Besm6MaskpswOutOfRange_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"(#include <besm6.h>
+void spl(void)
+{
+    __besm6_maskpsw(0100000);
+})"),
+                 "does not fit the 15-bit address field");
+}
+
+TEST_F(PipelineTest, Besm6StopCodeNotConstant_Neg)
+{
+    EXPECT_DEATH(RunPipeline(R"(#include <besm6.h>
+void die(int code)
+{
+    __besm6_stop(code);
+})"),
+                 "compile-time constant");
+}

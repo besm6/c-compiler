@@ -110,8 +110,19 @@ compile-time constants; the compiler diagnoses anything else:
 - `__besm6_stop(code)` — `code` is the halt instruction's own 15-bit address field (`0`…`077777`).
 - `__besm6_maskpsw(mask)` — `mask` is the mode write's own 15-bit address field (§3.3).
 
-A constant *expression* is fine — it is folded before the check, so `__besm6_extracode(SYSCALL + 7,
-4, n)` works.
+A constant *expression* is fine, to any depth — all three are folded in the front end by the
+language's own constant evaluator before the check, so `__besm6_extracode(SYSCALL + 7, 4, n)` works
+and so does a mask assembled out of named bits:
+
+```c
+#define PSW_KERNEL (PSW_MMAP_DISABLE | PSW_PROT_DISABLE)
+
+__besm6_maskpsw(PSW_KERNEL | PSW_INTR_DISABLE);     /* three terms, two levels — folds */
+```
+
+There is no nesting limit to know about. (There was until the fold moved to the front end: the
+back end's TAC-level folding collapsed one level only, so the two-term form above was accepted and
+the three-term form was rejected as "not a constant".)
 
 Every other argument may be constant or computed. In particular the register address of
 `__besm6_ext`/`__besm6_mod` may be either, and the hardware genuinely uses both: a constant address
@@ -562,15 +573,17 @@ hard errors:
 |---|---|
 | `__besm6_extracode(op, …)` with a non-constant `op` | `__besm6_extracode: the opcode must be a compile-time constant` |
 | `__besm6_extracode(0100, …)` | `__besm6_extracode: opcode 100 is not an extracode (050..077)` |
-| `__besm6_stop(x)` with a non-constant `x` | `intrinsic __besm6_stop takes one argument: a constant halt code in 0..077777` |
-| `__besm6_stop(0100000)` | `intrinsic __besm6_stop: halt code 100000 does not fit the 15-bit address field` |
-| `__besm6_maskpsw(x)` with a non-constant `x` | `intrinsic __besm6_maskpsw takes one argument: a constant mask in 0..077777` |
-| `__besm6_maskpsw(0100000)` | `intrinsic __besm6_maskpsw: mask 100000 does not fit the 15-bit address field` |
+| `__besm6_stop(x)` with a non-constant `x` | `__besm6_stop: the halt code must be a compile-time constant` |
+| `__besm6_stop(0100000)` | `__besm6_stop: halt code 100000 does not fit the 15-bit address field` |
+| `__besm6_maskpsw(x)` with a non-constant `x` | `__besm6_maskpsw: the mask must be a compile-time constant` |
+| `__besm6_maskpsw(0100000)` | `__besm6_maskpsw: mask 100000 does not fit the 15-bit address field` |
 
-The extracode opcode is checked in the front end ([semantic/expressions.c](../semantic/expressions.c)),
-early enough that the argument reaches the back end already folded to a literal whatever the
-optimizer does; the halt code and the PSW mask are checked at instruction selection, where a
-constant *expression* has already been folded by the TAC constant folder.
+All three immediate arguments are evaluated, range-checked and folded to a literal in the **front
+end** ([semantic/expressions.c](../semantic/expressions.c), `fold_immediate_arg0`), so they reach
+the back end as constants whatever the optimizer does. That is where the recursive
+constant-expression evaluator lives, which is why nesting depth does not matter (§2.3).
+Instruction selection re-tests each one, but only as a backstop — those messages are unreachable
+from C source.
 
 One thing is deliberately *not* an error: an `ext`/`mod` address too large for the 12-bit Format-1
 offset field (above `07777`). No address in the peripherals map is that large, but rather than
