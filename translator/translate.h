@@ -73,6 +73,7 @@ Tac_Val *val_double(double v);
 Tac_Val *val_long_double(long double v);
 Tac_Val *val_var(const char *name);
 Tac_Val *new_var_val(TacCtx *ctx);
+Tac_Val *dup_val(const Tac_Val *v);
 Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to);
 void emit_jump(TacCtx *ctx, const char *target);
 void emit_label(TacCtx *ctx, const char *name);

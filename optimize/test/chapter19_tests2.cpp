@@ -2392,12 +2392,12 @@ int target(int *ptr1, int *ptr2) {
       value: 20
   dst:
     kind: var
-    name: %4
+    name: %2
 - instruction:
   kind: return
   src:
     kind: var
-    name: %4
+    name: %2
 )OPT");
 }
 

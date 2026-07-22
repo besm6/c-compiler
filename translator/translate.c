@@ -168,6 +168,27 @@ Tac_Val *new_var_val(TacCtx *ctx)
     return v;
 }
 
+//
+// A second, independently owned reference to the same value.
+//
+// Every Tac_Val belongs to the one instruction it is attached to, so a value handed both
+// to an instruction and back to the caller has to be duplicated -- returning the pointer
+// itself would have tac_free() release it twice.  Tac_Const is plain data (no pointers,
+// see tac.h), so a constant copies by value.
+//
+Tac_Val *dup_val(const Tac_Val *v)
+{
+    Tac_Val *tv;
+
+    if (v->kind == TAC_VAL_VAR)
+        return val_var(v->u.var_name);
+
+    tv              = tac_new_val(TAC_VAL_CONSTANT);
+    tv->u.constant  = tac_new_const(v->u.constant->kind);
+    *tv->u.constant = *v->u.constant;
+    return tv;
+}
+
 // A "fat pointer" on byte-addressed targets (BESM-6: char*/void*) carries a byte
 // offset and a marker bit, so it has a different bit layout from a plain word
 // pointer (int*, etc.).  True when t is a pointer whose pointee is a character type

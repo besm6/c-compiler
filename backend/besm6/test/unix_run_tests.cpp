@@ -210,3 +210,29 @@ TEST_F(CodegenTest, UnixRunStringWithEmbeddedNul)
     )");
     EXPECT_EQ("97 0 99 0\n97 0 99 0\n4 4\n", result);
 }
+
+// End-to-end: an assignment used as a VALUE must yield the value stored.  This is v7's
+// callout compaction loop (kernel/clock.c) in miniature: the loop condition IS the store,
+// and it used to branch on an undefined frame slot, so the loop walked off the end of the
+// table and never came back.  The two scalar forms below fail the same way.
+TEST_F(CodegenTest, UnixRunAssignmentAsValue)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunUnix(R"(
+        #include <stdio.h>
+        struct s { int a, b; } S;
+        int src[4] = { 3, 4, 5, 0 };
+        int dst[4];
+        int main(void) {
+            int *p = dst, *q = src;
+            int n = 0;
+            while ((*p = *q)) { p++; q++; n++; }
+            printf("%d %d %d %d\n", n, dst[0], dst[1], dst[2]);
+            int t = (dst[0] = 9);
+            printf("%d\n", t);
+            printf("%d %d\n", (S.b = 0), (S.b = 6));
+            return 0;
+        }
+    )");
+    EXPECT_EQ("3 3 4 5\n9\n0 6\n", result);
+}

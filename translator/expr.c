@@ -1202,6 +1202,9 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                    e->u.assign.op == ASSIGN_SIMPLE) {
             const char *var_name        = target->u.field_access.expr->u.var;
             int offset          = target->u.field_access.offset;
+            // The value of `s.f = v' is the value stored (C11 6.5.16p3), NOT the aggregate
+            // it went into: returning the base would name field 0 whatever `offset' says.
+            Tac_Val *result     = dup_val(src);
             Tac_Instruction *in = tac_new_instruction(
                 byte_access_for(target->type) ? TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET
                                               : TAC_INSTRUCTION_COPY_TO_OFFSET);
@@ -1211,11 +1214,17 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             in->u.copy_to_offset.dst    = xstrdup(var_name);
             in->u.copy_to_offset.offset = offset;
             tac_append(ctx, in);
-            return val_var(var_name);
+            return result;
         } else {
             bool vol          = type_is_volatile(target->type);
             Tac_Val *addr_raw = gen_lval(ctx, target);
             if (e->u.assign.op == ASSIGN_SIMPLE) {
+                // The value of `*p = v' is the value stored (C11 6.5.16p3) -- hand back a
+                // second reference to it.  A fresh temp would be one nothing ever defines,
+                // so `while ((*p = *q))' would branch on whatever the frame slot held.
+                // Not a re-read through `p' either: that would be wrong for a volatile
+                // lvalue, and would cost a load.
+                Tac_Val *result     = dup_val(src);
                 Tac_Instruction *st = tac_new_instruction(
                     byte_access_for(target->type) ? TAC_INSTRUCTION_STORE_BYTE
                                                   : TAC_INSTRUCTION_STORE);
@@ -1223,7 +1232,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
                 st->u.store.src     = src;
                 st->u.store.dst_ptr = addr_raw;
                 tac_append(ctx, st);
-                return new_var_val(ctx);
+                return result;
             } else {
                 Tac_Val *loaded     = new_var_val(ctx);
                 Tac_Instruction *ld = tac_new_instruction(

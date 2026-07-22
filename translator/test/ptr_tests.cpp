@@ -667,3 +667,58 @@ TEST_F(TranslateTest, WideWordPtrDifference)
         name: %1
 )");
 }
+
+// `*p = v' used as a VALUE yields the value stored (C11 6.5.16p3), so the branch tests %v.
+// It used to return a fresh temp that no instruction ever defined, and the condition read
+// whatever that frame slot happened to hold -- which hung v7's callout compaction loop,
+// `while ((p2->c_func = p1->c_func))'.
+TEST_F(TranslateTest, StoreThroughPointerAsValue)
+{
+    std::string yaml = CompileToYaml("int f(int *p, int v) { if ((*p = v)) return 1; return 0; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: %p
+    - param: %v
+  body:
+    - instruction:
+      kind: store
+      src:
+        kind: var
+        name: %v
+      dst_ptr:
+        kind: var
+        name: %p
+    - instruction:
+      kind: jump_if_zero
+      condition:
+        kind: var
+        name: %v
+      target: %0
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+    - instruction:
+      kind: jump
+      target: %1
+    - instruction:
+      kind: label
+      name: %0
+    - instruction:
+      kind: label
+      name: %1
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+)");
+}

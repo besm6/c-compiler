@@ -487,3 +487,65 @@ TEST_F(TranslateTest, StructByValueReturnOneWordUsesAccumulator)
     EXPECT_EQ(yaml.find("kind: store"), std::string::npos);
     EXPECT_NE(yaml.find("name: %s"), std::string::npos); // returns the struct slot directly
 }
+
+// `s.f = v' used as a VALUE yields the value stored, not the aggregate it went into.
+// Returning the base named field 0 whatever the offset was, so `if ((S.b = v))' branched
+// on S.a.  The sibling of StoreThroughPointerAsValue in ptr_tests.cpp.
+TEST_F(TranslateTest, StoreToFieldAsValue)
+{
+    std::string yaml = CompileToYaml(
+        "struct s { int a, b; } S;"
+        "int fv(int v) { if ((S.b = v)) return 1; return 0; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: S
+  global: true
+  type:
+    kind: structure
+    tag: s
+    size: 12
+- toplevel:
+  kind: function
+  name: fv
+  global: true
+  params:
+    - param: %v
+  body:
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: var
+        name: %v
+      dst: S
+      offset: 6
+    - instruction:
+      kind: jump_if_zero
+      condition:
+        kind: var
+        name: %v
+      target: %0
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+    - instruction:
+      kind: jump
+      target: %1
+    - instruction:
+      kind: label
+      name: %0
+    - instruction:
+      kind: label
+      name: %1
+    - instruction:
+      kind: return
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+)");
+}
