@@ -111,9 +111,16 @@ to `/usr/local`:
 | `libc.bin`     | `share/besm6/lib/libc.bin`     | Madlen / Dubna runtime                              |
 | `libbem.bin`   | `share/besm6/lib/libbem.bin`   | Bemsh / Dubna runtime                               |
 | `libruntime.a` | `share/besm6/lib/libruntime.a` | Unix (`b6as`/`b6ld`/`b6sim`) `b$*` compiler helpers |
+| ten headers    | `share/besm6/include/*.h`      | C11 freestanding subset (§4) plus `besm6.h`         |
 
-`libc0.a`, `crt0.o`, and the C11 headers in `libc/besm6/include/` are built and used
-in-tree but deliberately **not** installed — v7besm ships those.
+The installed headers are `besm6.h`, `float.h`, `iso646.h`, `limits.h`, `stdalign.h`,
+`stdarg.h`, `stdbool.h`, `stddef.h`, `stdint.h`, `stdnoreturn.h`. They describe the
+*compiler* — its data model, its `<stdarg.h>` ABI, its intrinsics — so they ship with it,
+into the directory `b6cc` appends to every compilation.
+
+`libc0.a`, `crt0.o`, and the **hosted** headers in `libc/besm6/include/` (`stdio.h`,
+`string.h`, `stdlib.h`, `math.h`, …) are built and used in-tree but deliberately **not**
+installed — v7besm's hosted `libc.a` backs those, and v7besm ships them.
 
 The driver binaries are renamed (`b6` prefix) at install time only; the in-tree build
 outputs keep their original names. To install elsewhere, pass a prefix to CMake directly:

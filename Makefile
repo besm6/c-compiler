@@ -6,8 +6,9 @@
 #
 # make run   -- run all unit tests (including the textbook chapter tests)
 #
-# make install -- install b6parse, b6lower, b6codegen, libc.bin, libbem.bin and
-#                 libruntime.a (to ~/.local if it exists, otherwise /usr/local)
+# make install -- install b6parse, b6lower, b6codegen, libc.bin, libbem.bin,
+#                 libruntime.a and the compiler-owned headers (the C11 freestanding
+#                 subset plus besm6.h) -- to ~/.local if it exists, else /usr/local
 #
 # make clean -- remove build files
 #

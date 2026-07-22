@@ -48,6 +48,16 @@ not C11 headers.  `besm6.h` declares the compiler intrinsics that give C direct
 access to the machine instructions it cannot otherwise express — see
 [docs/Besm6_Intrinsics.md](../../../docs/Besm6_Intrinsics.md).
 
+## What `make install` ships
+
+The install boundary follows exactly the split above: the nine freestanding
+headers plus `besm6.h` go to `share/besm6/include/` (the directory `b6cc` appends
+to every compilation), because they describe the *compiler* — its data model, its
+`<stdarg.h>` ABI, its intrinsics.  The hosted headers stay in-tree: the sibling
+v7besm project owns the authoritative hosted `libc.a` and ships the headers that
+declare it.  The rule lives in `libc/besm6/CMakeLists.txt`; a header added to the
+freestanding set must be added to that list too.
+
 ## What is implemented vs. planned
 
 A routine listed below has a real implementation in the runtime library; everything

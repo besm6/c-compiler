@@ -16,12 +16,19 @@ make clean        # remove ./build/
 **`make install`** builds everything, then installs the artifacts via `cmake --install`
 to `~/.local` if that directory exists, otherwise `/usr/local`: `parse` → `bin/b6parse`,
 `lower` → `bin/b6lower`, `genbesm` → `bin/b6codegen`, and the three runtime libraries
-`libc.bin` / `libbem.bin` / `libruntime.a` → `share/besm6/lib/`. **Deliberately not
-installed:** the Unix `libc0.a`, `crt0.o`, and the target C11 standard headers
-(`libc/besm6/include/*.h`) — the sibling **v7besm** project owns the authoritative
-hosted `libc.a`, `crt0.o`, and headers, so this repo ships only what v7besm cannot
-supply: `libruntime.a`, the `b$*` helpers the code generator emits calls to. The
-headers and `libc0.a` still build and are used in-tree (test fixtures, the
+`libc.bin` / `libbem.bin` / `libruntime.a` → `share/besm6/lib/`, plus the ten
+**compiler-owned headers** → `share/besm6/include/` (the directory `b6cc` appends to every
+compilation): the C11 freestanding subset (C11 §4 — `float.h`, `iso646.h`, `limits.h`,
+`stdalign.h`, `stdarg.h`, `stdbool.h`, `stddef.h`, `stdint.h`, `stdnoreturn.h`) plus
+`besm6.h`. Those describe the compiler itself — its data model, its `<stdarg.h>` ABI, its
+intrinsics — so they must ship with it (`install(FILES …)` in `libc/besm6/CMakeLists.txt`,
+an explicit list rather than a directory glob, because the split *is* the ownership
+boundary). **Deliberately not installed:** the Unix `libc0.a`, `crt0.o`, and the *hosted*
+C11 headers (`stdio.h`, `string.h`, `stdlib.h`, `math.h`, …) — the sibling **v7besm**
+project owns the authoritative hosted `libc.a` and `crt0.o`, and ships the headers that go
+with them, so this repo ships only what v7besm cannot supply: `libruntime.a` (the `b$*`
+helpers the code generator emits calls to) and the freestanding/intrinsics headers. The
+hosted headers and `libc0.a` still build and are used in-tree (test fixtures, the
 `besm-headers` test, the Unix run harnesses).
 The prefix is chosen in the Makefile at install time and passed as `cmake --install build
 --prefix`; the driver binaries are renamed (`b6` prefix) only at install time via

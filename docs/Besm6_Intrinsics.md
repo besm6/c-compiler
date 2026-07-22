@@ -74,8 +74,9 @@ compiler's preprocessor, not a traditional standalone `cpp`:
 cc -E -nostdinc -Ilibc/besm6/include prog.c | parse -
 ```
 
-The header is not installed by this repo — the target's standard headers, `besm6.h` among
-them, are shipped by the sibling v7besm project; here it is consumed straight from
+This repo is the authoritative source of the header, and `make install` puts it in
+`share/besm6/include/besm6.h` — it describes *this* back end, so a copy kept anywhere else
+goes stale the moment a thirteenth intrinsic lands. In-tree it is consumed straight from
 `libc/besm6/include/`. It declares the twelve intrinsics **and
 nothing else**: readable wrappers — a `popcount()`, an `spl()`, the ГРП bit names, the control-word
 field definitions of a particular device — are the caller's own business. Each is one `#define`,

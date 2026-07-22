@@ -17,7 +17,7 @@
 
 #define CHAR_BIT 8
 
-/* Multibyte: up to 6 KOI7 bytes pack into one word. */
+/* Multibyte: up to 6 bytes pack into one word. */
 #define MB_LEN_MAX 6
 
 #define SCHAR_MIN (-128)
