@@ -153,3 +153,41 @@ TEST_F(ParserTest, StaticAssertMissingSemi_negative)
 {
     EXPECT_DEATH(parse(CreateTempFile("_Static_assert(1, \"msg\")")), "");
 }
+
+// ---------------------------------------------------------------------------
+// F. Comma operator where a constant expression is required (C11 6.6p3)
+//
+// These are the parse_constant_expression() sites: case labels, enumerators,
+// bitfield widths, _Static_assert and _Alignas.  (An array dimension is *not*
+// one — it parses as an assignment-expression and its constant-ness is settled
+// later, in the semantic pass.)
+// ---------------------------------------------------------------------------
+
+TEST_F(ParserTest, CommaInCaseLabel_negative)
+{
+    EXPECT_DEATH(parse(CreateTempFile("void f() { switch (x) { case (1, 2): ; } }")), "");
+}
+
+TEST_F(ParserTest, CommaInEnumerator_negative)
+{
+    EXPECT_DEATH(parse(CreateTempFile("enum e { A = (1, 2) };")), "");
+}
+
+TEST_F(ParserTest, CommaInBitfieldWidth_negative)
+{
+    EXPECT_DEATH(parse(CreateTempFile("struct S { int b : (1, 2); };")), "");
+}
+
+TEST_F(ParserTest, CommaInStaticAssert_negative)
+{
+    EXPECT_DEATH(parse(CreateTempFile("_Static_assert((0, 1), \"msg\");")), "");
+}
+
+// ...but 6.6p3 exempts an unevaluated subexpression, so a comma inside sizeof
+// still leaves a constant expression: is_constant_expression() answers true for
+// EXPR_SIZEOF_EXPR without recursing into the operand.
+TEST_F(ParserTest, CommaInsideSizeofIsConstant)
+{
+    Declaration *decl = GetDeclaration("_Static_assert(sizeof(1, 2) > 0, \"msg\");");
+    EXPECT_EQ(DECL_STATIC_ASSERT, decl->kind);
+}

@@ -295,7 +295,9 @@ typedef enum {
     BINARY_BIT_XOR,
     BINARY_BIT_OR,
     BINARY_LOG_AND,
-    BINARY_LOG_OR
+    BINARY_LOG_OR,
+    // Keep BINARY_COMMA last: the binary AST stream serializes the raw ordinal.
+    BINARY_COMMA
 } BinaryOp;
 
 typedef enum {

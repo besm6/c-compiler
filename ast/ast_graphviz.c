@@ -614,6 +614,9 @@ static void export_binary_op(FILE *fd, BinaryOp kind, int parent_id)
     case BINARY_LOG_OR:
         fprintf(fd, "log_or");
         break;
+    case BINARY_COMMA:
+        fprintf(fd, "comma");
+        break;
     }
     fprintf(fd, "\", shape=box];\n");
     fprintf(fd, "  n%d -> n%d [label=\"op\"];\n", parent_id, id);

@@ -93,7 +93,7 @@ module AST {
 
     BinaryOp = Mul | Div | Mod | Add | Sub | LeftShift | RightShift
              | Lt | Gt | Le | Ge | Eq | Ne
-             | BitAnd | BitXor | BitOr | LogAnd | LogOr
+             | BitAnd | BitXor | BitOr | LogAnd | LogOr | Comma
 
     AssignOp = Simple | MulAssign | DivAssign | ModAssign | AddAssign | SubAssign
              | LeftAssign | RightAssign | AndAssign | XorAssign | OrAssign

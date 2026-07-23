@@ -77,7 +77,8 @@ static const char *binary_op_kind_str[] = {
     [BINARY_RIGHT_SHIFT] = ">>", [BINARY_LT] = "<",       [BINARY_GT] = ">",
     [BINARY_LE] = "<=",          [BINARY_GE] = ">=",      [BINARY_EQ] = "==",
     [BINARY_NE] = "!=",          [BINARY_BIT_AND] = "&",  [BINARY_BIT_XOR] = "^",
-    [BINARY_BIT_OR] = "|",       [BINARY_LOG_AND] = "&&", [BINARY_LOG_OR] = "||"
+    [BINARY_BIT_OR] = "|",       [BINARY_LOG_AND] = "&&", [BINARY_LOG_OR] = "||",
+    [BINARY_COMMA] = ","
 };
 
 static const char *assign_op_kind_str[] = {

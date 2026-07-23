@@ -63,8 +63,9 @@ static bool is_lvalue(const Expr *e)
         // `E.member` is an lvalue iff E is an lvalue (e.g. f().m and (c?a:b).m are not).
         return is_lvalue(e->u.field_access.expr);
     case EXPR_BINARY_OP:
-        // No binary operator yields an lvalue in C (there is no comma operator
-        // here, and compound assignment is a separate EXPR_ASSIGN node).
+        // No binary operator yields an lvalue in C.  Unlike C++, the comma operator
+        // is no exception (C11 6.5.17p2 gives its result the *value* of the right
+        // operand, not the object); compound assignment is a separate EXPR_ASSIGN node.
         return false;
     case EXPR_UNARY_OP:
         if (e->u.unary_op.op == UNARY_DEREF) {
@@ -394,6 +395,20 @@ static Expr *typecheck_expr(Expr *e)
             e2 = typecheck_scalar(e2);
             free_type(e->type);
             e->type              = new_type(TYPE_INT, __func__, __FILE__, __LINE__);
+            e->u.binary_op.left  = e1;
+            e->u.binary_op.right = e2;
+            return e;
+        }
+        case BINARY_COMMA: {
+            // C11 6.5.17p2: the left operand is evaluated as a void expression, then
+            // discarded; the result has the type and value of the right operand after
+            // lvalue conversion.  So: no usual arithmetic conversions, no scalar
+            // requirement, and either operand may be void -- decay_expr() rewrites only
+            // array and function types, so a void operand passes straight through.
+            e1 = typecheck_and_decay(e1);
+            e2 = typecheck_and_decay(e2);
+            free_type(e->type);
+            e->type              = clone_type(e2->type, __func__, __FILE__, __LINE__);
             e->u.binary_op.left  = e1;
             e->u.binary_op.right = e2;
             return e;

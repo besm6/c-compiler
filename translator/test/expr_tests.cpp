@@ -938,3 +938,90 @@ TEST_F(TranslateTest, OrdinaryCallStaysFunCall)
     EXPECT_NE(yaml.find("kind: fun_call\n"), std::string::npos);
     EXPECT_EQ(yaml.find("fun_call_noreturn"), std::string::npos);
 }
+
+// ---------------------------------------------------------------------------
+// Comma operator (C11 6.5.17)
+// ---------------------------------------------------------------------------
+
+// `(f(), g())` evaluates the left operand for its side effects, throws the value
+// away, and yields the right one.  Regression: the parser used to drop the right
+// operand entirely, so this lowered to a lone call to f() whose result was returned.
+TEST_F(TranslateTest, CommaEvaluatesBothAndYieldsRight)
+{
+    std::string yaml =
+        CompileToYaml("int f(void); int g(void); int h(void) { int r; r = (f(), g()); return r; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: h
+  global: true
+  body:
+    - instruction:
+      kind: fun_call
+      fun_name: f
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: fun_call
+      fun_name: g
+      dst:
+        kind: var
+        name: %1
+    - instruction:
+      kind: copy
+      src:
+        kind: var
+        name: %1
+      dst:
+        kind: var
+        name: %r
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: %r
+)");
+}
+
+// A three-operand chain runs every operand in order; only the last supplies the value.
+// The old single-->next-slot loop lost the middle operand outright.
+TEST_F(TranslateTest, CommaChainRunsEveryOperandInOrder)
+{
+    std::string yaml =
+        CompileToYaml("void p(int); int q(void); int h(void) { return (p(1), p(2), q()); }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: h
+  global: true
+  body:
+    - instruction:
+      kind: fun_call
+      fun_name: p
+      args:
+        - val:
+          kind: constant
+          const:
+            kind: int
+            value: 1
+    - instruction:
+      kind: fun_call
+      fun_name: p
+      args:
+        - val:
+          kind: constant
+          const:
+            kind: int
+            value: 2
+    - instruction:
+      kind: fun_call
+      fun_name: q
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: %0
+)");
+}

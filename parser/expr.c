@@ -63,7 +63,12 @@ static bool is_constant_expression(const Expr *expression)
     }
 
     case EXPR_BINARY_OP: {
-        /* Arithmetic, bitwise, relational, and logical ops are allowed */
+        /* Arithmetic, bitwise, relational, and logical ops are allowed, but not the
+         * comma operator: C11 6.6p3 forbids it in a constant expression unless it is
+         * inside an unevaluated subexpression -- and that carve-out already works,
+         * because EXPR_SIZEOF_EXPR below answers true without recursing. */
+        if (expression->u.binary_op.op == BINARY_COMMA)
+            return false;
         const Expr *left  = expression->u.binary_op.left;
         const Expr *right = expression->u.binary_op.right;
         return is_constant_expression(left) && is_constant_expression(right);
@@ -1053,13 +1058,16 @@ Expr *parse_expression()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Expr *expr = parse_assignment_expression();
+    Expr *left = parse_assignment_expression();
     while (current_token == TOKEN_COMMA) {
+        Expr *expr           = new_expression(EXPR_BINARY_OP);
+        expr->u.binary_op.op = BINARY_COMMA;
         advance_token();
-        Expr *next = parse_assignment_expression();
-        expr->next = next;
+        expr->u.binary_op.left  = left;
+        expr->u.binary_op.right = parse_assignment_expression();
+        left                    = expr;
     }
-    return expr;
+    return left;
 }
 
 //

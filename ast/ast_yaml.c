@@ -665,6 +665,9 @@ static void export_binary_op(FILE *fd, BinaryOp kind, int level)
     case BINARY_LOG_OR:
         fprintf(fd, "log_or\n");
         break;
+    case BINARY_COMMA:
+        fprintf(fd, "comma\n");
+        break;
     }
 }
 

@@ -475,3 +475,115 @@ TEST_F(CodegenTest, StaticAddressConstantRun)
     )");
     EXPECT_EQ("30 300\n", result);
 }
+
+// ---------------------------------------------------------------------------
+// Comma operator (C11 6.5.17) — end-to-end
+//
+// Regression for the bug where parse_expression() hung the right operand off
+// Expr->next (the argument-list sibling link, which nothing reads on an ordinary
+// expression) and returned the *left* operand: `(a, b)` evaluated to `a` and `b`
+// was never evaluated at all.  Silent — no diagnostic, wrong code.
+// ---------------------------------------------------------------------------
+
+// The value of a comma expression is the right operand's, and every operand is
+// evaluated, left to right.  Covers the reproducer from the bug report: plain
+// `(a,b)`, a two- and a three-operand chain of calls, both `for` clauses, and a
+// bare comma expression statement.
+TEST_F(CodegenTest, CommaOperatorRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int comtrc;
+        int comfa(void) { comtrc = comtrc * 10 + 1; return 7; }
+        int comfb(void) { comtrc = comtrc * 10 + 2; return 9; }
+        void program() {
+            int a, b, i, j, r;
+
+            a = 5; b = 0;
+            printf("%d\n", (a, b));                 /* 0 */
+
+            comtrc = 0; r = (comfa(), comfb());
+            printf("%d %d\n", r, comtrc);           /* 9 12 */
+
+            comtrc = 0; r = (comfa(), comfb(), 5);
+            printf("%d %d\n", r, comtrc);           /* 5 12 */
+
+            comtrc = 0; (void)(comfa(), comfb());
+            printf("%d\n", comtrc);                 /* 12 */
+
+            i = 99; j = 99;
+            for (i = 0, j = 7; i < 1; i++)
+                ;
+            printf("%d\n", j);                      /* 7 */
+
+            i = 0; j = 0;
+            for (r = 0; r < 3; i++, j += 2)
+                r++;
+            printf("%d\n", j);                      /* 6 */
+
+            i = 1; j = 1;
+            i++, j++;
+            printf("%d\n", j);                      /* 2 */
+        }
+    )");
+    EXPECT_EQ("0\n9 12\n5 12\n12\n7\n6\n2\n", result);
+}
+
+// Every context that consumes the value of a comma expression must see the right
+// operand.  Before the fix each one of these took the left operand's value.
+TEST_F(CodegenTest, CommaOperatorContextsRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            int a, b, x, y, n;
+            double d;
+
+            a = 5; b = 0; x = 11; y = 22;
+
+            n = 0;
+            if ((a, b)) n = 1;
+            printf("%d\n", n);                      /* 0 — b is false */
+
+            n = 0; b = 3;
+            while ((a, b)) { n++; b--; }
+            printf("%d\n", n);                      /* 3 — and it terminates */
+
+            b = 0;
+            printf("%d\n", (a, b) ? x : y);         /* 22 */
+            printf("%d\n", !(a, b));                /* 1 */
+
+            b = 2;
+            printf("%d\n", (a, b) + 100);           /* 102 */
+
+            x = (1, 2, 3);
+            printf("%d\n", x);                      /* 3 */
+
+            /* The type is the right operand's, after lvalue conversion. */
+            printf("%d %d\n", (int)(sizeof(a, d) == sizeof(double)),
+                              (int)(sizeof(d, a) == sizeof(int)));   /* 1 1 */
+        }
+    )");
+    EXPECT_EQ("0\n3\n22\n1\n102\n3\n1 1\n", result);
+}
+
+// The idiom that exposed the bug: v7's atof() is written around
+// `while ((c = *p++), isdigit(c))`.  With the right operand dropped the loop
+// tested the assignment's value instead of the predicate and never terminated.
+TEST_F(CodegenTest, CommaOperatorScanLoopRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            char *p;
+            int c, n;
+
+            p = "123X";
+            n = 0;
+            while ((c = *p++), (c >= '0' && c <= '9'))
+                n = n * 10 + (c - '0');
+            printf("%d %c\n", n, c);                /* 123 X */
+        }
+    )");
+    EXPECT_EQ("123 X\n", result);
+}

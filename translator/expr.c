@@ -1139,6 +1139,12 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
             return gen_logical_and(ctx, e->u.binary_op.left, e->u.binary_op.right);
         if (e->u.binary_op.op == BINARY_LOG_OR)
             return gen_logical_or(ctx, e->u.binary_op.left, e->u.binary_op.right);
+        if (e->u.binary_op.op == BINARY_COMMA) {
+            // C11 6.5.17p2: evaluate the left operand for its side effects and throw
+            // the value away (as an expression statement does), then yield the right.
+            tac_free_val(gen_expr(ctx, e->u.binary_op.left));
+            return gen_expr(ctx, e->u.binary_op.right);
+        }
         return gen_binary(ctx, e->u.binary_op.op, e->u.binary_op.left, e->u.binary_op.right);
     case EXPR_ASSIGN: {
         Expr *target = e->u.assign.target;

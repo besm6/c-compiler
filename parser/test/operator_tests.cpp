@@ -557,3 +557,131 @@ int f(char *p) {
     EXPECT_EQ(EXPR_VAR, cast->u.cast.expr->kind);
     EXPECT_STREQ("p", cast->u.cast.expr->u.var);
 }
+
+// ---------------------------------------------------------------------------
+// Comma operator (C11 6.5.17)
+// ---------------------------------------------------------------------------
+
+// `a, b` is a binary node, not two siblings on ->next.  Regression: the parser
+// used to hang the right operand off Expr->next -- the argument-list sibling
+// link, which no consumer reads on an ordinary expression -- and then return
+// the *left* operand, so `b` was dropped and never evaluated.
+TEST_F(ParserTest, ParseCommaOperator)
+{
+    DeclOrStmt *body = GetFunctionBody("void f() { a, b; }");
+    EXPECT_EQ(body->kind, DECL_OR_STMT_STMT);
+    Stmt *stmt = body->u.stmt;
+
+    EXPECT_EQ(STMT_EXPR, stmt->kind);
+    Expr *comma = stmt->u.expr;
+    EXPECT_EQ(EXPR_BINARY_OP, comma->kind);
+    EXPECT_EQ(BINARY_COMMA, comma->u.binary_op.op);
+    EXPECT_EQ(nullptr, comma->next);
+
+    EXPECT_EQ(EXPR_VAR, comma->u.binary_op.left->kind);
+    EXPECT_STREQ("a", comma->u.binary_op.left->u.var);
+    EXPECT_EQ(EXPR_VAR, comma->u.binary_op.right->kind);
+    EXPECT_STREQ("b", comma->u.binary_op.right->u.var);
+}
+
+// The comma operator is left-associative: `a, b, c` is `((a, b), c)`.  The old
+// code reused the single ->next slot, so the middle operand was overwritten.
+TEST_F(ParserTest, ParseCommaChainIsLeftAssociative)
+{
+    DeclOrStmt *body = GetFunctionBody("void f() { a, b, c; }");
+    Stmt *stmt       = body->u.stmt;
+    EXPECT_EQ(STMT_EXPR, stmt->kind);
+
+    Expr *outer = stmt->u.expr;
+    EXPECT_EQ(EXPR_BINARY_OP, outer->kind);
+    EXPECT_EQ(BINARY_COMMA, outer->u.binary_op.op);
+    EXPECT_EQ(EXPR_VAR, outer->u.binary_op.right->kind);
+    EXPECT_STREQ("c", outer->u.binary_op.right->u.var);
+
+    Expr *inner = outer->u.binary_op.left;
+    EXPECT_EQ(EXPR_BINARY_OP, inner->kind);
+    EXPECT_EQ(BINARY_COMMA, inner->u.binary_op.op);
+    EXPECT_EQ(EXPR_VAR, inner->u.binary_op.left->kind);
+    EXPECT_STREQ("a", inner->u.binary_op.left->u.var);
+    EXPECT_EQ(EXPR_VAR, inner->u.binary_op.right->kind);
+    EXPECT_STREQ("b", inner->u.binary_op.right->u.var);
+}
+
+// An argument list is a separate production (one parse_assignment_expression()
+// per argument), so `f(a, b)` must stay two arguments threaded on ->next with
+// no comma node in sight.
+TEST_F(ParserTest, ParseCommaNotInArgumentList)
+{
+    DeclOrStmt *body = GetFunctionBody("void f() { g(a, b); }");
+    Stmt *stmt       = body->u.stmt;
+    EXPECT_EQ(STMT_EXPR, stmt->kind);
+
+    Expr *call = stmt->u.expr;
+    EXPECT_EQ(EXPR_CALL, call->kind);
+
+    Expr *arg1 = call->u.call.args;
+    ASSERT_NE(nullptr, arg1);
+    EXPECT_EQ(EXPR_VAR, arg1->kind);
+    EXPECT_STREQ("a", arg1->u.var);
+
+    Expr *arg2 = arg1->next;
+    ASSERT_NE(nullptr, arg2);
+    EXPECT_EQ(EXPR_VAR, arg2->kind);
+    EXPECT_STREQ("b", arg2->u.var);
+    EXPECT_EQ(nullptr, arg2->next);
+}
+
+// ...but the extra parentheses in `g((a, b))` make it one argument whose value
+// is the comma expression.
+TEST_F(ParserTest, ParseCommaAsSingleArgument)
+{
+    DeclOrStmt *body = GetFunctionBody("void f() { g((a, b)); }");
+    Stmt *stmt       = body->u.stmt;
+    EXPECT_EQ(STMT_EXPR, stmt->kind);
+
+    Expr *call = stmt->u.expr;
+    EXPECT_EQ(EXPR_CALL, call->kind);
+
+    Expr *arg = call->u.call.args;
+    ASSERT_NE(nullptr, arg);
+    EXPECT_EQ(nullptr, arg->next);
+    EXPECT_EQ(EXPR_BINARY_OP, arg->kind);
+    EXPECT_EQ(BINARY_COMMA, arg->u.binary_op.op);
+    EXPECT_STREQ("a", arg->u.binary_op.left->u.var);
+    EXPECT_STREQ("b", arg->u.binary_op.right->u.var);
+}
+
+// A declarator list also consumes TOKEN_COMMA, in its own production: `int a, b;`
+// stays two declarators and grows no comma node.
+TEST_F(ParserTest, ParseCommaNotInDeclaratorList)
+{
+    DeclOrStmt *body = GetFunctionBody("void f() { int a, b; }");
+    EXPECT_EQ(body->kind, DECL_OR_STMT_DECL);
+
+    Declaration *decl = body->u.decl;
+    EXPECT_EQ(DECL_VAR, decl->kind);
+
+    InitDeclarator *d1 = decl->u.var.declarators;
+    ASSERT_NE(nullptr, d1);
+    EXPECT_STREQ("a", d1->name);
+    ASSERT_NE(nullptr, d1->next);
+    EXPECT_STREQ("b", d1->next->name);
+    EXPECT_EQ(nullptr, d1->next->next);
+}
+
+// So does an initialiser list: `int x[] = { 1, 2 };` stays two initialisers.
+TEST_F(ParserTest, ParseCommaNotInInitializerList)
+{
+    DeclOrStmt *body = GetFunctionBody("void f() { int x[] = { 1, 2 }; }");
+    EXPECT_EQ(body->kind, DECL_OR_STMT_DECL);
+
+    InitDeclarator *d = body->u.decl->u.var.declarators;
+    ASSERT_NE(nullptr, d);
+    ASSERT_NE(nullptr, d->init);
+    EXPECT_EQ(INITIALIZER_COMPOUND, d->init->kind);
+
+    InitItem *item = d->init->u.items;
+    ASSERT_NE(nullptr, item);
+    ASSERT_NE(nullptr, item->next);
+    EXPECT_EQ(nullptr, item->next->next);
+}
