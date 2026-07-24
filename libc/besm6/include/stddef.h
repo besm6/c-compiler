@@ -10,8 +10,16 @@
 /* ptrdiff_t: result of subtracting two pointers.  Signed, one word (41-bit). */
 typedef long ptrdiff_t;
 
-/* size_t: result of sizeof.  Unsigned, one word (48-bit). */
-typedef unsigned long size_t;
+/*
+ * size_t: result of sizeof.  SIGNED on BESM-6 (41-bit, one word) -- a deliberate
+ * departure from C11 §7.19, which requires an unsigned type.  Unsigned `+ - * / <'
+ * are library calls here (the additive unit reads bits 48-42 as an exponent), while
+ * the signed forms are single inline instructions; and no object this machine can
+ * address makes a size that a 41-bit signed value cannot hold.  So size arithmetic
+ * -- every `sizeof', every index -- stays inline.  See doc/Besm6_Data_Representation.md
+ * and the note in v7besm's include/sys/types.h.  ptrdiff_t is signed for the same reason.
+ */
+typedef long size_t;
 
 /* wchar_t: wide character.  One word; holds any BESM-6/KOI7 code point. */
 typedef int wchar_t;
