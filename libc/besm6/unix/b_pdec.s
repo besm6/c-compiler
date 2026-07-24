@@ -4,41 +4,38 @@
 // Decrement a char*/void* fat pointer by one byte (char*--): move toward the MSB.
 // Mirror of b/pinc: advancing back one byte increments offset_enc; at offset_enc 5 it
 // wraps to 0 and the word address steps back by one.  Operand in A, result in A;
-// R is left unchanged.  See b/pinc for the fat-pointer layout.
+// r15 comes back where it was found.  See b/pinc for the fat-pointer layout.
 //
-// The `< sym >` escapes below expand to `utc sym` + the instruction, reaching this file's
-// own .bss with a 15-bit address; see b_padd.s for why a bare `atx p` is unsafe.
+// The temporaries are a stack frame, for the reentrancy reason b_pinc.s spells out: an
+// interrupt handler that walks a char pointer of its own must not be able to overwrite an
+// interrupted call's working values.  Reserve by advancing r15, and never address a slot
+// at offset 0 (with index 15 that is the machine's stack mode).
 //
     .text
     .globl b$pdec
 b$pdec:
-    atx <p>
+ 15 utm 3                       // reserve the frame: p at -3, w at -2, enc at -1
+ 15 atx -3                      // p := A  (atx does not disturb A)
     aax #07'7777                // A = word address (bits 15-1)
-    atx <w>
-    xta <p>
+ 15 atx -2                      // w := word address
+ 15 xta -3                      // A = p
     asn 64+44                   // offset_enc -> bits 3-1
     aax #07                     // offset_enc (0..5)
-    atx <enc>
+ 15 atx -1                      // enc := offset_enc
     aex #05                     // enc XOR 5 == 0  iff  offset_enc == 5
     uza wrap                    // offset_enc == 5 -> wrap to 0, step word back
-    xta <enc>
+ 15 xta -1                      // A = enc
     arx #01                     // offset_enc + 1
     aax #07                     // re-mask to 3 bits (mirror b/pinc)
     asn 64-44                   // offset_enc' -> bits 47-45
     aox #0'40                   // set marker (bit 48)
-    aox <w>                     // OR in the word address
+ 15 aox -2                      // OR in the word address
+ 15 utm -3                      // release the frame
  13 uj
 wrap:
-    xta <w>
+ 15 xta -2                      // A = w
     arx #07777'7777'7777'7776   // word -= 1 (end-around add of -1)
     aax #07'7777
     aox #0'40                   // marker + offset_enc 0 (LSB of the previous word)
+ 15 utm -3                      // release the frame
  13 uj
-
-    .bss
-p:
-    . = . + 1
-w:
-    . = . + 1
-enc:
-    . = . + 1

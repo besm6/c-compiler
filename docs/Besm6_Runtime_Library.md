@@ -575,6 +575,26 @@ hold the word address. Within a word, bytes are packed MSB-first: `offset_enc 5`
 from the MSB is `5 - offset_enc`, and advancing the pointer one byte *decrements*
 `offset_enc`, borrowing into the word address on the `0 → 5` wrap.
 
+> **The b6as ports keep their temporaries on the stack, and must — the Madlen originals do not.**
+> These five (`b/stb`, `b/pinc`, `b/pdec`, `b/padd`, `b/pdiff`) are the helpers a *preemptible*
+> system runs into: they are interruptible at every instruction, and what interrupts them — an
+> operating system's clock tick reaching a `char` struct member, or a signal handler in a user
+> program — walks `char` pointers of its own. The originals keep their working values in
+> `,base,`-relative static cells, and while the ports carried that over, a tick landing inside
+> one ran a handler whose helper overwrote those cells; the interrupted call then resumed and
+> finished with the *handler's* values. It surfaced in the Unix v7 port as a deadlock in the first
+> `exec`: `iget()` read a `char i_flag` through a pointer that a clock tick had turned into a
+> pointer to `proc[]`, decided the root inode was locked, and slept forever. No fault, no
+> diagnostic, and the window is only a few instructions wide, so no test reliably catches it.
+>
+> Each `libc/besm6/unix/b_p*.s` and `b_stb.s` therefore reserves a frame by **advancing r15** (an
+> interrupt builds its own frame *at* r15, so scratch merely written above it would be
+> overwritten) and addresses slots by **negative offset** — never offset 0, which with index
+> register 15 is the machine's stack mode. Where a helper takes a stack operand it is read where
+> the caller left it, and the closing `utm` releases the frame and pops it in one. `b/umul` and
+> `b/umod` were built this way from the start. Read-only `.data` tables (`ttab`, `mask`, `shift`)
+> stay static: sharing those is safe. **Keep any future port of a Madlen helper reentrant.**
+
 #### `b/stb` — [b_stb.madlen](../libc/besm6/madlen/b_stb.madlen) — store one byte
 
 Read-modify-write of a single byte through a fat pointer. Lightweight convention: the fat

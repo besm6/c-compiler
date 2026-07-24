@@ -9,49 +9,48 @@
 // bits 47-45 (its exponent field = 64 + offset*8).  Offset 0 = byte #5 (LSB),
 // offset 5 = byte #0 (MSB).  r6/r7 are preserved.
 //
-// Every reference below to this file's own .bss/.data goes through a `utc` long-address
-// escape; see b_padd.s for why (b6as has no Madlen `,base,`, and a short address field is
-// only 12 bits wide, silently masked).  `< sym >` expands to `utc sym` + the instruction;
-// the indexed `mask`/`shift` lookups spell the `utc` out by hand, since `< >` would apply
-// the index register to the generated `utc` as well.  `utc` touches neither A nor R.
+// The two 48-bit temporaries are a stack frame rather than static cells, for the reentrancy
+// reason b_pinc.s spells out: an interrupt handler storing a byte of its own must not be
+// able to overwrite an interrupted call's.  The frame is reserved by ADVANCING r15 (an
+// interrupt builds its frame at r15, so scratch above it would be overwritten), and the
+// incoming pointer is read where the caller left it instead of being popped into a cell --
+// so the pop is folded into the one closing `utm'.  No slot may sit at offset 0: with index
+// register 15 a zero address field is the machine's stack mode.
+//
+// The `mask`/`shift` tables stay in .data: they are read-only, so sharing them is safe.
+// Their indexed lookups spell the `utc` out by hand, since `< >` would apply the index
+// register to the generated `utc` as well.  `utc` touches neither A nor R.
 //
     .text
     .globl b$stb
 b$stb:
+ 15 utm 2       // reserve the frame: a at -3 (the caller's), val at -2, word at -1
     aax #0377   // mask the byte value to 8 bits
-    atx <val>   // save b
- 15 xta         // pop the fat pointer a from the stack
-    atx <ptr>   // save the pointer (for the word address)
+ 15 atx -2      // val := b
 
 // extract the byte offset (bits 47-45) into M11
+ 15 xta -3      // A = a, the fat pointer, still on the caller's stack
     asn 64+44   // shift offset down: bits 47-45 -> bits 3-1
     aax #07     // keep the 3-bit offset (0..5)
     ati 11
 
 // word address (bits 15-1) into M12
-    xta <ptr>
+ 15 xta -3      // A = a  (ati takes the low 15 bits: the marker and offset drop out)
     ati 12
 
 // read-modify-write the containing word
  12 xta         // A = word at the pointer's word address
     utc mask
  11 aax         // clear the target byte (EA = 0 + M11 + C)
-    atx <word>
-    xta <val>   // A = byte value
+ 15 atx -1      // word := it
+ 15 xta -2      // A = byte value
     utc shift
  11 asx         // shift it left into the target byte position (EA = 0 + M11 + C)
-    aox <word>  // OR it into the cleared word
+ 15 aox -1      // OR it into the cleared word
  12 atx         // write the word back
-    xta <val>   // return the stored byte in A
+ 15 xta -2      // return the stored byte in A
+ 15 utm -3      // release the frame AND pop the caller's pointer (net r15 = entry - 1)
  13 uj
-
-    .bss
-val:
-    . = . + 1
-ptr:
-    . = . + 1
-word:
-    . = . + 1
 
 // mask[offset]: clears the target byte (offset 0 = LSB byte #5 .. 5 = MSB byte #0)
     .data

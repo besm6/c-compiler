@@ -15,83 +15,75 @@
 // and the result is abs(a) - abs(b).  sizeof(char) == 1, so no scaling is needed.  All raw
 // integer mode (R = 7 at entry): no normalization, no division.
 //
-// Every reference below to this file's own .bss/.data goes through a `utc` long-address
-// escape; see b_padd.s for why (b6as has no Madlen `,base,`, and a short address field is
-// only 12 bits wide, silently masked).  `< sym >` expands to `utc sym` + the instruction;
-// the two indexed `ttab` lookups spell the `utc` out by hand, since `< >` would apply the
-// index register to the generated `utc` as well.
+// The temporaries are a stack frame rather than static cells, for the reentrancy reason
+// b_pinc.s spells out.  The frame is reserved by ADVANCING r15 (an interrupt builds its own
+// frame at r15, so scratch above it would be overwritten); `a' is read where the caller left
+// it rather than popped into a slot, and the closing `utm' releases the frame and pops it in
+// one.  No slot may sit at offset 0: with index register 15 a zero address field is the
+// machine's stack mode.
+//
+// `ttab' stays in .data: it is read-only, so sharing it is safe.  Its indexed lookups spell
+// the `utc' out by hand, since `< >` would apply the index register to the generated `utc'
+// as well.
 //
     .text
     .globl b$pdiff
 b$pdiff:
-    atx <b>         // save b (q), in A at entry
- 15 xta             // pop a (p)
-    atx <a>
+ 15 utm 5           // reserve: a at -6 (the caller's), b at -5, w at -4, w2 at -3,
+ 15 atx -5          //          aa at -2, bb at -1.  b (q) := A, in A at entry
 
 // --- abs(a) = word_a*6 + byte#_a -> aa ---
+ 15 xta -6          // A = a (p)
     aax #07'7777    // word_a (bits 15-1)
-    atx <w>
+ 15 atx -4          // w := word_a
     asn 64-1        // 2*word
-    atx <w2>
-    xta <w>
+ 15 atx -3          // w2 := 2*word
+ 15 xta -4          // A = w
     asn 64-2        // 4*word
-    a+x <w2>        // 6*word_a
-    atx <aa>
-    xta <a>
+ 15 a+x -3          // 6*word_a
+ 15 atx -2          // aa := 6*word_a
+ 15 xta -6          // A = a
     aax #0'40       // test the marker (bit 48)
     uza abare       // marker clear -> byte# = 0
-    xta <a>
+ 15 xta -6          // A = a
     asn 64+44       // offset_enc -> bits 3-1
     aax #07
     ati 11
     utc ttab
  11 xta             // byte# = 5 - offset_enc  (EA = 0 + M11 + C)
-    a+x <aa>
-    atx <aa>
+ 15 a+x -2
+ 15 atx -2          // aa += byte#_a
 
 // --- abs(b) = word_b*6 + byte#_b -> bb ---
 abare:
-    xta <b>
+ 15 xta -5          // A = b (q)
     aax #07'7777    // word_b (bits 15-1)
-    atx <w>
+ 15 atx -4          // w := word_b
     asn 64-1
-    atx <w2>
-    xta <w>
+ 15 atx -3          // w2 := 2*word
+ 15 xta -4
     asn 64-2
-    a+x <w2>        // 6*word_b
-    atx <bb>
-    xta <b>
+ 15 a+x -3          // 6*word_b
+ 15 atx -1          // bb := 6*word_b
+ 15 xta -5          // A = b
     aax #0'40       // test the marker (bit 48)
     uza bbare       // marker clear -> byte# = 0
-    xta <b>
+ 15 xta -5          // A = b
     asn 64+44       // offset_enc -> bits 3-1
     aax #07
     ati 11
     utc ttab
  11 xta             // byte# = 5 - offset_enc  (EA = 0 + M11 + C)
-    a+x <bb>
-    atx <bb>
+ 15 a+x -1
+ 15 atx -1          // bb += byte#_b
 
 // --- result = abs(a) - abs(b) ---
 bbare:
-    xta <aa>
-    a-x <bb>        // R = 7: raw integer subtract (a-x sets additive w)
+ 15 xta -2          // A = aa
+ 15 a-x -1          // R = 7: raw integer subtract (a-x sets additive w)
     aox             // OR mem[0]=0: ACC unchanged, restore logical w-mode
+ 15 utm -6          // release the frame AND pop the caller's `a' (net r15 = entry - 1)
  13 uj
-
-    .bss
-a:
-    . = . + 1
-b:
-    . = . + 1
-w:
-    . = . + 1
-w2:
-    . = . + 1
-aa:
-    . = . + 1
-bb:
-    . = . + 1
 
 // ttab[i] = 5 - i  (octal)
     .data

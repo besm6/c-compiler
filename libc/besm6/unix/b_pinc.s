@@ -6,18 +6,30 @@
 // = 64 + enc*8 in the exponent field) in bits 47-45, with the marker in bit 48.
 // offset_enc 5 = byte#0 (MSB, first byte), offset_enc 0 = byte#5 (LSB, last byte).
 // Advancing one byte decrements offset_enc; at offset_enc 0 it wraps to 5 and the word
-// address advances by one.  Operand in A, result in A; R is left unchanged.
+// address advances by one.  Operand in A, result in A; r15 comes back where it was found.
 //
-// The `< sym >` escapes below expand to `utc sym` + the instruction, reaching this file's
-// own .bss with a 15-bit address; see b_padd.s for why a bare `atx p` is unsafe.
+// THE TEMPORARIES ARE ON THE STACK, NOT IN .bss, AND THAT IS THE POINT.  This helper has to
+// be REENTRANT: it is interruptible at every instruction, and what interrupts it walks char
+// pointers of its own -- a Unix kernel's clock tick reaching a `char' struct member, or a
+// signal handler in a user program.  With the two cells in static memory the handler's
+// b$pinc overwrote the interrupted call's, and the outer call resumed and finished with the
+// inner one's values: a silently wrong pointer, no fault, no diagnostic.  b_umul.s has kept
+// its temporaries on the stack from the start; these five pointer helpers (b$padd, b$pinc,
+// b$pdec, b$pdiff, b$stb) were the last ones carrying the Madlen original's static cells.
+//
+// The frame is reserved by ADVANCING r15, not by writing above it: an interrupt builds its
+// own frame at r15, so scratch left above r15 is scratch waiting to be overwritten.  Slots
+// are addressed by NEGATIVE offset from r15 -- with index register 15 a ZERO address field
+// is the machine's stack mode (auto push/pop), so every offset here must be nonzero.
 //
     .text
     .globl b$pinc
 b$pinc:
-    atx <p>
+ 15 utm 2           // reserve the frame: p at -2, w at -1
+ 15 atx -2          // p := A  (atx does not disturb A)
     aax #07'7777    // A = word address (bits 15-1)
-    atx <w>
-    xta <p>
+ 15 atx -1          // w := word address
+ 15 xta -2          // A = p
     asn 64+44       // offset_enc -> bits 3-1
     aax #07         // offset_enc (0..5)
     uza wrap        // offset_enc == 0 -> wrap to 5, bump word
@@ -25,16 +37,12 @@ b$pinc:
     aax #07         // so enc==1 yields 0 (a -1 add gives all-ones -0 -> masks to 7)
     asn 64-44       // offset_enc' -> bits 47-45
     aox #0'40       // set marker (bit 48)
-    aox <w>         // OR in the word address
+ 15 aox -1          // OR in the word address
+ 15 utm -2          // release the frame
  13 uj
 wrap:
-    xta <w>
+ 15 xta -1          // A = w
     arx #01         // word += 1
     aox #0'64       // marker + offset_enc 5 (MSB of the next word)
+ 15 utm -2          // release the frame
  13 uj
-
-    .bss
-p:
-    . = . + 1
-w:
-    . = . + 1
