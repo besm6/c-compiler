@@ -1,6 +1,8 @@
 # Technical reference: BESM-6 C compiler
 
-This document lists repository layout, build details, components, tests, and development notes. The [README](../README.md) is the overview for new contributors.
+This document lists repository layout, build details, components, tests, and development notes. The [README](../README.md) is the overview for new readers.
+
+The project is complete: the compiler was used to port [Unix v7 to the BESM-6](https://github.com/besm6/v7besm). The frontend and the BESM-6 backend are finished; no other machine backend was implemented.
 
 ## Repository layout
 
@@ -8,9 +10,9 @@ This document lists repository layout, build details, components, tests, and dev
 c-compiler/
 ├── ast/            # AST: types, alloc, import/export, YAML, Graphviz, print, clone, compare, free
 ├── backend/
-│   ├── besm6/      # BESM-6 codegen: IR (besm.h, besm6.asdl), Madlen emitter, tests
-│   ├── x86/        # x86_64 backend (planned; x86_64.asdl, TODO.md)
-│   └── ...         # aarch64/, arm32/, riscv/ — ISA ASDL specs
+│   ├── besm6/      # BESM-6 codegen: IR (besm.h, besm6.asdl), b6as/Madlen/Bemsh emitters, tests
+│   ├── x86/        # x86_64: never implemented — x86_64.asdl, notes, TODO.md
+│   └── ...         # aarch64/, arm32/, riscv/ — ISA ASDL specs, never implemented
 ├── docs/           # Project documentation (this file)
 ├── grammar/        # C11 Yacc/Lex/ASDL reference; see docs/C_Grammar.md
 ├── libc/           # Target C runtime + C11 headers: besm6/{include, madlen (libc.bin), unix (libruntime.a, libc0.a, crt0.o)}
