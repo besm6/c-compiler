@@ -946,3 +946,34 @@ c
 )",
               output);
 }
+
+// An enumerator in a static initializer folds to its value before code generation.
+// This is the reported repro: it used to abort in b6lower with
+// "literal_to_int64: Cannot convert enum".  The emitted module must be identical
+// to the one for "static const int a[] = { 0, 1 };".
+TEST_F(CodegenTest, VarIntArrayInitEnumConst)
+{
+    std::string output = CompileToMadlen("enum { X, Y }; static const int a[] = { X, Y };");
+    EXPECT_EQ(R"(c
+        a:   ,name,
+             ,log, 0
+             ,log, 1
+             ,end,
+)",
+              output);
+}
+
+// An enumerated-type struct member initialized by an enumerator: the member's
+// TYPE_ENUM shares int's static-init representation (octal 52 = 42, 53 = 43).
+TEST_F(CodegenTest, VarStructInitEnumConst)
+{
+    std::string output = CompileToMadlen(
+        "enum E { A = 42, B }; struct S { int x; enum E e; }; struct S st = { A, B };");
+    EXPECT_EQ(R"(c
+       st:   ,name,
+             ,log, 52
+             ,log, 53
+             ,end,
+)",
+              output);
+}

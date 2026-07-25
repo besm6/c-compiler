@@ -386,8 +386,13 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         fatal_error("Cannot initialize aggregate type with scalar value");
     }
 
-    // Handle scalar initialized with a literal.
-    if (init->kind == INITIALIZER_SINGLE && init->u.expr->kind == EXPR_LITERAL) {
+    // Handle scalar initialized with a literal.  An enum constant is an EXPR_LITERAL too,
+    // but its Literal holds only the enumerator's identifier — resolving it to a value needs
+    // the symbol table, which new_static_init_from_literal has no access to.  So it falls
+    // through to the constant-expression branch below, whose typecheck_and_decay rewrites
+    // the node to a LITERAL_INT and whose try_eval_const_int folds enumerators natively.
+    if (init->kind == INITIALIZER_SINGLE && init->u.expr->kind == EXPR_LITERAL &&
+        init->u.expr->u.literal->kind != LITERAL_ENUM) {
         const Literal *literal = init->u.expr->u.literal;
         if (is_zero_int(literal)) {
             Tac_StaticInit *zero_init = tac_new_static_init(TAC_STATIC_INIT_ZERO);

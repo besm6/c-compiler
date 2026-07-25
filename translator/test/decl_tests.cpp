@@ -323,6 +323,118 @@ TEST_F(TranslateTest, EnumConstLocalDecl)
 )");
 }
 
+// A static initializer bypasses typecheck_init, so an enumerator reaches
+// build_static_init still spelled as a LITERAL_ENUM (an identifier, not a value).
+// It must fold through try_eval_const_int rather than being handed to
+// new_static_init_from_literal, which has no symbol table and would abort with
+// "literal_to_int64: Cannot convert enum".  Every element of an aggregate
+// initializer recurses into that same scalar leaf, so one bad branch broke them all.
+TEST_F(TranslateTest, EnumConstInStaticArrayInit)
+{
+    std::string yaml = CompileToYaml("enum { X, Y }; static const int a[] = { X, Y };");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: a
+  global: false
+  type:
+    kind: array
+    elem_type:
+      kind: int
+    size: 2
+  init_list:
+    - init:
+      kind: i64
+      value: 0
+    - init:
+      kind: i64
+      value: 1
+)");
+}
+
+// Same for a non-static file-scope array: storage duration is static either way.
+TEST_F(TranslateTest, EnumConstInGlobalArrayInit)
+{
+    std::string yaml = CompileToYaml("enum { X, Y }; int b[] = { X, Y };");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: b
+  global: true
+  type:
+    kind: array
+    elem_type:
+      kind: int
+    size: 2
+  init_list:
+    - init:
+      kind: i64
+      value: 0
+    - init:
+      kind: i64
+      value: 1
+)");
+}
+
+// The scalar case is the same leaf, so it was equally broken.  An explicit
+// enumerator value also exercises the auto-increment that follows it.
+TEST_F(TranslateTest, EnumConstInScalarStaticInit)
+{
+    std::string yaml = CompileToYaml("enum Color { RED = 5, GREEN }; static int s = GREEN;");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: s
+  global: false
+  type:
+    kind: int
+  init_list:
+    - init:
+      kind: i64
+      value: 6
+)");
+}
+
+// A narrower element type takes the same fallthrough: is_integer covers char.
+TEST_F(TranslateTest, EnumConstInCharArrayInit)
+{
+    std::string yaml =
+        CompileToYaml("enum Ch { LETTER_A = 65, LETTER_B }; char c[] = { LETTER_A, LETTER_B };");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: c
+  global: true
+  type:
+    kind: array
+    elem_type:
+      kind: uchar
+    size: 2
+  init_list:
+    - init:
+      kind: i8
+      value: 65
+    - init:
+      kind: i8
+      value: 66
+)");
+}
+
+// A variable of enumerated type is int-sized/int-aligned/signed everywhere else,
+// so new_static_init_from_literal must give TYPE_ENUM int's representation too —
+// otherwise even a plain "enum Color ev = 7;" died with "Unsupported constant type".
+TEST_F(TranslateTest, EnumTypedGlobalInit)
+{
+    std::string yaml = CompileToYaml("enum Color { RED = 5, GREEN }; enum Color ev = GREEN;");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: ev
+  global: true
+  type:
+    kind: int
+  init_list:
+    - init:
+      kind: i64
+      value: 6
+)");
+}
+
 // for-init declaration emits COPY before the loop test label.
 TEST_F(TranslateTest, ForLoopInitDecl)
 {

@@ -33,7 +33,7 @@ int64_t literal_to_int64(const Literal *lit)
     case LITERAL_STRING:
         fatal_error("literal_to_int64: Cannot convert string %s", lit->u.string_val);
     case LITERAL_ENUM:
-        fatal_error("literal_to_int64: Cannot convert enum %d", lit->u.enum_const);
+        fatal_error("literal_to_int64: Cannot convert enum %s", lit->u.enum_const);
     default:
         fatal_error("literal_to_int64: Unknown kind %d", lit->kind);
     }
@@ -67,7 +67,7 @@ uint64_t literal_to_uint64(const Literal *lit)
     case LITERAL_STRING:
         fatal_error("literal_to_uint64: Cannot convert string %s", lit->u.string_val);
     case LITERAL_ENUM:
-        fatal_error("literal_to_uint64: Cannot convert enum %d", lit->u.enum_const);
+        fatal_error("literal_to_uint64: Cannot convert enum %s", lit->u.enum_const);
     default:
         fatal_error("literal_to_uint64: Unknown kind %d", lit->kind);
     }
@@ -101,7 +101,7 @@ double literal_to_double(const Literal *lit)
     case LITERAL_STRING:
         fatal_error("literal_to_double: Cannot convert string %s", lit->u.string_val);
     case LITERAL_ENUM:
-        fatal_error("literal_to_double: Cannot convert enum %d", lit->u.enum_const);
+        fatal_error("literal_to_double: Cannot convert enum %s", lit->u.enum_const);
     default:
         fatal_error("literal_to_double: Unknown kind %d", lit->kind);
     }
@@ -132,7 +132,7 @@ static long double literal_to_long_double(const Literal *lit)
     case LITERAL_STRING:
         fatal_error("literal_to_long_double: Cannot convert string %s", lit->u.string_val);
     case LITERAL_ENUM:
-        fatal_error("literal_to_long_double: Cannot convert enum %d", lit->u.enum_const);
+        fatal_error("literal_to_long_double: Cannot convert enum %s", lit->u.enum_const);
     default:
         fatal_error("literal_to_long_double: Unknown kind %d", lit->kind);
     }
@@ -171,6 +171,11 @@ Tac_StaticInit *new_static_init_from_literal(const Type *target_type, const Lite
         break;
 
     case TYPE_INT:
+    case TYPE_ENUM:
+        // An enumerated type is int-sized, int-aligned and signed everywhere else
+        // (get_size/get_alignment/is_signed, and ast_type_to_tac_type maps it to
+        // TAC_TYPE_INT), so it shares int's representation here too.
+        //
         // BESM-6 int is 48-bit; use the 64-bit init slot so multi-character
         // constants (up to 5 bytes / 40 bits) are not truncated. The backend
         // emits INIT_I64 identically to INIT_I32 (one word, masked to 41 bits).
