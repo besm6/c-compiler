@@ -701,10 +701,17 @@ Field *parse_struct_declaration_list()
     if (parser_debug) {
         printf("--- %s()\n", __func__);
     }
-    Field *fields = parse_struct_declaration();
-    if (current_token_is_not(TOKEN_RBRACE)) {
-        fields->next = parse_struct_declaration_list();
-    }
+    Field *fields = NULL, **fields_tail = &fields;
+    do {
+        //
+        // A single struct_declaration yields one field per comma-separated
+        // declarator, so append its whole chain, not just its head.
+        //
+        *fields_tail = parse_struct_declaration();
+        while (*fields_tail) {
+            fields_tail = &(*fields_tail)->next;
+        }
+    } while (current_token_is_not(TOKEN_RBRACE));
     return fields;
 }
 

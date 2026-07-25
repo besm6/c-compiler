@@ -32,6 +32,41 @@ TEST_F(PipelineTest, StructDecl)
     EXPECT_EQ(sd->members->next->next, nullptr);
 }
 
+// Struct with a comma-separated declarator list followed by another
+// declaration.  Verifies that parse_struct_declaration_list() appends the whole
+// chain a struct_declaration returns, instead of clobbering its head's next --
+// which used to drop every interior member (`g.tok_ptr` then failed to resolve).
+TEST_F(PipelineTest, StructMultipleDeclarators)
+{
+    RunPipeline("struct S { char *a, *tok_ptr, *c; int p; };"
+                " struct S g;"
+                " int main(void) { g.tok_ptr = 0; return 0; }");
+
+    const StructDef *sd = structtab_find("S");
+    ASSERT_NE(sd, nullptr);
+
+    // All four members must survive, in declaration order and at distinct,
+    // increasing offsets (exact offsets are target-dependent).
+    const char *names[] = { "a", "tok_ptr", "c", "p" };
+    const TypeKind kinds[] = { TYPE_POINTER, TYPE_POINTER, TYPE_POINTER, TYPE_INT };
+    const FieldDef *m      = sd->members;
+    int prev_offset        = -1;
+    for (int i = 0; i < 4; i++) {
+        ASSERT_NE(m, nullptr) << "member " << names[i] << " missing";
+        EXPECT_STREQ(m->name, names[i]);
+        ASSERT_NE(m->type, nullptr);
+        EXPECT_EQ(m->type->kind, kinds[i]);
+        if (kinds[i] == TYPE_POINTER) {
+            ASSERT_NE(m->type->u.pointer.target, nullptr);
+            EXPECT_EQ(m->type->u.pointer.target->kind, TYPE_CHAR);
+        }
+        EXPECT_GT(m->offset, prev_offset);
+        prev_offset = m->offset;
+        m           = m->next;
+    }
+    EXPECT_EQ(m, nullptr);
+}
+
 // Struct definition followed by a variable of that struct type.
 TEST_F(PipelineTest, StructUsedInVar)
 {

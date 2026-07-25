@@ -370,3 +370,63 @@ TEST_F(ParserTest, StructWithFunctionPointerMember)
 
     free_type(type);
 }
+
+//
+// Comma-Separated Declarator List Followed by Another Declaration
+//      struct s {
+//          char *a, *tok_ptr, *c;
+//          int p;
+//      }
+//
+// A struct_declaration yields one field per comma-separated declarator, so the
+// interior members must survive when a further declaration follows.
+//
+TEST_F(ParserTest, StructMultipleDeclarators)
+{
+    Type *type = TestType("struct s { char *a, *tok_ptr, *c; int p; };");
+
+    //
+    // Check struct s
+    //
+    EXPECT_EQ(type->kind, TYPE_STRUCT);
+    EXPECT_STREQ(type->u.struct_t.name, "s");
+
+    //
+    // All four members must be present, in declaration order
+    //
+    Field *a = type->u.struct_t.fields;
+    ASSERT_NE(a, nullptr);
+    Field *tok_ptr = a->next;
+    ASSERT_NE(tok_ptr, nullptr);
+    Field *c = tok_ptr->next;
+    ASSERT_NE(c, nullptr);
+    Field *p = c->next;
+    ASSERT_NE(p, nullptr);
+    EXPECT_EQ(p->next, nullptr);
+
+    //
+    // Check the three char* members
+    //
+    const char *names[] = { "a", "tok_ptr", "c" };
+    Field *ptrs[]       = { a, tok_ptr, c };
+    for (int i = 0; i < 3; i++) {
+        EXPECT_STREQ(ptrs[i]->u.member.name, names[i]);
+        EXPECT_EQ(ptrs[i]->u.member.bitfield, nullptr);
+        ASSERT_NE(ptrs[i]->u.member.type, nullptr);
+        EXPECT_EQ(ptrs[i]->u.member.type->kind, TYPE_POINTER);
+
+        Type *target = ptrs[i]->u.member.type->u.pointer.target;
+        ASSERT_NE(target, nullptr);
+        EXPECT_EQ(target->kind, TYPE_CHAR);
+    }
+
+    //
+    // Check field p
+    //
+    EXPECT_STREQ(p->u.member.name, "p");
+    EXPECT_EQ(p->u.member.bitfield, nullptr);
+    ASSERT_NE(p->u.member.type, nullptr);
+    EXPECT_EQ(p->u.member.type->kind, TYPE_INT);
+
+    free_type(type);
+}
