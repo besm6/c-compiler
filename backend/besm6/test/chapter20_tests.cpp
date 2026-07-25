@@ -1704,7 +1704,6 @@ int main(void) { return target(1, 2, 3, 1.0); }
 TEST_F(CodegenTest, Chapter20_AllNoCoal_PtrRaxLiveAtExit)
 {
     EXPECT_EQ("0\n", CompileAndRunBook(EX + C1I + R"WP(
-void *malloc(unsigned long size);
 long arr[3] = {100, 200, 300};
 long glob2;
 long *target(void) {
