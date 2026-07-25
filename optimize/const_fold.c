@@ -235,26 +235,53 @@ static uint64_t const_to_uint64(const Tac_Const *c)
     }
 }
 
-// Mask applied to a shift count so it stays in [0, width). C leaves shifts by
-// the type width or more undefined; we fold them by masking the count to the
-// operand width, matching the behavior of the target hardware's shift unit.
+// Storage width in bits of the operand a shift acts on, ON THE ACTIVE TARGET: the
+// point past which a shift count is out of range.  This is the *storage* width,
+// size*8, not the signed value width -- a BESM-6 `int` holds 41 bits of value in a
+// 48-bit word, and its shift unit shifts the whole word.
+//
+// THIS USED TO BE A MASK OF 31 OR 63, the host's widths, and folding `count & 31`
+// silently turned every in-range BESM-6 shift past 31 into a different one:
+// `1u << 36` folded to `1u << (36 & 31)` == 020, and the same expression evaluated
+// at run time -- a variable count reaches the shift unit unmasked -- gave 2^36.  A
+// constant folder that disagrees with the code generator is worse than no folder,
+// and this disagreed only for counts a 32-bit target could not have.
+//
+// C leaves a count of the promoted operand's width or more undefined, so an
+// out-of-range count may fold to anything; 0 is chosen because it is what the
+// BESM-6 shift unit produces (a shift of 48 or more clears the accumulator) and
+// what an x86 shift of a value already reduced to nothing produces.  What matters
+// is that an IN-RANGE count is exact, which masking made it not.
 //
 // Character operands have no shift of their own: C integer promotions widen them
 // to `int` before the shift, so a char shift is an int shift and uses the int
-// mask (31), not the 8-bit char width.  Using 7 here mis-folds e.g.
-// `(unsigned char)250 >> 31` to `250 >> (31 & 7)` == 1, where the promoted-int
-// shift the hardware performs gives `250 >> 31` == 0.
-static int const_shift_mask(Tac_ConstKind k)
+// width, not the 8-bit char width.  Using 8 here would mis-fold e.g.
+// `(unsigned char)250 >> 31`, an in-range shift of a promoted int, to 0 by the
+// out-of-range rule below, where the shift the hardware performs gives 0 anyway --
+// but on BESM-6, where an int is 48 bits, `(unsigned char)250 << 40` is in range
+// and must not be thrown away.
+static int const_shift_bits(Tac_ConstKind k)
 {
     switch (k) {
     case TAC_CONST_SCHAR:
     case TAC_CONST_UCHAR:
     case TAC_CONST_INT:
     case TAC_CONST_UINT:
-        return 31;
+        return target_config ? (int)target_config->int_size * 8 : 32;
+    case TAC_CONST_LONG:
+    case TAC_CONST_ULONG:
+        return target_config ? (int)target_config->long_size * 8 : 64;
     default:
-        return 63; // LONG, LONG_LONG, ULONG, ULONG_LONG
+        return target_config ? (int)target_config->llong_size * 8 : 64;
     }
+}
+
+// The shift count to fold with, or -1 when C says the shift is undefined and the
+// folder answers 0.  A negative count is undefined too; u2 is the unsigned view, so
+// one arrives here as a huge value and is rejected by the same test.
+static int const_shift_count(Tac_ConstKind k, uint64_t u2)
+{
+    return u2 < (uint64_t)const_shift_bits(k) ? (int)u2 : -1;
 }
 
 // Signed value width (in bits) of a signed integer constant kind on the active
@@ -581,13 +608,15 @@ static Tac_Val *fold_binary_const(Tac_BinaryOperator op, const Tac_Const *c1, co
         break;
 
     case TAC_BINARY_LEFT_SHIFT: {
-        int amt = (int)((unsigned)u2 & (unsigned)const_shift_mask(c1->kind));
-        result  = u1 << (unsigned)amt;
+        int amt = const_shift_count(c1->kind, u2);
+        result  = amt < 0 ? 0 : u1 << (unsigned)amt;
         break;
     }
     case TAC_BINARY_RIGHT_SHIFT: {
-        int amt = (int)((unsigned)u2 & (unsigned)const_shift_mask(c1->kind));
-        if (target_config && target_config->right_shift_is_logical) {
+        int amt = const_shift_count(c1->kind, u2);
+        if (amt < 0) {
+            result = 0;
+        } else if (target_config && target_config->right_shift_is_logical) {
             // Target (BESM-6) shifts right logically even for signed operands: zero-fill
             // the operand's target-width bit pattern, matching the backend's shift unit.
             // u1 is sign-extended to 64 bits, so mask it back to the signed value width
@@ -604,8 +633,8 @@ static Tac_Val *fold_binary_const(Tac_BinaryOperator op, const Tac_Const *c1, co
     }
     case TAC_BINARY_RIGHT_SHIFT_LOGICAL: {
         // Logical right shift: operate on the unsigned view (zero-fill).
-        int amt = (int)((unsigned)u2 & (unsigned)const_shift_mask(c1->kind));
-        result  = u1 >> (unsigned)amt;
+        int amt = const_shift_count(c1->kind, u2);
+        result  = amt < 0 ? 0 : u1 >> (unsigned)amt;
         break;
     }
     default:

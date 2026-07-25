@@ -379,6 +379,81 @@ TEST_F(OptimizerTest, BinaryFoldRightShiftNegativeBesm6Logical)
     EXPECT_EQ(body->u.copy.src->u.constant->u.int_val, 68719476481LL);
 }
 
+// ---------------------------------------------------------------------------
+// A shift count is in range up to the TARGET's storage width, not the host's.
+// The folder used to mask the count to 31 (int) or 63 (long), the host widths, so
+// on BESM-6 -- where an int is 48 bits of storage -- every count from 32 to 47
+// folded to a different shift than the one the machine performs at run time.
+// `1u << 36` folded to `1u << 4` == 16 where the hardware gives 2^36, and the
+// disagreement was invisible unless the same expression appeared both as a literal
+// and with a variable count.
+// ---------------------------------------------------------------------------
+
+// The bug, exactly: an unsigned int shifted left by 36 on a 48-bit-int target.
+TEST_F(OptimizerTest, BinaryFoldLeftShiftPastHostIntWidthBesm6)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_LEFT_SHIFT, make_const_uint(1),
+                                        make_const_int(36), make_var("t"));
+    {
+        TargetGuard besm6("besm6");
+        body = constant_fold(body);
+    }
+    ASSERT_NE(body, nullptr);
+    ASSERT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_UINT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.uint_val, 1ULL << 36);
+}
+
+// And back the other way, so the round trip through bit 37 is exact.  Spelled with an
+// unsigned long -- also 48 bits on this target -- because the host `unsigned' the
+// fixture takes for a uint constant cannot hold 2^36 to begin with, which is the same
+// host-width assumption that put the bug here.
+TEST_F(OptimizerTest, BinaryFoldRightShiftPastHostIntWidthBesm6)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_RIGHT_SHIFT, make_const_ulong(1UL << 36),
+                                        make_const_int(36), make_var("t"));
+    {
+        TargetGuard besm6("besm6");
+        body = constant_fold(body);
+    }
+    ASSERT_NE(body, nullptr);
+    ASSERT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_ULONG);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.ulong_val, 1u);
+}
+
+// Out of range even for the 48-bit target: C leaves it undefined and the folder
+// answers 0, which is what the BESM-6 shift unit produces past 48 bits.
+TEST_F(OptimizerTest, BinaryFoldLeftShiftOutOfRangeBesm6IsZero)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_LEFT_SHIFT, make_const_uint(1),
+                                        make_const_int(48), make_var("t"));
+    {
+        TargetGuard besm6("besm6");
+        body = constant_fold(body);
+    }
+    ASSERT_NE(body, nullptr);
+    ASSERT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_UINT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.uint_val, 0u);
+}
+
+// The same count of 36 on x86_64, where a 32-bit int makes it out of range: 0, not
+// the 16 the old masking gave.  Nothing in range changes for this target.
+TEST_F(OptimizerTest, BinaryFoldLeftShiftOutOfRangeX86IsZero)
+{
+    Tac_Instruction *body = make_binary(TAC_BINARY_LEFT_SHIFT, make_const_uint(1),
+                                        make_const_int(36), make_var("t"));
+    {
+        TargetGuard x86("x86_64");
+        body = constant_fold(body);
+    }
+    ASSERT_NE(body, nullptr);
+    ASSERT_EQ(body->kind, TAC_INSTRUCTION_COPY);
+    EXPECT_EQ(body->u.copy.src->u.constant->kind, TAC_CONST_UINT);
+    EXPECT_EQ(body->u.copy.src->u.constant->u.uint_val, 0u);
+}
+
 // On x86_64 the same signed >> is arithmetic (sign-preserving): -8160 >> 5 == -255.
 TEST_F(OptimizerTest, BinaryFoldRightShiftNegativeX86Arithmetic)
 {
