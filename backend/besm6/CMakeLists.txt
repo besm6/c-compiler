@@ -49,6 +49,7 @@ add_executable(besm-tests
     test/ptr_tests.cpp
     test/struct_tests.cpp
     test/char_tests.cpp
+    test/bool_tests.cpp
     test/peephole_tests.cpp
     test/intrinsics_tests.cpp
     test/printf_tests.cpp

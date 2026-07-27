@@ -84,6 +84,22 @@ right-hand side are:
 | Any pointer | Integer | **No** | `fatal_error` |
 | Different struct/union type | Any struct/union type | **No** | `fatal_error` |
 
+### Conversion to `_Bool` (§6.3.1.2)
+
+Converting *to* `_Bool` is the one asymmetric arithmetic conversion: the result is
+**0 if the value compares equal to 0 and 1 otherwise** — a zero test, not a truncation.
+It applies to any scalar source, including a pointer and a floating value, so
+`(_Bool)0.5` is 1 and `(_Bool)256` is 1 rather than 0.
+
+Every runtime conversion to `_Bool` is lowered by `emit_bool_normalize()`
+(`translator/translate.c`), which emits `dst = (src != 0)`.  `emit_cast()` calls it
+before any width logic, which covers assignment, initialization of an automatic object,
+argument passing, return and the explicit cast — all of which the typechecker turns into
+one `EXPR_CAST` node.  Two paths do not build a cast and normalize on their own:
+`++`/`--` (in `gen_step`, so `b++` on a true `_Bool` stays 1), and a static initializer
+(folded to 0/1 in `semantic/const_convert.c`).  Reading a `_Bool` *out* needs nothing —
+it already holds 0 or 1.
+
 ### Null pointer constant
 
 A **null pointer constant** is an integer constant expression with value `0`, or
@@ -163,6 +179,12 @@ EXPR_ASSIGN handler in `expressions.c` dispatches directly on the operator and l
   `double → int` cast) — no diagnostic is issued, matching the C standard.
 - If the RHS already has the same kind as the lhs no cast node is inserted.
 - Result type: the lhs type.
+- **Narrow lvalue**: when the lhs is narrower than `int` (`is_promotable_narrow`) and the
+  operator is arithmetic, the rhs is converted to `get_common_type(lhs, rhs)` instead, so
+  the operation runs in the promoted type and its result is converted back to the lhs
+  type — as `lhs = lhs op rhs` would.  A `_Bool` lvalue takes that path for **every**
+  compound operator, bitwise and shift included: the conversion back is where `b <<= 4`
+  and `b |= 4` re-normalize to 0/1 (§6.3.1.2 above).
 
 **Key difference from simple assignment (§4)**: compound operators narrow the rhs directly
 to the lhs type without going through `coerce_for_assignment()`.  Pointer↔pointer and

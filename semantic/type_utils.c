@@ -78,11 +78,15 @@ size_t get_size(const Type *t)
 {
     t = unalias(t);
     switch (t->kind) {
-    case TYPE_BOOL:
     case TYPE_CHAR:
     case TYPE_SCHAR:
     case TYPE_UCHAR:
         return 1;
+    // _Bool is the one integer type whose width the target descriptor decides: on a
+    // word-addressed machine a 1-byte object means byte-packed storage and a fat byte
+    // pointer, which is the wrong representation for a one-bit type (see Target).
+    case TYPE_BOOL:
+        return target_config->bool_size;
     case TYPE_SHORT:
     case TYPE_USHORT:
         return target_config->short_size;
@@ -136,11 +140,12 @@ size_t get_alignment(const Type *t)
 {
     t = unalias(t);
     switch (t->kind) {
-    case TYPE_BOOL:
     case TYPE_CHAR:
     case TYPE_SCHAR:
     case TYPE_UCHAR:
         return 1;
+    case TYPE_BOOL: // see get_size
+        return target_config->bool_align;
     case TYPE_SHORT:
     case TYPE_USHORT:
         return target_config->short_align;
@@ -304,6 +309,20 @@ bool is_character(const Type *t)
     default:
         return false;
     }
+}
+
+// True for an integer type the integer promotions (C11 §6.3.1.1p2) widen to int:
+// _Bool, the three character types, and short/unsigned short.  (`unsigned short` fills
+// a BESM-6 word, so promoting it to signed int is the deliberate simplification
+// get_common_type and promote_kind both make; the two must agree.)  _Bool is narrow by
+// *value* width — one bit — not by storage: get_size may give it a whole word, but the
+// promotion is still what makes `b << 1`, `~b`, `-b` and `b op= x` compute in int and
+// re-normalise on the way back into the _Bool.
+bool is_promotable_narrow(const Type *t)
+{
+    t = unalias(t);
+    return t->kind == TYPE_BOOL || is_character(t) || t->kind == TYPE_SHORT ||
+           t->kind == TYPE_USHORT;
 }
 
 bool is_arithmetic(const Type *t)

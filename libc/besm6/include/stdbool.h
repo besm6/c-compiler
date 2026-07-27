@@ -1,7 +1,9 @@
 /*
  * <stdbool.h> — boolean type and values (C11 §7.18), BESM-6 target.
  *
- * _Bool occupies one word; only bit 1 is significant (0 = false, 1 = true).
+ * _Bool occupies one word (sizeof(_Bool) == 6); only bit 1 is significant
+ * (0 = false, 1 = true).  Converting any scalar to _Bool is a zero test, so a
+ * _Bool object never holds anything but 0 or 1.
  */
 #ifndef _STDBOOL_H
 #define _STDBOOL_H

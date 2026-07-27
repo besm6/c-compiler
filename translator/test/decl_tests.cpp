@@ -818,3 +818,35 @@ TEST_F(TranslateTest, LocalAggregateAllocateLocal)
       alignment: 6
 )");
 }
+
+// A _Bool object with static storage duration used to abort the translator
+// ("ast_type_to_tac_type: unsupported type kind 1"): unlike a struct member, which is
+// emitted as a sized blob, the object's own type has to be lowered.  _Bool carries
+// int's representation (one word here), and its initializer normalizes to 0/1.
+TEST_F(TranslateTest, BoolStaticVariable)
+{
+    std::string yaml = CompileToYaml("_Bool g = 5;");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: g
+  global: true
+  type:
+    kind: int
+  init_list:
+    - init:
+      kind: i64
+      value: 1
+)");
+}
+
+// The array and pointer cases recurse into the element/pointee type, so they failed
+// the same way; a _Bool array is a plain word-per-element array, not the packed byte
+// blob a char array lowers to.
+TEST_F(TranslateTest, BoolStaticArrayAndPointer)
+{
+    std::string yaml = CompileToYaml("_Bool a[3] = { 0, 5, 0 };");
+    EXPECT_NE(yaml.find("kind: array"), std::string::npos);
+    EXPECT_NE(yaml.find("size: 3"), std::string::npos);
+    EXPECT_NE(yaml.find("value: 1"), std::string::npos);
+    EXPECT_EQ(yaml.find("kind: string"), std::string::npos);
+}

@@ -150,8 +150,17 @@ Tac_StaticInit *new_static_init_from_literal(const Type *target_type, const Lite
     Tac_StaticInit *result = NULL;
     switch (target_type->kind) {
     case TYPE_BOOL:
-        result            = tac_new_static_init(TAC_STATIC_INIT_I32);
-        result->u.int_val = (literal_to_int64(lit) != 0);
+        // C11 §6.3.1.2: a scalar converted to _Bool is 0 or 1.  The init slot follows the
+        // type's storage, which ast_type_to_tac_type carries in the same widths: a
+        // word-sized _Bool uses int's slot, a byte-sized one unsigned char's (only the
+        // I8/U8 kinds are packed sub-word by the BESM-6 static emitter).
+        if (get_size(target_type) == 1) {
+            result              = tac_new_static_init(TAC_STATIC_INIT_U8);
+            result->u.uchar_val = (literal_to_int64(lit) != 0);
+        } else {
+            result             = tac_new_static_init(TAC_STATIC_INIT_I64);
+            result->u.long_val = (literal_to_int64(lit) != 0);
+        }
         break;
 
     case TYPE_CHAR:

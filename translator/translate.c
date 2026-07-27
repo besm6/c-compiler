@@ -207,8 +207,9 @@ static bool is_fat_pointer(const Type *t)
 }
 
 // Map an integer destination type to the Tac_ConstKind a folded conversion result
-// should carry, or -1 when the type has no direct Tac_ConstKind (short, _Bool, enum) so
-// the folder keeps its legacy source-derived kind.  Threaded into the integer-width
+// should carry, or -1 when the type has no direct Tac_ConstKind (short and enum; also
+// _Bool, though a conversion *to* _Bool never reaches a width conversion — see
+// emit_cast) so the folder keeps its legacy source-derived kind.  Threaded into the integer-width
 // conversions by emit_cast: it is what lets the folder tell a promotion `unsigned char →
 // int` (signed result) from a cast `unsigned char → unsigned int`, which lower to the
 // same ZERO_EXTEND.  Plain `char` follows the target's signedness via is_signed.
@@ -239,6 +240,56 @@ static int const_kind_of_int_type(const Type *t)
     }
 }
 
+//
+// Emit "dst = (src != 0)" — the C11 §6.3.1.2 conversion of a scalar value to _Bool.
+// A char*/void* is a *fat* pointer: even a null one carries a byte-offset marker, so the
+// raw word is not zero and must be reduced to its bare address first, exactly as
+// gen_cond_val does for `if (p)`.  A floating-point source is tested against a zero
+// constant of its own kind: NOT_EQUAL on FP operands is the same bit comparison `if (d)`
+// already lowers to, and matching kinds is what lets the constant folder fold it.
+//
+// Returns the destination Val *owned by the emitted instruction* (the gen_step
+// convention); a caller that hands the result on as its own value re-wraps it with
+// val_var, as emit_cast does.
+//
+Tac_Val *emit_bool_normalize(TacCtx *ctx, Tac_Val *src, const Type *from)
+{
+    const Type *f = unalias(from);
+    if (is_fat_pointer(f)) {
+        Tac_Val *addr             = new_var_val(ctx);
+        Tac_Instruction *in       = tac_new_instruction(TAC_INSTRUCTION_CHAR_PTR_TO_PTR);
+        in->u.char_ptr_to_ptr.src = src;
+        in->u.char_ptr_to_ptr.dst = addr;
+        tac_append(ctx, in);
+        src = val_var(addr->u.var_name);
+    }
+
+    Tac_Val *zero;
+    switch (f->kind) {
+    case TYPE_FLOAT:
+        zero = val_float(0.0f);
+        break;
+    case TYPE_DOUBLE:
+        zero = val_double(0.0);
+        break;
+    case TYPE_LONG_DOUBLE:
+        zero = val_long_double(0.0L);
+        break;
+    default:
+        zero = val_int(0); // integers, enums and word pointers: a zero word
+        break;
+    }
+
+    Tac_Val *dst        = new_var_val(ctx);
+    Tac_Instruction *ne = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+    ne->u.binary.op     = TAC_BINARY_NOT_EQUAL;
+    ne->u.binary.src1   = src;
+    ne->u.binary.src2   = zero;
+    ne->u.binary.dst    = dst;
+    tac_append(ctx, ne);
+    return dst;
+}
+
 Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
 {
     // A cast to void discards the value: the operand has already been evaluated
@@ -249,6 +300,22 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
     // ((void)ap).
     if (to->kind == TYPE_VOID)
         return src;
+
+    // C11 §6.3.1.2: "When any scalar value is converted to _Bool, the result is 0 if the
+    // value compares equal to 0; otherwise the result is 1."  That is a zero *test*, not a
+    // width conversion, so it must pre-empt the size-driven TRUNCATE/EXTEND/COPY logic
+    // below — which, _Bool being int-sized here, would emit a bare COPY and store the raw
+    // integer.  Every runtime conversion to _Bool funnels through this one function:
+    // assignment, initialization of an automatic object, argument passing, return, and the
+    // explicit cast all become an EXPR_CAST.  (A static initializer normalizes in
+    // semantic/const_convert.c instead; ++/-- in gen_step, which never reaches here.)
+    // A _Bool *source* needs nothing — it already holds 0 or 1.  This precedes the `dst`
+    // temporary below so the pass-through burns no temporary name.
+    if (unalias(to)->kind == TYPE_BOOL) {
+        if (unalias(from)->kind == TYPE_BOOL)
+            return src;
+        return val_var(emit_bool_normalize(ctx, src, from)->u.var_name);
+    }
 
     bool from_int = is_integer(from);
     bool to_int   = is_integer(to);
@@ -382,10 +449,14 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
         // before the FP conversion: b/utod and the inline INT-format path both assume a
         // full-width operand, so an unwidened unsigned char >= 128 carries garbage in the
         // high bits (task #30).  Mirror the integer promotion the int->int path performs.
+        // A normalized _Bool holds 0 or 1, so it converts correctly through either path;
+        // take the signed one, which the BESM-6 backend lowers inline (INT format +
+        // normalize) instead of through the b/utod helper call.
+        bool from_signed = is_signed(from) || unalias(from)->kind == TYPE_BOOL;
         if (get_size(from) < target_config->int_size) {
             Tac_Val *ext = new_var_val(ctx);
             // The widening promotes to `int`, so label the folded result signed.
-            if (is_signed(from)) {
+            if (from_signed) {
                 Tac_Instruction *e        = tac_new_instruction(TAC_INSTRUCTION_SIGN_EXTEND);
                 e->u.sign_extend.src      = src;
                 e->u.sign_extend.dst      = ext;
@@ -402,7 +473,7 @@ Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to)
         }
         bool to_float       = (to->kind == TYPE_FLOAT);
         bool to_long_double = (to->kind == TYPE_LONG_DOUBLE);
-        if (is_signed(from)) {
+        if (from_signed) {
             Tac_InstructionKind op  = to_float         ? TAC_INSTRUCTION_INT_TO_FLOAT
                                       : to_long_double ? TAC_INSTRUCTION_INT_TO_LONG_DOUBLE
                                                        : TAC_INSTRUCTION_INT_TO_DOUBLE;
@@ -593,6 +664,15 @@ Tac_Type *ast_type_to_tac_type(const Type *t)
         return tac_new_type(TAC_TYPE_SHORT);
     case TYPE_USHORT:
         return tac_new_type(TAC_TYPE_USHORT);
+    case TYPE_BOOL:
+        // There is no TAC _Bool kind: _Bool borrows the carrier of the integer kind of
+        // its own width, exactly as TYPE_ENUM below borrows int's.  On a word-addressed
+        // target that must not be a *char* kind — those mean byte-packed storage and fat
+        // byte pointers in the BESM-6 backend (codegen_sizeof/is_char_array), which is
+        // wrong for a type get_size gives a whole word.  The 0/1 invariant is maintained
+        // by emit_cast, not by the carrier, so the carrier's signedness never shows; int
+        // is the one that keeps `double d = b;` on the inline INT_TO_DOUBLE path.
+        return tac_new_type(get_size(t) == 1 ? TAC_TYPE_UCHAR : TAC_TYPE_INT);
     case TYPE_INT:
         return tac_new_type(TAC_TYPE_INT);
     case TYPE_UINT:

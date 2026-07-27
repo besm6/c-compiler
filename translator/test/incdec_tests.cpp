@@ -215,3 +215,15 @@ TEST_F(TranslateTest, PreDecReturnNewValue)
         name: %0
 )");
 }
+
+// C11 §6.5.2.4p2: `b++` is `b = b + 1` with the sum converted back to the operand's
+// type, so a _Bool ends at 1, not 2.  ++/-- computes the step in the operand's own
+// type and stores it directly — it never builds a cast node — so the §6.3.1.2
+// normalization has to be emitted by the step itself.
+TEST_F(TranslateTest, PostIncBoolNormalizes)
+{
+    std::string yaml = CompileToYaml("_Bool f(_Bool b) { b++; return b; }");
+    EXPECT_NE(yaml.find("op: add"), std::string::npos);
+    EXPECT_NE(yaml.find("op: not_equal"), std::string::npos);
+    EXPECT_LT(yaml.find("op: add"), yaml.find("op: not_equal"));
+}

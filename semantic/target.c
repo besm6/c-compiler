@@ -6,6 +6,7 @@
 // clang-format off
 static const Target targets[] = {
     // name
+    //            bool_size   bool_align
     //            short_size  short_align
     //            int_size    int_align
     //            long_size   long_align
@@ -16,6 +17,7 @@ static const Target targets[] = {
     //            pointer_size pointer_align
 
     { "avr",
+      1, 1,   // _Bool
       2, 1,   // short
       2, 1,   // int
       4, 1,   // long
@@ -30,6 +32,7 @@ static const Target targets[] = {
       1 }, // aggregate_align (1)
 
     { "msp430",
+      1, 1,   // _Bool
       2, 2,   // short
       2, 2,   // int
       4, 2,   // long
@@ -44,6 +47,7 @@ static const Target targets[] = {
       1 }, // aggregate_align (1)
 
     { "arm32",
+      1, 1,   // _Bool
       2, 2,   // short
       4, 4,   // int
       4, 4,   // long (ILP32: same size as int)
@@ -58,6 +62,7 @@ static const Target targets[] = {
       1 }, // aggregate_align (1)
 
     { "aarch64",
+      1, 1,   // _Bool
       2, 2,   // short
       4, 4,   // int
       8, 8,   // long (LP64)
@@ -72,6 +77,7 @@ static const Target targets[] = {
       1 }, // aggregate_align (1)
 
     { "x86_64",
+      1, 1,   // _Bool
       2, 2,   // short
       4, 4,   // int
       8, 8,   // long (LP64)
@@ -86,6 +92,7 @@ static const Target targets[] = {
       1 }, // aggregate_align (1)
 
     { "riscv32",
+      1, 1,   // _Bool
       2, 2,   // short
       4, 4,   // int
       4, 4,   // long (ILP32: same size as int)
@@ -100,6 +107,7 @@ static const Target targets[] = {
       1 }, // aggregate_align (1)
 
     { "riscv64",
+      1, 1,   // _Bool
       2, 2,   // short
       4, 4,   // int
       8, 8,   // long (LP64)
@@ -114,6 +122,7 @@ static const Target targets[] = {
       1 }, // aggregate_align (1)
 
     { "mmix",
+      1, 1,   // _Bool
       2, 2,   // short
       4, 4,   // int
       8, 8,   // long (LP64)
@@ -134,7 +143,10 @@ static const Target targets[] = {
     // same as double.  All alignments are 1 word = 6 bytes.
     // Signed int/long/long long are 41-bit (sign + 40 value bits) inside the word;
     // unsigned types use the full 48-bit storage width.
+    // _Bool is a word too: see the Target comment — a byte-sized _Bool would mean
+    // packed storage and fat byte pointers on this machine.
     { "besm6",
+      6, 6,   // _Bool   (1 word)
       6, 6,   // short   (1 word)
       6, 6,   // int     (1 word)
       6, 6,   // long    (1 word)

@@ -297,6 +297,20 @@ Source (.c)
 
 - **No identifier shadowing**: Inner blocks may not redeclare a name that already exists in any enclosing scope. `symtab` / `structtab` / `typetab` reject duplicates with `fatal_error`. This is a permanent design decision — do not add shadowing support.
 - **TAC name convention — frame-resident names start with `%`**: A TAC `var` name encodes its storage class by its first character. `%`+digit is a compiler temporary (`new_temp`); `%`+letter/`_` is a parameter or automatic local; a leading letter/`_`/`$` is a module-level global, static, string constant, or function. Loop and branch-target labels are also `%`-prefixed (`%L`+digit from `label_loops`, or a `%`+digit temporary). `percent_locals_in_function` in `translator/translate.c` (run just before the optimizer) prefixes parameter and automatic-local names — in the body and in the `params`/`locals` lists — with `%`. This lets a backend classify a name without the non-serialized `locals` list: `backend/besm6/frame.c` gives a stack slot to any `%`-prefixed name and treats every other referenced name as an external global. The no-shadowing rule makes the renaming unambiguous. Keep the body and the `params`/`locals` lists consistent (the optimizer's alias analysis matches names against both).
+- **`_Bool` is int-shaped, and every conversion to it is a zero test.** `_Bool` has its own
+  size/alignment pair in the target descriptor (`bool_size`/`bool_align`, `semantic/target.h`):
+  one word on BESM-6, one byte on the byte-addressed targets. A byte-sized `_Bool` would be
+  wrong here — on this machine the 1-byte size *means* byte-packed storage and a fat byte
+  pointer, so `_Bool a[4]` would pack six to a word and `_Bool *p` would store through the
+  `b/stb` read-modify-write helper, all to carry one bit. TAC has no `_Bool` kind, so
+  `ast_type_to_tac_type` carries a word-sized `_Bool` in `TAC_TYPE_INT` (a byte-sized one in
+  `TAC_TYPE_UCHAR`), the way `TYPE_ENUM` borrows int's. C11 §6.3.1.2 (a scalar converted to
+  `_Bool` is 0 or 1) is implemented by `emit_bool_normalize` in `translator/translate.c`,
+  called from `emit_cast` ahead of all width logic — that one node covers assignment,
+  initialization, argument passing, return and the explicit cast — plus `gen_step` for
+  `++`/`--` and `semantic/const_convert.c` for static initializers. `_Bool` also promotes to
+  `int` like any narrow integer type (`is_promotable_narrow`); without that, `b + i` would
+  find the two types the same size and pick the *unsigned* one, `_Bool`, as the common type.
 - **`.asdl` files are canonical specs, not code generators.** `ast/ast.asdl` and `tac/tacky.asdl` document the IR; `ast/ast.h` and `tac/tac.h` are maintained manually and must stay in sync.
 - **Word I/O (`libutil/wio`)**: AST and TAC binary streams use `size_t`-wide words for portability. Use `wio` for all IR serialization.
 - **TAC binary tags (`tac/tags.h`)**: Each TAC node header uses one `size_t`-wide word encoding `TAG_BASE + kind`. Tag constants are readable 4-letter ASCII (e.g. `cnst`, `insr`, `tval`). Stream magic is `TAC2`. See `tac/tags.h`, `tac_export.c`, `tac_import.c`.

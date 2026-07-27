@@ -121,9 +121,7 @@ Stmt *typecheck_statement(const Type *ret_type, Stmt *s)
             fatal_error("Switch controlling expression must be of integer type");
         }
         /* Integer promotion: types narrower than int → int. */
-        TypeKind k = unalias(ctrl->type)->kind;
-        if (k == TYPE_CHAR || k == TYPE_SCHAR || k == TYPE_UCHAR || k == TYPE_SHORT ||
-            k == TYPE_USHORT) {
+        if (is_promotable_narrow(ctrl->type)) {
             ctrl = convert_to_kind(ctrl, TYPE_INT);
         }
         s->u.switch_stmt.expr = ctrl;

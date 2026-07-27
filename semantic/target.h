@@ -10,11 +10,19 @@ extern "C" {
 // Target descriptor: size and alignment of primitive scalar types for one
 // supported architecture.  All values are in bytes (C addressable units,
 // i.e. in the same unit as sizeof() returns).  sizeof(char) == 1 always
-// and is not stored here; bool/schar/uchar are likewise always 1 byte.
+// and is not stored here; schar/uchar are likewise always 1 byte.
 // sizeof(enum) == sizeof(int) by convention.
+//
+// _Bool has a size of its own because C11 leaves its width implementation-defined
+// and a byte is the wrong choice on a word-addressed machine: there the char sizes
+// *mean* byte-packed storage and fat byte pointers, which would give `_Bool a[4]`
+// six-per-word packing and `_Bool *p` a read-modify-write store, all to carry one
+// bit.  BESM-6 therefore gives _Bool int's representation (one word); the
+// byte-addressed targets keep the 1-byte _Bool their ABIs specify.
 //
 typedef struct {
     const char *name;
+    size_t bool_size, bool_align;
     size_t short_size, short_align;
     size_t int_size, int_align;
     size_t long_size, long_align;

@@ -645,3 +645,73 @@ TEST_F(TranslateTestX86, CastIntToVoid)
     EXPECT_EQ(yaml.find("instruction:"), std::string::npos);
     EXPECT_EQ(yaml.find("int_to_double"), std::string::npos);
 }
+
+// ---------------------------------------------------------------------------
+// _Bool — C11 §6.3.1.2: converting to _Bool is a zero test, not a width change
+// ---------------------------------------------------------------------------
+
+// A conversion to _Bool must not go through the size-driven truncate/extend/copy
+// logic: _Bool is int-sized on BESM-6, so that logic would emit a bare copy and
+// store the raw integer.
+TEST_F(TranslateTest, CastIntToBoolNormalizes)
+{
+    std::string yaml = CompileToYaml("_Bool f(int x) { return (_Bool)x; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  params:
+    - param: %x
+  body:
+    - instruction:
+      kind: binary
+      op: not_equal
+      src1:
+        kind: var
+        name: %x
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: %0
+)");
+}
+
+// The same normalization on the implicit paths: assignment, initialization of an
+// automatic object, argument passing and return all become the one cast node.
+TEST_F(TranslateTest, ImplicitConversionsToBoolNormalize)
+{
+    std::string yaml = CompileToYaml(
+        "void g(_Bool);\n"
+        "_Bool f(int x) { _Bool b = x; b = x; g(x); return x; }");
+    size_t count = 0;
+    for (size_t i = yaml.find("op: not_equal"); i != std::string::npos;
+         i        = yaml.find("op: not_equal", i + 1))
+        count++;
+    EXPECT_EQ(count, 4u);
+}
+
+// A _Bool source already holds 0 or 1, and _Bool has int's width here, so reading
+// one out as an int is a plain copy — no test, no extend.
+TEST_F(TranslateTest, CastBoolToIntIsPlainCopy)
+{
+    std::string yaml = CompileToYaml("int f(_Bool b) { return (int)b; }");
+    EXPECT_EQ(yaml.find("not_equal"), std::string::npos);
+    EXPECT_EQ(yaml.find("extend"), std::string::npos);
+    EXPECT_NE(yaml.find("kind: copy"), std::string::npos);
+}
+
+// _Bool is one machine word on BESM-6 — not one byte.
+TEST_F(TranslateTest, SizeofBoolIsOneWord)
+{
+    std::string yaml = CompileToYaml("unsigned long f(void) { return sizeof(_Bool); }");
+    EXPECT_NE(yaml.find("value: 6"), std::string::npos);
+}

@@ -213,13 +213,13 @@ const Type *get_common_type(const Type *t1, const Type *t2)
     static const Type long_double_type = { .kind = TYPE_LONG_DOUBLE };
     t1                                 = unalias(t1);
     t2                                 = unalias(t2);
-    if (is_character(t1))
+    // Integer promotions (C11 §6.3.1.1p2) first: every type narrower than int becomes
+    // int.  _Bool must be in that set — otherwise `b + 1` falls through to the size
+    // comparison below, which on a target where _Bool is int-sized finds the two equal
+    // and picks the *unsigned* one, i.e. _Bool, as the common type.
+    if (is_promotable_narrow(t1))
         t1 = &int_type;
-    if (is_character(t2))
-        t2 = &int_type;
-    if (t1->kind == TYPE_SHORT || t1->kind == TYPE_USHORT)
-        t1 = &int_type;
-    if (t2->kind == TYPE_SHORT || t2->kind == TYPE_USHORT)
+    if (is_promotable_narrow(t2))
         t2 = &int_type;
     if (t1->kind == t2->kind)
         return t1;
@@ -436,7 +436,7 @@ static int kind_value_bits(TypeKind k)
         return 0;
     switch (k) {
     case TYPE_BOOL:
-        return 1;
+        return 1; // one *value* bit, whatever storage width get_size gives it
     case TYPE_CHAR:
     case TYPE_SCHAR:
     case TYPE_UCHAR:

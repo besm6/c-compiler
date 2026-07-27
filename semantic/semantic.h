@@ -54,6 +54,7 @@ bool is_scalar(const Type *t);
 bool is_arithmetic(const Type *t);
 bool is_integer(const Type *t);
 bool is_character(const Type *t);
+bool is_promotable_narrow(const Type *t); // integer types the promotions widen to int
 bool is_pointer(const Type *t);
 bool is_array(const Type *t);
 bool is_complete_pointer(const Type *t);

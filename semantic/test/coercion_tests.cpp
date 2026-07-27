@@ -1088,3 +1088,76 @@ TEST_F(CoercionTest, PlainCharSignednessFollowsTarget)
     free_type(uc);
     target_config = saved;
 }
+
+// ─── J. _Bool ────────────────────────────────────────────────────────────────
+
+// C11 §6.3.1.1p2: _Bool promotes to int like every other narrow integer type.  This is
+// load-bearing on BESM-6, where _Bool is int-sized: without the promotion the size
+// comparison at the tail of get_common_type finds the two equal and picks the *unsigned*
+// operand — _Bool — as the common type of `b + i`.
+TEST_F(CoercionTest, BoolPlusIntPromotesToInt)
+{
+    ParseProgram("int f(_Bool b, int i) { return b + i; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_BINARY_OP);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.binary_op.left->kind, EXPR_CAST);
+    EXPECT_EQ(ret->u.binary_op.left->type->kind, TYPE_INT);
+}
+
+// `b + b` must be int too: two _Bool operands would otherwise short-circuit on the
+// same-kind test and give the sum type _Bool, so 1 + 1 would re-normalize to 1.
+TEST_F(CoercionTest, BoolPlusBoolPromotesToInt)
+{
+    ParseProgram("int f(_Bool a, _Bool b) { return a + b; }");
+    typecheck_program(program);
+    EXPECT_EQ(ReturnExpr()->type->kind, TYPE_INT);
+}
+
+// The shift operands are promoted individually (§6.3.1.1 again): without it `b << 1` has
+// type _Bool, coerce_for_assignment sees identical kinds and inserts no cast, and nothing
+// re-normalizes the 2.
+TEST_F(CoercionTest, BoolShiftPromotesToInt)
+{
+    ParseProgram("int f(_Bool b) { return b << 1; }");
+    typecheck_program(program);
+    Expr *ret = ReturnExpr();
+    ASSERT_EQ(ret->kind, EXPR_BINARY_OP);
+    EXPECT_EQ(ret->type->kind, TYPE_INT);
+    EXPECT_EQ(ret->u.binary_op.left->kind, EXPR_CAST);
+}
+
+// A compound assignment to a _Bool lvalue computes in int and converts the result back,
+// for the bitwise and shift operators as well as the arithmetic ones — that conversion
+// back is where the 0/1 normalization happens.
+TEST_F(CoercionTest, BoolCompoundAssignComputesInInt)
+{
+    ParseProgram("void f(_Bool b, int i) { b |= i; }");
+    typecheck_program(program);
+    Expr *assign = AssignExpr();
+    EXPECT_EQ(assign->u.assign.value->type->kind, TYPE_INT);
+}
+
+// _Bool is one machine word on BESM-6 and one byte on the byte-addressed targets.  The
+// word is not a nicety: on this target the 1-byte size *means* byte-packed storage and a
+// fat byte pointer, which is the wrong representation for a one-bit type.
+TEST_F(CoercionTest, BoolSizeFollowsTarget)
+{
+    const Target *saved = target_config;
+    Type *b             = new_type(TYPE_BOOL, __func__, __FILE__, __LINE__);
+
+    target_config = target_lookup("x86_64");
+    EXPECT_EQ(get_size(b), 1u);
+    EXPECT_EQ(get_alignment(b), 1u);
+
+    target_config = target_lookup("besm6");
+    EXPECT_EQ(get_size(b), 6u);
+    EXPECT_EQ(get_alignment(b), 6u);
+    EXPECT_FALSE(is_signed(b)); // _Bool is unsigned (C11 §6.2.5p6)
+    EXPECT_TRUE(is_integer(b));
+    EXPECT_TRUE(is_promotable_narrow(b));
+
+    free_type(b);
+    target_config = saved;
+}

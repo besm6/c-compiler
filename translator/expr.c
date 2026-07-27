@@ -112,7 +112,8 @@ static bool is_unsigned_type(const Type *t)
            t->kind == TYPE_ULONG_LONG;
 }
 
-// 1 when an object/pointee occupies a single byte (char/schar/uchar/bool), so a
+// 1 when an object/pointee occupies a single byte (the char types; _Bool is a whole
+// word on a word-addressed target — see get_size), so a
 // load/store through it is a byte access and its address is a fat pointer.  Selects the
 // byte variant of LOAD/STORE/GET_ADDRESS/COPY_*_OFFSET for the BESM-6 backend.
 static int byte_access_for(const Type *t)
@@ -959,6 +960,12 @@ static Tac_Val *gen_step(TacCtx *ctx, const Type *type, Tac_Val *src, bool inc)
         bin->u.binary.dst    = dst;
         tac_append(ctx, bin);
     }
+    // C11 §6.5.2.4p2 / §6.5.3.1p2: the stepped value is converted back to the operand's
+    // type, so `b++` on a true _Bool ends at 1 rather than 2 (and `b--` from 0 at 1, not
+    // -1).  ++/-- computes the step in the operand's own type and stores it directly, so
+    // it never passes through emit_cast: normalize here instead.
+    if (unalias(type)->kind == TYPE_BOOL)
+        return emit_bool_normalize(ctx, val_var(dst->u.var_name), type);
     return dst;
 }
 

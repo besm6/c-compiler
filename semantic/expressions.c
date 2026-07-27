@@ -249,7 +249,7 @@ static Expr *promote_variadic_arg(Expr *e)
 {
     e                = typecheck_and_decay(e);
     const Type *et   = unalias(e->type);
-    if (is_character(et) || et->kind == TYPE_SHORT || et->kind == TYPE_USHORT)
+    if (is_promotable_narrow(et))
         e = convert_to_kind(e, TYPE_INT);
     else if (et->kind == TYPE_FLOAT)
         e = convert_to_kind(e, TYPE_DOUBLE);
@@ -307,7 +307,7 @@ static Expr *typecheck_expr(Expr *e)
                 fatal_error("Bitwise complement only valid for integer types");
             }
             const Type *it = unalias(inner->type);
-            if (is_character(it) || it->kind == TYPE_SHORT || it->kind == TYPE_USHORT)
+            if (is_promotable_narrow(it))
                 inner = convert_to_kind(inner, TYPE_INT);
             free_type(e->type);
             e->type            = clone_type(inner->type, __func__, __FILE__, __LINE__);
@@ -321,7 +321,7 @@ static Expr *typecheck_expr(Expr *e)
                 fatal_error("Can only apply unary +/- to arithmetic types");
             }
             const Type *it = unalias(inner->type);
-            if (is_character(it) || it->kind == TYPE_SHORT || it->kind == TYPE_USHORT)
+            if (is_promotable_narrow(it))
                 inner = convert_to_kind(inner, TYPE_INT);
             free_type(e->type);
             e->type            = clone_type(inner->type, __func__, __FILE__, __LINE__);
@@ -551,10 +551,10 @@ static Expr *typecheck_expr(Expr *e)
                 fatal_error("Shift operators require integer operands");
             }
             const Type *t1 = unalias(e1->type), *t2 = unalias(e2->type);
-            if (is_character(t1) || t1->kind == TYPE_SHORT || t1->kind == TYPE_USHORT) {
+            if (is_promotable_narrow(t1)) {
                 e1 = convert_to_kind(e1, TYPE_INT);
             }
-            if (is_character(t2) || t2->kind == TYPE_SHORT || t2->kind == TYPE_USHORT) {
+            if (is_promotable_narrow(t2)) {
                 e2 = convert_to_kind(e2, TYPE_INT);
             }
             free_type(e->type);
@@ -618,13 +618,17 @@ static Expr *typecheck_expr(Expr *e)
             // own (already-promoted) type, and shift/bitwise ops keep converting the rhs
             // to the lvalue type (shift rhs is promoted independently; bitwise
             // truncate-to-lvalue yields the correct low bits) — both unchanged here.
-            const Type *lt = unalias(lhs->type);
-            bool lhs_narrow =
-                is_character(lt) || lt->kind == TYPE_SHORT || lt->kind == TYPE_USHORT;
+            const Type *lt   = unalias(lhs->type);
+            bool lhs_narrow  = is_promotable_narrow(lt);
             bool is_arith_op = e->u.assign.op == ASSIGN_ADD || e->u.assign.op == ASSIGN_SUB ||
                                e->u.assign.op == ASSIGN_MUL || e->u.assign.op == ASSIGN_DIV ||
                                e->u.assign.op == ASSIGN_MOD;
-            if (lhs_narrow && is_arith_op) {
+            // A _Bool lvalue promotes for *every* compound operator, not just the
+            // arithmetic ones: `b <<= 1` and `b |= 4` are `b = b op x` with the result
+            // converted back to _Bool (C11 §6.5.16.2p3, §6.3.1.2), and the translator
+            // performs that conversion — the emit_cast that re-normalises to 0/1 — only
+            // on this promoted path, where the operation type differs from the lvalue's.
+            if ((lhs_narrow && is_arith_op) || lt->kind == TYPE_BOOL) {
                 rhs = convert_to_type(rhs, get_common_type(lhs->type, rhs->type));
             } else {
                 rhs = convert_to_type(rhs, lhs->type);

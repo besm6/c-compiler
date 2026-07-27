@@ -440,24 +440,28 @@ Notable observations:
 
 ## 6. Implications for This Compiler
 
-The current implementation in `semantic/type_utils.c` hard-codes sizes and alignments
-matching the x86_64 / LP64 model (bool=1, short=2, int=4, long/long long/pointer=8,
-long double=16). This is correct for x86_64 and AArch64 and is used throughout the
-TAC lowering stage.
+`get_size()` / `get_alignment()` in `semantic/type_utils.c` read the active target
+descriptor (`semantic/target.h`, table in `semantic/target.c`), so every size above is
+already target-specific; only `char`/`signed char`/`unsigned char` are hard-coded at 1,
+which C requires.
+
+`_Bool` has a size of its own in that descriptor (`bool_size` / `bool_align`) rather
+than sharing the char types' fixed 1. C11 leaves its width implementation-defined, and
+on the word-addressed BESM-6 a 1-byte size *means* byte-packed storage and a fat byte
+pointer — six `_Bool`s to a word and a read-modify-write for every store, all to carry
+one bit. BESM-6 therefore gives `_Bool` `int`'s representation, one 48-bit word, as the
+BESM-6 table above says; the byte-addressed targets keep the 1-byte `_Bool` their ABIs
+specify. The TAC lowering follows the width: `translator/translate.c` carries a
+word-sized `_Bool` in `TAC_TYPE_INT` and a byte-sized one in `TAC_TYPE_UCHAR`, since
+TAC has no `_Bool` kind of its own.
 
 When adding backends for other architectures, the following changes will be required:
 
-1. **Target descriptor**: Introduce a `TargetABI` struct containing arrays of sizes and
-   alignments keyed by `TypeKind`. Pass it through the compilation pipeline.
-
-2. **`get_size()` / `get_alignment()`** in `semantic/type_utils.c`: Replace the
-   hard-coded switch with a lookup in the active `TargetABI`.
-
-3. **TAC layer**: TAC currently stores sizes as `size_t` byte counts derived from the
+1. **TAC layer**: TAC currently stores sizes as `size_t` byte counts derived from the
    host-model values. For BESM-6, "bytes" become "words"; the TAC consumer (the backend)
    must interpret them in the correct unit. Byte arrays are packed as 6 bytes per word.
 
-4. **BESM-6 backend specifics**:
+2. **BESM-6 backend specifics**:
    - `char` and `short` loads must emit mask/shift sequences to extract the narrow value
      from its containing word.
    - Regular pointer comparisons and arithmetic work identically to int arithmetic (both are

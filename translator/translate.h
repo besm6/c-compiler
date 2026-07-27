@@ -75,6 +75,10 @@ Tac_Val *val_var(const char *name);
 Tac_Val *new_var_val(TacCtx *ctx);
 Tac_Val *dup_val(const Tac_Val *v);
 Tac_Val *emit_cast(TacCtx *ctx, Tac_Val *src, const Type *from, const Type *to);
+// "src != 0" — the C11 §6.3.1.2 conversion of a scalar to _Bool.  Used by emit_cast for
+// every ordinary conversion, and directly by ++/--, which never builds a cast.  Returns
+// the instruction-owned destination Val (see the definition).
+Tac_Val *emit_bool_normalize(TacCtx *ctx, Tac_Val *src, const Type *from);
 void emit_jump(TacCtx *ctx, const char *target);
 void emit_label(TacCtx *ctx, const char *name);
 const char *user_label_name(TacCtx *ctx, const char *src);
