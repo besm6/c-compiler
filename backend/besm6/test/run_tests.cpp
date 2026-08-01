@@ -587,3 +587,23 @@ TEST_F(CodegenTest, CommaOperatorScanLoopRun)
     )");
     EXPECT_EQ("123 X\n", result);
 }
+
+// The Madlen/dubna half of the ω-fixup behavior guard (see the Unix run tests for the
+// full repro from backend/besm6/tmp/BUG.md).  Every digit here is a truth test on a value
+// the code generator leaves in the accumulator straight out of an additive instruction:
+// without rule #33 each one reads as `>= 0` and the first, fourth and sixth flip.
+TEST_F(CodegenTest, TruthTestOfAdditiveResultRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int f(int x, int y) { if (x - y) return 1; return 0; }
+        int g(int x, int y) { if (x + y) return 1; return 0; }
+        int h(int x)        { int b = -x; if (b) return 1; return 0; }
+        void program() {
+            printf("%d%d%d\n", f(5, 4), f(4, 5), f(4, 4));
+            printf("%d%d%d\n", g(1, 0), g(-1, 0), g(0, 0));
+            printf("%d%d\n",   h(1), h(0));
+        }
+    )");
+    EXPECT_EQ("110\n110\n10\n", result);
+}

@@ -33,16 +33,18 @@
 // bit, and the machine's own end-around-carry add.  Each is a single A-op-X instruction —
 // the operand comes from memory, the accumulator is both the other input and the result —
 // so each lowers to exactly the inline shape of a C binary operator.
+// `arx` is the one of the five that leaves *multiplicative* ω rather than logical; it needs
+// no correction here, because the peephole's rule #33 inserts one exactly where ω matters —
+// ahead of a conditional branch that would otherwise inherit the wrong group.
 static const struct {
     const char *name;
     Besm_InstrKind kind;
-    bool mult_omega; // the op leaves multiplicative ω, so it needs the correcting AOX
 } bit_intrinsics[] = {
-    { "__besm6_apx", BESM_LOG_APX, false }, // 020 сбр — gather the bits selected by a mask
-    { "__besm6_aux", BESM_LOG_AUX, false }, // 021 рзб — scatter into a mask's positions
-    { "__besm6_acx", BESM_LOG_ACX, false }, // 022 чед — popcount(a) ⊞ x
-    { "__besm6_anx", BESM_LOG_ANX, false }, // 023 нед — highest-set-bit position ⊞ x
-    { "__besm6_arx", BESM_LOG_ARX, true },  // 013 слц — a ⊞ x (end-around carry)
+    { "__besm6_apx", BESM_LOG_APX }, // 020 сбр — gather the bits selected by a mask
+    { "__besm6_aux", BESM_LOG_AUX }, // 021 рзб — scatter into a mask's positions
+    { "__besm6_acx", BESM_LOG_ACX }, // 022 чед — popcount(a) ⊞ x
+    { "__besm6_anx", BESM_LOG_ANX }, // 023 нед — highest-set-bit position ⊞ x
+    { "__besm6_arx", BESM_LOG_ARX }, // 013 слц — a ⊞ x (end-around carry)
 };
 
 // The Tier-1 privileged intrinsics: the machine's only I/O.  The BESM-6 has no I/O address
@@ -170,15 +172,6 @@ bool codegen_intrinsic(const Tac_Instruction *instr, const Frame *f, Besm_Block 
         // that).
         emit_xta_val(block, tail, f, a);
         emit_arith_val(block, tail, bit_intrinsics[i].kind, f, x);
-
-        if (bit_intrinsics[i].mult_omega) {
-            // ARX leaves *multiplicative* ω, under which a following uza/u1a would test
-            // abs(A) < 0.5 instead of A ≠ 0 — and the peephole's compare→branch fusion puts
-            // a branch right here whenever the result feeds an `if`.  OR in memory word 0:
-            // A is unchanged and ω becomes logical again.  The same no-op `,aox,` the
-            // unsigned runtime helpers use; see docs/Besm6_Runtime_Library.md § ω mode.
-            emit(block, tail, BESM_LOG_AOX);
-        }
 
         const Tac_Val *dst = instr->u.fun_call.dst;
         if (dst && dst->kind == TAC_VAL_VAR)

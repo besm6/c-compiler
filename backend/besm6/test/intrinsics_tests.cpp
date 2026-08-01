@@ -89,8 +89,10 @@ highbit:
               output);
 }
 
-// ARX is the one that leaves multiplicative ω, so it is trailed by the no-op `aox` — OR in
-// memory word 0: A unchanged, ω back to logical.
+// ARX is the one that leaves multiplicative ω, but nothing here consumes ω — the result is
+// returned, not branched on — so no correction is emitted.  The peephole (rule #33) adds one
+// only where a conditional branch would otherwise inherit the wrong group; see
+// IntrinsicCyclicAddBranchOmega.
 TEST_F(CodegenTest, IntrinsicCyclicAddUnix)
 {
     std::string output = CompileToUnix(R"(
@@ -104,7 +106,6 @@ cyc:
  13 vjm b$save
   6 xta
   6 arx 1
-    aox
     uj b$ret
 )",
               output);
@@ -112,7 +113,7 @@ cyc:
 
 //
 // Instruction selection — Bemsh.  Same two instructions under their Cyrillic mnemonics
-// (чед = acx, слц = arx, или = aox), and again no `внешн` for the intrinsic itself.
+// (чед = acx, слц = arx), and again no `внешн` for the intrinsic itself.
 //
 TEST_F(CodegenTest, IntrinsicPopcountBemsh)
 {
@@ -156,7 +157,6 @@ _ret   внешн ._ret
        пв _save(13)
        сч (6)
        слц 1(6)
-       или
        пб _ret
        финиш
 квч$$$
@@ -175,7 +175,7 @@ _ret   внешн ._ret
 // Peephole rules #27 and #28 drop the store/reload of the boolean, so the branch consumes
 // the accumulator the ARX left — `,arx,` then `,uza,` with nothing in between.  Under
 // multiplicative ω that `uza` would test abs(A) < 0.5 (i.e. bit 48) instead of A ≠ 0.  The
-// `,aox,` that lands between them is what makes the branch test the value.
+// `,aex,` rule #33 lands between them is what makes the branch test the value.
 //
 TEST_F(CodegenTest, IntrinsicCyclicAddBranchOmega)
 {
@@ -197,7 +197,7 @@ TEST_F(CodegenTest, IntrinsicCyclicAddBranchOmega)
              ,call, b/save
            6 ,xta,
            6 ,arx, 1
-             ,aox,
+             ,aex,
              ,uza, *1
           14 ,vtm, *str0
              ,ita, 14
@@ -290,9 +290,9 @@ TEST_F(CodegenTest, IntrinsicCyclicAddRun)
 
 //
 // The ω correction, executed.  Both globals are zero, so the cyclic add yields zero and the
-// `if` must not be taken.  Without the `aox` the `uza` inherits multiplicative ω from the
+// `if` must not be taken.  Without the `aex` the `uza` inherits multiplicative ω from the
 // arx, tests bit 48 of a zero accumulator, finds it clear — and takes the branch, printing
-// NONZERO.  Deleting the aox in intrinsics.c must flip this test.
+// NONZERO.  Suppressing rule #33 must flip this test.
 //
 TEST_F(CodegenTest, IntrinsicCyclicAddBranchRun)
 {

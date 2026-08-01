@@ -236,3 +236,56 @@ TEST_F(CodegenTest, UnixRunAssignmentAsValue)
     )");
     EXPECT_EQ("3 3 4 5\n9\n0 6\n", result);
 }
+
+// End-to-end: a truth test on an additive result.  This is backend/besm6/tmp/BUG.md's
+// repro, found while porting v7's sort(1) — `if (b = *--ipb - *--ipa)` is true exactly when
+// the first key sorts before the second, and that is the half a *sign* test throws away.
+// Without rule #33's ω fixup, `if (x - y)` inherits the additive ω of the `a-x` and reads
+// as `if (x - y >= 0)`, so f(5,4) answers 0 and g(1,0) answers 0.
+TEST_F(CodegenTest, UnixRunTruthTestOfAdditiveResult)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunUnix(R"(
+        #include <stdio.h>
+        int f(int x, int y) { if (x - y) return 1; return 0; }
+        int g(int x, int y) { if (x + y) return 1; return 0; }
+        int h(int x)        { int b = -x; if (b) return 1; return 0; }
+        int t(int x, int y) { int b = x - y; return b ? 1 : 0; }
+        int a(int x, int y) { int b = x - y; return b && 1; }
+        int o(int x, int y) { int b = x - y; return b || 0; }
+        int main(void) {
+            printf("%d%d%d\n", f(5, 4), f(4, 5), f(4, 4));
+            printf("%d%d%d\n", g(1, 0), g(-1, 0), g(0, 0));
+            printf("%d%d\n",   h(1), h(0));
+            printf("%d%d%d\n", t(5, 4), a(5, 4), o(5, 4));
+            return 0;
+        }
+    )");
+    EXPECT_EQ("110\n110\n10\n111\n", result);
+}
+
+// The same test one level of indirection down: the condition IS the assignment, which is
+// how v7's sort spells it.  The store must not disturb the ω the branch reads, and the
+// value tested must be the difference, not its sign.
+TEST_F(CodegenTest, UnixRunAssignedDifferenceAsCondition)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunUnix(R"(
+        #include <stdio.h>
+        char ka[] = "31";
+        char kb[] = "21";
+        int cmp(char *pa, char *pb, int n) {
+            char *ipa = pa + n, *ipb = pb + n;
+            int a = 0, b;
+            while (ipa > pa && ipb > pb)
+                if ((b = *--ipb - *--ipa))
+                    a = b;
+            return a;
+        }
+        int main(void) {
+            printf("%d %d %d\n", cmp(ka, kb, 2), cmp(kb, ka, 2), cmp(ka, ka, 2));
+            return 0;
+        }
+    )");
+    EXPECT_EQ("-1 1 0\n", result);
+}

@@ -20,17 +20,20 @@
 //
 // Currently implemented: the framework itself (this file), rule #27 (redundant reload
 // elimination), rule #28 (dead temp-store elimination), rule #29 (NTR mode coalescing),
-// rule #31 (branch / label cleanup) and rule #32 (I/O address folding).  Rule #30
-// (compare → branch fusion) needs no
+// rule #31 (branch / label cleanup), rule #32 (I/O address folding) and rule #33 (ω fixup
+// before a conditional branch).  Rule #30 (compare → branch fusion) needs no
 // dedicated code: it is the emergent product of #27 (which drops the boolean reload) and
 // #28 (which drops the now-dead boolean store), made correct by the runtime helpers'
 // logical-ω exit contract (see docs/Besm6_Runtime_Library.md, "ω mode and the AU mode
-// register R").  Rule #31's three control-flow rewrites — jump-to-next-label, unreachable
-// tail (which also collapses the duplicate `uj b/ret`), and conditional-over-jump
+// register R") — and, where the value comes from the machine's own arithmetic rather than
+// from a helper, by rule #33.  Rule #31's three control-flow rewrites — jump-to-next-label,
+// unreachable tail (which also collapses the duplicate `uj b/ret`), and conditional-over-jump
 // inversion — are not `rule_table` entries either: two need list look-ahead and one
 // mutates the list, neither of which the `(cur, st)` predicate signature carries, so they
 // are handled directly in the sweep.  Rule #32's two rewrites join them there for the same
-// reason: each matches a fixed multi-instruction shape and rewrites it in place.
+// reason: each matches a fixed multi-instruction shape and rewrites it in place.  Rule #33
+// is the one rewrite that *inserts* a node, which no predicate signature can express
+// either, so it too lives in the sweep.
 //
 // Cutting across all of them is the *C group* (see `is_c_setter` below): a UTC or WTC and
 // the instruction that follows it are one indivisible unit, because the C address-modifier
@@ -107,14 +110,169 @@ static bool loc_eq(Loc a, Loc b)
     }
 }
 
+// True when `i` carries a symbolic or constant operand (a name — global/label/literal —
+// or a structural constant), as opposed to a plain frame-slot memory operand `(reg,off)`.
+// The state machine must not mistake a constant or global load for a frame slot, so every
+// operand-classification test below uses this rather than a bare `name == NULL` check.
+static bool has_operand_symbol(const Besm_Instr *i)
+{
+    return i->name != NULL || i->konst != NULL;
+}
+
+//
+// The ω mode.
+//
+// UZA and U1A do not test a latched flag.  They test ω, which the hardware *recomputes at
+// branch time* from the accumulator and the ω-mode field of the AU mode register R (bits
+// 5–3) — see docs/Besm6_Instruction_Set.md §4.  The field records the group of the last
+// instruction that set it, and it selects what the branch means:
+//
+//     logical         ω = (A ≠ 0)          uza branches when A = 0     ← what C wants
+//     additive        ω = (A < 0)          uza branches when A ≥ 0
+//     multiplicative  ω = (abs(A) < 0.5)   uza branches when not
+//     none            ω = 1 always         uza never branches
+//
+// So a C truth test compiles correctly only if ω is *logical* when the branch executes.
+// Instruction selection guarantees that by loading the condition with an `xta` (logical)
+// immediately before the branch — but rules #27/#28 delete that load-store pair whenever A
+// already holds the value, and the value's producer may well have left additive ω (`a-x`,
+// from `if (x - y)`) or multiplicative ω (`arx`).  Rule #33 below restores it.
+//
+// An instruction either sets the field to one of the three groups, replaces the whole
+// register (`ntr`/`xtr`), or leaves it alone; docs/Besm6_Instruction_Set.md records which
+// for every opcode ("ω mode: Logical / Additive / Multiplicative / Kept / As set"), and
+// `omega_after` below is that table transcribed.
+//
+typedef enum {
+    OMEGA_UNKNOWN, // not known to be any of the below
+    OMEGA_LOGICAL,
+    OMEGA_ADDITIVE,
+    OMEGA_MULT,
+    OMEGA_NONE, // the empty group: ω = 1 unconditionally
+    OMEGA_KEPT, // `omega_after` only: the instruction does not touch the field
+} Omega;
+
+// The ω group encoded in an R value: bits 5–3, one bit per group (mask 034).  `ntr 7` is
+// `3 | 004` — the integer suppress bits plus the logical bit — which is why the runtime
+// helpers' `R = 7` exit contract *is* the logical-ω contract.
+static Omega omega_of_r(int r)
+{
+    switch (r & 034) {
+    case 004:
+        return OMEGA_LOGICAL;
+    case 010:
+        return OMEGA_MULT;
+    case 020:
+        return OMEGA_ADDITIVE;
+    case 000:
+        return OMEGA_NONE;
+    default:
+        return OMEGA_UNKNOWN; // more than one group bit: not a shape we model
+    }
+}
+
+// Does this EXT/MOD address select a *read*?  On a read the AU switches to logical mode,
+// because what arrives in A is a bit pattern rather than a number.  The selector bit is
+// 04000 for `ext` and 0200 for `mod` (docs/Besm6_Instruction_Set.md, opcodes 033 and 002).
+// Only a constant address in the instruction's own field can be classified; an address
+// delivered through the C register (rule #32's trailer) is not visible here.
+static bool io_reads(const Besm_Instr *i)
+{
+    if (has_operand_symbol(i) || i->reg != 0)
+        return false;
+    return (i->addr & (i->kind == BESM_IO_EXT ? 04000 : 0200)) != 0;
+}
+
+// The ω group in force after `i` executes, or OMEGA_KEPT when it leaves the field alone.
+static Omega omega_after(const Besm_Instr *i)
+{
+    switch (i->kind) {
+    // Logical: the loads and pushes, every bit-manipulation op, the shifts, and the
+    // index-register transfers that pass through the accumulator.
+    case BESM_MEM_XTA:
+    case BESM_MEM_STX:
+    case BESM_MEM_XTS:
+    case BESM_MEM_ITA:
+    case BESM_MEM_ITS:
+    case BESM_MEM_STI:
+    case BESM_LOG_AAX:
+    case BESM_LOG_AOX:
+    case BESM_LOG_AEX:
+    case BESM_LOG_APX:
+    case BESM_LOG_AUX:
+    case BESM_LOG_ACX:
+    case BESM_LOG_ANX:
+    case BESM_EXP_SHIFTX:
+    case BESM_EXP_SHIFTN:
+    case BESM_EXP_GETR:
+        return OMEGA_LOGICAL;
+
+    // Additive: A+X, A-X, X-A, AMX, AVX.
+    case BESM_ARITH_ADD:
+    case BESM_ARITH_SUB:
+    case BESM_ARITH_RSUB:
+    case BESM_ARITH_ABSSUB:
+    case BESM_ARITH_CNEG:
+        return OMEGA_ADDITIVE;
+
+    // Multiplicative: A*X, A/X, ARX and the exponent ops.
+    case BESM_ARITH_MUL:
+    case BESM_ARITH_DIV:
+    case BESM_LOG_ARX:
+    case BESM_EXP_EADDX:
+    case BESM_EXP_ESUBX:
+    case BESM_EXP_EADDN:
+    case BESM_EXP_ESUBN:
+        return OMEGA_MULT;
+
+    // As set: the mode register is replaced outright.  `ntr n` carries its value in the
+    // instruction; `xtr` takes it from memory, so the group is unknowable here.
+    case BESM_EXP_SETR:
+        return omega_of_r(i->addr);
+    case BESM_EXP_SETRMEM:
+        return OMEGA_UNKNOWN;
+
+    // A call returns with logical ω: every runtime helper exits that way by contract (see
+    // docs/Besm6_Runtime_Library.md, "ω mode and the AU mode register R"), and a compiled
+    // C function returns through b/ret, whose last accumulator ops are `stx`/`sti`.
+    case BESM_BRANCH_CALL:
+    case BESM_BRANCH_VJM:
+        return OMEGA_LOGICAL;
+
+    // An extracode's handler sets logical ω on return.  EXT/MOD do so on a read address.
+    case BESM_IO_EXTRACODE:
+        return OMEGA_LOGICAL;
+    case BESM_IO_EXT:
+    case BESM_IO_MOD:
+        return io_reads(i) ? OMEGA_LOGICAL : OMEGA_KEPT;
+
+    // A label may be reached from anywhere, and a `stop` hands the machine to the operator.
+    case BESM_STMT_LABEL:
+    case BESM_STMT_NAME:
+    case BESM_STMT_BASE:
+    case BESM_STMT_SUBP:
+    case BESM_STMT_ENTRY:
+    case BESM_STMT_END:
+    case BESM_BRANCH_STOP:
+        return OMEGA_UNKNOWN;
+
+    // Kept: the stores, the index-register ops, the C-register setters and every branch
+    // (ATX ATI MTJ J+M UTC WTC VTM UTM UJ VZM V1M VLM UZA U1A).
+    default:
+        return OMEGA_KEPT;
+    }
+}
+
 //
 // Tracked implicit machine state, valid only along straight-line code.
 //
 // A value in A is described by the location it mirrors.  Most rewrites are licensed by
-// knowing "A currently holds location L".  The mode register R is also tracked (for NTR
-// mode coalescing, rule #29).  The logical flag ω is not tracked: compare → branch fusion
-// (#30) falls out of #27 + #28 and relies on the helpers' logical-ω exit contract rather
-// than on ω state carried by this pass.
+// knowing "A currently holds location L".  The mode register R is tracked as a whole (for
+// NTR mode coalescing, rule #29) and its ω-group field separately (for rule #33).  The two
+// are deliberately independent: `r_val` is only believed while `r_known`, which only an
+// `ntr` sets, whereas every ALU op rewrites the ω group without disturbing the suppress
+// bits rule #29 cares about — so an arithmetic instruction invalidates `omega`'s successor
+// but not `r_val`'s.
 //
 // `a_loc` needs no memory-clobber analysis, which is worth spelling out because it looks
 // like it should.  On this machine memory is only ever written *from A* (`atx`, `stx`), so a
@@ -138,6 +296,7 @@ typedef struct {
     Loc a_loc;    // the location A currently mirrors (LOC_NONE: unknown)
     bool r_known; // true: r_val is the current mode register R
     int r_val;
+    Omega omega;         // the ω group a conditional branch here would test
     bool in_unreachable; // true: we are past an unconditional transfer (uj/stop),
                          // before the next label or structural directive (rule #31)
 } PeepState;
@@ -147,16 +306,18 @@ static void state_reset(PeepState *st)
 {
     st->a_loc          = loc_none();
     st->r_known        = false;
+    st->omega          = OMEGA_UNKNOWN;
     st->in_unreachable = false;
 }
 
-// True when `i` carries a symbolic or constant operand (a name — global/label/literal —
-// or a structural constant), as opposed to a plain frame-slot memory operand `(reg,off)`.
-// The state machine must not mistake a constant or global load for a frame slot, so every
-// operand-classification test below uses this rather than a bare `name == NULL` check.
-static bool has_operand_symbol(const Besm_Instr *i)
+// Fold one instruction's effect into the tracked ω group.  Split out of `state_step`
+// because the sweep also needs it for the boundaries it resets across (a CALL leaves
+// logical ω; a read-address `ext` does too) and for a C group's consumer.
+static void omega_step(PeepState *st, const Besm_Instr *i)
 {
-    return i->name != NULL || i->konst != NULL;
+    Omega w = omega_after(i);
+    if (w != OMEGA_KEPT)
+        st->omega = w;
 }
 
 //
@@ -328,6 +489,9 @@ static void state_step(PeepState *st, const Besm_Instr *i)
         st->r_known = true;
         st->r_val   = i->addr;
     }
+    // The ω group, for rule #33.  Independent of `r_known`: an ALU op rewrites the group
+    // without making the rest of R unknown, and vice versa.
+    omega_step(st, i);
     switch (i->kind) {
     case BESM_MEM_XTA:
     case BESM_MEM_ATX:
@@ -774,6 +938,48 @@ static int try_io_memory_address(Besm_Instr *cur)
     return nodes;
 }
 
+//
+// Rule #33 — ω fixup before a conditional branch.  See docs/Peephole_Rewrites.md §5.11.
+//
+// `uza`/`u1a` test ω, and ω means "A = 0?" only under the logical group (see the ω section
+// at the top of this file).  Instruction selection always loads the condition with an `xta`
+// — logical — right before the branch, but rule #27 deletes that reload whenever A already
+// holds the value, exposing whatever group its producer left:
+//
+//     6 xta            6 xta         6 xta
+//     6 a-x 1          6 a-x 1       6 a-x 1
+//       atx %0     ⇒     uza .T1  ⇒    aex
+//       xta %0                         uza .T1
+//       uza .T1        ^ #27 + #28 leave additive ω: a *sign* test
+//
+// The repair is one instruction: `aex` with no operand XORs memory word 0 — architecturally
+// zero — into A.  A is unchanged, the R suppress bits are unchanged, and the ω group
+// becomes logical.  AEX is the cheapest of the logical ops; the runtime library writes the
+// same no-op as `,aox,` (docs/Besm6_Runtime_Library.md, "ω mode and the AU mode register R").
+//
+// It is inserted only where the tracked group is not already logical, so the common cases —
+// a surviving `xta`, a relational runtime helper (rule #30's fusion), a read-address `ext` —
+// pay nothing.  This is also what lets `arx` and any future inlined multiply feed an `if`:
+// they leave multiplicative ω, and the fixup covers all three groups, not just additive.
+//
+static bool needs_omega_fixup(const Besm_Instr *cur, const PeepState *st)
+{
+    if (cur->kind != BESM_BRANCH_UZA && cur->kind != BESM_BRANCH_U1A)
+        return false;
+    return st->omega != OMEGA_LOGICAL;
+}
+
+// Splice `node` into a block's list immediately before `cur`, whose predecessor is `prev`.
+// The caller must advance its own cursor bookkeeping (`prev` becomes `node`).
+static void insert_before(Besm_Block *block, Besm_Instr *prev, Besm_Instr *cur, Besm_Instr *node)
+{
+    node->next = cur;
+    if (prev)
+        prev->next = node;
+    else
+        block->body = node;
+}
+
 // If `i` directly reads or writes an auto slot, report its offset.  Used to attribute
 // each slot reference to the basic block it occurs in (multi-block analysis).
 static bool instr_auto_slot_ref(const Besm_Instr *i, int *off)
@@ -930,6 +1136,10 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
                     st.a_loc = loc_none();
                 if (is_block_boundary(consumer)) // `wtc` + `vjm`: the indirect call
                     state_reset(&st);
+                // Only the consumer can touch ω: UTC and WTC keep it.  A group whose
+                // consumer is a branch is not a shape instruction selection emits, so
+                // rule #33 never has to look inside one.
+                omega_step(&st, consumer);
 
                 prev = consumer;
                 cur  = consumer->next;
@@ -981,8 +1191,24 @@ static bool peephole_sweep(Besm_Block *block, const Frame *frame, const bool *mu
         if (deleted)
             continue; // prev and tracked state stay valid; re-test the new cur
 
+        // Rule #33: ω fixup.  The one rewrite that *inserts* a node — a bare `aex` ahead of
+        // a conditional branch the tracked state cannot vouch for.  Re-testing `cur` would
+        // loop forever, so record the new group and fall through to the boundary step; the
+        // next sweep sees logical ω here and inserts nothing.
+        if (needs_omega_fixup(cur, &st)) {
+            Besm_Instr *fix = besm_new_instr(BESM_LOG_AEX);
+            insert_before(block, prev, cur, fix);
+            prev     = fix;
+            st.omega = OMEGA_LOGICAL;
+            changed  = true;
+        }
+
         if (is_block_boundary(cur)) {
             state_reset(&st);
+            // A CALL returns with logical ω, and so do the extracode and a read-address
+            // `ext`/`mod`; `omega_after` knows which, and rule #33 relies on it to leave
+            // the compare → branch fusion (#30) alone.
+            omega_step(&st, cur);
             // `b/save`/`b/save0` leave R = 7; seed it so a redundant `ntr 7` just after
             // the prologue (or anywhere R is already 7) is recognised.  Every other CALL
             // may change R (the arithmetic helpers borrow the FP unit), so R stays

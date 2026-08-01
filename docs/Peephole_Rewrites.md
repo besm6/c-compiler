@@ -127,9 +127,11 @@ To reason about a window of BESM-6 instructions, the pass tracks the small amoun
   bitwise instructions act on raw words. Floating-point instructions need **R = 0**
   (normalize + round), so FP code flips R to 0 and back. Knowing the current R lets the pass
   delete an `ntr` that re-establishes a value R already has.
-- **ω — the logical flag.** Set as a side effect of accumulator operations; tested by the
-  conditional branches `uza` (branch if ω = 0) and `u1a` (branch if ω ≠ 0). Knowing that a
-  comparison helper already set ω from its result is what licenses branching without a reload.
+- **ω — the branch condition.** Not a latched flag: the conditional branches `uza` (branch if
+  ω = 0) and `u1a` (branch if ω ≠ 0) recompute ω at branch time from A and the **ω group** in
+  R (bits 5–3), which every accumulator operation rewrites. Knowing the group is what
+  licenses branching without a reload (5.4) — and, when it is not the logical one, what tells
+  the pass to insert the one-instruction fixup that makes the branch mean "A = 0?" (5.11).
 
 ### Basic-block boundaries
 
@@ -142,7 +144,7 @@ window:
 - **A branch** (`uj`, `uza`, `u1a`, `call`, …). After a branch the next instruction may be a
   branch target, and a `call` runs a helper that clobbers A.
 - **A supervisor instruction** (`ext`, `mod`, an extracode — the `<besm6.h>` intrinsics, see
-  5.10 and 5.11). These are not branches, but they rewrite the state the pass tracks:
+  5.10 and 5.12). These are not branches, but they rewrite the state the pass tracks:
   `ext`/`mod` put the AU mode register R into logical mode on a read address, and an extracode
   runs the monitor's handler, which may do anything at all.
 
@@ -304,12 +306,17 @@ helper result feeding the branch directly:
 This fusion needs no dedicated rule: it is the emergent product of rule 5.1 (reload
 elimination) and rule 5.2 (dead-store elimination). It is only *valid*, however, if `atx`
 preserves ω and the helper's last accumulator operation leaves ω consistent with its
-returned A. Both now hold: every runtime relational helper exits with **ω = logical** (the
-`A = 0?` flag the following `uza`/`u1a` tests), per the logical-ω exit contract documented
+returned A. Both hold here: every runtime relational helper exits with **ω = logical** (the
+`A = 0?` group the following `uza`/`u1a` tests), per the logical-ω exit contract documented
 in [Besm6_Runtime_Library.md](Besm6_Runtime_Library.md) ("ω mode and the AU mode register
 R"), and `atx` stores A without disturbing ω. This was confirmed on the simulator (Section
 7) — signed, unsigned, and FP comparisons feeding `if` branches compute correctly — so the
 fusion is enabled and locked in by the `CompareBranchFused` tests.
+
+Note what the contract does *not* cover: a condition the machine's own arithmetic produced,
+with no helper in between. `if (x - y)` reaches the branch in the additive group, and the
+same two rules that fuse a comparison turn that into a sign test. Rule 5.11 is the general
+guarantee; the helper contract is what keeps it from firing on the shape above.
 
 ### 5.5 Jump and label cleanup
 
@@ -583,7 +590,69 @@ Neither rule can fire on ordinary code: only these three instruction kinds ever 
 `xts`/`15 wtc`/io trailer the matcher requires. Both need list look-ahead and rewrite in
 place, so like 5.5 they live in the sweep rather than in `rule_table`.
 
-### 5.11 What a new instruction kind owes the pass
+### 5.11 ω fixup before a conditional branch
+
+The rewrite that makes 5.4 safe in general rather than by luck.
+
+`uza`/`u1a` do not test a latched flag: the hardware recomputes ω at branch time from the
+accumulator and the **ω group** recorded in R (bits 5–3), and the group is written by
+whichever instruction last set it. So the same `uza` means four different things:
+
+| group | ω | `uza` branches when |
+|---|---|---|
+| logical | A ≠ 0 | **A = 0** ← what a C truth test wants |
+| additive | A < 0 | A ≥ 0 |
+| multiplicative | abs(A) < 0.5 | otherwise |
+| none | 1 | never |
+
+Instruction selection is careful about this — `JUMP_IF_ZERO` always loads its condition with
+an `xta`, which sets the logical group, immediately before the branch. But 5.1 and 5.2 then
+delete that store/reload pair whenever A already holds the value, and what is left exposed is
+the group the *producer* left. For `if (x - y)`:
+
+```
+   6 ,xta,          ; A = x                 ω group := logical
+   6 ,a-x, 1        ; A = x - y             ω group := ADDITIVE
+     ,atx, t                                (a store does not touch the group)
+     ,xta, t        ; ← 5.1 deletes this reload …
+     ,uza, .T1      ; … and the branch now reads A ≥ 0: a *sign* test
+```
+
+which compiles `if (x - y)` as `if (x - y >= 0)` — silently wrong for every `x > y`. This was
+[BUG.md](../backend/besm6/tmp/BUG.md), found in v7's `sort(1)`.
+
+The repair is one instruction, inserted only where the tracked group is not already logical:
+
+```
+   6 ,xta,
+   6 ,a-x, 1
+     ,aex,          ; A ^= memory word 0 — A unchanged, ω group := logical
+     ,uza, .T1
+```
+
+`aex` is the cheapest of the logical ops, and memory word 0 reads as zero architecturally, so
+the fixup costs one instruction and changes nothing but the group. (It leaves the R suppress
+bits alone too, so it composes with 5.3 — the runtime library writes the same no-op as
+`,aox,`; see [Besm6_Runtime_Library.md](Besm6_Runtime_Library.md), "ω mode and the AU mode
+register R".)
+
+Making it *conditional* is the whole point, and is what the pass's ω tracking buys: the
+common shapes pay nothing, because they already end in the logical group — a surviving
+`xta`, a relational helper (5.4, by the exit contract), a compiled function's `b/ret`, an
+extracode, a read-address `ext`/`mod`. `omega_after` in
+[peephole.c](../backend/besm6/peephole.c) is the per-opcode table from
+[Besm6_Instruction_Set.md](Besm6_Instruction_Set.md) §4 transcribed, so a kind whose group is
+not modelled falls to "kept" and, at worst, buys a redundant `aex`.
+
+The rule covers all three groups, not just the additive one that exposed it: `arx` and any
+future inlined multiply leave the multiplicative group, under which `uza` would test bit 48.
+That is why `__besm6_arx` no longer emits an unconditional correction of its own — it pays
+only when its result actually feeds a branch.
+
+Like 5.5 and 5.10 this lives in the sweep rather than in `rule_table`; it is the one rewrite
+that *inserts* a node, which no `(cur, st)` predicate can express.
+
+### 5.12 What a new instruction kind owes the pass
 
 Two of the pass's structures are **whitelists**, and a whitelist is silent when it is
 incomplete: a kind left out of one does not fail to build, does not fail to assemble, and does

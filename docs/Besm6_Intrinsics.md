@@ -397,18 +397,22 @@ first. With `x = 0` this is a count-leading-zeros plus one.
 
 The raw end-around-carry add, useful for checksums. It is the one instruction of the five that
 leaves **multiplicative** ω rather than logical, under which a `uza`/`u1a` tests `abs(A) < 0.5`
-instead of `A ≠ 0`. The compiler handles that for you: every `arx` is trailed by a no-op `aox`
-(OR in memory word 0 — A unchanged, ω back to logical), so an `arx` result may be branched on like
-any other value:
+instead of `A ≠ 0`. The compiler handles that for you, and only where it costs something: the
+peephole's rule #33 inserts a no-op `aex` (XOR memory word 0 — A unchanged, ω back to logical)
+ahead of a conditional branch whose ω is not already logical, so an `arx` result may be branched
+on like any other value while an `arx` result that is merely stored or returned pays nothing:
 
 ```c
 unsigned cyc(unsigned a, unsigned b) { return __besm6_arx(a, b); }
+int      nz (unsigned a, unsigned b) { return __besm6_arx(a, b) ? 1 : 0; }
 ```
 
 ```
-  6 xta            сч (6)
-  6 arx 1          слц 1(6)
-    aox            или
+cyc:                     nz:
+  6 xta            сч (6)      6 xta
+  6 arx 1          слц 1(6)    6 arx 1
+                                  aex        ← rule #33
+                                  uza .T1
 ```
 
 See [Besm6_Runtime_Library.md](Besm6_Runtime_Library.md) § *ω mode and the AU mode register R* for
@@ -613,11 +617,12 @@ whichever other one the assembler saw first. Hence `codegen_intrinsic`'s bottom 
 `fatal_error` ("`%s is not a <besm6.h> intrinsic`"), not a `return false`.
 
 **Tier 2** is the inline binop shape: `A = a; A op= x; dst = A`, three instructions or two when the
-`x` operand is a zero constant (an empty address field reads memory word 0). Only `arx` needs the
-correcting no-op `,aox,` — the other four already leave logical ω, verified case by case against
-[Besm6_Instruction_Set.md](Besm6_Instruction_Set.md). The correction is not cosmetic: peephole
-rules #27 and #28 drop the store/reload of a boolean, so a branch on an `arx` result consumes
-the accumulator the `arx` itself left, with nothing in between to reset ω.
+`x` operand is a zero constant (an empty address field reads memory word 0). Only `arx` leaves a
+non-logical ω — the other four are logical, verified case by case against
+[Besm6_Instruction_Set.md](Besm6_Instruction_Set.md). No correction is emitted here: the peephole
+owns it (rule #33), because that is where the need arises. Rules #27 and #28 drop the store/reload
+of a boolean, so a branch on an `arx` result consumes the accumulator the `arx` itself left, with
+nothing in between to reset ω — and rule #33 puts the `,aex,` exactly there, and nowhere else.
 
 **Tier 1 and Tier 3** share their addressing. All three name their operand through the effective
 address, `EA = (addr + M[reg] + C) mod 0100000`, and `emit_io_op` reaches it three ways — never
@@ -680,7 +685,7 @@ is `BESM_SHAPE_SPECIAL` with its opcode in the `opcode` field, because its mnemo
 and every dialect writes that differently.
 
 **Two peephole obligations** come with those kinds, and both are the sort that miscompiles silently
-if missed (see [Peephole_Rewrites.md](Peephole_Rewrites.md) §5.11):
+if missed (see [Peephole_Rewrites.md](Peephole_Rewrites.md) §5.12):
 
 - `BESM_IO_EXT`/`BESM_IO_MOD`/`BESM_IO_EXTRACODE` are **basic-block boundaries**. `ext`/`mod`
   rewrite the AU mode register R (a read address switches it to logical), which is the very
@@ -712,9 +717,9 @@ both of the Format-2 forms this header needs, so both are written as machine cod
 - **Instruction selection** — [backend/besm6/test/intrinsics_tests.cpp](../backend/besm6/test/intrinsics_tests.cpp),
   golden assembly for all three dialects. These also pin that no `,call,` and no `,subp,` survives
   for an intrinsic — the alias hazard above is invisible at link time, so it has to be caught here.
-  Two of them pin the ω contract specifically: a branch on an `arx` result (the correcting `aox`
+  Two of them pin the ω contract specifically: a branch on an `arx` result (rule #33's `aex`
   lands between the `arx` and the `uza`) and a branch on an `ext` result (no correction needed, and
-  none emitted).
+  none emitted — a read address switches the AU to logical mode by itself).
 - **Execution** — the same file, on all three paths: `dubna` for Madlen and Bemsh, `b6sim` for the
   Unix path. Tier 2 is checked against the values the hardware actually produces (`popcount(0377)`
   = 8, `anx(1)` = 48, the apx/aux round trip, the end-around carry); the halt is checked to stop the
@@ -751,7 +756,7 @@ both of the Format-2 forms this header needs, so both are written as machine cod
 | `__besm6_aux` | `021` | рзб | — | inverse of `apx` |
 | `__besm6_acx` | `022` | чед | — | `⊞`, not `+` |
 | `__besm6_anx` | `023` | нед | — | position from the MSB; `a == 0` → `x` |
-| `__besm6_arx` | `013` | слц | — | `⊞`, not `+`; ω corrected by the compiler |
+| `__besm6_arx` | `013` | слц | — | `⊞`, not `+`; ω corrected at a branch (peephole #33) |
 | `__besm6_extracode` | `050`–`077` | — | `op` | user mode; clobbers r14 |
 
 ---

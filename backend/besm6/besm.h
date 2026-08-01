@@ -241,11 +241,12 @@ void mad_format_real(char *buf, size_t n, double val);
 // Peephole-optimize a function's instruction stream in place.
 //
 // Slides a small window over each block's `Besm_Instr` linked list, tracks the
-// implicit machine state (accumulator A, mode register R, logical flag ω) across
+// implicit machine state (accumulator A, mode register R, ω group) across
 // straight-line code, resets that state at every basic-block boundary (label or
 // branch), matches a table of local rewrite rules, and rewrites to a fixpoint
 // (repeats until a full sweep changes nothing).  Removed nodes are spliced out of
-// the list and freed.  Observable behavior is unchanged; only the instruction
+// the list and freed; the one rule that inserts a node is the ω fixup ahead of a
+// conditional branch (#33).  Observable behavior is unchanged; only the instruction
 // sequence is made cheaper.  See docs/Peephole_Rewrites.md.
 //
 // `frame` classifies which auto slots are compiler temporaries (for dead temp-store

@@ -654,3 +654,111 @@ TEST_F(CodegenTest, IoAddressDisplacementTooLargeKept)
 )",
               output);
 }
+
+//
+// Rule #33 — ω fixup before a conditional branch.  See docs/Peephole_Rewrites.md §5.11.
+//
+// `uza`/`u1a` test ω, and ω means "A = 0?" only under the logical group.  Instruction
+// selection loads the condition with an `xta` (logical) right before the branch, but rules
+// #27 and #28 delete that store/reload pair whenever A already holds the value — exposing
+// the group its producer left.  `x - y` leaves *additive* ω, under which the `uza` would
+// branch on A ≥ 0: a sign test, not a truth test.  The `,aex,` (A ^= memory word 0: A
+// unchanged, ω logical) is what makes the branch mean what C wrote.
+//
+TEST_F(CodegenTest, OmegaFixupAfterSubtract)
+{
+    std::string output = CompileToMadlen("int diff(int x, int y) { if (x - y) return 1; return 0; }");
+    EXPECT_EQ(R"(c
+     diff:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+           6 ,a-x, 1
+             ,aex,
+             ,uza, *1
+             ,xta, =1
+             ,uj, b/ret
+       *1:   ,bss,
+             ,xta,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// Unary minus lowers to `x-a`, which is additive too, so the same fixup applies.
+TEST_F(CodegenTest, OmegaFixupAfterUnaryNegate)
+{
+    std::string output = CompileToMadlen("int neg(int x) { int b = -x; if (b) return 1; return 0; }");
+    EXPECT_EQ(R"(c
+      neg:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,x-a,
+             ,aex,
+             ,uza, *1
+             ,xta, =1
+             ,uj, b/ret
+       *1:   ,bss,
+             ,xta,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// The loop shape reloads the condition each iteration, so the fixup rides inside the loop
+// body — once per test, not once per function.
+TEST_F(CodegenTest, OmegaFixupInLoopCondition)
+{
+    std::string output =
+        CompileToMadlen("extern int g; void loop(int x, int y) { while (x - y) g = 1; }");
+    EXPECT_EQ(R"(c
+     loop:   ,name,
+    b/ret:   ,subp,
+        g:   ,subp,
+             ,its, 13
+             ,call, b/save
+      *L1:   ,bss,
+           6 ,xta,
+           6 ,a-x, 1
+             ,aex,
+             ,uza, *L0
+             ,xta, =1
+             ,utc, g
+             ,atx,
+             ,uj, *L1
+      *L0:   ,bss,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
+
+// The negative case, and the reason the fixup is tracked rather than emitted blindly: a
+// plain `xta` of the condition already leaves logical ω, so nothing is inserted.  The
+// compare → branch fusion above (CompareBranchFused) is the other one — a relational helper
+// returns in logical ω by contract — and IntrinsicExtBranchMadlen is the third, a
+// read-address `ext`.
+TEST_F(CodegenTest, OmegaFixupNotEmittedAfterLoad)
+{
+    std::string output = CompileToMadlen("int truth(int x) { if (x) return 1; return 0; }");
+    EXPECT_EQ(R"(c
+    truth:   ,name,
+    b/ret:   ,subp,
+             ,its, 13
+             ,call, b/save
+           6 ,xta,
+             ,uza, *0
+             ,xta, =1
+             ,uj, b/ret
+       *0:   ,bss,
+             ,xta,
+             ,uj, b/ret
+             ,end,
+)",
+              output);
+}
