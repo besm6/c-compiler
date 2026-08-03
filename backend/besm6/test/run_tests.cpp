@@ -320,7 +320,10 @@ TEST_F(CodegenTest, MainImplicitReturnZeroNonEmptyBody)
 // A local whose struct/union tag is declared *inside* the function body (BESM-6 backend
 // TODO #62).  The tag is purged from structtab on block exit, so the translator can no
 // longer resolve the type's size/alignment; validate_type caches both on the AST node while
-// the tag is live, and get_size/get_alignment fall back to that cache.  Here dtoi
+// the tag is live, clone_type carries the cache into every copy of that node, and
+// get_size/get_alignment fall back to it.  (That is one of three things the translator needs
+// past the purge -- the others are the member offset and the member's declared type, both
+// cached on the access node; see LocalBlockStructCharArrayIndexed below.)  Here dtoi
 // reinterprets the bits of the double 1.0 as an int, and "%o" prints that word, so the
 // expected output is the octal of 1.0's representation.
 TEST_F(CodegenTest, LocalBlockUnionType)
@@ -436,6 +439,62 @@ TEST_F(CodegenTest, AutoLocalBlockStructPartialCompoundInit)
         }
     )");
     EXPECT_EQ("1 2 0 0 0\n", result);
+}
+
+// An *array* of a block-local struct, indexed -- the shape of the trigraph table in the
+// v7 preprocessor's buffer.c.  The ADD_PTR element stride comes from get_size() of the
+// decayed pointer's target, a *clone* of the declarator's element type, and clone_type
+// used to drop the size/alignment cache that validate_type had left there, so this aborted
+// with "Struct or union '__anon_1' not found".
+TEST_F(CodegenTest, LocalBlockStructCharArrayIndexed)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            static const struct { char t, r; } map[] = { { 'A', 'B' }, { 'C', 'D' } };
+            int i;
+            for (i = 0; i < 2; i++)
+                printf("%c%c\n", map[i].t, map[i].r);
+        }
+    )");
+    EXPECT_EQ("AB\nCD\n", result);
+}
+
+// Whole-aggregate assignment and sizeof of a block-local struct: both re-derive the
+// aggregate's size from a cloned type node, so both hit the same dropped cache.
+TEST_F(CodegenTest, LocalBlockStructSizeofAndAssign)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            struct s { int a, b, c; };
+            struct s m = { 1, 2, 3 };
+            struct s n;
+            n = m;
+            printf("%d %d %d %d\n", n.a, n.b, n.c, (int)sizeof(m));
+        }
+    )");
+    EXPECT_EQ("1 2 3 18\n", result);
+}
+
+// A byte member of a block-local struct reached through a pointer.  The member's declared
+// type decides whether the base is retyped to a fat byte pointer before the scale-1 member
+// offset; with the tag purged and no cached member type, the offset was applied to a plain
+// word address (which the byte helpers read as byte #5) and the wrong byte was addressed.
+TEST_F(CodegenTest, LocalBlockStructPtrCharMember)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            struct s { char t, r; };
+            struct s m;
+            struct s *p = &m;
+            p->t = 'X';
+            p->r = 'Z';
+            printf("%c%c\n", p->t, p->r);
+        }
+    )");
+    EXPECT_EQ("XZ\n", result);
 }
 
 // End-to-end: a zero constant operand is emitted with an empty address field, so the

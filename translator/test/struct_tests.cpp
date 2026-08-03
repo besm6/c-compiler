@@ -231,6 +231,12 @@ TEST_F(TranslateTest, StructFieldAddressOf)
 )");
 }
 
+// A block-local tag reached through a pointer.  `bar` is a word member (a char *, not a
+// char) at a word-aligned offset, so it is added as a plain word offset — index 0, scale 6,
+// the same shape the identical program with a file-scope tag has always produced.  Before
+// the member type was cached on the access node, the purged tag left field_member_type()
+// NULL here and the unknown-member fallback emitted the byte form (index 0, scale 1);
+// numerically the same address, since the index is 0.
 TEST_F(TranslateTest, LocalStructCast)
 {
     std::string yaml = CompileToYaml(R"(
@@ -276,7 +282,7 @@ TEST_F(TranslateTest, LocalStructCast)
         const:
           kind: int
           value: 0
-      scale: 1
+      scale: 6
       dst:
         kind: var
         name: %1
@@ -548,4 +554,295 @@ TEST_F(TranslateTest, StoreToFieldAsValue)
           kind: int
           value: 0
 )");
+}
+
+// ---------------------------------------------------------------------------
+// Block-scope struct tags.  A tag declared inside a function body is purged from
+// structtab when the block ends -- during typecheck -- while the translator runs
+// afterwards and still needs the tag's layout.  Everything it needs is therefore
+// resolved during typecheck and stashed on the AST: the size/alignment on the type
+// node (carried through clone_type), the member offset and the member's declared
+// type on the access node.  Each of these lowers to exactly the TAC the identical
+// program with a file-scope tag produces.
+// ---------------------------------------------------------------------------
+
+// An array of an *anonymous* struct at block scope, subscripted.  Used to abort
+// lower with "Struct or union '__anon_1' not found": the ADD_PTR scale comes from
+// get_size() of the decayed pointer's target, a clone that had lost the cache.
+TEST_F(TranslateTest, BlockLocalAnonStructArray)
+{
+    std::string yaml = CompileToYaml(R"(
+        char f(void)
+        {
+            struct { char t, r; } m[2];
+            m[0].r = 98;
+            return m[0].r;
+        }
+    )");
+    // Element stride 6 (one word), then the byte member: the plain word address is
+    // retyped to a fat byte pointer before the scale-1 member offset.
+    EXPECT_NE(yaml.find("scale: 6"), std::string::npos);
+    EXPECT_NE(yaml.find("kind: ptr_to_char_ptr"), std::string::npos);
+    EXPECT_NE(yaml.find("kind: store_byte"), std::string::npos);
+    EXPECT_NE(yaml.find("kind: load_byte"), std::string::npos);
+}
+
+// The same array with a *named* block-scope tag -- the failure was never about
+// anonymity, and this one reported "Struct or union 'S' not found".
+TEST_F(TranslateTest, BlockLocalStructCharMemberArray)
+{
+    std::string yaml = CompileToYaml(R"(
+        char f(void)
+        {
+            struct s { char t, r; } m[2];
+            m[0].r = 98;
+            return m[0].r;
+        }
+    )");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: allocate_local
+      name: %m
+      size: 12
+      alignment: 6
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: uchar
+          value: 98
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: get_address
+      src:
+        kind: var
+        name: %m
+      dst:
+        kind: var
+        name: %1
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst:
+        kind: var
+        name: %2
+    - instruction:
+      kind: add_ptr
+      ptr:
+        kind: var
+        name: %1
+      index:
+        kind: var
+        name: %2
+      scale: 6
+      dst:
+        kind: var
+        name: %3
+    - instruction:
+      kind: ptr_to_char_ptr
+      src:
+        kind: var
+        name: %3
+      dst:
+        kind: var
+        name: %4
+    - instruction:
+      kind: add_ptr
+      ptr:
+        kind: var
+        name: %4
+      index:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      scale: 1
+      dst:
+        kind: var
+        name: %5
+    - instruction:
+      kind: store_byte
+      src:
+        kind: var
+        name: %0
+      dst_ptr:
+        kind: var
+        name: %5
+    - instruction:
+      kind: get_address
+      src:
+        kind: var
+        name: %m
+      dst:
+        kind: var
+        name: %6
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst:
+        kind: var
+        name: %7
+    - instruction:
+      kind: add_ptr
+      ptr:
+        kind: var
+        name: %6
+      index:
+        kind: var
+        name: %7
+      scale: 6
+      dst:
+        kind: var
+        name: %8
+    - instruction:
+      kind: ptr_to_char_ptr
+      src:
+        kind: var
+        name: %8
+      dst:
+        kind: var
+        name: %9
+    - instruction:
+      kind: add_ptr
+      ptr:
+        kind: var
+        name: %9
+      index:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      scale: 1
+      dst:
+        kind: var
+        name: %10
+    - instruction:
+      kind: load_byte
+      src_ptr:
+        kind: var
+        name: %10
+      dst:
+        kind: var
+        name: %11
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: %11
+)");
+}
+
+// The tag is declared on its own, so the variable's type node is a bare reference
+// carrying no field list -- the member's declared type can only come from the
+// annotation typecheck left on the access node.  Without it the byte member's base
+// stayed a plain word address (read as byte #5 by the byte helpers), silently
+// addressing the wrong byte instead of failing.
+TEST_F(TranslateTest, BlockLocalStructSeparateTagDecl)
+{
+    std::string yaml = CompileToYaml(R"(
+        char f(void)
+        {
+            struct s { char t, r; };
+            struct s m;
+            char *p = &m.r;
+            return *p;
+        }
+    )");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: allocate_local
+      name: %m
+      size: 6
+      alignment: 6
+    - instruction:
+      kind: get_address
+      src:
+        kind: var
+        name: %m
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: ptr_to_char_ptr
+      src:
+        kind: var
+        name: %0
+      dst:
+        kind: var
+        name: %1
+    - instruction:
+      kind: add_ptr
+      ptr:
+        kind: var
+        name: %1
+      index:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      scale: 1
+      dst:
+        kind: var
+        name: %2
+    - instruction:
+      kind: copy
+      src:
+        kind: var
+        name: %2
+      dst:
+        kind: var
+        name: %p
+    - instruction:
+      kind: load_byte
+      src_ptr:
+        kind: var
+        name: %p
+      dst:
+        kind: var
+        name: %3
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: %3
+)");
+}
+
+// A char-array member of a block-scope struct decays to its address rather than
+// being loaded.  That decision reads the member's *declared* type, which e->type no
+// longer holds (typecheck decayed it to a pointer); an unresolved member used to
+// fall through to a plain COPY_FROM_OFFSET, loading the first word as a value.
+TEST_F(TranslateTest, BlockLocalStructCharArrayMemberDecays)
+{
+    std::string yaml = CompileToYaml(R"(
+        char f(void)
+        {
+            struct s { int n; char b[4]; } m;
+            char *p = m.b;
+            return p[0];
+        }
+    )");
+    EXPECT_EQ(yaml.find("copy_from_offset"), std::string::npos);
+    EXPECT_NE(yaml.find("kind: get_address"), std::string::npos);
+    EXPECT_NE(yaml.find("kind: ptr_to_char_ptr"), std::string::npos);
+    EXPECT_NE(yaml.find("kind: load_byte"), std::string::npos);
 }

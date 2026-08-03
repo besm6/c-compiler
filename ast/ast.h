@@ -358,12 +358,14 @@ struct Expr {
         struct {
             Expr *expr;
             Ident field;
-            int offset; // byte offset within struct, set by typecheck
+            int offset;        // byte offset within struct, set by typecheck
+            Type *member_type; // declared type of the member, set by typecheck (see offset)
         } field_access;
         struct {
             Expr *expr;
             Ident field;
-            int offset; // byte offset within struct, set by typecheck
+            int offset;        // byte offset within struct, set by typecheck
+            Type *member_type; // declared type of the member, set by typecheck (see offset)
         } ptr_access;
         Expr *post_inc;
         Expr *post_dec;

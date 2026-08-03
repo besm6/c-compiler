@@ -121,9 +121,14 @@ size_t get_size(const Type *t)
     case TYPE_UNION: {
         // A block-local tag is purged from structtab on block exit, but its
         // size was cached on the AST node by validate_type while it was live.
+        // Refresh the cache on every hit as well, so a node validate_type never
+        // reached still carries the size once anyone has asked for it in scope.
         const StructDef *d = structtab_find_opt(t->u.struct_t.name);
-        if (d)
+        if (d) {
+            if (d->complete)
+                ((Type *)t)->u.struct_t.cached_size = (int)d->size;
             return d->size;
+        }
         if (t->u.struct_t.cached_size)
             return t->u.struct_t.cached_size;
         return structtab_find(t->u.struct_t.name)->size; // not found: fatal_error
@@ -173,8 +178,11 @@ size_t get_alignment(const Type *t)
     case TYPE_UNION: {
         // See get_size: fall back to the cached alignment for a purged block-local tag.
         const StructDef *d = structtab_find_opt(t->u.struct_t.name);
-        if (d)
+        if (d) {
+            if (d->complete)
+                ((Type *)t)->u.struct_t.cached_align = (int)d->alignment;
             return d->alignment;
+        }
         if (t->u.struct_t.cached_align)
             return t->u.struct_t.cached_align;
         return structtab_find(t->u.struct_t.name)->alignment; // not found: fatal_error

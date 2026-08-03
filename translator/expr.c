@@ -9,40 +9,22 @@
 
 #include "c_escape.h"
 #include "semantic.h"
-#include "structtab.h"
 #include "translate.h"
 #include "typecheck.h"
 #include "xalloc.h"
 
-// The declared type of the member named by a FIELD_ACCESS/PTR_ACCESS node, looked
-// up in structtab.  After typecheck an array member used as a value has been
-// decayed to a pointer (so e->type no longer says "array"); the backend recovers
-// the member's true type here to decide whether to load it or decay it to its
-// address.  Returns NULL if the tag is not in scope (e.g. a purged block-scope
-// struct), in which case the caller falls back to a plain load.
+// The declared type of the member named by a FIELD_ACCESS/PTR_ACCESS node.  After
+// typecheck an array member used as a value has been decayed to a pointer (so
+// e->type no longer says "array"); the backend recovers the member's true type
+// here to decide whether to load it or decay it to its address.  Typecheck
+// resolved it while the tag was live and stashed it on the node beside the member
+// offset, so this works for a block-scope tag that structtab has since purged.
+// Returns NULL for a synthesized access node that never went through typecheck,
+// in which case the caller falls back to a plain load.
 static const Type *field_member_type(const Expr *e)
 {
-    const Expr *base;
-    const char *field;
-    if (e->kind == EXPR_FIELD_ACCESS) {
-        base  = e->u.field_access.expr;
-        field = e->u.field_access.field;
-    } else {
-        base  = e->u.ptr_access.expr;
-        field = e->u.ptr_access.field;
-    }
-    const Type *st = unalias(base->type);
-    if (e->kind == EXPR_PTR_ACCESS && st->kind == TYPE_POINTER)
-        st = unalias(st->u.pointer.target);
-    if (st->kind != TYPE_STRUCT && st->kind != TYPE_UNION)
-        return NULL;
-    const StructDef *def = structtab_find_opt(st->u.struct_t.name);
-    if (!def)
-        return NULL;
-    for (const FieldDef *m = def->members; m; m = m->next)
-        if (strcmp(m->name, field) == 0)
-            return m->type;
-    return NULL;
+    return e->kind == EXPR_FIELD_ACCESS ? e->u.field_access.member_type
+                                        : e->u.ptr_access.member_type;
 }
 
 // True when a struct member is addressed by byte (a char scalar or a character
@@ -1559,8 +1541,8 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         int offset       = e->u.field_access.offset;
         // An array-typed member is not loaded: it decays to the address of its
         // first element (e.g. `s.arr` / `x.b.inner_arr`), just like a subscript
-        // selecting a sub-array.  The member's array type is recovered from
-        // structtab because e->type was decayed to a pointer at typecheck.
+        // selecting a sub-array.  The member's array type is recovered from the
+        // node's cached member type because e->type was decayed at typecheck.
         {
             const Type *mt = unalias(field_member_type(e));
             if (mt && mt->kind == TYPE_ARRAY)

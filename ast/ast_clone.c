@@ -74,6 +74,13 @@ Type *clone_type(const Type *type, const char *funcname, const char *filename, u
     case TYPE_UNION:
         result->u.struct_t.name   = type->u.struct_t.name ? xstrdup(type->u.struct_t.name) : NULL;
         result->u.struct_t.fields = clone_field(type->u.struct_t.fields);
+        // The size/alignment cache is a resolved property of the *tag*, not of this node, so
+        // it must survive cloning.  A block-scope tag is purged from structtab on block exit,
+        // long before the translator runs; without this the clones made by
+        // symtab_add_automatic_var_type(), typecheck_var() and decay_expr() would strip the
+        // cache and get_size()/get_alignment() would fall through to a failing lookup.
+        result->u.struct_t.cached_size  = type->u.struct_t.cached_size;
+        result->u.struct_t.cached_align = type->u.struct_t.cached_align;
         break;
     case TYPE_ENUM:
         result->u.enum_t.name        = type->u.enum_t.name ? xstrdup(type->u.enum_t.name) : NULL;
@@ -334,6 +341,9 @@ Expr *clone_expression(const Expr *expr)
         result->u.field_access.expr = clone_expression(expr->u.field_access.expr);
         result->u.field_access.field =
             expr->u.field_access.field ? xstrdup(expr->u.field_access.field) : NULL;
+        result->u.field_access.offset = expr->u.field_access.offset;
+        result->u.field_access.member_type =
+            clone_type(expr->u.field_access.member_type, __func__, __FILE__, __LINE__);
         break;
     case EXPR_POST_INC:
     case EXPR_POST_DEC:

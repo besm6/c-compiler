@@ -821,7 +821,12 @@ static Expr *typecheck_expr(Expr *e)
         free_type(e->type);
         e->type                  = clone_type(member->type, __func__, __FILE__, __LINE__);
         e->u.field_access.offset = member->offset;
-        e->u.field_access.expr   = strct;
+        // Stash the member's declared type alongside its offset: the tag may be block-local
+        // and purged by the time the translator needs to know how the member is addressed,
+        // and e->type is about to be decayed to a pointer for an array-typed member.
+        free_type(e->u.field_access.member_type);
+        e->u.field_access.member_type = clone_type(member->type, __func__, __FILE__, __LINE__);
+        e->u.field_access.expr        = strct;
         return e;
     }
     case EXPR_PTR_ACCESS: {
@@ -848,7 +853,10 @@ static Expr *typecheck_expr(Expr *e)
         free_type(e->type);
         e->type                = clone_type(member->type, __func__, __FILE__, __LINE__);
         e->u.ptr_access.offset = member->offset;
-        e->u.ptr_access.expr   = strct_ptr;
+        // See EXPR_FIELD_ACCESS above.
+        free_type(e->u.ptr_access.member_type);
+        e->u.ptr_access.member_type = clone_type(member->type, __func__, __FILE__, __LINE__);
+        e->u.ptr_access.expr        = strct_ptr;
         return e;
     }
     case EXPR_POST_INC: {

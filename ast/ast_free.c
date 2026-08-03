@@ -262,6 +262,7 @@ void free_expression(Expr *expr)
         case EXPR_PTR_ACCESS:
             free_expression(expr->u.field_access.expr);
             xfree(expr->u.field_access.field);
+            free_type(expr->u.field_access.member_type);
             break;
         case EXPR_POST_INC:
         case EXPR_POST_DEC:
