@@ -17,6 +17,41 @@ static char *strip_string_literal_lexeme(const char *lex)
 }
 
 //
+// Synthetic tags for anonymous struct/union definitions.
+//
+// A tagless definition is ONE type however many declarators share it: `struct { int x; } a, b;`
+// declares two objects of the same type, and so does `struct W { struct { int x; } p, q; };`.
+// The tag is therefore minted here, at the single point where the Type node for a definition is
+// built, and *before* parse_init_declarator / parse_struct_declaration clone the base type per
+// declarator -- clone_type copies the tag, so every declarator names the same struct.  Minting it
+// later, per cloned node (as the type registrar used to), split one type into N mutually
+// incompatible ones.  `__anon_` is in the implementation's reserved namespace, so it cannot
+// collide with a user tag.  The counter is per translation unit; parse() resets it.
+//
+static int anon_tag_counter;
+
+void reset_anon_tag_counter(void)
+{
+    anon_tag_counter = 0;
+}
+
+//
+// The tag of a struct/union specifier: the source tag when it has one, a fresh synthetic tag when
+// it is an anonymous *definition*.  A specifier with neither (`struct;`) keeps a NULL name, which
+// is what xstrdup(NULL) yielded before.
+//
+static char *struct_tag_name(const TypeSpec *spec)
+{
+    if (spec->u.struct_spec.name)
+        return xstrdup(spec->u.struct_spec.name);
+    if (!spec->u.struct_spec.fields)
+        return NULL;
+    char buf[32];
+    snprintf(buf, sizeof(buf), "__anon_%d", ++anon_tag_counter);
+    return xstrdup(buf);
+}
+
+//
 // Fuse TypeSpec list into a single Type.
 // Returns non-NULL value.
 //
@@ -196,11 +231,11 @@ Type *fuse_type_specifiers(const TypeSpec *specs)
 
     if (struct_spec) {
         result                    = new_type(TYPE_STRUCT, __func__, __FILE__, __LINE__);
-        result->u.struct_t.name   = xstrdup(struct_spec->u.struct_spec.name);
+        result->u.struct_t.name   = struct_tag_name(struct_spec);
         result->u.struct_t.fields = clone_field(struct_spec->u.struct_spec.fields);
     } else if (union_spec) {
         result                    = new_type(TYPE_UNION, __func__, __FILE__, __LINE__);
-        result->u.struct_t.name   = xstrdup(union_spec->u.struct_spec.name);
+        result->u.struct_t.name   = struct_tag_name(union_spec);
         result->u.struct_t.fields = clone_field(union_spec->u.struct_spec.fields);
     } else if (enum_spec) {
         result                       = new_type(TYPE_ENUM, __func__, __FILE__, __LINE__);

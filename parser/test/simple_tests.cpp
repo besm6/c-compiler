@@ -362,7 +362,7 @@ TEST_F(ParserTest, TypedefEnumField)
     EXPECT_EQ(nullptr, init->init);
     ASSERT_NE(nullptr, init->type);
     EXPECT_EQ(TYPE_STRUCT, init->type->kind);
-    EXPECT_EQ(nullptr, init->type->u.struct_t.name);
+    ExpectAnonTag(init->type->u.struct_t.name);
 
     Field *field = init->type->u.struct_t.fields;
     EXPECT_STREQ("bar", field->u.member.name);

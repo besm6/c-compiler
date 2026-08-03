@@ -63,6 +63,7 @@ bool is_typedef(const DeclSpec *specifiers);
 void define_typedef(InitDeclarator *decl);
 
 /* Declaration parsing (defined in decl.c) */
+void reset_anon_tag_counter(void);
 Type *fuse_type_specifiers(const TypeSpec *specs);
 Type *type_apply_pointers(Type *type, const Pointer *pointers);
 Type *type_apply_suffixes(Type *type, const DeclaratorSuffix *suffixes);

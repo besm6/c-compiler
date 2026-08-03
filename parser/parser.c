@@ -250,6 +250,7 @@ Program *parse(FILE *input)
         printf("--- %s()\n", __func__);
     }
     init_scanner(input);
+    reset_anon_tag_counter(); // synthetic anonymous tags are numbered per translation unit
     advance_token();
     Program *program = parse_translation_unit();
     if (current_token != TOKEN_EOF) {

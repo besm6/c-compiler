@@ -193,3 +193,25 @@ TEST_F(CodegenTest, StructByValueReturnThreeWordRun)
     )");
     EXPECT_EQ("1 2 3\n", result);
 }
+
+// A tagless struct shared by a comma-separated declarator list, end to end: `g = h` at file
+// scope and `n = m` at block scope both copy every word.  The two declarators must name one
+// type -- while the synthetic tag was minted per cloned declarator type, this failed to
+// typecheck ("Cannot convert type for assignment").  Output: "5 9 7\n".
+TEST_F(CodegenTest, AnonStructDeclaratorListRun)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        struct { int x; int y; } g, h;
+        void program() {
+            h.x = 5;
+            h.y = 9;
+            g = h;
+            struct { int v; } m, n;
+            m.v = 7;
+            n = m;
+            printf("%d %d %d\n", g.x, g.y, n.v);
+        }
+    )");
+    EXPECT_EQ("5 9 7\n", result);
+}

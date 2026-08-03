@@ -205,7 +205,6 @@ static void register_enum_constants(const Type *enum_type)
     }
 }
 
-static int anon_struct_counter = 0;
 static void register_inline_struct_defs(const Type *t);
 
 // Reject a struct/union tag reference whose keyword disagrees with an existing tag of the
@@ -221,16 +220,19 @@ void check_tag_kind(const Type *t)
 }
 
 // Register a struct/union type definition in the struct table.
-// Precondition: t is TYPE_STRUCT or TYPE_UNION with non-NULL fields, not yet in structtab.
+// Precondition: t is TYPE_STRUCT or TYPE_UNION with non-NULL fields and a non-NULL tag
+// (synthetic for an anonymous definition), not yet in structtab.
 static void register_struct_type(const Type *t)
 {
-    // Anonymous structs have no tag; assign a unique synthetic one so structtab can store them.
+    // Every anonymous struct/union definition is tagged by the parser at the single point where
+    // its Type node is built (fuse_type_specifiers), *before* the base type is cloned per
+    // declarator -- that is what makes `struct { int x; } a, b;` one type instead of two.
+    // Minting the tag here instead would mint one per cloned node.  A definition reaching here
+    // untagged means the AST did not come from that path (e.g. a stale .ast stream).
     if (!t->u.struct_t.name) {
-        char buf[32];
-        snprintf(buf, sizeof(buf), "__anon_%d", ++anon_struct_counter);
-        ((Type *)t)->u.struct_t.name = xstrdup(buf);
+        fatal_error("Untagged struct/union definition reached the type registrar");
     }
-    // Resolve typedef names in field types in-place (analogous to the anon-name cast above).
+    // Resolve typedef names in field types in-place.
     for (Field *f = (Field *)t->u.struct_t.fields; f; f = f->next) {
         if (f->kind != FIELD_STATIC_ASSERT)
             f->u.member.type = resolve_typedef_names(f->u.member.type);

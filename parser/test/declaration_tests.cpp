@@ -278,7 +278,7 @@ TEST_F(ParserTest, ParseTypeAnonymousStruct)
 
     Type *type = decl->u.var.declarators->type;
     EXPECT_EQ(type->kind, TYPE_STRUCT);
-    EXPECT_EQ(type->u.struct_t.name, nullptr);
+    ExpectAnonTag(type->u.struct_t.name);
 
     Field *field = type->u.struct_t.fields;
     ASSERT_NE(field, nullptr);

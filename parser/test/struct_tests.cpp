@@ -275,7 +275,7 @@ TEST_F(ParserTest, UnionWithNestedStructAndAnonymousStruct)
     Type *anon_struct = anon_member->u.member.type;
     ASSERT_NE(anon_struct, nullptr);
     EXPECT_EQ(anon_struct->kind, TYPE_STRUCT);
-    EXPECT_EQ(anon_struct->u.struct_t.name, nullptr);
+    ExpectAnonTag(anon_struct->u.struct_t.name);
     EXPECT_EQ(anon_struct->qualifiers, nullptr);
 
     Field *fa = anon_struct->u.struct_t.fields;
@@ -429,4 +429,94 @@ TEST_F(ParserTest, StructMultipleDeclarators)
     EXPECT_EQ(p->u.member.type->kind, TYPE_INT);
 
     free_type(type);
+}
+
+//
+// A tagless struct/union definition shared by a comma-separated declarator list is ONE type,
+// however many declarators it feeds.  The parser clones the base type per declarator, so the
+// synthetic tag has to be minted before the clone; minting it later, per cloned node, gave each
+// declarator its own tag and made them mutually incompatible (`a = b` failed to typecheck).
+//
+TEST_F(ParserTest, AnonStructSharedByDeclaratorList)
+{
+    Declaration *decl = GetDeclaration("struct { int x; } a, b;");
+
+    InitDeclarator *a = decl->u.var.declarators;
+    ASSERT_NE(a, nullptr);
+    InitDeclarator *b = a->next;
+    ASSERT_NE(b, nullptr);
+    EXPECT_STREQ(a->name, "a");
+    EXPECT_STREQ(b->name, "b");
+
+    EXPECT_EQ(a->type->kind, TYPE_STRUCT);
+    EXPECT_EQ(b->type->kind, TYPE_STRUCT);
+    ExpectAnonTag(a->type->u.struct_t.name);
+    EXPECT_STREQ(a->type->u.struct_t.name, b->type->u.struct_t.name);
+}
+
+//
+// Same for a union, and through a pointer declarator: the tag rides the base type, so `*p`
+// still names the type `a` has.
+//
+TEST_F(ParserTest, AnonUnionSharedByDeclaratorList)
+{
+    Declaration *decl = GetDeclaration("union { int x; int y; } a, *p;");
+
+    InitDeclarator *a = decl->u.var.declarators;
+    ASSERT_NE(a, nullptr);
+    InitDeclarator *p = a->next;
+    ASSERT_NE(p, nullptr);
+
+    EXPECT_EQ(a->type->kind, TYPE_UNION);
+    ASSERT_EQ(p->type->kind, TYPE_POINTER);
+    Type *target = p->type->u.pointer.target;
+    ASSERT_NE(target, nullptr);
+    EXPECT_EQ(target->kind, TYPE_UNION);
+    ExpectAnonTag(a->type->u.struct_t.name);
+    EXPECT_STREQ(a->type->u.struct_t.name, target->u.struct_t.name);
+}
+
+//
+// Struct *members* take the same path -- parse_struct_declaration clones the member base type
+// per declarator -- so `p` and `q` below must also share one tag, or `w.p = w.q` fails.
+//
+TEST_F(ParserTest, AnonStructMemberSharedByDeclaratorList)
+{
+    Declaration *decl = GetDeclaration("struct W { struct { int x; } p, q; } w;");
+
+    Type *outer = decl->u.var.declarators->type;
+    ASSERT_NE(outer, nullptr);
+    EXPECT_STREQ(outer->u.struct_t.name, "W");
+
+    Field *p = outer->u.struct_t.fields;
+    ASSERT_NE(p, nullptr);
+    Field *q = p->next;
+    ASSERT_NE(q, nullptr);
+    EXPECT_STREQ(p->u.member.name, "p");
+    EXPECT_STREQ(q->u.member.name, "q");
+
+    ASSERT_EQ(p->u.member.type->kind, TYPE_STRUCT);
+    ASSERT_EQ(q->u.member.type->kind, TYPE_STRUCT);
+    ExpectAnonTag(p->u.member.type->u.struct_t.name);
+    EXPECT_STREQ(p->u.member.type->u.struct_t.name, q->u.member.type->u.struct_t.name);
+}
+
+//
+// Two *separate* tagless definitions stay distinct types (C11 6.7.2.3p5), so they must get
+// different tags -- the counter is per definition, not per source shape.
+//
+TEST_F(ParserTest, DistinctAnonStructDefsGetDistinctTags)
+{
+    ExternalDecl *first = GetExternalDecl("struct { int x; } a; struct { int x; } b;");
+
+    ASSERT_EQ(first->kind, EXTERNAL_DECL_DECLARATION);
+    ExternalDecl *second = first->next;
+    ASSERT_NE(second, nullptr);
+    ASSERT_EQ(second->kind, EXTERNAL_DECL_DECLARATION);
+
+    const char *ta = first->u.declaration->u.var.declarators->type->u.struct_t.name;
+    const char *tb = second->u.declaration->u.var.declarators->type->u.struct_t.name;
+    ExpectAnonTag(ta);
+    ExpectAnonTag(tb);
+    EXPECT_STRNE(ta, tb);
 }

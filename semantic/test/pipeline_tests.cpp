@@ -509,3 +509,85 @@ TEST_F(PipelineTest, RealStaticInitDivideByZero_Neg)
 {
     EXPECT_DEATH(RunPipeline("double z = 1.0 / 0.0;"), "Static initializer is not a constant");
 }
+
+//
+// A tagless struct/union definition shared by a comma-separated declarator list.
+//
+// The parser clones the base type per declarator, so the synthetic tag must be minted once, at
+// the definition, before that clone.  While it was minted per cloned node instead, each
+// declarator got its own `__anon_N` and compatible_type's tag strcmp rejected every use that
+// needs the declarators to share a type.  One test per row of backend/besm6/tmp/BUG2.md.
+//
+
+TEST_F(PipelineTest, AnonStructDeclaratorListAssign)
+{
+    RunPipeline("struct { int x; } a, b;  int f(void) { a = b; return a.x; }");
+
+    // One definition, so exactly one tag -- not one per declarator.  The counter is reset by
+    // parse(), so the number is deterministic regardless of test order.
+    EXPECT_TRUE(structtab_exists("__anon_1"));
+    EXPECT_FALSE(structtab_exists("__anon_2"));
+}
+
+TEST_F(PipelineTest, AnonStructDeclaratorListPointer)
+{
+    RunPipeline("struct { int x; } a, *p;  int f(void) { p = &a; return p->x; }");
+
+    EXPECT_TRUE(structtab_exists("__anon_1"));
+    EXPECT_FALSE(structtab_exists("__anon_2"));
+}
+
+TEST_F(PipelineTest, AnonStructDeclaratorListArray)
+{
+    RunPipeline("struct { int x; } a, arr[2];  int f(void) { arr[0] = a; return arr[0].x; }");
+
+    EXPECT_TRUE(structtab_exists("__anon_1"));
+    EXPECT_FALSE(structtab_exists("__anon_2"));
+}
+
+TEST_F(PipelineTest, AnonUnionDeclaratorList)
+{
+    RunPipeline("union { int x; int y; } a, b;  int f(void) { a = b; return a.x; }");
+
+    const StructDef *sd = structtab_find("__anon_1");
+    ASSERT_NE(sd, nullptr);
+    EXPECT_EQ(sd->kind, TYPE_UNION);
+    EXPECT_FALSE(structtab_exists("__anon_2"));
+}
+
+TEST_F(PipelineTest, AnonStructBlockScopeDeclaratorList)
+{
+    RunPipeline("int f(void) { struct { int a, b, c; } m, n;  n = m;  return n.a; }");
+}
+
+//
+// Struct *members* take the same path: parse_struct_declaration clones the member base type per
+// declarator, so `p` and `q` must share one tag too.  Not listed in BUG2.md, but it is the same
+// defect and it failed the same way.
+//
+TEST_F(PipelineTest, AnonStructMembersShareType)
+{
+    RunPipeline("struct W { struct { int x; } p, q; };  struct W w;"
+                " int f(void) { w.p = w.q; return w.p.x; }");
+}
+
+//
+// `typedef struct { int x; } T1, T2;` used to make T1 and T2 incompatible for the same reason.
+//
+TEST_F(PipelineTest, AnonTypedefDeclaratorList)
+{
+    RunPipeline("typedef struct { int x; } T1, T2;  T1 a;  T2 b;"
+                " int f(void) { a = b; return a.x; }");
+}
+
+//
+// The other half of the invariant: two *separate* tagless definitions are distinct types
+// (C11 §6.7.2.3p5), so they must keep distinct tags.  Guards against a future "merge by shape"
+// refactor over-merging them.
+//
+TEST_F(PipelineTest, DistinctAnonStructsStayIncompatible_Neg)
+{
+    EXPECT_DEATH(RunPipeline("struct { int x; } a;  struct { int x; } b;"
+                             " int f(void) { a = b; return 0; }"),
+                 "Cannot convert type for assignment");
+}

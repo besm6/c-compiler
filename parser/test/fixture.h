@@ -104,6 +104,15 @@ protected:
         return program->decls->u.declaration;
     }
 
+    // The parser tags every anonymous struct/union *definition* with a synthetic __anon_N, so
+    // that a comma-separated declarator list shares one type.  N is a per-parse sequence number
+    // and TestType() bypasses parse(), so match the prefix, not the number.
+    static void ExpectAnonTag(const char *tag)
+    {
+        ASSERT_NE(nullptr, tag);
+        EXPECT_EQ(0, strncmp(tag, "__anon_", 7)) << "tag: " << tag;
+    }
+
     // Helper to create a temporary AST file
     int CreateAstFile()
     {
