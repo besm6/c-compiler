@@ -69,7 +69,7 @@ TEST_F(ConstConvertTest, IntFromChar)
     auto type = make_type(TYPE_INT);
     result    = new_static_init_from_literal(&type, &lit);
     EXPECT_EQ(result->kind, TAC_STATIC_INIT_I64);
-    EXPECT_EQ(result->u.long_val, -5);
+    EXPECT_EQ(result->u.long_val, (char)-5);
 }
 
 TEST_F(ConstConvertTest, IntFromFloat)

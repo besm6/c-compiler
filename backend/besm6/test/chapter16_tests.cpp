@@ -1538,7 +1538,7 @@ int main(void) {
     char c = -10;
     if (!check_char(-10, c)) return 5;
     if (!check_char(4294967286u, c)) return 6;
-    if (!check_char(-10.0, c)) return 7;
+    // if (!check_char(-10.0, c)) return 7; -- undefined behavior on ARM
     if (!check_stk(c, 0, 0, 0, 0, 0, 0, -10.0)) return 8;
 
     if (!check_int(uc, 246)) return 9;
