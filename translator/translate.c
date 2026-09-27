@@ -741,6 +741,8 @@ Tac_Type *ast_type_to_tac_type(const Type *t)
 // literal whose data has not yet been emitted, build a TAC_TOPLEVEL_STATIC_CONSTANT and
 // append it through `*ctailp`.  Ownership of the const init transfers to the new toplevel,
 // so a string referenced more than once (by several statics or by the body) emits once.
+// A file-scope compound literal's object (_clN) is emitted the same way, as a non-global
+// static variable, followed by whatever its own data references.
 static void emit_referenced_string_constants(const Tac_StaticInit *inits, Tac_TopLevel ***ctailp)
 {
     for (const Tac_StaticInit *init = inits; init; init = init->next) {
@@ -748,6 +750,19 @@ static void emit_referenced_string_constants(const Tac_StaticInit *inits, Tac_To
             continue;
         const char *sname = init->u.pointer.name;
         Symbol *sym       = symtab_get(sname);
+        if (sym && sym->kind == SYM_STATIC && sym->u.static_var.literal &&
+            sym->u.static_var.init_list) {
+            Tac_TopLevel *sv                = tac_new_toplevel(TAC_TOPLEVEL_STATIC_VARIABLE);
+            sv->u.static_variable.name      = xstrdup(sname);
+            sv->u.static_variable.global    = false;
+            sv->u.static_variable.type      = ast_type_to_tac_type(sym->type);
+            sv->u.static_variable.init_list = sym->u.static_var.init_list;
+            sym->u.static_var.init_list     = NULL; // transfer ownership to TAC
+            **ctailp                        = sv;
+            *ctailp                         = &sv->next;
+            emit_referenced_string_constants(sv->u.static_variable.init_list, ctailp);
+            continue;
+        }
         if (!sym || sym->kind != SYM_CONST || !sym->u.const_init)
             continue;
         Tac_TopLevel *sc           = tac_new_toplevel(TAC_TOPLEVEL_STATIC_CONSTANT);

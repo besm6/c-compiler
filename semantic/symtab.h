@@ -47,6 +47,7 @@ typedef struct Symbol {
             bool global;               // True if variable has global linkage
             InitKind init_kind;        // Initialization state
             Tac_StaticInit *init_list; // For INIT_INITIALIZED
+            bool literal;              // A file-scope compound literal (_clN), emitted on use
             // No data needed for INIT_TENTATIVE or INIT_NONE
         } static_var; // For SYM_STATIC
 
@@ -117,6 +118,9 @@ void symtab_add_fun(const char *name, const Type *t, bool global, bool defined, 
 
 // Add a string literal: len decoded bytes, which may include embedded NULs.
 char *symtab_add_string(const char *s, size_t len);
+
+// Add the anonymous static object of a file-scope compound literal; returns its _clN name.
+char *symtab_add_compound_literal(const Type *t, Tac_StaticInit *init_list);
 
 // Add an enum constant
 void symtab_add_enum_const(const char *ident, int val, int level);

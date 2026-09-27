@@ -37,7 +37,7 @@ static bool is_array_lvalue_operand(const Expr *e)
 
 // Resolve and validate a type name (cast, sizeof, _Alignof, _Generic, compound literal),
 // registering any struct/union it defines.
-static Type *check_type_name(Type *t)
+Type *check_type_name(Type *t)
 {
     t = resolve_typedef_names(t);
     register_inline_struct_defs(t);

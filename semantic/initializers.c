@@ -118,6 +118,25 @@ static Initializer *make_zero_init(Type *t)
 // handling; a malformed address constant (non-constant subscript, unknown member) is a
 // fatal_error, since build_static_init is the validation point for static initializers.
 
+// Materialize a file-scope compound literal as an anonymous static object (C11 §6.5.2.5p5)
+// and return its name.  A block-scope literal has automatic storage: not a constant.
+static const char *static_compound_literal(Expr *e)
+{
+    if (scope_level > 0)
+        fatal_error("Static initializer is not a constant");
+    Type *t           = check_type_name(e->u.compound_literal.type);
+    Initializer *init = new_initializer(INITIALIZER_COMPOUND);
+    init->u.items     = e->u.compound_literal.init;
+    e->u.compound_literal.type = t;
+    e->u.compound_literal.init = NULL;
+    Tac_StaticInit *data       = build_static_init(t, &init);
+    free_initializer(init);
+    char *name = symtab_add_compound_literal(t, data);
+    const char *ret = symtab_get(name)->name;
+    xfree(name);
+    return ret;
+}
+
 // Fold an lvalue expression to the storage it names: (base symbol, byte offset, object type).
 static bool eval_lvalue_addr(const Expr *e, const char **name, long *off, const Type **type)
 {
@@ -131,6 +150,11 @@ static bool eval_lvalue_addr(const Expr *e, const char **name, long *off, const 
         *type = unalias(sym->type);
         return true;
     }
+    case EXPR_COMPOUND:
+        *name = static_compound_literal((Expr *)e);
+        *off  = 0;
+        *type = unalias(symtab_get(*name)->type);
+        return true;
     case EXPR_FIELD_ACCESS: {
         const Type *base_type;
         if (!eval_lvalue_addr(e->u.field_access.expr, name, off, &base_type))
@@ -180,9 +204,10 @@ static bool eval_addr_const(const Expr *e, const char **name, long *off, const T
         if (e->u.unary_op.op != UNARY_ADDRESS)
             return false;
         return eval_lvalue_addr(e->u.unary_op.expr, name, off, pointee);
-    case EXPR_VAR: {
-        // An array or function name decays to a pointer to its first element / to the function.
-        // A scalar variable's value is not an address constant.
+    case EXPR_VAR:
+    case EXPR_COMPOUND: {
+        // An array or function name, or an array literal, decays to a pointer to its first
+        // element / to the function.  A scalar's value is not an address constant.
         const Type *t;
         if (!eval_lvalue_addr(e, name, off, &t))
             return false;
@@ -356,11 +381,12 @@ static Tac_StaticInit *static_init(Type *var_type, const Initializer *init)
                 // a directly-addressed scalar char keeps its value in the low byte of its
                 // one-word cell, so &c is byte#5 (offset_enc 5).  Sub-word char addressing
                 // beyond these forms is the known char-in-struct limitation.
-                if (init->u.expr->kind == EXPR_UNARY_OP &&
-                    init->u.expr->u.unary_op.op == UNARY_ADDRESS &&
-                    init->u.expr->u.unary_op.expr->kind == EXPR_VAR) {
-                    const Type *ot =
-                        unalias(symtab_get(init->u.expr->u.unary_op.expr->u.var)->type);
+                const Expr *operand = init->u.expr->kind == EXPR_UNARY_OP &&
+                                              init->u.expr->u.unary_op.op == UNARY_ADDRESS
+                                          ? init->u.expr->u.unary_op.expr
+                                          : NULL;
+                if (operand && (operand->kind == EXPR_VAR || operand->kind == EXPR_COMPOUND)) {
+                    const Type *ot = unalias(symtab_get(base)->type);
                     if (ot->kind == TYPE_CHAR || ot->kind == TYPE_SCHAR || ot->kind == TYPE_UCHAR)
                         off += 5;
                 }

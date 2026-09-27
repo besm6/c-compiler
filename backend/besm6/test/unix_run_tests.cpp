@@ -310,3 +310,24 @@ TEST_F(CodegenTest, UnixRunCompoundLiteralLvalue)
     )");
     EXPECT_EQ("5 1 7 B 1\n18 6\n", result);
 }
+
+// File-scope compound literals on the b6as path.
+TEST_F(CodegenTest, UnixRunFileScopeCompoundLiteral)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunUnix(R"(
+        #include <stdio.h>
+        struct s { int a; int b; char *n; };
+        int *p = (int[]){ 1, 2, 3 } + 1;
+        struct s *q = &(struct s){ 7, 8, "AB" };
+        char *c = &(char){ 'C' };
+        int **pp = (int *[]){ (int[]){ 14 }, 0 };
+        int main(void) {
+            q->a += 100;
+            p[1] = 15;
+            printf("%d %d %d %s %c %d\n", p[0], p[1], q->a, q->n, *c, pp[0][0]);
+            return 0;
+        }
+    )");
+    EXPECT_EQ("2 15 107 AB C 14\n", result);
+}

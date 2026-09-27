@@ -26,6 +26,9 @@ void check_tag_kind(const Type *t);
 
 // Register struct/union definitions embedded in a type tree — declarations.c.
 void register_inline_struct_defs(const Type *t);
+
+// Resolve and validate a type name, registering any struct/union it defines — expressions.c.
+Type *check_type_name(Type *t);
 size_t get_array_size(const Type *t);
 void set_array_size(Type *t, size_t size);
 

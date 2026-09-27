@@ -1057,3 +1057,147 @@ TEST_F(TranslateTest, AutoStructFieldDesignators)
       offset: 12
 )");
 }
+
+// A file-scope compound literal is an anonymous static object, emitted ahead of the
+// variable that points at it (C11 6.5.2.5p5).
+TEST_F(TranslateTest, FileScopeCompoundLiteral)
+{
+    std::string yaml = CompileToYaml("int *p = (int[]){ 1, 2 };");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: _cl0
+  global: false
+  type:
+    kind: array
+    elem_type:
+      kind: int
+    size: 2
+  init_list:
+    - init:
+      kind: i64
+      value: 1
+    - init:
+      kind: i64
+      value: 2
+- toplevel:
+  kind: static_variable
+  name: p
+  global: true
+  type:
+    kind: pointer
+    target:
+      kind: int
+  init_list:
+    - init:
+      kind: pointer
+      name: _cl0
+)");
+}
+
+// A member address, a char literal (byte #5 of its word, like a named char) and a literal
+// nested in another; each object follows the one that references it.
+TEST_F(TranslateTest, FileScopeCompoundLiteralNested)
+{
+    std::string yaml = CompileToYaml("struct s { int a, b; };"
+                                     "int *qb = &(struct s){ 1, 2 }.b;"
+                                     "char *c = &(char){ 67 };"
+                                     "int **pp = (int *[]){ (int[]){ 3 } + 1, 0 };");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: _cl0
+  global: false
+  type:
+    kind: structure
+    tag: s
+    size: 12
+  init_list:
+    - init:
+      kind: i64
+      value: 1
+    - init:
+      kind: i64
+      value: 2
+- toplevel:
+  kind: static_variable
+  name: qb
+  global: true
+  type:
+    kind: pointer
+    target:
+      kind: int
+  init_list:
+    - init:
+      kind: pointer
+      name: _cl0
+      byte_offset: 6
+- toplevel:
+  kind: static_variable
+  name: _cl1
+  global: false
+  type:
+    kind: uchar
+  init_list:
+    - init:
+      kind: i8
+      value: 67
+- toplevel:
+  kind: static_variable
+  name: c
+  global: true
+  type:
+    kind: pointer
+    target:
+      kind: uchar
+  init_list:
+    - init:
+      kind: fat_pointer
+      name: _cl1
+      byte_offset: 5
+- toplevel:
+  kind: static_variable
+  name: _cl3
+  global: false
+  type:
+    kind: array
+    elem_type:
+      kind: pointer
+      target:
+        kind: int
+    size: 2
+  init_list:
+    - init:
+      kind: pointer
+      name: _cl2
+      byte_offset: 6
+    - init:
+      kind: zero
+      bytes: 6
+- toplevel:
+  kind: static_variable
+  name: _cl2
+  global: false
+  type:
+    kind: array
+    elem_type:
+      kind: int
+    size: 1
+  init_list:
+    - init:
+      kind: i64
+      value: 3
+- toplevel:
+  kind: static_variable
+  name: pp
+  global: true
+  type:
+    kind: pointer
+    target:
+      kind: pointer
+      target:
+        kind: int
+  init_list:
+    - init:
+      kind: pointer
+      name: _cl3
+)");
+}

@@ -978,3 +978,28 @@ TEST_F(CodegenTest, StructDefinedInTypeName)
     )");
     EXPECT_EQ("2 6 18 D 7 8\n", result);
 }
+
+// File-scope compound literals are anonymous static objects, writable through the pointer.
+TEST_F(CodegenTest, FileScopeCompoundLiteral)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        struct s { int a; int b; char *n; };
+        struct h { int *v; struct s *s; };
+        int *p = (int[]){ 1, 2, 3 };
+        int *p1 = (int[]){ 4, 5, 6 } + 1;
+        struct s *q = &(struct s){ 7, 8, "AB" };
+        int *qb = &(struct s){ 9, 10 }.b;
+        struct h hh = { (int[]){ 11, 12 }, &(struct s){ .b = 13 } };
+        char *c = &(char){ 'C' };
+        char *cs = (char[]){ "DE" };
+        int **pp = (int *[]){ (int[]){ 14 }, 0 };
+        void program() {
+            q->a += 100;
+            p[0] = 15;
+            printf("%d %d %d %d %d %s\n", p[2], p1[0], q->a, q->b, *qb, q->n);
+            printf("%d %d %d %d %c %s %d\n", hh.v[1], hh.s->b, hh.s->a, p[0], *c, cs, pp[0][0]);
+        }
+    )");
+    EXPECT_EQ("3 5 107 8 10 AB\n12 13 0 15 C DE 14\n", result);
+}

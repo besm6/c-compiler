@@ -659,3 +659,16 @@ TEST_F(PipelineTest, StructDefinedInTypeName)
 }
 )");
 }
+
+// A block-scope compound literal has automatic storage, so its address is not a constant.
+TEST_F(PipelineTest, BlockScopeLiteralInStaticInit_Neg)
+{
+    EXPECT_DEATH(RunPipeline("void f(void) { static int *p = (int[]){ 1 }; }"),
+                 "Static initializer is not a constant");
+}
+
+TEST_F(PipelineTest, FileScopeLiteralNonConstant_Neg)
+{
+    EXPECT_DEATH(RunPipeline("int x; int *p = (int[]){ x };"),
+                 "Static initializer is not a constant");
+}

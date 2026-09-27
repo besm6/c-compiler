@@ -11,6 +11,7 @@
 
 StringMap symtab;
 static int str_id;
+static int cl_id;
 
 //
 // Build new symbol.
@@ -77,6 +78,7 @@ void symtab_destroy()
     static_locals_clear();
     map_destroy_free(&symtab, symtab_destroy_callback);
     str_id = 0;
+    cl_id  = 0;
 }
 
 //
@@ -132,6 +134,14 @@ void symtab_add_static_var_scoped(const char *name, const Type *t, bool global,
     sym->block_scope            = true;
 
     map_insert_free(&symtab, name, (intptr_t)sym, level, symtab_destroy_callback);
+}
+
+char *symtab_add_compound_literal(const Type *t, Tac_StaticInit *init_list)
+{
+    char *name = xstruniq("_cl", &cl_id);
+    symtab_add_static_var(name, t, false, INIT_INITIALIZED, init_list);
+    symtab_get(name)->u.static_var.literal = true;
+    return name;
 }
 
 //
