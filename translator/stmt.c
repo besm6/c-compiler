@@ -6,7 +6,9 @@
 #include <string.h>
 
 #include "c_escape.h"
+#include "target.h"
 #include "translate.h"
+#include "typecheck.h"
 #include "xalloc.h"
 
 static void collect_cases(TacCtx *ctx, Stmt *stmt, CaseList *list)
@@ -88,9 +90,92 @@ static bool is_char_array_string_init(const Type *type, const Initializer *init)
            init->u.expr->u.literal->kind == LITERAL_STRING;
 }
 
-void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const Initializer *init)
+// Aggregates with at least this many zero words are zeroed by a loop first.
+#define ZERO_FILL_WORDS 8
+
+// A leaf storing an integer, char or pointer zero, made redundant by bulk zeroing.  A
+// floating zero is kept: an all-zero word is not +0.0 on every target.
+static bool is_zero_leaf(const Initializer *init)
+{
+    return init->kind == INITIALIZER_SINGLE && init->type &&
+           (is_integer(init->type) || is_pointer(init->type)) &&
+           init->u.expr->kind == EXPR_LITERAL && is_zero_int(init->u.expr->u.literal);
+}
+
+// Bytes of an initializer stored by zero leaves.
+static int zero_leaf_bytes(const Initializer *init)
+{
+    if (init->kind == INITIALIZER_SINGLE)
+        return is_zero_leaf(init) ? (int)get_size(init->type) : 0;
+    int n = 0;
+    for (const InitItem *item = init->u.items; item; item = item->next)
+        n += zero_leaf_bytes(item->init);
+    return n;
+}
+
+// Zero the first `bytes` bytes of var_name: a word-store loop, then byte stores for a tail.
+static void gen_zero_fill(TacCtx *ctx, const char *var_name, int bytes)
+{
+    int w      = target_word_bytes();
+    int nwords = bytes / w;
+
+    char *ptr             = new_temp(ctx);
+    Tac_Instruction *ga   = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
+    ga->u.get_address.src = val_var(var_name);
+    ga->u.get_address.dst = val_var(ptr);
+    tac_append(ctx, ga);
+
+    char *count         = new_temp(ctx);
+    Tac_Instruction *cp = tac_new_instruction(TAC_INSTRUCTION_COPY);
+    cp->u.copy.src      = val_int(nwords);
+    cp->u.copy.dst      = val_var(count);
+    tac_append(ctx, cp);
+
+    char *top = new_temp(ctx);
+    emit_label(ctx, top);
+
+    // A word-sized zero: on a byte-addressed target an int is narrower than a pointer.
+    Tac_Instruction *st = tac_new_instruction(TAC_INSTRUCTION_STORE);
+    st->u.store.src     = (int)target_config->int_size == w ? val_int(0) : val_long_long(0);
+    st->u.store.dst_ptr = val_var(ptr);
+    tac_append(ctx, st);
+
+    Tac_Instruction *ap = tac_new_instruction(TAC_INSTRUCTION_ADD_PTR);
+    ap->u.add_ptr.ptr   = val_var(ptr);
+    ap->u.add_ptr.index = val_int(1);
+    ap->u.add_ptr.scale = w;
+    ap->u.add_ptr.dst   = val_var(ptr);
+    tac_append(ctx, ap);
+
+    Tac_Instruction *sub = tac_new_instruction(TAC_INSTRUCTION_BINARY);
+    sub->u.binary.op     = TAC_BINARY_SUBTRACT;
+    sub->u.binary.src1   = val_var(count);
+    sub->u.binary.src2   = val_int(1);
+    sub->u.binary.dst    = val_var(count);
+    tac_append(ctx, sub);
+
+    Tac_Instruction *jnz              = tac_new_instruction(TAC_INSTRUCTION_JUMP_IF_NOT_ZERO);
+    jnz->u.jump_if_not_zero.condition = val_var(count);
+    jnz->u.jump_if_not_zero.target    = top;
+    tac_append(ctx, jnz);
+
+    for (int i = nwords * w; i < bytes; i++) {
+        Tac_Instruction *in         = tac_new_instruction(TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET);
+        in->u.copy_to_offset.src    = val_int(0);
+        in->u.copy_to_offset.dst    = xstrdup(var_name);
+        in->u.copy_to_offset.offset = i;
+        tac_append(ctx, in);
+    }
+    xfree(ptr);
+    xfree(count);
+}
+
+static void gen_init(TacCtx *ctx, const char *var_name, int base_offset, const Initializer *init,
+                     bool skip_zero)
 {
     if (init->kind == INITIALIZER_SINGLE) {
+        if (skip_zero && is_zero_leaf(init))
+            return;
         // A string literal initializing a char array (e.g. an inner row of a multi-dim
         // char array): store its bytes individually rather than COPY a whole-word pointer.
         if (is_char_array_string_init(init->type, init)) {
@@ -124,22 +209,37 @@ void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const
         int elem_size = (int)get_size(t->u.array.element);
         int i         = 0;
         for (const InitItem *item = init->u.items; item; item = item->next, i++)
-            gen_compound_init(ctx, var_name, base_offset + i * elem_size, item->init);
+            gen_init(ctx, var_name, base_offset + i * elem_size, item->init, skip_zero);
     } else if (t->kind == TYPE_STRUCT) {
         // Member byte offsets were resolved and cached on each InitItem by typecheck
         // (typecheck_init), while the struct tag was still live in structtab.  Consume
         // them here instead of re-querying structtab, which a block-local tag has left.
         for (const InitItem *item = init->u.items; item; item = item->next)
-            gen_compound_init(ctx, var_name, base_offset + item->offset, item->init);
+            gen_init(ctx, var_name, base_offset + item->offset, item->init, skip_zero);
     } else if (t->kind == TYPE_UNION) {
         // typecheck_init reduced the union initializer to its single first member,
         // which lives at offset 0 of the union — initialize it there.  No structtab
         // lookup is needed, so this works for block-scope unions too.
         if (init->u.items)
-            gen_compound_init(ctx, var_name, base_offset, init->u.items->init);
+            gen_init(ctx, var_name, base_offset, init->u.items->init, skip_zero);
     } else {
         fatal_error("Compound initializer for unsupported type %d in TAC lowering", (int)t->kind);
     }
+}
+
+void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const Initializer *init)
+{
+    gen_init(ctx, var_name, base_offset, init, false);
+}
+
+// Initialize a whole aggregate object of `bytes` bytes.  With many zero leaves, zero it
+// by a loop first and store only the rest.
+void gen_aggregate_init(TacCtx *ctx, const char *var_name, const Initializer *init, int bytes)
+{
+    bool bulk = zero_leaf_bytes(init) >= ZERO_FILL_WORDS * target_word_bytes();
+    if (bulk)
+        gen_zero_fill(ctx, var_name, bytes);
+    gen_init(ctx, var_name, 0, init, bulk);
 }
 
 static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
@@ -219,7 +319,7 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
                 tac_append(ctx, in);
             }
         } else if (id->init && id->init->kind == INITIALIZER_COMPOUND) {
-            gen_compound_init(ctx, id->name, 0, id->init);
+            gen_aggregate_init(ctx, id->name, id->init, (int)get_size(id->type));
         }
     }
 }

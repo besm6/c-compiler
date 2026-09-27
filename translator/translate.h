@@ -114,6 +114,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e);
 Tac_Val *gen_cond_val(TacCtx *ctx, Expr *cond);
 void gen_stmt(TacCtx *ctx, Stmt *stmt);
 void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const Initializer *init);
+void gen_aggregate_init(TacCtx *ctx, const char *var_name, const Initializer *init, int bytes);
 
 //
 // Convert one external declaration to TAC and optimize each function it yields.

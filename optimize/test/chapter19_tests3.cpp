@@ -22,7 +22,8 @@ int target(void) {
     return nested[1][0];
 }
 )SRC")),
-              "add_ptr=2 allocate_local=1 copy_to_offset=69 get_address=1 load=1 return=1");
+              "add_ptr=3 allocate_local=1 binary=1 copy=1 copy_byte_to_offset=4 copy_to_offset=2 "
+              "get_address=2 jump_if_not_zero=1 label=1 load=1 return=1 store=1");
 }
 
 TEST_F(PipelineTest, Chapter19_CP_AllTypes_PropagateAllTypes)
@@ -858,7 +859,8 @@ int target(void) {
     return *ptr[0];
 }
 )SRC")),
-              "add_ptr=2 allocate_local=1 copy_to_offset=69 get_address=1 load=1 return=1");
+              "add_ptr=3 allocate_local=1 binary=1 copy=1 copy_byte_to_offset=4 copy_to_offset=2 "
+              "get_address=2 jump_if_not_zero=1 label=1 load=1 return=1 store=1");
 }
 
 // Structural assertion (instruction-kind histogram) — exact TAC
@@ -876,7 +878,8 @@ int target(void) {
     return *ptr[0];
 }
 )SRC")),
-              "add_ptr=2 allocate_local=1 copy_to_offset=69 get_address=1 load=1 return=1");
+              "add_ptr=3 allocate_local=1 binary=1 copy=1 copy_byte_to_offset=4 copy_to_offset=2 "
+              "get_address=2 jump_if_not_zero=1 label=1 load=1 return=1 store=1");
 }
 
 TEST_F(PipelineTest, Chapter19_CP_AllTypes_RedundantNanCopy)

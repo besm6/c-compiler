@@ -331,3 +331,31 @@ TEST_F(CodegenTest, UnixRunFileScopeCompoundLiteral)
     )");
     EXPECT_EQ("2 15 107 AB C 14\n", result);
 }
+
+// Bulk zero fill on the b6as path, over a dirtied stack.
+TEST_F(CodegenTest, UnixRunBulkZeroFill)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunUnix(R"(
+        #include <stdio.h>
+        struct m { char c; int x; char d[5]; int y[10]; };
+        static void dirty(void) {
+            int junk[100];
+            for (int i = 0; i < 100; i++)
+                junk[i] = -1;
+            printf("%d", junk[3] & 0);
+        }
+        static void test(void) {
+            int a[50] = { [49] = 1 };
+            struct m s = { 'A', .y[9] = 3 };
+            int n = 0;
+            for (int i = 0; i < 50; i++)
+                n += a[i];
+            for (int i = 0; i < 10; i++)
+                n += s.y[i];
+            printf(" %d %c %d %d %d\n", n, s.c, s.x, s.d[4], a[0]);
+        }
+        int main(void) { dirty(); test(); return 0; }
+    )");
+    EXPECT_EQ("0 4 A 0 0 0\n", result);
+}

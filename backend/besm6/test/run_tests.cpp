@@ -1003,3 +1003,41 @@ TEST_F(CodegenTest, FileScopeCompoundLiteral)
     )");
     EXPECT_EQ("3 5 107 8 10 AB\n12 13 0 15 C DE 14\n", result);
 }
+
+// Bulk zero fill: an automatic aggregate with many zero leaves is zeroed by a loop, then
+// only its non-zero leaves are stored.  The stack is dirtied first, so a missed zero shows.
+TEST_F(CodegenTest, BulkZeroFill)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        struct m { char c; int x; char d[5]; int y[10]; double z; char *p; };
+        struct n { struct m m[2]; int k; };
+        int f(void) { return 42; }
+        static void dirty(void) {
+            int junk[200];
+            for (int i = 0; i < 200; i++)
+                junk[i] = -1;
+            printf("%d", junk[3] & 0);
+        }
+        static int sum(const int *a, int n) {
+            int s = 0;
+            for (int i = 0; i < n; i++)
+                s += a[i];
+            return s;
+        }
+        static void test(void) {
+            int a[100] = { [99] = 1, [50] = f() };
+            struct m s = { 'A', .y[9] = 3, .d = { 0, 'B' } };
+            struct n t = { .m[1].y[2] = 5, .k = 6 };
+            int *q = (int[40]){ [0] = 7 };
+            printf(" %d %d %d %d\n", a[99], a[50], sum(a, 100), a[0]);
+            printf("%c %d %d %d %d %d %d\n", s.c, s.x, s.d[0], s.d[1], sum(s.y, 10), (int)s.z,
+                   s.p != 0);
+            printf("%d %d %d %d\n", sum(t.m[0].y, 10) + t.m[0].x + t.m[1].x, t.m[1].y[2], t.k,
+                   t.m[0].c + t.m[1].d[4]);
+            printf("%d\n", sum(q, 40));
+        }
+        void program() { dirty(); test(); }
+    )");
+    EXPECT_EQ("0 1 42 43 0\nA 0 0 66 3 0 0\n0 5 6 0\n7\n", result);
+}

@@ -1201,3 +1201,123 @@ TEST_F(TranslateTest, FileScopeCompoundLiteralNested)
       name: _cl3
 )");
 }
+
+// An automatic aggregate with at least 8 zero words is zeroed by a loop, and only the
+// non-zero leaves are stored.
+TEST_F(TranslateTest, BulkZeroFill)
+{
+    std::string yaml = CompileToYaml("void g(int *p);"
+                                     "void f(void) { int a[9] = { [8] = 1 }; g(a); }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: allocate_local
+      name: %a
+      size: 54
+      alignment: 6
+    - instruction:
+      kind: get_address
+      src:
+        kind: var
+        name: %a
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 9
+      dst:
+        kind: var
+        name: %1
+    - instruction:
+      kind: label
+      name: %2
+    - instruction:
+      kind: store
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst_ptr:
+        kind: var
+        name: %0
+    - instruction:
+      kind: add_ptr
+      ptr:
+        kind: var
+        name: %0
+      index:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      scale: 6
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: binary
+      op: subtract
+      src1:
+        kind: var
+        name: %1
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst:
+        kind: var
+        name: %1
+    - instruction:
+      kind: jump_if_not_zero
+      condition:
+        kind: var
+        name: %1
+      target: %2
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst: %a
+      offset: 48
+    - instruction:
+      kind: get_address
+      src:
+        kind: var
+        name: %a
+      dst:
+        kind: var
+        name: %3
+    - instruction:
+      kind: fun_call
+      fun_name: g
+      args:
+        - val:
+          kind: var
+          name: %3
+)");
+}
+
+// Below the threshold every zero is stored, as before.
+TEST_F(TranslateTest, BulkZeroFillBelowThreshold)
+{
+    std::string yaml = CompileToYaml("void g(int *p);"
+                                     "void f(void) { int a[8] = { [7] = 1 }; g(a); }");
+    EXPECT_EQ(yaml.find("jump_if_not_zero"), std::string::npos);
+    size_t stores = 0;
+    for (size_t pos = 0; (pos = yaml.find("kind: copy_to_offset", pos)) != std::string::npos; pos++)
+        stores++;
+    EXPECT_EQ(stores, 8u);
+}

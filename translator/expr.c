@@ -324,7 +324,7 @@ static char *gen_compound_literal(TacCtx *ctx, const Expr *e)
     wrap.kind    = INITIALIZER_COMPOUND;
     wrap.u.items = e->u.compound_literal.init;
     wrap.type    = (Type *)lit_type;
-    gen_compound_init(ctx, slot, 0, &wrap);
+    gen_aggregate_init(ctx, slot, &wrap, (int)get_size(lit_type));
     return slot;
 }
 
