@@ -366,6 +366,10 @@ canonical form that `build_static_init` and `typecheck_init` consume by position
 has exactly N items, a struct one per member, a union one item (with a `DESIGNATOR_FIELD`
 when not the first member), and a NULL item means zero. It also sizes unsized arrays.
 
+A compound literal is an lvalue with its own frame slot; at file scope it becomes an
+anonymous static object `_clN`. An automatic aggregate with at least 8 zero stores is
+zeroed by a loop, then only its non-zero leaves are stored.
+
 ### `$` in identifiers
 
 `$` is accepted as an identifier character (as in GCC/Clang). The BESM-6 backend sanitizes
