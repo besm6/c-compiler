@@ -315,8 +315,16 @@ static char *gen_compound_literal(TacCtx *ctx, const Expr *e)
     al->u.allocate_local.alignment = (int)get_alignment(lit_type);
     tac_append(ctx, al);
 
+    const Initializer *first = e->u.compound_literal.init->init;
     if (!is_aggregate_type(lit_type)) {
-        gen_compound_init(ctx, slot, 0, e->u.compound_literal.init->init);
+        gen_compound_init(ctx, slot, 0, first);
+        return slot;
+    }
+    if (lit_type->kind == TYPE_ARRAY && first->kind == INITIALIZER_SINGLE &&
+        first->u.expr->kind == EXPR_LITERAL && first->u.expr->u.literal->kind == LITERAL_STRING &&
+        is_integer(lit_type->u.array.element)) {
+        // A char array from a string (the only item; see typecheck of EXPR_COMPOUND).
+        gen_string_array_init(ctx, slot, first->u.expr, (int)get_size(lit_type));
         return slot;
     }
     Initializer wrap;

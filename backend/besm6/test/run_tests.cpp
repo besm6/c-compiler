@@ -1041,3 +1041,40 @@ TEST_F(CodegenTest, BulkZeroFill)
     )");
     EXPECT_EQ("0 1 42 43 0\nA 0 0 66 3 0 0\n0 5 6 0\n7\n", result);
 }
+
+// Char arrays initialized from strings, zeroed by the loop when the zero tail is long.
+// Also a braced string compound literal, which used to crash the translator.
+TEST_F(CodegenTest, BulkZeroFillString)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        #include <string.h>
+        struct r { int id; char name[40]; int k; };
+        static void dirty(void) {
+            int junk[300];
+            for (int i = 0; i < 300; i++)
+                junk[i] = -1;
+            printf("%d", junk[3] & 0);
+        }
+        static int zeros(const char *p, int n) {
+            int z = 0;
+            for (int i = 0; i < n; i++)
+                z += p[i] == 0;
+            return z;
+        }
+        static void test(void) {
+            char a[60] = "AB";
+            char e[4] = "CDE";
+            char m[4][20] = { "FG", "H" };
+            struct r s = { 5, "IJ", 7 };
+            char *c = (char[30]){ "KL" };
+            char x[12] = "M\0N";
+            printf(" %s %d %s %s %s %d %d\n", a, zeros(a, 60), e, m[0], m[1], zeros(m[0], 80),
+                   (int)strlen(m[3]));
+            printf("%d %s %d %d %s %d %c %d\n", s.id, s.name, s.k, zeros(s.name, 40), c,
+                   zeros(c, 30), x[2], zeros(x, 12));
+        }
+        void program() { dirty(); test(); }
+    )");
+    EXPECT_EQ("0 AB 58 CDE FG H 77 0\n5 IJ 7 38 KL 28 N 10\n", result);
+}

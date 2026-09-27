@@ -359,3 +359,31 @@ TEST_F(CodegenTest, UnixRunBulkZeroFill)
     )");
     EXPECT_EQ("0 4 A 0 0 0\n", result);
 }
+
+// Char arrays from strings with a bulk-zeroed tail, on the b6as path.
+TEST_F(CodegenTest, UnixRunBulkZeroFillString)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunUnix(R"(
+        #include <stdio.h>
+        static void dirty(void) {
+            int junk[100];
+            for (int i = 0; i < 100; i++)
+                junk[i] = -1;
+            printf("%d", junk[3] & 0);
+        }
+        static void test(void) {
+            char a[60] = "AB";
+            char m[3][20] = { "CD", "E" };
+            char *c = (char[30]){ "FG" };
+            int z = 0;
+            for (int i = 0; i < 60; i++)
+                z += a[i] == 0;
+            for (int i = 0; i < 30; i++)
+                z += c[i] == 0;
+            printf(" %s %s %s %s %d %d\n", a, m[0], m[1], c, m[2][0], z);
+        }
+        int main(void) { dirty(); test(); return 0; }
+    )");
+    EXPECT_EQ("0 AB CD E FG 0 86\n", result);
+}

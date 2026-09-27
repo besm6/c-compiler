@@ -65,13 +65,16 @@ static void collect_cases(TacCtx *ctx, Stmt *stmt, CaseList *list)
 // char array (whose contiguous rows the caller has already offset).  Char data keeps its
 // source (ASCII) encoding, like every scalar char value; only the static-data path repacks
 // to KOI-7 (which differs solely for lowercase Latin — see docs/KOI7_Encoding.md).
+// With skip_zero the object was bulk-zeroed, so zero bytes are not stored.
 static void gen_char_array_string_init(TacCtx *ctx, const char *var_name, int base_offset,
-                                       const Expr *str_expr, int array_bytes)
+                                       const Expr *str_expr, int array_bytes, bool skip_zero)
 {
     size_t len;
     char *decoded = c_decode_string_literal(str_expr->u.literal->u.string_val, &len);
     for (int i = 0; i < array_bytes; i++) {
         int byte                    = (size_t)i < len ? (unsigned char)decoded[i] : 0;
+        if (skip_zero && byte == 0)
+            continue;
         Tac_Instruction *in         = tac_new_instruction(TAC_INSTRUCTION_COPY_BYTE_TO_OFFSET);
         in->u.copy_to_offset.src    = val_int(byte);
         in->u.copy_to_offset.dst    = xstrdup(var_name);
@@ -90,8 +93,20 @@ static bool is_char_array_string_init(const Type *type, const Initializer *init)
            init->u.expr->u.literal->kind == LITERAL_STRING;
 }
 
-// Aggregates with at least this many zero words are zeroed by a loop first.
-#define ZERO_FILL_WORDS 8
+// Objects with at least this many zero stores (word or byte) are zeroed by a loop first.
+#define ZERO_FILL_STORES 8
+
+// Zero bytes a string stores into a char array of array_bytes.
+static int string_zero_bytes(const Expr *str_expr, int array_bytes)
+{
+    size_t len;
+    char *decoded = c_decode_string_literal(str_expr->u.literal->u.string_val, &len);
+    int n         = 0;
+    for (int i = 0; i < array_bytes; i++)
+        n += (size_t)i >= len || decoded[i] == 0;
+    xfree(decoded);
+    return n;
+}
 
 // A leaf storing an integer, char or pointer zero, made redundant by bulk zeroing.  A
 // floating zero is kept: an all-zero word is not +0.0 on every target.
@@ -102,21 +117,27 @@ static bool is_zero_leaf(const Initializer *init)
            init->u.expr->kind == EXPR_LITERAL && is_zero_int(init->u.expr->u.literal);
 }
 
-// Bytes of an initializer stored by zero leaves.
-static int zero_leaf_bytes(const Initializer *init)
+// Zero stores an initializer makes: zero leaves, and the zero bytes of strings.
+static int zero_stores(const Initializer *init)
 {
-    if (init->kind == INITIALIZER_SINGLE)
-        return is_zero_leaf(init) ? (int)get_size(init->type) : 0;
+    if (init->kind == INITIALIZER_SINGLE) {
+        if (is_char_array_string_init(init->type, init))
+            return string_zero_bytes(init->u.expr, (int)get_size(init->type));
+        return is_zero_leaf(init);
+    }
     int n = 0;
     for (const InitItem *item = init->u.items; item; item = item->next)
-        n += zero_leaf_bytes(item->init);
+        n += zero_stores(item->init);
     return n;
 }
 
 // Zero the first `bytes` bytes of var_name: a word-store loop, then byte stores for a tail.
+// A word-addressed target's slot is whole words, so there the loop covers the tail too.
 static void gen_zero_fill(TacCtx *ctx, const char *var_name, int bytes)
 {
-    int w      = target_word_bytes();
+    int w = target_word_bytes();
+    if ((int)target_config->aggregate_align >= w)
+        bytes = (bytes + w - 1) / w * w;
     int nwords = bytes / w;
 
     char *ptr             = new_temp(ctx);
@@ -180,7 +201,7 @@ static void gen_init(TacCtx *ctx, const char *var_name, int base_offset, const I
         // char array): store its bytes individually rather than COPY a whole-word pointer.
         if (is_char_array_string_init(init->type, init)) {
             gen_char_array_string_init(ctx, var_name, base_offset, init->u.expr,
-                                       (int)get_size(init->type));
+                                       (int)get_size(init->type), skip_zero);
             return;
         }
         Tac_Val *src    = gen_expr(ctx, init->u.expr);
@@ -236,10 +257,19 @@ void gen_compound_init(TacCtx *ctx, const char *var_name, int base_offset, const
 // by a loop first and store only the rest.
 void gen_aggregate_init(TacCtx *ctx, const char *var_name, const Initializer *init, int bytes)
 {
-    bool bulk = zero_leaf_bytes(init) >= ZERO_FILL_WORDS * target_word_bytes();
+    bool bulk = zero_stores(init) >= ZERO_FILL_STORES;
     if (bulk)
         gen_zero_fill(ctx, var_name, bytes);
     gen_init(ctx, var_name, 0, init, bulk);
+}
+
+// Initialize a char array of `bytes` bytes from a string, bulk-zeroing a long zero tail.
+void gen_string_array_init(TacCtx *ctx, const char *var_name, const Expr *str_expr, int bytes)
+{
+    bool bulk = string_zero_bytes(str_expr, bytes) >= ZERO_FILL_STORES;
+    if (bulk)
+        gen_zero_fill(ctx, var_name, bytes);
+    gen_char_array_string_init(ctx, var_name, 0, str_expr, bytes, bulk);
 }
 
 static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
@@ -299,8 +329,7 @@ static void gen_local_decl(TacCtx *ctx, const Declaration *decl)
             // `char a[N] = "…"`: copy the string's bytes into the frame slot (a real
             // per-byte copy, not an alias of the string-constant pointer).
             if (is_char_array_string_init(id->type, id->init)) {
-                gen_char_array_string_init(ctx, id->name, 0, id->init->u.expr,
-                                           (int)get_size(id->type));
+                gen_string_array_init(ctx, id->name, id->init->u.expr, (int)get_size(id->type));
                 continue;
             }
             const Type *idt2 = id->type ? unalias(id->type) : NULL;

@@ -1321,3 +1321,133 @@ TEST_F(TranslateTest, BulkZeroFillBelowThreshold)
         stores++;
     EXPECT_EQ(stores, 8u);
 }
+
+// A short string in a large char array: the array is zeroed by a loop, and only the
+// string's bytes are stored (the NUL comes from the zeroing).
+TEST_F(TranslateTest, BulkZeroFillString)
+{
+    std::string yaml = CompileToYaml("void g(char *p);"
+                                     "void f(void) { char b[60] = \"AB\"; g(b); }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: allocate_local
+      name: %b
+      size: 60
+      alignment: 1
+    - instruction:
+      kind: get_address
+      src:
+        kind: var
+        name: %b
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 10
+      dst:
+        kind: var
+        name: %1
+    - instruction:
+      kind: label
+      name: %2
+    - instruction:
+      kind: store
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst_ptr:
+        kind: var
+        name: %0
+    - instruction:
+      kind: add_ptr
+      ptr:
+        kind: var
+        name: %0
+      index:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      scale: 6
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: binary
+      op: subtract
+      src1:
+        kind: var
+        name: %1
+      src2:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst:
+        kind: var
+        name: %1
+    - instruction:
+      kind: jump_if_not_zero
+      condition:
+        kind: var
+        name: %1
+      target: %2
+    - instruction:
+      kind: copy_byte_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 65
+      dst: %b
+      offset: 0
+    - instruction:
+      kind: copy_byte_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 66
+      dst: %b
+      offset: 1
+    - instruction:
+      kind: get_address_decay
+      src:
+        kind: var
+        name: %b
+      dst:
+        kind: var
+        name: %3
+    - instruction:
+      kind: fun_call
+      fun_name: g
+      args:
+        - val:
+          kind: var
+          name: %3
+)");
+}
+
+// A string that fills its array stores every byte, with no loop.
+TEST_F(TranslateTest, BulkZeroFillStringExact)
+{
+    std::string yaml = CompileToYaml("void g(char *p);"
+                                     "void f(void) { char b[4] = \"CDE\"; g(b); }");
+    EXPECT_EQ(yaml.find("jump_if_not_zero"), std::string::npos);
+    size_t stores = 0;
+    for (size_t pos = 0; (pos = yaml.find("kind: copy_byte_to_offset", pos)) != std::string::npos;
+         pos++)
+        stores++;
+    EXPECT_EQ(stores, 4u);
+}

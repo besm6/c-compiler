@@ -978,10 +978,15 @@ static Expr *typecheck_expr(Expr *e)
             Initializer *wrap   = new_initializer(INITIALIZER_COMPOUND);
             wrap->u.items       = e->u.compound_literal.init;
             Initializer *result = typecheck_init(lit_type, wrap);
-            // Detach the type-checked items and free the wrapper shell.
-            e->u.compound_literal.init = result->u.items;
-            result->u.items            = NULL;
-            free_initializer(result);
+            if (result->kind == INITIALIZER_SINGLE) {
+                // A string for a char array: keep it as the only item.
+                e->u.compound_literal.init = new_init_item(NULL, result);
+            } else {
+                // Detach the type-checked items and free the wrapper shell.
+                e->u.compound_literal.init = result->u.items;
+                result->u.items            = NULL;
+                free_initializer(result);
+            }
         } else {
             // Scalar: C11 allows {expr} for a scalar type; typecheck the single item.
             InitItem *item = e->u.compound_literal.init;
