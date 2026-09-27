@@ -102,47 +102,72 @@ static void set_slot(Initializer **slot, Initializer *init)
 
 static void place(Type *t, Initializer **slot, InitItem **cur, InitMode mode);
 
+// The slot of array element d names, growing an unsized array up to it.
+static InitItem **designate_index(const Type *t, Initializer *node, Designator *d)
+{
+    d->u.expr = typecheck_and_decay(d->u.expr);
+    long index;
+    if (!is_integer(d->u.expr->type) || !try_eval_const_int(d->u.expr, &index))
+        fatal_error("Array designator index is not an integer constant expression");
+    if (index < 0)
+        fatal_error("Array designator index %ld is negative", index);
+    bool unsized = !t->u.array.size;
+    if (!unsized && (size_t)index >= get_array_size(t))
+        fatal_error("Array designator index %ld is out of bounds for array of %zu", index,
+                    get_array_size(t));
+
+    InitItem **s = &node->u.items;
+    for (long i = 0;; i++, s = &(*s)->next) {
+        if (!*s)
+            *s = new_init_item(NULL, NULL); // only an unsized array runs short
+        if (i == index)
+            return s;
+    }
+}
+
 // Resolve the designator at the head of *cur (§6.7.9p17): point *slot and *field at the
-// member it names, and drop it from the item.  For a union, the canonical item records
-// the member (§3 of the plan), unless it is the first.
+// element or member it names, and drop it from the item.  For a union, the canonical
+// item records the member (§3 of the plan), unless it is the first.
 static void designate(const Type *t, Initializer *node, InitItem *item, InitItem ***slot,
                       const FieldDef **field)
 {
-    const Designator *d = item->designators;
-    if (d->kind == DESIGNATOR_ARRAY) {
-        if (t->kind == TYPE_ARRAY)
-            fatal_error("Array designators are not supported yet");
-        fatal_error("Array designator in %s initializer", aggregate_name(t));
-    }
-    if (t->kind == TYPE_ARRAY)
-        fatal_error("Field designator .%s in array initializer", d->u.name);
+    Designator *d = item->designators;
     if (d->next)
         fatal_error("Designator chains are not supported yet");
+    if (d->kind == DESIGNATOR_ARRAY && t->kind != TYPE_ARRAY)
+        fatal_error("Array designator in %s initializer", aggregate_name(t));
+    if (d->kind == DESIGNATOR_FIELD && t->kind == TYPE_ARRAY)
+        fatal_error("Field designator .%s in array initializer", d->u.name);
 
-    const FieldDef *members = structtab_find(t->u.struct_t.name)->members;
-    InitItem **s            = &node->u.items;
-    const FieldDef *f       = members;
-    for (; f && strcmp(f->name, d->u.name) != 0; f = f->next) {
-        if (t->kind == TYPE_STRUCT)
-            s = &(*s)->next;
-    }
-    if (!f)
-        fatal_error("%s %s has no member named %s", aggregate_name(t), t->u.struct_t.name,
-                    d->u.name);
-    if (t->kind == TYPE_UNION) {
-        free_designator((*s)->designators);
-        (*s)->designators = NULL;
-        if (f != members) {
-            (*s)->designators         = new_designator(DESIGNATOR_FIELD);
-            (*s)->designators->u.name = xstrdup(f->name);
+    InitItem **s;
+    if (t->kind == TYPE_ARRAY) {
+        s = designate_index(t, node, d);
+    } else {
+        const FieldDef *members = structtab_find(t->u.struct_t.name)->members;
+        const FieldDef *f       = members;
+        s                       = &node->u.items;
+        for (; f && strcmp(f->name, d->u.name) != 0; f = f->next) {
+            if (t->kind == TYPE_STRUCT)
+                s = &(*s)->next;
         }
+        if (!f)
+            fatal_error("%s %s has no member named %s", aggregate_name(t),
+                        t->u.struct_t.name, d->u.name);
+        if (t->kind == TYPE_UNION) {
+            free_designator((*s)->designators);
+            (*s)->designators = NULL;
+            if (f != members) {
+                (*s)->designators         = new_designator(DESIGNATOR_FIELD);
+                (*s)->designators->u.name = xstrdup(f->name);
+            }
+        }
+        *field = f;
     }
     // A designated initializer replaces the subobject's earlier one outright.
     set_slot(&(*s)->init, NULL);
     free_designator(item->designators);
     item->designators = NULL;
     *slot             = s;
-    *field            = f;
 }
 
 // Fill the canonical node of aggregate t from the items at *cur.  When braced, the items

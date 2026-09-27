@@ -163,10 +163,10 @@ TEST_F(NormalizeTest, EmptyScalarDies)
     EXPECT_DEATH(Normalize("int x = { };"), "Empty scalar initializer");
 }
 
-TEST_F(NormalizeTest, DesignatorDies)
+TEST_F(NormalizeTest, ArrayDesignatorChainDies)
 {
-    EXPECT_DEATH(Normalize("int a[2] = { [1] = 5 };"),
-                 "Array designators are not supported yet");
+    EXPECT_DEATH(Normalize("int a[2][2] = { [1][0] = 5 };"),
+                 "Designator chains are not supported yet");
 }
 
 // Automatic mode typechecks each leaf once, including one first seen at an aggregate
@@ -362,6 +362,107 @@ TEST_F(PipelineTest, DesignatorsAutomatic)
     union u y = { .p = "CD" };
     struct s z = { .name = "EF", .name = "GH" };
     return x.v + (y.p != 0) + (z.name != 0);
+}
+)");
+}
+
+// --- Array designators -------------------------------------------------------
+
+// Positional initialization resumes after a designated index; a later designator
+// overrides (§6.7.9p17, p19).
+TEST_F(NormalizeTest, ArrayDesignators)
+{
+    const Initializer *init = Normalize("int a[5] = { [3] = 7, 8, [1] = 2 };");
+    ASSERT_EQ(item_count(init), 5u);
+    EXPECT_EQ(item_at(init, 0), nullptr);
+    EXPECT_EQ(int_value(item_at(init, 1)), 2);
+    EXPECT_EQ(item_at(init, 2), nullptr);
+    EXPECT_EQ(int_value(item_at(init, 3)), 7);
+    EXPECT_EQ(int_value(item_at(init, 4)), 8);
+}
+
+// An unsized array is as long as its highest initialized index plus one (§6.7.9p22).
+TEST_F(NormalizeTest, UnsizedArrayDesignator)
+{
+    const Initializer *init = Normalize("int a[] = { [9] = 1 };");
+    EXPECT_EQ(get_array_size(type), 10u);
+    ASSERT_EQ(item_count(init), 10u);
+    EXPECT_EQ(item_at(init, 0), nullptr);
+    EXPECT_EQ(int_value(item_at(init, 9)), 1);
+}
+
+// Positional elements after a designator extend an unsized array; an earlier designator
+// below the end does not shrink it.
+TEST_F(NormalizeTest, UnsizedArrayDesignatorThenPositional)
+{
+    Normalize("int a[] = { [2] = 1, 2, [0] = 3 };");
+    EXPECT_EQ(get_array_size(type), 4u);
+}
+
+// An index may be any integer constant expression, including an enumerator.
+TEST_F(NormalizeTest, ArrayDesignatorConstExpr)
+{
+    const Initializer *init =
+        Normalize("enum { TWO = 2 }; int a[4] = { [TWO] = 5, [TWO - 1] = 4, [sizeof(char)] = 6 };");
+    EXPECT_EQ(int_value(item_at(init, 1)), 6);
+    EXPECT_EQ(int_value(item_at(init, 2)), 5);
+}
+
+// A designator ends brace elision in a 2-D array.
+TEST_F(NormalizeTest, ArrayDesignatorEndsElision)
+{
+    const Initializer *init = Normalize("int m[2][2] = { 1, [1] = { 3, 4 } };");
+    const Initializer *row0 = item_at(init, 0);
+    EXPECT_EQ(int_value(item_at(row0, 0)), 1);
+    EXPECT_EQ(item_at(row0, 1), nullptr);
+    EXPECT_EQ(int_value(item_at(item_at(init, 1), 1)), 4);
+}
+
+TEST_F(NormalizeTest, ArrayDesignatorNegativeDies)
+{
+    EXPECT_DEATH(Normalize("int a[4] = { [-1] = 1 };"), "Array designator index -1 is negative");
+}
+
+TEST_F(NormalizeTest, ArrayDesignatorOutOfBoundsDies)
+{
+    EXPECT_DEATH(Normalize("int a[4] = { [4] = 1 };"),
+                 "Array designator index 4 is out of bounds for array of 4");
+}
+
+// The parser rejects a non-constant index.
+TEST_F(NormalizeTest, ArrayDesignatorNonConstantDies)
+{
+    EXPECT_DEATH(Normalize("int n; int a[4] = { [n] = 1 };"), "Expected constant expression");
+}
+
+TEST_F(NormalizeTest, ArrayDesignatorRealIndexDies)
+{
+    EXPECT_DEATH(Normalize("int a[4] = { [1.0] = 1 };"),
+                 "Array designator index is not an integer constant expression");
+}
+
+// Automatic mode: designated char * elements and an unsized array; nothing leaks.
+TEST_F(PipelineTest, ArrayDesignatorsAutomatic)
+{
+    RunPipeline(R"(int f(void)
+{
+    char *names[] = { [2] = "C", [0] = "A" };
+    int a[5] = { [3] = 7, 8, [1] = 2 };
+    return sizeof names / sizeof names[0] + a[4];
+}
+)");
+}
+
+// sizeof an automatic unsized array sees the length its initializer gave it.
+TEST_F(PipelineTest, AutomaticUnsizedArraySizeof)
+{
+    RunPipeline(R"(int f(void)
+{
+    int n[] = { 1, 2 };
+    int d[] = { [4] = 1 };
+    _Static_assert(sizeof n == 2 * sizeof(int), "n has 2 elements");
+    _Static_assert(sizeof d == 5 * sizeof(int), "d has 5 elements");
+    return 0;
 }
 )");
 }

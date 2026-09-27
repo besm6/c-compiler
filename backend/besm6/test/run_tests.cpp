@@ -826,3 +826,31 @@ TEST_F(CodegenTest, FieldDesignatorBlockScopeTags)
     )");
     EXPECT_EQ("1 0 0 AB\n4 5 3\nCD\n", result);
 }
+
+// Array designators (C11 §6.7.9p17), static and automatic: positional continuation, an
+// unsized array sized by its highest index, an enumerator index, and char * elements.
+TEST_F(CodegenTest, ArrayDesignators)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        enum { ONE = 1, TWO };
+        int g[5] = { [3] = 7, 8, [1] = 2 };
+        int big[] = { [9] = 1 };
+        int e[3] = { [TWO] = 5, [ONE] = 4 };
+        char *names[] = { [2] = "C", [0] = "A" };
+        void program() {
+            int a[5] = { [3] = 7, 8, [1] = 2 };
+            char *n[] = { [1] = "Y", [0] = "X" };
+            int i;
+            for (i = 0; i < 5; i++)
+                printf("%d%d ", g[i], a[i]);
+            printf("\n%d %d %d %d\n", (int)sizeof big, (int)(sizeof big / sizeof big[0]),
+                   big[9], big[8]);
+            printf("%d %d %d\n", e[0], e[1], e[2]);
+            printf("%d %s %d %s\n", (int)(sizeof names / sizeof names[0]), names[0],
+                   names[1] == 0, names[2]);
+            printf("%d %s %s\n", (int)(sizeof n / sizeof n[0]), n[0], n[1]);
+        }
+    )");
+    EXPECT_EQ("00 22 00 77 88 \n60 10 1 0\n0 4 5\n3 A 1 C\n2 X Y\n", result);
+}

@@ -445,8 +445,15 @@ static void typecheck_local_var_decl(const Declaration *d)
             // name in scope (external vs no linkage, C11 §6.7p3).
             fatal_error("Duplicate variable declaration %s", decl->name);
         }
+        bool unsized = unalias(var_type)->kind == TYPE_ARRAY && !unalias(var_type)->u.array.size;
         symtab_add_automatic_var_type(decl->name, var_type, scope_level);
         decl->init = typecheck_init(var_type, decl->init);
+        if (unsized) {
+            // The initializer gave the array its length; refresh the symbol's copy.
+            Symbol *sym = symtab_get(decl->name);
+            free_type(sym->type);
+            sym->type = clone_type(var_type, __func__, __FILE__, __LINE__);
+        }
     }
 }
 
