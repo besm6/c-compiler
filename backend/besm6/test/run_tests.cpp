@@ -854,3 +854,38 @@ TEST_F(CodegenTest, ArrayDesignators)
     )");
     EXPECT_EQ("00 22 00 77 88 \n60 10 1 0\n0 4 5\n3 A 1 C\n2 X Y\n", result);
 }
+
+// Designator chains (C11 §6.7.9p17-p19), static and automatic: a chain into an array
+// member, positional continuation inside it, in-place refinement, an array of structs,
+// and a chain through a union member.
+TEST_F(CodegenTest, DesignatorChains)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        struct s { int a[3]; int b; };
+        struct e { char *name; int v; };
+        struct p { int x, y; };
+        union u { int i; struct p p; };
+        struct w { union u u; int z; };
+        struct s g1 = { .a[1] = 5, .b = 2 };
+        struct s g2 = { .a[1] = 5, 6, 7 };
+        struct s g3 = { .a = { 1, 2, 3 }, .a[1] = 9 };
+        struct e gt[2] = { [1].v = 2, [0] = { "AB", 1 } };
+        struct w gw = { .u.p.y = 2, 3 };
+        void program() {
+            struct s x1 = { .a[1] = 5, .b = 2 };
+            struct s x2 = { .a[1] = 5, 6, 7 };
+            struct s x3 = { .a = { 1, 2, 3 }, .a[1] = 9 };
+            struct e xt[2] = { [1].v = 2, [0] = { "CD", 1 } };
+            struct w xw = { .u.p.y = 2, 3 };
+            printf("%d%d%d%d %d%d%d%d %d%d%d%d\n", g1.a[0], g1.a[1], g1.a[2], g1.b,
+                   g2.a[0], g2.a[1], g2.a[2], g2.b, g3.a[0], g3.a[1], g3.a[2], g3.b);
+            printf("%d%d%d%d %d%d%d%d %d%d%d%d\n", x1.a[0], x1.a[1], x1.a[2], x1.b,
+                   x2.a[0], x2.a[1], x2.a[2], x2.b, x3.a[0], x3.a[1], x3.a[2], x3.b);
+            printf("%s %d %d %d\n", gt[0].name, gt[0].v, gt[1].name == 0, gt[1].v);
+            printf("%s %d %d %d\n", xt[0].name, xt[0].v, xt[1].name == 0, xt[1].v);
+            printf("%d %d %d %d %d %d\n", gw.u.p.x, gw.u.p.y, gw.z, xw.u.p.x, xw.u.p.y, xw.z);
+        }
+    )");
+    EXPECT_EQ("0502 0567 1930\n0502 0567 1930\nAB 1 1 2\nCD 1 1 2\n0 2 3 0 2 3\n", result);
+}

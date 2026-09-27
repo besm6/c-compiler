@@ -125,15 +125,13 @@ static InitItem **designate_index(const Type *t, Initializer *node, Designator *
     }
 }
 
-// Resolve the designator at the head of *cur (§6.7.9p17): point *slot and *field at the
+// Resolve the first designator of item (§6.7.9p17): point *slot and *field at the
 // element or member it names, and drop it from the item.  For a union, the canonical
 // item records the member (§3 of the plan), unless it is the first.
 static void designate(const Type *t, Initializer *node, InitItem *item, InitItem ***slot,
                       const FieldDef **field)
 {
     Designator *d = item->designators;
-    if (d->next)
-        fatal_error("Designator chains are not supported yet");
     if (d->kind == DESIGNATOR_ARRAY && t->kind != TYPE_ARRAY)
         fatal_error("Array designator in %s initializer", aggregate_name(t));
     if (d->kind == DESIGNATOR_FIELD && t->kind == TYPE_ARRAY)
@@ -154,6 +152,10 @@ static void designate(const Type *t, Initializer *node, InitItem *item, InitItem
             fatal_error("%s %s has no member named %s", aggregate_name(t),
                         t->u.struct_t.name, d->u.name);
         if (t->kind == TYPE_UNION) {
+            // Another member's value does not survive a switch of member.
+            const char *old = (*s)->designators ? (*s)->designators->u.name : members->name;
+            if (strcmp(old, f->name) != 0)
+                set_slot(&(*s)->init, NULL);
             free_designator((*s)->designators);
             (*s)->designators = NULL;
             if (f != members) {
@@ -163,17 +165,23 @@ static void designate(const Type *t, Initializer *node, InitItem *item, InitItem
         }
         *field = f;
     }
-    // A designated initializer replaces the subobject's earlier one outright.
-    set_slot(&(*s)->init, NULL);
-    free_designator(item->designators);
-    item->designators = NULL;
-    *slot             = s;
+    // The last designator's initializer replaces the subobject's earlier one outright;
+    // one further up a chain refines it in place.
+    if (!d->next)
+        set_slot(&(*s)->init, NULL);
+    item->designators = d->next;
+    d->next           = NULL;
+    free_designator(d);
+    *slot = s;
 }
 
 // Fill the canonical node of aggregate t from the items at *cur.  When braced, the items
-// are t's own brace list and a leftover is an excess element; otherwise (brace elision)
-// filling stops once t is full, or at a designator, and the enclosing level takes the rest.
-static void fill(const Type *t, Initializer *node, InitItem **cur, bool braced, InitMode mode)
+// are t's own brace list and a leftover is an excess element; otherwise (brace elision,
+// or the rest of a designator chain) filling stops once t is full, or at a designator,
+// and the enclosing level takes the rest.  When designated, the first item carries the
+// rest of a designator chain for t.
+static void fill(const Type *t, Initializer *node, InitItem **cur, bool braced, bool designated,
+                 InitMode mode)
 {
     InitItem **slot       = &node->u.items;
     const FieldDef *field = t->kind == TYPE_ARRAY ? NULL : structtab_find(t->u.struct_t.name)->members;
@@ -182,9 +190,28 @@ static void fill(const Type *t, Initializer *node, InitItem **cur, bool braced, 
     while (*cur) {
         if ((*cur)->designators) {
             // A designator belongs to the innermost brace level.
-            if (!braced)
+            if (!braced && !designated)
                 return;
+            designated = false;
             designate(t, node, *cur, &slot, &field);
+            if ((*cur)->designators) {
+                // The chain goes on into the designated subobject, where initialization
+                // then continues in order (§6.7.9p17).
+                const Type *sub = unalias(t->kind == TYPE_ARRAY ? t->u.array.element : field->type);
+                Initializer **sub_init = &(*slot)->init;
+                if (!is_aggregate(sub))
+                    fatal_error("Designator in scalar initializer");
+                if (*sub_init && (*sub_init)->kind != INITIALIZER_COMPOUND)
+                    fatal_error("Designator into a subobject initialized by an expression is "
+                                "not supported");
+                if (!*sub_init)
+                    *sub_init = new_canonical(sub);
+                fill(sub, *sub_init, cur, false, true, mode);
+                slot = &(*slot)->next;
+                if (field)
+                    field = field->next;
+                continue;
+            }
         } else if (!*slot) {
             if (!unsized) {
                 if (braced)
@@ -239,7 +266,7 @@ static void place(Type *t, Initializer **slot, InitItem **cur, InitMode mode)
         set_slot(slot, NULL);
     if (!*slot)
         *slot = new_canonical(ut);
-    fill(ut, *slot, cur, false, mode);
+    fill(ut, *slot, cur, false, false, mode);
 }
 
 // Normalize a brace-enclosed initializer for type t; consumes init.
@@ -266,7 +293,7 @@ static Initializer *normalize_compound(Type *t, Initializer *init, InitMode mode
         return take_item(&items);
     }
     Initializer *node = new_canonical(ut);
-    fill(ut, node, &items, true, mode);
+    fill(ut, node, &items, true, false, mode);
     return node;
 }
 

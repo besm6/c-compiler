@@ -163,10 +163,14 @@ TEST_F(NormalizeTest, EmptyScalarDies)
     EXPECT_DEATH(Normalize("int x = { };"), "Empty scalar initializer");
 }
 
-TEST_F(NormalizeTest, ArrayDesignatorChainDies)
+// An array designator chain; positional initialization continues in the inner row.
+TEST_F(NormalizeTest, ArrayDesignatorChain)
 {
-    EXPECT_DEATH(Normalize("int a[2][2] = { [1][0] = 5 };"),
-                 "Designator chains are not supported yet");
+    const Initializer *init = Normalize("int a[2][2] = { [1][0] = 5, 6 };");
+    EXPECT_EQ(item_at(init, 0), nullptr);
+    const Initializer *row1 = item_at(init, 1);
+    EXPECT_EQ(int_value(item_at(row1, 0)), 5);
+    EXPECT_EQ(int_value(item_at(row1, 1)), 6);
 }
 
 // Automatic mode typechecks each leaf once, including one first seen at an aggregate
@@ -318,11 +322,14 @@ TEST_F(NormalizeTest, DesignatorOnScalarDies)
     EXPECT_DEATH(Normalize("int x = { .a = 1 };"), "Designator in scalar initializer");
 }
 
-TEST_F(NormalizeTest, DesignatorChainDies)
+// A field designator chain.
+TEST_F(NormalizeTest, FieldDesignatorChain)
 {
-    EXPECT_DEATH(Normalize("struct in { int a; }; struct s { struct in x; };"
-                           "struct s g = { .x.a = 1 };"),
-                 "Designator chains are not supported yet");
+    const Initializer *init = Normalize("struct in { int a, b; }; struct s { struct in x; };"
+                                        "struct s g = { .x.b = 1 };");
+    const Initializer *x = item_at(init, 0);
+    EXPECT_EQ(item_at(x, 0), nullptr);
+    EXPECT_EQ(int_value(item_at(x, 1)), 1);
 }
 
 // A static union initialized through a non-first member zero-pads from that member's
@@ -463,6 +470,128 @@ TEST_F(PipelineTest, AutomaticUnsizedArraySizeof)
     _Static_assert(sizeof n == 2 * sizeof(int), "n has 2 elements");
     _Static_assert(sizeof d == 5 * sizeof(int), "d has 5 elements");
     return 0;
+}
+)");
+}
+
+// --- Designator chains -------------------------------------------------------
+
+// f10: a chain into an array member, then a plain field designator.
+TEST_F(NormalizeTest, ChainIntoArrayMember)
+{
+    const Initializer *init =
+        Normalize("struct s { int a[3]; int b; }; struct s g = { .a[1] = 5, .b = 2 };");
+    const Initializer *a = item_at(init, 0);
+    EXPECT_EQ(item_at(a, 0), nullptr);
+    EXPECT_EQ(int_value(item_at(a, 1)), 5);
+    EXPECT_EQ(item_at(a, 2), nullptr);
+    EXPECT_EQ(int_value(item_at(init, 1)), 2);
+}
+
+// After a chain, positional initialization continues with the next subobject after the
+// designated one: inside the inner array, then past it.
+TEST_F(NormalizeTest, ChainPositionalContinuation)
+{
+    const Initializer *init =
+        Normalize("struct s { int a[3]; int b; }; struct s g = { .a[1] = 5, 6, 7 };");
+    const Initializer *a = item_at(init, 0);
+    EXPECT_EQ(int_value(item_at(a, 1)), 5);
+    EXPECT_EQ(int_value(item_at(a, 2)), 6);
+    EXPECT_EQ(int_value(item_at(init, 1)), 7);
+}
+
+// A chain refines an earlier brace-list initializer in place (§6.7.9p19).
+TEST_F(NormalizeTest, ChainRefinesInPlace)
+{
+    const Initializer *init =
+        Normalize("struct s { int a[3]; }; struct s g = { .a = { 1, 2, 3 }, .a[1] = 9 };");
+    const Initializer *a = item_at(init, 0);
+    EXPECT_EQ(int_value(item_at(a, 0)), 1);
+    EXPECT_EQ(int_value(item_at(a, 1)), 9);
+    EXPECT_EQ(int_value(item_at(a, 2)), 3);
+}
+
+// A later whole-element initializer replaces an earlier chained one.
+TEST_F(NormalizeTest, ChainThenWholeElement)
+{
+    const Initializer *init = Normalize("struct s { char *name; int v; };"
+                                        "struct s tab[2] = { [1].v = 2, [0] = { \"AB\", 1 } };");
+    const Initializer *e0 = item_at(init, 0);
+    const Initializer *e1 = item_at(init, 1);
+    EXPECT_EQ(item_at(e0, 0)->u.expr->u.literal->kind, LITERAL_STRING);
+    EXPECT_EQ(int_value(item_at(e0, 1)), 1);
+    EXPECT_EQ(item_at(e1, 0), nullptr);
+    EXPECT_EQ(int_value(item_at(e1, 1)), 2);
+}
+
+// An unsized array is sized by an index at the head of a chain.
+TEST_F(NormalizeTest, ChainSizesUnsizedArray)
+{
+    Normalize("struct s { int a, v; }; struct s tab[] = { [2].v = 1 };");
+    EXPECT_EQ(get_array_size(type), 3u);
+}
+
+// A chain through a union member records the member; when that member is full,
+// positional initialization continues after the union.
+TEST_F(NormalizeTest, ChainThroughUnion)
+{
+    const Initializer *init = Normalize("struct p { int x, y; };"
+                                        "union u { int i; struct p p; };"
+                                        "struct s { union u u; int z; };"
+                                        "struct s g = { .u.p.y = 2, 3 };");
+    const Initializer *u = item_at(init, 0);
+    ASSERT_NE(u->u.items->designators, nullptr);
+    EXPECT_STREQ(u->u.items->designators->u.name, "p");
+    const Initializer *p = u->u.items->init;
+    EXPECT_EQ(item_at(p, 0), nullptr);
+    EXPECT_EQ(int_value(item_at(p, 1)), 2);
+    EXPECT_EQ(int_value(item_at(init, 1)), 3);
+}
+
+// Switching a union to another member drops the old member's value.
+TEST_F(NormalizeTest, ChainSwitchesUnionMember)
+{
+    const Initializer *init = Normalize("struct p { int x, y; };"
+                                        "union u { struct p q; struct p p; };"
+                                        "union u g = { .q.x = 1, .p.y = 2 };");
+    EXPECT_STREQ(init->u.items->designators->u.name, "p");
+    const Initializer *p = init->u.items->init;
+    EXPECT_EQ(item_at(p, 0), nullptr);
+    EXPECT_EQ(int_value(item_at(p, 1)), 2);
+}
+
+TEST_F(NormalizeTest, ChainIntoScalarDies)
+{
+    EXPECT_DEATH(Normalize("struct s { int a; }; struct s g = { .a.x = 1 };"),
+                 "Designator in scalar initializer");
+}
+
+TEST_F(NormalizeTest, ChainIntoStringDies)
+{
+    EXPECT_DEATH(Normalize("struct s { char n[4]; }; struct s g = { .n = \"AB\", .n[1] = 67 };"),
+                 "Designator into a subobject initialized by an expression is not supported");
+}
+
+TEST_F(PipelineTest, ChainIntoExpressionDies)
+{
+    EXPECT_DEATH(RunPipeline(R"(struct in { int a, b; };
+struct s { struct in in; };
+void f(struct in v) { struct s x = { .in = v, .in.a = 1 }; }
+)"),
+                 "Designator into a subobject initialized by an expression is not supported");
+}
+
+// Automatic mode: chains, in-place refinement and a union member; nothing leaks.
+TEST_F(PipelineTest, DesignatorChainsAutomatic)
+{
+    RunPipeline(R"(int f(void)
+{
+    struct s { int a[3]; int b; char *name; };
+    union u { int i; struct s s; };
+    struct s x = { .a = { 1, 2, 3 }, .a[1] = 9, .name = "AB" };
+    struct s tab[] = { [1].name = "CD", [0] = { { 1 }, 2 } };
+    union u y = { .s.b = 4 };
+    return x.a[1] + tab[0].b + y.s.b;
 }
 )");
 }
