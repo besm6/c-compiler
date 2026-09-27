@@ -302,7 +302,8 @@ static bool is_aggregate_type(const Type *t)
     return t->kind == TYPE_ARRAY || t->kind == TYPE_STRUCT || t->kind == TYPE_UNION;
 }
 
-// Materialize an aggregate compound literal in its own frame slot; returns the slot name.
+// Materialize a compound literal in its own frame slot; returns the slot name.  A scalar
+// gets a slot too, so a store through its address is never dropped as a dead temporary.
 static char *gen_compound_literal(TacCtx *ctx, const Expr *e)
 {
     const Type *lit_type = unalias(e->u.compound_literal.type);
@@ -314,6 +315,10 @@ static char *gen_compound_literal(TacCtx *ctx, const Expr *e)
     al->u.allocate_local.alignment = (int)get_alignment(lit_type);
     tac_append(ctx, al);
 
+    if (!is_aggregate_type(lit_type)) {
+        gen_compound_init(ctx, slot, 0, e->u.compound_literal.init->init);
+        return slot;
+    }
     Initializer wrap;
     memset(&wrap, 0, sizeof wrap);
     wrap.kind    = INITIALIZER_COMPOUND;
@@ -322,6 +327,8 @@ static char *gen_compound_literal(TacCtx *ctx, const Expr *e)
     gen_compound_init(ctx, slot, 0, &wrap);
     return slot;
 }
+
+static Tac_Val *gen_aggregate_assign(TacCtx *ctx, Expr *target, Expr *value, Tac_Val **addr_out);
 
 static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
 {
@@ -414,19 +421,16 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         return val_var(dst->u.var_name);
     }
     case EXPR_COMPOUND: {
-        char *T;
-        if (is_aggregate_type(unalias(e->u.compound_literal.type))) {
-            T = gen_compound_literal(ctx, e);
-        } else {
-            T = new_temp(ctx);
-            gen_compound_init(ctx, T, 0, e->u.compound_literal.init->init);
-        }
+        char *T               = gen_compound_literal(ctx, e);
         Tac_Val *ptr          = new_var_val(ctx);
         Tac_Instruction *ga   = tac_new_instruction(TAC_INSTRUCTION_GET_ADDRESS);
         ga->u.get_address.src = val_var(T);
         ga->u.get_address.dst = ptr;
         tac_append(ctx, ga);
         xfree(T);
+        // A char literal is stored as byte #0 of its slot, like a char member.
+        if (byte_access_for(e->type))
+            return member_byte_base(ctx, val_var(ptr->u.var_name));
         return val_var(ptr->u.var_name);
     }
     case EXPR_ASSIGN: {
@@ -434,8 +438,16 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         // result of an assignment is the value of its left operand; for an aggregate that
         // is the target object itself.  Perform the assignment for its side effect, then
         // return the target's address so the outer access reads the just-stored value.
+        // An aggregate target is evaluated once: a compound literal must not be re-created.
+        Expr *target = e->u.assign.target;
+        TypeKind tk  = unalias(target->type)->kind;
+        if (e->u.assign.op == ASSIGN_SIMPLE && (tk == TYPE_STRUCT || tk == TYPE_UNION)) {
+            Tac_Val *addr = NULL;
+            tac_free_val(gen_aggregate_assign(ctx, target, e->u.assign.value, &addr));
+            return addr ? addr : gen_lval(ctx, target);
+        }
         tac_free_val(gen_expr(ctx, e)); // discard the assignment's (unused) rvalue result
-        return gen_lval(ctx, e->u.assign.target);
+        return gen_lval(ctx, target);
     }
     case EXPR_CALL:
     case EXPR_COND: {
@@ -481,8 +493,9 @@ static bool aggregate_named_base(const Expr *e, const char **name, int *off)
 // COPY_TO_OFFSET) or, for a pointer/subscript/nested lvalue, an address reached by ADD_PTR +
 // LOAD / STORE.  A non-lvalue source (a function-call return or compound literal) is first
 // materialised into a named temporary via gen_expr.  This generalises gen_struct_assign to
-// the cases where either operand is reached through a pointer.
-static Tac_Val *gen_aggregate_assign(TacCtx *ctx, Expr *target, Expr *value)
+// the cases where either operand is reached through a pointer.  If addr_out is given, it
+// gets the destination's address when one was computed, else NULL (a named base).
+static Tac_Val *gen_aggregate_assign(TacCtx *ctx, Expr *target, Expr *value, Tac_Val **addr_out)
 {
     int w      = target_word_bytes();
     int nbytes = (int)get_size(target->type);
@@ -550,7 +563,10 @@ static Tac_Val *gen_aggregate_assign(TacCtx *ctx, Expr *target, Expr *value)
         }
     }
     // The address/materialised-value Tac_Vals are consumed only by name above; free them.
-    tac_free_val(dptr);
+    if (addr_out)
+        *addr_out = dptr;
+    else
+        tac_free_val(dptr);
     tac_free_val(sptr);
     tac_free_val(src_material);
     return new_var_val(ctx);
@@ -1163,7 +1179,7 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
         // pointer/subscript lvalues, not just named-base to named-base.
         if (e->u.assign.op == ASSIGN_SIMPLE && (unalias(target->type)->kind == TYPE_STRUCT ||
                                                 unalias(target->type)->kind == TYPE_UNION))
-            return gen_aggregate_assign(ctx, target, e->u.assign.value);
+            return gen_aggregate_assign(ctx, target, e->u.assign.value, NULL);
         Tac_Val *src = gen_expr(ctx, e->u.assign.value);
         if (target->kind == EXPR_VAR) {
             const char *dst = target->u.var;

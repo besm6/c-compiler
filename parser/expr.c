@@ -585,6 +585,34 @@ Expr *parse_argument_expression_list()
     return expr;
 }
 
+// Compound literal: (type-name) { initializer-list }, after the ')'; with its postfix tail.
+static Expr *parse_compound_literal(Type *type)
+{
+    expect_token(TOKEN_LBRACE);
+    InitItem *items = NULL;
+    if (current_token != TOKEN_RBRACE) {
+        items = parse_initializer_list();
+        if (current_token == TOKEN_COMMA)
+            advance_token();
+    }
+    expect_token(TOKEN_RBRACE);
+    Expr *compound                    = new_expression(EXPR_COMPOUND);
+    compound->u.compound_literal.type = type;
+    compound->u.compound_literal.init = items;
+    return parse_postfix_tail(compound);
+}
+
+// The operand of prefix ++/--: a unary expression, or a compound literal (a postfix
+// expression, which parse_cast_expression recognizes).
+static Expr *parse_prefix_operand()
+{
+    if (current_token == TOKEN_LPAREN &&
+        (is_type_specifier(next_token()) || is_type_qualifier(next_token()) ||
+         next_token() == TOKEN_ATOMIC))
+        return parse_cast_expression();
+    return parse_unary_expression();
+}
+
 //
 // unary_expression
 //     : postfix_expression
@@ -605,13 +633,13 @@ Expr *parse_unary_expression()
         advance_token();
         Expr *result            = new_expression(EXPR_UNARY_OP);
         result->u.unary_op.op   = UNARY_PRE_INC;
-        result->u.unary_op.expr = parse_unary_expression();
+        result->u.unary_op.expr = parse_prefix_operand();
         return result;
     } else if (current_token == TOKEN_DEC_OP) {
         advance_token();
         Expr *result            = new_expression(EXPR_UNARY_OP);
         result->u.unary_op.op   = UNARY_PRE_DEC;
-        result->u.unary_op.expr = parse_unary_expression();
+        result->u.unary_op.expr = parse_prefix_operand();
         return result;
     } else if (current_token == TOKEN_AMPERSAND || current_token == TOKEN_STAR ||
                current_token == TOKEN_PLUS || current_token == TOKEN_MINUS ||
@@ -626,9 +654,15 @@ Expr *parse_unary_expression()
             (is_type_specifier(next_token()) || is_type_qualifier(next_token()) ||
              next_token() == TOKEN_ATOMIC)) {
             expect_token(TOKEN_LPAREN);
-            Expr *result          = new_expression(EXPR_SIZEOF_TYPE);
-            result->u.sizeof_type = parse_type_name();
+            Type *type = parse_type_name();
             expect_token(TOKEN_RPAREN);
+            if (current_token == TOKEN_LBRACE) {
+                Expr *result          = new_expression(EXPR_SIZEOF_EXPR);
+                result->u.sizeof_expr = parse_compound_literal(type);
+                return result;
+            }
+            Expr *result          = new_expression(EXPR_SIZEOF_TYPE);
+            result->u.sizeof_type = type;
             return result;
         } else {
             Expr *result          = new_expression(EXPR_SIZEOF_EXPR);
@@ -689,21 +723,8 @@ Expr *parse_cast_expression()
         advance_token();
         Type *type = parse_type_name();
         expect_token(TOKEN_RPAREN);
-        if (current_token == TOKEN_LBRACE) {
-            // Compound literal: (type-name) { initializer-list }
-            advance_token();
-            InitItem *items = NULL;
-            if (current_token != TOKEN_RBRACE) {
-                items = parse_initializer_list();
-                if (current_token == TOKEN_COMMA)
-                    advance_token();
-            }
-            expect_token(TOKEN_RBRACE);
-            Expr *compound                    = new_expression(EXPR_COMPOUND);
-            compound->u.compound_literal.type = type;
-            compound->u.compound_literal.init = items;
-            return parse_postfix_tail(compound);
-        }
+        if (current_token == TOKEN_LBRACE)
+            return parse_compound_literal(type);
         Expr *expr            = parse_cast_expression();
         Expr *new_expr        = new_expression(EXPR_CAST);
         new_expr->u.cast.type = type;

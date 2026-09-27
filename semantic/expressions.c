@@ -58,6 +58,7 @@ static bool is_lvalue(const Expr *e)
     case EXPR_VAR:
     case EXPR_PTR_ACCESS:
     case EXPR_SUBSCRIPT:
+    case EXPR_COMPOUND: // C11 6.5.2.5p4
         return true;
     case EXPR_FIELD_ACCESS:
         // `E.member` is an lvalue iff E is an lvalue (e.g. f().m and (c?a:b).m are not).

@@ -1105,3 +1105,45 @@ TEST_F(TranslateTest, CompoundLiteralDesignator)
       offset: 6
 )");
 }
+
+// The address of a scalar compound literal: the literal gets its own slot, so a store
+// through its address is not dropped as a dead store to a temporary.
+TEST_F(TranslateTest, CompoundLiteralScalarAddress)
+{
+    std::string yaml = CompileToYaml("void g(int *p); void f(void) { g(&(int){ 5 }); }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: allocate_local
+      name: %0
+      size: 6
+      alignment: 6
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 5
+      dst: %0
+      offset: 0
+    - instruction:
+      kind: get_address
+      src:
+        kind: var
+        name: %0
+      dst:
+        kind: var
+        name: %1
+    - instruction:
+      kind: fun_call
+      fun_name: g
+      args:
+        - val:
+          kind: var
+          name: %1
+)");
+}

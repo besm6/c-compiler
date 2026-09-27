@@ -933,3 +933,32 @@ TEST_F(CodegenTest, CompoundLiteralFirstWord)
     )");
     EXPECT_EQ("9 4 5 4 5\n", result);
 }
+
+// A compound literal is an lvalue: every one gets its own slot, a scalar included, so a
+// store through its address survives.  A literal in a loop is one object (C11 6.5.2.5p16).
+// Assigning to a struct literal evaluates it once.
+TEST_F(CodegenTest, CompoundLiteralLvalue)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        struct s { int a, b; };
+        static int sum(struct s *p) { return p->a + p->b; }
+        void program() {
+            int *p = &(int){ 5 };
+            struct s *q = &(struct s){ 1 };
+            int *b = &(struct s){ 1, 9 }.b;
+            char *c = &(char){ 'A' };
+            int *ps[3];
+            struct s w = { 3, 4 };
+            struct s u = ((struct s){ 1, 2 } = w);
+            q->b = 7;
+            *c = 'B';
+            for (int i = 0; i < 3; i++)
+                ps[i] = &(int){ i };
+            printf("%d %d %d %d %d %c\n", *p, q->a, q->b, *b, sum(&(struct s){ 3, 4 }), *c);
+            printf("%d %d %d %d\n", ++(int){ 0 }, (int){ 5 }--, (int){ 3 } += 4, --(int){ 5 });
+            printf("%d %d %d %d\n", ps[0] == ps[2], *ps[2], u.a, u.b);
+        }
+    )");
+    EXPECT_EQ("5 1 7 9 7 B\n1 5 7 4\n1 2 3 4\n", result);
+}

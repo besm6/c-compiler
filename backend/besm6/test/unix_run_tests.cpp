@@ -289,3 +289,24 @@ TEST_F(CodegenTest, UnixRunAssignedDifferenceAsCondition)
     )");
     EXPECT_EQ("-1 1 0\n", result);
 }
+
+// Compound literals as lvalues, and sizeof of a literal, on the b6as path.
+TEST_F(CodegenTest, UnixRunCompoundLiteralLvalue)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunUnix(R"(
+        #include <stdio.h>
+        struct s { int a, b; };
+        int main(void) {
+            int *p = &(int){ 5 };
+            struct s *q = &(struct s){ 1 };
+            char *c = &(char){ 'A' };
+            q->b = 7;
+            *c = 'B';
+            printf("%d %d %d %c %d\n", *p, q->a, q->b, *c, ++(int){ 0 });
+            printf("%d %d\n", (int)sizeof (int[3]){ 0 }, (int)sizeof (struct s){ 1 }.b);
+            return 0;
+        }
+    )");
+    EXPECT_EQ("5 1 7 B 1\n18 6\n", result);
+}

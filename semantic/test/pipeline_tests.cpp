@@ -616,3 +616,29 @@ TEST_F(PipelineTest, DistinctAnonStructsStayIncompatible_Neg)
                              " int f(void) { a = b; return 0; }"),
                  "Cannot convert type for assignment");
 }
+
+//
+// A compound literal is an lvalue (C11 6.5.2.5p4): its address may be taken, and it may be
+// assigned, incremented and modified by a compound assignment.
+//
+TEST_F(PipelineTest, CompoundLiteralIsLvalue)
+{
+    RunPipeline(R"(struct s { int a, b; };
+int f(void)
+{
+    int *p = &(int){ 5 };
+    struct s *q = &(struct s){ 1 };
+    int *b = &(struct s){ 1, 2 }.b;
+    (int){ 1 } = 2;
+    (struct s){ 1 } = *q;
+    (int){ 3 } += 4;
+    return *p + q->a + *b + ++(int){ 0 } + (int){ 0 }--;
+}
+)");
+}
+
+TEST_F(PipelineTest, ArrayCompoundLiteralNotAssignable_Neg)
+{
+    EXPECT_DEATH(RunPipeline("void f(int *p) { (int[2]){ 1, 2 } = p; }"),
+                 "Array is not a modifiable lvalue");
+}
