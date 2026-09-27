@@ -288,11 +288,13 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         return string_init;
     }
 
-    // Handle pointer initialized with a string literal.
+    // Handle pointer initialized with a string literal: char * or void *, as on the
+    // automatic path.
     if (var_type->kind == TYPE_POINTER && init->kind == INITIALIZER_SINGLE &&
         init->u.expr->kind == EXPR_LITERAL && init->u.expr->u.literal->kind == LITERAL_STRING) {
-        if (unalias(var_type->u.pointer.target)->kind != TYPE_CHAR) {
-            fatal_error("String literal can only initialize pointer to char");
+        TypeKind target_kind = unalias(var_type->u.pointer.target)->kind;
+        if (target_kind != TYPE_CHAR && target_kind != TYPE_VOID) {
+            fatal_error("String literal can only initialize pointer to char or void");
         }
         size_t decoded_length;
         char *decoded =

@@ -367,3 +367,18 @@ TEST_F(CodegenTest, PrintfStaticStringPointer)
     )");
     EXPECT_EQ("[ABC]\n", result);
 }
+
+// A static `void *` from a string literal is a fat pointer too.
+TEST_F(CodegenTest, PrintfStaticVoidStringPointer)
+{
+    std::string result = CompileAndRun(R"(
+#include <stdio.h>
+        void *g = "AB";
+        struct s { const void *p; } sg = { "CD" };
+        void program() {
+            static void *q = "EF";
+            printf("[%s][%s][%s]\n", (char *)g, (const char *)sg.p, (char *)q);
+        }
+    )");
+    EXPECT_EQ("[AB][CD][EF]\n", result);
+}

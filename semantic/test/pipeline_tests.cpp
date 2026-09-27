@@ -321,6 +321,31 @@ static const Tac_StaticInit *sole_init(const char *name)
     return sym->u.static_var.init_list;
 }
 
+// A static void * from a string literal is a fat pointer, as for char *.
+TEST_F(PipelineTest, StaticVoidPointerFromString)
+{
+    RunPipeline(R"(void *p = "AB";
+const void *cp = "CD";
+struct s { void *p; } g = { "EF" };
+int main(void) { static void *q = "GH"; return 0; }
+)");
+
+    for (const char *name : { "p", "cp", "g" }) {
+        const Tac_StaticInit *init = sole_init(name);
+        ASSERT_NE(init, nullptr) << name;
+        EXPECT_EQ(init->kind, TAC_STATIC_INIT_FAT_POINTER) << name;
+        EXPECT_EQ(init->u.pointer.byte_offset, 0) << name;
+        EXPECT_EQ(init->next, nullptr) << name;
+    }
+}
+
+// unsigned char * from a string stays a pointer-sign error on the static path.
+TEST_F(PipelineTest, StaticUcharPointerFromStringDies)
+{
+    EXPECT_DEATH(RunPipeline(R"(unsigned char *p = "AB";)"),
+                 "String literal can only initialize pointer to char or void");
+}
+
 // A real static initializer that is not a bare literal must still fold.  Each of these
 // parses as EXPR_UNARY_OP / EXPR_BINARY_OP / EXPR_CAST over a literal, none of which the
 // folder used to reach for a floating target.
