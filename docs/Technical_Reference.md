@@ -112,7 +112,8 @@ AST values are implemented in C (`ast.h` and companion `.c` files). Binary seria
 | `typetab.c`, `typetab.h` | Scoped typedef name → TypeDef map |
 | `typecheck.c` | Type checking and name binding (single-pass) |
 | `expressions.c` | Expression semantic analysis |
-| `initializers.c` | Static initializer evaluation |
+| `init_normalize.c` | Initializer normalization: designators, brace elision, braced scalars (see [Initializers](#initializers-designators-and-brace-elision)) |
+| `initializers.c` | Initializer consumers: static data (`build_static_init`) and automatic typecheck (`typecheck_init`) |
 | `statements.c` | Statement semantic analysis |
 | `declarations.c` | Declaration processing |
 | `label_loops.c` | Annotates loop/switch statements with break/continue jump targets |
@@ -123,7 +124,7 @@ AST values are implemented in C (`ast.h` and companion `.c` files). Binary seria
 | `structtab_print.c` | Debug printer for structtab entries |
 | `typetab_print.c` | Debug printer for typetab entries |
 
-Tests (9 files): `symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp` → `semantic-tests`.
+Tests: `symtab_tests.cpp`, `structtab_tests.cpp`, `typetab_tests.cpp`, `typecheck_tests.cpp`, `real_tests.cpp`, `pipeline_tests.cpp`, `label_loops_tests.cpp`, `const_convert_tests.cpp`, `coercion_tests.cpp`, `init_normalize_tests.cpp` → `semantic-tests`.
 
 ### Translator (`translator/`)
 
@@ -174,7 +175,8 @@ IR hierarchy: `Besm_Module` → `Besm_Func` (calling convention: `BESM6_C` or `I
 Frame allocation (`frame.c`) assigns a stack slot to every TAC name beginning with `%`
 (parameters and automatic locals — see the variable name convention below); any other
 referenced name is a module-level global, accessed via `,utc, name` and pre-declared with
-a `,subp,` directive.
+a `,subp,` directive. An `ALLOCATE_LOCAL` aggregate slot is never treated as a temporary,
+even under a temporary's name (e.g. a compound literal), since it is read through its address.
 
 On BESM-6, `float` and `double` are the same 48-bit native floating-point word, so both C
 types map to one representation. After instruction selection a peephole-optimization pass
@@ -355,6 +357,14 @@ Tests: `string_map_tests.cpp`, `wio_tests.cpp`, `xalloc_tests.cpp` → `libutil-
 This compiler intentionally rejects identifier shadowing: a name declared in an inner block
 that duplicates any name in an enclosing scope is a compile error. This is a permanent design
 decision — `symtab` / `structtab` / `typetab` reject duplicates with `fatal_error`.
+
+### Initializers: designators and brace elision
+
+Designators, brace elision and braced scalars (C11 §6.7.9) are handled by `normalize_init`
+(`semantic/init_normalize.c`), with GCC semantics. It rewrites a parser initializer into a
+canonical form that `build_static_init` and `typecheck_init` consume by position: an array
+has exactly N items, a struct one per member, a union one item (with a `DESIGNATOR_FIELD`
+when not the first member), and a NULL item means zero. It also sizes unsized arrays.
 
 ### `$` in identifiers
 
