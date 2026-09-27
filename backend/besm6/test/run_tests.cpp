@@ -962,3 +962,19 @@ TEST_F(CodegenTest, CompoundLiteralLvalue)
     )");
     EXPECT_EQ("5 1 7 9 7 B\n1 5 7 4\n1 2 3 4\n", result);
 }
+
+// A struct/union defined in a compound literal's type name, or in sizeof, is registered.
+TEST_F(CodegenTest, StructDefinedInTypeName)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            int b = (struct { int a, b; char c; }){ 1, 2, 'C' }.b;
+            struct p { int x, y; } *q = &(struct p){ 5, 6 };
+            char c = (struct { int a; char c; }){ .c = 'D' }.c;
+            printf("%d %d %d %c %d %d\n", b, q->y, (int)sizeof(struct r { int a[3]; }),
+                   c, ((union { int i; char *s; }){ 7 }).i, (struct p){ 8 }.x);
+        }
+    )");
+    EXPECT_EQ("2 6 18 D 7 8\n", result);
+}

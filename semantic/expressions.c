@@ -35,6 +35,16 @@ static bool is_array_lvalue_operand(const Expr *e)
     return e->kind != EXPR_LITERAL && is_array(e->type);
 }
 
+// Resolve and validate a type name (cast, sizeof, _Alignof, _Generic, compound literal),
+// registering any struct/union it defines.
+static Type *check_type_name(Type *t)
+{
+    t = resolve_typedef_names(t);
+    register_inline_struct_defs(t);
+    validate_type(t);
+    return t;
+}
+
 // Check if an expression is an lvalue.
 // True if the (un-decayed) expression is a function designator: a bare
 // identifier that names a function.  Such an operand decays to a function
@@ -270,8 +280,7 @@ static Expr *typecheck_expr(Expr *e)
     case EXPR_LITERAL:
         return typecheck_literal(e);
     case EXPR_CAST: {
-        e->u.cast.type = resolve_typedef_names(e->u.cast.type);
-        validate_type(e->u.cast.type);
+        e->u.cast.type = check_type_name(e->u.cast.type);
         Expr *inner          = typecheck_and_decay(e->u.cast.expr);
         const Type *cast_ty  = unalias(e->u.cast.type);
         const Type *inner_ty = unalias(inner->type);
@@ -782,8 +791,7 @@ static Expr *typecheck_expr(Expr *e)
         return e;
     }
     case EXPR_SIZEOF_TYPE: {
-        e->u.sizeof_type = resolve_typedef_names(e->u.sizeof_type);
-        validate_type(e->u.sizeof_type);
+        e->u.sizeof_type = check_type_name(e->u.sizeof_type);
         if (!is_complete(e->u.sizeof_type)) {
             fatal_error("Can't apply sizeof to incomplete type");
         }
@@ -792,8 +800,7 @@ static Expr *typecheck_expr(Expr *e)
         return e;
     }
     case EXPR_ALIGNOF: {
-        e->u.align_of = resolve_typedef_names(e->u.align_of);
-        validate_type(e->u.align_of);
+        e->u.align_of = check_type_name(e->u.align_of);
         if (!is_complete(e->u.align_of)) {
             fatal_error("Can't apply _Alignof to incomplete type");
         }
@@ -915,8 +922,7 @@ static Expr *typecheck_expr(Expr *e)
         GenericAssoc *default_assoc = NULL;
         for (GenericAssoc *ga = e->u.generic.associations; ga; ga = ga->next) {
             if (ga->kind == GENERIC_ASSOC_TYPE) {
-                ga->u.type_assoc.type = resolve_typedef_names(ga->u.type_assoc.type);
-                validate_type(ga->u.type_assoc.type);
+                ga->u.type_assoc.type = check_type_name(ga->u.type_assoc.type);
                 ga->u.type_assoc.expr = typecheck_and_decay(ga->u.type_assoc.expr);
                 if (!selected &&
                     compare_type(unalias(ctrl_type), unalias(ga->u.type_assoc.type))) {
@@ -961,9 +967,8 @@ static Expr *typecheck_expr(Expr *e)
         return e;
     }
     case EXPR_COMPOUND: {
-        e->u.compound_literal.type = resolve_typedef_names(e->u.compound_literal.type);
+        e->u.compound_literal.type = check_type_name(e->u.compound_literal.type);
         Type *lit_type             = e->u.compound_literal.type;
-        validate_type(lit_type);
         if (!is_complete(lit_type)) {
             fatal_error("Compound literal must have a complete type");
         }

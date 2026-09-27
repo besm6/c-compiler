@@ -205,8 +205,6 @@ static void register_enum_constants(const Type *enum_type)
     }
 }
 
-static void register_inline_struct_defs(const Type *t);
-
 // Reject a struct/union tag reference whose keyword disagrees with an existing tag of the
 // same name (C11 §6.7.2.3): e.g. using `union x` where `struct x` is already in scope.
 void check_tag_kind(const Type *t)
@@ -287,7 +285,7 @@ static void register_struct_type(const Type *t)
 
 // Register any inline struct/union definitions embedded in a type tree.
 // Must be called before validate_type() so is_complete() finds them in structtab.
-static void register_inline_struct_defs(const Type *t)
+void register_inline_struct_defs(const Type *t)
 {
     if (!t)
         return;

@@ -642,3 +642,20 @@ TEST_F(PipelineTest, ArrayCompoundLiteralNotAssignable_Neg)
     EXPECT_DEATH(RunPipeline("void f(int *p) { (int[2]){ 1, 2 } = p; }"),
                  "Array is not a modifiable lvalue");
 }
+
+//
+// A struct/union defined in a type name (cast, sizeof, _Alignof, _Generic, compound literal)
+// is registered like one defined in a declaration, and its tag stays in scope.
+//
+TEST_F(PipelineTest, StructDefinedInTypeName)
+{
+    RunPipeline(R"(int f(void)
+{
+    int n = sizeof(struct r { int a, b; }) + _Alignof(struct r2 { int a; });
+    int g = _Generic(0, struct g { int a; }: 1, int: 2);
+    struct r *p = (struct r *)0;
+    return n + g + (struct { int a, b; }){ 1 }.b + ((union { int i; char *s; }){ 3 }).i +
+           ((struct w { int a, b; }){ 1 }).b + (struct w){ 2 }.a + (p != 0);
+}
+)");
+}
