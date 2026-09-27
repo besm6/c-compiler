@@ -889,3 +889,47 @@ TEST_F(CodegenTest, DesignatorChains)
     )");
     EXPECT_EQ("0502 0567 1930\n0502 0567 1930\nAB 1 1 2\nCD 1 1 2\n0 2 3 0 2 3\n", result);
 }
+
+// Compound literals with designators (k7), including union and array literals.  A
+// multi-word struct literal gets its own frame slot: it used to get a single word, and
+// its value was read from the slot holding its address, so neighbouring locals and the
+// copied value were both garbage.
+TEST_F(CodegenTest, CompoundLiteralDesignators)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        struct s { int a, b, c; };
+        union u { int i; char *p; };
+        static int sum(struct s v) { return v.a + v.b + v.c; }
+        void program() {
+            struct s x;
+            union u y;
+            int k = 7, m = 8;
+            int *q;
+            x = (struct s){ .b = 2, .c = 3 };
+            y = (union u){ .p = "AB" };
+            q = (int[]){ [2] = 5, [0] = 4 };
+            printf("%d %d %d %d %d\n", x.a, x.b, x.c, k, m);
+            printf("%s %d %d %d %d\n", y.p, (union u){ 9 }.i, q[0], q[1], q[2]);
+            printf("%d %d\n", sum((struct s){ .c = 1, .a = 2 }), (struct s){ .b = 6 }.b);
+        }
+    )");
+    EXPECT_EQ("0 2 3 7 8\nAB 9 4 0 5\n3 6\n", result);
+}
+
+// The first word of a compound literal's slot is only ever read through its address.
+// The slot bears a temporary's name, so peephole rule #28 used to drop the store to it
+// as a dead temporary store.
+TEST_F(CodegenTest, CompoundLiteralFirstWord)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        union u { int i; char *p; };
+        void program() {
+            int *q = (int[]){ [2] = 5, [0] = 4 };
+            int *r = (int[3]){ 4, 0, 5 };
+            printf("%d %d %d %d %d\n", (union u){ 9 }.i, q[0], q[2], r[0], r[2]);
+        }
+    )");
+    EXPECT_EQ("9 4 5 4 5\n", result);
+}

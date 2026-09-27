@@ -248,8 +248,10 @@ static void allocate_aggregate(Frame *f, const Tac_Instruction *instr, int *auto
         align_words = 1;
     if (align_words > 1 && (*auto_count % align_words) != 0)
         *auto_count += align_words - (*auto_count % align_words);
-    // Aggregates are named locals ('%'+letter), never temporaries.
-    map_insert(&f->slots, name, SLOT_ENCODE(REG_AUTO, *auto_count, name_is_temp(name)), 0);
+    // An aggregate slot is never a temporary, even under a temporary's name (an sret,
+    // conditional or compound-literal slot): it spans several words and its address
+    // may be taken, so its stores are not dead and it is never reclaimed.
+    map_insert(&f->slots, name, SLOT_ENCODE(REG_AUTO, *auto_count, false), 0);
     *auto_count += size_words;
 }
 

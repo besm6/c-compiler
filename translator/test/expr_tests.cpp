@@ -606,6 +606,11 @@ TEST_F(TranslateTest, CompoundLiteralStructField)
   global: true
   body:
     - instruction:
+      kind: allocate_local
+      name: %0
+      size: 12
+      alignment: 6
+    - instruction:
       kind: copy_to_offset
       src:
         kind: constant
@@ -670,6 +675,11 @@ TEST_F(TranslateTest, CompoundLiteralArraySubscript)
   name: f
   global: true
   body:
+    - instruction:
+      kind: allocate_local
+      name: %0
+      size: 18
+      alignment: 6
     - instruction:
       kind: copy_to_offset
       src:
@@ -1023,5 +1033,75 @@ TEST_F(TranslateTest, CommaChainRunsEveryOperandInOrder)
       src:
         kind: var
         name: %0
+)");
+}
+
+// k7: a designated struct compound literal gets its own slot; the undesignated member
+// is zeroed and the value is copied out of the slot, not out of its address.
+TEST_F(TranslateTest, CompoundLiteralDesignator)
+{
+    std::string yaml = CompileToYaml("struct s { int a, b; };"
+                                     "void f(void) { struct s x; x = (struct s){ .b = 2 }; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: allocate_local
+      name: %x
+      size: 12
+      alignment: 6
+    - instruction:
+      kind: allocate_local
+      name: %0
+      size: 12
+      alignment: 6
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst: %0
+      offset: 0
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 2
+      dst: %0
+      offset: 6
+    - instruction:
+      kind: copy_from_offset
+      src: %0
+      offset: 0
+      dst:
+        kind: var
+        name: %1
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: var
+        name: %1
+      dst: %x
+      offset: 0
+    - instruction:
+      kind: copy_from_offset
+      src: %0
+      offset: 6
+      dst:
+        kind: var
+        name: %2
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: var
+        name: %2
+      dst: %x
+      offset: 6
 )");
 }

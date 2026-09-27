@@ -297,6 +297,32 @@ static Tac_BinaryOperator map_assign_op(AssignOp op, const Type *operand_type)
     }
 }
 
+static bool is_aggregate_type(const Type *t)
+{
+    return t->kind == TYPE_ARRAY || t->kind == TYPE_STRUCT || t->kind == TYPE_UNION;
+}
+
+// Materialize an aggregate compound literal in its own frame slot; returns the slot name.
+static char *gen_compound_literal(TacCtx *ctx, const Expr *e)
+{
+    const Type *lit_type = unalias(e->u.compound_literal.type);
+    char *slot           = new_temp(ctx);
+
+    Tac_Instruction *al            = tac_new_instruction(TAC_INSTRUCTION_ALLOCATE_LOCAL);
+    al->u.allocate_local.name      = xstrdup(slot);
+    al->u.allocate_local.size      = (int)get_size(lit_type);
+    al->u.allocate_local.alignment = (int)get_alignment(lit_type);
+    tac_append(ctx, al);
+
+    Initializer wrap;
+    memset(&wrap, 0, sizeof wrap);
+    wrap.kind    = INITIALIZER_COMPOUND;
+    wrap.u.items = e->u.compound_literal.init;
+    wrap.type    = (Type *)lit_type;
+    gen_compound_init(ctx, slot, 0, &wrap);
+    return slot;
+}
+
 static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
 {
     switch (e->kind) {
@@ -388,16 +414,11 @@ static Tac_Val *gen_lval(TacCtx *ctx, Expr *e)
         return val_var(dst->u.var_name);
     }
     case EXPR_COMPOUND: {
-        char *T              = new_temp(ctx);
-        const Type *lit_type = unalias(e->u.compound_literal.type);
-        if (lit_type->kind == TYPE_ARRAY || lit_type->kind == TYPE_STRUCT) {
-            Initializer wrap;
-            memset(&wrap, 0, sizeof wrap);
-            wrap.kind    = INITIALIZER_COMPOUND;
-            wrap.u.items = e->u.compound_literal.init;
-            wrap.type    = (Type *)lit_type;
-            gen_compound_init(ctx, T, 0, &wrap);
+        char *T;
+        if (is_aggregate_type(unalias(e->u.compound_literal.type))) {
+            T = gen_compound_literal(ctx, e);
         } else {
+            T = new_temp(ctx);
             gen_compound_init(ctx, T, 0, e->u.compound_literal.init->init);
         }
         Tac_Val *ptr          = new_var_val(ctx);
@@ -1596,8 +1617,15 @@ Tac_Val *gen_expr(TacCtx *ctx, Expr *e)
     }
     case EXPR_COMPOUND: {
         const Type *lit_type = unalias(e->u.compound_literal.type);
-        if (lit_type->kind == TYPE_ARRAY || lit_type->kind == TYPE_STRUCT) {
-            return gen_lval(ctx, e);
+        if (lit_type->kind == TYPE_ARRAY) {
+            return gen_lval(ctx, e); // decays to its address
+        }
+        if (is_aggregate_type(lit_type)) {
+            // Like an sret call, the value of a struct/union literal is its slot.
+            char *slot   = gen_compound_literal(ctx, e);
+            Tac_Val *val = val_var(slot);
+            xfree(slot);
+            return val;
         }
         return gen_expr(ctx, e->u.compound_literal.init->init->u.expr);
     }

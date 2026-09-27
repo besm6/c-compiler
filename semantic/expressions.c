@@ -966,7 +966,8 @@ static Expr *typecheck_expr(Expr *e)
         if (!is_complete(lit_type)) {
             fatal_error("Compound literal must have a complete type");
         }
-        if (unalias(lit_type)->kind == TYPE_ARRAY || unalias(lit_type)->kind == TYPE_STRUCT) {
+        TypeKind kind = unalias(lit_type)->kind;
+        if (kind == TYPE_ARRAY || kind == TYPE_STRUCT || kind == TYPE_UNION) {
             // Wrap InitItem list in a temporary INITIALIZER_COMPOUND to reuse typecheck_init.
             Initializer *wrap   = new_initializer(INITIALIZER_COMPOUND);
             wrap->u.items       = e->u.compound_literal.init;
