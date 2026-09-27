@@ -1451,3 +1451,58 @@ TEST_F(TranslateTest, BulkZeroFillStringExact)
         stores++;
     EXPECT_EQ(stores, 4u);
 }
+
+// Adjacent ZERO runs merge: a zero member, the padding after a char and a trailing
+// uninitialized member become one run.
+TEST_F(TranslateTest, StaticZeroRunsMerge)
+{
+    std::string yaml = CompileToYaml("struct m { char c; int x; int y[3]; } v = { 1, 0 };");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: v
+  global: true
+  type:
+    kind: structure
+    tag: m
+    size: 30
+  init_list:
+    - init:
+      kind: i8
+      value: 1
+    - init:
+      kind: zero
+      bytes: 29
+)");
+}
+
+// Zero tails of array elements merge with the zero elements that follow them.
+TEST_F(TranslateTest, StaticZeroRunsMergeAcrossElements)
+{
+    std::string yaml = CompileToYaml("struct p { int a, b, c; };"
+                                     "struct p t[4] = { { 1 }, { 0 }, { 0, 0, 3 } };");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: t
+  global: true
+  type:
+    kind: array
+    elem_type:
+      kind: structure
+      tag: p
+      size: 18
+    size: 4
+  init_list:
+    - init:
+      kind: i64
+      value: 1
+    - init:
+      kind: zero
+      bytes: 42
+    - init:
+      kind: i64
+      value: 3
+    - init:
+      kind: zero
+      bytes: 18
+)");
+}

@@ -296,3 +296,18 @@ quz:
 )",
               output);
 }
+
+// Unlabeled zero data words pack up to 8 per `.word` line.
+TEST_F(CodegenTest, UnixZeroWordsPacked)
+{
+    std::string out = CompileToUnix("int u[12] = { 0, 0, 5 };");
+    EXPECT_EQ(R"(    .data
+    .globl u
+u:
+    .word 0, 0
+    .word 5
+    .word 0, 0, 0, 0, 0, 0, 0, 0
+    .word 0
+)",
+              out);
+}

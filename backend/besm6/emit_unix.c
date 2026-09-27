@@ -317,6 +317,18 @@ static const Besm_Instr *emit_unix_special(FILE *out, const Besm_Instr *instr, S
         set_segment(out, cur, SEG_DATA);
         if (instr->name)
             emit_ulabel(out, instr->name);
+        if (instr->log_val == 0) {
+            // Pack a run of unlabeled zero words, up to 8 per line.
+            strcpy(a, "0");
+            for (int n = 1; n < 8 && instr->next && instr->next->kind == BESM_DATA_LOG &&
+                            !instr->next->name && instr->next->log_val == 0;
+                 n++) {
+                instr = instr->next;
+                strcat(a, ", 0");
+            }
+            emit_udir(out, ".word", a);
+            break;
+        }
         snprintf(a, sizeof(a), "%s%" PRIo64, unix_octal_prefix(instr->log_val), instr->log_val);
         emit_udir(out, ".word", a);
         break;

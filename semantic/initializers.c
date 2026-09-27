@@ -565,6 +565,21 @@ static Tac_StaticInit *static_init(Type *var_type, const Initializer *init)
 
 // Convert an initializer to a Tac_StaticInit list for global/static variables.
 // *init is normalized in place; the caller still owns it.
+// Merge adjacent ZERO runs, e.g. a zeroed member followed by padding.
+static void merge_zero_runs(Tac_StaticInit *list)
+{
+    for (Tac_StaticInit *cur = list; cur; cur = cur->next) {
+        while (cur->kind == TAC_STATIC_INIT_ZERO && cur->next &&
+               cur->next->kind == TAC_STATIC_INIT_ZERO) {
+            Tac_StaticInit *next = cur->next;
+            cur->u.zero_bytes += next->u.zero_bytes;
+            cur->next  = next->next;
+            next->next = NULL;
+            tac_free_static_init(next);
+        }
+    }
+}
+
 Tac_StaticInit *build_static_init(Type *var_type, Initializer **init)
 {
     if (semantic_debug) {
@@ -573,7 +588,9 @@ Tac_StaticInit *build_static_init(Type *var_type, Initializer **init)
     if (*init) {
         *init = normalize_init(var_type, *init, INIT_STATIC);
     }
-    return static_init(var_type, *init);
+    Tac_StaticInit *list = static_init(var_type, *init);
+    merge_zero_runs(list);
+    return list;
 }
 
 // Type-check a canonical initializer (see init_normalize.c) against a target type.

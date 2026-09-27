@@ -387,3 +387,24 @@ TEST_F(CodegenTest, UnixRunBulkZeroFillString)
     )");
     EXPECT_EQ("0 AB CD E FG 0 86\n", result);
 }
+
+// Packed zero words and merged zero runs assemble to the right layout.
+TEST_F(CodegenTest, UnixRunZeroRuns)
+{
+    SKIP_IF_NO_UNIX_RUN_TOOLS();
+    std::string result = CompileAndRunUnix(R"(
+        #include <stdio.h>
+        struct p { int a, b, c; };
+        struct p t[4] = { { 1 }, { 0 }, { 0, 0, 3 } };
+        struct m { char c; int x; int y[3]; } v = { 1, 0 };
+        int u[12] = { 0, 0, 5, [11] = 6 };
+        int main(void) {
+            int s = 0;
+            for (int i = 0; i < 4; i++)
+                s = s * 10 + t[i].a + t[i].b + t[i].c;
+            printf("%d %d %d %d %d %d %d\n", s, v.c, v.x, v.y[2], u[2], u[10], u[11]);
+            return 0;
+        }
+    )");
+    EXPECT_EQ("1030 1 0 0 5 0 6\n", result);
+}
