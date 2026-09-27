@@ -412,7 +412,7 @@ static void typecheck_local_var_decl(const Declaration *d)
             if (symtab_get_opt(decl->name)) {
                 fatal_error("Duplicate variable declaration %s", decl->name);
             }
-            Tac_StaticInit *static_init = build_static_init(var_type, decl->init);
+            Tac_StaticInit *static_init = build_static_init(var_type, &decl->init);
             // The storage is emitted inside the owning function's module as a module-local
             // label.  Capture it (the symbol is scoped and gets purged on block exit) and give
             // it a backend name unique within this function; the symbol is keyed by the source
@@ -791,7 +791,7 @@ static void typecheck_file_scope_var_decl(Declaration *d)
                 symtab_add_static_var(decl->name, var_type, global, INIT_TENTATIVE, NULL);
             }
             init_kind = INIT_INITIALIZED;
-            init_list = build_static_init(var_type, decl->init);
+            init_list = build_static_init(var_type, &decl->init);
         }
         if (!is_complete(var_type) && init_kind != INIT_NONE) {
             fatal_error("Can't define a variable with incomplete type");

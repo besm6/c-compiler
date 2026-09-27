@@ -64,7 +64,7 @@ TEST_F(PipelineTest, Chapter16_CompoundInitializerForPointer_Neg)
     return 0;
 }
 )"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Excess elements in scalar initializer");
 }
 
 // signed char *s = c; (c is char *) — char * and signed char * differ.

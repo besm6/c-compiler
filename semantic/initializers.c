@@ -106,16 +106,6 @@ static Initializer *make_zero_init(Type *t)
     return init;
 }
 
-// Count top-level elements in a brace initializer list.
-static size_t count_init_items(const InitItem *items)
-{
-    size_t n = 0;
-    for (; items; items = items->next) {
-        n++;
-    }
-    return n;
-}
-
 // --- static address-constant evaluation --------------------------------------
 //
 // A static pointer initializer must be an address constant (C11 §6.6): the address of a
@@ -232,12 +222,31 @@ static bool eval_addr_const(const Expr *e, const char **name, long *off, const T
     }
 }
 
-// Convert an initializer to a Tac_StaticInit list for global/static variables.
-Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
+// Append list to *current and return the new tail.
+static Tac_StaticInit **append_static_init(Tac_StaticInit **current, Tac_StaticInit *list)
 {
-    if (semantic_debug) {
-        printf("--- %s()\n", __func__);
+    *current = list;
+    while (*current) {
+        current = &(*current)->next;
     }
+    return current;
+}
+
+// Append a ZERO run of n bytes (if any) and return the new tail.
+static Tac_StaticInit **append_zero(Tac_StaticInit **current, size_t n)
+{
+    if (n == 0) {
+        return current;
+    }
+    Tac_StaticInit *zero = tac_new_static_init(TAC_STATIC_INIT_ZERO);
+    zero->u.zero_bytes   = n;
+    *current             = zero;
+    return &zero->next;
+}
+
+// Convert a canonical initializer (see init_normalize.c) to a Tac_StaticInit list.
+static Tac_StaticInit *static_init(Type *var_type, const Initializer *init)
+{
     // Look through a global typedef reference. Reads use the resolved type; the only
     // in-place mutation (set_array_size, below) is reached solely for a genuine
     // unspecified-size array, never for a (complete) typedef'd array, so it never
@@ -448,38 +457,25 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         fatal_error("Static initializer is not a constant");
     }
 
-    // Handle array with compound initializer.
+    // Handle array with compound initializer: exactly one item per element.  A run of
+    // uninitialized elements becomes a single ZERO run.
     if (var_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
-        bool size_specified = var_type->u.array.size != NULL;
-        size_t array_size;
-        if (!size_specified) {
-            array_size = count_init_items(init->u.items);
-            set_array_size(var_type, array_size);
-        } else {
-            array_size = get_array_size(var_type);
-        }
         Type *element_type         = var_type->u.array.element;
+        size_t element_size        = get_size(element_type);
         Tac_StaticInit *array_init = NULL;
         Tac_StaticInit **current   = &array_init;
-        int element_count          = 0;
+        size_t pending_zero        = 0;
 
         for (const InitItem *item = init->u.items; item; item = item->next) {
-            if (size_specified && element_count >= (int)array_size) {
-                fatal_error("Too many elements in array initializer");
+            if (!item->init) {
+                pending_zero += element_size;
+                continue;
             }
-            Tac_StaticInit *element_init = build_static_init(element_type, item->init);
-            *current                     = element_init;
-            while (*current) {
-                current = &(*current)->next;
-            }
-            element_count++;
+            current      = append_zero(current, pending_zero);
+            pending_zero = 0;
+            current      = append_static_init(current, static_init(element_type, item->init));
         }
-
-        if (element_count < (int)array_size) {
-            Tac_StaticInit *zero_padding = tac_new_static_init(TAC_STATIC_INIT_ZERO);
-            zero_padding->u.zero_bytes = ((int)array_size - element_count) * get_size(element_type);
-            *current                   = zero_padding;
-        }
+        append_zero(current, pending_zero);
         return array_init;
     }
 
@@ -491,31 +487,18 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
         Tac_StaticInit **current    = &struct_init;
         int current_offset          = 0;
 
-        for (const InitItem *item = init->u.items; item; item = item->next) {
-            if (!field) {
-                fatal_error("Too many elements in struct initializer");
-            }
+        // Exactly one item per member.  An uninitialized member emits nothing: the
+        // padding before the next initialized member (or the tail) zero-fills it.
+        for (const InitItem *item = init->u.items; item; item = item->next, field = field->next) {
             assert(field);
-            if (current_offset < field->offset) {
-                Tac_StaticInit *zero_padding = tac_new_static_init(TAC_STATIC_INIT_ZERO);
-                zero_padding->u.zero_bytes   = field->offset - current_offset;
-                *current                     = zero_padding;
-                current                      = &zero_padding->next;
+            if (!item->init) {
+                continue;
             }
-            Tac_StaticInit *field_init = build_static_init(field->type, item->init);
-            *current                   = field_init;
-            while (*current) {
-                current = &(*current)->next;
-            }
+            current = append_zero(current, field->offset - current_offset);
+            current = append_static_init(current, static_init(field->type, item->init));
             current_offset = field->offset + get_size(field->type);
-            field          = field->next;
         }
-
-        if (current_offset < struct_def->size) {
-            Tac_StaticInit *zero_padding = tac_new_static_init(TAC_STATIC_INIT_ZERO);
-            zero_padding->u.zero_bytes   = struct_def->size - current_offset;
-            *current                     = zero_padding;
-        }
+        append_zero(current, struct_def->size - current_offset);
         return struct_init;
     }
 
@@ -524,27 +507,16 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
     if (var_type->kind == TYPE_UNION && init->kind == INITIALIZER_COMPOUND) {
         const StructDef *union_def = structtab_find(var_type->u.struct_t.name);
         const FieldDef *first      = union_def->members;
-        if (init->u.items && init->u.items->next) {
-            fatal_error("Too many elements in union initializer");
+        const Initializer *member  = init->u.items->init;
+        // An uninitialized union zeroes its whole storage.
+        if (!member) {
+            Tac_StaticInit *zero_init = tac_new_static_init(TAC_STATIC_INIT_ZERO);
+            zero_init->u.zero_bytes   = union_def->size;
+            return zero_init;
         }
-        // An empty union initializer (or no items) zeroes the whole union.
-        Tac_StaticInit *u_init =
-            init->u.items ? build_static_init(first->type, init->u.items->init)
-                          : tac_new_static_init(TAC_STATIC_INIT_ZERO);
-        if (!init->u.items) {
-            u_init->u.zero_bytes = union_def->size;
-            return u_init;
-        }
-        Tac_StaticInit *current = u_init;
-        while (current->next) {
-            current = current->next;
-        }
-        int first_size = (int)get_size(first->type);
-        if (first_size < union_def->size) {
-            Tac_StaticInit *zero_padding = tac_new_static_init(TAC_STATIC_INIT_ZERO);
-            zero_padding->u.zero_bytes   = union_def->size - first_size;
-            current->next                = zero_padding;
-        }
+        Tac_StaticInit *u_init   = NULL;
+        Tac_StaticInit **current = append_static_init(&u_init, static_init(first->type, member));
+        append_zero(current, union_def->size - get_size(first->type));
         return u_init;
     }
 
@@ -552,19 +524,27 @@ Tac_StaticInit *build_static_init(Type *var_type, const Initializer *init)
     fatal_error("Unsupported initializer for type %s", type_kind_str[var_type->kind]);
 }
 
-// Type-check an initializer against a target type.
-Initializer *typecheck_init(Type *target_type, Initializer *init)
+// Convert an initializer to a Tac_StaticInit list for global/static variables.
+// *init is normalized in place; the caller still owns it.
+Tac_StaticInit *build_static_init(Type *var_type, Initializer **init)
 {
     if (semantic_debug) {
         printf("--- %s()\n", __func__);
     }
-
-    // Handle null initializer.
-    if (!init) {
-        return NULL;
+    if (*init) {
+        *init = normalize_init(var_type, *init, INIT_STATIC);
     }
-    // Look through a global typedef reference (reads + recursion only; the
-    // set_array_size mutations below run solely for genuine unspecified-size arrays).
+    return static_init(var_type, *init);
+}
+
+// Type-check a canonical initializer (see init_normalize.c) against a target type.
+// Leaf expressions are already typechecked; an item with a NULL init becomes zero.
+static Initializer *check_init(Type *target_type, Initializer *init)
+{
+    if (!init) {
+        return make_zero_init(target_type);
+    }
+    // Look through a global typedef reference (reads + recursion only).
     target_type = (Type *)unalias(target_type);
 
     // Update initializer type.
@@ -595,113 +575,54 @@ Initializer *typecheck_init(Type *target_type, Initializer *init)
         return init;
     }
 
-    // Handle scalar initialized with a single expression.
+    // Handle a single (already typechecked) expression.
     if (init->kind == INITIALIZER_SINGLE) {
-        Expr *expression = typecheck_and_decay(init->u.expr);
-        expression       = coerce_for_assignment(expression, target_type);
-        init->u.expr     = expression;
+        init->u.expr = coerce_for_assignment(init->u.expr, target_type);
         return init;
     }
 
-    // Handle array with compound initializer.
-    if (target_type->kind == TYPE_ARRAY && init->kind == INITIALIZER_COMPOUND) {
-        bool size_specified = target_type->u.array.size != NULL;
-        size_t array_size;
-        if (!size_specified) {
-            array_size = count_init_items(init->u.items);
-            set_array_size(target_type, array_size);
-        } else {
-            array_size = get_array_size(target_type);
+    // Handle array with compound initializer: exactly one item per element.
+    if (target_type->kind == TYPE_ARRAY) {
+        Type *element_type = target_type->u.array.element;
+        for (InitItem *item = init->u.items; item; item = item->next) {
+            item->init = check_init(element_type, item->init);
         }
-        Type *element_type  = target_type->u.array.element;
-        InitItem *new_items = NULL;
-        InitItem **current  = &new_items;
-        int element_count   = 0;
-
-        for (const InitItem *item = init->u.items; item; item = item->next) {
-            if (size_specified && element_count >= (int)array_size) {
-                fatal_error("Too many elements in array initializer");
-            }
-            InitItem *new_item = new_init_item(NULL, typecheck_init(element_type, item->init));
-            *current           = new_item;
-            current            = &new_item->next;
-            element_count++;
-        }
-
-        for (int i = element_count; i < (int)array_size; i++) {
-            InitItem *zero_item = new_init_item(NULL, make_zero_init(element_type));
-            *current            = zero_item;
-            current             = &zero_item->next;
-        }
-
-        // Free old InitItem shells only — sub-inits are now owned by new_items.
-        for (InitItem *item = init->u.items, *nx; item; item = nx) {
-            nx = item->next;
-            free_designator(item->designators);
-            xfree(item);
-        }
-        init->u.items = new_items;
         return init;
     }
 
-    // Handle struct with compound initializer.
-    if (target_type->kind == TYPE_STRUCT && init->kind == INITIALIZER_COMPOUND) {
-        const StructDef *struct_def = structtab_find(target_type->u.struct_t.name);
-        const FieldDef *field       = struct_def->members;
-        InitItem *new_items         = NULL;
-        InitItem **current          = &new_items;
-
-        for (const InitItem *item = init->u.items; item; item = item->next) {
-            if (!field) {
-                fatal_error("Too many elements in struct initializer");
-            }
+    // Handle struct with compound initializer: exactly one item per member.
+    if (target_type->kind == TYPE_STRUCT) {
+        const FieldDef *field = structtab_find(target_type->u.struct_t.name)->members;
+        for (InitItem *item = init->u.items; item; item = item->next, field = field->next) {
             assert(field);
-            InitItem *new_item = new_init_item(NULL, typecheck_init(field->type, item->init));
+            item->init = check_init(field->type, item->init);
             // Stash the member's byte offset on the AST node while the tag is still
             // live; a block-local tag is purged on block exit, so the translator's
             // gen_compound_init can no longer resolve it.  Mirrors field_access.offset.
-            new_item->offset = field->offset;
-            *current         = new_item;
-            current          = &new_item->next;
-            field            = field->next;
+            item->offset = field->offset;
         }
-
-        for (; field; field = field->next) {
-            InitItem *zero_item = new_init_item(NULL, make_zero_init(field->type));
-            zero_item->offset   = field->offset;
-            *current            = zero_item;
-            current             = &zero_item->next;
-        }
-
-        // Free old InitItem shells only — sub-inits are now owned by new_items.
-        for (InitItem *item = init->u.items, *nx; item; item = nx) {
-            nx = item->next;
-            free_designator(item->designators);
-            xfree(item);
-        }
-        init->u.items = new_items;
         return init;
     }
 
-    // Handle union with compound initializer: without designators only the first
-    // member is initialized (C11 §6.7.9p17).
-    if (target_type->kind == TYPE_UNION && init->kind == INITIALIZER_COMPOUND) {
-        const StructDef *union_def = structtab_find(target_type->u.struct_t.name);
-        const FieldDef *first      = union_def->members;
-        if (init->u.items && init->u.items->next) {
-            fatal_error("Too many elements in union initializer");
-        }
-        InitItem *new_item =
-            new_init_item(NULL, init->u.items ? typecheck_init(first->type, init->u.items->init)
-                                              : make_zero_init(first->type));
-        for (InitItem *item = init->u.items, *nx; item; item = nx) {
-            nx = item->next;
-            free_designator(item->designators);
-            xfree(item);
-        }
-        init->u.items = new_item;
+    // Handle union with compound initializer: a single item, for the first member
+    // (C11 §6.7.9p17).
+    if (target_type->kind == TYPE_UNION) {
+        const FieldDef *first = structtab_find(target_type->u.struct_t.name)->members;
+        init->u.items->init   = check_init(first->type, init->u.items->init);
         return init;
     }
 
     fatal_error("Cannot initialize scalar type with compound initializer");
+}
+
+// Type-check an initializer against a target type.
+Initializer *typecheck_init(Type *target_type, Initializer *init)
+{
+    if (semantic_debug) {
+        printf("--- %s()\n", __func__);
+    }
+    if (!init) {
+        return NULL;
+    }
+    return check_init(target_type, normalize_init(target_type, init, INIT_AUTOMATIC));
 }

@@ -10,6 +10,7 @@ add_library(semantic STATIC
     typetab_print.c
     typecheck.c
     expressions.c
+    init_normalize.c
     initializers.c
     statements.c
     declarations.c
@@ -32,6 +33,7 @@ add_executable(semantic-tests
    test/typecheck_tests.cpp
    test/real_tests.cpp
    test/pipeline_tests.cpp
+   test/init_normalize_tests.cpp
    test/label_loops_tests.cpp
    test/const_convert_tests.cpp
    test/coercion_tests.cpp

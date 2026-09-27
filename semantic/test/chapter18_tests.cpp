@@ -1755,7 +1755,7 @@ struct outer {
 // you can't initialize an element in a static variable with a non-constant expression
 struct outer y = {1.0, x};
 )SRC"),
-                 "Unsupported initializer for type struct");
+                 "Static initializer is not a constant");
 }
 
 TEST_F(PipelineTest, Chapter18_InitializersNonConstantStaticInit_Neg)

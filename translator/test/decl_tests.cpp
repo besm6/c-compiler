@@ -850,3 +850,164 @@ TEST_F(TranslateTest, BoolStaticArrayAndPointer)
     EXPECT_NE(yaml.find("value: 1"), std::string::npos);
     EXPECT_EQ(yaml.find("kind: string"), std::string::npos);
 }
+
+// Brace elision in a static 2-D array: row by row, the missing element is a ZERO run.
+TEST_F(TranslateTest, StaticMatrixBraceElision)
+{
+    std::string yaml = CompileToYaml("int g[2][2] = { 1, 2, 3 };");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: g
+  global: true
+  type:
+    kind: array
+    elem_type:
+      kind: array
+      elem_type:
+        kind: int
+      size: 2
+    size: 2
+  init_list:
+    - init:
+      kind: i64
+      value: 1
+    - init:
+      kind: i64
+      value: 2
+    - init:
+      kind: i64
+      value: 3
+    - init:
+      kind: zero
+      bytes: 6
+)");
+}
+
+// A braced scalar initializer, static and automatic (C11 §6.7.9p11).
+TEST_F(TranslateTest, BracedScalarInit)
+{
+    std::string yaml = CompileToYaml("int x = { 5 };"
+                                     "int f(void) { int y = { 6 }; return y; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_variable
+  name: x
+  global: true
+  type:
+    kind: int
+  init_list:
+    - init:
+      kind: i64
+      value: 5
+- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: copy
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 6
+      dst:
+        kind: var
+        name: %y
+    - instruction:
+      kind: return
+      src:
+        kind: var
+        name: %y
+)");
+}
+
+// Brace elision in an automatic array of structs: "AB", 1 fill tab[0], "CD" starts
+// tab[1], whose v is zero.
+TEST_F(TranslateTest, AutoStructArrayBraceElision)
+{
+    std::string yaml = CompileToYaml("struct s { char *name; int v; };"
+                                     "void f(void) { struct s tab[2] = { \"AB\", 1, \"CD\" }; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: static_constant
+  name: _str1
+  type:
+    kind: array
+    elem_type:
+      kind: uchar
+    size: 3
+  init:
+    kind: string
+    value: CD
+    null_terminated: true
+- toplevel:
+  kind: static_constant
+  name: _str0
+  type:
+    kind: array
+    elem_type:
+      kind: uchar
+    size: 3
+  init:
+    kind: string
+    value: AB
+    null_terminated: true
+- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: allocate_local
+      name: %tab
+      size: 24
+      alignment: 6
+    - instruction:
+      kind: get_address_decay
+      src:
+        kind: var
+        name: _str0
+      dst:
+        kind: var
+        name: %0
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: var
+        name: %0
+      dst: %tab
+      offset: 0
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst: %tab
+      offset: 6
+    - instruction:
+      kind: get_address_decay
+      src:
+        kind: var
+        name: _str1
+      dst:
+        kind: var
+        name: %1
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: var
+        name: %1
+      dst: %tab
+      offset: 12
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst: %tab
+      offset: 18
+)");
+}

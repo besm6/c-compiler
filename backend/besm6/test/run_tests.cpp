@@ -666,3 +666,88 @@ TEST_F(CodegenTest, TruthTestOfAdditiveResultRun)
     )");
     EXPECT_EQ("110\n110\n10\n", result);
 }
+
+// Brace elision (C11 §6.7.9p20) for an array of structs with a char * member, static
+// and automatic: "AB", 1 fill tab[0]; the element count comes from the rows filled.
+TEST_F(CodegenTest, BraceElisionStructArray)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        struct s { char *name; int v; };
+        struct s g[] = { "AB", 1, "CD", 2 };
+        void program() {
+            struct s a[2] = { "EF", 3, "GH" };
+            printf("%d %s %d %s %d\n", (int)(sizeof g / sizeof g[0]), g[0].name, g[0].v,
+                   g[1].name, g[1].v);
+            printf("%s %d %s %d\n", a[0].name, a[0].v, a[1].name, a[1].v);
+        }
+    )");
+    EXPECT_EQ("2 AB 1 CD 2\nEF 3 GH 0\n", result);
+}
+
+// Brace elision with a char array member: the string fills the member, not its chars.
+TEST_F(CodegenTest, BraceElisionCharArrayMember)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        struct s { char n[4]; int v; };
+        struct s g[] = { "AB", 1, "CD", 2 };
+        void program() {
+            struct s a[2] = { "EF", 3, "GH", 4 };
+            printf("%s %d %s %d\n", g[0].n, g[0].v, g[1].n, g[1].v);
+            printf("%s %d %s %d\n", a[0].n, a[0].v, a[1].n, a[1].v);
+        }
+    )");
+    EXPECT_EQ("AB 1 CD 2\nEF 3 GH 4\n", result);
+}
+
+// Brace elision in a 2-D array, and at the boundary of an inner array member.
+TEST_F(CodegenTest, BraceElisionMatrix)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int g[2][2] = { 1, 2, 3 };
+        struct s { int a[2]; int b; };
+        struct s gs = { 4, 5, 6 };
+        void program() {
+            int m[2][2] = { 7, 8, 9 };
+            struct s x = { { 1 }, 2 };
+            printf("%d %d %d %d\n", g[0][0], g[0][1], g[1][0], g[1][1]);
+            printf("%d %d %d\n", gs.a[0], gs.a[1], gs.b);
+            printf("%d %d %d %d\n", m[0][0], m[0][1], m[1][0], m[1][1]);
+            printf("%d %d %d\n", x.a[0], x.a[1], x.b);
+        }
+    )");
+    EXPECT_EQ("1 2 3 0\n4 5 6\n7 8 9 0\n1 0 2\n", result);
+}
+
+// A braced scalar initializer (C11 §6.7.9p11), static and automatic.
+TEST_F(CodegenTest, BracedScalarInit)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        int g = { 5 };
+        char *p = { "AB" };
+        void program() {
+            int x = { 6 };
+            static int y = { 7 };
+            printf("%d %s %d %d\n", g, p, x, y);
+        }
+    )");
+    EXPECT_EQ("5 AB 6 7\n", result);
+}
+
+// An automatic struct element initialized from a struct value is not brace-elided.
+TEST_F(CodegenTest, BraceElisionStructValue)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        struct s { int a; int b; };
+        void program() {
+            struct s v = { 1, 2 };
+            struct s a[2] = { v, 3, 4 };
+            printf("%d %d %d %d\n", a[0].a, a[0].b, a[1].a, a[1].b);
+        }
+    )");
+    EXPECT_EQ("1 2 3 4\n", result);
+}

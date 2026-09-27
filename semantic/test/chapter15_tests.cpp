@@ -276,7 +276,7 @@ TEST_F(PipelineTest, Chapter15_CompoundInitializerForScalar_Neg)
     return x;
 }
 )"),
-                 "Cannot initialize scalar type with compound initializer");
+                 "Excess elements in scalar initializer");
 }
 
 // static int x = {1, 2, 3}; — same for a static scalar.
@@ -288,7 +288,7 @@ TEST_F(PipelineTest, Chapter15_CompoundInitializerForStaticScalar_Neg)
     return x;
 }
 )"),
-                 "Unsupported initializer for type");
+                 "Excess elements in scalar initializer");
 }
 
 // int arr[3] = {1, 2, 3, 4}; — too many elements.
