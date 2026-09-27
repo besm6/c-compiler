@@ -166,7 +166,7 @@ TEST_F(NormalizeTest, EmptyScalarDies)
 TEST_F(NormalizeTest, DesignatorDies)
 {
     EXPECT_DEATH(Normalize("int a[2] = { [1] = 5 };"),
-                 "Designated initializers are not supported yet");
+                 "Array designators are not supported yet");
 }
 
 // Automatic mode typechecks each leaf once, including one first seen at an aggregate
@@ -203,4 +203,165 @@ TEST_F(PipelineTest, NormalizeAutomaticExcessStructDies)
 TEST_F(PipelineTest, NormalizeAutomaticEmptyScalarDies)
 {
     EXPECT_DEATH(RunPipeline("void f(void) { int x = { }; }"), "Empty scalar initializer");
+}
+
+// --- Field designators -------------------------------------------------------
+
+// Out-of-order field designators land in member order; the gap is a hole.
+TEST_F(NormalizeTest, FieldDesignatorsOutOfOrder)
+{
+    const Initializer *init =
+        Normalize("struct s { int a, b, c; }; struct s g = { .c = 3, .a = 1 };");
+    ASSERT_EQ(item_count(init), 3u);
+    EXPECT_EQ(int_value(item_at(init, 0)), 1);
+    EXPECT_EQ(item_at(init, 1), nullptr);
+    EXPECT_EQ(int_value(item_at(init, 2)), 3);
+    for (const InitItem *item = init->u.items; item; item = item->next)
+        EXPECT_EQ(item->designators, nullptr);
+}
+
+// Positional initialization resumes after the designated member (§6.7.9p17).
+TEST_F(NormalizeTest, PositionalAfterDesignator)
+{
+    const Initializer *init =
+        Normalize("struct s { int a, b, c; }; struct s g = { .b = 1, 2 };");
+    EXPECT_EQ(item_at(init, 0), nullptr);
+    EXPECT_EQ(int_value(item_at(init, 1)), 1);
+    EXPECT_EQ(int_value(item_at(init, 2)), 2);
+}
+
+// A repeated member keeps the later initializer (§6.7.9p19).
+TEST_F(NormalizeTest, FieldOverride)
+{
+    const Initializer *init =
+        Normalize("struct s { int a, b; }; struct s g = { .a = 1, 2, .a = 3 };");
+    EXPECT_EQ(int_value(item_at(init, 0)), 3);
+    EXPECT_EQ(int_value(item_at(init, 1)), 2);
+}
+
+// A designator ends brace elision: it belongs to the enclosing brace level.
+TEST_F(NormalizeTest, DesignatorEndsElision)
+{
+    const Initializer *init = Normalize(
+        "struct s { struct in { int a, b; } in; int c; }; struct s g = { 1, .c = 3 };");
+    const Initializer *in = item_at(init, 0);
+    EXPECT_EQ(int_value(item_at(in, 0)), 1);
+    EXPECT_EQ(item_at(in, 1), nullptr);
+    EXPECT_EQ(int_value(item_at(init, 1)), 3);
+}
+
+// A union item for a non-first member keeps one designator naming it.
+TEST_F(NormalizeTest, UnionFieldDesignator)
+{
+    const Initializer *init =
+        Normalize("union u { int i; char *p; }; union u g = { .p = \"AB\" };");
+    ASSERT_EQ(item_count(init), 1u);
+    const Designator *d = init->u.items->designators;
+    ASSERT_NE(d, nullptr);
+    EXPECT_EQ(d->kind, DESIGNATOR_FIELD);
+    EXPECT_STREQ(d->u.name, "p");
+    EXPECT_EQ(d->next, nullptr);
+    EXPECT_EQ(init->u.items->init->u.expr->u.literal->kind, LITERAL_STRING);
+}
+
+// Designating the first member of a union leaves no designator.
+TEST_F(NormalizeTest, UnionFirstMemberDesignator)
+{
+    const Initializer *init =
+        Normalize("union u { int i; char *p; }; union u g = { .p = \"AB\", .i = 5 };");
+    EXPECT_EQ(init->u.items->designators, nullptr);
+    EXPECT_EQ(int_value(init->u.items->init), 5);
+}
+
+// Positional re-entry into a union picks the first member again, dropping another's value.
+TEST_F(NormalizeTest, UnionPositionalReentry)
+{
+    const Initializer *init = Normalize("union u { int i; char *p; };"
+                                        "struct s { int a; union u x; };"
+                                        "struct s g = { .x = { .p = \"AB\" }, .a = 1, 5 };");
+    const Initializer *x = item_at(init, 1);
+    EXPECT_EQ(x->u.items->designators, nullptr);
+    EXPECT_EQ(int_value(x->u.items->init), 5);
+}
+
+TEST_F(NormalizeTest, DesignatorAfterLastMemberDies)
+{
+    EXPECT_DEATH(Normalize("struct s { int a, b; }; struct s g = { .b = 1, 2 };"),
+                 "Too many elements in struct initializer");
+}
+
+TEST_F(NormalizeTest, UnknownMemberDies)
+{
+    EXPECT_DEATH(Normalize("struct s { int a; }; struct s g = { .z = 1 };"),
+                 "struct s has no member named z");
+}
+
+TEST_F(NormalizeTest, UnionExcessAfterDesignatorDies)
+{
+    EXPECT_DEATH(Normalize("union u { int i; int j; }; union u g = { .j = 1, 2 };"),
+                 "Too many elements in union initializer");
+}
+
+TEST_F(NormalizeTest, FieldDesignatorOnArrayDies)
+{
+    EXPECT_DEATH(Normalize("int a[2] = { .x = 1 };"), "Field designator .x in array initializer");
+}
+
+TEST_F(NormalizeTest, ArrayDesignatorOnStructDies)
+{
+    EXPECT_DEATH(Normalize("struct s { int a; }; struct s g = { [0] = 1 };"),
+                 "Array designator in struct initializer");
+}
+
+TEST_F(NormalizeTest, DesignatorOnScalarDies)
+{
+    EXPECT_DEATH(Normalize("int x = { .a = 1 };"), "Designator in scalar initializer");
+}
+
+TEST_F(NormalizeTest, DesignatorChainDies)
+{
+    EXPECT_DEATH(Normalize("struct in { int a; }; struct s { struct in x; };"
+                           "struct s g = { .x.a = 1 };"),
+                 "Designator chains are not supported yet");
+}
+
+// A static union initialized through a non-first member zero-pads from that member's
+// size, not the first member's.
+TEST_F(PipelineTest, StaticUnionDesignatorPadding)
+{
+    RunPipeline(R"(union u { int i; int a[3]; };
+union u g = { .a = { 1 } };
+union u h = { .i = 2 };
+)");
+    const Symbol *sym = symtab_get("g");
+    ASSERT_NE(sym, nullptr);
+    const Tac_StaticInit *init = sym->u.static_var.init_list;
+    ASSERT_NE(init, nullptr);
+    EXPECT_EQ(init->kind, TAC_STATIC_INIT_I64);
+    EXPECT_EQ(init->u.long_val, 1);
+    ASSERT_NE(init->next, nullptr);
+    EXPECT_EQ(init->next->kind, TAC_STATIC_INIT_ZERO);
+    EXPECT_EQ(init->next->u.zero_bytes, 8u); // x86_64 host sizes: a[1..2]
+    EXPECT_EQ(init->next->next, nullptr);
+
+    init = symtab_get("h")->u.static_var.init_list;
+    ASSERT_NE(init, nullptr);
+    EXPECT_EQ(init->u.long_val, 2);
+    ASSERT_NE(init->next, nullptr);
+    EXPECT_EQ(init->next->u.zero_bytes, 8u); // the rest of the 12-byte union
+}
+
+// Automatic mode: designators into block-scope struct and union tags; nothing leaks.
+TEST_F(PipelineTest, DesignatorsAutomatic)
+{
+    RunPipeline(R"(int f(void)
+{
+    struct s { int v; char *name; };
+    union u { int i; char *p; };
+    struct s x = { .name = "AB", .v = 1 };
+    union u y = { .p = "CD" };
+    struct s z = { .name = "EF", .name = "GH" };
+    return x.v + (y.p != 0) + (z.name != 0);
+}
+)");
 }

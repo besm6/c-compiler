@@ -1011,3 +1011,49 @@ TEST_F(TranslateTest, AutoStructArrayBraceElision)
       offset: 18
 )");
 }
+
+// Field designators in an automatic struct: each value is stored at its member's offset,
+// and the undesignated member b is zeroed.
+TEST_F(TranslateTest, AutoStructFieldDesignators)
+{
+    std::string yaml = CompileToYaml("struct s { int a, b, c; };"
+                                     "void f(void) { struct s x = { .c = 3, .a = 1 }; }");
+    EXPECT_EQ(yaml, R"(- toplevel:
+  kind: function
+  name: f
+  global: true
+  body:
+    - instruction:
+      kind: allocate_local
+      name: %x
+      size: 18
+      alignment: 6
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 1
+      dst: %x
+      offset: 0
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 0
+      dst: %x
+      offset: 6
+    - instruction:
+      kind: copy_to_offset
+      src:
+        kind: constant
+        const:
+          kind: int
+          value: 3
+      dst: %x
+      offset: 12
+)");
+}

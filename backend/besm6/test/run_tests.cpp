@@ -751,3 +751,78 @@ TEST_F(CodegenTest, BraceElisionStructValue)
     )");
     EXPECT_EQ("1 2 3 4\n", result);
 }
+
+// Field designators (C11 §6.7.9p17), static and automatic: out of order, positional
+// continuation after a designator, and a repeated member (the later one wins).
+TEST_F(CodegenTest, FieldDesignators)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        struct s { int a, b, c; };
+        struct s g1 = { .c = 3, .a = 1 };
+        struct s g2 = { .b = 1, 2 };
+        struct s g3 = { .a = 1, 2, .a = 3 };
+        void program() {
+            struct s x1 = { .c = 3, .a = 1 };
+            struct s x2 = { .b = 1, 2 };
+            struct s x3 = { .a = 1, 2, .a = 3 };
+            printf("%d %d %d %d %d %d %d %d %d\n", g1.a, g1.b, g1.c, g2.a, g2.b, g2.c,
+                   g3.a, g3.b, g3.c);
+            printf("%d %d %d %d %d %d %d %d %d\n", x1.a, x1.b, x1.c, x2.a, x2.b, x2.c,
+                   x3.a, x3.b, x3.c);
+        }
+    )");
+    EXPECT_EQ("1 0 3 0 1 2 3 2 0\n1 0 3 0 1 2 3 2 0\n", result);
+}
+
+// A designated char * member from a string literal, static and automatic.
+TEST_F(CodegenTest, FieldDesignatorStringMember)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        struct s { int v; char *name; };
+        struct s g = { .name = "AB" };
+        void program() {
+            struct s x = { .name = "CD", .v = 2 };
+            printf("%d %s %d %s\n", g.v, g.name, x.v, x.name);
+        }
+    )");
+    EXPECT_EQ("0 AB 2 CD\n", result);
+}
+
+// A union initialized through a non-first member, static and automatic.
+TEST_F(CodegenTest, UnionFieldDesignator)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        union u { int i; char *p; double d; };
+        union u g = { .p = "AB" };
+        union u h = { .d = 1.5 };
+        void program() {
+            union u x = { .p = "CD" };
+            union u y = { .d = 2.5 };
+            printf("%s %s %d %d\n", g.p, x.p, (int)(h.d * 2), (int)(y.d * 2));
+        }
+    )");
+    EXPECT_EQ("AB CD 3 5\n", result);
+}
+
+// Designators into block-scope struct and union tags, and one ending brace elision.
+TEST_F(CodegenTest, FieldDesignatorBlockScopeTags)
+{
+    std::string result = CompileAndRun(R"(
+        #include <stdio.h>
+        void program() {
+            struct in { int a, b; };
+            struct s { struct in in; int c; char *name; };
+            union u { int i; char *p; };
+            struct s x = { 1, .name = "AB" };
+            static struct s y = { .c = 3, .in = { 4, 5 } };
+            union u z = { .p = "CD" };
+            printf("%d %d %d %s\n", x.in.a, x.in.b, x.c, x.name);
+            printf("%d %d %d\n", y.in.a, y.in.b, y.c);
+            printf("%s\n", z.p);
+        }
+    )");
+    EXPECT_EQ("1 0 0 AB\n4 5 3\nCD\n", result);
+}

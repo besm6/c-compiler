@@ -1,5 +1,6 @@
 //
-// Initializer normalization: brace elision and braced scalars (C11 §6.7.9p11, p17–p21).
+// Initializer normalization: designators, brace elision and braced scalars
+// (C11 §6.7.9p11, p17–p21).
 //
 // normalize_init turns a raw parser initializer for a known type into canonical form,
 // which build_static_init and typecheck_init then consume positionally:
@@ -7,7 +8,8 @@
 //  - char array from a string literal, bare or braced: that INITIALIZER_SINGLE;
 //  - array of N: a COMPOUND with exactly N items, in index order;
 //  - struct: one item per member, in declaration order;
-//  - union: exactly one item (the first member);
+//  - union: exactly one item; unless it is for the first member, the item keeps a
+//    single DESIGNATOR_FIELD naming its member (the only designator left);
 //  - an item whose init is NULL is not explicitly initialized, i.e. zero.
 // An unsized top-level array gets its length here.
 //
@@ -16,6 +18,7 @@
 // so an item visited again under brace elision is not typechecked twice.
 //
 #include <stdio.h>
+#include <string.h>
 
 #include "semantic.h"
 #include "structtab.h"
@@ -53,7 +56,7 @@ static Initializer *take_item(InitItem **cur)
     InitItem *item    = *cur;
     Initializer *init = item->init;
     if (item->designators)
-        fatal_error("Designated initializers are not supported yet");
+        fatal_error("Designator in scalar initializer");
     *cur = item->next;
     xfree(item);
     return init;
@@ -90,11 +93,61 @@ static Initializer *new_canonical(const Type *t)
     return node;
 }
 
+// Replace the initializer in *slot, freeing the one it overrides (§6.7.9p19).
+static void set_slot(Initializer **slot, Initializer *init)
+{
+    free_initializer(*slot);
+    *slot = init;
+}
+
 static void place(Type *t, Initializer **slot, InitItem **cur, InitMode mode);
+
+// Resolve the designator at the head of *cur (§6.7.9p17): point *slot and *field at the
+// member it names, and drop it from the item.  For a union, the canonical item records
+// the member (§3 of the plan), unless it is the first.
+static void designate(const Type *t, Initializer *node, InitItem *item, InitItem ***slot,
+                      const FieldDef **field)
+{
+    const Designator *d = item->designators;
+    if (d->kind == DESIGNATOR_ARRAY) {
+        if (t->kind == TYPE_ARRAY)
+            fatal_error("Array designators are not supported yet");
+        fatal_error("Array designator in %s initializer", aggregate_name(t));
+    }
+    if (t->kind == TYPE_ARRAY)
+        fatal_error("Field designator .%s in array initializer", d->u.name);
+    if (d->next)
+        fatal_error("Designator chains are not supported yet");
+
+    const FieldDef *members = structtab_find(t->u.struct_t.name)->members;
+    InitItem **s            = &node->u.items;
+    const FieldDef *f       = members;
+    for (; f && strcmp(f->name, d->u.name) != 0; f = f->next) {
+        if (t->kind == TYPE_STRUCT)
+            s = &(*s)->next;
+    }
+    if (!f)
+        fatal_error("%s %s has no member named %s", aggregate_name(t), t->u.struct_t.name,
+                    d->u.name);
+    if (t->kind == TYPE_UNION) {
+        free_designator((*s)->designators);
+        (*s)->designators = NULL;
+        if (f != members) {
+            (*s)->designators         = new_designator(DESIGNATOR_FIELD);
+            (*s)->designators->u.name = xstrdup(f->name);
+        }
+    }
+    // A designated initializer replaces the subobject's earlier one outright.
+    set_slot(&(*s)->init, NULL);
+    free_designator(item->designators);
+    item->designators = NULL;
+    *slot             = s;
+    *field            = f;
+}
 
 // Fill the canonical node of aggregate t from the items at *cur.  When braced, the items
 // are t's own brace list and a leftover is an excess element; otherwise (brace elision)
-// filling stops once t is full and the enclosing level takes the rest.
+// filling stops once t is full, or at a designator, and the enclosing level takes the rest.
 static void fill(const Type *t, Initializer *node, InitItem **cur, bool braced, InitMode mode)
 {
     InitItem **slot       = &node->u.items;
@@ -102,13 +155,23 @@ static void fill(const Type *t, Initializer *node, InitItem **cur, bool braced, 
     bool unsized          = t->kind == TYPE_ARRAY && !t->u.array.size;
 
     while (*cur) {
-        if (!*slot) {
+        if ((*cur)->designators) {
+            // A designator belongs to the innermost brace level.
+            if (!braced)
+                return;
+            designate(t, node, *cur, &slot, &field);
+        } else if (!*slot) {
             if (!unsized) {
                 if (braced)
                     fatal_error("Too many elements in %s initializer", aggregate_name(t));
                 return;
             }
             *slot = new_init_item(NULL, NULL);
+        } else if ((*slot)->designators) {
+            // A positional union initializer is for the first member; drop another's.
+            free_designator((*slot)->designators);
+            (*slot)->designators = NULL;
+            set_slot(&(*slot)->init, NULL);
         }
         Type *sub = t->kind == TYPE_ARRAY ? t->u.array.element : field->type;
         place(sub, &(*slot)->init, cur, mode);
@@ -125,27 +188,30 @@ static void place(Type *t, Initializer **slot, InitItem **cur, InitMode mode)
     Initializer *init = (*cur)->init;
 
     if (init->kind == INITIALIZER_COMPOUND) {
-        *slot = normalize_compound(t, take_item(cur), mode);
+        set_slot(slot, normalize_compound(t, take_item(cur), mode));
         return;
     }
     if (!is_aggregate(ut)) {
-        *slot = check_leaf(take_item(cur), mode);
+        set_slot(slot, check_leaf(take_item(cur), mode));
         return;
     }
     if (is_string_init(init)) {
         if (takes_string(ut)) {
-            *slot = take_item(cur);
+            set_slot(slot, take_item(cur));
             return;
         }
     } else if (mode == INIT_AUTOMATIC && ut->kind != TYPE_ARRAY) {
         // A struct/union-valued expression initializes the whole subobject.
         check_leaf(init, mode);
         if (compatible_type(ut, init->u.expr->type)) {
-            *slot = take_item(cur);
+            set_slot(slot, take_item(cur));
             return;
         }
     }
-    // Brace elision: the item starts the subobject's own initializer list.
+    // Brace elision: the item starts the subobject's own initializer list, continuing
+    // an earlier brace-list initializer of it if there is one.
+    if (*slot && (*slot)->kind != INITIALIZER_COMPOUND)
+        set_slot(slot, NULL);
     if (!*slot)
         *slot = new_canonical(ut);
     fill(ut, *slot, cur, false, mode);

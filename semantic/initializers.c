@@ -222,6 +222,19 @@ static bool eval_addr_const(const Expr *e, const char **name, long *off, const T
     }
 }
 
+// The member a canonical union item initializes: the one its designator names, or the
+// first (see init_normalize.c).
+static const FieldDef *union_member(const Type *t, const InitItem *item)
+{
+    const FieldDef *member = structtab_find(t->u.struct_t.name)->members;
+    if (item->designators) {
+        while (strcmp(member->name, item->designators->u.name) != 0) {
+            member = member->next;
+        }
+    }
+    return member;
+}
+
 // Append list to *current and return the new tail.
 static Tac_StaticInit **append_static_init(Tac_StaticInit **current, Tac_StaticInit *list)
 {
@@ -502,11 +515,11 @@ static Tac_StaticInit *static_init(Type *var_type, const Initializer *init)
         return struct_init;
     }
 
-    // Handle union with compound initializer: initialize the first member only,
-    // then zero-pad the remaining union storage to its full size.
+    // Handle union with compound initializer: initialize the chosen member, then zero-pad
+    // the remaining union storage to its full size.
     if (var_type->kind == TYPE_UNION && init->kind == INITIALIZER_COMPOUND) {
         const StructDef *union_def = structtab_find(var_type->u.struct_t.name);
-        const FieldDef *first      = union_def->members;
+        const FieldDef *field      = union_member(var_type, init->u.items);
         const Initializer *member  = init->u.items->init;
         // An uninitialized union zeroes its whole storage.
         if (!member) {
@@ -515,8 +528,8 @@ static Tac_StaticInit *static_init(Type *var_type, const Initializer *init)
             return zero_init;
         }
         Tac_StaticInit *u_init   = NULL;
-        Tac_StaticInit **current = append_static_init(&u_init, static_init(first->type, member));
-        append_zero(current, union_def->size - get_size(first->type));
+        Tac_StaticInit **current = append_static_init(&u_init, static_init(field->type, member));
+        append_zero(current, union_def->size - get_size(field->type));
         return u_init;
     }
 
@@ -604,11 +617,10 @@ static Initializer *check_init(Type *target_type, Initializer *init)
         return init;
     }
 
-    // Handle union with compound initializer: a single item, for the first member
-    // (C11 §6.7.9p17).
+    // Handle union with compound initializer: a single item, for the chosen member.
     if (target_type->kind == TYPE_UNION) {
-        const FieldDef *first = structtab_find(target_type->u.struct_t.name)->members;
-        init->u.items->init   = check_init(first->type, init->u.items->init);
+        const FieldDef *member = union_member(target_type, init->u.items);
+        init->u.items->init    = check_init(member->type, init->u.items->init);
         return init;
     }
 
